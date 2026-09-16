@@ -38,8 +38,8 @@ public final class ProspectiveReminderRelay implements SynapticRelay<RecallSigna
 
     @Override
     public boolean transmit(final RecallSignal signal) {
-        final ProspectiveScheduler ps = (signal != null && signal.prospectiveScheduler() != null)
-                ? signal.prospectiveScheduler() : prospectiveScheduler;
+        final ProspectiveScheduler ps = (signal != null && signal.context() != null)
+                ? signal.context().find(ProspectiveScheduler.class).orElse(prospectiveScheduler) : prospectiveScheduler;
         salienceScorer.seedProspectiveReminders(signal.candidates(), ps);
         return true;
     }

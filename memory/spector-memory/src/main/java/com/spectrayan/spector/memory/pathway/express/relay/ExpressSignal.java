@@ -22,34 +22,63 @@ import com.spectrayan.spector.core.spacetime.ExpressTense;
 import com.spectrayan.spector.core.spacetime.SpacetimeSimulationMode;
 import com.spectrayan.spector.core.spacetime.Time2VecProjector;
 
-import java.util.List;
-import java.util.Set;
-import java.util.Map;
-import java.util.HashMap;
-import java.util.Collections;
+import com.spectrayan.spector.commons.pathway.AbstractSignal;
 
-public record ExpressSignal(
-        String queryText,
-        List<CognitiveResult> candidates,
-        InteroceptiveState interoceptiveState,
-        SoulContext soulContext,
-        PersonaContext personaContext,
-        Set<SourceModality> requestedModalities,
-        Map<String, Object> attributes,
-        ExpressTense expressTense,
-        long simulationTimeMs,
-        float[] queryTau,
-        SpacetimeSimulationMode spacetimeMode
-) {
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+
+public final class ExpressSignal extends AbstractSignal {
+
+    private final String queryText;
+    private final List<CognitiveResult> candidates;
+    private final InteroceptiveState interoceptiveState;
+    private final SoulContext soulContext;
+    private final PersonaContext personaContext;
+    private final Set<SourceModality> requestedModalities;
+    private final Map<String, Object> attributes;
+    private final ExpressTense expressTense;
+    private final long simulationTimeMs;
+    private final float[] queryTau;
+    private final SpacetimeSimulationMode spacetimeMode;
 
     public ExpressSignal(
-            String queryText,
-            List<CognitiveResult> candidates,
-            InteroceptiveState interoceptiveState,
-            SoulContext soulContext,
-            PersonaContext personaContext,
-            Set<SourceModality> requestedModalities,
-            Map<String, Object> attributes) {
+            final String queryText,
+            final List<CognitiveResult> candidates,
+            final InteroceptiveState interoceptiveState,
+            final SoulContext soulContext,
+            final PersonaContext personaContext,
+            final Set<SourceModality> requestedModalities,
+            final Map<String, Object> attributes,
+            final ExpressTense expressTense,
+            final long simulationTimeMs,
+            final float[] queryTau,
+            final SpacetimeSimulationMode spacetimeMode) {
+        this.queryText = queryText;
+        this.candidates = candidates != null ? candidates : Collections.emptyList();
+        this.interoceptiveState = interoceptiveState;
+        this.soulContext = soulContext;
+        this.personaContext = personaContext;
+        this.requestedModalities = requestedModalities != null ? requestedModalities : Collections.emptySet();
+        this.attributes = attributes != null ? attributes : new HashMap<>();
+        this.expressTense = expressTense;
+        this.simulationTimeMs = simulationTimeMs;
+        this.queryTau = queryTau;
+        this.spacetimeMode = spacetimeMode;
+    }
+
+    public ExpressSignal(
+            final String queryText,
+            final List<CognitiveResult> candidates,
+            final InteroceptiveState interoceptiveState,
+            final SoulContext soulContext,
+            final PersonaContext personaContext,
+            final Set<SourceModality> requestedModalities,
+            final Map<String, Object> attributes) {
         this(
                 queryText,
                 candidates,
@@ -65,8 +94,98 @@ public record ExpressSignal(
         );
     }
 
-    public static Builder forQuery(String query, InteroceptiveState state, SoulContext soul) {
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static Builder forQuery(final String query, final InteroceptiveState state, final SoulContext soul) {
         return new Builder().queryText(query).interoceptiveState(state).soulContext(soul);
+    }
+
+    public String queryText() {
+        return queryText;
+    }
+
+    public List<CognitiveResult> candidates() {
+        return candidates;
+    }
+
+    public InteroceptiveState interoceptiveState() {
+        return interoceptiveState;
+    }
+
+    public SoulContext soulContext() {
+        return soulContext;
+    }
+
+    public PersonaContext personaContext() {
+        return personaContext;
+    }
+
+    public Set<SourceModality> requestedModalities() {
+        return requestedModalities;
+    }
+
+    public Map<String, Object> attributes() {
+        return attributes;
+    }
+
+    public ExpressTense expressTense() {
+        return expressTense;
+    }
+
+    public long simulationTimeMs() {
+        return simulationTimeMs;
+    }
+
+    public float[] queryTau() {
+        return queryTau;
+    }
+
+    public SpacetimeSimulationMode spacetimeMode() {
+        return spacetimeMode;
+    }
+
+    @Override
+    public boolean equals(final Object o) {
+        if (this == o) return true;
+        if (!(o instanceof ExpressSignal that)) return false;
+        return simulationTimeMs == that.simulationTimeMs
+                && Objects.equals(queryText, that.queryText)
+                && Objects.equals(candidates, that.candidates)
+                && Objects.equals(interoceptiveState, that.interoceptiveState)
+                && Objects.equals(soulContext, that.soulContext)
+                && Objects.equals(personaContext, that.personaContext)
+                && Objects.equals(requestedModalities, that.requestedModalities)
+                && Objects.equals(attributes, that.attributes)
+                && expressTense == that.expressTense
+                && Arrays.equals(queryTau, that.queryTau)
+                && spacetimeMode == that.spacetimeMode;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = Objects.hash(queryText, candidates, interoceptiveState, soulContext,
+                personaContext, requestedModalities, attributes, expressTense, simulationTimeMs, spacetimeMode);
+        result = 31 * result + Arrays.hashCode(queryTau);
+        return result;
+    }
+
+    @Override
+    public String toString() {
+        return "ExpressSignal[" +
+                "queryText=" + queryText +
+                ", candidates=" + candidates +
+                ", interoceptiveState=" + interoceptiveState +
+                ", soulContext=" + soulContext +
+                ", personaContext=" + personaContext +
+                ", requestedModalities=" + requestedModalities +
+                ", attributes=" + attributes +
+                ", expressTense=" + expressTense +
+                ", simulationTimeMs=" + simulationTimeMs +
+                ", queryTau=" + Arrays.toString(queryTau) +
+                ", spacetimeMode=" + spacetimeMode +
+                ']';
     }
 
     public static class Builder {

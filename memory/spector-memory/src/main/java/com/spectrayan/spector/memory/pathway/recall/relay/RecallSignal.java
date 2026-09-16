@@ -31,7 +31,8 @@ import java.util.concurrent.locks.ReentrantLock;
  * operations like hybrid text/vector search, and {@link TraceableSignal} to capture
  * fine-grained relay execution diagnostics.</p>
  */
-public final class RecallSignal implements DivergentCapable<RecallSignal>, TraceableSignal {
+public final class RecallSignal extends com.spectrayan.spector.commons.pathway.AbstractSignal
+        implements DivergentCapable<RecallSignal> {
 
     // Immutable inputs
     private final String rawQuery;
@@ -46,25 +47,8 @@ public final class RecallSignal implements DivergentCapable<RecallSignal>, Trace
     private boolean textSearchExecuted = false;
     private boolean rrfFused = false;
     private float effectiveTemperature = 1.0f;
-    private final List<RelayTrace> traces = new ArrayList<>();
-    private final ReentrantLock tracesLock = new ReentrantLock();
 
     private final java.util.Map<String, Object> attributes = new java.util.concurrent.ConcurrentHashMap<>();
-    private com.spectrayan.spector.kernel.api.NamespaceKernel kernel;
-    private com.spectrayan.spector.memory.cortex.PartitionRegistry partitionRegistry;
-    private com.spectrayan.spector.memory.cortex.index.MemoryIndex index;
-    private com.spectrayan.spector.memory.cortex.MemoryBM25Index bm25Index;
-    private com.spectrayan.spector.kernel.store.HebbianGraphBase hebbianGraph;
-    private com.spectrayan.spector.kernel.store.TemporalChainMemory temporalChain;
-    private com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph;
-    private com.spectrayan.spector.memory.graph.EntityDirectory entityDirectory;
-    private com.spectrayan.spector.kernel.store.HyperEntityGraphMemory hyperEntityGraph;
-    private com.spectrayan.spector.core.quantization.ScalarQuantizer quantizer;
-    private com.spectrayan.spector.kernel.store.CoActivationMemory coActivationTracker;
-    private com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet suppressionSet;
-    private com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty habituationPenalty;
-    private com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector surpriseDetector;
-    private com.spectrayan.spector.memory.cortex.prospective.ProspectiveScheduler prospectiveScheduler;
 
     // Output
     private List<CognitiveResult> finalizedResults = Collections.emptyList();
@@ -118,94 +102,17 @@ public final class RecallSignal implements DivergentCapable<RecallSignal>, Trace
         fork.textSearchExecuted = this.textSearchExecuted;
         fork.rrfFused = this.rrfFused;
         fork.effectiveTemperature = this.effectiveTemperature;
-        fork.kernel = this.kernel;
-        fork.partitionRegistry = this.partitionRegistry;
-        fork.index = this.index;
-        fork.bm25Index = this.bm25Index;
-        fork.hebbianGraph = this.hebbianGraph;
-        fork.temporalChain = this.temporalChain;
-        fork.temporalKnowledgeGraph = this.temporalKnowledgeGraph;
-        fork.entityDirectory = this.entityDirectory;
-        fork.hyperEntityGraph = this.hyperEntityGraph;
-        fork.quantizer = this.quantizer;
-        fork.coActivationTracker = this.coActivationTracker;
-        fork.suppressionSet = this.suppressionSet;
-        fork.habituationPenalty = this.habituationPenalty;
-        fork.surpriseDetector = this.surpriseDetector;
-        fork.prospectiveScheduler = this.prospectiveScheduler;
         fork.attributes.putAll(this.attributes);
-        this.tracesLock.lock();
-        try {
-            fork.tracesLock.lock();
-            try {
-                fork.traces.addAll(this.traces);
-            } finally {
-                fork.tracesLock.unlock();
-            }
-        } finally {
-            this.tracesLock.unlock();
+        if (this.context() != null) {
+            fork.bind(this.context());
+        }
+        for (final RelayTrace trace : this.traces()) {
+            fork.recordTrace(trace);
         }
         return fork;
     }
 
-    /**
-     * Returns the target namespace kernel for this recall operation, if bound (R13.6).
-     */
-    public com.spectrayan.spector.kernel.api.NamespaceKernel kernel() {
-        return kernel;
-    }
 
-    /**
-     * Binds the target namespace kernel to this recall operation (R13.6).
-     */
-    public void kernel(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel) {
-        this.kernel = kernel;
-        if (kernel != null) {
-            this.attributes.put("kernel", kernel);
-        }
-    }
-
-    public com.spectrayan.spector.memory.cortex.PartitionRegistry partitionRegistry() { return partitionRegistry; }
-    public RecallSignal partitionRegistry(com.spectrayan.spector.memory.cortex.PartitionRegistry pr) { this.partitionRegistry = pr; return this; }
-
-    public com.spectrayan.spector.memory.cortex.index.MemoryIndex index() { return index; }
-    public RecallSignal index(com.spectrayan.spector.memory.cortex.index.MemoryIndex idx) { this.index = idx; return this; }
-
-    public com.spectrayan.spector.memory.cortex.MemoryBM25Index bm25Index() { return bm25Index; }
-    public RecallSignal bm25Index(com.spectrayan.spector.memory.cortex.MemoryBM25Index bm25) { this.bm25Index = bm25; return this; }
-
-    public com.spectrayan.spector.kernel.store.HebbianGraphBase hebbianGraph() { return hebbianGraph; }
-    public RecallSignal hebbianGraph(com.spectrayan.spector.kernel.store.HebbianGraphBase hg) { this.hebbianGraph = hg; return this; }
-
-    public com.spectrayan.spector.kernel.store.TemporalChainMemory temporalChain() { return temporalChain; }
-    public RecallSignal temporalChain(com.spectrayan.spector.kernel.store.TemporalChainMemory tc) { this.temporalChain = tc; return this; }
-
-    public com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph() { return temporalKnowledgeGraph; }
-    public RecallSignal temporalKnowledgeGraph(com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph tkg) { this.temporalKnowledgeGraph = tkg; return this; }
-
-    public com.spectrayan.spector.memory.graph.EntityDirectory entityDirectory() { return entityDirectory; }
-    public RecallSignal entityDirectory(com.spectrayan.spector.memory.graph.EntityDirectory ed) { this.entityDirectory = ed; return this; }
-
-    public com.spectrayan.spector.kernel.store.HyperEntityGraphMemory hyperEntityGraph() { return hyperEntityGraph; }
-    public RecallSignal hyperEntityGraph(com.spectrayan.spector.kernel.store.HyperEntityGraphMemory heg) { this.hyperEntityGraph = heg; return this; }
-
-    public com.spectrayan.spector.core.quantization.ScalarQuantizer quantizer() { return quantizer; }
-    public RecallSignal quantizer(com.spectrayan.spector.core.quantization.ScalarQuantizer q) { this.quantizer = q; return this; }
-
-    public com.spectrayan.spector.kernel.store.CoActivationMemory coActivationTracker() { return coActivationTracker; }
-    public RecallSignal coActivationTracker(com.spectrayan.spector.kernel.store.CoActivationMemory cat) { this.coActivationTracker = cat; return this; }
-
-    public com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet suppressionSet() { return suppressionSet; }
-    public RecallSignal suppressionSet(com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet ss) { this.suppressionSet = ss; return this; }
-
-    public com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty habituationPenalty() { return habituationPenalty; }
-    public RecallSignal habituationPenalty(com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty hp) { this.habituationPenalty = hp; return this; }
-
-    public com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector surpriseDetector() { return surpriseDetector; }
-    public RecallSignal surpriseDetector(com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector sd) { this.surpriseDetector = sd; return this; }
-
-    public com.spectrayan.spector.memory.cortex.prospective.ProspectiveScheduler prospectiveScheduler() { return prospectiveScheduler; }
-    public RecallSignal prospectiveScheduler(com.spectrayan.spector.memory.cortex.prospective.ProspectiveScheduler ps) { this.prospectiveScheduler = ps; return this; }
 
     /**
      * Returns the mutable contextual attributes map for inter-relay parameter passing.
@@ -225,45 +132,18 @@ public final class RecallSignal implements DivergentCapable<RecallSignal>, Trace
             if (fork.rrfFused) {
                 this.rrfFused = true;
             }
-            List<RelayTrace> forkTraces = fork.traces();
-            this.tracesLock.lock();
-            try {
-                for (final RelayTrace trace : forkTraces) {
-                    if (!this.traces.contains(trace)) {
-                        this.traces.add(trace);
-                    }
+            final List<RelayTrace> currentTraces = this.traces();
+            for (final RelayTrace trace : fork.traces()) {
+                if (!currentTraces.contains(trace)) {
+                    this.recordTrace(trace);
                 }
-            } finally {
-                this.tracesLock.unlock();
             }
         }
     }
 
     @Override
     public boolean isTraceEnabled() {
-        return options.enableTrace();
-    }
-
-    @Override
-    public void recordTrace(final RelayTrace trace) {
-        if (trace != null) {
-            tracesLock.lock();
-            try {
-                traces.add(trace);
-            } finally {
-                tracesLock.unlock();
-            }
-        }
-    }
-
-    @Override
-    public List<RelayTrace> traces() {
-        tracesLock.lock();
-        try {
-            return List.copyOf(traces);
-        } finally {
-            tracesLock.unlock();
-        }
+        return super.isTraceEnabled() || (options != null && options.enableTrace());
     }
 
     /**

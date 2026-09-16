@@ -12,6 +12,12 @@
  */
 package com.spectrayan.spector.memory.pathway.reflect.relay;
 
+import com.spectrayan.spector.memory.pathway.SoulVersionSource;
+
+import com.spectrayan.spector.commons.pathway.DefaultPathwayCatalog;
+
+import com.spectrayan.spector.commons.pathway.DefaultPathwayContext;
+
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
@@ -48,8 +54,9 @@ class SoulDriftRefusionRelayTest {
         PartitionHandle handle = new PartitionHandle(0, null, router, null, false);
         when(partitionManager.snapshot()).thenReturn(List.of(handle));
 
-        RememberPathway rememberPathway = Mockito.mock(RememberPathway.class);
-        when(rememberPathway.currentSoulVersion()).thenReturn((short) 2);
+        // Soul version is resolved from the context's SoulVersionSource, not from a
+        // RememberPathway reference on the signal (ADR-0035 §8.1b).
+        final SoulVersionSource soulVersionSource = () -> (short) 2;
 
         // Write a memory with soulVersion = 1, importance = 0.4, encodingSurprise = 2.5
         EncodingHeader header = new EncodingHeader(
@@ -76,11 +83,15 @@ class SoulDriftRefusionRelayTest {
 
         ReflectSignal signal = ReflectSignal.builder()
                 .partitionManager(partitionManager)
-                .rememberPathway(rememberPathway)
                 .quantizer(quantizer)
                 .soulDriftRefusionEnabled(true)
                 .soulDriftRefusionBatchSize(10)
                 .build();
+        signal.bind(DefaultPathwayContext.builder()
+                .namespaceId("test")
+                .catalog(new DefaultPathwayCatalog())
+                .bind(SoulVersionSource.class, soulVersionSource)
+                .build());
 
         SoulDriftRefusionRelay relay = new SoulDriftRefusionRelay();
         boolean success = relay.transmit(signal);

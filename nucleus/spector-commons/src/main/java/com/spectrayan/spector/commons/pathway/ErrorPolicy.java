@@ -28,5 +28,11 @@ public enum ErrorPolicy {
     /**
      * Logs the error but allows the pathway to continue executing subsequent relays.
      */
-    DEGRADE_GRACEFULLY
+    DEGRADE_GRACEFULLY,
+
+    /**
+     * Stage failure becomes a short-circuit (stop remaining relays) without
+     * throwing out of the pathway conductor.
+     */
+    ABORT
 }

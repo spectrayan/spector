@@ -57,7 +57,7 @@ public final class SynapticGraphLinkingRelay implements SynapticRelay<RememberSi
         postIngestSync.syncGraphEdges(memoryIdx, previousIdx, sessionIntId);
 
         // 2. Pre-computed edge hints from RememberContext
-        final RememberContext context = signal.context();
+        final RememberContext context = signal.rememberContext();
         if (context != null) {
             if (context.hasHebbianEdges()) {
                 postIngestSync.syncHebbianEdgeHints(memoryIdx, signal.id(), context.hebbianEdges());

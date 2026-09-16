@@ -25,6 +25,8 @@ public class CognitivePathwayException extends SpectorServerException {
 
     private final String pathwayName;
     private final String relayName;
+    private final FaultKind kind;
+    private final boolean nested;
 
     /**
      * Constructs a new exception with the specified detail message.
@@ -32,9 +34,11 @@ public class CognitivePathwayException extends SpectorServerException {
      * @param message the detail message
      */
     public CognitivePathwayException(final String message) {
-        super(ErrorCode.INTERNAL_ERROR, message);
+        super(ErrorCode.MEMORY_PATHWAY_FAILED, message);
         this.pathwayName = "unknown";
         this.relayName = "unknown";
+        this.kind = FaultKind.INTERNAL;
+        this.nested = false;
     }
 
     /**
@@ -44,22 +48,65 @@ public class CognitivePathwayException extends SpectorServerException {
      * @param cause   the cause
      */
     public CognitivePathwayException(final String message, final Throwable cause) {
-        super(ErrorCode.INTERNAL_ERROR, cause, message);
+        super(ErrorCode.MEMORY_PATHWAY_FAILED, cause, message);
         this.pathwayName = "unknown";
         this.relayName = "unknown";
+        this.kind = Faults.kindOf(cause);
+        this.nested = false;
     }
 
     /**
-     * Constructs a new exception with full pathway and relay context.
+     * Constructs a new exception with pathway, relay, and cause.
      *
      * @param pathwayName the name of the pathway
      * @param relayName   the name of the relay
      * @param cause       the cause
      */
     public CognitivePathwayException(final String pathwayName, final String relayName, final Throwable cause) {
-        super(ErrorCode.INTERNAL_ERROR, cause, "Failed at relay '" + relayName + "' in pathway '" + pathwayName + "'");
-        this.pathwayName = pathwayName;
-        this.relayName = relayName;
+        this(pathwayName, relayName, Faults.kindOf(cause), false, cause);
+    }
+
+    /**
+     * Constructs a new exception with full pathway, relay, fault kind, and nesting details.
+     *
+     * @param pathwayName the name of the pathway
+     * @param relayName   the name of the relay
+     * @param kind        the classified fault kind
+     * @param nested      true if this failure originated from a nested pathway
+     * @param cause       the cause
+     */
+    public CognitivePathwayException(final String pathwayName,
+                                     final String relayName,
+                                     final FaultKind kind,
+                                     final boolean nested,
+                                     final Throwable cause) {
+        this(ErrorCode.MEMORY_PATHWAY_FAILED, pathwayName, relayName, kind, nested, cause);
+    }
+
+    /**
+     * Constructs a new exception with explicit ErrorCode, pathway, relay, fault kind, and nesting details.
+     *
+     * @param errorCode   the specific error code
+     * @param pathwayName the name of the pathway
+     * @param relayName   the name of the relay
+     * @param kind        the classified fault kind
+     * @param nested      true if this failure originated from a nested pathway
+     * @param cause       the cause
+     */
+    public CognitivePathwayException(final ErrorCode errorCode,
+                                     final String pathwayName,
+                                     final String relayName,
+                                     final FaultKind kind,
+                                     final boolean nested,
+                                     final Throwable cause) {
+        super(errorCode != null ? errorCode : ErrorCode.MEMORY_PATHWAY_FAILED,
+                cause,
+                "Failed at relay '" + relayName + "' in pathway '" + pathwayName + "': "
+                        + (cause != null ? cause.getMessage() : "unknown"));
+        this.pathwayName = pathwayName != null ? pathwayName : "unknown";
+        this.relayName = relayName != null ? relayName : "unknown";
+        this.kind = kind != null ? kind : FaultKind.INTERNAL;
+        this.nested = nested;
     }
 
     /**
@@ -78,5 +125,23 @@ public class CognitivePathwayException extends SpectorServerException {
      */
     public String relayName() {
         return relayName;
+    }
+
+    /**
+     * Returns the classified fault kind.
+     *
+     * @return fault kind
+     */
+    public FaultKind kind() {
+        return kind;
+    }
+
+    /**
+     * Returns whether this failure originated from a nested pathway invocation.
+     *
+     * @return true if nested
+     */
+    public boolean nested() {
+        return nested;
     }
 }

@@ -14,11 +14,16 @@ package com.spectrayan.spector.memory.pathway.dream;
 
 import com.spectrayan.spector.kernel.id.MemoryId;
 
-import com.spectrayan.spector.commons.pathway.CognitivePathway;
-import com.spectrayan.spector.commons.pathway.ErrorPolicy;
+import com.spectrayan.spector.commons.pathway.PathwayEngine;
+import com.spectrayan.spector.commons.pathway.PathwayComposer;
+import com.spectrayan.spector.commons.pathway.DefaultPathwayComposer;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
+import com.spectrayan.spector.commons.pathway.AbstractPathway;
+import com.spectrayan.spector.commons.pathway.ConductionOutcome;
+import com.spectrayan.spector.commons.pathway.DefaultPathwayContext;
 import com.spectrayan.spector.config.properties.DreamProperties;
 import com.spectrayan.spector.config.properties.AismeProperties;
+import com.spectrayan.spector.memory.pathway.SoulVersionSource;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
 import com.spectrayan.spector.memory.aisme.hopfield.ContinuousHopfieldNetwork;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
@@ -29,23 +34,10 @@ import com.spectrayan.spector.kernel.shape.DistributedMemoryTensor;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.model.SoulContext;
 import com.spectrayan.spector.memory.pathway.dream.DreamJournalMemory;
-import com.spectrayan.spector.memory.pathway.dream.relay.ConceptExtractRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.CounterfactualProbeRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamGateRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamGates;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamIngestionRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.DreamJournalRelay;
+import com.spectrayan.spector.memory.pathway.dream.relay.DreamRecipe;
 import com.spectrayan.spector.kernel.api.DreamMode;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamReport;
 import com.spectrayan.spector.memory.pathway.dream.relay.DreamSignal;
-import com.spectrayan.spector.memory.pathway.dream.relay.EfeTriageRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.FragmentUnpackRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.HyperAssociateRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.LangevinDiscoveryRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.RemReplayRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.SalientSeedRelay;
-import com.spectrayan.spector.memory.pathway.dream.relay.SceneConstructRelay;
-import com.spectrayan.spector.memory.pathway.simulation.relay.SpacetimeSeedRelay;
 import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
@@ -57,7 +49,7 @@ import java.util.Objects;
 import java.util.function.Function;
 
 /**
- * The 7th canonical {@link CognitivePathway} in Spector — executing generative dreaming,
+ * The 7th canonical {@link PathwayEngine} in Spector — executing generative dreaming,
  * mind-wandering counterfactuals, and stochastic Langevin discovery over memory representations.
  *
  * <h3>Biological Analog: Offline REM Sleep Replay &amp; Waking Deliberate Imagination</h3>
@@ -66,14 +58,14 @@ import java.util.function.Function;
  *
  * @since 1.4.0
  */
-public final class DreamPathway implements AutoCloseable {
+public final class DreamPathway extends AbstractPathway<DreamSignal, DreamReport> implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(DreamPathway.class);
 
-    private final CognitivePathway<DreamSignal> pathway;
     private final DreamProperties dreamProperties;
     private final PartitionManager partitionManager;
-    private final RememberPathway rememberPathway;
+    /** Narrowed from RememberPathway to the one capability Dream actually needs (ADR-0035 §8.1b). */
+    private final SoulVersionSource soulVersionSource;
     private final AismeProperties aismeConfig;
     private final SoulContext primarySoul;
     private final List<SoulContext> soulContexts;
@@ -89,9 +81,10 @@ public final class DreamPathway implements AutoCloseable {
     private final MemoryIdGenerator idGenerator;
 
     private DreamPathway(final Builder builder) {
+        super("dream", DreamSignal.class, DreamReport.class);
         this.dreamProperties = builder.dreamProperties != null ? builder.dreamProperties : new DreamProperties();
         this.partitionManager = builder.partitionManager;
-        this.rememberPathway = builder.rememberPathway;
+        this.soulVersionSource = builder.soulVersionSource;
         this.aismeConfig = builder.aismeConfig;
         this.primarySoul = builder.primarySoul;
         this.soulContexts = builder.soulContexts != null ? List.copyOf(builder.soulContexts) : List.of();
@@ -106,51 +99,21 @@ public final class DreamPathway implements AutoCloseable {
         this.llmProvider = builder.llmProvider;
         this.idGenerator = builder.idGenerator;
 
-        var pathwayBuilder = CognitivePathway.<DreamSignal>pathway("dream_pathway");
+        // Composer rather than the raw builder so the LLM and nested-Remember stages can
+        // carry resilience decorators (ADR-0036 §14 Dream row). The stage graph itself lives
+        // in DreamRecipe so the parity gate can assert its shape.
+        final PathwayComposer<DreamSignal> pathwayBuilder =
+                new DefaultPathwayComposer<>("dream");
         if (builder.interceptor != null) {
             pathwayBuilder.withInterceptor(builder.interceptor);
         }
+        new DreamRecipe().compose(pathwayBuilder);
 
-        // 1. Dream Gate (circadian & sleep pressure check)
-        pathwayBuilder.gated("dream_gate", DreamGates.DREAMING_ENABLED, new DreamGateRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
+        initEngine(pathwayBuilder.build());
+    }
 
-        // 2. Salient Seed Selection (TMR + Soul / Salience Matching)
-        pathwayBuilder.gated("salient_seed", DreamGates.DREAMING_ENABLED, new SalientSeedRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
-
-        // 2b. Spacetime Shortlist Seed Selection (ADR-0031)
-        pathwayBuilder.gated(com.spectrayan.spector.memory.pathway.RelayNames.SPACETIME_SEED, DreamGates.DREAMING_ENABLED, new com.spectrayan.spector.memory.pathway.simulation.relay.SpacetimeSeedRelay.DreamSeedRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
-
-        // 3. Fragment Unpack (entity/role/affect decomposition)
-        pathwayBuilder.gated("fragment_unpack", DreamGates.HAS_SEEDS, new FragmentUnpackRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
-
-        // 4. Anti-Centroid Hyper-Association
-        pathwayBuilder.gated("hyper_associate", DreamGates.HAS_FRAGMENTS, new HyperAssociateRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
-
-        // 5. REM Compressed Replay with Hartmann Boundary Modulated Hoel Noise
-        pathwayBuilder.gated("rem_replay", DreamGates.HAS_SEEDS, new RemReplayRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
-
-        // 6. Compositional Scene Construction
-        pathwayBuilder.gated("scene_construct", DreamGates.HAS_SEEDS, new SceneConstructRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
-
-        // 7. Predictive Coding Reality Testing & Counterfactual Probing
-        pathwayBuilder.gated("counterfactual_probe", DreamGates.HAS_CONSTRUCTED_SCENES, new CounterfactualProbeRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
-
-        // 8. Langevin Stochastic SDE Discovery with Soul Attractor Potential
-        pathwayBuilder.gated("langevin_discovery", DreamGates.LANGEVIN_ENABLED, new LangevinDiscoveryRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
-
-        // 9. Prefrontal Multi-Soul EFE Triage & Ethical Reality Testing
-        pathwayBuilder.gated("efe_triage", DreamGates.HAS_CONSTRUCTED_SCENES, new EfeTriageRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
-
-        // 10. Distill Residue, Discard Scaffold (Concept Extraction)
-        pathwayBuilder.gated("concept_extract", DreamGates.DREAMING_ENABLED, new ConceptExtractRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
-
-        // 11. Dream Journal Recording (Audit Trail)
-        pathwayBuilder.gated("dream_journal", DreamGates.JOURNAL_ENABLED, new DreamJournalRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
-
-        // 12. Ingestion & Hebbian Synaptic Inhibition
-        pathwayBuilder.gated("dream_ingestion", DreamGates.DREAMING_ENABLED, new DreamIngestionRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
-
-        this.pathway = pathwayBuilder.build();
+    public PathwayEngine<DreamSignal> pathway() {
+        return engine();
     }
 
     public static Builder builder() {
@@ -173,8 +136,18 @@ public final class DreamPathway implements AutoCloseable {
         return soulContexts;
     }
 
-    public RememberPathway rememberPathway() {
-        return rememberPathway;
+    /**
+     * @deprecated Use {@code catalog.invoke(RememberPathway.class, ...)} via PathwayCatalog instead.
+     *             Retained for backwards compatibility — will be removed in a future release.
+     */
+    @Deprecated(forRemoval = true, since = "1.5.0")
+    /**
+     * Returns the soul-version accessor bound into this pathway's conductions.
+     *
+     * @return soul version source, or {@code null} when none was supplied
+     */
+    public SoulVersionSource soulVersionSource() {
+        return soulVersionSource;
     }
 
     public SalienceProfile salienceProfile() {
@@ -185,27 +158,19 @@ public final class DreamPathway implements AutoCloseable {
         return llmProvider;
     }
 
-    /**
-     * Conducts a {@link DreamSignal} through the full 12-relay pipeline.
-     */
-    public DreamReport conduct(final DreamSignal signal) {
-        Objects.requireNonNull(signal, "signal cannot be null");
-        if (log.isTraceEnabled()) {
-            log.trace("DreamPathway: initiating dream cycle in {} mode...", signal.mode());
+    @Override
+    protected DreamReport project(final DreamSignal signal) {
+        ConductionOutcome outcome = signal.context() != null ? signal.context().outcome() : null;
+        if (outcome != null && outcome.finish() == ConductionOutcome.Finish.SHORT_CIRCUITED) {
+            return DreamReport.empty(outcome);
         }
-        try {
-            pathway.conduct(signal);
-            DreamReport report = signal.buildReport();
-            if (log.isDebugEnabled()) {
-                log.debug("DreamPathway: cycle complete in {}ms — seeds={}, scenes={}, ingested={}, failed={}",
-                        report.elapsed().toMillis(), report.seedsSampled(), report.scenesConstructed(),
-                        report.insightsIngested(), report.failedPairsInhibited());
-            }
-            return report;
-        } catch (Exception e) {
-            log.error("DreamPathway: dream cycle aborted due to error: {}", e.getMessage(), e);
-            throw new com.spectrayan.spector.memory.error.SpectorPathwayException("DreamPathway execution failed: " + e.getMessage(), e);
+        final DreamReport report = signal.buildReport();
+        if (log.isDebugEnabled()) {
+            log.debug("DreamPathway: cycle complete in {}ms — seeds={}, scenes={}, ingested={}, failed={}",
+                    report.elapsed().toMillis(), report.seedsSampled(), report.scenesConstructed(),
+                    report.insightsIngested(), report.failedPairsInhibited());
         }
+        return report;
     }
 
     /**
@@ -217,9 +182,17 @@ public final class DreamPathway implements AutoCloseable {
      */
     public DreamReport execute(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel, final DreamSignal signal) {
         Objects.requireNonNull(signal, "signal cannot be null");
+        final DefaultPathwayContext.Builder ctxBuilder = signal.context() != null
+                ? DefaultPathwayContext.from(signal.context())
+                : DefaultPathwayContext.builder();
         if (kernel != null) {
-            signal.kernel(kernel);
+            ctxBuilder.namespaceId(kernel.namespaceId());
+            ctxBuilder.bindIfAbsent(com.spectrayan.spector.kernel.api.NamespaceKernel.class, kernel);
         }
+        if (soulVersionSource != null) {
+            ctxBuilder.bindIfAbsent(SoulVersionSource.class, soulVersionSource);
+        }
+        signal.bind(ctxBuilder.build());
         return conduct(signal);
     }
 
@@ -235,11 +208,9 @@ public final class DreamPathway implements AutoCloseable {
             final List<SoulContext> soulContexts,
             final SalienceProfile salienceProfile) {
         DreamSignal signal = DreamSignal.builder()
-                .kernel(kernel)
                 .mode(mode)
                 .config(dreamProperties)
                 .partitionManager(pm != null ? pm : partitionManager)
-                .rememberPathway(rememberPathway)
                 .aismeConfig(aismeConfig != null ? aismeConfig : this.aismeConfig)
                 .primarySoul(primarySoul != null ? primarySoul : this.primarySoul)
                 .soulContexts(soulContexts != null ? soulContexts : this.soulContexts)
@@ -255,7 +226,7 @@ public final class DreamPathway implements AutoCloseable {
                 .idGenerator(idGenerator)
                 .build();
 
-        return conduct(signal);
+        return execute(kernel, signal);
     }
 
     /**
@@ -289,7 +260,7 @@ public final class DreamPathway implements AutoCloseable {
     public static final class Builder {
         private DreamProperties dreamProperties;
         private PartitionManager partitionManager;
-        private RememberPathway rememberPathway;
+        private SoulVersionSource soulVersionSource;
         private AismeProperties aismeConfig = AismeProperties.defaultConfig();
         private SoulContext primarySoul;
         private List<SoulContext> soulContexts;
@@ -316,7 +287,26 @@ public final class DreamPathway implements AutoCloseable {
 
         
         public Builder partitionManager(PartitionManager pm) { this.partitionManager = pm; return this; }
-        public Builder rememberPathway(RememberPathway rp) { this.rememberPathway = rp; return this; }
+        /**
+         * @deprecated Register RememberPathway in the PathwayCatalog instead.
+         */
+        /**
+         * Supplies the soul-version accessor.
+         *
+         * @param svs soul version source (RememberPathway implements this)
+         * @return this builder
+         */
+        public Builder soulVersionSource(SoulVersionSource svs) { this.soulVersionSource = svs; return this; }
+
+        /**
+         * @param rp the remember pathway, used only as a {@link SoulVersionSource}
+         * @return this builder
+         * @deprecated Pass {@link #soulVersionSource(SoulVersionSource)} instead. Dream needs
+         *             only the soul version, not the whole pathway; nested writes go through
+         *             the {@code PathwayCatalog}.
+         */
+        @Deprecated(forRemoval = true, since = "1.5.0")
+        public Builder rememberPathway(RememberPathway rp) { this.soulVersionSource = rp; return this; }
         public Builder aismeConfig(AismeProperties ac) { this.aismeConfig = ac; return this; }
         public Builder primarySoul(SoulContext soul) { this.primarySoul = soul; return this; }
         public Builder soulContexts(List<SoulContext> soulContexts) { this.soulContexts = soulContexts; return this; }

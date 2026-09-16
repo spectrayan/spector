@@ -30,8 +30,6 @@ import java.nio.file.Path;
  */
 public interface MemoryRemember {
 
-    RememberPathway target();
-
     default String namespaceId() { return "default"; }
 
     default AutoCloseable acquireLease() { return () -> {}; }
@@ -41,6 +39,36 @@ public interface MemoryRemember {
     void remember(String id, String text, MemoryType type, MemorySource source, RememberHints hints, String... tags);
 
     void remember(String id, String text, MemoryType type, MemorySource source, RememberContext context, String... tags);
+
+    /**
+     * Ingest a memory item with a pre-computed vector embedding.
+     *
+     * <p>When {@code vector} is provided (non-null and non-empty), it is used
+     * directly, bypassing text embedding generation.</p>
+     *
+     * @param id unique memory identifier
+     * @param text content of the memory
+     * @param vector pre-computed embedding vector (if null, embedding will be generated)
+     * @param type target cognitive tier
+     * @param source origin source of the memory
+     * @param context optional rich contextual metadata
+     * @param tags optional semantic tags
+     */
+    void remember(String id, String text, float[] vector, MemoryType type, MemorySource source, RememberContext context, String... tags);
+
+    /**
+     * Ingest a memory item with a pre-computed vector embedding and default context.
+     *
+     * @param id unique memory identifier
+     * @param text content of the memory
+     * @param vector pre-computed embedding vector (if null, embedding will be generated)
+     * @param type target cognitive tier
+     * @param source origin source of the memory
+     * @param tags optional semantic tags
+     */
+    default void remember(String id, String text, float[] vector, MemoryType type, MemorySource source, String... tags) {
+        remember(id, text, vector, type, source, (RememberContext) null, tags);
+    }
 
     void remember(String id, String text, MemoryType type, String... tags);
 

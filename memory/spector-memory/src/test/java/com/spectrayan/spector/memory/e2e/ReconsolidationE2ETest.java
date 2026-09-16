@@ -17,6 +17,7 @@ import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
+import com.spectrayan.spector.memory.model.RememberContext;
 
 import org.junit.jupiter.api.*;
 
@@ -55,7 +56,7 @@ class ReconsolidationE2ETest extends AbstractE2ETest {
 
         // Re-embed with real Ollama embeddings
         float[] vector = dsm.embeddingProvider().embed(text).vector();
-        memory.target().ingestCognitive(id, text, vector, type, tags,
+        dsm.rememberPathway().ingestCognitive(id, text, vector, type, tags,
                 source != null ? source : MemorySource.OBSERVED,
                 (com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints) null);
     }

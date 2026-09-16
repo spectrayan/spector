@@ -12,69 +12,74 @@
  */
 package com.spectrayan.spector.memory.pathway.express;
 
-import com.spectrayan.spector.memory.pathway.express.relay.EmbodiedKinesicsRelay;
-import com.spectrayan.spector.memory.pathway.express.relay.ExpressGates;
-import com.spectrayan.spector.memory.pathway.express.relay.ExpressReport;
-import com.spectrayan.spector.memory.pathway.express.relay.ExpressSignal;
-import com.spectrayan.spector.memory.pathway.express.relay.IdiolectStylometryRelay;
-import com.spectrayan.spector.memory.pathway.express.relay.PhenomenologicalStreamRelay;
-import com.spectrayan.spector.memory.pathway.express.relay.VocalProsodyRelay;
+import com.spectrayan.spector.commons.pathway.AbstractPathway;
+import com.spectrayan.spector.commons.pathway.PathwayEngine;
+import com.spectrayan.spector.commons.pathway.ConductionOutcome;
+import com.spectrayan.spector.commons.pathway.DefaultPathwayContext;
+import com.spectrayan.spector.commons.pathway.DefaultPathwayComposer;
+import com.spectrayan.spector.commons.pathway.PathwayComposer;
 import com.spectrayan.spector.memory.model.BlendshapeVector;
 import com.spectrayan.spector.memory.model.IdiolectProfile;
 import com.spectrayan.spector.memory.model.PhenomenologicalContextPack;
 import com.spectrayan.spector.memory.model.ProsodyParameterVector;
+import com.spectrayan.spector.memory.pathway.express.relay.ExpressRecipe;
+import com.spectrayan.spector.memory.pathway.express.relay.ExpressReport;
+import com.spectrayan.spector.memory.pathway.express.relay.ExpressSignal;
 
-import com.spectrayan.spector.commons.pathway.CognitivePathway;
-import com.spectrayan.spector.commons.pathway.ErrorPolicy;
-import com.spectrayan.spector.memory.pathway.express.relay.ExpressGates;
-import com.spectrayan.spector.memory.pathway.express.relay.ExpressReport;
-import com.spectrayan.spector.memory.pathway.express.relay.ExpressSignal;
-import com.spectrayan.spector.memory.pathway.express.relay.IdiolectStylometryRelay;
-import com.spectrayan.spector.memory.pathway.express.relay.VocalProsodyRelay;
-import com.spectrayan.spector.memory.pathway.express.relay.EmbodiedKinesicsRelay;
-import com.spectrayan.spector.memory.pathway.express.relay.PhenomenologicalStreamRelay;
-import com.spectrayan.spector.memory.model.BlendshapeVector;
-import com.spectrayan.spector.memory.model.PhenomenologicalContextPack;
-import com.spectrayan.spector.memory.model.ProsodyParameterVector;
-import com.spectrayan.spector.memory.model.IdiolectProfile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
+import java.util.Objects;
 
-public final class ExpressPathway implements AutoCloseable {
+public final class ExpressPathway extends AbstractPathway<ExpressSignal, ExpressReport> implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(ExpressPathway.class);
-    
-    private final CognitivePathway<ExpressSignal> pathway;
     
     private final java.util.function.Consumer<ExpressReport> somaticFeedbackConsumer;
 
     private ExpressPathway(Builder builder) {
+        super("express", ExpressSignal.class, ExpressReport.class);
         this.somaticFeedbackConsumer = builder.somaticFeedbackConsumer;
-        this.pathway = CognitivePathway.<ExpressSignal>pathway("ExpressPathway")
-                .withInterceptor(builder.interceptor)
-                .gated("IdiolectStylometry", ExpressGates.IDIOLECT_ENABLED, new IdiolectStylometryRelay(), ErrorPolicy.DEGRADE_GRACEFULLY)
-                .gated("VocalProsody", ExpressGates.PROSODY_ENABLED, new VocalProsodyRelay(), ErrorPolicy.DEGRADE_GRACEFULLY)
-                .gated("EmbodiedKinesics", ExpressGates.KINESICS_ENABLED, new EmbodiedKinesicsRelay(), ErrorPolicy.DEGRADE_GRACEFULLY)
-                .gated("PhenomenologicalStream", ExpressGates.PHENOMENOLOGICAL_ENABLED, new PhenomenologicalStreamRelay(), ErrorPolicy.DEGRADE_GRACEFULLY)
-                .build();
+        final PathwayComposer<ExpressSignal> composer =
+                new DefaultPathwayComposer<>("ExpressPathway");
+        if (builder.interceptor != null) {
+            composer.withInterceptor(builder.interceptor);
+        }
+        new ExpressRecipe().compose(composer);
+        initEngine(composer.build());
+    }
+
+    public PathwayEngine<ExpressSignal> pathway() {
+        return engine();
     }
 
     public ExpressReport execute(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel, final ExpressSignal signal) {
-        if (kernel != null && signal != null && signal.attributes() != null) {
-            signal.attributes().put("kernel", kernel);
+        if (kernel != null && signal != null) {
+            if (signal.context() == null) {
+                final DefaultPathwayContext.Builder ctxBuilder = DefaultPathwayContext.builder()
+                        .namespaceId(kernel.namespaceId())
+                        .bind(com.spectrayan.spector.kernel.api.NamespaceKernel.class, kernel);
+                signal.bind(ctxBuilder.build());
+            }
         }
         return express(signal);
     }
 
-    public ExpressReport express(ExpressSignal signal) {
-        long start = System.currentTimeMillis();
-        pathway.conduct(signal);
-        
-        long elapsedMillis = System.currentTimeMillis() - start;
-        Duration elapsed = Duration.ofMillis(elapsedMillis);
-        
+    public ExpressReport express(final ExpressSignal signal) {
+        Objects.requireNonNull(signal, "ExpressSignal cannot be null");
+        if (signal.context() == null) {
+            signal.bind(DefaultPathwayContext.builder().build());
+        }
+        return conduct(signal);
+    }
+
+    @Override
+    protected ExpressReport project(final ExpressSignal signal) {
+        ConductionOutcome outcome = signal.context() != null ? signal.context().outcome() : null;
+        if (outcome != null && outcome.finish() == ConductionOutcome.Finish.SHORT_CIRCUITED) {
+            return ExpressReport.empty(outcome);
+        }
         ProsodyParameterVector prosodyVector = (ProsodyParameterVector) signal.attributes().get("prosodyVector");
         IdiolectProfile idiolectProfile = (IdiolectProfile) signal.attributes().get("idiolectProfile");
         String promptDirectives = (String) signal.attributes().get("promptDirectives");
@@ -90,7 +95,7 @@ public final class ExpressPathway implements AutoCloseable {
         int relaysExecuted = 4; // updated count
         
         ExpressReport report = new ExpressReport(
-            prosodyVector, blendshapeVector, idiolectProfile, contextPack, promptDirectives, internalMonologue, ssmlTags, elapsed, relaysExecuted
+            prosodyVector, blendshapeVector, idiolectProfile, contextPack, promptDirectives, internalMonologue, ssmlTags, Duration.ZERO, relaysExecuted, outcome
         );
 
         if (somaticFeedbackConsumer != null) {
@@ -109,7 +114,7 @@ public final class ExpressPathway implements AutoCloseable {
     }
     
     @Override
-    public void close() throws Exception {
+    public void close() {
     }
     
     public static class Builder {

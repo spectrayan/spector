@@ -103,14 +103,6 @@ public class ObservedSpectorMemory extends ObservableComponent implements Specto
         return tags;
     }
 
-    // --------------------------------------------------------------
-    // INGESTION TARGET
-    // --------------------------------------------------------------
-
-    @Override
-    public RememberPathway target() {
-        return delegate.target();
-    }
 
     @Override
     public String namespaceId() {
@@ -149,6 +141,14 @@ public class ObservedSpectorMemory extends ObservableComponent implements Specto
         withObservation(SpectorObservationDocumentation.MEMORY_REMEMBER,
                 createTags(type != null ? type.name() : null, id, null),
                 () -> delegate.remember(id, text, type, source, context, tags));
+    }
+
+    @Override
+    public void remember(String id, String text, float[] vector, MemoryType type, MemorySource source,
+                         RememberContext context, String... tags) {
+        withObservation(SpectorObservationDocumentation.MEMORY_REMEMBER,
+                createTags(type != null ? type.name() : null, id, null),
+                () -> delegate.remember(id, text, vector, type, source, context, tags));
     }
 
     @Override

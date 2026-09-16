@@ -526,6 +526,52 @@ public final class ConcurrentTasks {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    //  Single-task timeout (extracted from forkJoinPartial per ADR-0036 §7.1)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * Executes a single callable on a virtual thread with a timeout budget.
+     *
+     * <p>This is the single-task extraction from {@link #forkJoinPartial} so both share
+     * one implementation path. The delegate runs on a virtual thread; on expiry the thread
+     * is interrupted via {@code cancel(true)}.</p>
+     *
+     * <p><strong>The callable must honour {@link Thread#interrupt()}.</strong> If it does not
+     * (e.g. mmap writes), the caller merely reports a timeout while the work continues on
+     * a detached thread — use {@link InterruptibleRelay} to gate this at build time.</p>
+     *
+     * @param callable the task to execute
+     * @param timeout  maximum time to wait
+     * @param <T>      result type
+     * @return the result of the callable
+     * @throws java.util.concurrent.TimeoutException if the timeout expires before the callable completes
+     * @throws InterruptedException if the calling thread is interrupted while waiting
+     * @throws Exception any exception thrown by the callable (unwrapped from ExecutionException)
+     */
+    public static <T> T callWithTimeout(java.util.concurrent.Callable<T> callable,
+                                         Duration timeout) throws Exception {
+        if (callable == null) throw new NullPointerException("callable cannot be null");
+        if (timeout == null) throw new NullPointerException("timeout cannot be null");
+
+        try (ExecutorService executor = Executors.newThreadPerTaskExecutor(
+                Thread.ofVirtual().name("spector-vt-timeout-", 0).factory())) {
+            Future<T> future = executor.submit(callable);
+            try {
+                return future.get(timeout.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS);
+            } catch (java.util.concurrent.TimeoutException e) {
+                future.cancel(true);
+                throw e;
+            } catch (ExecutionException e) {
+                future.cancel(true);
+                Throwable cause = e.getCause();
+                if (cause instanceof Exception ex) throw ex;
+                if (cause instanceof Error err) throw err;
+                throw new RuntimeException(cause);
+            }
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     //  Fork-Join Partial: deadline-based, collects successful + failed
     // ═══════════════════════════════════════════════════════════════════════
 

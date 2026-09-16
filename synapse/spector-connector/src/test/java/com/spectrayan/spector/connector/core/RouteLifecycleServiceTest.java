@@ -23,11 +23,14 @@ import com.spectrayan.spector.connector.spi.CredentialProvider;
 import com.spectrayan.spector.connector.spi.InMemoryExecutionLogger;
 import com.spectrayan.spector.connector.spi.InMemoryRouteConfigProvider;
 import com.spectrayan.spector.connector.template.TemplateRegistry;
+import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.EmbeddingResult;
-import com.spectrayan.spector.ingestion.IngestionTarget;
 
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -45,7 +48,7 @@ import static org.mockito.Mockito.*;
 class RouteLifecycleServiceTest {
 
     @Mock
-    private IngestionTarget target;
+    private SpectorMemory memory;
     @Mock
     private EmbeddingProvider embeddingProvider;
 
@@ -56,7 +59,7 @@ class RouteLifecycleServiceTest {
     void setUp() {
         var configProvider = new InMemoryRouteConfigProvider();
         var executionLogger = new InMemoryExecutionLogger();
-        var sink = new SpectorIngestionSink(target, embeddingProvider, executionLogger);
+        var sink = new SpectorIngestionSink(memory, embeddingProvider, executionLogger);
         var templateRegistry = new TemplateRegistry(null);
         engine = new CamelConnectorEngine(sink, configProvider, templateRegistry);
 

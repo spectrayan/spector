@@ -18,7 +18,9 @@ package com.spectrayan.spector.connector.sink;
 import com.spectrayan.spector.connector.model.ExecutionRecord;
 import com.spectrayan.spector.connector.spi.ChunkChangeDetector;
 import com.spectrayan.spector.connector.spi.InMemoryExecutionLogger;
-import com.spectrayan.spector.ingestion.IngestionTarget;
+import com.spectrayan.spector.memory.SpectorMemory;
+import com.spectrayan.spector.kernel.api.MemorySource;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.EmbeddingResult;
 
@@ -40,7 +42,7 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class SpectorIngestionSinkTest {
 
-    @Mock private IngestionTarget target;
+    @Mock private SpectorMemory memory;
     @Mock private EmbeddingProvider embeddingProvider;
     @Mock private ChunkChangeDetector chunkChangeDetector;
 
@@ -51,7 +53,7 @@ class SpectorIngestionSinkTest {
     void setUp() {
         logger = new InMemoryExecutionLogger();
         lenient().when(embeddingProvider.dimensions()).thenReturn(384);
-        sink = new SpectorIngestionSink(target, embeddingProvider, logger);
+        sink = new SpectorIngestionSink(memory, embeddingProvider, logger);
     }
 
     // ─────────────── Happy Path ───────────────
@@ -65,7 +67,7 @@ class SpectorIngestionSinkTest {
 
         sink.process(exchange);
 
-        verify(target).ingest(eq("doc-1"), eq("Hello World"), any(float[].class));
+        verify(memory).remember(eq("doc-1"), eq("Hello World"), any(float[].class), eq(MemoryType.SEMANTIC), eq(MemorySource.OBSERVED));
         assertThat(sink.totalProcessed()).isEqualTo(1);
         assertThat(sink.totalErrors()).isZero();
 
@@ -79,7 +81,7 @@ class SpectorIngestionSinkTest {
     @Test
     @DisplayName("Delta Upsert: skips embedding and ingestion if chunk is unchanged")
     void deltaUpsertSkipsUnchanged() throws Exception {
-        SpectorIngestionSink deltaSink = new SpectorIngestionSink(target, embeddingProvider, logger, chunkChangeDetector);
+        SpectorIngestionSink deltaSink = new SpectorIngestionSink(memory, embeddingProvider, logger, chunkChangeDetector);
 
         Exchange exchange = mockExchange("doc-1", "Existing Content", "route-1", "default");
         when(exchange.getIn().getHeader(SpectorIngestionSink.HEADER_PIPELINE_ID, String.class)).thenReturn("pipe-1");
@@ -89,7 +91,7 @@ class SpectorIngestionSinkTest {
         deltaSink.process(exchange);
 
         verifyNoInteractions(embeddingProvider);
-        verifyNoInteractions(target);
+        verifyNoInteractions(memory);
         assertThat(deltaSink.totalSkippedUnchanged()).isEqualTo(1);
         assertThat(deltaSink.totalProcessed()).isZero();
     }
@@ -105,7 +107,7 @@ class SpectorIngestionSinkTest {
 
         sink.process(exchange);
 
-        verify(target).ingest(eq("report.pdf"), eq("PDF content"), any(float[].class));
+        verify(memory).remember(eq("report.pdf"), eq("PDF content"), any(float[].class), eq(MemoryType.SEMANTIC), eq(MemorySource.OBSERVED));
     }
 
     @Test
@@ -117,7 +119,7 @@ class SpectorIngestionSinkTest {
 
         sink.process(exchange);
 
-        verify(target).ingest(eq("exchange-123"), eq("Some text"), any(float[].class));
+        verify(memory).remember(eq("exchange-123"), eq("Some text"), any(float[].class), eq(MemoryType.SEMANTIC), eq(MemorySource.OBSERVED));
     }
 
     // ─────────────── Edge Cases ───────────────
@@ -129,7 +131,7 @@ class SpectorIngestionSinkTest {
 
         sink.process(exchange);
 
-        verifyNoInteractions(target);
+        verifyNoInteractions(memory);
         assertThat(sink.totalProcessed()).isZero();
         assertThat(sink.totalErrors()).isZero();
     }
@@ -141,7 +143,7 @@ class SpectorIngestionSinkTest {
 
         sink.process(exchange);
 
-        verifyNoInteractions(target);
+        verifyNoInteractions(memory);
     }
 
     @Test
@@ -151,7 +153,7 @@ class SpectorIngestionSinkTest {
 
         sink.process(exchange);
 
-        verifyNoInteractions(target);
+        verifyNoInteractions(memory);
     }
 
     // ─────────────── Error Handling ───────────────
@@ -184,7 +186,7 @@ class SpectorIngestionSinkTest {
         when(embeddingProvider.embed("text"))
                 .thenReturn(new EmbeddingResult(new float[384], 384, "m"));
         doThrow(new RuntimeException("Storage full"))
-                .when(target).ingest(anyString(), anyString(), any(float[].class));
+                .when(memory).remember(anyString(), anyString(), any(float[].class), any(MemoryType.class), any(MemorySource.class));
 
         assertThatThrownBy(() -> sink.process(exchange))
                 .hasMessageContaining("Storage full");
@@ -197,14 +199,14 @@ class SpectorIngestionSinkTest {
     @Test
     @DisplayName("Works correctly when execution logger is null")
     void worksWithNullLogger() throws Exception {
-        var sinkNoLogger = new SpectorIngestionSink(target, embeddingProvider, null);
+        var sinkNoLogger = new SpectorIngestionSink(memory, embeddingProvider, null);
         Exchange exchange = mockExchange("doc-1", "hello", "route-1", "default");
         when(embeddingProvider.embed("hello"))
                 .thenReturn(new EmbeddingResult(new float[384], 384, "m"));
 
         sinkNoLogger.process(exchange);
 
-        verify(target).ingest(eq("doc-1"), eq("hello"), any(float[].class));
+        verify(memory).remember(eq("doc-1"), eq("hello"), any(float[].class), eq(MemoryType.SEMANTIC), eq(MemorySource.OBSERVED));
         assertThat(sinkNoLogger.totalProcessed()).isEqualTo(1);
     }
 
@@ -228,7 +230,7 @@ class SpectorIngestionSinkTest {
     // ─────────────── Constructor Validation ───────────────
 
     @Test
-    @DisplayName("Constructor rejects null IngestionTarget")
+    @DisplayName("Constructor rejects null SpectorMemory")
     void rejectsNullTarget() {
         assertThatNullPointerException()
                 .isThrownBy(() -> new SpectorIngestionSink(null, embeddingProvider, logger));
@@ -238,7 +240,7 @@ class SpectorIngestionSinkTest {
     @DisplayName("Constructor rejects null EmbeddingProvider")
     void rejectsNullProvider() {
         assertThatNullPointerException()
-                .isThrownBy(() -> new SpectorIngestionSink(target, null, logger));
+                .isThrownBy(() -> new SpectorIngestionSink(memory, null, logger));
     }
 
     // ─────────────── Multiple Documents ───────────────
@@ -254,7 +256,7 @@ class SpectorIngestionSinkTest {
         }
 
         assertThat(sink.totalProcessed()).isEqualTo(5);
-        verify(target, times(5)).ingest(anyString(), anyString(), any(float[].class));
+        verify(memory, times(5)).remember(anyString(), anyString(), any(float[].class), any(MemoryType.class), any(MemorySource.class));
     }
 
     // ─────────────── Helpers ───────────────

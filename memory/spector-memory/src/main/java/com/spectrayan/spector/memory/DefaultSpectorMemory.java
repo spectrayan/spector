@@ -378,10 +378,6 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     // INGESTION TARGET  --  for unified IngestionPipeline
     // ==============================================================
 
-    @Override
-    public RememberPathway target() {
-        return rememberPathway;
-    }
 
     /** Returns the embedding provider for reconsolidation/update operations. */
     public EmbeddingProvider embeddingProvider() {
@@ -507,6 +503,53 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         } finally {
             releaseLease();
         }
+    }
+
+    @Override
+    public void remember(String id, String text, float[] vector, MemoryType type,
+                         MemorySource source,
+                         RememberContext context,
+                         String... tags) {
+        acquireLease();
+        try {
+            String[] finalTags = tags;
+            if (tags == null || tags.length == 0) {
+                var tagExtractor = rememberPathway.tagExtractor();
+                if (tagExtractor != null) {
+                    finalTags = tagExtractor.extract(id, text);
+                }
+            }
+            float[] finalVector = (vector != null && vector.length > 0)
+                    ? vector
+                    : embeddingProvider.embed(text).vector();
+            String sessionId = MemoryScope.sessionId();
+            if (sessionId != null) {
+                sessionBufferManager.add(sessionId, id, text, finalVector, type, System.currentTimeMillis());
+            }
+            rememberPathway.ingestCognitive(id, text, finalVector, type, finalTags, source, context);
+
+            // Process attachments if present in context metadata
+            if (context != null && context.hasAttachments()) {
+                processAttachments(id, context, type, source, tags);
+            }
+
+            checkCircadianTrigger(type);
+            if (eagerConsolidator != null && (type == MemoryType.SEMANTIC || type == MemoryType.PROCEDURAL)) {
+                eagerConsolidator.submit(id, type);
+            }
+        } catch (RuntimeException e) {
+            log.error("Failed to remember with vector '{}': {}", id, e.getMessage(), e);
+            throw new SpectorServerException(ErrorCode.INGESTION_PIPELINE_FAILED, e, id);
+        } finally {
+            releaseLease();
+        }
+    }
+
+    @Override
+    public void remember(String id, String text, float[] vector, MemoryType type,
+                         MemorySource source,
+                         String... tags) {
+        remember(id, text, vector, type, source, (RememberContext) null, tags);
     }
 
     /**
@@ -1004,7 +1047,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         acquireLease();
         try {
             if (reflectPathway != null) {
-                return reflectPathway.reflect(partitionManager, index, rememberPathway, salienceProfile(), episodicSessionIndex, spec, null);
+                // Non-deprecated path: no RememberPathway is threaded through. Soul version
+                // resolves from the context's SoulVersionSource and nested gist writes go
+                // through the PathwayCatalog (ADR-0035 R2.3, §8.1b).
+                return reflectPathway.reflect(null, partitionManager, index, salienceProfile(),
+                        episodicSessionIndex, spec, null);
             }
             return ReflectReport.empty();
         } finally {
@@ -1579,19 +1626,53 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     public void bindRecallSignalContext(com.spectrayan.spector.memory.pathway.recall.relay.RecallSignal signal) {
         if (signal == null) return;
-        signal.partitionRegistry(this.partitionManager);
-        signal.index(this.index);
-        signal.bm25Index(this.bm25Index);
-        signal.hebbianGraph(this.hebbianGraph);
-        signal.temporalChain(this.temporalChain);
-        signal.temporalKnowledgeGraph(this.temporalKnowledgeGraph);
-        signal.entityDirectory(this.entityDirectory);
-        signal.hyperEntityGraph(this.hyperEntityGraph);
-        signal.quantizer(this.quantizer);
-        signal.coActivationTracker(this.coActivationTracker);
-        signal.suppressionSet(this.suppressionSet);
-        signal.habituationPenalty(this.habituationPenalty);
-        signal.prospectiveScheduler(this.prospectiveScheduler);
+
+        var ctxBuilder = signal.context() != null
+                ? com.spectrayan.spector.commons.pathway.DefaultPathwayContext.from(signal.context())
+                : com.spectrayan.spector.commons.pathway.DefaultPathwayContext.builder();
+        if (this.partitionManager != null) {
+            ctxBuilder.bindIfAbsent(com.spectrayan.spector.memory.cortex.PartitionRegistry.class, this.partitionManager);
+        }
+        if (this.bm25Index != null) {
+            ctxBuilder.bindIfAbsent(com.spectrayan.spector.memory.cortex.MemoryBM25Index.class, this.bm25Index);
+        }
+        if (this.hebbianGraph != null) {
+            ctxBuilder.bindIfAbsent(com.spectrayan.spector.kernel.store.HebbianGraphBase.class, this.hebbianGraph);
+        }
+        if (this.temporalChain != null) {
+            ctxBuilder.bindIfAbsent(com.spectrayan.spector.kernel.store.TemporalChainMemory.class, this.temporalChain);
+        }
+        if (this.hyperEntityGraph != null) {
+            ctxBuilder.bindIfAbsent(com.spectrayan.spector.kernel.store.HyperEntityGraphMemory.class, this.hyperEntityGraph);
+        }
+        if (this.suppressionSet != null) {
+            ctxBuilder.bindIfAbsent(com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet.class, this.suppressionSet);
+        }
+        if (this.habituationPenalty != null) {
+            ctxBuilder.bindIfAbsent(com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty.class, this.habituationPenalty);
+        }
+        if (this.prospectiveScheduler != null) {
+            ctxBuilder.bindIfAbsent(com.spectrayan.spector.memory.cortex.prospective.ProspectiveScheduler.class, this.prospectiveScheduler);
+        }
+        if (this.coActivationTracker != null) {
+            ctxBuilder.bindIfAbsent(com.spectrayan.spector.kernel.store.CoActivationMemory.class, this.coActivationTracker);
+        }
+        if (this.temporalKnowledgeGraph != null) {
+            ctxBuilder.bindIfAbsent(com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph.class, this.temporalKnowledgeGraph);
+        }
+        if (this.entityDirectory != null) {
+            ctxBuilder.bindIfAbsent(com.spectrayan.spector.memory.graph.EntityDirectory.class, this.entityDirectory);
+        }
+        if (this.index != null) {
+            ctxBuilder.bindIfAbsent(com.spectrayan.spector.memory.cortex.index.MemoryIndex.class, this.index);
+        }
+        if (this.rememberPathway != null) {
+            ctxBuilder.bindIfAbsent(com.spectrayan.spector.memory.pathway.SoulVersionSource.class, this.rememberPathway);
+        }
+        if (this.quantizer != null) {
+            ctxBuilder.bindIfAbsent(com.spectrayan.spector.core.quantization.ScalarQuantizer.class, this.quantizer);
+        }
+        signal.bind(ctxBuilder.build());
     }
 
     //  listAll implementations 

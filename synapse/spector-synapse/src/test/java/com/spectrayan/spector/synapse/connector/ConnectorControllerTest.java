@@ -22,7 +22,7 @@ import com.spectrayan.spector.connector.sink.SpectorIngestionSink;
 import com.spectrayan.spector.connector.spi.InMemoryExecutionLogger;
 import com.spectrayan.spector.connector.spi.InMemoryRouteConfigProvider;
 import com.spectrayan.spector.connector.template.TemplateRegistry;
-import com.spectrayan.spector.ingestion.IngestionTarget;
+import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,7 +46,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ExtendWith(MockitoExtension.class)
 class ConnectorControllerTest {
 
-    @Mock private IngestionTarget target;
+    @Mock private SpectorMemory memory;
     @Mock private EmbeddingProvider embeddingProvider;
 
     private TemplateRegistry templateRegistry;
@@ -62,7 +62,7 @@ class ConnectorControllerTest {
         templateRegistry = new TemplateRegistry(null);
         configProvider = new InMemoryRouteConfigProvider();
         executionLogger = new InMemoryExecutionLogger();
-        sink = new SpectorIngestionSink(target, embeddingProvider, executionLogger);
+        sink = new SpectorIngestionSink(memory, embeddingProvider, executionLogger);
         engine = new CamelConnectorEngine(sink, configProvider, templateRegistry);
         engine.start();
         lifecycleService = new RouteLifecycleService(engine, templateRegistry, Optional::ofNullable);

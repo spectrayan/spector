@@ -92,6 +92,11 @@ class ErrorCodeTest {
         assertThat(ErrorCode.MEMORY_PATHWAY_FAILED.id()).isEqualTo("SPE-310-017");
         assertThat(ErrorCode.MEMORY_LAYOUT_MIGRATION_FAILED.id()).isEqualTo("SPE-310-018");
         assertThat(ErrorCode.MEMORY_ENCRYPTION_FAILED.id()).isEqualTo("SPE-310-019");
+        assertThat(ErrorCode.PATHWAY_TIMEOUT.id()).isEqualTo("SPE-310-020");
+        assertThat(ErrorCode.PATHWAY_CIRCUIT_OPEN.id()).isEqualTo("SPE-310-021");
+        assertThat(ErrorCode.PATHWAY_CYCLE.id()).isEqualTo("SPE-310-022");
+        assertThat(ErrorCode.PATHWAY_BULKHEAD.id()).isEqualTo("SPE-310-023");
+        assertThat(ErrorCode.PATHWAY_NESTED_FAILED.id()).isEqualTo("SPE-310-024");
         assertThat(ErrorCode.CUDA_DRIVER_NOT_FOUND.id()).isEqualTo("SPE-400-001");
         assertThat(ErrorCode.API_BAD_REQUEST.id()).isEqualTo("SPE-500-001");
         assertThat(ErrorCode.CLIENT_CONNECTION_FAILED.id()).isEqualTo("SPE-510-001");

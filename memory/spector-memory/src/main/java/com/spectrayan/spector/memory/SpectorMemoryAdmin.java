@@ -82,13 +82,10 @@ import com.spectrayan.spector.memory.model.CognitiveRecord;
 public interface SpectorMemoryAdmin {
 
     // ══════════════════════════════════════════════════════════════
-    // INGESTION TARGET
+    // REMEMBER PATHWAY
     // ══════════════════════════════════════════════════════════════
 
-    /** Returns the cognitive ingestion target for use with the unified IngestionPipeline. */
-    RememberPathway target();
-
-    /** Returns the cognitive ingestion target. */
+    /** Returns the cognitive remember pathway. */
     RememberPathway rememberPathway();
 
     // ══════════════════════════════════════════════════════════════

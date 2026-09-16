@@ -20,6 +20,7 @@ import com.spectrayan.spector.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.memory.pathway.SoulVersionSource;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
 import com.spectrayan.spector.memory.pathway.recall.relay.RecallSignal;
 
@@ -110,7 +111,9 @@ public final class ConstructiveMemoryPersistenceRelay implements SynapticRelay<R
                 String durableId = TSID.generate();
                 byte procFlags = EncodingHeaderFields.withMemoryType((byte) 0, MemoryType.EPISODIC.ordinal());
                 float norm = VectorOps.magnitude(vector);
-                short soulVer = rememberPathway.currentSoulVersion();
+                short soulVer = signal.context() != null && signal.context().find(SoulVersionSource.class).isPresent()
+                        ? signal.context().get(SoulVersionSource.class).currentSoulVersion()
+                        : (rememberPathway != null ? rememberPathway.currentSoulVersion() : (short) 0);
                 EncodingHeader header = EncodingHeader.createSynthetic(
                         System.currentTimeMillis(), 0L, norm, result.importance(),
                         result.valence(), (byte) 128, procFlags,

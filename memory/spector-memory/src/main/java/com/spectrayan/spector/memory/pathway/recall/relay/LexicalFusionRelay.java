@@ -69,14 +69,14 @@ public final class LexicalFusionRelay implements SynapticRelay<RecallSignal> {
     public boolean transmit(final RecallSignal signal) {
         boolean rrfFused = false;
 
-        final com.spectrayan.spector.memory.cortex.MemoryBM25Index effectiveBm25 = signal != null && signal.bm25Index() != null
-                ? signal.bm25Index()
+        final com.spectrayan.spector.memory.cortex.MemoryBM25Index effectiveBm25 = (signal != null && signal.context() != null)
+                ? signal.context().find(com.spectrayan.spector.memory.cortex.MemoryBM25Index.class).orElse(this.bm25Index)
                 : this.bm25Index;
-        final PartitionRegistry effectivePr = signal != null && signal.partitionRegistry() != null
-                ? signal.partitionRegistry()
+        final PartitionRegistry effectivePr = (signal != null && signal.context() != null)
+                ? signal.context().find(PartitionRegistry.class).orElse(this.partitionRegistry)
                 : this.partitionRegistry;
-        final com.spectrayan.spector.memory.cortex.index.MemoryIndex effectiveIndex = signal != null && signal.index() != null
-                ? signal.index()
+        final com.spectrayan.spector.memory.cortex.index.MemoryIndex effectiveIndex = (signal != null && signal.context() != null)
+                ? signal.context().find(com.spectrayan.spector.memory.cortex.index.MemoryIndex.class).orElse(gatherer != null ? gatherer.index() : null)
                 : (gatherer != null ? gatherer.index() : null);
 
         // Sort vector candidates by cognitive score descending before RRF rank assignment

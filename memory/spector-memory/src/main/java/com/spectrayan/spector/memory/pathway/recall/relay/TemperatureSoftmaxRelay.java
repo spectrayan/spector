@@ -77,10 +77,10 @@ public final class TemperatureSoftmaxRelay implements SynapticRelay<RecallSignal
             return options.computeEffectiveTemperature(0.0);
         }
         double zSurprise = 0.0;
-        final PartitionRegistry pr = (signal != null && signal.partitionRegistry() != null)
-                ? signal.partitionRegistry() : partitionRegistry;
-        final SurpriseDetector sd = (signal != null && signal.surpriseDetector() != null)
-                ? signal.surpriseDetector() : surpriseDetector;
+        final PartitionRegistry pr = (signal != null && signal.context() != null)
+                ? signal.context().find(PartitionRegistry.class).orElse(partitionRegistry) : partitionRegistry;
+        final SurpriseDetector sd = (signal != null && signal.context() != null)
+                ? signal.context().find(SurpriseDetector.class).orElse(surpriseDetector) : surpriseDetector;
         if (sd != null && queryVector != null && pr != null) {
             try {
                 final var activeRouter = pr.activeRouter();

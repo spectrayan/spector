@@ -40,9 +40,13 @@ public final class LateralInhibitionRelay implements SynapticRelay<RecallSignal>
 
     private static final Logger log = LoggerFactory.getLogger(LateralInhibitionRelay.class);
 
-    private final Function<String, float[]> vectorLookup;
+    private final java.util.function.BiFunction<String, RecallSignal, float[]> vectorLookup;
 
     public LateralInhibitionRelay(Function<String, float[]> vectorLookup) {
+        this(vectorLookup != null ? (id, sig) -> vectorLookup.apply(id) : null);
+    }
+
+    public LateralInhibitionRelay(java.util.function.BiFunction<String, RecallSignal, float[]> vectorLookup) {
         this.vectorLookup = vectorLookup;
     }
 
@@ -77,7 +81,7 @@ public final class LateralInhibitionRelay implements SynapticRelay<RecallSignal>
         boolean hasVectors = false;
         if (vectorLookup != null) {
             for (int i = 0; i < maxCandidates; i++) {
-                vectors[i] = vectorLookup.apply(candidates.get(i).id());
+                vectors[i] = vectorLookup.apply(candidates.get(i).id(), signal);
                 if (vectors[i] != null) {
                     hasVectors = true;
                 }

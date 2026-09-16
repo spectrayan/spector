@@ -20,9 +20,11 @@ import com.spectrayan.spector.connector.sink.SpectorIngestionSink;
 import com.spectrayan.spector.connector.spi.InMemoryExecutionLogger;
 import com.spectrayan.spector.connector.spi.InMemoryRouteConfigProvider;
 import com.spectrayan.spector.connector.template.TemplateRegistry;
+import com.spectrayan.spector.kernel.api.MemorySource;
+import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.EmbeddingResult;
-import com.spectrayan.spector.ingestion.IngestionTarget;
 
 import org.apache.camel.ProducerTemplate;
 import org.apache.camel.ServiceStatus;
@@ -50,7 +52,7 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class CamelConnectorEngineTest {
 
-    @Mock private IngestionTarget target;
+    @Mock private SpectorMemory memory;
     @Mock private EmbeddingProvider embeddingProvider;
 
     private InMemoryRouteConfigProvider configProvider;
@@ -63,7 +65,7 @@ class CamelConnectorEngineTest {
     void setUp() {
         configProvider = new InMemoryRouteConfigProvider();
         executionLogger = new InMemoryExecutionLogger();
-        sink = new SpectorIngestionSink(target, embeddingProvider, executionLogger);
+        sink = new SpectorIngestionSink(memory, embeddingProvider, executionLogger);
         templateRegistry = new TemplateRegistry(null); // built-in only
         engine = new CamelConnectorEngine(sink, configProvider, templateRegistry);
     }
@@ -127,7 +129,7 @@ class CamelConnectorEngineTest {
                 Map.of("spector-doc-id", "doc-1"));
 
         // Verify ingestion happened
-        verify(target, timeout(5000)).ingest(eq("doc-1"), eq("Hello Spector"), any());
+        verify(memory, timeout(5000)).remember(eq("doc-1"), eq("Hello Spector"), any(), eq(MemoryType.SEMANTIC), eq(MemorySource.OBSERVED));
         assertThat(sink.totalProcessed()).isEqualTo(1);
     }
 
@@ -235,7 +237,7 @@ class CamelConnectorEngineTest {
         Files.writeString(watchDir.resolve("test.txt"), "Hello from file");
 
         // Wait for Camel to pick it up
-        verify(target, timeout(10000)).ingest(eq("test.txt"), eq("Hello from file"), any());
+        verify(memory, timeout(10000)).remember(eq("test.txt"), eq("Hello from file"), any(), eq(MemoryType.SEMANTIC), eq(MemorySource.OBSERVED));
 
         // Cleanup
         Files.deleteIfExists(watchDir.resolve("test.txt"));
@@ -312,7 +314,7 @@ class CamelConnectorEngineTest {
         producer.sendBodyAndHeaders("direct:docid-route", "content here",
                 Map.of("spector-doc-id", "my-custom-doc-id"));
 
-        verify(target, timeout(5000)).ingest(eq("my-custom-doc-id"), eq("content here"), any());
+        verify(memory, timeout(5000)).remember(eq("my-custom-doc-id"), eq("content here"), any(), eq(MemoryType.SEMANTIC), eq(MemorySource.OBSERVED));
     }
 
     @Test
@@ -330,8 +332,8 @@ class CamelConnectorEngineTest {
         producer.sendBody("direct:fallback-route", "no doc id");
 
         // Should ingest with some auto-generated doc ID (exchange ID)
-        verify(target, timeout(5000)).ingest(argThat(id -> id != null && !id.isBlank()),
-                eq("no doc id"), any());
+        verify(memory, timeout(5000)).remember(argThat(id -> id != null && !id.isBlank()),
+                eq("no doc id"), any(), eq(MemoryType.SEMANTIC), eq(MemorySource.OBSERVED));
     }
 
     @Test
@@ -411,10 +413,12 @@ class CamelConnectorEngineTest {
         }
 
         // Wait for Camel to poll MongoDB and process the message
-        verify(target, timeout(5000)).ingest(
+        verify(memory, timeout(5000)).remember(
                 argThat(id -> id != null && id.startsWith("mongodb-mongo-route")),
                 eq(doc.toString()),
-                any(float[].class)
+                any(float[].class),
+                eq(MemoryType.SEMANTIC),
+                eq(MemorySource.OBSERVED)
         );
 
         assertThat(sink.totalProcessed()).isGreaterThanOrEqualTo(1);

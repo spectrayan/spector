@@ -16,15 +16,26 @@
 package com.spectrayan.spector.commons.pathway;
 
 import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
+import com.spectrayan.spector.commons.observation.PathwayObservationHooks;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.function.Consumer;
 
 /**
  * A relay that performs an asynchronous action on the signal in a fire-and-forget manner.
  *
+ * <p>Per ADR-0036 §12, a consolidation failure never fails the parent conduction and never
+ * trips a {@code pathway:*} breaker. It is logged against the relay name and reported through
+ * {@link com.spectrayan.spector.commons.observation.PathwayObservationHook#onConsolidationFailure}.
+ * The signal is deliberately left untouched: by the time the action fails, the pathway has
+ * moved on and mutating the signal would be a data race.</p>
+ *
  * @param <S> the type of the signal
  */
 public final class ConsolidationRelay<S> implements SynapticRelay<S> {
+
+    private static final Logger log = LoggerFactory.getLogger(ConsolidationRelay.class);
 
     private final String name;
     private final Consumer<S> asyncAction;
@@ -42,7 +53,16 @@ public final class ConsolidationRelay<S> implements SynapticRelay<S> {
 
     @Override
     public boolean transmit(final S signal) throws Exception {
-        ConcurrentTasks.fireAndForget(() -> asyncAction.accept(signal));
+        final PathwayContext context = (signal instanceof ContextualSignal cs) ? cs.context() : null;
+        ConcurrentTasks.fireAndForget(() -> {
+            try {
+                asyncAction.accept(signal);
+            } catch (final Exception e) {
+                final FaultKind kind = Faults.kindOf(e);
+                log.warn("Consolidation '{}' failed ({}): {}", name, kind, e.toString());
+                PathwayObservationHooks.get(context).onConsolidationFailure(name, kind);
+            }
+        });
         return true;
     }
 

@@ -260,4 +260,36 @@ class ConcurrentTasksTest {
             assertThat(result.isComplete()).isTrue();
         }
     }
+
+    @Nested
+    @DisplayName("Single-task callWithTimeout")
+    class CallWithTimeout {
+
+        @Test
+        @DisplayName("Returns result when task completes within budget")
+        void completesWithinBudget() throws Exception {
+            String result = ConcurrentTasks.callWithTimeout(() -> "completed", Duration.ofMillis(500));
+            assertThat(result).isEqualTo("completed");
+        }
+
+        @Test
+        @DisplayName("Throws TimeoutException when task exceeds budget")
+        void throwsOnTimeout() {
+            assertThatThrownBy(() -> ConcurrentTasks.callWithTimeout(() -> {
+                Thread.sleep(500);
+                return "late";
+            }, Duration.ofMillis(50)))
+                    .isInstanceOf(java.util.concurrent.TimeoutException.class);
+        }
+
+        @Test
+        @DisplayName("Propagates task exception directly")
+        void propagatesException() {
+            assertThatThrownBy(() -> ConcurrentTasks.callWithTimeout(() -> {
+                throw new IllegalArgumentException("boom");
+            }, Duration.ofMillis(500)))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("boom");
+        }
+    }
 }

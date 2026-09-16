@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.pathway.recall.relay;
 
+import com.spectrayan.spector.commons.pathway.IdempotentRelay;
+import com.spectrayan.spector.commons.pathway.InterruptibleRelay;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.memory.pathway.RelayNames;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
@@ -22,7 +24,8 @@ import org.slf4j.LoggerFactory;
 /**
  * Transduces a raw text query into a vector representation and computes reference spacetime coordinates.
  */
-public final class QueryTransductionRelay implements SynapticRelay<RecallSignal> {
+public final class QueryTransductionRelay
+        implements SynapticRelay<RecallSignal>, IdempotentRelay, InterruptibleRelay {
 
     private static final Logger log = LoggerFactory.getLogger(QueryTransductionRelay.class);
     

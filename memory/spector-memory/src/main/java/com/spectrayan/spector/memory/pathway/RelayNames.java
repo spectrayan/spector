@@ -88,4 +88,39 @@ public final class RelayNames {
 
     // Spacetime Simulation Relays (ADR-0031)
     public static final String SPACETIME_SEED                   = "spacetime_seed";
+
+    // Dream Pathway Relays (ADR-0035 §7.3, ADR-0036 §14 Dream row).
+    // Values must match the names DreamPathway used before DreamRecipe was extracted:
+    // relay names are load-bearing for traces, outcome scopes and the parity gate.
+    public static final String DREAM_GATE                       = "dream_gate";
+    public static final String SALIENT_SEED                     = "salient_seed";
+    public static final String FRAGMENT_UNPACK                  = "fragment_unpack";
+    public static final String HYPER_ASSOCIATE                  = "hyper_associate";
+    public static final String REM_REPLAY                       = "rem_replay";
+    public static final String SCENE_CONSTRUCT                  = "scene_construct";
+    public static final String COUNTERFACTUAL_PROBE             = "counterfactual_probe";
+    public static final String LANGEVIN_DISCOVERY               = "langevin_discovery";
+    public static final String EFE_TRIAGE                       = "efe_triage";
+    public static final String CONCEPT_EXTRACT                  = "concept_extract";
+    public static final String DREAM_JOURNAL                    = "dream_journal";
+    public static final String DREAM_INGESTION                  = "dream_ingestion";
+
+    // Wander Pathway Relays (ADR-0036 §14 "Decide / Wander / Express" row: all DEGRADE).
+    public static final String IDLE_GATE                        = "idle_gate";
+    public static final String AUTOBIOGRAPHICAL_SAMPLING        = "autobiographical_sampling";
+    public static final String HOPFIELD_MIND_WANDERING          = "hopfield_mind_wandering";
+    public static final String MANIFOLD_SYNERGY                 = "manifold_synergy";
+    public static final String HEBBIAN_REINFORCEMENT            = "hebbian_reinforcement";
+    public static final String LONGITUDINAL_CONTINUITY          = "longitudinal_continuity";
+
+    // Express Pathway Relays. These are CamelCase where the rest of the codebase is
+    // snake_case; preserved verbatim because relay names appear in traces and outcome scopes.
+    public static final String IDIOLECT_STYLOMETRY              = "IdiolectStylometry";
+    public static final String VOCAL_PROSODY                    = "VocalProsody";
+    public static final String EMBODIED_KINESICS                = "EmbodiedKinesics";
+    public static final String PHENOMENOLOGICAL_STREAM          = "PhenomenologicalStream";
+
+    // Decide Pathway Relays.
+    public static final String POLICY_INFERENCE                 = "policy_inference";
+    public static final String EXPERIMENT_THOUGHT               = "experiment_thought";
 }

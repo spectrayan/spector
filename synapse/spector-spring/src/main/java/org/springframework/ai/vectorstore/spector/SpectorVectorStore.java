@@ -31,6 +31,8 @@ import org.springframework.ai.vectorstore.filter.Filter;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
+import com.spectrayan.spector.kernel.api.MemorySource;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ScoringMode;
@@ -69,7 +71,7 @@ public class SpectorVectorStore implements VectorStore {
             String content = document.getText() != null ? document.getText() : "";
             float[] embedding = extractEmbedding(document);
 
-            memory.target().ingest(id, content, embedding);
+            memory.remember(id, content, embedding, MemoryType.SEMANTIC, MemorySource.OBSERVED);
         }
         LOG.debug("Added {} documents to SpectorVectorStore", documents.size());
     }

@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.pathway.reflect.relay;
 
+import com.spectrayan.spector.memory.pathway.FakeRememberPathway;
+
 import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
@@ -89,8 +91,7 @@ class EpisodicLogConsolidationRelayTest {
         PartitionHandle handle = new PartitionHandle(0, null, router, null, false);
         when(partitionManager.snapshot()).thenReturn(List.of(handle));
 
-        RememberPathway rememberPathway = Mockito.mock(RememberPathway.class);
-        when(rememberPathway.ingestCognitiveWithHeader(any(), any(), any(), any(), any(), any(), any())).thenReturn(true);
+        FakeRememberPathway fakeRemember = new FakeRememberPathway();
         LlmProvider llm = new LlmProvider() {
             @Override
             public LlmResponse generate(LlmRequest request, GenerationOptions options) {
@@ -108,10 +109,10 @@ class EpisodicLogConsolidationRelayTest {
 
         ReflectSignal signal = ReflectSignal.builder()
                 .partitionManager(partitionManager)
-                .rememberPathway(rememberPathway)
                 .textGenerator(llm)
                 .idGenerator(() -> java.util.UUID.randomUUID().toString())
                 .build();
+        signal.bind(fakeRemember.inContext("test"));
 
         EpisodicLogConsolidationRelay relay = new EpisodicLogConsolidationRelay();
         boolean success = relay.transmit(signal);
@@ -119,9 +120,11 @@ class EpisodicLogConsolidationRelayTest {
         assertThat(success).isTrue();
         assertThat(signal.logTurnsConsolidated()).isEqualTo(2);
 
-        ArgumentCaptor<EncodingHeader> headerCaptor = ArgumentCaptor.forClass(EncodingHeader.class);
-        verify(rememberPathway, Mockito.times(2)).ingestCognitiveWithHeader(any(), any(), any(), any(), any(), any(), headerCaptor.capture());
-        assertThat(headerCaptor.getAllValues()).allMatch(h -> h.timestampMs() == 2000L);
+        // Nested Remember now runs through the PathwayCatalog, so assert on the signals
+        // the fake received rather than on a mocked ingest call.
+        assertThat(fakeRemember.invocationCount()).isEqualTo(2);
+        assertThat(fakeRemember.received())
+                .allMatch(rs -> rs.header().timestampMs() == 2000L);
     }
 
     @Test
@@ -141,8 +144,7 @@ class EpisodicLogConsolidationRelayTest {
         PartitionHandle handle = new PartitionHandle(0, null, router, null, false);
         when(partitionManager.snapshot()).thenReturn(List.of(handle));
 
-        RememberPathway rememberPathway = Mockito.mock(RememberPathway.class);
-        when(rememberPathway.ingestCognitiveWithHeader(any(), any(), any(), any(), any(), any(), any())).thenReturn(true);
+        FakeRememberPathway fakeRemember = new FakeRememberPathway();
         List<String> capturedPrompts = new ArrayList<>();
         LlmProvider llm = new LlmProvider() {
             @Override
@@ -163,11 +165,11 @@ class EpisodicLogConsolidationRelayTest {
         // First consolidation: consolidates turns 1 and 2
         ReflectSignal signal1 = ReflectSignal.builder()
                 .partitionManager(partitionManager)
-                .rememberPathway(rememberPathway)
                 .textGenerator(llm)
                 .episodicSessionIndex(sessionIndex)
                 .idGenerator(() -> java.util.UUID.randomUUID().toString())
                 .build();
+        signal1.bind(fakeRemember.inContext("test"));
 
         EpisodicLogConsolidationRelay relay = new EpisodicLogConsolidationRelay();
         boolean success1 = relay.transmit(signal1);
@@ -186,11 +188,11 @@ class EpisodicLogConsolidationRelayTest {
         // Second consolidation: should ONLY consolidate turns 3 and 4, with turns 1 and 2 as prior context!
         ReflectSignal signal2 = ReflectSignal.builder()
                 .partitionManager(partitionManager)
-                .rememberPathway(rememberPathway)
                 .textGenerator(llm)
                 .episodicSessionIndex(sessionIndex)
                 .idGenerator(() -> java.util.UUID.randomUUID().toString())
                 .build();
+        signal2.bind(fakeRemember.inContext("test"));
 
         boolean success2 = relay.transmit(signal2);
 
@@ -206,10 +208,9 @@ class EpisodicLogConsolidationRelayTest {
         assertThat(secondPrompt).contains("Let's go with Kafka because of high throughput");
 
         // Verify the new facts have timestamp 6000L (the max of turns 3 and 4)
-        ArgumentCaptor<EncodingHeader> headerCaptor = ArgumentCaptor.forClass(EncodingHeader.class);
-        verify(rememberPathway, Mockito.atLeast(2)).ingestCognitiveWithHeader(any(), any(), any(), any(), any(), any(), headerCaptor.capture());
-        EncodingHeader latestHeader = headerCaptor.getAllValues().get(headerCaptor.getAllValues().size() - 1);
-        assertThat(latestHeader.timestampMs()).isEqualTo(6000L);
+        assertThat(fakeRemember.invocationCount()).isGreaterThanOrEqualTo(2);
+        final var latest = fakeRemember.received().get(fakeRemember.invocationCount() - 1);
+        assertThat(latest.header().timestampMs()).isEqualTo(6000L);
     }
 
     @Test
@@ -226,8 +227,7 @@ class EpisodicLogConsolidationRelayTest {
         PartitionHandle handle = new PartitionHandle(0, null, router, null, false);
         when(partitionManager.snapshot()).thenReturn(List.of(handle));
 
-        RememberPathway rememberPathway = Mockito.mock(RememberPathway.class);
-        when(rememberPathway.ingestCognitiveWithHeader(any(), any(), any(), any(), any(), any(), any())).thenReturn(true);
+        FakeRememberPathway fakeRemember = new FakeRememberPathway();
         List<String> capturedPrompts = new ArrayList<>();
         LlmProvider llm = new LlmProvider() {
             @Override
@@ -248,10 +248,10 @@ class EpisodicLogConsolidationRelayTest {
         // First consolidation: consolidates turns 1 and 2 (NO session index provided)
         ReflectSignal signal1 = ReflectSignal.builder()
                 .partitionManager(partitionManager)
-                .rememberPathway(rememberPathway)
                 .textGenerator(llm)
                 .idGenerator(() -> java.util.UUID.randomUUID().toString())
                 .build();
+        signal1.bind(fakeRemember.inContext("test"));
 
         EpisodicLogConsolidationRelay relay = new EpisodicLogConsolidationRelay();
         boolean success1 = relay.transmit(signal1);
@@ -268,10 +268,10 @@ class EpisodicLogConsolidationRelayTest {
         // Second consolidation: NO session index provided — MUST fallback to slab scan in EpisodicMemory!
         ReflectSignal signal2 = ReflectSignal.builder()
                 .partitionManager(partitionManager)
-                .rememberPathway(rememberPathway)
                 .textGenerator(llm)
                 .idGenerator(() -> java.util.UUID.randomUUID().toString())
                 .build();
+        signal2.bind(fakeRemember.inContext("test"));
 
         boolean success2 = relay.transmit(signal2);
 
@@ -298,8 +298,7 @@ class EpisodicLogConsolidationRelayTest {
         PartitionManager partitionManager = Mockito.mock(PartitionManager.class);
         when(partitionManager.snapshot()).thenReturn(List.of(new PartitionHandle(0, null, router, null, false)));
 
-        RememberPathway rememberPathway = Mockito.mock(RememberPathway.class);
-        when(rememberPathway.ingestCognitiveWithHeader(any(), any(), any(), any(), any(), any(), any())).thenReturn(true);
+        FakeRememberPathway fakeRemember = new FakeRememberPathway();
         LlmProvider llm = new LlmProvider() {
             @Override public LlmResponse generate(LlmRequest req, GenerationOptions opt) { return new LlmResponse("- Fact", 1, 1, "m"); }
             @Override public String generate(String prompt, GenerationOptions opt) { return "- Fact"; }
@@ -313,11 +312,11 @@ class EpisodicLogConsolidationRelayTest {
 
         ReflectSignal signal = ReflectSignal.builder()
                 .partitionManager(partitionManager)
-                .rememberPathway(rememberPathway)
                 .textGenerator(llm)
                 .sweepSpec(spec)
                 .idGenerator(() -> java.util.UUID.randomUUID().toString())
                 .build();
+        signal.bind(fakeRemember.inContext("test"));
 
         EpisodicLogConsolidationRelay relay = new EpisodicLogConsolidationRelay();
         boolean success = relay.transmit(signal);
@@ -337,8 +336,7 @@ class EpisodicLogConsolidationRelayTest {
         PartitionManager partitionManager = Mockito.mock(PartitionManager.class);
         when(partitionManager.snapshot()).thenReturn(List.of(new PartitionHandle(0, null, router, null, false)));
 
-        RememberPathway rememberPathway = Mockito.mock(RememberPathway.class);
-        when(rememberPathway.ingestCognitiveWithHeader(any(), any(), any(), any(), any(), any(), any())).thenReturn(true);
+        FakeRememberPathway fakeRemember = new FakeRememberPathway();
         LlmProvider llm = new LlmProvider() {
             @Override public LlmResponse generate(LlmRequest req, GenerationOptions opt) { return new LlmResponse("- Fact", 1, 1, "m"); }
             @Override public String generate(String prompt, GenerationOptions opt) { return "- Fact"; }
@@ -352,11 +350,11 @@ class EpisodicLogConsolidationRelayTest {
 
         ReflectSignal signal = ReflectSignal.builder()
                 .partitionManager(partitionManager)
-                .rememberPathway(rememberPathway)
                 .textGenerator(llm)
                 .sweepSpec(spec)
                 .idGenerator(() -> java.util.UUID.randomUUID().toString())
                 .build();
+        signal.bind(fakeRemember.inContext("test"));
 
         EpisodicLogConsolidationRelay relay = new EpisodicLogConsolidationRelay();
         boolean success = relay.transmit(signal);
@@ -376,8 +374,7 @@ class EpisodicLogConsolidationRelayTest {
         PartitionManager partitionManager = Mockito.mock(PartitionManager.class);
         when(partitionManager.snapshot()).thenReturn(List.of(new PartitionHandle(0, null, router, null, false)));
 
-        RememberPathway rememberPathway = Mockito.mock(RememberPathway.class);
-        when(rememberPathway.ingestCognitiveWithHeader(any(), any(), any(), any(), any(), any(), any())).thenReturn(true);
+        FakeRememberPathway fakeRemember = new FakeRememberPathway();
         LlmProvider llm = new LlmProvider() {
             @Override public LlmResponse generate(LlmRequest req, GenerationOptions opt) { return new LlmResponse("- Fact", 1, 1, "m"); }
             @Override public String generate(String prompt, GenerationOptions opt) { return "- Fact"; }
@@ -393,13 +390,13 @@ class EpisodicLogConsolidationRelayTest {
 
         ReflectSignal signal = ReflectSignal.builder()
                 .partitionManager(partitionManager)
-                .rememberPathway(rememberPathway)
                 .textGenerator(llm)
                 .sweepSpec(spec)
                 .checkpointStore(checkpointStore)
                 .checkpoint(ReflectCheckpoint.initial(sweepId))
                 .idGenerator(() -> java.util.UUID.randomUUID().toString())
                 .build();
+        signal.bind(fakeRemember.inContext("test"));
 
         EpisodicLogConsolidationRelay relay = new EpisodicLogConsolidationRelay();
         boolean success = relay.transmit(signal);
@@ -424,7 +421,7 @@ class EpisodicLogConsolidationRelayTest {
         PartitionManager partitionManager = Mockito.mock(PartitionManager.class);
         when(partitionManager.snapshot()).thenReturn(List.of(new PartitionHandle(0, null, router, null, false)));
 
-        RememberPathway rememberPathway = Mockito.mock(RememberPathway.class);
+        FakeRememberPathway fakeRemember = new FakeRememberPathway();
         LlmProvider llm = new LlmProvider() {
             @Override public LlmResponse generate(LlmRequest req, GenerationOptions opt) {
                 try { Thread.sleep(50); } catch (InterruptedException ignored) {}
@@ -444,11 +441,11 @@ class EpisodicLogConsolidationRelayTest {
 
         ReflectSignal signal = ReflectSignal.builder()
                 .partitionManager(partitionManager)
-                .rememberPathway(rememberPathway)
                 .textGenerator(llm)
                 .sweepSpec(spec)
                 .idGenerator(() -> java.util.UUID.randomUUID().toString())
                 .build();
+        signal.bind(fakeRemember.inContext("test"));
 
         EpisodicLogConsolidationRelay relay = new EpisodicLogConsolidationRelay();
         boolean success = relay.transmit(signal);

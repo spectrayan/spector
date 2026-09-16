@@ -12,14 +12,24 @@
  */
 package com.spectrayan.spector.memory.pathway.decide.relay;
 
+import com.spectrayan.spector.commons.pathway.ConductionOutcome;
 import com.spectrayan.spector.memory.aisme.policy.PolicyDecisionReport;
 
 public record DecideReport(
     PolicyDecisionReport decisionReport,
     long executionTimeMs,
-    boolean policySelected
+    boolean policySelected,
+    ConductionOutcome outcome
 ) {
+    public DecideReport(PolicyDecisionReport decisionReport, long executionTimeMs, boolean policySelected) {
+        this(decisionReport, executionTimeMs, policySelected, null);
+    }
+
     public static DecideReport empty() { 
-        return new DecideReport(PolicyDecisionReport.empty(), 0, false); 
+        return new DecideReport(PolicyDecisionReport.empty(), 0, false, null); 
+    }
+
+    public static DecideReport empty(ConductionOutcome outcome) { 
+        return new DecideReport(PolicyDecisionReport.empty(), 0, false, outcome); 
     }
 }

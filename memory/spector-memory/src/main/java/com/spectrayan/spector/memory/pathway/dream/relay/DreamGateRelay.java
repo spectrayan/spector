@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.pathway.dream.relay;
 
+import com.spectrayan.spector.commons.pathway.CognitivePathwayException;
+import com.spectrayan.spector.commons.pathway.FaultKind;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,7 +31,21 @@ public final class DreamGateRelay implements SynapticRelay<DreamSignal> {
     private static final Logger log = LoggerFactory.getLogger(DreamGateRelay.class);
 
     @Override
-    public boolean transmit(final DreamSignal signal) {
+    public boolean transmit(final DreamSignal signal) throws Exception {
+        if (signal == null || !DreamGates.DREAMING_ENABLED.test(signal)) {
+            final String reason = signal != null
+                    ? DreamGates.DREAMING_ENABLED.unsatisfiedReason(signal)
+                    : "Dream signal is null";
+            if (log.isDebugEnabled()) {
+                log.debug("DreamGateRelay: closed gate — {}", reason);
+            }
+            throw new CognitivePathwayException(
+                    "dream_pathway",
+                    relayName(),
+                    FaultKind.CONTROL,
+                    false,
+                    new IllegalStateException(reason));
+        }
         if (log.isDebugEnabled()) {
             log.debug("DreamGateRelay: initiating dream cycle");
         }

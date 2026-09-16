@@ -16,7 +16,7 @@
 package com.spectrayan.spector.metrics.observation;
 
 import com.spectrayan.spector.commons.concurrent.MemoryScope;
-import com.spectrayan.spector.commons.pathway.CognitivePathway;
+import com.spectrayan.spector.commons.pathway.PathwayEngine;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.config.ObservabilityConfig;
 import io.micrometer.observation.tck.TestObservationRegistry;
@@ -146,9 +146,9 @@ class ObservableRelayTest {
     }
 
     @Test
-    @DisplayName("Pathway Interceptor: wraps full CognitivePathway pipeline and captures all relay observations")
+    @DisplayName("Pathway Interceptor: wraps full PathwayEngine pipeline and captures all relay observations")
     void testPathwayWithObservableRelayInterceptor() {
-        final CognitivePathway<Signal> pathway = CognitivePathway.<Signal>pathway("ObservedPipeline")
+        final PathwayEngine<Signal> pathway = PathwayEngine.<Signal>builder("ObservedPipeline")
                 .withInterceptor(ObservableRelay.interceptor(registry, config))
                 .relay("stage1", s -> { s.history.add("s1"); return true; })
                 .relay("stage2", s -> { s.history.add("s2"); return true; })

@@ -21,20 +21,16 @@ import com.spectrayan.spector.kernel.store.ContinuityMemory;
 import com.spectrayan.spector.kernel.store.HebbianGraphBase;
 import com.spectrayan.spector.kernel.shape.Memory;
 import com.spectrayan.spector.memory.persist.PartitionManager;
-import com.spectrayan.spector.memory.pathway.RelayNames;
-import com.spectrayan.spector.memory.pathway.simulation.relay.SpacetimeSeedRelay;
-import com.spectrayan.spector.memory.pathway.wander.relay.AutobiographicalSamplingRelay;
-import com.spectrayan.spector.memory.pathway.wander.relay.HebbianSynapticReinforcementRelay;
-import com.spectrayan.spector.memory.pathway.wander.relay.HopfieldMindWanderingRelay;
-import com.spectrayan.spector.memory.pathway.wander.relay.IdleGateRelay;
-import com.spectrayan.spector.memory.pathway.wander.relay.LongitudinalContinuityRelay;
-import com.spectrayan.spector.memory.pathway.wander.relay.ManifoldSynergyRelay;
-import com.spectrayan.spector.memory.pathway.wander.relay.WanderGates;
+import com.spectrayan.spector.memory.pathway.wander.relay.WanderRecipe;
 import com.spectrayan.spector.memory.pathway.wander.relay.WanderReport;
 import com.spectrayan.spector.memory.pathway.wander.relay.WanderSignal;
 
-import com.spectrayan.spector.commons.pathway.CognitivePathway;
-import com.spectrayan.spector.commons.pathway.ErrorPolicy;
+import com.spectrayan.spector.commons.pathway.AbstractPathway;
+import com.spectrayan.spector.commons.pathway.PathwayEngine;
+import com.spectrayan.spector.commons.pathway.ConductionOutcome;
+import com.spectrayan.spector.commons.pathway.DefaultPathwayContext;
+import com.spectrayan.spector.commons.pathway.DefaultPathwayComposer;
+import com.spectrayan.spector.commons.pathway.PathwayComposer;
 import com.spectrayan.spector.commons.pathway.GatedRelay;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
@@ -56,11 +52,10 @@ import java.util.function.Function;
  *
  * @since 1.2.0
  */
-public final class WanderPathway implements AutoCloseable {
+public final class WanderPathway extends AbstractPathway<WanderSignal, WanderReport> implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(WanderPathway.class);
 
-    private final CognitivePathway<WanderSignal> pathway;
     private final ScalarQuantizer quantizer;
     private final EmbeddingProvider embeddingProvider;
     private final MentalStateTracker mentalStateTracker;
@@ -73,6 +68,7 @@ public final class WanderPathway implements AutoCloseable {
     private final float[] soulPriorPreference;
 
     private WanderPathway(final Builder builder) {
+        super("wander", WanderSignal.class, WanderReport.class);
         this.quantizer = builder.quantizer;
         this.embeddingProvider = builder.embeddingProvider;
         this.mentalStateTracker = builder.mentalStateTracker;
@@ -84,62 +80,37 @@ public final class WanderPathway implements AutoCloseable {
         this.aismeConfig = builder.aismeConfig;
         this.soulPriorPreference = builder.soulPriorPreference;
 
-        var pathwayBuilder = CognitivePathway.<WanderSignal>pathway("wander_pathway");
+        final PathwayComposer<WanderSignal> pathwayBuilder =
+                new DefaultPathwayComposer<>("wander_pathway");
         if (builder.interceptor != null) {
             pathwayBuilder.withInterceptor(builder.interceptor);
         }
+        new WanderRecipe().compose(pathwayBuilder);
 
-        // 1. Idle Gate
-        pathwayBuilder.gated("idle_gate", WanderGates.IS_IDLE, new IdleGateRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
+        final PathwayEngine<WanderSignal> engine = pathwayBuilder.build();
+        initEngine(engine);
+    }
 
-        // 2. Autobiographical Sampling
-        pathwayBuilder.gated("autobiographical_sampling", WanderGates.DMN_ENABLED, new AutobiographicalSamplingRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
-
-        // 2b. Spacetime Shortlist Seed Selection (ADR-0031)
-        pathwayBuilder.gated(RelayNames.SPACETIME_SEED, WanderGates.DMN_ENABLED, new SpacetimeSeedRelay.WanderSeedRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
-
-        // 3. Hopfield Mind Wandering
-        pathwayBuilder.gated("hopfield_mind_wandering", WanderGates.DMN_ENABLED, new HopfieldMindWanderingRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
-
-        // 4. Manifold Synergy Evaluation
-        pathwayBuilder.gated("manifold_synergy", WanderGates.MANIFOLD_ENABLED, new ManifoldSynergyRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
-
-        // 5. Hebbian Synaptic Reinforcement
-        pathwayBuilder.gated("hebbian_reinforcement", WanderGates.DMN_ENABLED, new HebbianSynapticReinforcementRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
-
-        // 6. Longitudinal Continuity Snapshot
-        pathwayBuilder.gated("longitudinal_continuity", WanderGates.CONTINUITY_ENABLED, new LongitudinalContinuityRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
-
-        this.pathway = pathwayBuilder.build();
+    public PathwayEngine<WanderSignal> pathway() {
+        return engine();
     }
 
     public static Builder builder() {
         return new Builder();
     }
 
-    /**
-     * Conducts a full wandering and continuity tracking cycle over the supplied signal.
-     *
-     * @param signal the wander execution signal
-     * @return resulting {@link WanderReport}
-     */
-    public WanderReport conduct(final WanderSignal signal) {
-        Objects.requireNonNull(signal, "WanderSignal cannot be null");
-        if (log.isTraceEnabled()) {
-            log.trace("WanderPathway: initiating cognitive wandering cycle...");
+    @Override
+    protected WanderReport project(final WanderSignal signal) {
+        ConductionOutcome outcome = signal.context() != null ? signal.context().outcome() : null;
+        if (outcome != null && outcome.finish() == ConductionOutcome.Finish.SHORT_CIRCUITED) {
+            return WanderReport.empty(outcome);
         }
-        try {
-            pathway.conduct(signal);
-            WanderReport report = signal.buildReport();
-            if (log.isDebugEnabled()) {
-                log.debug("WanderPathway: cycle complete in {}ms — sampled={}, associations={}, snapshotRecorded={}",
-                        report.elapsed().toMillis(), report.memoriesSampled(), report.associationsFormed(), report.snapshotRecorded());
-            }
-            return report;
-        } catch (Exception e) {
-            log.error("WanderPathway: wandering cycle aborted due to error: {}", e.getMessage(), e);
-            throw new com.spectrayan.spector.memory.error.SpectorPathwayException("WanderPathway execution failed: " + e.getMessage(), e);
+        final WanderReport report = signal.buildReport();
+        if (log.isDebugEnabled()) {
+            log.debug("WanderPathway: cycle complete in {}ms — sampled={}, associations={}, snapshotRecorded={}",
+                    report.elapsed().toMillis(), report.memoriesSampled(), report.associationsFormed(), report.snapshotRecorded());
         }
+        return report;
     }
 
     /**
@@ -151,8 +122,13 @@ public final class WanderPathway implements AutoCloseable {
      */
     public WanderReport execute(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel, final WanderSignal signal) {
         Objects.requireNonNull(signal, "WanderSignal cannot be null");
-        if (kernel != null) {
-            signal.kernel(kernel);
+        if (signal.context() == null) {
+            final DefaultPathwayContext.Builder ctxBuilder = DefaultPathwayContext.builder();
+            if (kernel != null) {
+                ctxBuilder.namespaceId(kernel.namespaceId());
+                ctxBuilder.bind(com.spectrayan.spector.kernel.api.NamespaceKernel.class, kernel);
+            }
+            signal.bind(ctxBuilder.build());
         }
         return conduct(signal);
     }
@@ -164,7 +140,6 @@ public final class WanderPathway implements AutoCloseable {
                                 final PartitionManager partitionManager,
                                 final long lastActivityTimestampMs) {
         WanderSignal signal = WanderSignal.builder()
-                .kernel(kernel)
                 .partitionManager(partitionManager)
                 .quantizer(quantizer)
                 .embeddingProvider(embeddingProvider)
@@ -180,7 +155,7 @@ public final class WanderPathway implements AutoCloseable {
                 .idleThresholdSeconds(aismeConfig != null ? aismeConfig.dmnIdleIntervalSeconds() : 60)
                 .build();
 
-        return conduct(signal);
+        return execute(kernel, signal);
     }
 
     /**

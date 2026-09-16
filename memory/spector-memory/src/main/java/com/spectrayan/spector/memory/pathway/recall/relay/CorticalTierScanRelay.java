@@ -31,6 +31,8 @@ import com.spectrayan.spector.memory.pathway.pipeline.scan.ScanEmitter;
 import com.spectrayan.spector.memory.pathway.pipeline.scan.SequentialScanEmitter;
 import com.spectrayan.spector.memory.pathway.pipeline.scan.SlabScoreFunction;
 import com.spectrayan.spector.memory.pathway.pipeline.scan.TierScanStrategy;
+import com.spectrayan.spector.kernel.layout.FixedEngramLayout;
+import com.spectrayan.spector.kernel.store.EpisodicMemory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,6 +60,23 @@ public final class CorticalTierScanRelay implements SynapticRelay<RecallSignal> 
     private final SlabScoreFunction scoreFunc;
     private final EpisodicScoreFunction episodicScoreFunc;
 
+    @FunctionalInterface
+    public interface SignalSlabScoreFunction {
+        List<CognitiveResult> score(RecallSignal signal, int partitionSeq, MemoryType type, FixedEngramLayout layout,
+                                    int recordCount, long baseOffset, float[] queryVector,
+                                    RecallOptions options, long nowMs);
+    }
+
+    @FunctionalInterface
+    public interface SignalEpisodicScoreFunction {
+        List<CognitiveResult> score(RecallSignal signal, EpisodicMemory episodic,
+                                    int partitionSeq, float[] queryVector, String rawQuery,
+                                    RecallOptions options, long nowMs);
+    }
+
+    private final SignalSlabScoreFunction signalScoreFunc;
+    private final SignalEpisodicScoreFunction signalEpisodicScoreFunc;
+
     /**
      * Constructs a new CorticalTierScanRelay.
      *
@@ -78,6 +97,27 @@ public final class CorticalTierScanRelay implements SynapticRelay<RecallSignal> 
         this.semanticRecallStrategy = semanticRecallStrategy;
         this.scoreFunc = scoreFunc;
         this.episodicScoreFunc = episodicScoreFunc;
+        this.signalScoreFunc = scoreFunc != null ? (sig, pSeq, type, layout, recCount, bOffset, qVec, opts, nMs) ->
+                scoreFunc.score(pSeq, type, layout, recCount, bOffset, qVec, opts, nMs) : null;
+        this.signalEpisodicScoreFunc = episodicScoreFunc != null ? (sig, ep, pSeq, qVec, rQuery, opts, nMs) ->
+                episodicScoreFunc.score(ep, pSeq, qVec, rQuery, opts, nMs) : null;
+    }
+
+    public CorticalTierScanRelay(
+            final PartitionRegistry partitionRegistry,
+            final PartitionPruner partitionPruner,
+            final SemanticRecallStrategy semanticRecallStrategy,
+            final SignalSlabScoreFunction signalScoreFunc,
+            final SignalEpisodicScoreFunction signalEpisodicScoreFunc) {
+        this.partitionRegistry = partitionRegistry;
+        this.partitionPruner = partitionPruner;
+        this.semanticRecallStrategy = semanticRecallStrategy;
+        this.signalScoreFunc = signalScoreFunc;
+        this.signalEpisodicScoreFunc = signalEpisodicScoreFunc;
+        this.scoreFunc = signalScoreFunc != null ? (pSeq, type, layout, recCount, bOffset, qVec, opts, nMs) ->
+                signalScoreFunc.score(null, pSeq, type, layout, recCount, bOffset, qVec, opts, nMs) : null;
+        this.episodicScoreFunc = signalEpisodicScoreFunc != null ? (ep, pSeq, qVec, rQuery, opts, nMs) ->
+                signalEpisodicScoreFunc.score(null, ep, pSeq, qVec, rQuery, opts, nMs) : null;
     }
 
     public CorticalTierScanRelay(
@@ -101,8 +141,17 @@ public final class CorticalTierScanRelay implements SynapticRelay<RecallSignal> 
         final MemoryType[] targetTypes = options.memoryTypes();
         final List<CognitiveResult> allResults = signal.candidates();
 
+        final SlabScoreFunction effectiveScoreFunc = signalScoreFunc != null
+                ? (pSeq, type, layout, recCount, bOffset, qVec, opts, nMs) ->
+                    signalScoreFunc.score(signal, pSeq, type, layout, recCount, bOffset, qVec, opts, nMs)
+                : scoreFunc;
+        final EpisodicScoreFunction effectiveEpisodicFunc = signalEpisodicScoreFunc != null
+                ? (ep, pSeq, qVec, rQuery, opts, nMs) ->
+                    signalEpisodicScoreFunc.score(signal, ep, pSeq, qVec, rQuery, opts, nMs)
+                : episodicScoreFunc;
+
         final List<Callable<List<CognitiveResult>>> scanTasks = new ArrayList<>();
-        scan(signal, new ParallelScanEmitter(scanTasks, queryVector, rawQuery, options, nowMs, scoreFunc, episodicScoreFunc, semanticRecallStrategy),
+        scan(signal, new ParallelScanEmitter(scanTasks, queryVector, rawQuery, options, nowMs, effectiveScoreFunc, effectiveEpisodicFunc, semanticRecallStrategy),
                 targetTypes, options, nowMs);
 
         if (!scanTasks.isEmpty()) {
@@ -113,7 +162,7 @@ public final class CorticalTierScanRelay implements SynapticRelay<RecallSignal> 
                 }
             } catch (final ConcurrentExecutionException e) {
                 log.error("Parallel tier scan failed: {}", e.getMessage(), e);
-                allResults.addAll(sequentialScan(signal, queryVector, rawQuery, options, nowMs, targetTypes));
+                allResults.addAll(sequentialScan(signal, queryVector, rawQuery, options, nowMs, targetTypes, effectiveScoreFunc, effectiveEpisodicFunc));
             } catch (final InterruptedException e) {
                 Thread.currentThread().interrupt();
                 log.warn("Recall interrupted during parallel scan");
@@ -124,8 +173,8 @@ public final class CorticalTierScanRelay implements SynapticRelay<RecallSignal> 
     }
 
     private void scan(final RecallSignal signal, final ScanEmitter emitter, final MemoryType[] targetTypes, final RecallOptions options, final long nowMs) {
-        final PartitionRegistry effectiveRegistry = signal != null && signal.partitionRegistry() != null
-                ? signal.partitionRegistry()
+        final PartitionRegistry effectiveRegistry = (signal != null && signal.context() != null)
+                ? signal.context().find(PartitionRegistry.class).orElse(this.partitionRegistry)
                 : this.partitionRegistry;
         if (effectiveRegistry == null) {
             return;
@@ -156,7 +205,8 @@ public final class CorticalTierScanRelay implements SynapticRelay<RecallSignal> 
     }
 
     private List<CognitiveResult> sequentialScan(final RecallSignal signal, final float[] queryVector, final String rawQuery,
-                                                 final RecallOptions options, final long nowMs, final MemoryType[] targetTypes) {
+                                                 final RecallOptions options, final long nowMs, final MemoryType[] targetTypes,
+                                                 final SlabScoreFunction scoreFunc, final EpisodicScoreFunction episodicScoreFunc) {
         final List<CognitiveResult> results = new ArrayList<>();
         scan(signal, new SequentialScanEmitter(results, queryVector, rawQuery, options, nowMs, scoreFunc, episodicScoreFunc, semanticRecallStrategy),
                 targetTypes, options, nowMs);

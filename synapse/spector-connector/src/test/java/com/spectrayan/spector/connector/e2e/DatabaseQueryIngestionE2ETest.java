@@ -20,7 +20,6 @@ import com.spectrayan.spector.connector.model.RouteConfig;
 import com.spectrayan.spector.connector.sink.SpectorIngestionSink;
 import com.spectrayan.spector.connector.spi.InMemoryExecutionLogger;
 import com.spectrayan.spector.connector.template.TemplateRegistry;
-import com.spectrayan.spector.ingestion.IngestionTarget;
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.model.CognitiveResult;
@@ -138,12 +137,9 @@ class DatabaseQueryIngestionE2ETest {
                 .persistence(tempDir)
                 .build();
 
-        // 3. Real IngestionTarget from SpectorMemory
-        IngestionTarget target = memory.target();
-
-        // 4. Real SpectorIngestionSink
+        // 3. Real SpectorIngestionSink
         executionLogger = new InMemoryExecutionLogger();
-        sink = new SpectorIngestionSink(target, embeddingProvider, executionLogger);
+        sink = new SpectorIngestionSink(memory, embeddingProvider, executionLogger);
 
         // 5. Real TemplateRegistry & CamelConnectorEngine
         TemplateRegistry templateRegistry = new TemplateRegistry(null);

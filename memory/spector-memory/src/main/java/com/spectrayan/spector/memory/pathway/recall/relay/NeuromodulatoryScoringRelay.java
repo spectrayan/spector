@@ -43,8 +43,9 @@ public final class NeuromodulatoryScoringRelay implements SynapticRelay<RecallSi
 
     @Override
     public boolean transmit(final RecallSignal signal) {
-        final CoActivationMemory tracker = (signal != null && signal.coActivationTracker() != null)
-                ? signal.coActivationTracker() : coActivationTracker;
+        final CoActivationMemory tracker = (signal != null && signal.context() != null)
+                ? signal.context().find(CoActivationMemory.class).orElse(coActivationTracker)
+                : coActivationTracker;
         salienceScorer.applyCognitiveScoring(
                 signal.candidates(),
                 signal.options(),

@@ -12,14 +12,17 @@
  */
 package com.spectrayan.spector.memory.pathway.remember.relay;
 
-import com.spectrayan.spector.commons.pathway.CognitivePathway;
+import com.spectrayan.spector.commons.pathway.PathwayEngine;
 import com.spectrayan.spector.commons.pathway.ErrorPolicy;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
-import com.spectrayan.spector.memory.pathway.RelayNames;
+import com.spectrayan.spector.commons.pathway.PathwayComposer;
 
 /**
  * Factory for creating the remember / memory consolidation cognitive pathway.
+ *
+ * @deprecated Use {@link RememberRecipe} with {@link PathwayComposer} instead.
  */
+@Deprecated(forRemoval = true, since = "1.5.0")
 public final class RememberPathwayFactory {
 
     private RememberPathwayFactory() {}
@@ -34,8 +37,10 @@ public final class RememberPathwayFactory {
      * @param graphLinkingRelay    the associative graph and temporal chain linking relay
      * @param kgEnrichmentRelay    the knowledge graph and entity enrichment relay
      * @return the constructed remember pathway
+     * @deprecated Use {@link RememberRecipe} instead.
      */
-    public static CognitivePathway<RememberSignal> create(
+    @Deprecated(forRemoval = true, since = "1.5.0")
+    public static PathwayEngine<RememberSignal> create(
             final DedupGuardRelay dedupGuardRelay,
             final SynapticTagTransductionRelay tagTransductionRelay,
             final DopaminergicSurpriseRelay surpriseRelay,
@@ -57,8 +62,10 @@ public final class RememberPathwayFactory {
      * @param graphLinkingRelay    the associative graph and temporal chain linking relay
      * @param kgEnrichmentRelay    the knowledge graph and entity enrichment relay
      * @return the constructed remember pathway
+     * @deprecated Use {@link RememberRecipe} instead.
      */
-    public static CognitivePathway<RememberSignal> create(
+    @Deprecated(forRemoval = true, since = "1.5.0")
+    public static PathwayEngine<RememberSignal> create(
             final java.util.function.Function<SynapticRelay<RememberSignal>, SynapticRelay<RememberSignal>> interceptor,
             final DedupGuardRelay dedupGuardRelay,
             final SynapticTagTransductionRelay tagTransductionRelay,
@@ -67,17 +74,12 @@ public final class RememberPathwayFactory {
             final SynapticGraphLinkingRelay graphLinkingRelay,
             final KnowledgeGraphEnrichmentRelay kgEnrichmentRelay) {
 
-        final var builder = CognitivePathway.<RememberSignal>pathway("remember");
+        final var composer = PathwayComposer.<RememberSignal>of("remember");
         if (interceptor != null) {
-            builder.withInterceptor(interceptor);
+            composer.withInterceptor(interceptor);
         }
-        return builder
-                .relay(RelayNames.DEDUP_GUARD, dedupGuardRelay, ErrorPolicy.FAIL_FAST)
-                .relay(RelayNames.TAG_TRANSDUCTION, tagTransductionRelay, ErrorPolicy.FAIL_FAST)
-                .relay(RelayNames.DOPAMINERGIC_SURPRISE, surpriseRelay, ErrorPolicy.FAIL_FAST)
-                .relay(RelayNames.CORTICAL_WRITE, corticalWriteRelay, ErrorPolicy.FAIL_FAST)
-                .relay(RelayNames.GRAPH_LINKING, graphLinkingRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
-                .relay(RelayNames.KG_ENRICHMENT, kgEnrichmentRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
-                .build();
+        new RememberRecipe(dedupGuardRelay, tagTransductionRelay, surpriseRelay,
+                corticalWriteRelay, graphLinkingRelay, kgEnrichmentRelay).compose(composer);
+        return composer.build();
     }
 }

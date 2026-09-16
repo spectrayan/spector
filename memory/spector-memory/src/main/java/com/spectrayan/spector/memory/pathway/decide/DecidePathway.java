@@ -12,19 +12,15 @@
  */
 package com.spectrayan.spector.memory.pathway.decide;
 
-import com.spectrayan.spector.memory.aisme.policy.PolicyInferenceEngine;
-import com.spectrayan.spector.memory.aisme.relay.PolicyInferenceRelay;
-import com.spectrayan.spector.memory.pathway.decide.relay.DecideGates;
-import com.spectrayan.spector.memory.pathway.decide.relay.DecideReport;
-import com.spectrayan.spector.memory.pathway.decide.relay.DecideSignal;
-import com.spectrayan.spector.memory.pathway.decide.relay.ExperimentRelay;
-
-import com.spectrayan.spector.commons.pathway.CognitivePathway;
-import com.spectrayan.spector.commons.pathway.ErrorPolicy;
+import com.spectrayan.spector.commons.pathway.AbstractPathway;
+import com.spectrayan.spector.commons.pathway.PathwayEngine;
+import com.spectrayan.spector.commons.pathway.ConductionOutcome;
+import com.spectrayan.spector.commons.pathway.DefaultPathwayContext;
+import com.spectrayan.spector.commons.pathway.DefaultPathwayComposer;
+import com.spectrayan.spector.commons.pathway.PathwayComposer;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.memory.aisme.policy.PolicyInferenceEngine;
-import com.spectrayan.spector.memory.aisme.relay.PolicyInferenceRelay;
-import com.spectrayan.spector.memory.pathway.decide.relay.DecideGates;
+import com.spectrayan.spector.memory.pathway.decide.relay.DecideRecipe;
 import com.spectrayan.spector.memory.pathway.decide.relay.DecideReport;
 import com.spectrayan.spector.memory.pathway.decide.relay.DecideSignal;
 
@@ -34,31 +30,24 @@ import org.slf4j.LoggerFactory;
 import java.util.Objects;
 import java.util.function.Function;
 
-public final class DecidePathway implements AutoCloseable {
+public final class DecidePathway extends AbstractPathway<DecideSignal, DecideReport> implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(DecidePathway.class);
 
-    private final CognitivePathway<DecideSignal> pathway;
-
     private DecidePathway(final Builder builder) {
-        var pathwayBuilder = CognitivePathway.<DecideSignal>pathway("decide_pathway");
+        super("decide", DecideSignal.class, DecideReport.class);
+        final PathwayComposer<DecideSignal> pathwayBuilder =
+                new DefaultPathwayComposer<>("decide_pathway");
         if (builder.interceptor != null) {
             pathwayBuilder.withInterceptor(builder.interceptor);
         }
+        new DecideRecipe().compose(pathwayBuilder);
 
-        // Stage 1: PolicyInferenceRelay
-        pathwayBuilder.gated("policy_inference", 
-                DecideGates.EFE_ENABLED.and(DecideGates.HAS_CANDIDATES), 
-                new PolicyInferenceRelay(), 
-                ErrorPolicy.DEGRADE_GRACEFULLY);
+        initEngine(pathwayBuilder.build());
+    }
 
-        // Stage 2: ExperimentRelay (waking thought experiments)
-        pathwayBuilder.gated("experiment_thought",
-                DecideGates.EFE_ENABLED,
-                new com.spectrayan.spector.memory.pathway.decide.relay.ExperimentRelay(),
-                ErrorPolicy.DEGRADE_GRACEFULLY);
-
-        this.pathway = pathwayBuilder.build();
+    public PathwayEngine<DecideSignal> pathway() {
+        return engine();
     }
 
     public static Builder builder() {
@@ -66,27 +55,31 @@ public final class DecidePathway implements AutoCloseable {
     }
 
     public DecideReport execute(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel, final DecideSignal signal) {
+        if (kernel != null && signal != null && signal.context() == null) {
+            final DefaultPathwayContext.Builder ctxBuilder = DefaultPathwayContext.builder()
+                    .namespaceId(kernel.namespaceId())
+                    .bind(com.spectrayan.spector.kernel.api.NamespaceKernel.class, kernel);
+            signal.bind(ctxBuilder.build());
+        }
         return decide(signal);
     }
 
     public DecideReport decide(final DecideSignal signal) {
         Objects.requireNonNull(signal, "DecideSignal cannot be null");
-        long start = System.currentTimeMillis();
-        
-        try {
-            DecideSignal result = pathway.conduct(signal);
-            long elapsed = System.currentTimeMillis() - start;
-            var report = result.report();
-            
-            if (report == null) {
-                return DecideReport.empty();
-            }
-            
-            return new DecideReport(report, elapsed, report.selectedPolicy() != null);
-        } catch (Exception e) {
-            log.error("DecidePathway: decision cycle aborted due to error: {}", e.getMessage(), e);
-            throw new com.spectrayan.spector.memory.error.SpectorPathwayException("DecidePathway execution failed: " + e.getMessage(), e);
+        if (signal.context() == null) {
+            signal.bind(DefaultPathwayContext.builder().build());
         }
+        return conduct(signal);
+    }
+
+    @Override
+    protected DecideReport project(final DecideSignal signal) {
+        ConductionOutcome outcome = signal.context() != null ? signal.context().outcome() : null;
+        var report = signal.report();
+        if (report == null) {
+            return DecideReport.empty(outcome);
+        }
+        return new DecideReport(report, 0L, report.selectedPolicy() != null, outcome);
     }
 
     @Override

@@ -42,4 +42,14 @@ public interface RecallListener {
      * @param results the final recall results (post-filtering, post-habituation)
      */
     void onRecallComplete(List<CognitiveResult> results);
+
+    /**
+     * Called after each successful recall with final results and execution context (ADR-0035 M4b).
+     *
+     * @param results the final recall results
+     * @param context the conduction pathway context (may be null)
+     */
+    default void onRecallComplete(List<CognitiveResult> results, com.spectrayan.spector.commons.pathway.PathwayContext context) {
+        onRecallComplete(results);
+    }
 }
