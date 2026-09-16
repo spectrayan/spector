@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.kernel.store;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
+
 /**
  * A weighted edge in the Hebbian associative graph connecting two memory nodes.
  *
@@ -25,6 +27,10 @@ package com.spectrayan.spector.kernel.store;
  * @see HebbianGraphBase#neighbors(int)
  * @see HebbianGraphMemory
  */
+@ValueCandidate(
+    reason = "Pure primitive 12-byte associative graph edge traversed during spreading activation; ideal for flat arrays",
+    hotPathFrequency = ValueCandidate.Frequency.CRITICAL
+)
 public record HebbianEdge(int neighborIndex, float weight, int bridgeScore) {
 
     /** Backward-compatible constructor (bridgeScore defaults to 0). */

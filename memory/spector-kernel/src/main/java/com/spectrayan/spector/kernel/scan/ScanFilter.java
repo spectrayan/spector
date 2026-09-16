@@ -15,11 +15,17 @@
  */
 package com.spectrayan.spector.kernel.scan;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
+
 /**
  * Primitive-only gate inputs for candidate pre-screening (Phases 1-4).
  *
  * <p>Contains no cognitive types, no config objects, and no callbacks (R7.1a).</p>
  */
+@ValueCandidate(
+        reason = "Primitive-only gate inputs for candidate pre-screening across slab scans",
+        hotPathFrequency = ValueCandidate.Frequency.CRITICAL
+)
 public record ScanFilter(
         long tagMaskLo, long tagMaskHi,
         long hyperfocusMaskLo, long hyperfocusMaskHi,

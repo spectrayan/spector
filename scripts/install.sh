@@ -194,10 +194,17 @@ if [[ ! "${JAVA_VER}" =~ ^2[5-9] ]] && [[ ! "${JAVA_VER}" =~ ^[3-9][0-9] ]]; the
   exit 1
 fi
 
+AOT_OPTS=()
+if [[ -f "${SPECTOR_HOME}/bin/spector.aot" ]]; then
+  AOT_OPTS=("-XX:+UseZGC" "-XX:AOTCache=${SPECTOR_HOME}/bin/spector.aot")
+fi
+
 exec "${JAVA_CMD}" \
   --enable-preview \
   --add-modules=jdk.incubator.vector \
   --enable-native-access=ALL-UNNAMED \
+  -XX:+UseCompactObjectHeaders \
+  "${AOT_OPTS[@]}" \
   -jar "$JAR" "$@"
 EOF
 chmod +x "${WRAPPER_PATH}"

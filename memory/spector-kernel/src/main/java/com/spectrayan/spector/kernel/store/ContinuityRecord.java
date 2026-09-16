@@ -15,6 +15,15 @@
  */
 package com.spectrayan.spector.kernel.store;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
+
+/**
+ * Consciousness continuity record tracking identity drift, Lyapunov stability, and affective state.
+ */
+@ValueCandidate(
+    reason = "Continuous identity and affective state metrics; pure primitive 32-byte record",
+    hotPathFrequency = ValueCandidate.Frequency.HIGH
+)
 public record ContinuityRecord(
         long timestamp,
         float phiCc,

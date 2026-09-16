@@ -61,6 +61,8 @@ docs/site/
 docs/labs/*
 !docs/labs/roadmap.md
 !docs/labs/index.md
+!docs/labs/hdc.md
+!docs/labs/valhalla.md
 .venv/
 docs/.venv/
 RnD

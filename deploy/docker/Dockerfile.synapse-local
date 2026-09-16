@@ -46,7 +46,7 @@ ENV SPECTOR_DATA_DIR=/data \
     SPECTOR_OLLAMA_MODEL=llama3.2 \
     SPECTOR_OLLAMA_EMBED_MODEL=nomic-embed-text \
     SPECTOR_CORS_ORIGINS=http://localhost:4200 \
-    JAVA_OPTS="-XX:+UseG1GC -Xms256m -Xmx512m --enable-preview --add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED"
+    JAVA_OPTS="-XX:+UseG1GC -XX:+UseCompactObjectHeaders -Xms256m -Xmx512m --enable-preview --add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED"
 
 USER 1000:1000
 

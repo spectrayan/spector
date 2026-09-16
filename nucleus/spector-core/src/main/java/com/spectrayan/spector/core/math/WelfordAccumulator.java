@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.core.math;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
+
 /**
  * Numerically stable online one-pass variance and mean accumulator (Welford, 1962).
  *
@@ -33,6 +35,10 @@ package com.spectrayan.spector.core.math;
  * @param mean  running sample mean
  * @param m2    sum of squared differences from the mean (S_k)
  */
+@ValueCandidate(
+    reason = "Pure primitive 24-byte online numerical accumulator updated on streaming observations",
+    hotPathFrequency = ValueCandidate.Frequency.HIGH
+)
 public record WelfordAccumulator(long count, double mean, double m2) {
 
     /** Empty accumulator with zero observations. */

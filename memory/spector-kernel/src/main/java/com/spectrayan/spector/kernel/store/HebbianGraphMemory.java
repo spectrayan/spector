@@ -28,6 +28,7 @@ import com.spectrayan.spector.kernel.shape.MemoryShape;
 import com.spectrayan.spector.kernel.id.SystemMemoryId;
 import com.spectrayan.spector.kernel.migration.Codecs;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
 import com.spectrayan.spector.kernel.layout.HebbianLayout;
 import com.spectrayan.spector.kernel.shape.AbstractGraphMemory;
 
@@ -881,7 +882,11 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
         return offsets.get(ValueLayout.JAVA_INT, (long) node * Integer.BYTES);
     }
 
-    private record EdgeData(int neighbor, float weight, int lastCycle, int bridgeScore, int flags) {}
+    @ValueCandidate(
+            reason = "Hebbian graph edge traversed in hot spreading activation loop",
+            hotPathFrequency = ValueCandidate.Frequency.CRITICAL
+    )
+    record EdgeData(int neighbor, float weight, int lastCycle, int bridgeScore, int flags) {}
 
     private List<EdgeData> collectAllEdges(int node) {
         List<EdgeData> all = new ArrayList<>();

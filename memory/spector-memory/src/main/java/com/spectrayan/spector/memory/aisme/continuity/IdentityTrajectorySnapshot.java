@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.aisme.continuity;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
+
 /**
  * Immutable value representation of a single neurocognitive identity and consciousness trajectory frame.
  *
@@ -32,6 +34,10 @@ package com.spectrayan.spector.memory.aisme.continuity;
  * @param anchorDistance Riemannian distance \(d_M(s_t, s_{\text{core}})\) to the foundational core anchor
  * @param lyapunovStable whether the identity trajectory is bounded within the Lyapunov attractor basin
  */
+@ValueCandidate(
+        reason = "Pure primitive 26-byte neurocognitive identity and consciousness trajectory frame",
+        hotPathFrequency = ValueCandidate.Frequency.MEDIUM
+)
 public record IdentityTrajectorySnapshot(
         long timestamp,
         float phiCc,

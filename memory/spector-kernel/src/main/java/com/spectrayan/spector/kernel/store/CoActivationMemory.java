@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.kernel.store;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
 import com.spectrayan.spector.core.cognitive.ActRActivationKernel;
 import com.spectrayan.spector.core.cognitive.StdpPlasticityKernel;
 import com.spectrayan.spector.kernel.score.ProfileSlot;
@@ -112,6 +113,10 @@ public final class CoActivationMemory extends AbstractHashTableMemory<CoActivati
         }
     }
 
+    @ValueCandidate(
+            reason = "Synaptic weight and activation counters on co-activation edges",
+            hotPathFrequency = ValueCandidate.Frequency.CRITICAL
+    )
     public record EdgeWeight(float weight, long lastActivatedMs, int activationCount) {
         public EdgeWeight withUpdate(float deltaWeight, long nowMs) {
             float newWeight = Math.clamp(weight + deltaWeight, MIN_WEIGHT, MAX_WEIGHT);

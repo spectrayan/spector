@@ -220,7 +220,21 @@ public final class LangChain4jHelper {
                 }
             }
 
-            javaClientBuilder.version(java.net.http.HttpClient.Version.HTTP_1_1);
+            String httpVersion = config.properties().getOrDefault("httpVersion", "");
+            boolean http3 = Boolean.parseBoolean(config.properties().getOrDefault("http3", "false"))
+                    || "HTTP_3".equalsIgnoreCase(httpVersion)
+                    || "3".equalsIgnoreCase(httpVersion);
+
+            if (http3) {
+                log.info("[ProviderRegistry] Configuring HTTP/3 (QUIC) for provider '{}'", config.name());
+                javaClientBuilder.version(HttpClient.Version.HTTP_3);
+            } else if ("HTTP_2".equalsIgnoreCase(httpVersion) || "2".equals(httpVersion)) {
+                javaClientBuilder.version(HttpClient.Version.HTTP_2);
+            } else if ("HTTP_1_1".equalsIgnoreCase(httpVersion) || "1.1".equals(httpVersion)) {
+                javaClientBuilder.version(HttpClient.Version.HTTP_1_1);
+            } else {
+                javaClientBuilder.version(HttpClient.Version.HTTP_2);
+            }
 
             // Wrap the native Java HttpClient builder in JdkHttpClientBuilder
             return JdkHttpClient.builder()

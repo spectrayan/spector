@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.cortex;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
 import com.spectrayan.spector.kernel.storage.StoragePaths;
 import com.spectrayan.spector.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.kernel.layout.EngramLayout;
@@ -38,6 +39,10 @@ import java.nio.file.Path;
  * @param proceduralCount visible procedural records
  * @param writable whether this summary belongs to the active (writable) partition
  */
+@ValueCandidate(
+        reason = "Pure primitive 41-byte partition summary metadata for O(1) query pruning",
+        hotPathFrequency = ValueCandidate.Frequency.MEDIUM
+)
 public record PartitionSummary(
         int seq,
         long minTimestampMs,

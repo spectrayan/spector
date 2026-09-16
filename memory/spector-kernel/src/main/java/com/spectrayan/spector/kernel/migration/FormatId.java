@@ -15,12 +15,17 @@
  */
 package com.spectrayan.spector.kernel.migration;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
 import com.spectrayan.spector.kernel.region.RegionPreamble;
 
 /**
  * Identifies a concrete on-disk format: a 4-byte magic plus a version
  * interpreted in that magic's own numbering scheme.
  */
+@ValueCandidate(
+        reason = "Pure 8-byte primitive on-disk format identifier (4-byte magic + 4-byte version)",
+        hotPathFrequency = ValueCandidate.Frequency.MEDIUM
+)
 public record FormatId(int magic, int version) {
 
     public static FormatId smkm(int schemaVersion) {

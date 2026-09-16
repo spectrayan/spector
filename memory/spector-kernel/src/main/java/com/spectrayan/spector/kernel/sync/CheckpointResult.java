@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.kernel.sync;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
+
 /**
  * Result metrics for a completed kernel checkpoint operation (R9.1).
  *
@@ -23,6 +25,10 @@ package com.spectrayan.spector.kernel.sync;
  * @param durationNanos elapsed checkpoint duration in nanoseconds
  * @param success true if all specified regions flushed cleanly without I/O error
  */
+@ValueCandidate(
+        reason = "Pure primitive result metrics for completed kernel checkpoints (WAL HWM, duration, counts)",
+        hotPathFrequency = ValueCandidate.Frequency.MEDIUM
+)
 public record CheckpointResult(
         long walHighWaterMark,
         int flushedRegions,

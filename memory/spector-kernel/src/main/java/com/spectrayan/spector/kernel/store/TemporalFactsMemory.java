@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.kernel.store;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
 import com.spectrayan.spector.kernel.id.MemoryId;
 import com.spectrayan.spector.kernel.id.SystemMemoryId;
 import com.spectrayan.spector.kernel.layout.TemporalFactLayout;
@@ -39,6 +40,10 @@ public final class TemporalFactsMemory extends AbstractAppendMemory<TemporalFact
 
     private static final MemoryId MEMORY_ID = SystemMemoryId.TEMPORAL_FACTS.id();
 
+    @ValueCandidate(
+        reason = "Append-only memory fact log tuple containing relative offset and 64-byte temporal fact",
+        hotPathFrequency = ValueCandidate.Frequency.HIGH
+    )
     public record FactLogEntry(long dataOffset, TemporalFact fact) {}
 
     /**

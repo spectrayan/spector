@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.core.math;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
+
 /**
  * Online Exponential Moving Average (EMA) reinforcement tracker.
  *
@@ -33,6 +35,10 @@ package com.spectrayan.spector.core.math;
  * @param positiveSignals count of positive reinforcement signals received
  * @param lastUpdatedMs   epoch timestamp (ms) when the last update occurred (injected by caller)
  */
+@ValueCandidate(
+    reason = "Reinforcement learning and bandit signal tracking across memory retrieval cycles; 20-byte primitive struct",
+    hotPathFrequency = ValueCandidate.Frequency.HIGH
+)
 public record EmaTracker(
         float ema,
         int totalSignals,

@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.neuromod.neurodivergent;
 
+import com.spectrayan.spector.commons.valhalla.ValueCandidate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -212,6 +213,10 @@ public final class LateralEvaluator {
      * @param hallucinationIndex composite safety metric: (1-LUR) × LSR
      * @param sampleSize         number of lateral results in this evaluation window
      */
+    @ValueCandidate(
+            reason = "Pure primitive 16-byte metric snapshot for lateral retrieval evaluation",
+            hotPathFrequency = ValueCandidate.Frequency.MEDIUM
+    )
     public record LateralMetrics(float utilityRate, float suppressionRate,
                                   float hallucinationIndex, int sampleSize) {
         /** Empty metrics — no lateral results have been returned yet. */

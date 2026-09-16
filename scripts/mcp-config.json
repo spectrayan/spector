@@ -7,6 +7,7 @@
         "jdk.incubator.vector",
         "--enable-native-access=ALL-UNNAMED",
         "-XX:+UseCompactObjectHeaders",
+        "-XX:+UseZGC",
         "-XX:+UnlockDiagnosticVMOptions",
         "-XX:+UseVectorizedMismatch",
         "--enable-preview",

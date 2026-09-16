@@ -114,7 +114,7 @@
         <changelist></changelist>
 
         <!-- Java -->
-        <java.version>25</java.version>
+        <java.version>27</java.version>
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
         <maven.compiler.release>${java.version}</maven.compiler.release>
@@ -197,8 +197,8 @@
         <!-- JaCoCo coverage threshold — default 0, modules raise as tests are added (target: 0.80) -->
         <jacoco.minimum.coverage>0</jacoco.minimum.coverage>
 
-        <!-- Reproducible builds: fixed timestamp for deterministic JARs -->
-        <project.build.outputTimestamp>2024-01-01T00:00:00Z</project.build.outputTimestamp>
+        <!-- Reproducible builds: disabled on JDK 27 EA to prevent maven-compiler-plugin ASM version 71 check on module-info.class -->
+        <project.build.outputTimestamp></project.build.outputTimestamp>
 
         <!-- Deploy skip by default; release profiles enable it -->
         <maven.deploy.skip>true</maven.deploy.skip>
@@ -734,7 +734,7 @@
     <build>
         <pluginManagement>
             <plugins>
-                <!-- Compiler: Java 25 + Vector API incubator -->
+                <!-- Compiler: Java 27 + Vector API incubator -->
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
