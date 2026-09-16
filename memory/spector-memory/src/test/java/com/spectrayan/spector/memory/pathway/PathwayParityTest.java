@@ -23,7 +23,7 @@ import com.spectrayan.spector.memory.model.RecallMode;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.EmbeddingResult;
-import com.spectrayan.spector.commons.pathway.CognitivePathway;
+import com.spectrayan.spector.commons.pathway.PathwayEngine;
 import com.spectrayan.spector.commons.pathway.PathwayComposer;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.memory.pathway.recall.relay.*;
@@ -46,8 +46,8 @@ import static org.assertj.core.api.Assertions.within;
  * End-to-end parity test verifying the Cognitive Pathway Engine architecture with
  * {@link com.spectrayan.spector.memory.pathway.recall.RecallPathway} and {@link com.spectrayan.spector.memory.pathway.remember.RememberPathway}.
  */
-@DisplayName("CognitivePathwayParityTest")
-class CognitivePathwayParityTest {
+@DisplayName("PathwayParityTest")
+class PathwayParityTest {
 
     private static final int DIMENSIONS = 32;
 
@@ -289,12 +289,12 @@ class CognitivePathwayParityTest {
             SynapticGraphLinkingRelay graph = Mockito.mock(SynapticGraphLinkingRelay.class);
             KnowledgeGraphEnrichmentRelay kg = Mockito.mock(KnowledgeGraphEnrichmentRelay.class);
 
-            CognitivePathway<RememberSignal> factoryPathway = RememberPathwayFactory.create(
+            PathwayEngine<RememberSignal> factoryPathway = RememberPathwayFactory.create(
                     dedup, tags, surprise, write, graph, kg);
 
             var composer = PathwayComposer.<RememberSignal>of("remember");
             new RememberRecipe(dedup, tags, surprise, write, graph, kg).compose(composer);
-            CognitivePathway<RememberSignal> recipePathway = composer.build();
+            PathwayEngine<RememberSignal> recipePathway = composer.build();
 
             assertThat(recipePathway.relayNames())
                     .as("Remember relay names and order must match factory")
@@ -332,7 +332,7 @@ class CognitivePathwayParityTest {
             com.spectrayan.spector.commons.pathway.ConsolidationRelay<RecallSignal> consolidation =
                     Mockito.mock(com.spectrayan.spector.commons.pathway.ConsolidationRelay.class);
 
-            CognitivePathway<RecallSignal> factoryPathway = RecallPathwayFactory.create(
+            PathwayEngine<RecallSignal> factoryPathway = RecallPathwayFactory.create(
                     null, transduction, prospective, releaseGate, homeostatic, vector,
                     freeEnergy, spacetime, scoring, graph, hopfield, evidence, lateral,
                     bm25, rrf, manifold, constructive, consciousness, sort, colbert,
@@ -367,7 +367,7 @@ class CognitivePathwayParityTest {
                     .consolidationRelay(consolidation)
                     .build()
                     .compose(composer);
-            CognitivePathway<RecallSignal> recipePathway = composer.build();
+            PathwayEngine<RecallSignal> recipePathway = composer.build();
 
             assertThat(recipePathway.relayNames())
                     .as("Recall relay names and order must match factory")
@@ -393,7 +393,7 @@ class CognitivePathwayParityTest {
             WalJournalRelay wal = Mockito.mock(WalJournalRelay.class);
             IdiolectLearningRelay idiolect = Mockito.mock(IdiolectLearningRelay.class);
 
-            CognitivePathway<ReflectSignal> factoryPathway = ReflectPathwayFactory.create(
+            PathwayEngine<ReflectSignal> factoryPathway = ReflectPathwayFactory.create(
                     null, pruning, log, soul, procedural, interference, hebbian,
                     temporal, promotion, entity, sparsification, manifold, softAnchor, wal, idiolect);
 
@@ -415,7 +415,7 @@ class CognitivePathwayParityTest {
                     .idiolectRelay(idiolect)
                     .build()
                     .compose(composer);
-            CognitivePathway<ReflectSignal> recipePathway = composer.build();
+            PathwayEngine<ReflectSignal> recipePathway = composer.build();
 
             assertThat(recipePathway.relayNames())
                     .as("Reflect relay names and order must match factory")

@@ -66,8 +66,12 @@ public final class TimeoutRelay<S> implements SynapticRelay<S> {
             com.spectrayan.spector.commons.observation.PathwayObservationHooks.get(
                     signal instanceof ContextualSignal cs ? cs.context() : null)
                     .onTimeout(pathwayName, relayName);
+            // Carry the budget in the cause chain so the conductor can trace
+            // `timeout:<budget>` as the failure detail (ADR-0036 §13).
+            final TimeoutException budgeted = new TimeoutException("timeout:" + budget);
+            budgeted.initCause(e);
             throw new CognitivePathwayException(
-                    pathwayName, relayName, FaultKind.TRANSIENT, false, e);
+                    pathwayName, relayName, FaultKind.TRANSIENT, false, budgeted);
         }
     }
 

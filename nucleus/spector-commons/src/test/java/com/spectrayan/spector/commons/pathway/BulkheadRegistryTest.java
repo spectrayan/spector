@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.commons.pathway;
 
+import com.spectrayan.spector.commons.error.SpectorValidationException;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -30,7 +32,7 @@ class BulkheadRegistryTest {
     @DisplayName("BulkheadConfig rejects invalid permits or null arguments")
     void configValidation() {
         assertThatThrownBy(() -> BulkheadConfig.of(0))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(SpectorValidationException.class);
 
         assertThatThrownBy(() -> BulkheadConfig.of(5, null, OnReject.FAIL))
                 .isInstanceOf(NullPointerException.class);

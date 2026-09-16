@@ -107,4 +107,13 @@ public interface PathwayObservationHook {
      * @param duration nested pathway execution duration
      */
     default void onNested(String from, String to, Duration duration) {}
+
+    /**
+     * Invoked when an asynchronous consolidation action fails. Consolidation failures never
+     * fail the parent conduction and never trip {@code pathway:*} breakers (ADR-0036 §12).
+     *
+     * @param relay the consolidation relay name
+     * @param kind  the classified fault kind
+     */
+    default void onConsolidationFailure(String relay, FaultKind kind) {}
 }

@@ -71,7 +71,7 @@ class StageBuilderTest {
                 .timeout(Duration.ofMillis(100));
 
         assertThatThrownBy(stageBuilder::add)
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(CognitivePathwayException.class)
                 .hasMessageContaining("does not implement InterruptibleRelay");
     }
 
@@ -84,7 +84,7 @@ class StageBuilderTest {
                 .retry(RetryPolicy.of(3, Duration.ofMillis(10), FaultKind.TRANSIENT));
 
         assertThatThrownBy(stageBuilder::add)
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(CognitivePathwayException.class)
                 .hasMessageContaining("does not implement IdempotentRelay");
     }
 

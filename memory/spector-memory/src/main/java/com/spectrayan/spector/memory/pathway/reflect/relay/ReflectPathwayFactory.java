@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.pathway.reflect.relay;
 
-import com.spectrayan.spector.commons.pathway.CognitivePathway;
+import com.spectrayan.spector.commons.pathway.PathwayEngine;
 import com.spectrayan.spector.commons.pathway.ErrorPolicy;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.memory.pathway.RelayNames;
@@ -37,7 +37,7 @@ public final class ReflectPathwayFactory {
      * @deprecated Use {@link ReflectRecipe} instead.
      */
     @Deprecated(forRemoval = true, since = "1.5.0")
-    public static CognitivePathway<ReflectSignal> create(
+    public static PathwayEngine<ReflectSignal> create(
             final SynapticPruningRelay pruningRelay,
             final EpisodicLogConsolidationRelay logConsolidationRelay,
             final SoulDriftRefusionRelay soulDriftRelay,
@@ -59,7 +59,7 @@ public final class ReflectPathwayFactory {
      * @deprecated Use {@link ReflectRecipe} instead.
      */
     @Deprecated(forRemoval = true, since = "1.5.0")
-    public static CognitivePathway<ReflectSignal> create(
+    public static PathwayEngine<ReflectSignal> create(
             final SynapticPruningRelay pruningRelay,
             final EpisodicLogConsolidationRelay logConsolidationRelay,
             final SoulDriftRefusionRelay soulDriftRelay,
@@ -82,7 +82,7 @@ public final class ReflectPathwayFactory {
      * @deprecated Use {@link ReflectRecipe} instead.
      */
     @Deprecated(forRemoval = true, since = "1.5.0")
-    public static CognitivePathway<ReflectSignal> create(
+    public static PathwayEngine<ReflectSignal> create(
             final Function<SynapticRelay<ReflectSignal>, SynapticRelay<ReflectSignal>> interceptor,
             final SynapticPruningRelay pruningRelay,
             final EpisodicLogConsolidationRelay logConsolidationRelay,

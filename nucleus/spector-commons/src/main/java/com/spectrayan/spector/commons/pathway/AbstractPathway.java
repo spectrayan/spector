@@ -15,10 +15,12 @@
  */
 package com.spectrayan.spector.commons.pathway;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+
 import java.util.Objects;
 
 /**
- * Base implementation of {@link Pathway} wrapping a {@link CognitivePathway} conductor engine.
+ * Base implementation of {@link Pathway} wrapping a {@link PathwayEngine} conductor engine.
  *
  * @param <S> input contextual signal type
  * @param <O> output result type
@@ -28,12 +30,12 @@ public abstract class AbstractPathway<S extends ContextualSignal, O> implements 
     private final String name;
     private final Class<S> inputType;
     private final Class<O> outputType;
-    private CognitivePathway<S> engine;
+    private PathwayEngine<S> engine;
 
     protected AbstractPathway(final String name,
                               final Class<S> inputType,
                               final Class<O> outputType,
-                              final CognitivePathway<S> engine) {
+                              final PathwayEngine<S> engine) {
         this.name = Objects.requireNonNull(name, "name cannot be null");
         this.inputType = Objects.requireNonNull(inputType, "inputType cannot be null");
         this.outputType = Objects.requireNonNull(outputType, "outputType cannot be null");
@@ -49,9 +51,10 @@ public abstract class AbstractPathway<S extends ContextualSignal, O> implements 
         this.engine = null;
     }
 
-    protected final void initEngine(final CognitivePathway<S> engine) {
+    protected final void initEngine(final PathwayEngine<S> engine) {
         if (this.engine != null) {
-            throw new IllegalStateException("engine already initialized for pathway: " + name);
+            throw new CognitivePathwayException(ErrorCode.PATHWAY_MISCONFIGURED, name, "<init>",
+                    FaultKind.CONTRACT, false, new IllegalStateException("engine already initialized for pathway: " + name));
         }
         this.engine = Objects.requireNonNull(engine, "engine cannot be null");
     }
@@ -76,9 +79,10 @@ public abstract class AbstractPathway<S extends ContextualSignal, O> implements 
      *
      * @return cognitive pathway engine
      */
-    public final CognitivePathway<S> engine() {
+    public final PathwayEngine<S> engine() {
         if (engine == null) {
-            throw new IllegalStateException("engine has not been initialized for pathway: " + name);
+            throw new CognitivePathwayException(ErrorCode.PATHWAY_MISCONFIGURED, name, "<init>",
+                    FaultKind.CONTRACT, false, new IllegalStateException("engine has not been initialized for pathway: " + name));
         }
         return engine;
     }
@@ -95,7 +99,7 @@ public abstract class AbstractPathway<S extends ContextualSignal, O> implements 
         scope.enter(name);
         final long startNanos = System.nanoTime();
         try {
-            final CognitivePathway<S> pathwayEngine = engine();
+            final PathwayEngine<S> pathwayEngine = engine();
             pathwayEngine.conduct(signal);
             final boolean shortCircuited = scope.shortCircuited(name)
                     || scope.shortCircuited(pathwayEngine.pathwayName());

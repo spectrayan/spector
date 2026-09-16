@@ -404,7 +404,14 @@ graph TD
 
 ## 🧠 Cognitive Pathways Architecture (ADR-0035, ADR-0036, ADR-0037)
 
-Spector structures all cognitive processes into a unified, composable pipeline architecture modeled after neurobiological synaptic pathways. Every cognitive operation extends `AbstractPathway<S, R>` and executes a directed sequence of `SynapticRelay<S>` stages orchestrated by `CognitivePathway<S>`.
+Spector structures all cognitive processes into a unified, composable pipeline architecture modeled after neurobiological synaptic pathways. Every cognitive operation extends `AbstractPathway<S, R>` and executes a directed sequence of `SynapticRelay<S>` stages orchestrated by `PathwayEngine<S>`.
+
+Two types are easy to confuse, so it is worth stating the split explicitly:
+
+- `Pathway<I, O>` is the public operation — typed input to typed output. It owns scope entry/exit, the conduction outcome, metrics, and the projection of a conducted signal into a report.
+- `PathwayEngine<S>` is the relay conductor — signal in, same signal out. It runs the stage list, applies each stage's `ErrorPolicy`, and records traces. It is not a `Pathway` and deliberately does not implement it.
+
+`AbstractPathway` bridges the two by composition: it holds an engine and conducts it, then projects. Stage lists are declared in a `PathwayRecipe` and assembled by `PathwayComposer`, which is the only supported authoring API — it is where the build-time safety checks live (rejecting a retry on a non-idempotent relay, a timeout on a non-interruptible one, or `ABORT` inside a divergent branch).
 
 ### The 7 Unified Cognitive Pathways
 

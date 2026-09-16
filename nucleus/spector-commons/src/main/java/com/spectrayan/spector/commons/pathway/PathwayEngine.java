@@ -32,14 +32,14 @@ import java.util.function.Predicate;
  *
  * @param <S> the type of the signal
  */
-public final class CognitivePathway<S> {
+public final class PathwayEngine<S> {
 
-    private static final Logger log = LoggerFactory.getLogger(CognitivePathway.class);
+    private static final Logger log = LoggerFactory.getLogger(PathwayEngine.class);
 
     private final String pathwayName;
     private final List<RelayEntry<S>> entries;
 
-    private CognitivePathway(final String pathwayName, final List<RelayEntry<S>> entries) {
+    private PathwayEngine(final String pathwayName, final List<RelayEntry<S>> entries) {
         this.pathwayName = Objects.requireNonNull(pathwayName, "pathwayName cannot be null");
         this.entries = List.copyOf(entries);
     }
@@ -52,17 +52,30 @@ public final class CognitivePathway<S> {
      */
     public S conduct(final S signal) {
         final boolean isTraceable = (signal instanceof TraceableSignal ts) && ts.isTraceEnabled();
+        final ConductionOutcome outcome = isTraceable ? outcomeOf(signal) : null;
 
         for (final RelayEntry<S> entry : entries) {
             final long startNanos = isTraceable ? System.nanoTime() : 0L;
+            final int bypassedBefore = outcome != null ? outcome.bypassedMarks().size() : -1;
             try {
                 final boolean shouldContinue = entry.relay().transmit(signal);
                 if (isTraceable) {
                     final long elapsed = System.nanoTime() - startNanos;
-                    final RelayTrace.TraceStatus status = shouldContinue
-                            ? RelayTrace.TraceStatus.EXECUTED
-                            : RelayTrace.TraceStatus.SHORT_CIRCUITED;
-                    ((TraceableSignal) signal).recordTrace(new RelayTrace(entry.relay().relayName(), elapsed, status, null));
+                    // A relay that bypassed itself (closed gate, OPEN circuit, full bulkhead)
+                    // returns true so the chain continues, but must not be traced as EXECUTED.
+                    final String bypassReason = shouldContinue
+                            ? bypassReasonSince(outcome, bypassedBefore, entry.relay().relayName())
+                            : null;
+                    final RelayTrace.TraceStatus status;
+                    if (!shouldContinue) {
+                        status = RelayTrace.TraceStatus.SHORT_CIRCUITED;
+                    } else if (bypassReason != null) {
+                        status = RelayTrace.TraceStatus.BYPASSED;
+                    } else {
+                        status = RelayTrace.TraceStatus.EXECUTED;
+                    }
+                    ((TraceableSignal) signal).recordTrace(
+                            new RelayTrace(entry.relay().relayName(), elapsed, status, bypassReason));
                 }
 
                 if (!shouldContinue) {
@@ -78,7 +91,7 @@ public final class CognitivePathway<S> {
                     Thread.currentThread().interrupt();
                     if (isTraceable) {
                         final long elapsed = System.nanoTime() - startNanos;
-                        ((TraceableSignal) signal).recordTrace(new RelayTrace(entry.relay().relayName(), elapsed, RelayTrace.TraceStatus.FAILED, e.getMessage()));
+                        ((TraceableSignal) signal).recordTrace(new RelayTrace(entry.relay().relayName(), elapsed, RelayTrace.TraceStatus.FAILED, detailOf(e)));
                     }
                     if (e instanceof SpectorException se) throw se;
                     if (e.getCause() instanceof SpectorException se) throw se;
@@ -89,7 +102,7 @@ public final class CognitivePathway<S> {
                     case FAIL_FAST -> {
                         if (isTraceable) {
                             final long elapsed = System.nanoTime() - startNanos;
-                            ((TraceableSignal) signal).recordTrace(new RelayTrace(entry.relay().relayName(), elapsed, RelayTrace.TraceStatus.FAILED, e.getMessage()));
+                            ((TraceableSignal) signal).recordTrace(new RelayTrace(entry.relay().relayName(), elapsed, RelayTrace.TraceStatus.FAILED, detailOf(e)));
                         }
                         if (e instanceof SpectorException se) throw se;
                         if (e.getCause() instanceof SpectorException se) throw se;
@@ -98,7 +111,7 @@ public final class CognitivePathway<S> {
                     case DEGRADE_GRACEFULLY -> {
                         if (isTraceable) {
                             final long elapsed = System.nanoTime() - startNanos;
-                            ((TraceableSignal) signal).recordTrace(new RelayTrace(entry.relay().relayName(), elapsed, RelayTrace.TraceStatus.DEGRADED, e.getMessage()));
+                            ((TraceableSignal) signal).recordTrace(new RelayTrace(entry.relay().relayName(), elapsed, RelayTrace.TraceStatus.DEGRADED, detailOf(e)));
                         }
                         if (signal instanceof ContextualSignal cs && cs.context() != null) {
                             cs.context().outcome().markDegraded(entry.relay().relayName(), kind, e);
@@ -127,6 +140,63 @@ public final class CognitivePathway<S> {
             }
         }
         return signal;
+    }
+
+    /**
+     * Returns the {@link ConductionOutcome} carried by the signal's context, or {@code null}
+     * when the signal is not contextual.
+     */
+    private static ConductionOutcome outcomeOf(final Object signal) {
+        if (signal instanceof ContextualSignal cs && cs.context() != null) {
+            return cs.context().outcome();
+        }
+        return null;
+    }
+
+    /**
+     * Returns the bypass reason a relay recorded on the outcome during its own {@code transmit},
+     * or {@code null} if it recorded none.
+     *
+     * <p>Relays that self-bypass ({@link GatedRelay}, {@link CircuitBreakerRelay},
+     * {@link BulkheadRelay}) return {@code true} so the chain continues, which is
+     * indistinguishable from a real execution at the conductor. Marks appended to the
+     * outcome since {@code before} disambiguate it. Scope is matched against both
+     * conventions in use: a bare relay name and {@code pathway/relay}.</p>
+     */
+    private static String bypassReasonSince(final ConductionOutcome outcome,
+                                           final int before,
+                                           final String relayName) {
+        if (outcome == null || before < 0) {
+            return null;
+        }
+        final List<ConductionOutcome.Mark> marks = outcome.bypassedMarks();
+        for (int i = marks.size() - 1; i >= before; i--) {
+            final ConductionOutcome.Mark mark = marks.get(i);
+            final String scope = mark.scope();
+            if (scope != null && (scope.equals(relayName) || scope.endsWith("/" + relayName))) {
+                return mark.message();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Returns the trace detail for a failure. Timeouts report {@code timeout:<budget>}
+     * per ADR-0036 §13; everything else reports the exception message.
+     */
+    private static String detailOf(final Throwable e) {
+        Throwable cursor = e;
+        for (int depth = 0; cursor != null && depth < 16; depth++) {
+            if (cursor instanceof java.util.concurrent.TimeoutException) {
+                final String message = cursor.getMessage();
+                return (message != null && message.startsWith("timeout:")) ? message : "timeout";
+            }
+            if (cursor.getCause() == cursor) {
+                break;
+            }
+            cursor = cursor.getCause();
+        }
+        return e != null ? e.getMessage() : null;
     }
 
     /**
@@ -166,18 +236,18 @@ public final class CognitivePathway<S> {
     public record RelayEntry<S>(SynapticRelay<S> relay, ErrorPolicy errorPolicy) {}
 
     /**
-     * Creates a new builder for a CognitivePathway.
+     * Creates a new builder for a PathwayEngine.
      *
      * @param pathwayName the name of the pathway
      * @param <S>         the type of the signal
      * @return a new Builder instance
      */
-    public static <S> Builder<S> pathway(final String pathwayName) {
+    public static <S> Builder<S> builder(final String pathwayName) {
         return new Builder<>(pathwayName);
     }
 
     /**
-     * Builder for constructing a {@link CognitivePathway}.
+     * Builder for constructing a {@link PathwayEngine}.
      *
      * @param <S> the type of the signal
      */
@@ -308,12 +378,12 @@ public final class CognitivePathway<S> {
         }
 
         /**
-         * Builds the immutable CognitivePathway.
+         * Builds the immutable PathwayEngine.
          *
          * @return the constructed pathway
          */
-        public CognitivePathway<S> build() {
-            return new CognitivePathway<>(pathwayName, entries);
+        public PathwayEngine<S> build() {
+            return new PathwayEngine<>(pathwayName, entries);
         }
     }
 }

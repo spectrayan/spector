@@ -22,7 +22,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 /**
- * Fluent builder for composing {@link CognitivePathway} instances from recipes, stages, and relays.
+ * Fluent builder for composing {@link PathwayEngine} instances from recipes, stages, and relays.
  *
  * @param <S> signal type
  */
@@ -65,6 +65,59 @@ public interface PathwayComposer<S> {
 
         /** Sets a bulkhead configuration with an explicit shared bulkhead name. */
         StageBuilder<S> bulkhead(String bulkheadName, BulkheadConfig bulkheadConfig);
+
+        /**
+         * Attaches a timeout budget only if the relay declares interruptibility.
+         *
+         * <p>Use this in <em>recipes</em>, where the concrete relay is injected and may
+         * legitimately be a stub, a lambda, or a Mockito mock. Use {@link #timeout(Duration)}
+         * when the relay is constructed in place and its type is statically known.</p>
+         *
+         * <p>The safety property of ADR-0036 §7.2 is unchanged either way: a relay that does
+         * not declare {@link InterruptibleRelay} never receives a budget. The difference is
+         * only whether the omission is a build failure or a silent skip. A recipe declaring
+         * "this stage is remote" should not hard-fail because a test substituted a double —
+         * but it must never silently give a budget to an mmap write.</p>
+         *
+         * @param budget per-attempt wall-clock budget, or {@code null} to skip
+         * @return this stage builder
+         */
+        StageBuilder<S> timeoutIfInterruptible(Duration budget);
+
+        /**
+         * Attaches a retry policy only if the relay declares idempotency.
+         *
+         * <p>The recipe-facing counterpart to {@link #retry(RetryPolicy)}, for the same
+         * reason as {@link #timeoutIfInterruptible(Duration)}: injected relays may be test
+         * doubles. A relay that does not declare {@link IdempotentRelay} is never retried
+         * either way, so {@code CorticalWriteTransactionRelay} remains protected.</p>
+         *
+         * @param retryPolicy retry policy, or {@code null} to skip
+         * @return this stage builder
+         */
+        StageBuilder<S> retryIfIdempotent(RetryPolicy retryPolicy);
+
+        /**
+         * Gates the stage, placing the gate <em>outside</em> the decorator chain.
+         *
+         * <p>Required by ADR-0036 §6: a closed gate must not consume a bulkhead permit,
+         * must not register as a circuit-breaker success, and must not start a timeout or
+         * a retry attempt. Passing a pre-wrapped {@link GatedRelay} to
+         * {@link #relay(SynapticRelay)} instead places the gate <em>innermost</em> and
+         * produces exactly those effects, so prefer this method for gated stages that
+         * also carry decorators.</p>
+         *
+         * <p>Resulting composition, outermost first:</p>
+         * <pre>
+         * interceptor -&gt; GatedRelay -&gt; bulkhead -&gt; breaker -&gt; retry -&gt; timeout -&gt; relay
+         * </pre>
+         *
+         * @param gate predicate deciding whether the stage runs; when it is a
+         *             {@link Specification} the unsatisfied reason also becomes the
+         *             {@code BYPASSED} trace detail
+         * @return this stage builder
+         */
+        StageBuilder<S> gate(Predicate<S> gate);
 
         /** Builds the decorator chain and adds the stage to the composer. */
         PathwayComposer<S> add();
@@ -209,11 +262,11 @@ public interface PathwayComposer<S> {
     PathwayComposer<S> optional(String name, Class<? extends SynapticRelay<S>> type, ErrorPolicy policy);
 
     /**
-     * Builds and returns the configured {@link CognitivePathway}.
+     * Builds and returns the configured {@link PathwayEngine}.
      *
      * @return cognitive pathway instance
      */
-    CognitivePathway<S> build();
+    PathwayEngine<S> build();
 
     /**
      * Creates a new composer instance for the given pathway name.

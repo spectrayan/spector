@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.pathway;
 
-import com.spectrayan.spector.commons.pathway.CognitivePathway;
+import com.spectrayan.spector.commons.pathway.PathwayEngine;
 import com.spectrayan.spector.commons.pathway.DefaultPathwayContext;
 import com.spectrayan.spector.commons.pathway.RelayTrace;
 import com.spectrayan.spector.kernel.api.MemorySource;
@@ -37,7 +37,7 @@ class PathwayTraceParityTest {
     @Test
     @DisplayName("1. RememberSignal records >= 1 RelayTrace when trace is enabled")
     void rememberSignalTrace() {
-        var pathway = CognitivePathway.<RememberSignal>pathway("remember")
+        var pathway = PathwayEngine.<RememberSignal>builder("remember")
                 .relay("remember-relay", s -> true)
                 .build();
         var signal = RememberSignal.forCognitive(
@@ -59,7 +59,7 @@ class PathwayTraceParityTest {
     @Test
     @DisplayName("2. RecallSignal records >= 1 RelayTrace when trace is enabled")
     void recallSignalTrace() {
-        var pathway = CognitivePathway.<RecallSignal>pathway("recall")
+        var pathway = PathwayEngine.<RecallSignal>builder("recall")
                 .relay("recall-relay", s -> true)
                 .build();
         var signal = RecallSignal.forTextQuery("search query", RecallOptions.builder().build());
@@ -78,7 +78,7 @@ class PathwayTraceParityTest {
     @Test
     @DisplayName("3. ReflectSignal records >= 1 RelayTrace when trace is enabled")
     void reflectSignalTrace() {
-        var pathway = CognitivePathway.<ReflectSignal>pathway("reflect")
+        var pathway = PathwayEngine.<ReflectSignal>builder("reflect")
                 .relay("reflect-relay", s -> true)
                 .build();
         var signal = ReflectSignal.builder().build();
@@ -97,7 +97,7 @@ class PathwayTraceParityTest {
     @Test
     @DisplayName("4. DreamSignal records >= 1 RelayTrace when trace is enabled")
     void dreamSignalTrace() {
-        var pathway = CognitivePathway.<DreamSignal>pathway("dream")
+        var pathway = PathwayEngine.<DreamSignal>builder("dream")
                 .relay("dream-relay", s -> true)
                 .build();
         var signal = DreamSignal.builder().build();
@@ -116,7 +116,7 @@ class PathwayTraceParityTest {
     @Test
     @DisplayName("5. DecideSignal records >= 1 RelayTrace when trace is enabled")
     void decideSignalTrace() {
-        var pathway = CognitivePathway.<DecideSignal>pathway("decide")
+        var pathway = PathwayEngine.<DecideSignal>builder("decide")
                 .relay("decide-relay", s -> true)
                 .build();
         var signal = DecideSignal.builder().build();
@@ -135,7 +135,7 @@ class PathwayTraceParityTest {
     @Test
     @DisplayName("6. WanderSignal records >= 1 RelayTrace when trace is enabled")
     void wanderSignalTrace() {
-        var pathway = CognitivePathway.<WanderSignal>pathway("wander")
+        var pathway = PathwayEngine.<WanderSignal>builder("wander")
                 .relay("wander-relay", s -> true)
                 .build();
         var signal = WanderSignal.builder().build();
@@ -154,7 +154,7 @@ class PathwayTraceParityTest {
     @Test
     @DisplayName("7. ExpressSignal records >= 1 RelayTrace when trace is enabled")
     void expressSignalTrace() {
-        var pathway = CognitivePathway.<ExpressSignal>pathway("express")
+        var pathway = PathwayEngine.<ExpressSignal>builder("express")
                 .relay("express-relay", s -> true)
                 .build();
         var signal = ExpressSignal.builder().build();
@@ -179,7 +179,7 @@ class PathwayTraceParityTest {
         var ctx = DefaultPathwayContext.builder().traceEnabled(false).build();
         rememberSignal.bind(ctx);
 
-        CognitivePathway.<RememberSignal>pathway("remember")
+        PathwayEngine.<RememberSignal>builder("remember")
                 .relay("stage", s -> true)
                 .build()
                 .conduct(rememberSignal);

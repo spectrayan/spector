@@ -29,7 +29,7 @@ class AbstractPathwayTest {
     }
 
     static class TestPathway extends AbstractPathway<Signal, Integer> {
-        TestPathway(CognitivePathway<Signal> engine) {
+        TestPathway(PathwayEngine<Signal> engine) {
             super("test-pathway", Signal.class, Integer.class, engine);
         }
 
@@ -42,7 +42,7 @@ class AbstractPathwayTest {
     @Test
     @DisplayName("Throws CognitivePathwayException with CONTRACT when conducted without context")
     void throwsWithoutContext() {
-        var pathway = new TestPathway(CognitivePathway.<Signal>pathway("test").build());
+        var pathway = new TestPathway(PathwayEngine.<Signal>builder("test").build());
         var signal = new Signal();
 
         assertThatThrownBy(() -> pathway.conduct(signal))
@@ -56,7 +56,7 @@ class AbstractPathwayTest {
     @Test
     @DisplayName("Conducts successfully and projects output")
     void conductAndProject() {
-        var engine = CognitivePathway.<Signal>pathway("test-pathway")
+        var engine = PathwayEngine.<Signal>builder("test-pathway")
                 .relay("add10", s -> { s.value += 10; return true; })
                 .build();
         var pathway = new TestPathway(engine);
@@ -73,7 +73,7 @@ class AbstractPathwayTest {
     @Test
     @DisplayName("Sets SHORT_CIRCUITED finish when engine short-circuits")
     void shortCircuitFinish() {
-        var engine = CognitivePathway.<Signal>pathway("test-pathway")
+        var engine = PathwayEngine.<Signal>builder("test-pathway")
                 .relay("stop", s -> false)
                 .relay("never", s -> { s.value += 100; return true; })
                 .build();
@@ -91,7 +91,7 @@ class AbstractPathwayTest {
     @Test
     @DisplayName("Sets FAILED finish when engine throws")
     void failureFinish() {
-        var engine = CognitivePathway.<Signal>pathway("test-pathway")
+        var engine = PathwayEngine.<Signal>builder("test-pathway")
                 .relay("fail", s -> { throw new RuntimeException("boom"); })
                 .build();
         var pathway = new TestPathway(engine);

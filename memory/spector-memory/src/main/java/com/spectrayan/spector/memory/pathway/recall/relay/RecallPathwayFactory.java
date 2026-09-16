@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.pathway.recall.relay;
 
-import com.spectrayan.spector.commons.pathway.CognitivePathway;
+import com.spectrayan.spector.commons.pathway.PathwayEngine;
 import com.spectrayan.spector.commons.pathway.ConsolidationRelay;
 import com.spectrayan.spector.commons.pathway.ErrorPolicy;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
@@ -36,7 +36,7 @@ public final class RecallPathwayFactory {
      * @deprecated Use {@link RecallRecipe} instead.
      */
     @Deprecated(forRemoval = true, since = "1.5.0")
-    public static CognitivePathway<RecallSignal> create(
+    public static PathwayEngine<RecallSignal> create(
             final SynapticRelay<RecallSignal> transductionRelay,
             final SynapticRelay<RecallSignal> prospectiveRelay,
             final SynapticRelay<RecallSignal> governedReleaseGateRelay,
@@ -60,7 +60,7 @@ public final class RecallPathwayFactory {
     /**
      * Legacy factory overload with interceptor but without AISME relays.
      */
-    public static CognitivePathway<RecallSignal> create(
+    public static PathwayEngine<RecallSignal> create(
             final Function<SynapticRelay<RecallSignal>, SynapticRelay<RecallSignal>> interceptor,
             final SynapticRelay<RecallSignal> transductionRelay,
             final SynapticRelay<RecallSignal> prospectiveRelay,
@@ -85,7 +85,7 @@ public final class RecallPathwayFactory {
     /**
      * Creates the full cognitive recall pathway with all AISME active inference and neuromodulatory relays.
      */
-    public static CognitivePathway<RecallSignal> create(
+    public static PathwayEngine<RecallSignal> create(
             final Function<SynapticRelay<RecallSignal>, SynapticRelay<RecallSignal>> interceptor,
             final SynapticRelay<RecallSignal> transductionRelay,
             final SynapticRelay<RecallSignal> prospectiveRelay,
@@ -118,7 +118,7 @@ public final class RecallPathwayFactory {
     /**
      * Legacy factory overload with all AISME relays but without lateral inhibition relay.
      */
-    public static CognitivePathway<RecallSignal> create(
+    public static PathwayEngine<RecallSignal> create(
             final Function<SynapticRelay<RecallSignal>, SynapticRelay<RecallSignal>> interceptor,
             final SynapticRelay<RecallSignal> transductionRelay,
             final SynapticRelay<RecallSignal> prospectiveRelay,
@@ -155,7 +155,7 @@ public final class RecallPathwayFactory {
     /**
      * Creates the full cognitive recall pathway with all AISME active inference and epistemic learning relays.
      */
-    public static CognitivePathway<RecallSignal> create(
+    public static PathwayEngine<RecallSignal> create(
             final Function<SynapticRelay<RecallSignal>, SynapticRelay<RecallSignal>> interceptor,
             final SynapticRelay<RecallSignal> transductionRelay,
             final SynapticRelay<RecallSignal> prospectiveRelay,
@@ -193,7 +193,7 @@ public final class RecallPathwayFactory {
     /**
      * Creates the full cognitive recall pathway with custom spacetime scoring relay injection.
      */
-    public static CognitivePathway<RecallSignal> create(
+    public static PathwayEngine<RecallSignal> create(
             final Function<SynapticRelay<RecallSignal>, SynapticRelay<RecallSignal>> interceptor,
             final SynapticRelay<RecallSignal> transductionRelay,
             final SynapticRelay<RecallSignal> prospectiveRelay,

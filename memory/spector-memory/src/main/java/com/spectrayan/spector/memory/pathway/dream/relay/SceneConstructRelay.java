@@ -14,6 +14,7 @@ package com.spectrayan.spector.memory.pathway.dream.relay;
 
 import com.spectrayan.spector.kernel.id.MemoryId;
 
+import com.spectrayan.spector.commons.pathway.InterruptibleRelay;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.similarity.VectorOps;
 import com.spectrayan.spector.provider.generation.GenerationOptions;
@@ -35,7 +36,8 @@ import java.util.Random;
  *
  * @since 1.4.0
  */
-public final class SceneConstructRelay implements SynapticRelay<DreamSignal> {
+public final class SceneConstructRelay
+        implements SynapticRelay<DreamSignal>, InterruptibleRelay {
 
     private static final Logger log = LoggerFactory.getLogger(SceneConstructRelay.class);
 

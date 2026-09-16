@@ -49,7 +49,6 @@ public final class RecallSignal extends com.spectrayan.spector.commons.pathway.A
     private float effectiveTemperature = 1.0f;
 
     private final java.util.Map<String, Object> attributes = new java.util.concurrent.ConcurrentHashMap<>();
-    private com.spectrayan.spector.kernel.api.NamespaceKernel kernel;
 
     // Output
     private List<CognitiveResult> finalizedResults = Collections.emptyList();
@@ -103,7 +102,6 @@ public final class RecallSignal extends com.spectrayan.spector.commons.pathway.A
         fork.textSearchExecuted = this.textSearchExecuted;
         fork.rrfFused = this.rrfFused;
         fork.effectiveTemperature = this.effectiveTemperature;
-        fork.kernel = this.kernel;
         fork.attributes.putAll(this.attributes);
         if (this.context() != null) {
             fork.bind(this.context());
@@ -114,22 +112,7 @@ public final class RecallSignal extends com.spectrayan.spector.commons.pathway.A
         return fork;
     }
 
-    /**
-     * Returns the target namespace kernel for this recall operation, if bound (R13.6).
-     */
-    public com.spectrayan.spector.kernel.api.NamespaceKernel kernel() {
-        return kernel;
-    }
 
-    /**
-     * Binds the target namespace kernel to this recall operation (R13.6).
-     */
-    public void kernel(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel) {
-        this.kernel = kernel;
-        if (kernel != null) {
-            this.attributes.put("kernel", kernel);
-        }
-    }
 
     /**
      * Returns the mutable contextual attributes map for inter-relay parameter passing.

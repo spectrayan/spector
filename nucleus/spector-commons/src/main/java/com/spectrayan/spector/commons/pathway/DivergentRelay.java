@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.commons.pathway;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+
 import com.spectrayan.spector.commons.concurrent.ConcurrentExecutionException;
 import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
 import com.spectrayan.spector.commons.error.SpectorException;
@@ -37,7 +39,7 @@ public final class DivergentRelay<S> implements SynapticRelay<S> {
     private static final Logger log = LoggerFactory.getLogger(DivergentRelay.class);
 
     private final String name;
-    private final List<CognitivePathway.RelayEntry<S>> branches;
+    private final List<PathwayEngine.RelayEntry<S>> branches;
 
     /**
      * Constructs a DivergentRelay with uniform FAIL_FAST policies for all branches.
@@ -47,7 +49,7 @@ public final class DivergentRelay<S> implements SynapticRelay<S> {
      */
     public DivergentRelay(final String name, final List<SynapticRelay<S>> branches) {
         this(name, branches.stream()
-                .map(b -> new CognitivePathway.RelayEntry<>(b, ErrorPolicy.FAIL_FAST))
+                .map(b -> new PathwayEngine.RelayEntry<>(b, ErrorPolicy.FAIL_FAST))
                 .toList(), true);
     }
 
@@ -57,7 +59,7 @@ public final class DivergentRelay<S> implements SynapticRelay<S> {
      * @param name     the name of the relay
      * @param branches the parallel branch entries
      */
-    public DivergentRelay(final String name, final List<CognitivePathway.RelayEntry<S>> branches, final boolean isEntryList) {
+    public DivergentRelay(final String name, final List<PathwayEngine.RelayEntry<S>> branches, final boolean isEntryList) {
         this.name = Objects.requireNonNull(name, "name cannot be null");
         this.branches = List.copyOf(branches);
     }
@@ -66,14 +68,16 @@ public final class DivergentRelay<S> implements SynapticRelay<S> {
     @SuppressWarnings("unchecked")
     public boolean transmit(final S signal) throws Exception {
         if (!(signal instanceof DivergentCapable)) {
-            throw new IllegalArgumentException("Signal must implement DivergentCapable for DivergentRelay");
+            throw new CognitivePathwayException(ErrorCode.MEMORY_PATHWAY_FAILED, name, "divergent",
+                    FaultKind.CONTRACT, false,
+                    new IllegalArgumentException("Signal must implement DivergentCapable for DivergentRelay"));
         }
 
         final DivergentCapable<S> divergentCapable = (DivergentCapable<S>) signal;
         final List<S> successfulForks = Collections.synchronizedList(new ArrayList<>());
         final List<Callable<Void>> tasks = new ArrayList<>();
 
-        for (final CognitivePathway.RelayEntry<S> branch : branches) {
+        for (final PathwayEngine.RelayEntry<S> branch : branches) {
             final S fork = divergentCapable.fork();
             tasks.add(() -> {
                 try {
@@ -87,8 +91,16 @@ public final class DivergentRelay<S> implements SynapticRelay<S> {
                         if (e.getCause() instanceof SpectorException se) throw se;
                         throw e;
                     } else {
-                        log.warn("Divergent branch '{}' in relay '{}' degraded gracefully due to error.",
-                                branch.relay().relayName(), name, e);
+                        // ADR-0036 §16.2: classify, then record the degradation on the parent
+                        // outcome so a partially-successful divergence is inspectable rather
+                        // than only visible in logs.
+                        final FaultKind kind = Faults.kindOf(e);
+                        if (signal instanceof ContextualSignal cs && cs.context() != null) {
+                            cs.context().outcome().markDegraded(
+                                    name + "/" + branch.relay().relayName(), kind, e);
+                        }
+                        log.warn("Divergent branch '{}' in relay '{}' degraded gracefully ({}).",
+                                branch.relay().relayName(), name, kind, e);
                     }
                 }
                 return null;
@@ -114,7 +126,7 @@ public final class DivergentRelay<S> implements SynapticRelay<S> {
      *
      * @return unmodifiable list of branch entries
      */
-    public List<CognitivePathway.RelayEntry<S>> branches() {
+    public List<PathwayEngine.RelayEntry<S>> branches() {
         return branches;
     }
 

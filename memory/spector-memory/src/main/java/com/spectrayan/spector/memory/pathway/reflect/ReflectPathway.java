@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.pathway.reflect;
 import com.spectrayan.spector.kernel.id.MemoryId;
 
 import com.spectrayan.spector.commons.pathway.AbstractPathway;
-import com.spectrayan.spector.commons.pathway.CognitivePathway;
+import com.spectrayan.spector.commons.pathway.PathwayEngine;
 import com.spectrayan.spector.commons.pathway.ConductionOutcome;
 import com.spectrayan.spector.commons.pathway.DefaultPathwayContext;
 import com.spectrayan.spector.commons.template.TemplateEngine;
@@ -46,7 +46,8 @@ import com.spectrayan.spector.memory.pathway.reflect.relay.HebbianHomeostasisRel
 import com.spectrayan.spector.memory.pathway.reflect.relay.IdiolectLearningRelay;
 import com.spectrayan.spector.memory.pathway.reflect.relay.ProactiveInterferenceRelay;
 import com.spectrayan.spector.memory.pathway.reflect.relay.ProceduralCrystallizationRelay;
-import com.spectrayan.spector.memory.pathway.reflect.relay.ReflectPathwayFactory;
+import com.spectrayan.spector.commons.pathway.PathwayComposer;
+import com.spectrayan.spector.memory.pathway.reflect.relay.ReflectRecipe;
 import com.spectrayan.spector.memory.pathway.reflect.relay.ReflectSignal;
 import com.spectrayan.spector.memory.pathway.reflect.relay.SoulDriftRefusionRelay;
 import com.spectrayan.spector.memory.pathway.reflect.relay.SpectralSparsificationRelay;
@@ -77,6 +78,8 @@ public final class ReflectPathway extends AbstractPathway<ReflectSignal, Reflect
     private static final Logger log = LoggerFactory.getLogger(ReflectPathway.class);
 
     private final ScalarQuantizer quantizer;
+    /** Narrowed from RememberPathway to the one capability Reflect needs (ADR-0035 §8.1b). */
+    private final SoulVersionSource soulVersionSource;
     private final EmbeddingProvider embeddingProvider;
     private final LlmProvider textGenerator;
     private final ImportanceProvider importanceProvider;
@@ -112,6 +115,7 @@ public final class ReflectPathway extends AbstractPathway<ReflectSignal, Reflect
     private ReflectPathway(final Builder builder) {
         super("reflect", ReflectSignal.class, ReflectReport.class);
         this.quantizer = builder.quantizer;
+        this.soulVersionSource = builder.soulVersionSource;
         this.embeddingProvider = builder.embeddingProvider;
         this.textGenerator = builder.textGenerator;
         this.importanceProvider = builder.importanceProvider != null ? builder.importanceProvider : ImportanceProvider.baseline();
@@ -155,27 +159,33 @@ public final class ReflectPathway extends AbstractPathway<ReflectSignal, Reflect
                 ? builder.softIdentityAnchorRelay
                 : new SoftIdentityAnchorRelay(builder.identityAnchorEta, builder.identityLyapunovThreshold);
 
-        final CognitivePathway<ReflectSignal> engine = ReflectPathwayFactory.create(
-                builder.interceptor,
-                new SynapticPruningRelay(),
-                new EpisodicLogConsolidationRelay(),
-                new SoulDriftRefusionRelay(),
-                new ProceduralCrystallizationRelay(),
-                new ProactiveInterferenceRelay(),
-                new HebbianHomeostasisRelay(),
-                new TemporalPruningRelay(),
-                new CrossLayerPromotionRelay(),
-                new EntityMaintenanceRelay(),
-                new SpectralSparsificationRelay(),
-                manifoldRelay,
-                anchorRelay,
-                new WalJournalRelay(),
-                new com.spectrayan.spector.memory.pathway.reflect.relay.IdiolectLearningRelay()
-        );
-        initEngine(engine);
+        // Composer + recipe directly. ReflectPathwayFactory is @Deprecated and exists only
+        // as a shim for external callers; production must not route through it.
+        final PathwayComposer<ReflectSignal> composer = PathwayComposer.of("reflect");
+        if (builder.interceptor != null) {
+            composer.withInterceptor(builder.interceptor);
+        }
+        ReflectRecipe.builder()
+                .pruningRelay(new SynapticPruningRelay())
+                .logConsolidationRelay(new EpisodicLogConsolidationRelay())
+                .soulDriftRelay(new SoulDriftRefusionRelay())
+                .proceduralRelay(new ProceduralCrystallizationRelay())
+                .interferenceRelay(new ProactiveInterferenceRelay())
+                .hebbianRelay(new HebbianHomeostasisRelay())
+                .temporalRelay(new TemporalPruningRelay())
+                .promotionRelay(new CrossLayerPromotionRelay())
+                .entityRelay(new EntityMaintenanceRelay())
+                .sparsificationRelay(new SpectralSparsificationRelay())
+                .manifoldConsolidationRelay(manifoldRelay)
+                .softIdentityAnchorRelay(anchorRelay)
+                .walRelay(new WalJournalRelay())
+                .idiolectRelay(new com.spectrayan.spector.memory.pathway.reflect.relay.IdiolectLearningRelay())
+                .build()
+                .compose(composer);
+        initEngine(composer.build());
     }
 
-    public CognitivePathway<ReflectSignal> pathway() {
+    public PathwayEngine<ReflectSignal> pathway() {
         return engine();
     }
 
@@ -204,10 +214,18 @@ public final class ReflectPathway extends AbstractPathway<ReflectSignal, Reflect
      * @return the resulting {@link ReflectReport}
      */
     public ReflectReport execute(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel, final ReflectSignal signal) {
+        return execute(kernel, signal, this.soulVersionSource);
+    }
+
+    /**
+     * Real implementation. {@code svs} is passed explicitly rather than read from a field so the
+     * deprecated {@code RememberPathway} overloads can supply it per call — ReflectPathway is a
+     * process-wide singleton, so a field write per invocation would race across namespaces.
+     */
+    private ReflectReport execute(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel,
+                                 final ReflectSignal signal,
+                                 final SoulVersionSource svs) {
         Objects.requireNonNull(signal, "ReflectSignal cannot be null");
-        if (kernel != null) {
-            signal.kernel(kernel);
-        }
         final DefaultPathwayContext.Builder ctxBuilder = signal.context() != null
                 ? DefaultPathwayContext.from(signal.context())
                 : DefaultPathwayContext.builder();
@@ -215,8 +233,8 @@ public final class ReflectPathway extends AbstractPathway<ReflectSignal, Reflect
             ctxBuilder.namespaceId(kernel.namespaceId());
             ctxBuilder.bindIfAbsent(com.spectrayan.spector.kernel.api.NamespaceKernel.class, kernel);
         }
-        if (signal.rememberPathway() != null) {
-            ctxBuilder.bindIfAbsent(SoulVersionSource.class, signal.rememberPathway());
+        if (svs != null) {
+            ctxBuilder.bindIfAbsent(SoulVersionSource.class, svs);
         }
         if (signal.quantizer() != null) {
             ctxBuilder.bindIfAbsent(ScalarQuantizer.class, signal.quantizer());
@@ -225,6 +243,50 @@ public final class ReflectPathway extends AbstractPathway<ReflectSignal, Reflect
         }
         signal.bind(ctxBuilder.build());
         return conduct(signal);
+    }
+
+    /**
+     * Reflects using a caller-supplied signal builder — the recommended entry point.
+     *
+     * <p>ADR-0035 R2.3: the collaborator-threading {@code execute}/{@code reflect} overloads
+     * exist only for backwards compatibility. New callers should either build a
+     * {@link ReflectSignal} and call {@link #conduct(ReflectSignal)}, or hand a partially
+     * populated builder here. Nested gist writes resolve {@code RememberPathway} from the
+     * {@code PathwayCatalog}; it is never passed in.</p>
+     *
+     * @param signalBuilder a populated {@link ReflectSignal.Builder}
+     * @return the reflection report
+     */
+    public ReflectReport reflect(final ReflectSignal.Builder signalBuilder) {
+        Objects.requireNonNull(signalBuilder, "signalBuilder cannot be null");
+        return conduct(signalBuilder.build());
+    }
+
+    /**
+     * Reflects over an explicit sweep without threading a {@link RememberPathway}.
+     *
+     * <p>The non-deprecated replacement for the collaborator overloads: soul version comes
+     * from the {@link SoulVersionSource} on the context, and nested writes go through the
+     * catalog.</p>
+     *
+     * @param kernel            namespace kernel, may be null
+     * @param partitionManager  partition manager for the sweep
+     * @param index             memory index
+     * @param salienceProfile   active salience profile
+     * @param sessionIndex      episodic session index, or null to use this pathway's own
+     * @param sweepSpec         sweep specification, or null for a full cycle
+     * @param checkpointStore   checkpoint store, or null for none
+     * @return the reflection report
+     */
+    public ReflectReport reflect(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel,
+                                 final PartitionManager partitionManager,
+                                 final MemoryIndex index,
+                                 final SalienceProfile salienceProfile,
+                                 final EpisodicSessionIndex sessionIndex,
+                                 final ReflectSweepSpec sweepSpec,
+                                 final com.spectrayan.spector.memory.pathway.reflect.spi.ReflectCheckpointStore checkpointStore) {
+        return execute(kernel, partitionManager, index, null, salienceProfile,
+                sessionIndex, sweepSpec, checkpointStore);
     }
 
     /**
@@ -277,11 +339,9 @@ public final class ReflectPathway extends AbstractPathway<ReflectSignal, Reflect
         }
 
         ReflectSignal signal = ReflectSignal.builder()
-                .kernel(kernel)
                 .partitionManager(partitionManager)
                 .index(index)
                 .quantizer(quantizer)
-                .rememberPathway(rememberPathway)
                 .embeddingProvider(embeddingProvider)
                 .textGenerator(textGenerator)
                 .importanceProvider(importanceProvider)
@@ -374,6 +434,7 @@ public final class ReflectPathway extends AbstractPathway<ReflectSignal, Reflect
 
     public static final class Builder {
         private ScalarQuantizer quantizer;
+        private SoulVersionSource soulVersionSource;
         private EmbeddingProvider embeddingProvider;
         private LlmProvider textGenerator;
         private ImportanceProvider importanceProvider;
@@ -413,6 +474,14 @@ public final class ReflectPathway extends AbstractPathway<ReflectSignal, Reflect
         private float identityLyapunovThreshold = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IDENTITY_LYAPUNOV_THRESHOLD;
 
         public Builder quantizer(ScalarQuantizer q) { this.quantizer = q; return this; }
+
+        /**
+         * Supplies the soul-version accessor.
+         *
+         * @param svs soul version source (RememberPathway implements this)
+         * @return this builder
+         */
+        public Builder soulVersionSource(SoulVersionSource svs) { this.soulVersionSource = svs; return this; }
         public Builder embeddingProvider(EmbeddingProvider ep) { this.embeddingProvider = ep; return this; }
         public Builder textGenerator(LlmProvider tg) { this.textGenerator = tg; return this; }
         public Builder importanceProvider(ImportanceProvider ip) { this.importanceProvider = ip; return this; }

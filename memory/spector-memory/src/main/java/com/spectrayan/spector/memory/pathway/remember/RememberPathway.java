@@ -42,7 +42,8 @@ import com.spectrayan.spector.memory.pathway.remember.relay.CorticalWriteTransac
 import com.spectrayan.spector.memory.pathway.remember.relay.DedupGuardRelay;
 import com.spectrayan.spector.memory.pathway.remember.relay.DopaminergicSurpriseRelay;
 import com.spectrayan.spector.memory.pathway.remember.relay.KnowledgeGraphEnrichmentRelay;
-import com.spectrayan.spector.memory.pathway.remember.relay.RememberPathwayFactory;
+import com.spectrayan.spector.commons.pathway.PathwayComposer;
+import com.spectrayan.spector.memory.pathway.remember.relay.RememberRecipe;
 import com.spectrayan.spector.memory.pathway.remember.relay.RememberSignal;
 import com.spectrayan.spector.memory.pathway.remember.relay.SynapticGraphLinkingRelay;
 import com.spectrayan.spector.memory.pathway.remember.relay.SynapticTagTransductionRelay;
@@ -52,7 +53,7 @@ import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.api.ImportanceProvider;
 
 import com.spectrayan.spector.commons.pathway.AbstractPathway;
-import com.spectrayan.spector.commons.pathway.CognitivePathway;
+import com.spectrayan.spector.commons.pathway.PathwayEngine;
 import com.spectrayan.spector.commons.pathway.ConductionOutcome;
 import com.spectrayan.spector.commons.pathway.DefaultPathwayContext;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
@@ -89,7 +90,7 @@ public final class RememberPathway extends AbstractPathway<RememberSignal, Remem
         final TagExtractor tagExtractor;
         final CorticalWriteTransactionRelay corticalWriteRelay;
         final AsyncEntityExtractionQueue asyncEntityExtractionQueue;
-        final CognitivePathway<RememberSignal> engine;
+        final PathwayEngine<RememberSignal> engine;
 
         RememberComponents(final Builder builder, final AtomicInteger lastIngestedMemoryIdx) {
             final ScalarQuantizer quantizer = builder.cortex.quantizer();
@@ -167,15 +168,22 @@ public final class RememberPathway extends AbstractPathway<RememberSignal, Remem
                     entityExtractor
             );
 
-            this.engine = RememberPathwayFactory.create(
-                    builder.interceptor,
+            // Composer + recipe directly. RememberPathwayFactory is @Deprecated and exists
+            // only as a shim for external callers; production must not route through it.
+            final PathwayComposer<RememberSignal> composer =
+                    PathwayComposer.of("remember");
+            if (builder.interceptor != null) {
+                composer.withInterceptor(builder.interceptor);
+            }
+            new RememberRecipe(
                     dedupGuardRelay,
                     tagTransductionRelay,
                     surpriseRelay,
                     this.corticalWriteRelay,
                     graphLinkingRelay,
                     kgEnrichmentRelay
-            );
+            ).compose(composer);
+            this.engine = composer.build();
         }
     }
 
@@ -270,9 +278,6 @@ public final class RememberPathway extends AbstractPathway<RememberSignal, Remem
             final com.spectrayan.spector.kernel.api.NamespaceKernel kernel,
             final RememberSignal signal) {
         Objects.requireNonNull(signal, "RememberSignal cannot be null");
-        if (kernel != null) {
-            signal.kernel(kernel);
-        }
         if (signal.context() == null) {
             final DefaultPathwayContext.Builder ctxBuilder = DefaultPathwayContext.builder();
             if (kernel != null) {
@@ -300,7 +305,7 @@ public final class RememberPathway extends AbstractPathway<RememberSignal, Remem
         );
     }
 
-    public CognitivePathway<RememberSignal> pathway() {
+    public PathwayEngine<RememberSignal> pathway() {
         return engine();
     }
 

@@ -69,7 +69,7 @@ class ConductionScopeTest {
 
             assertThatThrownBy(future::get)
                     .isInstanceOf(ExecutionException.class)
-                    .hasCauseInstanceOf(IllegalStateException.class)
+                    .hasCauseInstanceOf(CognitivePathwayException.class)
                     .hasMessageContaining("ConductionScope is thread-confined");
         }
     }
@@ -96,12 +96,12 @@ class ConductionScopeTest {
     void leaveFailsOnMismatch() {
         var scope = new ConductionScope();
         assertThatThrownBy(() -> scope.leave("recall"))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(CognitivePathwayException.class)
                 .hasMessageContaining("stack is empty");
 
         scope.enter("recall");
         assertThatThrownBy(() -> scope.leave("remember"))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(CognitivePathwayException.class)
                 .hasMessageContaining("Stack mismatch");
     }
 

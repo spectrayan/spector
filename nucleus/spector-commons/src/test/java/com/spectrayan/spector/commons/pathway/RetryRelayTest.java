@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.commons.pathway;
 
+import com.spectrayan.spector.commons.error.SpectorValidationException;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -62,6 +64,9 @@ class RetryRelayTest {
         var policy = RetryPolicy.of(3, Duration.ofMillis(1), 0.0, FaultKind.TRANSIENT);
         var relay = new RetryRelay<>(delegate, policy, "validation-relay");
 
+        // RetryRelay propagates the delegate's own exception unchanged; this delegate
+        // throws a raw IllegalArgumentException, so that is what surfaces. The point
+        // of the test is the attempt count, not the type.
         assertThatThrownBy(() -> relay.transmit(new Signal()))
                 .isInstanceOf(IllegalArgumentException.class);
 

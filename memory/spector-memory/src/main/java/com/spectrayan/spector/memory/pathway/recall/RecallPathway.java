@@ -73,7 +73,6 @@ import com.spectrayan.spector.memory.pathway.recall.relay.NeuromodulatoryScoring
 import com.spectrayan.spector.memory.pathway.recall.relay.ProspectiveReminderRelay;
 import com.spectrayan.spector.memory.pathway.recall.relay.QueryTransductionRelay;
 import com.spectrayan.spector.memory.pathway.recall.relay.RecallGates;
-import com.spectrayan.spector.memory.pathway.recall.relay.RecallPathwayFactory;
 import com.spectrayan.spector.memory.pathway.recall.relay.RecallSignal;
 import com.spectrayan.spector.memory.pathway.recall.relay.RrfRescoreRelay;
 import com.spectrayan.spector.memory.pathway.recall.relay.SortAndTruncateRelay;
@@ -90,7 +89,9 @@ import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.commons.observation.MemoryObservationHook;
 import com.spectrayan.spector.commons.pathway.AbstractPathway;
-import com.spectrayan.spector.commons.pathway.CognitivePathway;
+import com.spectrayan.spector.commons.pathway.PathwayEngine;
+import com.spectrayan.spector.memory.pathway.recall.relay.RecallRecipe;
+import com.spectrayan.spector.commons.pathway.PathwayComposer;
 import com.spectrayan.spector.commons.pathway.ConsolidationRelay;
 import com.spectrayan.spector.commons.pathway.DefaultPathwayContext;
 import com.spectrayan.spector.kernel.api.MemorySource;
@@ -133,7 +134,6 @@ import com.spectrayan.spector.memory.pathway.recall.relay.NeuromodulatoryScoring
 import com.spectrayan.spector.memory.pathway.recall.relay.ProspectiveReminderRelay;
 import com.spectrayan.spector.memory.pathway.recall.relay.QueryTransductionRelay;
 import com.spectrayan.spector.memory.pathway.recall.relay.RecallGates;
-import com.spectrayan.spector.memory.pathway.recall.relay.RecallPathwayFactory;
 import com.spectrayan.spector.memory.pathway.recall.relay.RecallSignal;
 import com.spectrayan.spector.memory.pathway.recall.relay.RrfRescoreRelay;
 import com.spectrayan.spector.memory.pathway.recall.relay.SortAndTruncateRelay;
@@ -319,34 +319,45 @@ public final class RecallPathway extends AbstractPathway<RecallSignal, List<Cogn
         final var consciousAccessRelay = builder.aismeBundle != null ? builder.aismeBundle.consciousAccessRelay() : null;
         final var epistemicLearningRelay = builder.aismeBundle != null ? builder.aismeBundle.epistemicLearningRelay() : null;
 
-        final CognitivePathway<RecallSignal> engine = RecallPathwayFactory.create(
-                builder.interceptor,
-                transductionRelay, prospectiveRelay, governedReleaseGateRelay,
-                homeostaticBiasRelay,
-                vectorSearchRelay,
-                freeEnergyGuidedRelay,
-                scoringRelay,
-                graphExpansionRelay,
-                hopfieldAssociativeRelay,
-                evidenceFusionRelay,
-                lateralInhibitionRelay,
-                bm25SearchRelay,
-                rrfRescoreRelay,
-                manifoldRerankRelay,
-                constructiveSimulationRelay,
-                consciousnessContinuityRelay,
-                sortAndTruncateRelay,
-                cognitiveRerankRelay,
-                mmrDiversityRelay,
-                temperatureSoftmaxRelay,
-                consciousAccessRelay,
-                constructiveMemoryPersistenceRelay,
-                epistemicLearningRelay,
-                consolidationRelay);
-        initEngine(engine);
+        // Built through RecallRecipe rather than the deprecated RecallPathwayFactory
+        // (ADR-0035 M6). The factory now exists only as a compatibility wrapper that
+        // delegates here; going direct means the resilience decorators wired into the
+        // recipe are not dependent on a deprecated code path staying alive.
+        final var composer = PathwayComposer.<RecallSignal>of("recall");
+        if (builder.interceptor != null) {
+            composer.withInterceptor(builder.interceptor);
+        }
+        RecallRecipe.builder()
+                .transductionRelay(transductionRelay)
+                .prospectiveRelay(prospectiveRelay)
+                .governedReleaseGateRelay(governedReleaseGateRelay)
+                .homeostaticBiasRelay(homeostaticBiasRelay)
+                .vectorSearchRelay(vectorSearchRelay)
+                .freeEnergyGuidedRelay(freeEnergyGuidedRelay)
+                .scoringRelay(scoringRelay)
+                .graphExpansionRelay(graphExpansionRelay)
+                .hopfieldAssociativeRelay(hopfieldAssociativeRelay)
+                .evidenceFusionRelay(evidenceFusionRelay)
+                .lateralInhibitionRelay(lateralInhibitionRelay)
+                .bm25SearchRelay(bm25SearchRelay)
+                .rrfRescoreRelay(rrfRescoreRelay)
+                .manifoldRerankRelay(manifoldRerankRelay)
+                .constructiveSimulationRelay(constructiveSimulationRelay)
+                .consciousnessContinuityRelay(consciousnessContinuityRelay)
+                .sortAndTruncateRelay(sortAndTruncateRelay)
+                .cognitiveRerankRelay(cognitiveRerankRelay)
+                .mmrDiversityRelay(mmrDiversityRelay)
+                .temperatureSoftmaxRelay(temperatureSoftmaxRelay)
+                .consciousAccessRelay(consciousAccessRelay)
+                .constructiveMemoryPersistenceRelay(constructiveMemoryPersistenceRelay)
+                .epistemicLearningRelay(epistemicLearningRelay)
+                .consolidationRelay(consolidationRelay)
+                .build()
+                .compose(composer);
+        initEngine(composer.build());
     }
 
-    public CognitivePathway<RecallSignal> pathway() {
+    public PathwayEngine<RecallSignal> pathway() {
         return engine();
     }
 
@@ -374,9 +385,6 @@ public final class RecallPathway extends AbstractPathway<RecallSignal, List<Cogn
         }
 
         final RecallSignal signal = RecallSignal.forTextQuery(queryText, opts);
-        if (kernel != null) {
-            signal.kernel(kernel);
-        }
         return execute(kernel, signal);
     }
 
@@ -397,9 +405,6 @@ public final class RecallPathway extends AbstractPathway<RecallSignal, List<Cogn
         final RecallOptions opts = options == null ? RecallOptions.DEFAULT : options;
 
         final RecallSignal signal = RecallSignal.forVectorQuery(queryVector, opts);
-        if (kernel != null) {
-            signal.kernel(kernel);
-        }
         return execute(kernel, signal);
     }
 
@@ -413,9 +418,6 @@ public final class RecallPathway extends AbstractPathway<RecallSignal, List<Cogn
     public List<CognitiveResult> execute(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel,
                                          final RecallSignal signal) {
         Objects.requireNonNull(signal, "RecallSignal cannot be null");
-        if (kernel != null) {
-            signal.kernel(kernel);
-        }
         if (signal.context() == null) {
             final DefaultPathwayContext.Builder ctxBuilder = DefaultPathwayContext.builder();
             if (kernel != null) {

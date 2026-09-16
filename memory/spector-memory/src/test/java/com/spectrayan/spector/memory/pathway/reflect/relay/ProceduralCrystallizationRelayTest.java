@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.pathway.reflect.relay;
 
+import com.spectrayan.spector.memory.pathway.FakeRememberPathway;
+
 import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 
 
@@ -62,7 +64,7 @@ class ProceduralCrystallizationRelayTest {
         PartitionHandle handle = mock(PartitionHandle.class);
         CognitiveMemoryRouter router = mock(CognitiveMemoryRouter.class);
         EpisodicMemory logStore = mock(EpisodicMemory.class);
-        RememberPathway rememberPathway = mock(RememberPathway.class);
+        FakeRememberPathway fakeRemember = new FakeRememberPathway();
         EmbeddingProvider embeddingProvider = mock(EmbeddingProvider.class);
         HyperEntityGraphMemory hyperEntityGraph = mock(HyperEntityGraphMemory.class);
         EntityDirectory entityDirectory = mock(EntityDirectory.class);
@@ -90,26 +92,25 @@ class ProceduralCrystallizationRelayTest {
 
         ReflectSignal signal = ReflectSignal.builder()
                 .partitionManager(partitionManager)
-                .rememberPathway(rememberPathway)
                 .embeddingProvider(embeddingProvider)
                 .hyperEntityGraph(hyperEntityGraph)
                 .entityDirectory(entityDirectory)
                 .build();
+        signal.bind(fakeRemember.inContext("test"));
 
         boolean result = relay.transmit(signal);
 
         assertThat(result).isTrue();
         assertThat(signal.proceduralCrystallizedCount()).isGreaterThan(0);
 
-        verify(rememberPathway).ingestCognitiveWithHeader(
-                anyString(),
-                anyString(),
-                eq(new float[]{0.1f, 0.2f}),
-                eq(MemoryType.PROCEDURAL),
-                eq(new String[]{"procedural", "crystallized", "skill"}),
-                eq(MemorySource.REFLECTED),
-                any(com.spectrayan.spector.kernel.engram.EncodingHeader.class)
-        );
+        assertThat(fakeRemember.invocationCount()).isEqualTo(1);
+        final var crystallized = fakeRemember.received().getFirst();
+        assertThat(crystallized.vector()).containsExactly(0.1f, 0.2f);
+        assertThat(crystallized.type()).isEqualTo(MemoryType.PROCEDURAL);
+        assertThat(crystallized.tags())
+                .containsExactly("procedural", "crystallized", "skill");
+        assertThat(crystallized.source()).isEqualTo(MemorySource.REFLECTED);
+        assertThat(crystallized.header()).isNotNull();
 
         verify(hyperEntityGraph).addHyperedge(
                 eq(new int[]{5}),
@@ -127,9 +128,7 @@ class ProceduralCrystallizationRelayTest {
         PartitionHandle handle = mock(PartitionHandle.class);
         CognitiveMemoryRouter router = mock(CognitiveMemoryRouter.class);
         EpisodicMemory logStore = mock(EpisodicMemory.class);
-        RememberPathway rememberPathway =
-                mock(RememberPathway.class);
-        when(rememberPathway.currentSoulVersion()).thenReturn((short) 4);
+        FakeRememberPathway fakeRemember = new FakeRememberPathway((short) 4);
         EmbeddingProvider embeddingProvider = mock(EmbeddingProvider.class);
 
         when(partitionManager.snapshot()).thenReturn(List.of(handle));
@@ -153,20 +152,21 @@ class ProceduralCrystallizationRelayTest {
 
         ReflectSignal signal = ReflectSignal.builder()
                 .partitionManager(partitionManager)
-                .rememberPathway(rememberPathway)
                 .embeddingProvider(embeddingProvider)
                 .build();
+        signal.bind(fakeRemember.inContext("test"));
 
         boolean result = relay.transmit(signal);
 
         assertThat(result).isTrue();
-        org.mockito.ArgumentCaptor<com.spectrayan.spector.kernel.engram.EncodingHeader> captor =
-                org.mockito.ArgumentCaptor.forClass(com.spectrayan.spector.kernel.engram.EncodingHeader.class);
-        verify(rememberPathway).ingestCognitiveWithHeader(
-                anyString(), anyString(), eq(new float[]{0.3f, 0.4f}), eq(MemoryType.PROCEDURAL), any(), eq(MemorySource.REFLECTED), captor.capture()
-        );
+        assertThat(fakeRemember.invocationCount()).isEqualTo(1);
+        final var crystallized = fakeRemember.received().getFirst();
+        assertThat(crystallized.vector()).containsExactly(0.3f, 0.4f);
+        assertThat(crystallized.type()).isEqualTo(MemoryType.PROCEDURAL);
+        assertThat(crystallized.source()).isEqualTo(MemorySource.REFLECTED);
+        // Soul version now arrives via the context's SoulVersionSource, not a RememberPathway.
+        var header = crystallized.header();
 
-        var header = captor.getValue();
         assertThat(com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.isCrystallized(header.consolidationFlags())).isTrue();
         assertThat(header.soulVersion()).isEqualTo((short) 4);
     }

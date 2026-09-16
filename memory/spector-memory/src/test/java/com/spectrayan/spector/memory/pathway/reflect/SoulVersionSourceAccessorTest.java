@@ -93,10 +93,9 @@ class SoulVersionSourceAccessorTest {
                 .bind(ScalarQuantizer.class, quantizer)
                 .build();
 
-        // Create ReflectSignal with NO rememberPathway (proving complete decoupling)
+        // ReflectSignal no longer has any RememberPathway field at all (ADR-0035 M5.3)
         ReflectSignal signal = ReflectSignal.builder()
                 .partitionManager(partitionManager)
-                .rememberPathway(null) // Decoupled!
                 .quantizer(null)       // Retrieved from context!
                 .soulDriftRefusionEnabled(true)
                 .soulDriftRefusionBatchSize(10)

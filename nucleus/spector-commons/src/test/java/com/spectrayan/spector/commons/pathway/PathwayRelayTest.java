@@ -43,7 +43,7 @@ class PathwayRelayTest {
     static class ChildPathwayImpl extends AbstractPathway<ChildSignal, String> implements ChildPathway {
         ChildPathwayImpl() {
             super("child", ChildSignal.class, String.class,
-                    CognitivePathway.<ChildSignal>pathway("child")
+                    PathwayEngine.<ChildSignal>builder("child")
                             .relay("compute", s -> {
                                 s.output = "computed:" + s.input;
                                 return true;

@@ -75,12 +75,12 @@ class PathwayContextTest {
         builder.bind(DummyService.class, service1);
 
         assertThatThrownBy(() -> builder.bind(DummyService.class, service2))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(CognitivePathwayException.class)
                 .hasMessageContaining("already registered");
 
         builder.bind(CONFIG_KEY, "val1");
         assertThatThrownBy(() -> builder.bind(CONFIG_KEY, "val2"))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(CognitivePathwayException.class)
                 .hasMessageContaining("already registered");
     }
 

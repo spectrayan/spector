@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.pathway;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.spectrayan.spector.commons.pathway.CognitivePathway;
+import com.spectrayan.spector.commons.pathway.PathwayEngine;
 import com.spectrayan.spector.commons.pathway.ConsolidationRelay;
 import com.spectrayan.spector.memory.aisme.AismeBuilder;
 import com.spectrayan.spector.memory.aisme.AismeBundle;
@@ -42,7 +42,7 @@ class RecallPathwayAismeWiringTest {
 
     private Map<String, float[]> vectorStore;
     private AismeBundle bundle;
-    private CognitivePathway<RecallSignal> pathway;
+    private PathwayEngine<RecallSignal> pathway;
 
     @BeforeEach
     void setUp() {

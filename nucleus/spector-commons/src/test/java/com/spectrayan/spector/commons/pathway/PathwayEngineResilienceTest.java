@@ -24,8 +24,8 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@DisplayName("CognitivePathway Resilience")
-class CognitivePathwayResilienceTest {
+@DisplayName("PathwayEngine Resilience")
+class PathwayEngineResilienceTest {
 
     static class Signal extends AbstractSignal {
         final List<String> steps = new ArrayList<>();
@@ -34,7 +34,7 @@ class CognitivePathwayResilienceTest {
     @Test
     @DisplayName("ErrorPolicy.ABORT short-circuits execution without throwing")
     void abortPolicyStopsWithoutThrowing() {
-        var engine = CognitivePathway.<Signal>pathway("abort-test")
+        var engine = PathwayEngine.<Signal>builder("abort-test")
                 .relay("r1", s -> { s.steps.add("r1"); return true; }, ErrorPolicy.FAIL_FAST)
                 .relay("r2-abort", s -> { throw new RuntimeException("abort me"); }, ErrorPolicy.ABORT)
                 .relay("r3", s -> { s.steps.add("r3"); return true; }, ErrorPolicy.FAIL_FAST)
@@ -52,7 +52,7 @@ class CognitivePathwayResilienceTest {
     @Test
     @DisplayName("INTERRUPTED restores interrupt status and throws regardless of error policy")
     void interruptedOverridesPolicyAndThrows() {
-        var engine = CognitivePathway.<Signal>pathway("interrupt-test")
+        var engine = PathwayEngine.<Signal>builder("interrupt-test")
                 .relay("r1", s -> { throw new InterruptedException("interrupted"); }, ErrorPolicy.DEGRADE_GRACEFULLY)
                 .build();
 
@@ -78,7 +78,7 @@ class CognitivePathwayResilienceTest {
     @Test
     @DisplayName("DEGRADE_GRACEFULLY continues and records degraded outcome mark")
     void degradeGracefullyRecordsOutcome() {
-        var engine = CognitivePathway.<Signal>pathway("degrade-test")
+        var engine = PathwayEngine.<Signal>builder("degrade-test")
                 .relay("r1-fail", s -> { throw new RuntimeException("non-fatal error"); }, ErrorPolicy.DEGRADE_GRACEFULLY)
                 .relay("r2-success", s -> { s.steps.add("r2"); return true; }, ErrorPolicy.FAIL_FAST)
                 .build();

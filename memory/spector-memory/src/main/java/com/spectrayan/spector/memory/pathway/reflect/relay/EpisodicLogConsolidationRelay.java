@@ -281,10 +281,7 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
 
             int factsIngested = 0;
             final PathwayCatalog catalog = signal.context() != null ? signal.context().catalog() : null;
-            final boolean hasCatalogRemember = catalog != null && catalog.find(RememberPathway.class).isPresent();
-            @SuppressWarnings("deprecation")
-            final var legacyRp = !hasCatalogRemember ? signal.rememberPathway() : null;
-            if (hasCatalogRemember || legacyRp != null) {
+            if (catalog != null && catalog.find(RememberPathway.class).isPresent()) {
                 for (int fi = 0; fi < synthesizedFacts.size(); fi++) {
                     ConsolidatedFact fact = synthesizedFacts.get(fi);
                     String memoryId = signal.idGenerator().generate();
@@ -320,21 +317,15 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
                     );
 
                     boolean ingested;
-                    if (hasCatalogRemember) {
-                        RememberSignal rs = RememberSignal.forCognitiveWithHeader(
-                                memoryId, fact.text(), vector, MemoryType.SEMANTIC,
-                                allTags, MemorySource.REFLECTED, header);
-                        try {
-                            catalog.invoke(RememberPathway.class, signal.context(), rs);
-                            ingested = rs.isSuccessful() && !rs.isDuplicate();
-                        } catch (Exception e) {
-                            log.warn("Failed to invoke Remember via catalog for fact {}: {}", fi, e.getMessage());
-                            ingested = false;
-                        }
-                    } else {
-                        ingested = legacyRp.ingestCognitiveWithHeader(
-                                memoryId, fact.text(), vector, MemoryType.SEMANTIC,
-                                allTags, MemorySource.REFLECTED, header);
+                    RememberSignal rs = RememberSignal.forCognitiveWithHeader(
+                            memoryId, fact.text(), vector, MemoryType.SEMANTIC,
+                            allTags, MemorySource.REFLECTED, header);
+                    try {
+                        catalog.invoke(RememberPathway.class, signal.context(), rs);
+                        ingested = rs.isSuccessful() && !rs.isDuplicate();
+                    } catch (Exception e) {
+                        log.warn("Failed to invoke Remember via catalog for fact {}: {}", fi, e.getMessage());
+                        ingested = false;
                     }
 
                     if (ingested) {

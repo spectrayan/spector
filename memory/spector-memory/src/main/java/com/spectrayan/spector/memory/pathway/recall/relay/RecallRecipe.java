@@ -17,6 +17,7 @@ import com.spectrayan.spector.commons.pathway.GatedRelay;
 import com.spectrayan.spector.commons.pathway.PathwayComposer;
 import com.spectrayan.spector.commons.pathway.PathwayRecipe;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
+import com.spectrayan.spector.memory.pathway.PathwayResilience;
 import com.spectrayan.spector.memory.pathway.RelayNames;
 
 import java.util.Objects;
@@ -91,8 +92,20 @@ public final class RecallRecipe implements PathwayRecipe<RecallSignal> {
     @Override
     @SuppressWarnings("deprecation")
     public void compose(final PathwayComposer<RecallSignal> composer) {
-        composer.relay(RelayNames.TRANSDUCTION, transductionRelay)
-                .relay(RelayNames.PROSPECTIVE, prospectiveRelay)
+        // Query transduction is a remote embedding call — the only stage on the Recall
+        // hot path that leaves the process. ADR-0036 §14: 2s budget, two transient
+        // retries, and the SHARED embed-provider breaker with OnOpen.FAIL because
+        // Recall cannot produce results without a query vector. Dream binds the same
+        // breaker name with OnOpen.BYPASS; they share trip state, not the reaction.
+        composer.stage(RelayNames.TRANSDUCTION)
+                .relay(transductionRelay)
+                .policy(ErrorPolicy.FAIL_FAST)
+                .timeoutIfInterruptible(PathwayResilience.EMBED_TIMEOUT)
+                .retryIfIdempotent(PathwayResilience.transientTwice())
+                .breaker(PathwayResilience.embedProviderFailFast())
+                .add();
+
+        composer.relay(RelayNames.PROSPECTIVE, prospectiveRelay)
                 .relay(RelayNames.GOVERNED_RELEASE_GATE, governedReleaseGateRelay)
                 .relay(RelayNames.VECTOR_SEARCH, vectorSearchRelay);
 
@@ -142,9 +155,18 @@ public final class RecallRecipe implements PathwayRecipe<RecallSignal> {
         }
 
         if (cognitiveRerankRelay != null) {
-            composer.circuitBreaker(RelayNames.COLBERT_RERANK,
-                    new GatedRelay<>(RelayNames.COLBERT_RERANK, RecallGates.RERANK_CONFIGURED, cognitiveRerankRelay),
-                    5, 30_000L, ErrorPolicy.DEGRADE_GRACEFULLY);
+            // Remote rerank: optional rescore, so BYPASS on an open circuit and a tight
+            // 80ms budget — recall must never stall waiting on a cross-encoder. The gate
+            // stays OUTSIDE the decorator chain (ADR-0036 §6) so an unconfigured reranker
+            // does not consume a breaker success or a retry attempt.
+            composer.stage(RelayNames.COLBERT_RERANK)
+                    .relay(cognitiveRerankRelay)
+                    .gate(RecallGates.RERANK_CONFIGURED)
+                    .policy(ErrorPolicy.DEGRADE_GRACEFULLY)
+                    .timeoutIfInterruptible(PathwayResilience.RERANK_TIMEOUT)
+                    .retryIfIdempotent(PathwayResilience.transientOnce())
+                    .breaker(PathwayResilience.rerankRemote())
+                    .add();
         }
 
         if (temperatureSoftmaxRelay != null) {

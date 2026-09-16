@@ -54,7 +54,7 @@ class PathwayComposerTest {
         SynapticRelay<Signal> branch = s -> true;
 
         assertThatThrownBy(() -> composer.divergent("div", List.of(branch), List.of(ErrorPolicy.ABORT)))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(CognitivePathwayException.class)
                 .hasMessageContaining("Divergent branch cannot use ErrorPolicy.ABORT");
     }
 
@@ -70,25 +70,25 @@ class PathwayComposerTest {
                 .build();
 
         assertThatThrownBy(() -> composer.divergent("div", List.of(pathwayRelay)))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(CognitivePathwayException.class)
                 .hasMessageContaining("Divergent branch cannot contain PathwayRelay");
 
         // Wrapped in NamedRelay
         var named = new NamedRelay<>("named", pathwayRelay);
         assertThatThrownBy(() -> composer.divergent("div", List.of(named)))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(CognitivePathwayException.class)
                 .hasMessageContaining("Divergent branch cannot contain PathwayRelay");
 
         // Wrapped in GatedRelay
         var gated = new GatedRelay<>("gated", s -> true, pathwayRelay);
         assertThatThrownBy(() -> composer.divergent("div", List.of(gated)))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(CognitivePathwayException.class)
                 .hasMessageContaining("Divergent branch cannot contain PathwayRelay");
 
         // Wrapped in CircuitBreakerRelay
         var cb = new CircuitBreakerRelay<>(pathwayRelay);
         assertThatThrownBy(() -> composer.divergent("div", List.of(cb)))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(CognitivePathwayException.class)
                 .hasMessageContaining("Divergent branch cannot contain PathwayRelay");
     }
 
@@ -102,7 +102,7 @@ class PathwayComposerTest {
 
         var composer = PathwayComposer.<Signal>of("recipe-pathway");
         recipe.compose(composer);
-        CognitivePathway<Signal> pathway = composer.build();
+        PathwayEngine<Signal> pathway = composer.build();
 
         var signal = new Signal();
         pathway.conduct(signal);
@@ -127,7 +127,7 @@ class PathwayComposerTest {
         composer.optional("opt", null, ErrorPolicy.DEGRADE_GRACEFULLY); // null type -> skipped
         composer.optional("opt2", (Class) resolvedRelay.getClass(), ErrorPolicy.FAIL_FAST);
 
-        CognitivePathway<Signal> pathway = composer.build();
+        PathwayEngine<Signal> pathway = composer.build();
         var signal = new Signal();
         pathway.conduct(signal);
 

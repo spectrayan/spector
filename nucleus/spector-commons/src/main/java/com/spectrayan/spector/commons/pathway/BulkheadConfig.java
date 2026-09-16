@@ -15,6 +15,9 @@
  */
 package com.spectrayan.spector.commons.pathway;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
+
 import java.time.Duration;
 import java.util.Objects;
 
@@ -40,7 +43,7 @@ public final class BulkheadConfig {
 
     private BulkheadConfig(int maxInFlight, Duration wait, OnReject onReject) {
         if (maxInFlight < 1) {
-            throw new IllegalArgumentException("maxInFlight must be >= 1, got " + maxInFlight);
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "maxInFlight", maxInFlight);
         }
         this.maxInFlight = maxInFlight;
         this.wait = Objects.requireNonNull(wait, "wait cannot be null");

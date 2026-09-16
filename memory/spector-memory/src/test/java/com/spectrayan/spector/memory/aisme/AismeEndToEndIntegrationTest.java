@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.aisme;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.spectrayan.spector.commons.pathway.CognitivePathway;
+import com.spectrayan.spector.commons.pathway.PathwayEngine;
 import com.spectrayan.spector.commons.pathway.ConsolidationRelay;
 import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.kernel.api.MemorySource;
@@ -66,7 +66,7 @@ class AismeEndToEndIntegrationTest {
         AismeBundle aismeBundle = AismeBuilder.build(config, soul, dim, memoryVectors::get);
         assertThat(aismeBundle).isNotNull();
 
-        CognitivePathway<RecallSignal> pathway = RecallPathwayFactory.create(
+        PathwayEngine<RecallSignal> pathway = RecallPathwayFactory.create(
                 null,
                 signal -> true, // transduction
                 signal -> true, // prospective

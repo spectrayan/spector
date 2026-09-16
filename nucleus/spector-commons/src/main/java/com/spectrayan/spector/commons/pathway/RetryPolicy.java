@@ -15,6 +15,9 @@
  */
 package com.spectrayan.spector.commons.pathway;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
+
 import java.time.Duration;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -90,15 +93,15 @@ public final class RetryPolicy {
     public static RetryPolicy of(int maxAttempts, Duration backoff, double jitter,
                                   FaultKind... kinds) {
         if (maxAttempts < 1) {
-            throw new IllegalArgumentException("maxAttempts must be >= 1, got " + maxAttempts);
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "maxAttempts", maxAttempts);
         }
         if (jitter < 0.0 || jitter > 1.0) {
-            throw new IllegalArgumentException("jitter must be 0.0–1.0, got " + jitter);
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_OUT_OF_RANGE, "jitter", jitter, "0.0", "1.0");
         }
         EnumSet<FaultKind> set = EnumSet.noneOf(FaultKind.class);
         for (FaultKind k : kinds) {
             if (NEVER_RETRY.contains(k)) {
-                throw new IllegalArgumentException("Cannot retry on " + k);
+                throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "retryOn", k + " is never retryable");
             }
             set.add(k);
         }

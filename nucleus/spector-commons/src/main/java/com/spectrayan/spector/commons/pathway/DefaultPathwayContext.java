@@ -275,7 +275,9 @@ public final class DefaultPathwayContext implements PathwayContext {
             Objects.requireNonNull(type, "type cannot be null");
             Objects.requireNonNull(instance, "instance cannot be null");
             if (services.containsKey(type)) {
-                throw new IllegalStateException("Service class already registered: " + type.getName());
+                throw new CognitivePathwayException(ErrorCode.PATHWAY_MISCONFIGURED, "PathwayContext", "bind",
+                        FaultKind.CONTRACT, false,
+                        new IllegalStateException("Service class already registered: " + type.getName()));
             }
             services.put(type, instance);
             return this;
@@ -292,7 +294,9 @@ public final class DefaultPathwayContext implements PathwayContext {
             Objects.requireNonNull(key, "key cannot be null");
             Objects.requireNonNull(instance, "instance cannot be null");
             if (keyedServices.containsKey(key)) {
-                throw new IllegalStateException("Keyed service already registered: " + key);
+                throw new CognitivePathwayException(ErrorCode.PATHWAY_MISCONFIGURED, "PathwayContext", "bind",
+                        FaultKind.CONTRACT, false,
+                        new IllegalStateException("Keyed service already registered: " + key));
             }
             keyedServices.put(key, instance);
             return this;
@@ -309,7 +313,9 @@ public final class DefaultPathwayContext implements PathwayContext {
             Objects.requireNonNull(type, "type cannot be null");
             Objects.requireNonNull(supplier, "supplier cannot be null");
             if (services.containsKey(type)) {
-                throw new IllegalStateException("Service class already registered: " + type.getName());
+                throw new CognitivePathwayException(ErrorCode.PATHWAY_MISCONFIGURED, "PathwayContext", "bind",
+                        FaultKind.CONTRACT, false,
+                        new IllegalStateException("Service class already registered: " + type.getName()));
             }
             services.put(type, supplier);
             return this;
@@ -326,7 +332,9 @@ public final class DefaultPathwayContext implements PathwayContext {
             Objects.requireNonNull(key, "key cannot be null");
             Objects.requireNonNull(supplier, "supplier cannot be null");
             if (keyedServices.containsKey(key)) {
-                throw new IllegalStateException("Keyed service already registered: " + key);
+                throw new CognitivePathwayException(ErrorCode.PATHWAY_MISCONFIGURED, "PathwayContext", "bind",
+                        FaultKind.CONTRACT, false,
+                        new IllegalStateException("Keyed service already registered: " + key));
             }
             keyedServices.put(key, supplier);
             return this;

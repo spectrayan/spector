@@ -58,7 +58,6 @@ public final class WanderSignal extends com.spectrayan.spector.commons.pathway.A
     private final HomeostaticCore homeostaticCore;
     private final ContinuityMemory continuityMemory;
     private final AismeProperties aismeConfig;
-    private com.spectrayan.spector.kernel.api.NamespaceKernel kernel;
 
     private final long lastActivityTimestampMs;
     private final int idleThresholdSeconds;
@@ -114,7 +113,6 @@ public final class WanderSignal extends com.spectrayan.spector.commons.pathway.A
         }
 
         this.startTime = Instant.now();
-        this.kernel = builder.kernel;
     }
 
     public static Builder builder() {
@@ -143,8 +141,6 @@ public final class WanderSignal extends com.spectrayan.spector.commons.pathway.A
     public HomeostaticCore homeostaticCore() { return homeostaticCore; }
     public ContinuityMemory continuityMemory() { return continuityMemory; }
     public AismeProperties aismeConfig() { return aismeConfig; }
-    public com.spectrayan.spector.kernel.api.NamespaceKernel kernel() { return kernel; }
-    public void kernel(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel) { this.kernel = kernel; }
 
     public long lastActivityTimestampMs() { return lastActivityTimestampMs; }
     public int idleThresholdSeconds() { return idleThresholdSeconds; }
@@ -219,7 +215,6 @@ public final class WanderSignal extends com.spectrayan.spector.commons.pathway.A
         private HomeostaticCore homeostaticCore;
         private ContinuityMemory continuityMemory;
         private AismeProperties aismeConfig;
-        private com.spectrayan.spector.kernel.api.NamespaceKernel kernel;
 
         private long lastActivityTimestampMs = System.currentTimeMillis();
         private int idleThresholdSeconds = 60;
@@ -259,7 +254,6 @@ public final class WanderSignal extends com.spectrayan.spector.commons.pathway.A
         public Builder recencyLambda(float lambda) { this.recencyLambda = lambda; return this; }
         public Builder allowFuture(boolean allow) { this.allowFuture = allow; return this; }
         public Builder candidateSeeds(List<com.spectrayan.spector.memory.model.CognitiveResult> seeds) { this.candidateSeeds = seeds; return this; }
-        public Builder kernel(com.spectrayan.spector.kernel.api.NamespaceKernel kernel) { this.kernel = kernel; return this; }
 
         public WanderSignal build() {
             return new WanderSignal(this);

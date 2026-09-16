@@ -30,8 +30,8 @@ import com.spectrayan.spector.commons.error.SpectorValidationException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-@DisplayName("CognitivePathway")
-class CognitivePathwayTest {
+@DisplayName("PathwayEngine")
+class PathwayEngineTest {
 
     static class TestSignal implements DivergentCapable<TestSignal>, TraceableSignal {
         final List<String> steps = new ArrayList<>();
@@ -78,7 +78,7 @@ class CognitivePathwayTest {
     @Test
     @DisplayName("Linear Pathway: relays execute in order and append to signal")
     void linearPathway() {
-        CognitivePathway<TestSignal> pathway = CognitivePathway.<TestSignal>pathway("Linear")
+        PathwayEngine<TestSignal> pathway = PathwayEngine.<TestSignal>builder("Linear")
                 .relay("R1", s -> { s.steps.add("1"); return true; })
                 .relay("R2", s -> { s.steps.add("2"); return true; })
                 .relay("R3", s -> { s.steps.add("3"); return true; })
@@ -93,7 +93,7 @@ class CognitivePathwayTest {
     @Test
     @DisplayName("Gated Relay: executes delegate when gate returns true")
     void gatedRelayActive() {
-        CognitivePathway<TestSignal> pathway = CognitivePathway.<TestSignal>pathway("GatedActive")
+        PathwayEngine<TestSignal> pathway = PathwayEngine.<TestSignal>builder("GatedActive")
                 .gated("G1", s -> true, s -> { s.steps.add("Active"); return true; }, ErrorPolicy.FAIL_FAST)
                 .build();
 
@@ -106,7 +106,7 @@ class CognitivePathwayTest {
     @Test
     @DisplayName("Gated Relay: skips delegate when gate returns false")
     void gatedRelayInhibited() {
-        CognitivePathway<TestSignal> pathway = CognitivePathway.<TestSignal>pathway("GatedInhibited")
+        PathwayEngine<TestSignal> pathway = PathwayEngine.<TestSignal>builder("GatedInhibited")
                 .gated("G1", s -> false, s -> { s.steps.add("Inhibited"); return true; }, ErrorPolicy.FAIL_FAST)
                 .build();
 
@@ -119,7 +119,7 @@ class CognitivePathwayTest {
     @Test
     @DisplayName("Short-Circuit: pathway stops when a relay returns false")
     void shortCircuit() {
-        CognitivePathway<TestSignal> pathway = CognitivePathway.<TestSignal>pathway("ShortCircuit")
+        PathwayEngine<TestSignal> pathway = PathwayEngine.<TestSignal>builder("ShortCircuit")
                 .relay("R1", s -> { s.steps.add("1"); return true; })
                 .relay("R2", s -> { s.steps.add("2"); return false; })
                 .relay("R3", s -> { s.steps.add("3"); return true; })
@@ -134,7 +134,7 @@ class CognitivePathwayTest {
     @Test
     @DisplayName("ErrorPolicy.FAIL_FAST: wraps non-Spector exceptions in CognitivePathwayException")
     void errorPolicyFailFast() {
-        CognitivePathway<TestSignal> pathway = CognitivePathway.<TestSignal>pathway("FailFast")
+        PathwayEngine<TestSignal> pathway = PathwayEngine.<TestSignal>builder("FailFast")
                 .relay("R1", s -> { s.steps.add("1"); return true; })
                 .relay("R2", s -> { throw new RuntimeException("Boom"); }, ErrorPolicy.FAIL_FAST)
                 .relay("R3", s -> { s.steps.add("3"); return true; })
@@ -153,7 +153,7 @@ class CognitivePathwayTest {
     @Test
     @DisplayName("Domain Exception Preservation: SpectorException is rethrown directly")
     void domainExceptionPreserved() {
-        CognitivePathway<TestSignal> pathway = CognitivePathway.<TestSignal>pathway("DomainPreservation")
+        PathwayEngine<TestSignal> pathway = PathwayEngine.<TestSignal>builder("DomainPreservation")
                 .relay("R1", s -> {
                     throw new SpectorValidationException(ErrorCode.DIMENSIONS_MISMATCH, 384, 768);
                 }, ErrorPolicy.FAIL_FAST)
@@ -169,7 +169,7 @@ class CognitivePathwayTest {
     @Test
     @DisplayName("ErrorPolicy.DEGRADE_GRACEFULLY: exception is caught and pathway continues")
     void errorPolicyDegradeGracefully() {
-        CognitivePathway<TestSignal> pathway = CognitivePathway.<TestSignal>pathway("DegradeGracefully")
+        PathwayEngine<TestSignal> pathway = PathwayEngine.<TestSignal>builder("DegradeGracefully")
                 .relay("R1", s -> { s.steps.add("1"); return true; })
                 .relay("R2", s -> { throw new RuntimeException("Boom"); }, ErrorPolicy.DEGRADE_GRACEFULLY)
                 .relay("R3", s -> { s.steps.add("3"); return true; })
@@ -187,7 +187,7 @@ class CognitivePathwayTest {
         SynapticRelay<TestSignal> branch1 = s -> { s.steps.add("B1"); return true; };
         SynapticRelay<TestSignal> branch2 = s -> { s.steps.add("B2"); return true; };
 
-        CognitivePathway<TestSignal> pathway = CognitivePathway.<TestSignal>pathway("Divergent")
+        PathwayEngine<TestSignal> pathway = PathwayEngine.<TestSignal>builder("Divergent")
                 .divergent("Div1", List.of(branch1, branch2))
                 .build();
 
@@ -203,7 +203,7 @@ class CognitivePathwayTest {
         SynapticRelay<TestSignal> successfulBranch = s -> { s.steps.add("Success"); return true; };
         SynapticRelay<TestSignal> failingBranch = s -> { throw new RuntimeException("Branch Failure"); };
 
-        CognitivePathway<TestSignal> pathway = CognitivePathway.<TestSignal>pathway("DivergentGraceful")
+        PathwayEngine<TestSignal> pathway = PathwayEngine.<TestSignal>builder("DivergentGraceful")
                 .divergent("DivGraceful",
                         List.of(successfulBranch, failingBranch),
                         List.of(ErrorPolicy.FAIL_FAST, ErrorPolicy.DEGRADE_GRACEFULLY))
@@ -254,7 +254,7 @@ class CognitivePathwayTest {
     @Test
     @DisplayName("Signal Step Tracing: records fine-grained trace records for all executed relays")
     void signalStepTracing() {
-        CognitivePathway<TestSignal> pathway = CognitivePathway.<TestSignal>pathway("TracedPathway")
+        PathwayEngine<TestSignal> pathway = PathwayEngine.<TestSignal>builder("TracedPathway")
                 .relay("R1", s -> { s.steps.add("1"); return true; })
                 .gated("G1", s -> false, s -> { s.steps.add("2"); return true; }, ErrorPolicy.DEGRADE_GRACEFULLY)
                 .relay("R3", s -> { throw new RuntimeException("Soft error"); }, ErrorPolicy.DEGRADE_GRACEFULLY)
@@ -287,7 +287,7 @@ class CognitivePathwayTest {
     void consolidationRelay() throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(1);
 
-        CognitivePathway<TestSignal> pathway = CognitivePathway.<TestSignal>pathway("Consolidate")
+        PathwayEngine<TestSignal> pathway = PathwayEngine.<TestSignal>builder("Consolidate")
                 .consolidate("C1", s -> {
                     s.steps.add("Async");
                     latch.countDown();
@@ -307,7 +307,7 @@ class CognitivePathwayTest {
     void interceptor() {
         AtomicInteger invocationCount = new AtomicInteger(0);
 
-        CognitivePathway<TestSignal> pathway = CognitivePathway.<TestSignal>pathway("Intercepted")
+        PathwayEngine<TestSignal> pathway = PathwayEngine.<TestSignal>builder("Intercepted")
                 .withInterceptor(relay -> signal -> {
                     invocationCount.incrementAndGet();
                     return relay.transmit(signal);
@@ -325,7 +325,7 @@ class CognitivePathwayTest {
     @Test
     @DisplayName("Pathway Name: asserts the internal pathwayName is correctly stored")
     void pathwayName() {
-        CognitivePathway<TestSignal> pathway = CognitivePathway.<TestSignal>pathway("TestName").build();
+        PathwayEngine<TestSignal> pathway = PathwayEngine.<TestSignal>builder("TestName").build();
         assertThat(pathway.pathwayName()).isEqualTo("TestName");
     }
 

@@ -4734,11 +4734,11 @@ components:
           format: int64
         positivelyReinforced:
           type: boolean
-        multimodal:
-          type: boolean
         simulated:
           type: boolean
         dreamed:
+          type: boolean
+        multimodal:
           type: boolean
         negativeOutcome:
           type: boolean

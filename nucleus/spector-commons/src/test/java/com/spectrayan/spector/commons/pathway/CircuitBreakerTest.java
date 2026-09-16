@@ -293,7 +293,7 @@ class CircuitBreakerTest {
                     OnOpen.FAIL
             );
 
-            var pathway = CognitivePathway.<Signal>pathway("interrupted-pathway")
+            var pathway = PathwayEngine.<Signal>builder("interrupted-pathway")
                     .relay("relay1", cbRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
                     .relay("relay2", s -> { s.count += 99; return true; }, ErrorPolicy.DEGRADE_GRACEFULLY)
                     .build();
@@ -323,7 +323,7 @@ class CircuitBreakerTest {
         @Test
         @DisplayName("Conductor ABORT policy short-circuits gracefully without throwing")
         void conductorAbortPolicyShortCircuitsGracefully() {
-            var pathway = CognitivePathway.<Signal>pathway("abort-pathway")
+            var pathway = PathwayEngine.<Signal>builder("abort-pathway")
                     .relay("init", s -> { s.count += 1; return true; })
                     .relay("aborting", s -> { throw new IllegalStateException("Not in mood to dream"); }, ErrorPolicy.ABORT)
                     .relay("unreached", s -> { s.count += 100; return true; })

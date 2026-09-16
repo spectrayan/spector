@@ -56,7 +56,6 @@ public final class RememberSignal extends com.spectrayan.spector.commons.pathway
     private com.spectrayan.spector.memory.aisme.fegr.EventDensityMetrics eventDensityMetrics;
     private com.spectrayan.spector.memory.aisme.segmentation.EpisodicSegment episodicSegment;
     private List<com.spectrayan.spector.memory.model.SoulContext> soulContexts = List.of();
-    private com.spectrayan.spector.kernel.api.NamespaceKernel kernel;
     private final java.util.Map<String, Object> attributes = new java.util.concurrent.ConcurrentHashMap<>();
 
     private RememberSignal(
@@ -205,14 +204,6 @@ public final class RememberSignal extends com.spectrayan.spector.commons.pathway
 
     public com.spectrayan.spector.memory.aisme.segmentation.EpisodicSegment episodicSegment() { return episodicSegment; }
     public void episodicSegment(final com.spectrayan.spector.memory.aisme.segmentation.EpisodicSegment segment) { this.episodicSegment = segment; }
-
-    public com.spectrayan.spector.kernel.api.NamespaceKernel kernel() { return kernel; }
-    public void kernel(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel) {
-        this.kernel = kernel;
-        if (kernel != null) {
-            this.attributes.put("kernel", kernel);
-        }
-    }
 
     public java.util.Map<String, Object> attributes() { return attributes; }
 }

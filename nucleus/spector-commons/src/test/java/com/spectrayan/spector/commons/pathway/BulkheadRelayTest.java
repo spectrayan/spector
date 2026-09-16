@@ -87,6 +87,6 @@ class BulkheadRelayTest {
 
         assertThat(continued).isTrue();
         assertThat(ctx.outcome().bypassedMarks())
-                .anySatisfy(m -> assertThat(m.message()).contains("bulkhead_full:test-bulkhead"));
+                .anySatisfy(m -> assertThat(m.message()).contains("bulkhead:test-bulkhead"));
     }
 }

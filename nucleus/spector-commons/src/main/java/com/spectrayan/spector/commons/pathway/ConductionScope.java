@@ -80,12 +80,26 @@ public final class ConductionScope {
         this.ownerThread = Objects.requireNonNull(ownerThread, "ownerThread cannot be null");
     }
 
+    /**
+     * Returns the innermost pathway name without asserting thread confinement.
+     *
+     * <p>Used when building a confinement-violation exception: reading
+     * {@link #pathwayName()} there would recurse into the same check.</p>
+     *
+     * @return innermost pathway name, or "root" when the stack is empty
+     */
+    private String pathwayNameOrRoot() {
+        final Frame top = frames.peek();
+        return top != null ? top.pathwayName() : "root";
+    }
+
     private void checkThreadConfinement() {
         final Thread current = Thread.currentThread();
         if (current != ownerThread) {
-            throw new IllegalStateException("ConductionScope is thread-confined to "
+            throw new CognitivePathwayException(ErrorCode.PATHWAY_MISCONFIGURED, pathwayNameOrRoot(), "<scope>",
+                    FaultKind.CONTRACT, false, new IllegalStateException("ConductionScope is thread-confined to "
                     + ownerThread.getName() + " [id=" + ownerThread.threadId() + "] but accessed by "
-                    + current.getName() + " [id=" + current.threadId() + "]");
+                    + current.getName() + " [id=" + current.threadId() + "]"));
         }
     }
 
@@ -145,12 +159,14 @@ public final class ConductionScope {
         checkThreadConfinement();
         Objects.requireNonNull(pathwayName, "pathwayName cannot be null");
         if (frames.isEmpty()) {
-            throw new IllegalStateException("Cannot leave pathway '" + pathwayName + "': stack is empty");
+            throw new CognitivePathwayException(ErrorCode.PATHWAY_MISCONFIGURED, pathwayName, "<scope>",
+                    FaultKind.CONTRACT, false, new IllegalStateException("Cannot leave pathway '" + pathwayName + "': stack is empty"));
         }
         final Frame top = frames.pop();
         if (!pathwayName.equals(top.pathwayName())) {
-            throw new IllegalStateException("Stack mismatch: expected to leave '" + top.pathwayName()
-                    + "' but got '" + pathwayName + "'");
+            throw new CognitivePathwayException(ErrorCode.PATHWAY_MISCONFIGURED, pathwayName, "<scope>",
+                    FaultKind.CONTRACT, false, new IllegalStateException("Stack mismatch: expected to leave '" + top.pathwayName()
+                    + "' but got '" + pathwayName + "'"));
         }
     }
 

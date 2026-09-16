@@ -35,7 +35,7 @@ class PathwayCatalogTest {
     static class SimplePathwayImpl extends AbstractPathway<SimpleSignal, String> implements SimplePathway {
         SimplePathwayImpl() {
             super("simple", SimpleSignal.class, String.class,
-                    CognitivePathway.<SimpleSignal>pathway("simple")
+                    PathwayEngine.<SimpleSignal>builder("simple")
                             .relay("process", s -> { s.data = "processed:" + s.data; return true; })
                             .build());
         }
@@ -69,7 +69,7 @@ class PathwayCatalogTest {
         catalog.register(SimplePathway.class, pathway1);
 
         assertThatThrownBy(() -> catalog.register(SimplePathway.class, pathway2))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(CognitivePathwayException.class)
                 .hasMessageContaining("already registered");
     }
 

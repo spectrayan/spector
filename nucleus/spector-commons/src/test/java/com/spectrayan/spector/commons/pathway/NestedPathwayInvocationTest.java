@@ -59,7 +59,7 @@ class NestedPathwayInvocationTest {
 
         EchoChildPathway() {
             super("child-echo", ChildInput.class, String.class,
-                    CognitivePathway.<ChildInput>pathway("child-echo")
+                    PathwayEngine.<ChildInput>builder("child-echo")
                             .relay("echo", s -> {
                                 s.output = "echo:" + s.text;
                                 return true;
@@ -78,7 +78,7 @@ class NestedPathwayInvocationTest {
     static class DegradedChildPathway extends AbstractPathway<ChildInput, String> implements ChildPathway {
         DegradedChildPathway() {
             super("child-degraded", ChildInput.class, String.class,
-                    CognitivePathway.<ChildInput>pathway("child-degraded")
+                    PathwayEngine.<ChildInput>builder("child-degraded")
                             .relay("degrade", s -> {
                                 s.context().outcome().markDegraded(
                                         "child-degraded/stage", FaultKind.TRANSIENT,
@@ -99,7 +99,7 @@ class NestedPathwayInvocationTest {
     static class FailingChildPathway extends AbstractPathway<ChildInput, String> implements ChildPathway {
         FailingChildPathway() {
             super("child-fail", ChildInput.class, String.class,
-                    CognitivePathway.<ChildInput>pathway("child-fail")
+                    PathwayEngine.<ChildInput>builder("child-fail")
                             .relay("fail", s -> {
                                 throw new RuntimeException("simulated failure");
                             })
@@ -256,7 +256,7 @@ class NestedPathwayInvocationTest {
             // Create a pathway that tries to invoke itself via catalog
             var selfInvoking = new AbstractPathway<ChildInput, String>(
                     "cyclic", ChildInput.class, String.class,
-                    CognitivePathway.<ChildInput>pathway("cyclic")
+                    PathwayEngine.<ChildInput>builder("cyclic")
                             .relay("self-call", s -> {
                                 s.context().catalog().invoke(CyclicPathway.class, s.context(), new ChildInput("recursive"));
                                 return true;

@@ -24,6 +24,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.commons.pathway.DefaultPathwayCatalog;
+import com.spectrayan.spector.commons.pathway.CircuitBreakerRegistry;
+import com.spectrayan.spector.commons.pathway.DefaultCircuitBreakerRegistry;
+import com.spectrayan.spector.commons.pathway.BulkheadRegistry;
 import com.spectrayan.spector.commons.pathway.DefaultPathwayContext;
 import com.spectrayan.spector.commons.pathway.Pathway;
 import com.spectrayan.spector.commons.pathway.PathwayCatalog;
@@ -71,6 +74,11 @@ public class SpectorRuntime implements AutoCloseable {
     // ── Pathway Catalog & Context (ADR-0035 M3) ─────────────────
     private final DefaultPathwayCatalog catalog = new DefaultPathwayCatalog();
     private final PathwayContext processContext;
+    // ── Resilience registries (ADR-0036 §9.1, §10) ──────────────
+    // Process-wide and shared on purpose: named breakers only isolate a sick
+    // downstream if every pathway hitting it shares the same trip state.
+    private final CircuitBreakerRegistry circuitBreakerRegistry = new DefaultCircuitBreakerRegistry();
+    private final BulkheadRegistry bulkheadRegistry = BulkheadRegistry.create();
 
     // ── Process-Wide Shared Pathway Engines (ADR-0029 §8.1, Task 10.4) ──
     private final Object engineLock = new Object();
@@ -139,6 +147,12 @@ public class SpectorRuntime implements AutoCloseable {
         if (this.rememberPathway != null) {
             ctxBuilder.bind(SoulVersionSource.class, this.rememberPathway);
         }
+        // ADR-0036 §9.1/§10: process-wide resilience registries. Breaker trip state and
+        // bulkhead permits are deliberately shared across namespaces and pathways — a
+        // dying embedding provider is dying for every tenant, and Dream must not be able
+        // to enqueue unbounded nested Remember work on top of live Recall.
+        ctxBuilder.bind(CircuitBreakerRegistry.class, this.circuitBreakerRegistry);
+        ctxBuilder.bind(BulkheadRegistry.class, this.bulkheadRegistry);
         this.processContext = ctxBuilder.build();
     }
 
@@ -302,6 +316,27 @@ public class SpectorRuntime implements AutoCloseable {
      */
     public PathwayCatalog catalog() {
         return catalog;
+    }
+
+    /**
+     * Returns the process-wide circuit breaker registry (ADR-0036 §9.1).
+     *
+     * <p>Exposed for health endpoints and tests that need to inspect or reset
+     * breaker state. Trip state is shared across namespaces by design.</p>
+     *
+     * @return the shared circuit breaker registry
+     */
+    public CircuitBreakerRegistry circuitBreakerRegistry() {
+        return circuitBreakerRegistry;
+    }
+
+    /**
+     * Returns the process-wide bulkhead registry (ADR-0036 §10).
+     *
+     * @return the shared bulkhead registry
+     */
+    public BulkheadRegistry bulkheadRegistry() {
+        return bulkheadRegistry;
     }
 
     /**

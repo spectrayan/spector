@@ -15,6 +15,9 @@
  */
 package com.spectrayan.spector.commons.pathway;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
+
 import java.time.Duration;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -130,7 +133,7 @@ public final class CircuitBreakerConfig {
 
         public Builder failureThreshold(final int failureThreshold) {
             if (failureThreshold <= 0) {
-                throw new IllegalArgumentException("failureThreshold must be positive");
+                throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "failureThreshold", failureThreshold);
             }
             this.failureThreshold = failureThreshold;
             return this;
@@ -139,14 +142,14 @@ public final class CircuitBreakerConfig {
         public Builder cooldown(final Duration cooldown) {
             this.cooldown = Objects.requireNonNull(cooldown, "cooldown cannot be null");
             if (cooldown.isNegative() || cooldown.isZero()) {
-                throw new IllegalArgumentException("cooldown must be positive");
+                throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "cooldown", cooldown);
             }
             return this;
         }
 
         public Builder halfOpenProbes(final int halfOpenProbes) {
             if (halfOpenProbes <= 0) {
-                throw new IllegalArgumentException("halfOpenProbes must be positive");
+                throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "halfOpenProbes", halfOpenProbes);
             }
             this.halfOpenProbes = halfOpenProbes;
             return this;
@@ -154,7 +157,7 @@ public final class CircuitBreakerConfig {
 
         public Builder halfOpenSuccesses(final int halfOpenSuccesses) {
             if (halfOpenSuccesses <= 0) {
-                throw new IllegalArgumentException("halfOpenSuccesses must be positive");
+                throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "halfOpenSuccesses", halfOpenSuccesses);
             }
             this.halfOpenSuccesses = halfOpenSuccesses;
             return this;
@@ -163,7 +166,7 @@ public final class CircuitBreakerConfig {
         public Builder tripOn(final Set<FaultKind> tripOn) {
             Objects.requireNonNull(tripOn, "tripOn cannot be null");
             if (tripOn.isEmpty()) {
-                throw new IllegalArgumentException("tripOn cannot be empty");
+                throw new SpectorValidationException(ErrorCode.EMPTY_COLLECTION, "tripOn");
             }
             this.tripOn = EnumSet.copyOf(tripOn);
             return this;

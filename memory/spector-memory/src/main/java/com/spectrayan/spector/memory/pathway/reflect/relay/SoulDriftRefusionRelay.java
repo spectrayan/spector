@@ -70,10 +70,10 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
 
         // 2. Soul-Drift Re-Fusion: Re-stamp stale soul-version memories using the evolved prior
         short currentSoulVersion = 0;
-        if (signal.context() != null && signal.context().find(SoulVersionSource.class).isPresent()) {
-            currentSoulVersion = signal.context().get(SoulVersionSource.class).currentSoulVersion();
-        } else if (signal.rememberPathway() != null) {
-            currentSoulVersion = signal.rememberPathway().currentSoulVersion();
+        if (signal.context() != null) {
+            currentSoulVersion = signal.context().find(SoulVersionSource.class)
+                    .map(SoulVersionSource::currentSoulVersion)
+                    .orElse((short) 0);
         }
 
         if (currentSoulVersion > 0) {
@@ -108,9 +108,6 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
         ScalarQuantizer quantizer = signal.quantizer();
         if (quantizer == null && signal.context() != null) {
             quantizer = signal.context().find(ScalarQuantizer.class).orElse(null);
-        }
-        if (quantizer == null && signal.rememberPathway() != null) {
-            quantizer = signal.rememberPathway().quantizer();
         }
         if (quantizer == null) return null;
 
@@ -195,9 +192,6 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
         ScalarQuantizer quantizer = signal.quantizer();
         if (quantizer == null && signal.context() != null) {
             quantizer = signal.context().find(ScalarQuantizer.class).orElse(null);
-        }
-        if (quantizer == null && signal.rememberPathway() != null) {
-            quantizer = signal.rememberPathway().quantizer();
         }
         int vecBytes = quantized.length;
         float[] vector = (quantizer != null) ? quantizer.decode(quantized) : new float[vecBytes];

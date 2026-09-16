@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.commons.pathway;
 
+import com.spectrayan.spector.commons.error.SpectorValidationException;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -57,23 +59,23 @@ class RetryPolicyTest {
     @DisplayName("Rejects never-retry fault kinds like VALIDATION, CONTRACT, CONTROL, INTERNAL")
     void rejectsNeverRetryKinds() {
         assertThatThrownBy(() -> RetryPolicy.of(3, Duration.ofMillis(50), FaultKind.CONTRACT))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Cannot retry on CONTRACT");
+                .isInstanceOf(SpectorValidationException.class)
+                .hasMessageContaining("CONTRACT is never retryable");
 
         assertThatThrownBy(() -> RetryPolicy.of(3, Duration.ofMillis(50), FaultKind.VALIDATION))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(SpectorValidationException.class);
 
         assertThatThrownBy(() -> RetryPolicy.of(3, Duration.ofMillis(50), FaultKind.INTERNAL))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(SpectorValidationException.class);
     }
 
     @Test
     @DisplayName("Rejects invalid maxAttempts or jitter")
     void rejectsInvalidArguments() {
         assertThatThrownBy(() -> RetryPolicy.of(0, Duration.ofMillis(10), FaultKind.TRANSIENT))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(SpectorValidationException.class);
 
         assertThatThrownBy(() -> RetryPolicy.of(2, Duration.ofMillis(10), 1.5, FaultKind.TRANSIENT))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(SpectorValidationException.class);
     }
 }

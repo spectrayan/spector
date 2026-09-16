@@ -37,7 +37,8 @@ public final class DefaultPathwayCatalog implements PathwayCatalog {
         Objects.requireNonNull(instance, "instance cannot be null");
         final Pathway<?, ?> existing = pathways.putIfAbsent(type, instance);
         if (existing != null) {
-            throw new IllegalStateException("Pathway type already registered: " + type.getName());
+            throw new CognitivePathwayException(ErrorCode.PATHWAY_MISCONFIGURED, "PathwayCatalog", "register",
+                    FaultKind.CONTRACT, false, new IllegalStateException("Pathway type already registered: " + type.getName()));
         }
     }
 
@@ -70,9 +71,15 @@ public final class DefaultPathwayCatalog implements PathwayCatalog {
         ctx.scope().assertNotOnStack(pathway.name());
         final ConductionOutcome childOutcome = new ConductionOutcome();
         final PathwayContext childCtx = ctx.nestedWithOutcome(pathway.name(), childOutcome);
-        final O result = pathway.conduct(childCtx, input);
-        ctx.outcome().importFrom(childOutcome, pathway.name());
-        return result;
+        try {
+            return pathway.conduct(childCtx, input);
+        } finally {
+            // ADR-0036 §4.2: the callee's marks must reach the caller even when the
+            // callee throws — a DEGRADE_GRACEFULLY caller stage still has to report
+            // *why* the nested conduction failed. Importing only on the success path
+            // silently dropped every mark from a failed nested pathway.
+            ctx.outcome().importFrom(childOutcome, pathway.name());
+        }
     }
 
     @Override

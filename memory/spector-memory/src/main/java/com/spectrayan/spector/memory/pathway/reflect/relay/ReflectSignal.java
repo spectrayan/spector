@@ -19,7 +19,6 @@ import com.spectrayan.spector.memory.api.ImportanceProvider;
 import com.spectrayan.spector.kernel.store.ProvenanceMemory;
 import com.spectrayan.spector.kernel.id.MemoryIdGenerator;
 import com.spectrayan.spector.memory.persist.PartitionManager;
-import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.GraphHealthMetrics;
@@ -55,7 +54,6 @@ public final class ReflectSignal extends com.spectrayan.spector.commons.pathway.
     private final PartitionManager partitionManager;
     private final MemoryIndex index;
     private final ScalarQuantizer quantizer;
-    private final RememberPathway rememberPathway;
     private final EmbeddingProvider embeddingProvider;
     private final LlmProvider textGenerator;
     private final ImportanceProvider importanceProvider;
@@ -91,7 +89,6 @@ public final class ReflectSignal extends com.spectrayan.spector.commons.pathway.
     private final float identityAnchorEta;
     private final float identityLyapunovThreshold;
     private final com.spectrayan.spector.memory.aisme.lifespan.LifespanRetentionController lifespanController;
-    private com.spectrayan.spector.kernel.api.NamespaceKernel kernel;
 
     // ── Batch & Sweep Orchestration Context ────────────────────────
     private final ReflectSweepSpec sweepSpec;
@@ -124,7 +121,6 @@ public final class ReflectSignal extends com.spectrayan.spector.commons.pathway.
         this.partitionManager = builder.partitionManager;
         this.index = builder.index;
         this.quantizer = builder.quantizer;
-        this.rememberPathway = builder.rememberPathway;
         this.embeddingProvider = builder.embeddingProvider;
         this.textGenerator = builder.textGenerator;
         this.importanceProvider = builder.importanceProvider != null ? builder.importanceProvider : ImportanceProvider.baseline();
@@ -158,7 +154,6 @@ public final class ReflectSignal extends com.spectrayan.spector.commons.pathway.
         this.identityAnchorEta = builder.identityAnchorEta;
         this.identityLyapunovThreshold = builder.identityLyapunovThreshold;
         this.lifespanController = builder.lifespanController;
-        this.kernel = builder.kernel;
 
         this.sweepSpec = builder.sweepSpec != null ? builder.sweepSpec : ReflectSweepSpec.fullCycle();
         this.checkpointStore = builder.checkpointStore;
@@ -171,9 +166,6 @@ public final class ReflectSignal extends com.spectrayan.spector.commons.pathway.
     public static Builder builder() {
         return new Builder();
     }
-
-    public com.spectrayan.spector.kernel.api.NamespaceKernel kernel() { return kernel; }
-    public void kernel(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel) { this.kernel = kernel; }
 
     public ReflectSweepSpec sweepSpec() { return sweepSpec; }
     public ReflectCheckpointStore checkpointStore() { return checkpointStore; }
@@ -198,12 +190,6 @@ public final class ReflectSignal extends com.spectrayan.spector.commons.pathway.
     public PartitionManager partitionManager() { return partitionManager; }
     public MemoryIndex index() { return index; }
     public ScalarQuantizer quantizer() { return quantizer; }
-    /**
-     * @deprecated Use {@code context().catalog().invoke(RememberPathway.class, ...)} instead.
-     *             Retained for backwards compatibility — will be removed in a future release.
-     */
-    @Deprecated(forRemoval = true, since = "1.5.0")
-    public RememberPathway rememberPathway() { return rememberPathway; }
     public EmbeddingProvider embeddingProvider() { return embeddingProvider; }
     public LlmProvider textGenerator() { return textGenerator; }
     public ImportanceProvider importanceProvider() { return importanceProvider; }
@@ -342,7 +328,6 @@ public final class ReflectSignal extends com.spectrayan.spector.commons.pathway.
         private PartitionManager partitionManager;
         private MemoryIndex index;
         private ScalarQuantizer quantizer;
-        private RememberPathway rememberPathway;
         private EmbeddingProvider embeddingProvider;
         private LlmProvider textGenerator;
         private ImportanceProvider importanceProvider;
@@ -377,12 +362,10 @@ public final class ReflectSignal extends com.spectrayan.spector.commons.pathway.
         private float identityAnchorEta = 0.0001f;
         private float identityLyapunovThreshold = 0.15f;
         private com.spectrayan.spector.memory.aisme.lifespan.LifespanRetentionController lifespanController;
-        private com.spectrayan.spector.kernel.api.NamespaceKernel kernel;
         private ReflectSweepSpec sweepSpec = ReflectSweepSpec.fullCycle();
         private ReflectCheckpointStore checkpointStore;
         private ReflectCheckpoint checkpoint;
 
-        public Builder kernel(com.spectrayan.spector.kernel.api.NamespaceKernel kernel) { this.kernel = kernel; return this; }
         public Builder sweepSpec(ReflectSweepSpec sweepSpec) { this.sweepSpec = sweepSpec; return this; }
         public Builder checkpointStore(ReflectCheckpointStore checkpointStore) { this.checkpointStore = checkpointStore; return this; }
         public Builder checkpoint(ReflectCheckpoint checkpoint) { this.checkpoint = checkpoint; return this; }
@@ -390,11 +373,6 @@ public final class ReflectSignal extends com.spectrayan.spector.commons.pathway.
         public Builder partitionManager(PartitionManager pm) { this.partitionManager = pm; return this; }
         public Builder index(MemoryIndex idx) { this.index = idx; return this; }
         public Builder quantizer(ScalarQuantizer q) { this.quantizer = q; return this; }
-        /**
-         * @deprecated Register RememberPathway in the PathwayCatalog instead.
-         */
-        @Deprecated(forRemoval = true, since = "1.5.0")
-        public Builder rememberPathway(RememberPathway rp) { this.rememberPathway = rp; return this; }
         public Builder embeddingProvider(EmbeddingProvider ep) { this.embeddingProvider = ep; return this; }
         public Builder textGenerator(LlmProvider tg) { this.textGenerator = tg; return this; }
         public Builder importanceProvider(ImportanceProvider ip) { this.importanceProvider = ip; return this; }

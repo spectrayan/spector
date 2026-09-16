@@ -367,6 +367,9 @@ public enum ErrorCode {
     /** Nested cognitive pathway execution failed. */
     PATHWAY_NESTED_FAILED      (310_024, ErrorCategory.MEMORY,
             "Nested cognitive pathway execution failed for {}: {}"),
+    /** Cognitive pathway or recipe is misconfigured — detected at build time. */
+    PATHWAY_MISCONFIGURED      (310_025, ErrorCategory.MEMORY,
+            "Cognitive pathway misconfigured at {}: {}"),
 
     // ══════════════════════════════════════════════════════════════════════
     // GPU (SPE-400-xxx)

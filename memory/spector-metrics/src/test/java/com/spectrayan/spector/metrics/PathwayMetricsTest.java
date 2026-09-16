@@ -22,7 +22,7 @@ import com.spectrayan.spector.commons.pathway.BulkheadConfig;
 import com.spectrayan.spector.commons.pathway.BulkheadRelay;
 import com.spectrayan.spector.commons.pathway.CircuitBreaker;
 import com.spectrayan.spector.commons.pathway.CircuitBreakerConfig;
-import com.spectrayan.spector.commons.pathway.CognitivePathway;
+import com.spectrayan.spector.commons.pathway.PathwayEngine;
 import com.spectrayan.spector.commons.pathway.DefaultPathwayContext;
 import com.spectrayan.spector.commons.pathway.ErrorPolicy;
 import com.spectrayan.spector.commons.pathway.FaultKind;
@@ -71,7 +71,7 @@ class PathwayMetricsTest {
     }
 
     private static final class TestPathway extends AbstractPathway<TestSignal, String> {
-        TestPathway(CognitivePathway<TestSignal> engine) {
+        TestPathway(PathwayEngine<TestSignal> engine) {
             super("test_pathway", TestSignal.class, String.class, engine);
         }
 
@@ -84,7 +84,7 @@ class PathwayMetricsTest {
     @Test
     @DisplayName("Emits spector.pathway.conduct timer on successful pathway conduct")
     void testPathwayConductMetric() {
-        var engine = CognitivePathway.<TestSignal>pathway("test_pathway")
+        var engine = PathwayEngine.<TestSignal>builder("test_pathway")
                 .relay("stage1", signal -> true)
                 .build();
         var pathway = new TestPathway(engine);
@@ -106,7 +106,7 @@ class PathwayMetricsTest {
     @Test
     @DisplayName("Emits spector.pathway.relay timer with interceptor")
     void testPathwayRelayMetric() {
-        var engine = CognitivePathway.<TestSignal>pathway("test_pathway")
+        var engine = PathwayEngine.<TestSignal>builder("test_pathway")
                 .withInterceptor(pathwayMetrics.interceptor())
                 .relay("metered_relay", signal -> true)
                 .build();
@@ -129,7 +129,7 @@ class PathwayMetricsTest {
     @Test
     @DisplayName("Emits spector.pathway.degraded counter on graceful degradation")
     void testDegradedMetric() {
-        var engine = CognitivePathway.<TestSignal>pathway("test_pathway")
+        var engine = PathwayEngine.<TestSignal>builder("test_pathway")
                 .relay("failing_relay", signal -> {
                     throw new IOException("network timeout");
                 }, ErrorPolicy.DEGRADE_GRACEFULLY)

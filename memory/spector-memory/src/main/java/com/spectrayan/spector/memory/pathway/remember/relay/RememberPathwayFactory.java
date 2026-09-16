@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.pathway.remember.relay;
 
-import com.spectrayan.spector.commons.pathway.CognitivePathway;
+import com.spectrayan.spector.commons.pathway.PathwayEngine;
 import com.spectrayan.spector.commons.pathway.ErrorPolicy;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.commons.pathway.PathwayComposer;
@@ -40,7 +40,7 @@ public final class RememberPathwayFactory {
      * @deprecated Use {@link RememberRecipe} instead.
      */
     @Deprecated(forRemoval = true, since = "1.5.0")
-    public static CognitivePathway<RememberSignal> create(
+    public static PathwayEngine<RememberSignal> create(
             final DedupGuardRelay dedupGuardRelay,
             final SynapticTagTransductionRelay tagTransductionRelay,
             final DopaminergicSurpriseRelay surpriseRelay,
@@ -65,7 +65,7 @@ public final class RememberPathwayFactory {
      * @deprecated Use {@link RememberRecipe} instead.
      */
     @Deprecated(forRemoval = true, since = "1.5.0")
-    public static CognitivePathway<RememberSignal> create(
+    public static PathwayEngine<RememberSignal> create(
             final java.util.function.Function<SynapticRelay<RememberSignal>, SynapticRelay<RememberSignal>> interceptor,
             final DedupGuardRelay dedupGuardRelay,
             final SynapticTagTransductionRelay tagTransductionRelay,

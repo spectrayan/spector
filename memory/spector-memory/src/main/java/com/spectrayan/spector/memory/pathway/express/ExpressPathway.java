@@ -13,21 +13,18 @@
 package com.spectrayan.spector.memory.pathway.express;
 
 import com.spectrayan.spector.commons.pathway.AbstractPathway;
-import com.spectrayan.spector.commons.pathway.CognitivePathway;
+import com.spectrayan.spector.commons.pathway.PathwayEngine;
 import com.spectrayan.spector.commons.pathway.ConductionOutcome;
 import com.spectrayan.spector.commons.pathway.DefaultPathwayContext;
-import com.spectrayan.spector.commons.pathway.ErrorPolicy;
+import com.spectrayan.spector.commons.pathway.DefaultPathwayComposer;
+import com.spectrayan.spector.commons.pathway.PathwayComposer;
 import com.spectrayan.spector.memory.model.BlendshapeVector;
 import com.spectrayan.spector.memory.model.IdiolectProfile;
 import com.spectrayan.spector.memory.model.PhenomenologicalContextPack;
 import com.spectrayan.spector.memory.model.ProsodyParameterVector;
-import com.spectrayan.spector.memory.pathway.express.relay.EmbodiedKinesicsRelay;
-import com.spectrayan.spector.memory.pathway.express.relay.ExpressGates;
+import com.spectrayan.spector.memory.pathway.express.relay.ExpressRecipe;
 import com.spectrayan.spector.memory.pathway.express.relay.ExpressReport;
 import com.spectrayan.spector.memory.pathway.express.relay.ExpressSignal;
-import com.spectrayan.spector.memory.pathway.express.relay.IdiolectStylometryRelay;
-import com.spectrayan.spector.memory.pathway.express.relay.PhenomenologicalStreamRelay;
-import com.spectrayan.spector.memory.pathway.express.relay.VocalProsodyRelay;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,25 +41,21 @@ public final class ExpressPathway extends AbstractPathway<ExpressSignal, Express
     private ExpressPathway(Builder builder) {
         super("express", ExpressSignal.class, ExpressReport.class);
         this.somaticFeedbackConsumer = builder.somaticFeedbackConsumer;
-        final CognitivePathway<ExpressSignal> engine = CognitivePathway.<ExpressSignal>pathway("ExpressPathway")
-                .withInterceptor(builder.interceptor)
-                .gated("IdiolectStylometry", ExpressGates.IDIOLECT_ENABLED, new IdiolectStylometryRelay(), ErrorPolicy.DEGRADE_GRACEFULLY)
-                .gated("VocalProsody", ExpressGates.PROSODY_ENABLED, new VocalProsodyRelay(), ErrorPolicy.DEGRADE_GRACEFULLY)
-                .gated("EmbodiedKinesics", ExpressGates.KINESICS_ENABLED, new EmbodiedKinesicsRelay(), ErrorPolicy.DEGRADE_GRACEFULLY)
-                .gated("PhenomenologicalStream", ExpressGates.PHENOMENOLOGICAL_ENABLED, new PhenomenologicalStreamRelay(), ErrorPolicy.DEGRADE_GRACEFULLY)
-                .build();
-        initEngine(engine);
+        final PathwayComposer<ExpressSignal> composer =
+                new DefaultPathwayComposer<>("ExpressPathway");
+        if (builder.interceptor != null) {
+            composer.withInterceptor(builder.interceptor);
+        }
+        new ExpressRecipe().compose(composer);
+        initEngine(composer.build());
     }
 
-    public CognitivePathway<ExpressSignal> pathway() {
+    public PathwayEngine<ExpressSignal> pathway() {
         return engine();
     }
 
     public ExpressReport execute(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel, final ExpressSignal signal) {
         if (kernel != null && signal != null) {
-            if (signal.attributes() != null) {
-                signal.attributes().put("kernel", kernel);
-            }
             if (signal.context() == null) {
                 final DefaultPathwayContext.Builder ctxBuilder = DefaultPathwayContext.builder()
                         .namespaceId(kernel.namespaceId())

@@ -15,6 +15,11 @@
  */
 package com.spectrayan.spector.commons.pathway;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.spectrayan.spector.commons.error.ErrorCode;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -22,21 +27,26 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 /**
- * Default implementation of {@link PathwayComposer} backed by {@link CognitivePathway.Builder}.
+ * Default implementation of {@link PathwayComposer} backed by {@link PathwayEngine.Builder}.
  *
  * @param <S> signal type
  */
 public final class DefaultPathwayComposer<S> implements PathwayComposer<S> {
 
-    private final CognitivePathway.Builder<S> builder;
+    private static final Logger log = LoggerFactory.getLogger(DefaultPathwayComposer.class);
+
+    private final PathwayEngine.Builder<S> builder;
     private final RelayFactory relayFactory;
+    /** Retained for build-time misconfiguration diagnostics (ADR-0036 §7.2, §8). */
+    private final String pathwayName;
 
     public DefaultPathwayComposer(final String pathwayName) {
         this(pathwayName, null);
     }
 
     public DefaultPathwayComposer(final String pathwayName, final RelayFactory relayFactory) {
-        this.builder = CognitivePathway.pathway(pathwayName);
+        this.pathwayName = pathwayName;
+        this.builder = PathwayEngine.builder(pathwayName);
         this.relayFactory = relayFactory;
     }
 
@@ -61,17 +71,68 @@ public final class DefaultPathwayComposer<S> implements PathwayComposer<S> {
     @Override
     public PathwayComposer<S> divergent(final String name, final List<SynapticRelay<S>> branches, final List<ErrorPolicy> policies) {
         if (policies != null && policies.contains(ErrorPolicy.ABORT)) {
-            throw new IllegalArgumentException("Divergent branch cannot use ErrorPolicy.ABORT");
+            throw new CognitivePathwayException(ErrorCode.PATHWAY_MISCONFIGURED, pathwayName, name,
+                    FaultKind.CONTRACT, false, new IllegalStateException("Divergent branch cannot use ErrorPolicy.ABORT"));
         }
         if (branches != null) {
             for (final SynapticRelay<S> branch : branches) {
                 if (isOrContainsPathwayRelay(branch)) {
-                    throw new IllegalArgumentException("Divergent branch cannot contain PathwayRelay: " + branch.relayName());
+                    throw new CognitivePathwayException(ErrorCode.PATHWAY_MISCONFIGURED, pathwayName, name,
+                    FaultKind.CONTRACT, false, new IllegalStateException("Divergent branch cannot contain PathwayRelay: " + branch.relayName()));
+                }
+                final String scopeToucher = findScopeTouchingWrapper(branch);
+                if (scopeToucher != null) {
+                    throw new CognitivePathwayException(ErrorCode.PATHWAY_MISCONFIGURED, pathwayName, name,
+                            FaultKind.CONTRACT, false, new IllegalStateException(
+                            "Divergent branch '" + branch.relayName() + "' contains a " + scopeToucher
+                            + ", which reads the thread-confined ConductionScope. Divergent branches run on "
+                            + "separate virtual threads, so this would throw at runtime. Compose the "
+                            + scopeToucher + " OUTSIDE the divergent relay instead."));
                 }
             }
         }
         builder.divergent(name, branches, policies);
         return this;
+    }
+
+    /**
+     * Detects branch wrappers that read {@link ConductionScope} during {@code transmit}.
+     *
+     * <p>{@link ConductionScope} is thread-confined (ADR-0035 §6.5.1) and
+     * {@link DivergentRelay} dispatches branches onto separate virtual threads.
+     * Any wrapper that calls {@code scope().pathwayName()} — {@link GatedRelay}
+     * (to record a BYPASSED trace) and {@link CircuitBreakerRelay} (to mark the
+     * outcome on an open circuit) — therefore fails with a confinement violation
+     * when used inside a branch. Reject at build time rather than at 3am.</p>
+     *
+     * @param relay branch relay to inspect, possibly wrapped
+     * @return simple name of the offending wrapper, or {@code null} when safe
+     */
+    private String findScopeTouchingWrapper(SynapticRelay<S> relay) {
+        SynapticRelay<?> r = relay;
+        while (r != null) {
+            if (r instanceof GatedRelay<?>) {
+                return "GatedRelay";
+            }
+            if (r instanceof CircuitBreakerRelay<?>) {
+                return "CircuitBreakerRelay";
+            }
+            if (r instanceof TimeoutRelay<?>) {
+                return "TimeoutRelay";
+            }
+            if (r instanceof BulkheadRelay<?>) {
+                return "BulkheadRelay";
+            }
+            if (r instanceof RetryRelay<?>) {
+                return "RetryRelay";
+            }
+            if (r instanceof NamedRelay<?> nr) {
+                r = nr.delegate();
+            } else {
+                break;
+            }
+        }
+        return null;
     }
 
     @Override
@@ -88,6 +149,11 @@ public final class DefaultPathwayComposer<S> implements PathwayComposer<S> {
         private BreakerRef breakerRef;
         private String bulkheadName;
         private BulkheadConfig bulkheadConfig;
+        private Predicate<S> gate;
+        /** true when the budget came from timeoutIfInterruptible() and may be skipped. */
+        private boolean timeoutOptional;
+        /** true when the policy came from retryIfIdempotent() and may be skipped. */
+        private boolean retryOptional;
 
         DefaultStageBuilder(final String stageName) {
             this.stageName = Objects.requireNonNull(stageName, "stageName cannot be null");
@@ -136,37 +202,85 @@ public final class DefaultPathwayComposer<S> implements PathwayComposer<S> {
         }
 
         @Override
+        public StageBuilder<S> timeoutIfInterruptible(final java.time.Duration budget) {
+            this.timeoutOptional = true;
+            this.timeoutBudget = budget;
+            return this;
+        }
+
+        @Override
+        public StageBuilder<S> retryIfIdempotent(final RetryPolicy retryPolicy) {
+            this.retryOptional = true;
+            this.retryPolicy = retryPolicy;
+            return this;
+        }
+
+        @Override
+        public StageBuilder<S> gate(final Predicate<S> gate) {
+            this.gate = gate;
+            return this;
+        }
+
+        @Override
         public PathwayComposer<S> add() {
             if (relay == null) {
-                throw new IllegalStateException("relay must be set on stage '" + stageName + "'");
+                throw new CognitivePathwayException(ErrorCode.PATHWAY_MISCONFIGURED, pathwayName, stageName,
+                    FaultKind.CONTRACT, false, new IllegalStateException("relay must be set on stage '" + stageName + "'"));
             }
 
-            // Build-time safety validations (ADR-0036 §7.2, §8)
+            // Build-time safety validations (ADR-0036 §7.2, §8).
+            // Either way a non-interruptible relay never gets a budget; timeoutOptional
+            // only decides whether that is a build failure or a logged skip.
+            java.time.Duration effectiveTimeout = timeoutBudget;
             if (timeoutBudget != null && !isInterruptible(relay)) {
-                throw new IllegalArgumentException("Relay '" + stageName + "' (" + relay.getClass().getSimpleName()
-                        + ") does not implement InterruptibleRelay; cannot wrap with timeout budget");
+                if (timeoutOptional) {
+                    effectiveTimeout = null;
+                    log.debug("Stage '{}' in pathway '{}': relay {} does not declare "
+                                    + "InterruptibleRelay, skipping the {} timeout budget",
+                            stageName, pathwayName, relay.getClass().getSimpleName(), timeoutBudget);
+                } else {
+                    throw new CognitivePathwayException(ErrorCode.PATHWAY_MISCONFIGURED, pathwayName, stageName,
+                            FaultKind.CONTRACT, false, new IllegalArgumentException("Relay '" + stageName + "' ("
+                            + relay.getClass().getSimpleName()
+                            + ") does not implement InterruptibleRelay; cannot wrap with a timeout budget"));
+                }
             }
 
+            RetryPolicy effectiveRetry = retryPolicy;
             if (retryPolicy != null && retryPolicy.maxAttempts() > 1 && !isIdempotent(relay)) {
-                throw new IllegalArgumentException("Relay '" + stageName + "' (" + relay.getClass().getSimpleName()
-                        + ") does not implement IdempotentRelay; cannot wrap with retry policy");
+                if (retryOptional) {
+                    effectiveRetry = null;
+                    log.debug("Stage '{}' in pathway '{}': relay {} does not declare "
+                                    + "IdempotentRelay, skipping the retry policy",
+                            stageName, pathwayName, relay.getClass().getSimpleName());
+                } else {
+                    throw new CognitivePathwayException(ErrorCode.PATHWAY_MISCONFIGURED, pathwayName, stageName,
+                            FaultKind.CONTRACT, false, new IllegalArgumentException("Relay '" + stageName + "' ("
+                            + relay.getClass().getSimpleName()
+                            + ") does not implement IdempotentRelay; cannot wrap with a retry policy"));
+                }
             }
 
             // Decorator composition order (ADR-0036 §6, §8.6):
             // Outer to inner: bulkhead -> circuit breaker -> retry -> timeout -> relay
             SynapticRelay<S> current = relay;
 
-            if (timeoutBudget != null) {
-                current = new TimeoutRelay<>(current, timeoutBudget, stageName);
+            if (effectiveTimeout != null) {
+                current = new TimeoutRelay<>(current, effectiveTimeout, stageName);
             }
-            if (retryPolicy != null && retryPolicy.maxAttempts() > 1) {
-                current = new RetryRelay<>(current, retryPolicy, stageName);
+            if (effectiveRetry != null && effectiveRetry.maxAttempts() > 1) {
+                current = new RetryRelay<>(current, effectiveRetry, stageName);
             }
             if (breakerRef != null) {
                 current = new CircuitBreakerRelay<>(current, breakerRef);
             }
             if (bulkheadConfig != null) {
                 current = new BulkheadRelay<>(current, bulkheadConfig, stageName, bulkheadName);
+            }
+            // Gate goes OUTSIDE every decorator (ADR-0036 §6): a closed gate must not
+            // consume a bulkhead permit, count as a breaker success, or start a timeout.
+            if (gate != null) {
+                current = new GatedRelay<>(stageName, gate, current);
             }
 
             return DefaultPathwayComposer.this.relay(stageName, current, policy);
@@ -274,7 +388,7 @@ public final class DefaultPathwayComposer<S> implements PathwayComposer<S> {
     }
 
     @Override
-    public CognitivePathway<S> build() {
+    public PathwayEngine<S> build() {
         return builder.build();
     }
 }

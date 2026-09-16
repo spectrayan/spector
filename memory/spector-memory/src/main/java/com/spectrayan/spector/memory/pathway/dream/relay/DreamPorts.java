@@ -90,12 +90,12 @@ public final class DreamPorts {
      * @return current soul version
      */
     public static short resolveSoulVersion(final DreamSignal signal) {
-        if (signal.context() != null && signal.context().find(SoulVersionSource.class).isPresent()) {
-            return signal.context().get(SoulVersionSource.class).currentSoulVersion();
+        if (signal.context() != null) {
+            return signal.context().find(SoulVersionSource.class)
+                    .map(SoulVersionSource::currentSoulVersion)
+                    .orElse((short) 0);
         }
-        @SuppressWarnings("deprecation")
-        final var rp = signal.rememberPathway();
-        return rp != null ? rp.currentSoulVersion() : (short) 0;
+        return (short) 0;
     }
 
     /**

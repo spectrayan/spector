@@ -13,17 +13,16 @@
 package com.spectrayan.spector.memory.pathway.decide;
 
 import com.spectrayan.spector.commons.pathway.AbstractPathway;
-import com.spectrayan.spector.commons.pathway.CognitivePathway;
+import com.spectrayan.spector.commons.pathway.PathwayEngine;
 import com.spectrayan.spector.commons.pathway.ConductionOutcome;
 import com.spectrayan.spector.commons.pathway.DefaultPathwayContext;
-import com.spectrayan.spector.commons.pathway.ErrorPolicy;
+import com.spectrayan.spector.commons.pathway.DefaultPathwayComposer;
+import com.spectrayan.spector.commons.pathway.PathwayComposer;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.memory.aisme.policy.PolicyInferenceEngine;
-import com.spectrayan.spector.memory.aisme.relay.PolicyInferenceRelay;
-import com.spectrayan.spector.memory.pathway.decide.relay.DecideGates;
+import com.spectrayan.spector.memory.pathway.decide.relay.DecideRecipe;
 import com.spectrayan.spector.memory.pathway.decide.relay.DecideReport;
 import com.spectrayan.spector.memory.pathway.decide.relay.DecideSignal;
-import com.spectrayan.spector.memory.pathway.decide.relay.ExperimentRelay;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,27 +36,17 @@ public final class DecidePathway extends AbstractPathway<DecideSignal, DecideRep
 
     private DecidePathway(final Builder builder) {
         super("decide", DecideSignal.class, DecideReport.class);
-        var pathwayBuilder = CognitivePathway.<DecideSignal>pathway("decide_pathway");
+        final PathwayComposer<DecideSignal> pathwayBuilder =
+                new DefaultPathwayComposer<>("decide_pathway");
         if (builder.interceptor != null) {
             pathwayBuilder.withInterceptor(builder.interceptor);
         }
-
-        // Stage 1: PolicyInferenceRelay
-        pathwayBuilder.gated("policy_inference", 
-                DecideGates.EFE_ENABLED.and(DecideGates.HAS_CANDIDATES), 
-                new PolicyInferenceRelay(), 
-                ErrorPolicy.DEGRADE_GRACEFULLY);
-
-        // Stage 2: ExperimentRelay (waking thought experiments)
-        pathwayBuilder.gated("experiment_thought",
-                DecideGates.EFE_ENABLED,
-                new com.spectrayan.spector.memory.pathway.decide.relay.ExperimentRelay(),
-                ErrorPolicy.DEGRADE_GRACEFULLY);
+        new DecideRecipe().compose(pathwayBuilder);
 
         initEngine(pathwayBuilder.build());
     }
 
-    public CognitivePathway<DecideSignal> pathway() {
+    public PathwayEngine<DecideSignal> pathway() {
         return engine();
     }
 

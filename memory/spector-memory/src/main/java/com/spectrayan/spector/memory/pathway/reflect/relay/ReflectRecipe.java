@@ -17,6 +17,7 @@ import com.spectrayan.spector.commons.pathway.PathwayComposer;
 import com.spectrayan.spector.commons.pathway.PathwayRecipe;
 import com.spectrayan.spector.commons.pathway.Specification;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
+import com.spectrayan.spector.memory.pathway.PathwayResilience;
 import com.spectrayan.spector.memory.pathway.RelayNames;
 
 import java.util.Objects;
@@ -76,11 +77,33 @@ public final class ReflectRecipe implements PathwayRecipe<ReflectSignal> {
 
     @Override
     public void compose(final PathwayComposer<ReflectSignal> composer) {
-        composer.gated(RelayNames.SYNAPTIC_PRUNING, COMPANION_RELAYS_ENABLED, pruningRelay, ErrorPolicy.FAIL_FAST)
-                .relay(RelayNames.EPISODIC_CONSOLIDATION, logConsolidationRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
-                .gated(RelayNames.SOUL_DRIFT_REFUSION, COMPANION_RELAYS_ENABLED, soulDriftRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
-                .gated(RelayNames.PROCEDURAL_CRYSTALLIZATION, COMPANION_RELAYS_ENABLED, proceduralRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
-                .gated(RelayNames.PROACTIVE_INTERFERENCE, COMPANION_RELAYS_ENABLED, interferenceRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
+        composer.gated(RelayNames.SYNAPTIC_PRUNING, COMPANION_RELAYS_ENABLED, pruningRelay, ErrorPolicy.FAIL_FAST);
+
+        // Episodic consolidation ingests gists through the nested Remember pathway.
+        // Admission control only — breaker + bulkhead, no timeout (ADR-0036 §7.3, §14).
+        // Shares the pathway:remember breaker and bulkhead with Dream, so a sick Remember
+        // throttles sleep and reflection together instead of each discovering it alone.
+        composer.stage(RelayNames.EPISODIC_CONSOLIDATION)
+                .relay(logConsolidationRelay)
+                .policy(ErrorPolicy.DEGRADE_GRACEFULLY)
+                .breaker(PathwayResilience.nestedRemember())
+                .bulkhead(PathwayResilience.PATHWAY_REMEMBER,
+                        PathwayResilience.nestedRememberBulkhead())
+                .add();
+
+        composer.gated(RelayNames.SOUL_DRIFT_REFUSION, COMPANION_RELAYS_ENABLED, soulDriftRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
+
+        // Procedural crystallization also writes via nested Remember.
+        composer.stage(RelayNames.PROCEDURAL_CRYSTALLIZATION)
+                .relay(proceduralRelay)
+                .gate(COMPANION_RELAYS_ENABLED)
+                .policy(ErrorPolicy.DEGRADE_GRACEFULLY)
+                .breaker(PathwayResilience.nestedRemember())
+                .bulkhead(PathwayResilience.PATHWAY_REMEMBER,
+                        PathwayResilience.nestedRememberBulkhead())
+                .add();
+
+        composer.gated(RelayNames.PROACTIVE_INTERFERENCE, COMPANION_RELAYS_ENABLED, interferenceRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
                 .gated(RelayNames.HEBBIAN_HOMEOSTASIS, COMPANION_RELAYS_ENABLED, hebbianRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
                 .gated(RelayNames.TEMPORAL_PRUNING, COMPANION_RELAYS_ENABLED, temporalRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
                 .gated(RelayNames.CROSS_LAYER_PROMOTION, COMPANION_RELAYS_ENABLED, promotionRelay, ErrorPolicy.DEGRADE_GRACEFULLY)

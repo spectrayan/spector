@@ -20,7 +20,6 @@ import com.spectrayan.spector.kernel.id.MemoryId;
 import com.spectrayan.spector.memory.persist.PartitionManager;
 import com.spectrayan.spector.config.properties.AismeProperties;
 import com.spectrayan.spector.config.properties.DreamProperties;
-import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
 import com.spectrayan.spector.memory.aisme.hopfield.ContinuousHopfieldNetwork;
 import com.spectrayan.spector.memory.pathway.dream.DreamJournalMemory;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
@@ -69,7 +68,6 @@ public final class DreamSignal extends com.spectrayan.spector.commons.pathway.Ab
     private final DreamProperties config;
     private final float temperature;
     private final PartitionManager partitionManager;
-    private final RememberPathway rememberPathway;
     private final AismeProperties aismeConfig;
 
     private final SoulContext primarySoul;
@@ -109,7 +107,6 @@ public final class DreamSignal extends com.spectrayan.spector.commons.pathway.Ab
 
     private final Instant startTime;
     private final ReentrantLock sceneLock = new ReentrantLock();
-    private com.spectrayan.spector.kernel.api.NamespaceKernel kernel;
 
     private DreamSignal(Builder builder) {
         this.mode = builder.mode;
@@ -150,8 +147,6 @@ public final class DreamSignal extends com.spectrayan.spector.commons.pathway.Ab
         this.embeddingProvider = builder.embeddingProvider;
         this.hopfieldNetwork = builder.hopfieldNetwork;
         this.llmProvider = builder.llmProvider;
-        this.rememberPathway = builder.rememberPathway;
-        this.kernel = builder.kernel;
 
         final long now = System.currentTimeMillis();
         if (builder.simulationTimeMs > 0L) {
@@ -200,12 +195,6 @@ public final class DreamSignal extends com.spectrayan.spector.commons.pathway.Ab
     public DreamProperties config() { return config; }
     public float temperature() { return temperature; }
     public PartitionManager partitionManager() { return partitionManager; }
-    /**
-     * @deprecated Use {@code context().catalog().invoke(RememberPathway.class, ...)} instead.
-     *             Retained for backwards compatibility — will be removed in a future release.
-     */
-    @Deprecated(forRemoval = true, since = "1.5.0")
-    public RememberPathway rememberPathway() { return rememberPathway; }
     public AismeProperties aismeConfig() { return aismeConfig; }
 
     public SoulContext primarySoul() { return primarySoul; }
@@ -237,8 +226,6 @@ public final class DreamSignal extends com.spectrayan.spector.commons.pathway.Ab
     public EmbeddingProvider embeddingProvider() { return embeddingProvider; }
     public ContinuousHopfieldNetwork hopfieldNetwork() { return hopfieldNetwork; }
     public LlmProvider llmProvider() { return llmProvider; }
-    public com.spectrayan.spector.kernel.api.NamespaceKernel kernel() { return kernel; }
-    public void kernel(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel) { this.kernel = kernel; }
 
     public AtomicInteger dreamsGenerated() { return dreamsGenerated; }
     public AtomicInteger dreamsIngested() { return dreamsIngested; }
@@ -312,7 +299,6 @@ public final class DreamSignal extends com.spectrayan.spector.commons.pathway.Ab
         private DreamProperties config;
         private float temperature;
         private PartitionManager partitionManager;
-        private RememberPathway rememberPathway;
         private AismeProperties aismeConfig;
         private SoulContext primarySoul;
         private List<SoulContext> soulContexts;
@@ -330,7 +316,6 @@ public final class DreamSignal extends com.spectrayan.spector.commons.pathway.Ab
         private ContinuousHopfieldNetwork hopfieldNetwork;
         private LlmProvider llmProvider;
         private MemoryIdGenerator idGenerator;
-        private com.spectrayan.spector.kernel.api.NamespaceKernel kernel;
 
         private long simulationTimeMs = 0L;
         private float[] queryTau = null;
@@ -343,11 +328,6 @@ public final class DreamSignal extends com.spectrayan.spector.commons.pathway.Ab
         public Builder config(DreamProperties config) { this.config = config; return this; }
         public Builder temperature(float temperature) { this.temperature = temperature; return this; }
         public Builder partitionManager(PartitionManager pm) { this.partitionManager = pm; return this; }
-        /**
-         * @deprecated Register RememberPathway in the PathwayCatalog instead.
-         */
-        @Deprecated(forRemoval = true, since = "1.5.0")
-        public Builder rememberPathway(RememberPathway rp) { this.rememberPathway = rp; return this; }
         public Builder aismeConfig(AismeProperties config) { this.aismeConfig = config; return this; }
         public Builder primarySoul(SoulContext soul) { this.primarySoul = soul; return this; }
         public Builder soulContexts(List<SoulContext> soulContexts) { this.soulContexts = soulContexts; return this; }
@@ -372,7 +352,6 @@ public final class DreamSignal extends com.spectrayan.spector.commons.pathway.Ab
         public Builder recencyLambda(float lambda) { this.recencyLambda = lambda; return this; }
         public Builder allowFuture(boolean allow) { this.allowFuture = allow; return this; }
         public Builder candidateSeeds(List<com.spectrayan.spector.memory.model.CognitiveResult> seeds) { this.candidateSeeds = seeds; return this; }
-        public Builder kernel(com.spectrayan.spector.kernel.api.NamespaceKernel kernel) { this.kernel = kernel; return this; }
 
         public DreamSignal build() {
             return new DreamSignal(this);

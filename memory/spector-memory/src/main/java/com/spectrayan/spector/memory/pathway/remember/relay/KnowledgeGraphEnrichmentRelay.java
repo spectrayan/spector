@@ -14,6 +14,8 @@ package com.spectrayan.spector.memory.pathway.remember.relay;
 import com.spectrayan.spector.kernel.api.MemoryType;
 
 import com.spectrayan.spector.commons.concurrent.MemoryScope;
+import com.spectrayan.spector.commons.pathway.IdempotentRelay;
+import com.spectrayan.spector.commons.pathway.InterruptibleRelay;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
 import com.spectrayan.spector.memory.graph.ExtractedEntity;
@@ -28,7 +30,15 @@ import java.util.Objects;
 /**
  * Enriches the cognitive knowledge graph and temporal facts with extracted entities and relations.
  */
-public final class KnowledgeGraphEnrichmentRelay implements SynapticRelay<RememberSignal> {
+/*
+ * Deliberately NOT IdempotentRelay: ADR-0036 §14 tabled this stage as
+ * "retry TRANSIENT ×2", but the relay does more than an LLM call — it also runs
+ * syncEntityExtraction/syncTemporalFacts, which mutate the entity and temporal
+ * graphs. Re-running after a partial failure can duplicate edges. It therefore
+ * gets a timeout and a breaker (both safe) but no retry. Documented deviation.
+ */
+public final class KnowledgeGraphEnrichmentRelay
+        implements SynapticRelay<RememberSignal>, InterruptibleRelay {
 
     private final PostIngestSync postIngestSync;
     private final AsyncEntityExtractionQueue asyncEntityExtractionQueue;

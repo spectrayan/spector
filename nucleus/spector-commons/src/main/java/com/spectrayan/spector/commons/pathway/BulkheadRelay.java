@@ -100,8 +100,11 @@ public final class BulkheadRelay<S> implements SynapticRelay<S> {
                 log.debug("[{}] Bulkhead '{}' full ({} permits), bypassing",
                         relayName, bulkheadName, config.maxInFlight());
                 if (signal instanceof ContextualSignal cs && cs.context() != null) {
-                    cs.context().outcome().markBypassed(
-                            relayName, "bulkhead_full:" + bulkheadName);
+                    final String scopeName = (cs.context().scope() != null
+                            && cs.context().scope().pathwayName() != null)
+                            ? cs.context().scope().pathwayName() + "/" + relayName
+                            : relayName;
+                    cs.context().outcome().markBypassed(scopeName, "bulkhead:" + bulkheadName);
                 }
                 return true; // continue relay chain
             } else {

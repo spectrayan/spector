@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     https://github.com/spectrayan/spector/blob/main/synapse/spector-synapse/LICENSE
+ *     https://github.com/spectrayan/spector/blob/main/spector-synapse/LICENSE
  *
  * Change Date: July 6, 2030
  * Change License: Apache License, Version 2.0

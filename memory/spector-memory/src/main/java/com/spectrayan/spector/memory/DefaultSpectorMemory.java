@@ -1047,7 +1047,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         acquireLease();
         try {
             if (reflectPathway != null) {
-                return reflectPathway.reflect(partitionManager, index, rememberPathway, salienceProfile(), episodicSessionIndex, spec, null);
+                // Non-deprecated path: no RememberPathway is threaded through. Soul version
+                // resolves from the context's SoulVersionSource and nested gist writes go
+                // through the PathwayCatalog (ADR-0035 R2.3, §8.1b).
+                return reflectPathway.reflect(null, partitionManager, index, salienceProfile(),
+                        episodicSessionIndex, spec, null);
             }
             return ReflectReport.empty();
         } finally {

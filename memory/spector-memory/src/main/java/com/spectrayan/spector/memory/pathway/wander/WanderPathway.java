@@ -21,23 +21,16 @@ import com.spectrayan.spector.kernel.store.ContinuityMemory;
 import com.spectrayan.spector.kernel.store.HebbianGraphBase;
 import com.spectrayan.spector.kernel.shape.Memory;
 import com.spectrayan.spector.memory.persist.PartitionManager;
-import com.spectrayan.spector.memory.pathway.RelayNames;
-import com.spectrayan.spector.memory.pathway.simulation.relay.SpacetimeSeedRelay;
-import com.spectrayan.spector.memory.pathway.wander.relay.AutobiographicalSamplingRelay;
-import com.spectrayan.spector.memory.pathway.wander.relay.HebbianSynapticReinforcementRelay;
-import com.spectrayan.spector.memory.pathway.wander.relay.HopfieldMindWanderingRelay;
-import com.spectrayan.spector.memory.pathway.wander.relay.IdleGateRelay;
-import com.spectrayan.spector.memory.pathway.wander.relay.LongitudinalContinuityRelay;
-import com.spectrayan.spector.memory.pathway.wander.relay.ManifoldSynergyRelay;
-import com.spectrayan.spector.memory.pathway.wander.relay.WanderGates;
+import com.spectrayan.spector.memory.pathway.wander.relay.WanderRecipe;
 import com.spectrayan.spector.memory.pathway.wander.relay.WanderReport;
 import com.spectrayan.spector.memory.pathway.wander.relay.WanderSignal;
 
 import com.spectrayan.spector.commons.pathway.AbstractPathway;
-import com.spectrayan.spector.commons.pathway.CognitivePathway;
+import com.spectrayan.spector.commons.pathway.PathwayEngine;
 import com.spectrayan.spector.commons.pathway.ConductionOutcome;
 import com.spectrayan.spector.commons.pathway.DefaultPathwayContext;
-import com.spectrayan.spector.commons.pathway.ErrorPolicy;
+import com.spectrayan.spector.commons.pathway.DefaultPathwayComposer;
+import com.spectrayan.spector.commons.pathway.PathwayComposer;
 import com.spectrayan.spector.commons.pathway.GatedRelay;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
@@ -87,37 +80,18 @@ public final class WanderPathway extends AbstractPathway<WanderSignal, WanderRep
         this.aismeConfig = builder.aismeConfig;
         this.soulPriorPreference = builder.soulPriorPreference;
 
-        var pathwayBuilder = CognitivePathway.<WanderSignal>pathway("wander_pathway");
+        final PathwayComposer<WanderSignal> pathwayBuilder =
+                new DefaultPathwayComposer<>("wander_pathway");
         if (builder.interceptor != null) {
             pathwayBuilder.withInterceptor(builder.interceptor);
         }
+        new WanderRecipe().compose(pathwayBuilder);
 
-        // 1. Idle Gate
-        pathwayBuilder.gated("idle_gate", WanderGates.IS_IDLE, new IdleGateRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
-
-        // 2. Autobiographical Sampling
-        pathwayBuilder.gated("autobiographical_sampling", WanderGates.DMN_ENABLED, new AutobiographicalSamplingRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
-
-        // 2b. Spacetime Shortlist Seed Selection (ADR-0031)
-        pathwayBuilder.gated(RelayNames.SPACETIME_SEED, WanderGates.DMN_ENABLED, new SpacetimeSeedRelay.WanderSeedRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
-
-        // 3. Hopfield Mind Wandering
-        pathwayBuilder.gated("hopfield_mind_wandering", WanderGates.DMN_ENABLED, new HopfieldMindWanderingRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
-
-        // 4. Manifold Synergy Evaluation
-        pathwayBuilder.gated("manifold_synergy", WanderGates.MANIFOLD_ENABLED, new ManifoldSynergyRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
-
-        // 5. Hebbian Synaptic Reinforcement
-        pathwayBuilder.gated("hebbian_reinforcement", WanderGates.DMN_ENABLED, new HebbianSynapticReinforcementRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
-
-        // 6. Longitudinal Continuity Snapshot
-        pathwayBuilder.gated("longitudinal_continuity", WanderGates.CONTINUITY_ENABLED, new LongitudinalContinuityRelay(), ErrorPolicy.DEGRADE_GRACEFULLY);
-
-        final CognitivePathway<WanderSignal> engine = pathwayBuilder.build();
+        final PathwayEngine<WanderSignal> engine = pathwayBuilder.build();
         initEngine(engine);
     }
 
-    public CognitivePathway<WanderSignal> pathway() {
+    public PathwayEngine<WanderSignal> pathway() {
         return engine();
     }
 
@@ -148,9 +122,6 @@ public final class WanderPathway extends AbstractPathway<WanderSignal, WanderRep
      */
     public WanderReport execute(final com.spectrayan.spector.kernel.api.NamespaceKernel kernel, final WanderSignal signal) {
         Objects.requireNonNull(signal, "WanderSignal cannot be null");
-        if (kernel != null) {
-            signal.kernel(kernel);
-        }
         if (signal.context() == null) {
             final DefaultPathwayContext.Builder ctxBuilder = DefaultPathwayContext.builder();
             if (kernel != null) {
@@ -169,7 +140,6 @@ public final class WanderPathway extends AbstractPathway<WanderSignal, WanderRep
                                 final PartitionManager partitionManager,
                                 final long lastActivityTimestampMs) {
         WanderSignal signal = WanderSignal.builder()
-                .kernel(kernel)
                 .partitionManager(partitionManager)
                 .quantizer(quantizer)
                 .embeddingProvider(embeddingProvider)

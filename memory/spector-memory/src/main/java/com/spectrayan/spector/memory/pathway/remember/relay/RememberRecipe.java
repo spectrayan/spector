@@ -16,6 +16,7 @@ import com.spectrayan.spector.commons.pathway.ErrorPolicy;
 import com.spectrayan.spector.commons.pathway.PathwayComposer;
 import com.spectrayan.spector.commons.pathway.PathwayRecipe;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
+import com.spectrayan.spector.memory.pathway.PathwayResilience;
 import com.spectrayan.spector.memory.pathway.RelayNames;
 
 import java.util.Objects;
@@ -63,11 +64,30 @@ public final class RememberRecipe implements PathwayRecipe<RememberSignal> {
 
     @Override
     public void compose(final PathwayComposer<RememberSignal> composer) {
+        // CORTICAL_WRITE deliberately carries NO timeout and NO retry (ADR-0036 §7.3):
+        // it writes to mmap'd MemorySegment regions plus the WAL, neither of which can
+        // observe an interrupt. A budget would report a timeout while the write ran to
+        // completion on a detached thread, leaving the outcome saying "skipped" and the
+        // bundle saying "written". CorticalWriteTransactionRelay implements neither
+        // IdempotentRelay nor InterruptibleRelay, so the composer rejects both at build
+        // time — this comment documents the intent, the type system enforces it.
         composer.relay(RelayNames.DEDUP_GUARD,           dedup,    ErrorPolicy.FAIL_FAST)
                 .relay(RelayNames.TAG_TRANSDUCTION,      tags,     ErrorPolicy.FAIL_FAST)
                 .relay(RelayNames.DOPAMINERGIC_SURPRISE, surprise, ErrorPolicy.FAIL_FAST)
                 .relay(RelayNames.CORTICAL_WRITE,        write,    ErrorPolicy.FAIL_FAST)
-                .relay(RelayNames.GRAPH_LINKING,         graph,    ErrorPolicy.DEGRADE_GRACEFULLY)
-                .relay(RelayNames.KG_ENRICHMENT,         kg,       ErrorPolicy.DEGRADE_GRACEFULLY);
+                .relay(RelayNames.GRAPH_LINKING,         graph,    ErrorPolicy.DEGRADE_GRACEFULLY);
+
+        // KG enrichment may invoke the LLM for entity extraction: 8s budget, shared
+        // llm-provider breaker (BYPASS — enrichment is optional), and a 2-permit
+        // bulkhead so a burst of ingests cannot saturate the provider. No retry: the
+        // relay also mutates the entity/temporal graphs, so re-running after a partial
+        // failure can duplicate edges (see the note on KnowledgeGraphEnrichmentRelay).
+        composer.stage(RelayNames.KG_ENRICHMENT)
+                .relay(kg)
+                .policy(ErrorPolicy.DEGRADE_GRACEFULLY)
+                .timeoutIfInterruptible(PathwayResilience.LLM_TIMEOUT)
+                .breaker(PathwayResilience.llmProvider())
+                .bulkhead(PathwayResilience.LLM_PROVIDER, PathwayResilience.llmBulkhead())
+                .add();
     }
 }
