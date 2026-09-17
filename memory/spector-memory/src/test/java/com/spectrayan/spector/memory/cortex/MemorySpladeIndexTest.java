@@ -332,10 +332,7 @@ class MemorySpladeIndexTest {
         }
 
         try (var runtimeBundle = com.spectrayan.spector.kernel.bundle.RuntimeBundle.Init.mmap(bundlePath, specs)) {
-            com.spectrayan.spector.kernel.bundle.BundleManager mgr =
-                    new com.spectrayan.spector.kernel.bundle.BundleManager(runtimeBundle);
-
-            int written = spladeIndex.persistToBundle(runtimeBundle, mgr);
+            int written = spladeIndex.persistToBundle(runtimeBundle);
             assertThat(written).isGreaterThan(4096);
 
             // Verify SPLADE region grew

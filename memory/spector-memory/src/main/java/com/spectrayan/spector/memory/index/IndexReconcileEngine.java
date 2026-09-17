@@ -31,8 +31,11 @@ import java.util.concurrent.atomic.AtomicInteger;
  * <ol>
  *   <li><b>Entity Reverse Index</b>: Detects forward entity-to-memory references missing from {@code memoryToEntities} reverse map and repairs them, and detects/drops dangling reverse entries.</li>
  *   <li><b>Lexical Index (BM25)</b>: Detects memory texts present in {@link MemoryIndex} but missing from {@link MemoryBM25Index} and re-indexes them, and detects/drops stale postings.</li>
- *   <li><b>Learned Sparse Index (SPLADE)</b>: Detects memories missing from {@link MemorySpladeIndex} and indexes them via provider, and detects/drops stale postings.</li>
+ *   <li><b>Learned Sparse Index (SPLADE)</b>: Detects memories missing from {@link MemorySpladeIndex} and flags drift for administrative rebuild (neural inference is avoided during cooperative slice), and detects/drops stale postings.</li>
  * </ol>
+ *
+ * <p>Note: Hypergraph vertex quarantine (tombstoning and isolating corrupted hyper-edge vertices) is
+ * designated as a named follow-up under Issue #946 / Phase 2.1.</p>
  *
  * <p>Executes with cooperative rate-limiting (default ≤ 50ms time-slice, ≤ 500 repairs per cycle) to guarantee zero
  * throughput degradation on hot ingestion pathways.</p>
@@ -55,6 +58,9 @@ public final class IndexReconcileEngine {
 
     // Entity scan cursor for round-robin incremental scanning across cycles
     private final AtomicInteger entityScanCursor = new AtomicInteger(0);
+
+    // Lexical/sparse scan cursor for round-robin incremental scanning across cycles
+    private final AtomicInteger lexicalScanCursor = new AtomicInteger(0);
 
     public IndexReconcileEngine(EntityDirectory entityDirectory, MemoryIndex memoryIndex, MemoryBM25Index bm25Index) {
         this(entityDirectory, memoryIndex, bm25Index, null, DEFAULT_TIME_SLICE_MS, DEFAULT_MAX_REPAIRS);
@@ -202,31 +208,56 @@ public final class IndexReconcileEngine {
             }
         }
 
-        // 2. Reconcile BM25 Lexical Index
-        if (memoryIndex != null && bm25Index != null && !truncated && repairsCount < maxRepairsPerCycle) {
-            // 2a. Missing entries check: doc in MemoryIndex but not in BM25Index
-            var entries = memoryIndex.locationMap().keySet();
-            for (String id : entries) {
-                if (System.nanoTime() - startNs >= maxTimeSliceNs || repairsCount >= maxRepairsPerCycle) {
-                    truncated = true;
-                    break;
-                }
+        // 2. Reconcile BM25 Lexical Index & SPLADE Sparse Index (Forward Scan)
+        if (memoryIndex != null && (bm25Index != null || spladeIndex != null) && !truncated && repairsCount < maxRepairsPerCycle) {
+            var locMap = memoryIndex.locationMap();
+            if (locMap != null && !locMap.isEmpty()) {
+                String[] ids = locMap.keySet().toArray(new String[0]);
+                int totalDocs = ids.length;
+                int startIndex = lexicalScanCursor.get() % totalDocs;
+                if (startIndex < 0) startIndex = 0;
 
-                scannedLexical++;
-                if (!bm25Index.contains(id)) {
-                    missingLexical++;
-                    String text = memoryIndex.text(id);
-                    if (text != null && !text.isEmpty()) {
-                        bm25Index.index(0, id, text);
-                        repairedLexical++;
-                        repairsCount++;
+                for (int step = 0; step < totalDocs; step++) {
+                    if (System.nanoTime() - startNs >= maxTimeSliceNs || repairsCount >= maxRepairsPerCycle) {
+                        truncated = true;
+                        break;
                     }
+
+                    int idx = (startIndex + step) % totalDocs;
+                    String id = ids[idx];
+
+                    // 2a. BM25 missing check
+                    if (bm25Index != null) {
+                        scannedLexical++;
+                        if (!bm25Index.contains(id)) {
+                            missingLexical++;
+                            String text = memoryIndex.text(id);
+                            if (text != null && !text.isEmpty()) {
+                                bm25Index.index(0, id, text);
+                                repairedLexical++;
+                                repairsCount++;
+                            }
+                        }
+                    }
+
+                    // 3a. SPLADE missing check (flag only, zero neural inference in 50ms slice)
+                    if (spladeIndex != null) {
+                        scannedSplade++;
+                        if (!spladeIndex.contains(id)) {
+                            missingSplade++;
+                            log.debug("SPLADE index missing document id={}; flagged for admin rebuild", id);
+                        }
+                    }
+
+                    lexicalScanCursor.set((idx + 1) % totalDocs);
                 }
             }
+        }
 
-            // 2b. Stale entries check: doc in BM25Index but not in MemoryIndex
-            if (!truncated && repairsCount < maxRepairsPerCycle) {
-                Set<String> bm25DocIds = bm25Index.docIds();
+        // 2b. Stale BM25 entries check: doc in BM25Index but not in MemoryIndex
+        if (memoryIndex != null && bm25Index != null && !truncated && repairsCount < maxRepairsPerCycle) {
+            Set<String> bm25DocIds = bm25Index.docIds();
+            if (bm25DocIds != null) {
                 for (String id : bm25DocIds) {
                     if (System.nanoTime() - startNs >= maxTimeSliceNs || repairsCount >= maxRepairsPerCycle) {
                         truncated = true;
@@ -243,36 +274,10 @@ public final class IndexReconcileEngine {
             }
         }
 
-        // 3. Reconcile SPLADE Sparse Index (ADR-0082)
+        // 3b. Stale SPLADE entries check: doc in SpladeIndex but not in MemoryIndex
         if (memoryIndex != null && spladeIndex != null && !truncated && repairsCount < maxRepairsPerCycle) {
-            // 3a. Missing entries check: doc in MemoryIndex but not in SpladeIndex
-            var entries = memoryIndex.locationMap().keySet();
-            for (String id : entries) {
-                if (System.nanoTime() - startNs >= maxTimeSliceNs || repairsCount >= maxRepairsPerCycle) {
-                    truncated = true;
-                    break;
-                }
-
-                scannedSplade++;
-                if (!spladeIndex.contains(id)) {
-                    missingSplade++;
-                    if (spladeIndex.provider() != null) {
-                        String text = memoryIndex.text(id);
-                        if (text != null && !text.isEmpty()) {
-                            var res = spladeIndex.provider().encode(text);
-                            if (res != null && res.weights() != null) {
-                                spladeIndex.index(0, id, res.weights());
-                                repairedSplade++;
-                                repairsCount++;
-                            }
-                        }
-                    }
-                }
-            }
-
-            // 3b. Stale entries check: doc in SpladeIndex but not in MemoryIndex
-            if (!truncated && repairsCount < maxRepairsPerCycle) {
-                Set<String> spladeDocIds = spladeIndex.docIds();
+            Set<String> spladeDocIds = spladeIndex.docIds();
+            if (spladeDocIds != null) {
                 for (String id : spladeDocIds) {
                     if (System.nanoTime() - startNs >= maxTimeSliceNs || repairsCount >= maxRepairsPerCycle) {
                         truncated = true;
@@ -312,5 +317,13 @@ public final class IndexReconcileEngine {
 
     public int maxRepairsPerCycle() {
         return maxRepairsPerCycle;
+    }
+
+    int entityScanCursor() {
+        return entityScanCursor.get();
+    }
+
+    int lexicalScanCursor() {
+        return lexicalScanCursor.get();
     }
 }

@@ -196,8 +196,8 @@ class IndexReconcileEngineTest {
     }
 
     @Test
-    @DisplayName("reconcile detects and repairs SPLADE drift and drops stale postings")
-    void reconcile_spladeDrift_detectsAndRepairs() {
+    @DisplayName("reconcile flags SPLADE drift without neural inference and drops stale postings")
+    void reconcile_spladeDrift_flagsWithoutInference() {
         MemoryIndex memIndex = mock(MemoryIndex.class);
         com.spectrayan.spector.memory.cortex.MemorySpladeIndex spladeIndex =
                 mock(com.spectrayan.spector.memory.cortex.MemorySpladeIndex.class);
@@ -205,9 +205,6 @@ class IndexReconcileEngineTest {
                 mock(com.spectrayan.spector.provider.embedding.SparseEmbeddingProvider.class);
 
         when(spladeIndex.provider()).thenReturn(provider);
-        when(provider.encode("Sparse text representation")).thenReturn(
-                new com.spectrayan.spector.provider.embedding.SparseEmbeddingResult(Map.of("sparse", 1.5f), 1, "test-splade")
-        );
 
         MemoryLocation loc = mock(MemoryLocation.class);
         ConcurrentHashMap<String, MemoryLocation> locMap = new ConcurrentHashMap<>();
@@ -215,7 +212,6 @@ class IndexReconcileEngineTest {
 
         when(memIndex.locationMap()).thenReturn(locMap);
         when(spladeIndex.contains("doc-splade")).thenReturn(false);
-        when(memIndex.text("doc-splade")).thenReturn("Sparse text representation");
         when(spladeIndex.docIds()).thenReturn(Set.of("doc-splade", "stale-splade"));
 
         IndexReconcileEngine engine = new IndexReconcileEngine(null, memIndex, null, spladeIndex, 1000L, 100);
@@ -223,10 +219,40 @@ class IndexReconcileEngineTest {
 
         assertThat(report.missingSpladeEntries()).isEqualTo(1);
         assertThat(report.staleSpladeEntries()).isEqualTo(1);
-        assertThat(report.repairedSpladeEntries()).isEqualTo(2);
+        assertThat(report.repairedSpladeEntries()).isEqualTo(1);
 
-        verify(spladeIndex, times(1)).index(0, "doc-splade", Map.of("sparse", 1.5f));
+        // Zero neural inference inside the cooperative time slice
+        verify(provider, never()).encode(anyString());
+        verify(spladeIndex, never()).index(anyInt(), anyString(), anyMap());
         verify(spladeIndex, times(1)).remove("stale-splade");
+    }
+
+    @Test
+    @DisplayName("lexical scan cursor advances round-robin across cooperative cycles")
+    void reconcile_lexicalScanCursor_advancesIncrementallyAcrossCycles() {
+        MemoryIndex memIndex = mock(MemoryIndex.class);
+        MemoryBM25Index bm25Index = mock(MemoryBM25Index.class);
+
+        ConcurrentHashMap<String, MemoryLocation> locMap = new ConcurrentHashMap<>();
+        for (int i = 0; i < 4; i++) {
+            locMap.put("doc-" + i, mock(MemoryLocation.class));
+            when(memIndex.text("doc-" + i)).thenReturn("content for doc " + i);
+        }
+
+        when(memIndex.locationMap()).thenReturn(locMap);
+        when(bm25Index.contains(anyString())).thenReturn(false);
+
+        // Limit to 2 repairs per cycle
+        IndexReconcileEngine engine = new IndexReconcileEngine(null, memIndex, bm25Index, 5000L, 2);
+
+        IndexReconcileReport cycle1 = engine.reconcile();
+        assertThat(cycle1.repairedLexicalEntries()).isEqualTo(2);
+        assertThat(cycle1.truncated()).isTrue();
+        assertThat(engine.lexicalScanCursor()).isEqualTo(2);
+
+        IndexReconcileReport cycle2 = engine.reconcile();
+        assertThat(cycle2.repairedLexicalEntries()).isEqualTo(2);
+        assertThat(engine.lexicalScanCursor()).isEqualTo(0); // wrapped around
     }
 
     @Test

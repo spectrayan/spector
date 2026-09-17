@@ -307,19 +307,14 @@ public final class MemorySpladeIndex extends AbstractMemoryIndex<SpladeIndex> {
     }
 
     /**
-     * Backwards-compatible overload for persistToBundle.
-     */
-    public int persistToBundle(RuntimeBundle runtimeBundle, BundleManager bundleManager) {
-        return persistToBundle(runtimeBundle);
-    }
-
-    /**
-     * Loads a SPLADE index from a V4 {@link RuntimeBundle}.
+     * Package-private test/diagnostic helper: loads the primary partition (partition 0) from a {@link RuntimeBundle}.
+     *
+     * <p>Full multi-partition hydration is owned by {@link #hydrate()}.
      *
      * @param runtimeBundle the runtime bundle containing the SPLADE region
-     * @return the loaded SpladeIndex, or null if no valid data is found
+     * @return the primary partition SpladeIndex, or null if no valid data is found
      */
-    public static SpladeIndex loadFromBundle(RuntimeBundle runtimeBundle) {
+    static SpladeIndex loadFromBundle(RuntimeBundle runtimeBundle) {
         if (runtimeBundle == null) {
             return null;
         }

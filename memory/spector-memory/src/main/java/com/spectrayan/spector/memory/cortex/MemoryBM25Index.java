@@ -33,7 +33,6 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-// TODO(#428): Extract common index infrastructure to AbstractMemoryIndex
 /**
  * Per-partition BM25 index manager for text similarity search.
  *
@@ -311,19 +310,14 @@ public final class MemoryBM25Index extends AbstractMemoryIndex<BM25Index> {
     }
 
     /**
-     * Backwards-compatible overload for persistToBundle.
-     */
-    public int persistToBundle(RuntimeBundle runtimeBundle, BundleManager bundleManager) {
-        return persistToBundle(runtimeBundle);
-    }
-
-    /**
-     * Loads a BM25 index from a V4 {@link RuntimeBundle}.
+     * Package-private test/diagnostic helper: loads the primary partition (partition 0) from a {@link RuntimeBundle}.
+     *
+     * <p>Full multi-partition hydration is owned by {@link #hydrate()}.
      *
      * @param runtimeBundle the runtime bundle containing the BM25 region
-     * @return the loaded BM25Index, or null if no valid data is found
+     * @return the primary partition BM25Index, or null if no valid data is found
      */
-    public static BM25Index loadFromBundle(RuntimeBundle runtimeBundle) {
+    static BM25Index loadFromBundle(RuntimeBundle runtimeBundle) {
         if (runtimeBundle == null) {
             return null;
         }
