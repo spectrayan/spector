@@ -1,4 +1,4 @@
-# ADR-0061: Cognitive Continuity Layer and Decoded Mind Streams
+# ADR-0060: Cognitive Continuity Layer and Decoded Mind Streams
 
 | Field | Value |
 |:---|:---|

@@ -1,4 +1,4 @@
-# ADR-0060: Java 27 Upgrade Strategy and Value Class Migration
+# ADR-0059: Java 27 Upgrade Strategy and Value Class Migration
 
 | Field | Value |
 |:---|:---|
@@ -88,21 +88,21 @@ Rather than waiting for JDK 28, Spector adopts a practical three-tier approach t
 
 ```mermaid
 graph TD
-    subgraph Tier 1: Value-Based Class Certification
+    subgraph Tier1 ["Tier 1: Value-Based Class Certification"]
         A["370+ Records in Spector<br/>(Hypervector, ScoredResult, Chunk, Span)"] --> B["Strict Immutability & No Identity<br/>No '==' Equality, No synchronized(this)"]
     end
 
-    subgraph Tier 2: Compact Object Headers (JEP 534)
+    subgraph Tier2 ["Tier 2: Compact Object Headers (JEP 534)"]
         B --> C["Default in JDK 27: 8-byte headers<br/>(Configurable via -XX:+UseCompactObjectHeaders on 25)"]
         C --> D["Header shrinks from 16B to 8B<br/>15-30% Heap Reduction for Graph & Vector Nodes"]
     end
 
-    subgraph Tier 3: Off-Heap Flat Memory (FFM)
+    subgraph Tier3 ["Tier 3: Off-Heap Flat Memory (FFM)"]
         D --> E["Foreign Function & Memory (FFM)<br/>BinaryVectorStorage & Flat HNSW"]
         E --> F["Zero-GC Off-Heap Flat Layouts<br/>Exact Cache Locality of C-Structs"]
     end
 
-    subgraph Tier 4: Future Valhalla Compatibility
+    subgraph Tier4 ["Tier 4: Future Valhalla Compatibility"]
         F --> G["Valhalla EA Profile<br/>value record / value class ready for JDK 28"]
     end
 ```

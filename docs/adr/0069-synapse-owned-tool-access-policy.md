@@ -1,4 +1,4 @@
-# ADR-0070: Synapse-Owned Tool Access Policy
+# ADR-0069: Synapse-Owned Tool Access Policy
 
 | Field | Value |
 |:---|:---|

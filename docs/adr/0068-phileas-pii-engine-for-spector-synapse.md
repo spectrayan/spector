@@ -1,4 +1,4 @@
-# ADR-0069: Phileas PII Redaction Engine for Spector Synapse
+# ADR-0068: Phileas PII Redaction Engine for Spector Synapse
 
 | Field | Value |
 |:---|:---|

@@ -1,4 +1,4 @@
-# ADR-0065: Spacetime Simulation on Wander, Dream, and Express Pathways
+# ADR-0063: Spacetime Simulation on Wander, Dream, and Express Pathways
 
 | Field | Value |
 |:---|:---|
@@ -14,7 +14,7 @@
 
 ## 1. Context
 
-Following the establishment of spacetime vector search in ADR-0064, cognitive agents require the ability not merely to recall past situated memories, but to perform prospective simulation—imagining future encounters, dreaming counterfactual scenarios, and projecting expressive behaviors.
+Following the establishment of spacetime vector search in ADR-0063, cognitive agents require the ability not merely to recall past situated memories, but to perform prospective simulation—imagining future encounters, dreaming counterfactual scenarios, and projecting expressive behaviors.
 
 ### What ADR-0030 already decided
 

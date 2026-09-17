@@ -1,4 +1,4 @@
-# ADR-0068: Cell-Based High Availability and Namespace-Sticky Sharding (Initial Draft)
+# ADR-0067: Cell-Based High Availability and Namespace-Sticky Sharding (Initial Draft)
 
 | Field | Value |
 |:---|:---|

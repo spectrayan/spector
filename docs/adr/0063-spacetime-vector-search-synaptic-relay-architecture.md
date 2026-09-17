@@ -1,4 +1,4 @@
-# ADR-0064: Spacetime Vector Search and Synaptic Relay Architecture
+# ADR-0063: Spacetime Vector Search and Synaptic Relay Architecture
 
 | Field | Value |
 |:---|:---|

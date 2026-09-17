@@ -1,4 +1,4 @@
-# ADR-0058: Remediation of Hardcoded Memory Offsets and Alignment Constants
+# ADR-0057: Remediation of Hardcoded Memory Offsets and Alignment Constants
 
 | Field | Value |
 |:---|:---|

@@ -468,7 +468,7 @@ sequenceDiagram
     Builder->>RB: mmap(bundlePath, config)
     RB->>FC: open(bundlePath, CREATE, READ, WRITE)
     RB->>RB: compute totalFileSize from region entries
-    RB->>FC: position(totalFileSize - 1); write(0x00)
+    RB->>FC: position(totalFileSize - 1), write(0x00)
     Note right of FC: Pre-allocate sparse file
 
     RB->>Arena: Arena.ofShared()
@@ -566,7 +566,7 @@ sequenceDiagram
     Note right of RB: munmap entire bundle — all slices invalidated
 
     BM->>FC: open(bundlePath, READ, WRITE)
-    BM->>FC: position(tailOffset + newSize - 1); write(0x00)
+    BM->>FC: position(tailOffset + newSize - 1), write(0x00)
     Note right of FC: Extend file for new region at tail
 
     BM->>FC: transferFrom(oldOffset, tailOffset, oldEntry.allocatedSize)
@@ -667,7 +667,7 @@ sequenceDiagram
 
     DSM->>PM: close()
     PM->>PB: close() [for each partition]
-    PB->>PB: masterSegment.force(); arena.close()
+    PB->>PB: masterSegment.force(), arena.close()
 ```
 
 ---

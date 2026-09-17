@@ -57,39 +57,39 @@ GitHub Issue #120 originally proposed basic API rate limiting with Bucket4j. Thi
 ```mermaid
 graph TD
     subgraph "Layer 1: Inbound API Surface"
-        Client[External Clients / MCP Agents / Web UI] -->|HTTP / MCP / SSE| RLF[RateLimitFilter (Bucket4j + Security)]
-        RLF -->|Allowed| Endpoints[REST Controllers / MCP / SSE / Actuator]
-        RLF -->|Rejected| 429Resp[HTTP 429 Too Many Requests + Retry-After]
+        Client["External Clients / MCP Agents / Web UI"] -->|HTTP / MCP / SSE| RLF["RateLimitFilter (Bucket4j + Security)"]
+        RLF -->|Allowed| Endpoints["REST Controllers / MCP / SSE / Actuator"]
+        RLF -->|Rejected| Resp429["HTTP 429 Too Many Requests + Retry-After"]
     end
 
     subgraph "Layer 2: Messaging Channels"
-        ChatUser[Chat Users / Webhooks] --> CR[ChannelRouter]
-        CR --> CRL[Inbound Message RateLimiter]
-        CRL -->|Allowed| ChatService[ChatService / Cognition]
-        CRL -->|Rejected| ChatThrottle[Polite Throttling Notice]
-        CamelChannelAdapter -->|Outbound Pacing| OutboundThrottle[Outbound Channel Throttler]
+        ChatUser["Chat Users / Webhooks"] --> CR["ChannelRouter"]
+        CR --> CRL["Inbound Message RateLimiter"]
+        CRL -->|Allowed| ChatService["ChatService / Cognition"]
+        CRL -->|Rejected| ChatThrottle["Polite Throttling Notice"]
+        CamelChannelAdapter -->|Outbound Pacing| OutboundThrottle["Outbound Channel Throttler"]
     end
 
     subgraph "Layer 3: Apache Camel Ingestion & Connectors"
-        Poller[S3 / DB / Jira / RSS / Mongo] --> RouteThrottle[Camel Throttler EIP / Resilience4j]
-        RouteThrottle --> IngestSink[SpectorIngestionSink]
-        IngestSink --> CoreMem[Spector Memory Kernel]
+        Poller["S3 / DB / Jira / RSS / Mongo"] --> RouteThrottle["Camel Throttler EIP / Resilience4j"]
+        RouteThrottle --> IngestSink["SpectorIngestionSink"]
+        IngestSink --> CoreMem["Spector Memory Kernel"]
     end
 
     subgraph "Layer 4: Outbound LLM Providers"
-        ChatService & CoreMem --> ResilientLLM[ResilientRateLimitedLlmProvider]
-        ResilientLLM --> RPMBucket[RPM Token Bucket]
-        ResilientLLM --> TPMBucket[TPM Token Bucket (Pre-reserve & Post-settle)]
-        ResilientLLM --> Bulkhead[Concurrency Semaphore]
-        ResilientLLM -->|Provider 429 / Exhaustion| Failover[Exponential Backoff + Provider Fallback]
-        ResilientLLM --> UpstreamLLM[OpenAI / Anthropic / Gemini / Ollama]
+        ChatService & CoreMem --> ResilientLLM["ResilientRateLimitedLlmProvider"]
+        ResilientLLM --> RPMBucket["RPM Token Bucket"]
+        ResilientLLM --> TPMBucket["TPM Token Bucket (Pre-reserve & Post-settle)"]
+        ResilientLLM --> Bulkhead["Concurrency Semaphore"]
+        ResilientLLM -->|Provider 429 / Exhaustion| Failover["Exponential Backoff + Provider Fallback"]
+        ResilientLLM --> UpstreamLLM["OpenAI / Anthropic / Gemini / Ollama"]
     end
 
     subgraph "Pluggable Storage & Cloud Management"
-        BackendStore[RateLimitBackend SPI]
-        BackendStore --> Caffeine[In-Memory Caffeine (Default)]
-        BackendStore --> RedisStore[Distributed Redis (Cloud / K8s)]
-        ConfigMgmt[Dynamic Config & Actuator /actuator/ratelimits] --> BackendStore
+        BackendStore["RateLimitBackend SPI"]
+        BackendStore --> Caffeine["In-Memory Caffeine (Default)"]
+        BackendStore --> RedisStore["Distributed Redis (Cloud / K8s)"]
+        ConfigMgmt["Dynamic Config & Actuator /actuator/ratelimits"] --> BackendStore
     end
 
     RLF -.-> BackendStore
@@ -106,18 +106,18 @@ A polymorphic key resolution strategy identifies callers with fallback tiers:
 
 ```mermaid
 flowchart TD
-    Req[Incoming HTTP Request] --> HasAPIKey{Has X-API-Key or Bearer API Key?}
-    HasAPIKey -->|Yes| KeyBucket[Key: 'apikey:' + Hash(Key)]
-    HasAPIKey -->|No| HasAuth{Is JWT User Authenticated?}
-    HasAuth -->|Yes| UserBucket[Key: 'user:' + SubjectID]
-    HasAuth -->|No| HasTenant{Has X-Tenant-ID Header?}
-    HasTenant -->|Yes| TenantBucket[Key: 'tenant:' + TenantID]
-    HasTenant -->|No| HasIP{Extract Client IP}
-    HasIP -->|Yes| IPBucket[Key: 'ip:' + ValidatedIP]
-    KeyBucket --> TierSelect[Select Tier Policy: System / Premium / Standard / Anonymous]
+    Req["Incoming HTTP Request"] --> HasAPIKey{"Has X-API-Key or Bearer API Key?"}
+    HasAPIKey -->|Yes| KeyBucket["Key: 'apikey:' + Hash(Key)"]
+    HasAPIKey -->|No| HasAuth{"Is JWT User Authenticated?"}
+    HasAuth -->|Yes| UserBucket["Key: 'user:' + SubjectID"]
+    HasAuth -->|No| HasTenant{"Has X-Tenant-ID Header?"}
+    HasTenant -->|Yes| TenantBucket["Key: 'tenant:' + TenantID"]
+    HasTenant -->|No| HasIP{"Extract Client IP"}
+    HasIP -->|Yes| IPBucket["Key: 'ip:' + ValidatedIP"]
+    KeyBucket --> TierSelect["Select Tier Policy: System / Premium / Standard / Anonymous"]
     UserBucket --> TierSelect
     TenantBucket --> TierSelect
-    IPBucket --> AnonymousTier[Anonymous Tier Policy]
+    IPBucket --> AnonymousTier["Anonymous Tier Policy"]
 ```
 
 ### 3.2 Endpoint Categorization & Custom Policies

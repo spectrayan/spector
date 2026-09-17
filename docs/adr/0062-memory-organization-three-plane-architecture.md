@@ -1,4 +1,4 @@
-# ADR-0063: Spector Memory Organization — Three-Plane Architecture
+# ADR-0062: Spector Memory Organization — Three-Plane Architecture
 
 | Field | Value |
 |:---|:---|

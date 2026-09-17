@@ -1,4 +1,4 @@
-# ADR-0062: In-Memory Multi-Tenant Quartz Scheduler
+# ADR-0061: In-Memory Multi-Tenant Quartz Scheduler
 
 | Field | Value |
 |:---|:---|

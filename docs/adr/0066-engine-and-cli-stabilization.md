@@ -1,4 +1,4 @@
-# ADR-0067: Engine & CLI Stabilization — Issue #727 Hardening
+# ADR-0066: Engine & CLI Stabilization — Issue #727 Hardening
 
 | Field | Value |
 |:---|:---|

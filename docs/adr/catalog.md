@@ -1,15 +1,14 @@
-# Spector Architecture Decision Record (ADR) Catalog
+# Architecture Decision Records (ADRs) — Master Catalog
 
-This catalog provides an authoritative, chronological, and categorized registry of all 70 architectural decisions across the Spector cognitive memory platform. Every record has been verified against the production implementation on `main`.
+> **Authoritative registry of all 69 Architecture Decision Records governing Spector.** Every record tracks architectural rationale, options evaluated, trade-offs accepted, and code verification against `main`.
 
-For the ADR lifecycle, proposal instructions, and governance rules, consult the **[Living ADR Framework Overview](README.md)**. To draft a new proposal, copy the **[Official ADR Proposal Template](0000-template.md)**.
+> [!NOTE]
+> The Active Inference Self-Model Engine verification report has graduated to the architecture audit section: [Architecture Verification Report: Active Inference Self-Model Engine (AISME)](../architecture/aisme-completeness-verification-report.md).
 
----
+## Master Registry (0001–0069)
 
-## Complete ADR Master Registry
-
-| ADR ID | Title | Status | Date | Decision Record File |
-|:---|:---|:---|:---|:---|
+| ADR | Title | Status | Date | Target File |
+|:---|:---|:---:|:---:|:---|
 | **ADR-0001** | [Graph Compression Strategy for Entity Graph](0001-graph-compression-strategy.md) | `Accepted (Implemented)` | 2026-07-30 | [`0001-graph-compression-strategy.md`](0001-graph-compression-strategy.md) |
 | **ADR-0002** | [Multi-Partition Recall Fan-Out & Frozen Retention](0002-multi-partition-recall-fanout.md) | `Accepted (Implemented)` | 2026-07-31 | [`0002-multi-partition-recall-fanout.md`](0002-multi-partition-recall-fanout.md) |
 | **ADR-0003** | [Completing Hypergraph Entity-Graph Graduation](0003-hypergraph-entity-graph-graduation.md) | `Accepted (Implemented)` | 2026-08-03 | [`0003-hypergraph-entity-graph-graduation.md`](0003-hypergraph-entity-graph-graduation.md) |
@@ -66,27 +65,26 @@ For the ADR lifecycle, proposal instructions, and governance rules, consult the 
 | **ADR-0054** | [Lifespan-Adaptive Forgetting & Retention Kernel](0054-lifespan-adaptive-forgetting-retention.md) | `Accepted (Implemented)` | 2026-08-24 | [`0054-lifespan-adaptive-forgetting-retention.md`](0054-lifespan-adaptive-forgetting-retention.md) |
 | **ADR-0055** | [LSR & RFF Dense Associative Memory Engineering Specification](0055-lsr-rff-associative-memory-engineering-specification.md) | `Accepted (Implemented)` | 2026-08-23 | [`0055-lsr-rff-associative-memory-engineering-specification.md`](0055-lsr-rff-associative-memory-engineering-specification.md) |
 | **ADR-0056** | [Log-Sum-ReLU (LSR) & Random Fourier Features (RFF) Dense Associative Memory](0056-lsr-rff-dense-associative-memory.md) | `Accepted (Implemented)` | 2026-08-23 | [`0056-lsr-rff-dense-associative-memory.md`](0056-lsr-rff-dense-associative-memory.md) |
-| **ADR-0057** | [AISME Completeness Verification Report](0057-aisme-completeness-verification-report.md) | `Accepted (Implemented)` | 2026-08-23 | [`0057-aisme-completeness-verification-report.md`](0057-aisme-completeness-verification-report.md) |
-| **ADR-0058** | [Remediation of Hardcoded Memory Offsets and Alignment Constants](0058-hardcoded-memory-offsets-and-alignment-constants.md) | `Accepted (Implemented)` | 2026-08-24 | [`0058-hardcoded-memory-offsets-and-alignment-constants.md`](0058-hardcoded-memory-offsets-and-alignment-constants.md) |
-| **ADR-0059** | [Linguistic & Vocal Prosody Expression Engine](0059-linguistic-vocal-prosody-expression-engine.md) | `Accepted (Implemented)` | 2026-08-24 | [`0059-linguistic-vocal-prosody-expression-engine.md`](0059-linguistic-vocal-prosody-expression-engine.md) |
-| **ADR-0060** | [Java 27 Upgrade Strategy and Value Class Migration](0060-jdk27-upgrade-and-feature-architecture.md) | `Proposed` | 2026-08-25 | [`0060-jdk27-upgrade-and-feature-architecture.md`](0060-jdk27-upgrade-and-feature-architecture.md) |
-| **ADR-0061** | [Cognitive Continuity Layer and Decoded Mind Streams](0061-cognitive-continuity-decoded-mind-streams.md) | `Withdrawn` | 2026-08-25 | [`0061-cognitive-continuity-decoded-mind-streams.md`](0061-cognitive-continuity-decoded-mind-streams.md) |
-| **ADR-0062** | [In-Memory Multi-Tenant Quartz Scheduler](0062-in-memory-multi-tenant-quartz-scheduler.md) | `Accepted (Implemented)` | 2026-08-26 | [`0062-in-memory-multi-tenant-quartz-scheduler.md`](0062-in-memory-multi-tenant-quartz-scheduler.md) |
-| **ADR-0063** | [Spector Memory Organization — Three-Plane Architecture](0063-memory-organization-three-plane-architecture.md) | `Accepted (Implemented)` | 2026-08-27 | [`0063-memory-organization-three-plane-architecture.md`](0063-memory-organization-three-plane-architecture.md) |
-| **ADR-0064** | [Spacetime Vector Search and Synaptic Relay Architecture](0064-spacetime-vector-search-synaptic-relay-architecture.md) | `Accepted (Implemented)` | 2026-08-28 | [`0064-spacetime-vector-search-synaptic-relay-architecture.md`](0064-spacetime-vector-search-synaptic-relay-architecture.md) |
-| **ADR-0065** | [Spacetime Simulation on Wander, Dream, and Express Pathways](0065-spacetime-simulation-wander-dream-express.md) | `Accepted (Implemented)` | 2026-08-28 | [`0065-spacetime-simulation-wander-dream-express.md`](0065-spacetime-simulation-wander-dream-express.md) |
-| **ADR-0066** | [Client SDK Architecture, OpenAPI, and MCP Integration](0066-client-sdk-openapi-and-mcp-integration-architecture.md) | `Accepted (Implemented)` | 2026-08-29 | [`0066-client-sdk-openapi-and-mcp-integration-architecture.md`](0066-client-sdk-openapi-and-mcp-integration-architecture.md) |
-| **ADR-0067** | [Engine & CLI Stabilization — Issue #727 Hardening](0067-engine-and-cli-stabilization.md) | `Accepted (Implemented)` | 2026-08-30 | [`0067-engine-and-cli-stabilization.md`](0067-engine-and-cli-stabilization.md) |
-| **ADR-0068** | [Cell-Based High Availability and Namespace-Sticky Sharding (Initial Draft)](0068-cell-ha-namespace-sticky-sharding.md) | `Superseded by ADR-0034` | 2026-08-30 | [`0068-cell-ha-namespace-sticky-sharding.md`](0068-cell-ha-namespace-sticky-sharding.md) |
-| **ADR-0069** | [Phileas PII Redaction Engine for Spector Synapse](0069-phileas-pii-engine-for-spector-synapse.md) | `Accepted (Implemented)` | 2026-08-31 | [`0069-phileas-pii-engine-for-spector-synapse.md`](0069-phileas-pii-engine-for-spector-synapse.md) |
-| **ADR-0070** | [Synapse-Owned Tool Access Policy](0070-synapse-owned-tool-access-policy.md) | `Accepted (Implemented)` | 2026-08-31 | [`0070-synapse-owned-tool-access-policy.md`](0070-synapse-owned-tool-access-policy.md) |
+| **ADR-0057** | [Remediation of Hardcoded Memory Offsets and Alignment Constants](0057-hardcoded-memory-offsets-and-alignment-constants.md) | `Accepted (Implemented)` | 2026-08-24 | [`0057-hardcoded-memory-offsets-and-alignment-constants.md`](0057-hardcoded-memory-offsets-and-alignment-constants.md) |
+| **ADR-0058** | [Linguistic & Vocal Prosody Expression Engine](0058-linguistic-vocal-prosody-expression-engine.md) | `Accepted (Implemented)` | 2026-08-24 | [`0058-linguistic-vocal-prosody-expression-engine.md`](0058-linguistic-vocal-prosody-expression-engine.md) |
+| **ADR-0059** | [Java 27 Upgrade Strategy and Value Class Migration](0059-jdk27-upgrade-and-feature-architecture.md) | `Proposed` | 2026-08-25 | [`0059-jdk27-upgrade-and-feature-architecture.md`](0059-jdk27-upgrade-and-feature-architecture.md) |
+| **ADR-0060** | [Cognitive Continuity Layer and Decoded Mind Streams](0060-cognitive-continuity-decoded-mind-streams.md) | `Withdrawn` | 2026-08-25 | [`0060-cognitive-continuity-decoded-mind-streams.md`](0060-cognitive-continuity-decoded-mind-streams.md) |
+| **ADR-0061** | [In-Memory Multi-Tenant Quartz Scheduler](0061-in-memory-multi-tenant-quartz-scheduler.md) | `Accepted (Implemented)` | 2026-08-26 | [`0061-in-memory-multi-tenant-quartz-scheduler.md`](0061-in-memory-multi-tenant-quartz-scheduler.md) |
+| **ADR-0062** | [Spector Memory Organization — Three-Plane Architecture](0062-memory-organization-three-plane-architecture.md) | `Accepted (Implemented)` | 2026-08-27 | [`0062-memory-organization-three-plane-architecture.md`](0062-memory-organization-three-plane-architecture.md) |
+| **ADR-0063** | [Spacetime Vector Search and Synaptic Relay Architecture](0063-spacetime-vector-search-synaptic-relay-architecture.md) | `Accepted (Implemented)` | 2026-08-28 | [`0063-spacetime-vector-search-synaptic-relay-architecture.md`](0063-spacetime-vector-search-synaptic-relay-architecture.md) |
+| **ADR-0064** | [Spacetime Simulation on Wander, Dream, and Express Pathways](0064-spacetime-simulation-wander-dream-express.md) | `Accepted (Implemented)` | 2026-08-28 | [`0064-spacetime-simulation-wander-dream-express.md`](0064-spacetime-simulation-wander-dream-express.md) |
+| **ADR-0065** | [Client SDK Architecture, OpenAPI, and MCP Integration](0065-client-sdk-openapi-and-mcp-integration-architecture.md) | `Accepted (Implemented)` | 2026-08-29 | [`0065-client-sdk-openapi-and-mcp-integration-architecture.md`](0065-client-sdk-openapi-and-mcp-integration-architecture.md) |
+| **ADR-0066** | [Engine & CLI Stabilization — Issue #727 Hardening](0066-engine-and-cli-stabilization.md) | `Accepted (Implemented)` | 2026-08-30 | [`0066-engine-and-cli-stabilization.md`](0066-engine-and-cli-stabilization.md) |
+| **ADR-0067** | [Cell-Based High Availability and Namespace-Sticky Sharding (Initial Draft)](0067-cell-ha-namespace-sticky-sharding.md) | `Superseded by ADR-0034` | 2026-08-30 | [`0067-cell-ha-namespace-sticky-sharding.md`](0067-cell-ha-namespace-sticky-sharding.md) |
+| **ADR-0068** | [Phileas PII Redaction Engine for Spector Synapse](0068-phileas-pii-engine-for-spector-synapse.md) | `Accepted (Implemented)` | 2026-08-31 | [`0068-phileas-pii-engine-for-spector-synapse.md`](0068-phileas-pii-engine-for-spector-synapse.md) |
+| **ADR-0069** | [Synapse-Owned Tool Access Policy](0069-synapse-owned-tool-access-policy.md) | `Accepted (Implemented)` | 2026-08-31 | [`0069-synapse-owned-tool-access-policy.md`](0069-synapse-owned-tool-access-policy.md) |
 
 ---
 
-## Categorized Architectural Domains
+## Curated Categories
 
-### 1. Memory Kernel, Storage Formats & Bundles
-Off-heap layouts, Panama Foreign Function & Memory (FFM) structures, bundle compaction, single-VMA allocations, and storage primitives:
+### 1. Storage, Layout & Panama FFM Substrate
+Low-level memory alignment, zero-GC layouts, entity graphs, off-heap bundles, and storage engines:
 
 - **[ADR-0001: Graph Compression Strategy for Entity Graph](0001-graph-compression-strategy.md)** (`Accepted (Implemented)`)
 - **[ADR-0002: Multi-Partition Recall Fan-Out & Frozen Retention](0002-multi-partition-recall-fanout.md)** (`Accepted (Implemented)`)
@@ -99,11 +97,11 @@ Off-heap layouts, Panama Foreign Function & Memory (FFM) structures, bundle comp
 - **[ADR-0045: Spector Memory Import & Export Pipeline](0045-spector-memory-import-export-pipeline.md)** (`Accepted (Implemented)`)
 - **[ADR-0046: Single Engram, Four Stores Storage Architecture](0046-single-engram-storage-architecture.md)** (`Accepted (Implemented)`)
 - **[ADR-0047: Episodic Memory and Engram Model Hierarchy](0047-episodic-memory-and-engram-model.md)** (`Accepted (Implemented)`)
-- **[ADR-0058: Remediation of Hardcoded Memory Offsets and Alignment Constants](0058-hardcoded-memory-offsets-and-alignment-constants.md)** (`Accepted (Implemented)`)
-- **[ADR-0063: Spector Memory Organization — Three-Plane Architecture](0063-memory-organization-three-plane-architecture.md)** (`Accepted (Implemented)`)
+- **[ADR-0057: Remediation of Hardcoded Memory Offsets and Alignment Constants](0057-hardcoded-memory-offsets-and-alignment-constants.md)** (`Accepted (Implemented)`)
+- **[ADR-0062: Spector Memory Organization — Three-Plane Architecture](0062-memory-organization-three-plane-architecture.md)** (`Accepted (Implemented)`)
 
-### 2. Active Inference Self-Model Engine (AISME) & Neuroscience Substrate
-Active inference, predictive coding, homeostatic affective core, continuous Hopfield networks, holographic memory, and epistemic compression:
+### 2. Cognitive Neuroscience, Active Inference & Dynamic Mind Simulation
+Biological memory pathways, free-energy active inference, dynamic dreaming, associative manifolds, and speech prosody:
 
 - **[ADR-0006: Episodic Conversation Architecture](0006-episodic-conversation-architecture.md)** (`Accepted (Implemented)`)
 - **[ADR-0007: ReflectPathway — Biological Sleep Consolidation](0007-reflect-pathway-sleep-consolidation.md)** (`Accepted (Implemented)`)
@@ -132,10 +130,9 @@ Active inference, predictive coding, homeostatic affective core, continuous Hopf
 - **[ADR-0054: Lifespan-Adaptive Forgetting & Retention Kernel](0054-lifespan-adaptive-forgetting-retention.md)** (`Accepted (Implemented)`)
 - **[ADR-0055: LSR & RFF Dense Associative Memory Engineering Specification](0055-lsr-rff-associative-memory-engineering-specification.md)** (`Accepted (Implemented)`)
 - **[ADR-0056: Log-Sum-ReLU (LSR) & Random Fourier Features (RFF) Dense Associative Memory](0056-lsr-rff-dense-associative-memory.md)** (`Accepted (Implemented)`)
-- **[ADR-0057: AISME Completeness Verification Report](0057-aisme-completeness-verification-report.md)** (`Accepted (Implemented)`)
-- **[ADR-0059: Linguistic & Vocal Prosody Expression Engine](0059-linguistic-vocal-prosody-expression-engine.md)** (`Accepted (Implemented)`)
-- **[ADR-0064: Spacetime Vector Search and Synaptic Relay Architecture](0064-spacetime-vector-search-synaptic-relay-architecture.md)** (`Accepted (Implemented)`)
-- **[ADR-0065: Spacetime Simulation on Wander, Dream, and Express Pathways](0065-spacetime-simulation-wander-dream-express.md)** (`Accepted (Implemented)`)
+- **[ADR-0058: Linguistic & Vocal Prosody Expression Engine](0058-linguistic-vocal-prosody-expression-engine.md)** (`Accepted (Implemented)`)
+- **[ADR-0063: Spacetime Vector Search and Synaptic Relay Architecture](0063-spacetime-vector-search-synaptic-relay-architecture.md)** (`Accepted (Implemented)`)
+- **[ADR-0064: Spacetime Simulation on Wander, Dream, and Express Pathways](0064-spacetime-simulation-wander-dream-express.md)** (`Accepted (Implemented)`)
 
 ### 3. Platform, Hardware Abstraction, Security & Synapse Services
 Hardware Abstraction Layer (HAL), actor concurrency, clustering & cell HA, REST/gRPC gateways, MCP server integration, and client SDKs:
@@ -158,11 +155,11 @@ Hardware Abstraction Layer (HAL), actor concurrency, clustering & cell HA, REST/
 - **[ADR-0039: Robust Unified Rate Limiting Architecture](0039-robust-unified-rate-limiting-architecture.md)** (`Accepted (Implemented)`)
 - **[ADR-0040: Universal Apache Camel Messaging Channels](0040-universal-camel-messaging-channels.md)** (`Accepted (Implemented)`)
 - **[ADR-0041: Unified Connector Architecture for Ingestion](0041-connector-architecture-unification.md)** (`Accepted (Implemented)`)
-- **[ADR-0060: Java 27 Upgrade Strategy and Value Class Migration](0060-jdk27-upgrade-and-feature-architecture.md)** (`Proposed`)
-- **[ADR-0061: Cognitive Continuity Layer and Decoded Mind Streams](0061-cognitive-continuity-decoded-mind-streams.md)** (`Withdrawn`)
-- **[ADR-0062: In-Memory Multi-Tenant Quartz Scheduler](0062-in-memory-multi-tenant-quartz-scheduler.md)** (`Accepted (Implemented)`)
-- **[ADR-0066: Client SDK Architecture, OpenAPI, and MCP Integration](0066-client-sdk-openapi-and-mcp-integration-architecture.md)** (`Accepted (Implemented)`)
-- **[ADR-0067: Engine & CLI Stabilization — Issue #727 Hardening](0067-engine-and-cli-stabilization.md)** (`Accepted (Implemented)`)
-- **[ADR-0068: Cell-Based High Availability and Namespace-Sticky Sharding (Initial Draft)](0068-cell-ha-namespace-sticky-sharding.md)** (`Superseded by ADR-0034`)
-- **[ADR-0069: Phileas PII Redaction Engine for Spector Synapse](0069-phileas-pii-engine-for-spector-synapse.md)** (`Accepted (Implemented)`)
-- **[ADR-0070: Synapse-Owned Tool Access Policy](0070-synapse-owned-tool-access-policy.md)** (`Accepted (Implemented)`)
+- **[ADR-0059: Java 27 Upgrade Strategy and Value Class Migration](0059-jdk27-upgrade-and-feature-architecture.md)** (`Proposed`)
+- **[ADR-0060: Cognitive Continuity Layer and Decoded Mind Streams](0060-cognitive-continuity-decoded-mind-streams.md)** (`Withdrawn`)
+- **[ADR-0061: In-Memory Multi-Tenant Quartz Scheduler](0061-in-memory-multi-tenant-quartz-scheduler.md)** (`Accepted (Implemented)`)
+- **[ADR-0065: Client SDK Architecture, OpenAPI, and MCP Integration](0065-client-sdk-openapi-and-mcp-integration-architecture.md)** (`Accepted (Implemented)`)
+- **[ADR-0066: Engine & CLI Stabilization — Issue #727 Hardening](0066-engine-and-cli-stabilization.md)** (`Accepted (Implemented)`)
+- **[ADR-0067: Cell-Based High Availability and Namespace-Sticky Sharding (Initial Draft)](0067-cell-ha-namespace-sticky-sharding.md)** (`Superseded by ADR-0034`)
+- **[ADR-0068: Phileas PII Redaction Engine for Spector Synapse](0068-phileas-pii-engine-for-spector-synapse.md)** (`Accepted (Implemented)`)
+- **[ADR-0069: Synapse-Owned Tool Access Policy](0069-synapse-owned-tool-access-policy.md)** (`Accepted (Implemented)`)

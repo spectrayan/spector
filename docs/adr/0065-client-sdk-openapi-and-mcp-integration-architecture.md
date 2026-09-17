@@ -1,4 +1,4 @@
-# ADR-0066: Client SDK Architecture, OpenAPI, and MCP Integration
+# ADR-0065: Client SDK Architecture, OpenAPI, and MCP Integration
 
 | Field | Value |
 |:---|:---|
