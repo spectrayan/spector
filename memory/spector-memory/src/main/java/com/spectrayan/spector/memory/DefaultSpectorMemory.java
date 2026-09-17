@@ -333,8 +333,16 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 this.entityDirectory,
                 this.index,
                 this.bm25Index,
-                spladeIdx
+                spladeIdx,
+                this.hyperEntityGraph
         );
+
+        // Wire quarantine filter into hypergraph for traversal isolation (Phase 2.1, #946)
+        if (this.hyperEntityGraph != null && this.indexReconcileEngine.quarantineRegistry() != null) {
+            this.hyperEntityGraph.setQuarantineFilter(
+                    edgeId -> this.indexReconcileEngine.quarantineRegistry().isQuarantined(edgeId)
+            );
+        }
 
         //  Quartz Memory Scheduler (In-Memory Multi-Tenant Background Scheduling & Auditing)
         if (builder.scheduler() != null) {
