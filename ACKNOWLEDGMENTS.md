@@ -1,8 +1,34 @@
 # Acknowledgments
 
-Spector stands on the shoulders of decades of cognitive science research and modern AI tooling. This file credits the researchers, frameworks, and tools whose work shaped the project.
+Spector stands on the shoulders of an extraordinary open-source community, decades of cognitive science research, and modern AI engineering tooling. This file gratefully credits the human contributors, researchers, frameworks, and tools whose work shaped the project.
 
-If you believe something here is mis-attributed or missing, please open an issue — it will be corrected promptly.
+If you believe something here is mis-attributed or missing, please open an issue or pull request — it will be updated promptly.
+
+---
+
+## Open Source Contributors
+
+Spector is built in collaboration with a global community of developers. We gratefully recognize and celebrate the human contributors whose commits, pull requests, and feedback drive this project forward:
+
+### Committers & Core Contributors
+
+- **Timothy Kim ([@timothytkim](https://github.com/timothytkim))**
+  - PR #936: HNSW index diagnostics logging and startup telemetry.
+  - PR #939: Comprehensive `package-info.java` documentation for `spector-kernel` packages.
+  - PR #878: Provider client documentation and package structure for `spector-providers`.
+  - PR #904: Foundational Cognitive Neuroscience in AI glossary.
+  - PR #920: Prometheus metrics binding and Grafana dashboard infrastructure.
+
+### Feature & Subsystem Contributors
+
+- **Essosolim Joël PAKA ([@paka-ops](https://github.com/paka-ops))** — PR #420: Spring Boot starter improvements and developer onboarding ergonomics.
+- **Kaustubh Abhinand ([@KaustAbhinand](https://github.com/KaustAbhinand))** — PR #278: `SQLQueryTool` text-to-SQL agent tool; PR #354: Google Gemini provider validation.
+- **Prost3333 ([@Prost3333](https://github.com/Prost3333))** — PR #334: CLI `--version` build metadata and git SHA; PR #323: Configurable LRU embedding cache in provider layer.
+- **umaira ([@umairaalvi4843-hub](https://github.com/umairaalvi4843-hub))** — PR #287: `VectorSearchTool` semantic memory search tool for agent workflows.
+- **Deepak Kumar ([@deepakkumar9546](https://github.com/deepakkumar9546))** — PR #288: Contributor onboarding troubleshooting guide and developer setup.
+- **Jyoti Anand ([@alivepool07](https://github.com/alivepool07))** — PR #276: `PdfReaderTool` Apache Tika and Tabula document extraction integration.
+- **Abhinav Jain ([@Abhinav-0311](https://github.com/Abhinav-0311))** — PR #86: Developer getting started guide and onboarding documentation.
+- **mikemikimike ([@mikemikimike](https://github.com/mikemikimike))** — PR #643: Cortex Neural Dashboard markdown rendering sanitization using DOMPurify.
 
 ---
 

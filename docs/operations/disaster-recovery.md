@@ -10,24 +10,24 @@ When a catastrophic disaster incapacitates an entire primary cell (such as compl
 
 ```mermaid
 flowchart LR
-    subgraph Primary Cell [Primary Cell - Dead / Incapacitated]
+    subgraph PrimaryCell ["Primary Cell - Dead / Incapacitated"]
         O1[Owner Pod 1]
         O2[Owner Pod 2]
         NVMe[(Local NVMe Lost)]
     end
 
-    subgraph ObjectStore [S3-Compatible Object Store]
-        Snapshots[Encrypted Snapshot Bundles\n+ Atomic Manifests]
+    subgraph ObjectStore ["S3-Compatible Object Store"]
+        Snapshots["Encrypted Snapshot Bundles<br/>+ Atomic Manifests"]
     end
 
-    subgraph Standby Cell [Standby Cell - Promoted]
+    subgraph StandbyCell ["Standby Cell - Promoted"]
         S1[Standby Owner 1]
         S2[Standby Owner 2]
         SNVMe[(Rehydrated NVMe)]
     end
 
-    Primary Cell -. Periodic Exports .-> ObjectStore
-    Snapshots ==>|Paced Rehydration| Standby Cell
+    PrimaryCell -. Periodic Exports .-> ObjectStore
+    Snapshots ==>|Paced Rehydration| StandbyCell
 ```
 
 | Metric | SLA Target | Measurement Basis | Notes |
