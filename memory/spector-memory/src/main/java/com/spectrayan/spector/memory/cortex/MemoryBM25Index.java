@@ -303,20 +303,7 @@ public final class MemoryBM25Index extends AbstractMemoryIndex<BM25Index> {
                 data = baos.toByteArray();
             }
 
-            int totalBytes = 4 + data.length;
-            if (totalBytes > bm25Ref.byteSize()) {
-                log.info("BM25 index exceeded region capacity; ensuring expanded capacity");
-                bm25Ref.ensureCapacity(totalBytes);
-            }
-
-            var segment = bm25Ref.resolve();
-            segment.set(java.lang.foreign.ValueLayout.JAVA_INT, 0, data.length);
-            java.lang.foreign.MemorySegment.copy(
-                    java.lang.foreign.MemorySegment.ofArray(data), 0,
-                    segment, 4, data.length);
-
-            runtimeBundle.updateRegionUsedSize(RegionId.BM25, totalBytes);
-            return totalBytes;
+            return bm25Ref.writeLengthPrefixedPayload(data);
         } catch (Exception e) {
             log.warn("Failed to persist BM25 index to runtime bundle: {}", e.getMessage(), e);
             return -1;
@@ -343,27 +330,21 @@ public final class MemoryBM25Index extends AbstractMemoryIndex<BM25Index> {
         try {
             RegionRef bm25Ref = runtimeBundle.regionRef(RegionId.BM25);
             if (bm25Ref != null) {
-                var segment = bm25Ref.resolve();
-                if (segment != null && segment.byteSize() >= 28) {
-                    int payloadLen = segment.get(java.lang.foreign.ValueLayout.JAVA_INT, 0);
-                    if (payloadLen > 0 && 4 + (long) payloadLen <= segment.byteSize()) {
-                        byte[] data = new byte[payloadLen];
-                        java.lang.foreign.MemorySegment.copy(segment, 4,
-                                java.lang.foreign.MemorySegment.ofArray(data), 0, payloadLen);
-                        java.nio.ByteBuffer buf = java.nio.ByteBuffer.wrap(data);
-                        int magic = buf.getInt();
-                        if (magic == MAGIC_MULTI) {
-                            int ver = buf.getInt();
-                            int count = buf.getInt();
-                            if (count > 0) {
-                                int len = buf.getInt();
-                                byte[] pData = new byte[len];
-                                buf.get(pData);
-                                return BM25Index.fromByteArray(pData, new StemmingAnalyzer());
-                            }
-                        } else if (magic == BM25Index.MAGIC) {
-                            return BM25Index.fromByteArray(data, new StemmingAnalyzer());
+                byte[] data = bm25Ref.readLengthPrefixedPayload();
+                if (data != null && data.length >= 24) {
+                    java.nio.ByteBuffer buf = java.nio.ByteBuffer.wrap(data);
+                    int magic = buf.getInt();
+                    if (magic == MAGIC_MULTI) {
+                        int ver = buf.getInt();
+                        int count = buf.getInt();
+                        if (count > 0) {
+                            int len = buf.getInt();
+                            byte[] pData = new byte[len];
+                            buf.get(pData);
+                            return BM25Index.fromByteArray(pData, new StemmingAnalyzer());
                         }
+                    } else if (magic == BM25Index.MAGIC) {
+                        return BM25Index.fromByteArray(data, new StemmingAnalyzer());
                     }
                 }
             }
@@ -390,40 +371,34 @@ public final class MemoryBM25Index extends AbstractMemoryIndex<BM25Index> {
             try {
                 RegionRef bm25Ref = context.runtimeBundle().regionRef(RegionId.BM25);
                 if (bm25Ref != null) {
-                    var segment = bm25Ref.resolve();
-                    if (segment != null && segment.byteSize() >= 28) {
-                        int payloadLen = segment.get(java.lang.foreign.ValueLayout.JAVA_INT, 0);
-                        if (payloadLen > 0 && 4 + (long) payloadLen <= segment.byteSize()) {
-                            byte[] data = new byte[payloadLen];
-                            java.lang.foreign.MemorySegment.copy(segment, 4,
-                                    java.lang.foreign.MemorySegment.ofArray(data), 0, payloadLen);
-                            java.nio.ByteBuffer buf = java.nio.ByteBuffer.wrap(data);
-                            int magic = buf.getInt();
-                            if (magic == MAGIC_MULTI) {
-                                int ver = buf.getInt();
-                                int count = buf.getInt();
-                                for (int i = 0; i < count; i++) {
-                                    int len = buf.getInt();
-                                    byte[] pData = new byte[len];
-                                    buf.get(pData);
-                                    BM25Index pIdx = BM25Index.fromByteArray(pData, new StemmingAnalyzer());
-                                    if (pIdx != null) {
-                                        setPartition(i, pIdx);
-                                    }
+                    byte[] data = bm25Ref.readLengthPrefixedPayload();
+                    if (data != null && data.length >= 24) {
+                        java.nio.ByteBuffer buf = java.nio.ByteBuffer.wrap(data);
+                        int magic = buf.getInt();
+                        if (magic == MAGIC_MULTI) {
+                            int ver = buf.getInt();
+                            int count = buf.getInt();
+                            for (int i = 0; i < count; i++) {
+                                int len = buf.getInt();
+                                byte[] pData = new byte[len];
+                                buf.get(pData);
+                                BM25Index pIdx = BM25Index.fromByteArray(pData, new StemmingAnalyzer());
+                                if (pIdx != null) {
+                                    setPartition(i, pIdx);
                                 }
-                                if (!partitions.isEmpty() && partition(0).generation() == expectedGen
-                                        && java.util.Objects.equals(partition(0).analyzerId(), "stemming-analyzer")) {
-                                    loadedValid = true;
-                                    log.info("BM25 hydrated multi-partition from bundle ({} partitions, gen={})", count, expectedGen);
-                                }
-                            } else if (magic == BM25Index.MAGIC) {
-                                BM25Index single = BM25Index.fromByteArray(data, new StemmingAnalyzer());
-                                if (single != null && single.generation() == expectedGen
-                                        && java.util.Objects.equals(single.analyzerId(), "stemming-analyzer")) {
-                                    setPartition(0, single);
-                                    loadedValid = true;
-                                    log.info("BM25 hydrated from bundle region ({} docs, gen={})", single.size(), expectedGen);
-                                }
+                            }
+                            if (!partitions.isEmpty() && partition(0).generation() == expectedGen
+                                    && java.util.Objects.equals(partition(0).analyzerId(), "stemming-analyzer")) {
+                                loadedValid = true;
+                                log.info("BM25 hydrated multi-partition from bundle ({} partitions, gen={})", count, expectedGen);
+                            }
+                        } else if (magic == BM25Index.MAGIC) {
+                            BM25Index single = BM25Index.fromByteArray(data, new StemmingAnalyzer());
+                            if (single != null && single.generation() == expectedGen
+                                    && java.util.Objects.equals(single.analyzerId(), "stemming-analyzer")) {
+                                setPartition(0, single);
+                                loadedValid = true;
+                                log.info("BM25 hydrated from bundle region ({} docs, gen={})", single.size(), expectedGen);
                             }
                         }
                     }

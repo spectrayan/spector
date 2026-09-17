@@ -299,20 +299,7 @@ public final class MemorySpladeIndex extends AbstractMemoryIndex<SpladeIndex> {
                 data = baos.toByteArray();
             }
 
-            int totalBytes = 4 + data.length;
-            if (totalBytes > spladeRef.byteSize()) {
-                log.info("SPLADE index exceeded region capacity; ensuring expanded capacity");
-                spladeRef.ensureCapacity(totalBytes);
-            }
-
-            var segment = spladeRef.resolve();
-            segment.set(java.lang.foreign.ValueLayout.JAVA_INT, 0, data.length);
-            java.lang.foreign.MemorySegment.copy(
-                    java.lang.foreign.MemorySegment.ofArray(data), 0,
-                    segment, 4, data.length);
-
-            runtimeBundle.updateRegionUsedSize(RegionId.SPLADE, totalBytes);
-            return totalBytes;
+            return spladeRef.writeLengthPrefixedPayload(data);
         } catch (Exception e) {
             log.warn("Failed to persist SPLADE index to runtime bundle: {}", e.getMessage(), e);
             return -1;
@@ -339,27 +326,21 @@ public final class MemorySpladeIndex extends AbstractMemoryIndex<SpladeIndex> {
         try {
             RegionRef spladeRef = runtimeBundle.regionRef(RegionId.SPLADE);
             if (spladeRef != null) {
-                var segment = spladeRef.resolve();
-                if (segment != null && segment.byteSize() >= 28) {
-                    int payloadLen = segment.get(java.lang.foreign.ValueLayout.JAVA_INT, 0);
-                    if (payloadLen > 0 && 4 + (long) payloadLen <= segment.byteSize()) {
-                        byte[] data = new byte[payloadLen];
-                        java.lang.foreign.MemorySegment.copy(segment, 4,
-                                java.lang.foreign.MemorySegment.ofArray(data), 0, payloadLen);
-                        java.nio.ByteBuffer buf = java.nio.ByteBuffer.wrap(data);
-                        int magic = buf.getInt();
-                        if (magic == MAGIC_MULTI) {
-                            int ver = buf.getInt();
-                            int count = buf.getInt();
-                            if (count > 0) {
-                                int len = buf.getInt();
-                                byte[] pData = new byte[len];
-                                buf.get(pData);
-                                return SpladeIndex.fromByteArray(pData);
-                            }
-                        } else if (magic == SpladeIndex.MAGIC) {
-                            return SpladeIndex.fromByteArray(data);
+                byte[] data = spladeRef.readLengthPrefixedPayload();
+                if (data != null && data.length >= 20) {
+                    java.nio.ByteBuffer buf = java.nio.ByteBuffer.wrap(data);
+                    int magic = buf.getInt();
+                    if (magic == MAGIC_MULTI) {
+                        int ver = buf.getInt();
+                        int count = buf.getInt();
+                        if (count > 0) {
+                            int len = buf.getInt();
+                            byte[] pData = new byte[len];
+                            buf.get(pData);
+                            return SpladeIndex.fromByteArray(pData);
                         }
+                    } else if (magic == SpladeIndex.MAGIC) {
+                        return SpladeIndex.fromByteArray(data);
                     }
                 }
             }
@@ -387,40 +368,34 @@ public final class MemorySpladeIndex extends AbstractMemoryIndex<SpladeIndex> {
             try {
                 RegionRef spladeRef = context.runtimeBundle().regionRef(RegionId.SPLADE);
                 if (spladeRef != null) {
-                    var segment = spladeRef.resolve();
-                    if (segment != null && segment.byteSize() >= 28) {
-                        int payloadLen = segment.get(java.lang.foreign.ValueLayout.JAVA_INT, 0);
-                        if (payloadLen > 0 && 4 + (long) payloadLen <= segment.byteSize()) {
-                            byte[] data = new byte[payloadLen];
-                            java.lang.foreign.MemorySegment.copy(segment, 4,
-                                    java.lang.foreign.MemorySegment.ofArray(data), 0, payloadLen);
-                            java.nio.ByteBuffer buf = java.nio.ByteBuffer.wrap(data);
-                            int magic = buf.getInt();
-                            if (magic == MAGIC_MULTI) {
-                                int ver = buf.getInt();
-                                int count = buf.getInt();
-                                for (int i = 0; i < count; i++) {
-                                    int len = buf.getInt();
-                                    byte[] pData = new byte[len];
-                                    buf.get(pData);
-                                    SpladeIndex pIdx = SpladeIndex.fromByteArray(pData);
-                                    if (pIdx != null) {
-                                        setPartition(i, pIdx);
-                                    }
+                    byte[] data = spladeRef.readLengthPrefixedPayload();
+                    if (data != null && data.length >= 20) {
+                        java.nio.ByteBuffer buf = java.nio.ByteBuffer.wrap(data);
+                        int magic = buf.getInt();
+                        if (magic == MAGIC_MULTI) {
+                            int ver = buf.getInt();
+                            int count = buf.getInt();
+                            for (int i = 0; i < count; i++) {
+                                int len = buf.getInt();
+                                byte[] pData = new byte[len];
+                                buf.get(pData);
+                                SpladeIndex pIdx = SpladeIndex.fromByteArray(pData);
+                                if (pIdx != null) {
+                                    setPartition(i, pIdx);
                                 }
-                                if (!partitions.isEmpty() && partition(0).generation() == expectedGen
-                                        && java.util.Objects.equals(partition(0).modelId(), modelId)) {
-                                    loadedValid = true;
-                                    log.info("SPLADE hydrated multi-partition from bundle ({} partitions, gen={})", count, expectedGen);
-                                }
-                            } else if (magic == SpladeIndex.MAGIC) {
-                                SpladeIndex single = SpladeIndex.fromByteArray(data);
-                                if (single != null && single.generation() == expectedGen
-                                        && java.util.Objects.equals(single.modelId(), modelId)) {
-                                    setPartition(0, single);
-                                    loadedValid = true;
-                                    log.info("SPLADE hydrated from bundle region ({} docs, gen={})", single.size(), expectedGen);
-                                }
+                            }
+                            if (!partitions.isEmpty() && partition(0).generation() == expectedGen
+                                    && java.util.Objects.equals(partition(0).modelId(), modelId)) {
+                                loadedValid = true;
+                                log.info("SPLADE hydrated multi-partition from bundle ({} partitions, gen={})", count, expectedGen);
+                            }
+                        } else if (magic == SpladeIndex.MAGIC) {
+                            SpladeIndex single = SpladeIndex.fromByteArray(data);
+                            if (single != null && single.generation() == expectedGen
+                                    && java.util.Objects.equals(single.modelId(), modelId)) {
+                                setPartition(0, single);
+                                loadedValid = true;
+                                log.info("SPLADE hydrated from bundle region ({} docs, gen={})", single.size(), expectedGen);
                             }
                         }
                     }

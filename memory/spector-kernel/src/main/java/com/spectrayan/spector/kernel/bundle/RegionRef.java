@@ -136,6 +136,54 @@ public final class RegionRef {
         return slice != null ? slice.byteSize() : 0L;
     }
 
+    /**
+     * Reads a length-prefixed byte array payload from this region slice.
+     *
+     * <p>The first 4 bytes indicate the payload length in bytes, followed by the payload data.</p>
+     *
+     * @return the payload bytes, or null if the region is unmapped, too small, or invalid
+     */
+    public byte[] readLengthPrefixedPayload() {
+        MemorySegment slice = resolve();
+        if (slice == null || slice.byteSize() < 4) {
+            return null;
+        }
+        int payloadLen = slice.get(java.lang.foreign.ValueLayout.JAVA_INT, 0);
+        if (payloadLen <= 0 || 4 + (long) payloadLen > slice.byteSize()) {
+            return null;
+        }
+        byte[] data = new byte[payloadLen];
+        MemorySegment.copy(slice, 4, MemorySegment.ofArray(data), 0, payloadLen);
+        return data;
+    }
+
+    /**
+     * Writes a length-prefixed byte array payload into this region slice.
+     *
+     * <p>Ensures region capacity, writes the 4-byte length prefix followed by the payload data,
+     * and updates the bundle's used region size.</p>
+     *
+     * @param data the payload bytes to write
+     * @return total bytes written (4 + data.length), or -1 on failure
+     */
+    public int writeLengthPrefixedPayload(byte[] data) {
+        if (data == null) {
+            return 0;
+        }
+        int totalBytes = 4 + data.length;
+        if (totalBytes > byteSize()) {
+            ensureCapacity(totalBytes);
+        }
+        MemorySegment slice = resolve();
+        if (slice == null || slice.byteSize() < totalBytes) {
+            return -1;
+        }
+        slice.set(java.lang.foreign.ValueLayout.JAVA_INT, 0, data.length);
+        MemorySegment.copy(MemorySegment.ofArray(data), 0, slice, 4, data.length);
+        bundle.updateRegionUsedSize(id, totalBytes);
+        return totalBytes;
+    }
+
     @Override
     public String toString() {
         return "RegionRef[" + id + "@gen" + generation() + "]";
