@@ -197,6 +197,57 @@ public final class IndexPlaneCoordinator implements AutoCloseable {
         return state == State.READY;
     }
 
+    // ── Hypergraph Quarantine Admin (Phase 2.1, #946) ──
+
+    private IndexReconcileEngine reconcileEngine;
+
+    /**
+     * Binds the reconcile engine for quarantine admin access.
+     * Called by {@code DefaultSpectorMemory} after engine construction.
+     */
+    public void bindReconcileEngine(IndexReconcileEngine engine) {
+        this.reconcileEngine = engine;
+    }
+
+    /**
+     * Returns an unmodifiable snapshot of all quarantined hypergraph vertices.
+     *
+     * @return list of quarantined vertices, or empty if no engine is bound
+     */
+    public synchronized List<QuarantinedVertex> inspectQuarantine() {
+        if (reconcileEngine == null || reconcileEngine.quarantineRegistry() == null) {
+            return List.of();
+        }
+        return reconcileEngine.quarantineRegistry().snapshot();
+    }
+
+    /**
+     * Un-quarantines a specific hyperedge, allowing it to participate in traversal again.
+     *
+     * @param edgeId the hyperedge ID to release
+     * @return {@code true} if the edge was quarantined and has been released
+     */
+    public synchronized boolean unquarantine(int edgeId) {
+        if (reconcileEngine == null || reconcileEngine.quarantineRegistry() == null) {
+            return false;
+        }
+        boolean released = reconcileEngine.quarantineRegistry().unquarantine(edgeId);
+        if (released) {
+            log.info("Admin un-quarantined hyperedge edgeId={}", edgeId);
+        }
+        return released;
+    }
+
+    /**
+     * Returns the number of currently quarantined hypergraph vertices.
+     */
+    public int quarantinedCount() {
+        if (reconcileEngine == null || reconcileEngine.quarantineRegistry() == null) {
+            return 0;
+        }
+        return reconcileEngine.quarantineRegistry().quarantinedCount();
+    }
+
     @Override
     public synchronized void close() {
         this.state = State.CLOSED;

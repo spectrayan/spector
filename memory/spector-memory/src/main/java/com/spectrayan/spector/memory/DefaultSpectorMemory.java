@@ -344,6 +344,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             );
         }
 
+        // Bind reconcile engine to coordinator for quarantine admin endpoints (Phase 2.1, #946)
+        if (this.indexPlaneCoordinator != null) {
+            this.indexPlaneCoordinator.bindReconcileEngine(this.indexReconcileEngine);
+        }
+
         //  Quartz Memory Scheduler (In-Memory Multi-Tenant Background Scheduling & Auditing)
         if (builder.scheduler() != null) {
             this.memoryScheduler = builder.scheduler();
