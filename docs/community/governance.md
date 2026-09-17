@@ -12,7 +12,7 @@ The Spector project is guided by the following core values:
 - **Meritocracy & Inclusivity**: Influence and review authority are earned through sustained technical contributions, high engineering standards, and constructive peer collaboration.
 - **Vendor Neutrality**: The project is governed independently of commercial affiliations. Technical direction serves the long-term health of the open-source software ecosystem.
 - **Strictly Open-Source Roles**: Governance relies on established open-source roles (*Project Lead*, *Technical Lead*, *Architecture Working Group*, *Technical Steering Committee*, *Maintainers*, *Committers*, and *Contributors*). Corporate titles (such as CEO, CTO, Product Owner, or VP) play no role in project decision-making.
-- **Psychological Safety**: All participants must treat one another with respect and abide by our [Code of Conduct](../../CODE_OF_CONDUCT.md).
+- **Psychological Safety**: All participants must treat one another with respect and abide by our [Code of Conduct](https://github.com/spectrayan/spector/blob/main/CODE_OF_CONDUCT.md).
 
 ---
 
@@ -105,7 +105,7 @@ In recognition of outstanding contributions to Spector:
 ### Stepping Down & Emeritus Status
 Community members may step down from Maintainer or TSC roles at any time:
 - Maintainers or TSC members inactive for more than 6 months without notice may be transitioned to **Emeritus** status by the TSC.
-- Emeritus members remain permanently honored in [ACKNOWLEDGMENTS.md](../../ACKNOWLEDGMENTS.md) and may request reactivation via a simple majority vote of the TSC.
+- Emeritus members remain permanently honored in [ACKNOWLEDGMENTS.md](https://github.com/spectrayan/spector/blob/main/ACKNOWLEDGMENTS.md) and may request reactivation via a simple majority vote of the TSC.
 
 ---
 
@@ -187,7 +187,7 @@ PRs lacking DCO sign-offs cannot be merged into `main`.
 
 ## 7. Security Vulnerability Reporting
 
-Security is paramount in an AI memory backbone handling sensitive agent contexts. Security disclosures must follow the coordinated process outlined in [SECURITY.md](../../SECURITY.md):
+Security is paramount in an AI memory backbone handling sensitive agent contexts. Security disclosures must follow the coordinated process outlined in [SECURITY.md](https://github.com/spectrayan/spector/blob/main/SECURITY.md):
 - Security issues must **not** be reported on public GitHub issues.
 - Reports should be submitted privately via GitHub Security Advisories or emailed to `security@spectrayan.com`.
 - The TSC Security Taskforce will acknowledge receipt within 24 hours and issue fixes under an embargoed advisory until patches are released.

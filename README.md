@@ -323,6 +323,7 @@ All numbers measured on Intel Core Ultra 9 285K, Java 25, AVX2 256-bit.
 | **Use client SDKs** | [TypeScript SDK](https://spectrayan.github.io/spector/sdk-usage/typescript-sdk/) · [Python SDK](https://spectrayan.github.io/spector/sdk-usage/python-sdk/) · [Java SDK](https://spectrayan.github.io/spector/sdk-usage/java-client/) · [Spring AI](https://spectrayan.github.io/spector/sdk-usage/spring-ai/) |
 | **Explore cognitive memory** | [Memory Overview](https://spectrayan.github.io/spector/memory/) · [Cognitive Profiles](https://spectrayan.github.io/spector/memory/cognitive-profiles/) · [Scoring Pipeline](https://spectrayan.github.io/spector/memory/scoring-pipeline/) |
 | **Deploy to production** | [Docker & Compose](https://spectrayan.github.io/spector/deployment/docker/) · [Kubernetes Helm](https://spectrayan.github.io/spector/deployment/helm/) · [Terraform Cloud](https://spectrayan.github.io/spector/deployment/terraform/) |
+| **Review Architecture & ADRs** | [Architecture Decision Records (ADRs)](docs/adr/README.md) · [System Architecture](https://spectrayan.github.io/spector/architecture/overview/) |
 | **Contribute & Governance** | [Developer Guide](https://spectrayan.github.io/spector/getting-started/developer-guide/) · [Contributing Guide](CONTRIBUTING.md) · [Project Governance](GOVERNANCE.md) |
 
 > 📖 **[Full Documentation Portal →](https://spectrayan.github.io/spector/)**
@@ -334,6 +335,7 @@ All numbers measured on Intel Core Ultra 9 285K, Java 25, AVX2 256-bit.
 We welcome contributions of all kinds — code, docs, tests, benchmarks, and ideas!
 
 - 🏛️ **Open Governance** → See [GOVERNANCE.md](GOVERNANCE.md) for our 4-tier contributor ladder and decision mechanics
+- 📋 **Architecture Decisions (ADRs)** → See [docs/adr/README.md](docs/adr/README.md) for the living ADR framework and proposal process
 - 🔧 **Want to contribute code?** → See [CONTRIBUTING.md](CONTRIBUTING.md)
 - 🐛 **Found a bug?** → [Open an Issue](https://github.com/spectrayan/spector/issues/new?template=bug_report.md)
 - 💡 **Have an idea?** → [Start a Discussion](https://github.com/spectrayan/spector/discussions)

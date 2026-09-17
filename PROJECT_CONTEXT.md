@@ -23,7 +23,7 @@ The Spector codebase relies on a bleeding-edge Java tech stack, taking full adva
 | Technology Domain | Technology / Library | Version / Specs | Purpose |
 |---|---|---|---|
 | **Core Runtime** | OpenJDK 25 | JDK 25 (with Preview & Incubator) | Panama FFM, SIMD Vector API, Virtual Threads |
-| **Build System** | Apache Maven | 22-module Maven Reactor | Modular builds, reproducible JAR outputs |
+| **Build System** | Apache Maven | 26-module Maven Reactor (Java 25) | Modular builds, reproducible JAR outputs |
 | **API Gateways** | Armeria / Javalin | Armeria 1.39.1 / Javalin 6.6.0 | Unified gRPC & HTTP on a single port (Netty-backed) |
 | **JSON Parser** | Jackson | Jackson 3.x (BOM Jackson 2.x) | Fast off-heap compatible serialization/deserialization |
 | **Observability** | Micrometer | 1.14.5 (Core & Prometheus) | Sub-microsecond metrics tracking |
@@ -111,20 +111,23 @@ graph TD
     *   `spector-events`: Decoupled telemetry event bus (`TelemetryBus`, `TelemetryScope`).
     *   `spector-test-support`: Test fixtures, mocks, and integration test base classes.
 2.  **Cognitive Memory Layer (`memory/`)**
-    *   `spector-memory`: Off-heap biologically-inspired 4-tier cognitive memory (Working, Episodic, Semantic, Procedural), Bundle Kernel (`PartitionBundle`, `RuntimeBundle`), Hebbian co-activation graph, and multi-stage recall pipeline.
+    *   `spector-kernel`: Off-heap zero-GC Panama FFM storage foundation, Single-VMA Bundle engine (`PartitionBundle`, `RuntimeBundle`), memory shapes, and cache-line aligned binary layouts (ADR-0004, ADR-0028, ADR-0030).
+    *   `spector-memory`: Biologically-grounded 4-tier cognitive memory coordination (Working, Episodic, Semantic, Procedural), 7 domain cognitive pathways (ADR-0035/0036), Hebbian co-activation graph, and multi-stage recall pipeline.
     *   `spector-provider-api`: Model-agnostic LLM and text-to-vector embedding SPI.
     *   `spector-providers`: Concrete implementations connecting to Ollama, OpenAI, Google, Anthropic, and ONNX.
-    *   `spector-ingestion`: Document chunking, multi-modal sensory extractors, and ingestion routing.
+    *   `spector-ingestion`: Document chunking, multi-modal sensory extractors, and ingestion routing (ADR-0037).
     *   `spector-inspect`: Binary inspection utility for partition and runtime bundles.
     *   `spector-metrics`: Micrometer and Prometheus observability instrumentation.
-3.  **Nervous System & Gateways (`synapse/`)**
+3.  **Cluster Coordination Layer (`cluster/`)**
+    *   `spector-cluster`: Distributed cell coordination and sticky sharding (ADR-0034), lease-based single coordinator (`CoordinatorLeaseManager`), consistent hash ring (`ConsistentHashRing`), and waterfall routing resolver (`WaterfallRoutingResolver`).
+4.  **Nervous System & Gateways (`synapse/`)**
     *   `spector-synapse`: Unified API gateway, Spring Boot 4 / Armeria REST/SSE server, and agentic chat graph.
     *   `spector-connector`: Enterprise data connectors powered by Apache Camel.
     *   `spector-mcp`: Model Context Protocol server exposing Spector memory via STDIO/SSE.
     *   `spector-cli`: Multi-function CLI executable (`spectorctl`) and standalone MCP runner packaged into fat `spector.jar`.
     *   `spector-spring`: Spring AI VectorStore integration starter.
     *   `spector-batch`: Batch migration engine.
-4.  **Performance & Benchmarks (`bench/`)**
+5.  **Performance & Benchmarks (`bench/`)**
     *   `spector-bench`: JMH micro-benchmarks and end-to-end cognitive memory evaluation harness.
 
 ---

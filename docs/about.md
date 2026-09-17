@@ -160,10 +160,12 @@ Spector offers two quantization paths:
 | **GPU Acceleration** | ✅ CUDA (Panama FFM) | ❌ | ✅ Vulkan (indexing) | ✅ CUDA (search + indexing) | ❌ |
 | **Quantization** | ✅ Scalar INT8 + IVF-PQ | ✅ BBQ + Scalar + DiskBBQ (IVF) | ✅ Scalar + Binary | ✅ IVF-PQ + IVF-SQ | ❌ |
 | **Re-ranking** | ✅ ColBERT v2 (FFM SIMD) | ✅ Elastic Rerank + Inference API | ✅ FastEmbed / ColBERT | ✅ vLLM Ranker + Cross-encoder | ❌ |
-| **Distributed** | ✅ gRPC fan-out | ✅ Built-in sharding | ✅ Raft consensus | ✅ gRPC + etcd | ❌ |
+| **Distributed** | ✅ ADR-0034 Cell HA (Coordinator Lease + Hash Ring + Waterfall Routing) | ✅ Built-in sharding | ✅ Raft consensus | ✅ gRPC + etcd | ❌ |
 | **SIMD Acceleration** | ✅ Java Vector API | ✅ simdvec (Panama) | ✅ Native SIMD | ✅ AVX/NEON | ✅ AVX/SSE |
 
 > [!NOTE]
+> **Clustering Reality (ADR-0034)**: Spector does not use Raft consensus. Distributed mode is built on Cell HA with a single coordinator lease manager (`CoordinatorLeaseManager`), consistent hash ring (`ConsistentHashRing`), and L1/L2/L3 waterfall routing resolution (`WaterfallRoutingResolver`).
+> 
 > This comparison reflects publicly available information as of May 2025. Feature availability may vary by version and deployment mode. All products are actively evolving.
 
 ---
