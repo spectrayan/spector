@@ -50,20 +50,6 @@
         </snapshotRepository>
     </distributionManagement>
 
-    <repositories>
-        <repository>
-            <id>spectrayan-github-server-sent-events</id>
-            <name>Spectrayan GitHub Packages</name>
-            <url>https://maven.pkg.github.com/spectrayan/server-sent-events</url>
-            <releases>
-                <enabled>true</enabled>
-            </releases>
-            <snapshots>
-                <enabled>true</enabled>
-            </snapshots>
-        </repository>
-    </repositories>
-
     <!-- ───────────────────────── Modules ───────────────────────── -->
     <modules>
         <!-- ── Nucleus: Foundation layer ── -->
