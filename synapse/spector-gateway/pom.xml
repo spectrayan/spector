@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ Copyright 2026 Spectrayan
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~     http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+  -->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.spectrayan</groupId>
+        <artifactId>spector</artifactId>
+        <version>${revision}</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>spector-gateway</artifactId>
+    <name>Spector Gateway</name>
+    <description>
+        Dedicated Reactive Cell Ingress Router for Spector. Spring Boot 4 WebFlux + Reactor Netty
+        service evaluating three-tier waterfall routing cache and streaming requests to authoritative
+        cell owner nodes with bounded retries and backpressure (ADR-0081).
+    </description>
+
+    <properties>
+        <spector.module.name>com.spectrayan.spector.gateway</spector.module.name>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Spring Boot BOM -->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- Spector Cluster (Routing waterfall, ring, membership, forwarder SPI) -->
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-cluster</artifactId>
+        </dependency>
+
+        <!-- Spector Commons (Errors, exceptions, standard utils) -->
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-commons</artifactId>
+        </dependency>
+
+        <!-- Reactive Spring Boot WebFlux & Actuator -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webflux</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+
+        <!-- Optional Redis Client for Distributed Routing Cache -->
+        <dependency>
+            <groupId>io.lettuce</groupId>
+            <artifactId>lettuce-core</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- Spring Security & OAuth2 Resource Server for Edge JWT Verification -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+        </dependency>
+
+        <!-- Test Dependencies -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.tngtech.archunit</groupId>
+            <artifactId>archunit-junit5</artifactId>
+            <version>${archunit.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>${spring-boot.version}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                        <configuration>
+                            <classifier>exec</classifier>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Invariant T4: Ban data-plane dependencies at POM resolution level -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>ban-data-plane-deps</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <exclude>com.spectrayan:spector-memory</exclude>
+                                        <exclude>com.spectrayan:spector-kernel</exclude>
+                                        <exclude>com.spectrayan:spector-gpu</exclude>
+                                        <exclude>com.spectrayan:spector-index</exclude>
+                                        <exclude>com.spectrayan:spector-connector</exclude>
+                                        <exclude>com.spectrayan:spector-batch</exclude>
+                                        <exclude>com.spectrayan:spector-ingestion</exclude>
+                                        <exclude>com.spectrayan:spector-mcp</exclude>
+                                        <exclude>org.flywaydb:*</exclude>
+                                        <exclude>com.h2database:*</exclude>
+                                        <exclude>org.apache.camel:*</exclude>
+                                        <!-- Servlet/Tomcat — gateway is reactive-only (WebFlux) -->
+                                        <exclude>org.springframework.boot:spring-boot-starter-web</exclude>
+                                        <exclude>org.springframework.boot:spring-boot-starter-tomcat</exclude>
+                                        <exclude>org.apache.tomcat.embed:*</exclude>
+                                    </excludes>
+                                    <message>
+                                        Invariant T4 violation: spector-gateway must not depend on data-plane modules.
+                                    </message>
+                                </bannedDependencies>
+                            </rules>
+                            <fail>true</fail>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

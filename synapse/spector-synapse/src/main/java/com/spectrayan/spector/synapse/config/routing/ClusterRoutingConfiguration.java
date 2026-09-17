@@ -20,7 +20,7 @@ import com.spectrayan.spector.cluster.routing.cache.LettuceRedisRoutingCache;
 import com.spectrayan.spector.cluster.routing.cache.RedisRoutingCache;
 import com.spectrayan.spector.cluster.routing.cache.WaterfallRoutingResolver;
 import com.spectrayan.spector.cluster.routing.invalidation.RoutingInvalidationSubscriber;
-import com.spectrayan.spector.synapse.cluster.gateway.GatewayForwarder;
+import com.spectrayan.spector.cluster.gateway.GatewayForwarder;
 import com.spectrayan.spector.synapse.cluster.gateway.GatewayForwardingFilter;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
 import io.lettuce.core.ClientOptions;
@@ -33,6 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Condition;
 import org.springframework.context.annotation.ConditionContext;
@@ -154,6 +155,7 @@ public class ClusterRoutingConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
+    @ConditionalOnProperty(name = "spector.cell.role", havingValue = "gateway")
     public GatewayForwarder gatewayForwarder(
             SynapseProperties properties,
             WaterfallRoutingResolver resolver
@@ -193,6 +195,7 @@ public class ClusterRoutingConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
+    @ConditionalOnProperty(name = "spector.cell.role", havingValue = "gateway")
     public GatewayForwardingFilter gatewayForwardingFilter(
             SynapseProperties properties,
             GatewayForwarder forwarder,

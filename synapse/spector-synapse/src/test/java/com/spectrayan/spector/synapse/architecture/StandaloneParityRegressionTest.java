@@ -18,7 +18,7 @@ import com.spectrayan.spector.cluster.node.NodeRole;
 import com.spectrayan.spector.cluster.routing.RoutingKey;
 import com.spectrayan.spector.cluster.routing.cache.RedisRoutingCache;
 import com.spectrayan.spector.cluster.routing.cache.WaterfallRoutingResolver;
-import com.spectrayan.spector.synapse.cluster.gateway.GatewayForwarder;
+import com.spectrayan.spector.cluster.gateway.GatewayForwarder;
 import com.spectrayan.spector.synapse.cluster.gateway.GatewayForwardingFilter;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
 import com.spectrayan.spector.synapse.config.routing.ClusterRoutingConfiguration;

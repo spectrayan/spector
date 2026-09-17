@@ -83,13 +83,31 @@ services:
       SPECTOR_DATA_DIR: /data/owner-3
 
   spector-gateway:
-    <<: *owner-base
+    build:
+      context: ../../../
+      dockerfile: deploy/docker/Dockerfile
+      target: gateway
     container_name: spector-gateway
     hostname: spector-gateway
     ports:
       - "7070:7070"
     environment:
-      <<: *owner-base
+      SPECTOR_PORT: 7070
+      SPECTOR_API_KEY: spector-dev-key
+      SPECTOR_CELL_ID: cell-us-east-1
       SPECTOR_CELL_ROLE: gateway
       SPECTOR_CELL_NODE_ID: spector-gateway
-      SPECTOR_DATA_DIR: /data/gateway
+      SPECTOR_CELL_RING_VERSION: 1
+      SPECTOR_CELL_RING_MEMBERS_FILE: /etc/spector/members.txt
+      SPECTOR_ROUTING_REDIS_ENABLED: "true"
+      SPECTOR_ROUTING_REDIS_URI: redis://redis:6379
+      SPECTOR_ROUTING_REDIS_TIMEOUT_MS: 100
+      SPECTOR_ROUTING_REDIS_TTL_SECONDS: 30
+      SPECTOR_ROUTING_CAFFEINE_TTL_SECONDS: 5
+      SPECTOR_ROUTING_CAFFEINE_MAX_SIZE: 200000
+      SPECTOR_ROUTING_GATEWAY_RETRY_MAX: 2
+    volumes:
+      - ./members.txt:/etc/spector/members.txt:ro
+    depends_on:
+      - redis
+    restart: unless-stopped

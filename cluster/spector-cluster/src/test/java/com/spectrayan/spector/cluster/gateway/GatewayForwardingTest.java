@@ -1,16 +1,19 @@
 /*
  * Copyright 2026 Spectrayan
  *
- * Licensed under the Business Source License 1.1 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     https://github.com/spectrayan/spector/blob/main/spector-synapse/LICENSE
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Change Date: July 6, 2030
- * Change License: Apache License, Version 2.0
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-package com.spectrayan.spector.synapse.cluster;
+package com.spectrayan.spector.cluster.gateway;
 
 import com.spectrayan.spector.cluster.routing.ConsistentHashRing;
 import com.spectrayan.spector.cluster.routing.RouteBinding;
@@ -18,17 +21,12 @@ import com.spectrayan.spector.cluster.routing.RouteMode;
 import com.spectrayan.spector.cluster.routing.RoutingKey;
 import com.spectrayan.spector.cluster.routing.cache.RedisRoutingCache;
 import com.spectrayan.spector.cluster.routing.cache.WaterfallRoutingResolver;
-import com.spectrayan.spector.synapse.cluster.gateway.ForwardRequest;
-import com.spectrayan.spector.synapse.cluster.gateway.ForwardResponse;
-import com.spectrayan.spector.synapse.cluster.gateway.GatewayForwarder;
-import com.spectrayan.spector.synapse.cluster.gateway.GatewayHttpTransport;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;

@@ -285,4 +285,36 @@ assert "spector-ring-us-west-1" in c2, "Cell 2 ring configmap naming mismatch!"
 print("✓ Two cells coexist without resource name collisions")
 ' "${TMP_CELL1}" "${TMP_CELL2}"
 
-echo "=== ALL 14 MANIFEST TESTS PASSED SUCCESSFULLY ==="
+# 15. Guard: Gateway Image ≠ Owner Image and No /data Volume Mount (ADR-0081, Invariant T4)
+echo "--- Step 15: Guard Gateway Plane Separation ---"
+python3 -c '
+import sys, re
+
+content = open(sys.argv[1]).read()
+docs = content.split("---")
+
+owner_image = None
+gateway_image = None
+gateway_has_data_volume = False
+
+for doc in docs:
+    if "kind: StatefulSet" in doc and "name: test-split-spector-owner" in doc:
+        img_match = re.search(r"image:\s*\"?([^\"\n]+)\"?", doc)
+        if img_match:
+            owner_image = img_match.group(1).strip()
+    if "kind: Deployment" in doc and "app.kubernetes.io/component: gateway" in doc:
+        img_match = re.search(r"image:\s*\"?([^\"\n]+)\"?", doc)
+        if img_match:
+            gateway_image = img_match.group(1).strip()
+        if "mountPath: /data" in doc:
+            gateway_has_data_volume = True
+
+assert owner_image, "Owner image not found in StatefulSet!"
+assert gateway_image, "Gateway image not found in Deployment!"
+assert owner_image != gateway_image, f"CRITICAL: Gateway uses same image as owner ({gateway_image})! Violates ADR-0081 Invariant T4."
+assert not gateway_has_data_volume, "CRITICAL: Gateway has /data volume mount! Violates ADR-0081 — gateway must not carry data-plane volumes."
+print(f"✓ Gateway image ({gateway_image}) differs from owner image ({owner_image})")
+print("✓ Gateway Deployment has no /data volume mount")
+' "${TMP_SPLIT}"
+
+echo "=== ALL 15 MANIFEST TESTS PASSED SUCCESSFULLY ==="

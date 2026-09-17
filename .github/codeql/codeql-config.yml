@@ -9,3 +9,7 @@ query-filters:
         - java/polynomial-redos
         - java/user-controlled-bypass
         - java/ssrf
+        # spector-gateway and spector-synapse are stateless reverse proxies with no
+        # cookies, sessions, or UI pages. CSRF protection is architecturally inapplicable.
+        # See ADR-0081 and GatewaySecurityConfiguration Javadoc for documented exception.
+        - java/spring-disabled-csrf-protection

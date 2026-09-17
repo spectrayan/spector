@@ -1,16 +1,19 @@
 /*
  * Copyright 2026 Spectrayan
  *
- * Licensed under the Business Source License 1.1 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     https://github.com/spectrayan/spector/blob/main/spector-synapse/LICENSE
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Change Date: July 6, 2030
- * Change License: Apache License, Version 2.0
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-package com.spectrayan.spector.synapse.cluster.gateway;
+package com.spectrayan.spector.cluster.gateway;
 
 import com.spectrayan.spector.cluster.routing.ResolvedRoute;
 import com.spectrayan.spector.cluster.routing.RouteBinding;
@@ -20,6 +23,7 @@ import com.spectrayan.spector.cluster.routing.cache.WaterfallRoutingResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
@@ -28,8 +32,8 @@ import java.util.function.Function;
 
 /**
  * Service that resolves target cell owner nodes and forwards ingress requests
- * with bounded retries, idempotency key reuse, and degraded fallback protection
- * (ADR-0034 §8, Req R7.1–R7.6, Invariant K7).
+ * with streaming I/O, bounded retries, idempotency key reuse, and degraded fallback protection
+ * (ADR-0034 §8, ADR-0081 §8, Req R7.1–R7.6, Invariant K7).
  */
 public class GatewayForwarder {
 
@@ -63,7 +67,7 @@ public class GatewayForwarder {
      *
      * @param routingKey the routing key identifying the namespace
      * @param request    the forward request representation
-     * @return forward response
+     * @return forward response with streaming body
      * @throws Exception if transport-level dispatch fails
      */
     public ForwardResponse forward(RoutingKey routingKey, ForwardRequest request) throws Exception {
@@ -112,15 +116,21 @@ public class GatewayForwarder {
 
             // Check for STALE_ROUTE / NOT_OWNER refusal (HTTP 421 Misdirected Request)
             if (response.statusCode() == 421) {
+                // Peek at the 421 body (≤8 KiB) to extract reported owner without consuming the stream.
+                // This preserves body content for the client if retries are exhausted.
+                OwnerExtraction extraction = extractReportedOwner(response);
+
                 // Check retry bounds (Req R7.4)
                 if (attempts > retryMax) {
                     log.warn("Exhausted bounded retries ({}/{}) for namespace '{}' after node '{}' returned 421; surfacing refusal",
                             attempts - 1, retryMax, routingKey.namespaceId(), ownerId);
-                    return new ForwardResponse(response.statusCode(), response.headers(), response.body(), ownerId, attempts);
+                    // Return with peeked body so client receives the 421 content
+                    return new ForwardResponse(response.statusCode(), response.headers(),
+                            extraction.peekedBody, ownerId, attempts);
                 }
 
                 // G45: Check if refusing node reported the true authoritative owner
-                String reportedOwner = extractReportedOwner(response);
+                String reportedOwner = extraction.owner;
                 if (reportedOwner != null && !reportedOwner.isBlank() && !reportedOwner.equals(ownerId)) {
                     log.info("Retargeting gateway forward for namespace '{}' directly to reported owner '{}' (was '{}', attempt {}/{})",
                             routingKey.namespaceId(), reportedOwner, ownerId, attempts, retryMax);
@@ -129,11 +139,15 @@ public class GatewayForwarder {
                     // Req R7.6: If route came from degraded path (HASH_FALLBACK) and node reported no alternative owner, do NOT forward again!
                     log.warn("Target node '{}' refused request for namespace '{}' resolved via degraded HASH_FALLBACK; surfacing refusal immediately (Req R7.6)",
                             ownerId, routingKey.namespaceId());
-                    return new ForwardResponse(response.statusCode(), response.headers(), response.body(), ownerId, attempts);
+                    return new ForwardResponse(response.statusCode(), response.headers(),
+                            extraction.peekedBody, ownerId, attempts);
                 } else {
                     log.info("Retrying gateway forward for namespace '{}' after 421 refusal from node '{}' (attempt {}/{})",
                             routingKey.namespaceId(), ownerId, attempts, retryMax);
                 }
+
+                // Close the consumed 421 response before retrying
+                try { response.close(); } catch (Exception ignored) {}
 
                 // Bounded retry (Req R7.4, G40):
                 // Invalidate local Caffeine L1 cache, and evict Redis ONLY if mode == HASH (never delete shared Redis overrides!)
@@ -142,28 +156,58 @@ public class GatewayForwarder {
                 continue;
             }
 
-            return new ForwardResponse(response.statusCode(), response.headers(), response.body(), ownerId, attempts);
+            return new ForwardResponse(response.statusCode(), response.headers(), response.bodyStream(), ownerId, attempts);
         }
     }
 
-    private static String extractReportedOwner(ForwardResponse response) {
+    /**
+     * Result of owner extraction from a 421 response, preserving peeked body bytes.
+     */
+    private record OwnerExtraction(String owner, byte[] peekedBody) {}
+
+    /**
+     * Maximum bytes to peek from a 421 response body when looking for a JSON "owner" field.
+     * Capped to avoid reading a large misdirected payload.
+     */
+    private static final int MAX_421_PEEK_BYTES = 8192;
+
+    private static OwnerExtraction extractReportedOwner(ForwardResponse response) {
+        // 1. Check X-Spector-Owner header first (case-insensitive — Netty may normalize to lowercase)
         if (response.headers() != null) {
-            java.util.List<String> ownerHeaders = response.headers().get("X-Spector-Owner");
-            if (ownerHeaders != null && !ownerHeaders.isEmpty()) {
-                String val = ownerHeaders.get(0);
-                if (val != null && !val.isBlank()) {
-                    return val.trim();
+            for (Map.Entry<String, java.util.List<String>> entry : response.headers().entrySet()) {
+                if ("X-Spector-Owner".equalsIgnoreCase(entry.getKey())) {
+                    java.util.List<String> values = entry.getValue();
+                    if (values != null && !values.isEmpty()) {
+                        String val = values.get(0);
+                        if (val != null && !val.isBlank()) {
+                            // Peek body so it's preserved for exhausted-retry path
+                            byte[] peeked = peekBody(response);
+                            return new OwnerExtraction(val.trim(), peeked);
+                        }
+                    }
+                    break;
                 }
             }
         }
-        if (response.body() != null && response.body().length > 0) {
-            String bodyStr = new String(response.body(), java.nio.charset.StandardCharsets.UTF_8);
+
+        // 2. Peek at most 8 KiB from body for JSON "owner" fallback
+        byte[] peeked = peekBody(response);
+        if (peeked.length > 0) {
+            String bodyStr = new String(peeked, StandardCharsets.UTF_8);
             java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("\"owner\"\\s*:\\s*\"([^\"]+)\"").matcher(bodyStr);
             if (matcher.find()) {
-                return matcher.group(1).trim();
+                return new OwnerExtraction(matcher.group(1).trim(), peeked);
             }
         }
-        return null;
+        return new OwnerExtraction(null, peeked);
+    }
+
+    private static byte[] peekBody(ForwardResponse response) {
+        try {
+            return response.bodyStream().readNBytes(MAX_421_PEEK_BYTES);
+        } catch (Exception e) {
+            return new byte[0];
+        }
     }
 
     public static Function<String, String> defaultNodeUrlResolver(int defaultPort) {
@@ -178,3 +222,4 @@ public class GatewayForwarder {
         };
     }
 }
+

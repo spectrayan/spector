@@ -1,0 +1,41 @@
+server:
+  port: ${SPECTOR_PORT:7070}
+
+spector:
+  cell:
+    id: ${SPECTOR_CELL_ID:default}
+    role: ${SPECTOR_CELL_ROLE:gateway}
+    node-id: ${SPECTOR_CELL_NODE_ID:gateway-1}
+    ring-members: ${SPECTOR_CELL_RING_MEMBERS:}
+  routing:
+    caffeine:
+      ttl-seconds: 60
+      max-size: 1000
+    redis:
+      enabled: ${SPECTOR_ROUTING_REDIS_ENABLED:true}
+      uri: ${SPECTOR_ROUTING_REDIS_URI:redis://localhost:6379}
+      ttl-seconds: 30
+      timeout-ms: 200
+    gateway:
+      retry-max: ${SPECTOR_ROUTING_GATEWAY_RETRY_MAX:2}
+      max-buffered-body-bytes: 10485760
+      owner-timeout: 10s
+      sse-idle-timeout: 60s
+  auth:
+    enabled: ${SPECTOR_AUTH_ENABLED:false}
+  cors:
+    allowed-origins: ${SPECTOR_CORS_ORIGINS:http://localhost:4200,http://localhost:3000}
+    allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
+    allowed-headers: Content-Type,Authorization,X-API-Key,X-Spector-Namespace,X-Spector-Tenant,Idempotency-Key
+    exposed-headers: Content-Type
+    allow-credentials: true
+    max-age: 3600
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: always

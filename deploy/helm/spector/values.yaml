@@ -115,18 +115,24 @@ replicas:
 gateway:
   enabled: true
   replicas: 2
+  image:
+    repository: ghcr.io/spectrayan/spector-gateway
+    # Overrides the image tag; defaults to chart appVersion when empty.
+    tag: ""
+  jvmOpts: "-Xms64m -Xmx256m -XX:+UseG1GC"
   resources:
     requests:
-      cpu: "500m"
-      memory: "1Gi"
+      cpu: "250m"
+      memory: "128Mi"
     limits:
-      cpu: "2000m"
-      memory: "2Gi"
+      cpu: "1000m"
+      memory: "256Mi"
   hpa:
     enabled: false
     minReplicas: 2
     maxReplicas: 10
     targetCPUUtilizationPercentage: 80
+
 
 # ── Routing & Coordination ──
 routing:

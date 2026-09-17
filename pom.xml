@@ -81,6 +81,7 @@
         <module>synapse/spector-mcp</module>
         <module>synapse/spector-spring</module>
         <module>synapse/spector-batch</module>
+        <module>synapse/spector-gateway</module>
         <module>synapse/spector-synapse</module>
         <module>synapse/spector-cli</module>
 
@@ -270,6 +271,11 @@
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-mcp</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-gateway</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>

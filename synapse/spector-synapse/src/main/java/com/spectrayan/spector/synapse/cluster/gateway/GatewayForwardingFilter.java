@@ -14,6 +14,10 @@ package com.spectrayan.spector.synapse.cluster.gateway;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.spectrayan.spector.cluster.gateway.ForwardRequest;
+import com.spectrayan.spector.cluster.gateway.ForwardResponse;
+import com.spectrayan.spector.cluster.gateway.GatewayForwarder;
+import com.spectrayan.spector.cluster.gateway.RoutingKeyExtractor;
 import com.spectrayan.spector.cluster.node.NodeRole;
 import com.spectrayan.spector.cluster.routing.RoutingKey;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
@@ -29,30 +33,33 @@ import org.springframework.core.annotation.Order;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
- * Servlet filter that intercepts requests on {@code role=gateway} nodes and forwards them
- * to the authoritative owner node (ADR-0034 §8, Req R7.1).
+ * Servlet filter adapter that intercepts requests on {@code role=gateway} nodes and forwards them
+ * to the authoritative owner node (ADR-0034 §8, ADR-0081 §8, Req R7.1).
+ *
+ * <p><strong>Deprecated (ADR-0081):</strong> Maintained as a backwards-compatibility shim for single-process
+ * or mixed-version deployments. In split cell topology, the dedicated reactive {@code spector-gateway}
+ * service should be used instead.</p>
  */
+@Deprecated
 @Order(Ordered.LOWEST_PRECEDENCE - 20)
 public class GatewayForwardingFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(GatewayForwardingFilter.class);
 
     public static final int MAX_BUFFERED_BODY_BYTES = 10 * 1024 * 1024; // 10 MB limit (G48)
-    private static final Pattern NAMESPACE_PATH_PATTERN =
-            Pattern.compile("^/api/v1/namespaces/([^/?]+)(?:/.*)?$");
 
     private final SynapseProperties properties;
     private final GatewayForwarder forwarder;
     private final ObjectMapper objectMapper;
+    private final RoutingKeyExtractor routingKeyExtractor;
 
     public GatewayForwardingFilter(SynapseProperties properties, GatewayForwarder forwarder) {
         this(properties, forwarder, defaultObjectMapper());
@@ -62,6 +69,7 @@ public class GatewayForwardingFilter extends OncePerRequestFilter {
         this.properties = properties;
         this.forwarder = forwarder;
         this.objectMapper = objectMapper != null ? objectMapper : defaultObjectMapper();
+        this.routingKeyExtractor = new RoutingKeyExtractor();
     }
 
     private static ObjectMapper defaultObjectMapper() {
@@ -82,10 +90,10 @@ public class GatewayForwardingFilter extends OncePerRequestFilter {
         if (path == null || !path.startsWith("/api/v1/")) {
             return true;
         }
-        // Exclude health, auth, events from forwarding
-        return path.startsWith("/api/v1/auth")
-                || path.startsWith("/api/v1/events")
-                || path.contains("/health");
+        // Exclude only health and actuator paths from forwarding (ADR-0081 §9).
+        // Auth and events are forwarded to owner (aligned with dedicated spector-gateway).
+        return path.startsWith("/api/v1/health")
+                || path.startsWith("/actuator");
     }
 
     @Override
@@ -101,50 +109,13 @@ public class GatewayForwardingFilter extends OncePerRequestFilter {
         }
 
         String cellId = properties.getCell() != null ? properties.getCell().getId() : "default";
-        String headerNs = request.getHeader(GatewayForwarder.HEADER_NAMESPACE);
-        String paramNs = request.getParameter("namespace");
-        String pathNs = null;
-        String reqUri = request.getRequestURI();
-        if (reqUri != null) {
-            Matcher m = NAMESPACE_PATH_PATTERN.matcher(reqUri);
-            if (m.matches()) {
-                pathNs = m.group(1);
-            }
-        }
 
-        String namespaceId = (headerNs != null && !headerNs.isBlank())
-                ? headerNs.trim()
-                : (paramNs != null && !paramNs.isBlank()
-                        ? paramNs.trim()
-                        : (pathNs != null && !pathNs.isBlank() ? pathNs.trim() : null));
-
-        String headerTenant = request.getHeader(GatewayForwarder.HEADER_TENANT);
-        String paramTenant = request.getParameter("tenant");
-        String tenantId = (headerTenant != null && !headerTenant.isBlank())
-                ? headerTenant.trim()
-                : (paramTenant != null && !paramTenant.isBlank() ? paramTenant.trim() : null);
-
-        // Fallback: extract namespace (sub) and tenant from JWT Bearer token if not explicitly provided
-        if (namespaceId == null || tenantId == null) {
-            String authHeader = request.getHeader("Authorization");
-            if (authHeader != null && authHeader.startsWith("Bearer ")) {
-                String token = authHeader.substring(7).trim();
-                if (namespaceId == null) {
-                    namespaceId = extractSubFromJwt(token);
-                }
-                if (tenantId == null) {
-                    tenantId = extractTenantFromJwt(token);
-                }
-            }
-        }
-
-        if (namespaceId == null || namespaceId.isBlank()) {
-            namespaceId = "default";
-        }
-
-        RoutingKey routingKey = (tenantId != null && !tenantId.isBlank())
-                ? RoutingKey.ofTenanted(cellId, tenantId, namespaceId)
-                : RoutingKey.ofUntenanted(cellId, namespaceId);
+        RoutingKey routingKey = routingKeyExtractor.extract(
+                cellId,
+                request::getHeader,
+                request::getParameter,
+                request.getRequestURI()
+        );
 
         String uriPath = request.getRequestURI();
         if (request.getQueryString() != null && !request.getQueryString().isBlank()) {
@@ -190,8 +161,7 @@ public class GatewayForwardingFilter extends OncePerRequestFilter {
                 idempotencyKey
         );
 
-        try {
-            ForwardResponse forwardResponse = forwarder.forward(routingKey, forwardRequest);
+        try (ForwardResponse forwardResponse = forwarder.forward(routingKey, forwardRequest)) {
             response.setStatus(forwardResponse.statusCode());
             for (Map.Entry<String, List<String>> entry : forwardResponse.headers().entrySet()) {
                 String name = entry.getKey();
@@ -201,14 +171,14 @@ public class GatewayForwardingFilter extends OncePerRequestFilter {
                     }
                 }
             }
-            if (forwardResponse.body().length > 0) {
-                response.getOutputStream().write(forwardResponse.body());
-                response.getOutputStream().flush();
+            try (InputStream in = forwardResponse.bodyStream()) {
+                in.transferTo(response.getOutputStream());
             }
+            response.getOutputStream().flush();
         } catch (Exception e) {
-            log.error("Gateway forward failed for namespace '{}': {}", namespaceId, e.getMessage(), e);
+            log.error("Gateway forward failed for namespace '{}': {}", routingKey.namespaceId(), e.getMessage(), e);
             writeError(response, HttpServletResponse.SC_BAD_GATEWAY,
-                    "GATEWAY_ROUTING_FAILURE", "Gateway routing failure for namespace: " + namespaceId);
+                    "GATEWAY_ROUTING_FAILURE", "Gateway routing failure for namespace: " + routingKey.namespaceId());
         }
     }
 
@@ -220,39 +190,5 @@ public class GatewayForwardingFilter extends OncePerRequestFilter {
         byte[] bytes = objectMapper.writeValueAsBytes(errorResponse);
         response.getOutputStream().write(bytes);
         response.getOutputStream().flush();
-    }
-
-    private String extractSubFromJwt(String token) {
-        if (token == null || token.isBlank()) return null;
-        String[] parts = token.split("\\.");
-        if (parts.length < 2) return null;
-        try {
-            byte[] decoded = java.util.Base64.getUrlDecoder().decode(parts[1]);
-            com.fasterxml.jackson.databind.JsonNode node = objectMapper.readTree(decoded);
-            if (node.has("sub")) {
-                String sub = node.get("sub").asText();
-                return (sub != null && !sub.isBlank()) ? sub.trim() : null;
-            }
-        } catch (Exception ignored) {}
-        return null;
-    }
-
-    private String extractTenantFromJwt(String token) {
-        if (token == null || token.isBlank()) return null;
-        String[] parts = token.split("\\.");
-        if (parts.length < 2) return null;
-        try {
-            byte[] decoded = java.util.Base64.getUrlDecoder().decode(parts[1]);
-            com.fasterxml.jackson.databind.JsonNode node = objectMapper.readTree(decoded);
-            if (node.has("tenant_id")) {
-                String tid = node.get("tenant_id").asText();
-                return (tid != null && !tid.isBlank()) ? tid.trim() : null;
-            }
-            if (node.has("tenantId")) {
-                String tid = node.get("tenantId").asText();
-                return (tid != null && !tid.isBlank()) ? tid.trim() : null;
-            }
-        } catch (Exception ignored) {}
-        return null;
     }
 }

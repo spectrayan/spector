@@ -38,18 +38,15 @@ spec:
         - name: spector-gateway
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          image: "{{ .Values.gateway.image.repository }}:{{ .Values.gateway.image.tag | default .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
-            - name: dashboard
-              containerPort: 8080
-              protocol: TCP
             - name: api
               containerPort: 7070
               protocol: TCP
           env:
             - name: JAVA_OPTS
-              value: {{ .Values.gateway.jvmOpts | default "-Xms256m -Xmx512m -XX:+UseG1GC --add-modules=jdk.incubator.vector --enable-preview --enable-native-access=ALL-UNNAMED" | quote }}
+              value: {{ .Values.gateway.jvmOpts | default "-Xms64m -Xmx256m -XX:+UseG1GC" | quote }}
             - name: SPECTOR_CELL_ID
               value: {{ include "spector.cellId" . | quote }}
             - name: SPECTOR_CELL_ROLE
@@ -72,20 +69,6 @@ spec:
               value: {{ .Values.routing.redis.url | quote }}
             - name: SPECTOR_PORT
               value: {{ .Values.env.SPECTOR_PORT | quote }}
-            - name: SPECTOR_EMBEDDING_PROVIDER
-              value: {{ .Values.env.SPECTOR_EMBEDDING_PROVIDER | quote }}
-            - name: SPECTOR_EMBEDDING_MODEL
-              value: {{ .Values.env.SPECTOR_EMBEDDING_MODEL | quote }}
-            - name: SPECTOR_EMBEDDING_BASE_URL
-              value: {{ .Values.env.SPECTOR_EMBEDDING_BASE_URL | quote }}
-            - name: SPECTOR_EMBEDDING_DIMS
-              value: {{ .Values.env.SPECTOR_EMBEDDING_DIMS | quote }}
-            - name: SPECTOR_GENERATION_PROVIDER
-              value: {{ .Values.env.SPECTOR_GENERATION_PROVIDER | quote }}
-            - name: SPECTOR_GENERATION_MODEL
-              value: {{ .Values.env.SPECTOR_GENERATION_MODEL | quote }}
-            - name: SPECTOR_GENERATION_BASE_URL
-              value: {{ .Values.env.SPECTOR_GENERATION_BASE_URL | quote }}
             {{- if .Values.secretRef.name }}
             - name: SPECTOR_API_KEY
               valueFrom:
@@ -101,8 +84,6 @@ spec:
             - name: config
               mountPath: /app/spector.yml
               subPath: spector.yml
-            - name: data
-              mountPath: /data
           startupProbe:
             httpGet:
               path: /actuator/health
@@ -129,6 +110,4 @@ spec:
         - name: config
           configMap:
             name: {{ include "spector.fullname" . }}-config
-        - name: data
-          emptyDir: {}
 {{- end }}
