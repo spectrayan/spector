@@ -212,44 +212,60 @@ public final class IndexReconcileEngine {
         if (memoryIndex != null && (bm25Index != null || spladeIndex != null) && !truncated && repairsCount < maxRepairsPerCycle) {
             var locMap = memoryIndex.locationMap();
             if (locMap != null && !locMap.isEmpty()) {
-                String[] ids = locMap.keySet().toArray(new String[0]);
-                int totalDocs = ids.length;
+                int totalDocs = locMap.size();
                 int startIndex = lexicalScanCursor.get() % totalDocs;
                 if (startIndex < 0) startIndex = 0;
 
-                for (int step = 0; step < totalDocs; step++) {
-                    if (System.nanoTime() - startNs >= maxTimeSliceNs || repairsCount >= maxRepairsPerCycle) {
-                        truncated = true;
-                        break;
-                    }
+                int currentIndex = 0;
+                int scannedCount = 0;
 
-                    int idx = (startIndex + step) % totalDocs;
-                    String id = ids[idx];
-
-                    // 2a. BM25 missing check
-                    if (bm25Index != null) {
-                        scannedLexical++;
-                        if (!bm25Index.contains(id)) {
-                            missingLexical++;
-                            String text = memoryIndex.text(id);
-                            if (text != null && !text.isEmpty()) {
-                                bm25Index.index(0, id, text);
-                                repairedLexical++;
-                                repairsCount++;
+                // Zero-allocation iteration: pass 0 scans [startIndex, end); pass 1 wraps around [0, startIndex)
+                for (int pass = 0; pass < 2 && scannedCount < totalDocs && !truncated; pass++) {
+                    currentIndex = 0;
+                    for (String id : locMap.keySet()) {
+                        if (pass == 0) {
+                            if (currentIndex < startIndex) {
+                                currentIndex++;
+                                continue;
+                            }
+                        } else {
+                            if (currentIndex >= startIndex) {
+                                break;
                             }
                         }
-                    }
 
-                    // 3a. SPLADE missing check (flag only, zero neural inference in 50ms slice)
-                    if (spladeIndex != null) {
-                        scannedSplade++;
-                        if (!spladeIndex.contains(id)) {
-                            missingSplade++;
-                            log.debug("SPLADE index missing document id={}; flagged for admin rebuild", id);
+                        if (System.nanoTime() - startNs >= maxTimeSliceNs || repairsCount >= maxRepairsPerCycle) {
+                            truncated = true;
+                            break;
                         }
-                    }
 
-                    lexicalScanCursor.set((idx + 1) % totalDocs);
+                        // 2a. BM25 missing check
+                        if (bm25Index != null) {
+                            scannedLexical++;
+                            if (!bm25Index.contains(id)) {
+                                missingLexical++;
+                                String text = memoryIndex.text(id);
+                                if (text != null && !text.isEmpty()) {
+                                    bm25Index.index(0, id, text);
+                                    repairedLexical++;
+                                    repairsCount++;
+                                }
+                            }
+                        }
+
+                        // 3a. SPLADE missing check (flag only, zero neural inference in 50ms slice)
+                        if (spladeIndex != null) {
+                            scannedSplade++;
+                            if (!spladeIndex.contains(id)) {
+                                missingSplade++;
+                                log.debug("SPLADE index missing document id={}; flagged for admin rebuild", id);
+                            }
+                        }
+
+                        currentIndex++;
+                        scannedCount++;
+                        lexicalScanCursor.set(currentIndex % totalDocs);
+                    }
                 }
             }
         }

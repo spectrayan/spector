@@ -18,7 +18,6 @@ import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
 import com.spectrayan.spector.index.text.BM25Index;
 import com.spectrayan.spector.index.ScoredResult;
 import com.spectrayan.spector.index.text.StemmingAnalyzer;
-import com.spectrayan.spector.kernel.bundle.BundleManager;
 import com.spectrayan.spector.kernel.region.RegionId;
 import com.spectrayan.spector.kernel.bundle.RegionRef;
 import com.spectrayan.spector.kernel.bundle.RuntimeBundle;
@@ -39,15 +38,17 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * <h3>Architecture</h3>
  * <p>Maintains an array of {@link BM25Index} instances, one per memory partition.
  * On recall, searches all partitions in parallel using virtual threads and merges
- * results by BM25 score (descending). On startup, each partition's BM25 is rebuilt
- * from its {@code text.dat} file — zero persistent BM25 storage.</p>
+ * results by BM25 score (descending). Under ADR-0082, BM25 state is persisted to
+ * {@code RegionId.BM25} in the runtime bundle and hydrated on startup if the generation
+ * matches, falling back to a rebuild from primary memory on mismatch or miss.</p>
  *
  * <h3>Lifecycle</h3>
  * <ul>
- *   <li><b>Startup</b>: {@link #rebuildPartition(int, Map)} called per partition with texts from text.dat</li>
+ *   <li><b>Hydrate</b>: {@link #hydrate()} loads cached bundle state if generation matches, or triggers rebuild</li>
  *   <li><b>Ingest</b>: {@link #index(int, String, String)} called per memory ingestion</li>
  *   <li><b>Recall</b>: {@link #search(String, int)} fans out across all partitions</li>
  *   <li><b>Roll</b>: {@link #addPartition()} creates a new empty BM25 for the new active partition</li>
+ *   <li><b>Checkpoint</b>: {@link #checkpoint()} flushes index state to bundle region {@code RegionId.BM25}</li>
  * </ul>
  *
  * <h3>Thread Safety</h3>
@@ -330,6 +331,10 @@ public final class MemoryBM25Index extends AbstractMemoryIndex<BM25Index> {
                     int magic = buf.getInt();
                     if (magic == MAGIC_MULTI) {
                         int ver = buf.getInt();
+                        if (ver != BM25Index.FORMAT_VERSION) {
+                            log.debug("BM25 bundle format version mismatch: expected {}, got {}", BM25Index.FORMAT_VERSION, ver);
+                            return null;
+                        }
                         int count = buf.getInt();
                         if (count > 0) {
                             int len = buf.getInt();
@@ -371,20 +376,24 @@ public final class MemoryBM25Index extends AbstractMemoryIndex<BM25Index> {
                         int magic = buf.getInt();
                         if (magic == MAGIC_MULTI) {
                             int ver = buf.getInt();
-                            int count = buf.getInt();
-                            for (int i = 0; i < count; i++) {
-                                int len = buf.getInt();
-                                byte[] pData = new byte[len];
-                                buf.get(pData);
-                                BM25Index pIdx = BM25Index.fromByteArray(pData, new StemmingAnalyzer());
-                                if (pIdx != null) {
-                                    setPartition(i, pIdx);
+                            if (ver != BM25Index.FORMAT_VERSION) {
+                                log.warn("BM25 bundle format version mismatch: expected {}, got {}", BM25Index.FORMAT_VERSION, ver);
+                            } else {
+                                int count = buf.getInt();
+                                for (int i = 0; i < count; i++) {
+                                    int len = buf.getInt();
+                                    byte[] pData = new byte[len];
+                                    buf.get(pData);
+                                    BM25Index pIdx = BM25Index.fromByteArray(pData, new StemmingAnalyzer());
+                                    if (pIdx != null) {
+                                        setPartition(i, pIdx);
+                                    }
                                 }
-                            }
-                            if (!partitions.isEmpty() && partition(0).generation() == expectedGen
-                                    && java.util.Objects.equals(partition(0).analyzerId(), "stemming-analyzer")) {
-                                loadedValid = true;
-                                log.info("BM25 hydrated multi-partition from bundle ({} partitions, gen={})", count, expectedGen);
+                                if (!partitions.isEmpty() && partition(0).generation() == expectedGen
+                                        && java.util.Objects.equals(partition(0).analyzerId(), "stemming-analyzer")) {
+                                    loadedValid = true;
+                                    log.info("BM25 hydrated multi-partition from bundle ({} partitions, gen={})", count, expectedGen);
+                                }
                             }
                         } else if (magic == BM25Index.MAGIC) {
                             BM25Index single = BM25Index.fromByteArray(data, new StemmingAnalyzer());
@@ -434,6 +443,7 @@ public final class MemoryBM25Index extends AbstractMemoryIndex<BM25Index> {
                 }
             }
         }
+        // Note: Admin rebuild collapses multi-partition layout to single partition 0 (v1 behavior; roll/partition work does not assume COW preserves partition count)
         setPartition(0, newIdx);
         if (context != null && context.runtimeBundle() != null && newIdx.size() > 0) {
             persistToBundle(context.runtimeBundle());

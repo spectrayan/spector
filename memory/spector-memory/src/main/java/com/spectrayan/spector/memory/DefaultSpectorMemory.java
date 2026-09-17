@@ -1640,8 +1640,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override public HyperEntityGraphMemory hyperEntityGraph() { return hyperEntityGraph; }
     public DreamPathway dreamPathway() { return dreamPathway; }
     public WanderPathway wanderPathway() { return wanderPathway; }
-    public com.spectrayan.spector.memory.index.IndexPlaneCoordinator indexPlaneCoordinator() { return indexPlaneCoordinator; }
-    public com.spectrayan.spector.memory.index.IndexReconcileEngine indexReconcileEngine() { return indexReconcileEngine; }
+    @Override public com.spectrayan.spector.memory.index.IndexPlaneCoordinator indexPlaneCoordinator() { return indexPlaneCoordinator; }
+    @Override public com.spectrayan.spector.memory.index.IndexReconcileEngine indexReconcileEngine() { return indexReconcileEngine; }
 
     public void bindRecallSignalContext(com.spectrayan.spector.memory.pathway.recall.relay.RecallSignal signal) {
         if (signal == null) return;

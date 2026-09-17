@@ -16,7 +16,6 @@ import com.spectrayan.spector.commons.concurrent.ConcurrentExecutionException;
 import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
 import com.spectrayan.spector.index.ScoredResult;
 import com.spectrayan.spector.index.text.SpladeIndex;
-import com.spectrayan.spector.kernel.bundle.BundleManager;
 import com.spectrayan.spector.kernel.bundle.RegionRef;
 import com.spectrayan.spector.kernel.bundle.RuntimeBundle;
 import com.spectrayan.spector.kernel.region.RegionId;
@@ -327,6 +326,10 @@ public final class MemorySpladeIndex extends AbstractMemoryIndex<SpladeIndex> {
                     int magic = buf.getInt();
                     if (magic == MAGIC_MULTI) {
                         int ver = buf.getInt();
+                        if (ver != SpladeIndex.FORMAT_VERSION) {
+                            log.debug("SPLADE bundle format version mismatch: expected {}, got {}", SpladeIndex.FORMAT_VERSION, ver);
+                            return null;
+                        }
                         int count = buf.getInt();
                         if (count > 0) {
                             int len = buf.getInt();
@@ -369,20 +372,24 @@ public final class MemorySpladeIndex extends AbstractMemoryIndex<SpladeIndex> {
                         int magic = buf.getInt();
                         if (magic == MAGIC_MULTI) {
                             int ver = buf.getInt();
-                            int count = buf.getInt();
-                            for (int i = 0; i < count; i++) {
-                                int len = buf.getInt();
-                                byte[] pData = new byte[len];
-                                buf.get(pData);
-                                SpladeIndex pIdx = SpladeIndex.fromByteArray(pData);
-                                if (pIdx != null) {
-                                    setPartition(i, pIdx);
+                            if (ver != SpladeIndex.FORMAT_VERSION) {
+                                log.warn("SPLADE bundle format version mismatch: expected {}, got {}", SpladeIndex.FORMAT_VERSION, ver);
+                            } else {
+                                int count = buf.getInt();
+                                for (int i = 0; i < count; i++) {
+                                    int len = buf.getInt();
+                                    byte[] pData = new byte[len];
+                                    buf.get(pData);
+                                    SpladeIndex pIdx = SpladeIndex.fromByteArray(pData);
+                                    if (pIdx != null) {
+                                        setPartition(i, pIdx);
+                                    }
                                 }
-                            }
-                            if (!partitions.isEmpty() && partition(0).generation() == expectedGen
-                                    && java.util.Objects.equals(partition(0).modelId(), modelId)) {
-                                loadedValid = true;
-                                log.info("SPLADE hydrated multi-partition from bundle ({} partitions, gen={})", count, expectedGen);
+                                if (!partitions.isEmpty() && partition(0).generation() == expectedGen
+                                        && java.util.Objects.equals(partition(0).modelId(), modelId)) {
+                                    loadedValid = true;
+                                    log.info("SPLADE hydrated multi-partition from bundle ({} partitions, gen={})", count, expectedGen);
+                                }
                             }
                         } else if (magic == SpladeIndex.MAGIC) {
                             SpladeIndex single = SpladeIndex.fromByteArray(data);
@@ -436,6 +443,7 @@ public final class MemorySpladeIndex extends AbstractMemoryIndex<SpladeIndex> {
                 }
             }
         }
+        // Note: Admin rebuild collapses multi-partition layout to single partition 0 (v1 behavior; roll/partition work does not assume COW preserves partition count)
         setPartition(0, newIdx);
         if (context != null && context.runtimeBundle() != null && newIdx.size() > 0) {
             persistToBundle(context.runtimeBundle());
