@@ -5,6 +5,11 @@
 ## Related Issue
 <!-- Link to the issue here: "Closes #123" -->
 
+## Architecture & Discussions
+<!-- Architectural changes require an accepted ADR and prior RFC discussion -->
+- **Implements ADR**: ADR-____ (or `N/A`)
+- **Discussion / RFC**: #____ (or `N/A`)
+
 ## Type of Change
 <!-- Check the relevant option -->
 - [ ] Bug fix (non-breaking change which fixes an issue)
@@ -22,6 +27,8 @@
 - [ ] `docs/*` / Root Configuration
 
 ## Checklist
+- [ ] My commits include a valid DCO 1.1 sign-off (`git commit -s`)
+- [ ] License headers are verified and formatted (`mvn license:format`)
 - [ ] My code follows the code style of this project
 - [ ] I have added Javadoc for all public classes/methods
 - [ ] I have added tests to cover my changes

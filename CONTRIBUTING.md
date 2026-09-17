@@ -5,13 +5,16 @@ Thank you for your interest in contributing to Spector! We welcome contributions
 ## Table of Contents
 
 - [Code of Conduct](#code-of-conduct)
-- [Contributor License Agreement](#contributor-license-agreement)
+- [Project Governance](#project-governance)
+- [Developer Certificate of Origin (DCO 1.1) & Licensing](#developer-certificate-of-origin-dco-11--licensing)
+- [Architectural Changes (ADRs & RFCs)](#architectural-changes-adrs--rfcs)
 - [Getting Started](#getting-started)
 - [Development Setup](#development-setup)
 - [Troubleshooting First-Time Setup](#troubleshooting-first-time-setup)
 - [Making Changes](#making-changes)
 - [Coding Standards](#coding-standards)
 - [License Headers](#license-headers)
+- [Testing Expectations](#testing-expectations)
 - [Pull Request Process](#pull-request-process)
 - [Reporting Issues](#reporting-issues)
 
@@ -19,33 +22,34 @@ Thank you for your interest in contributing to Spector! We welcome contributions
 
 This project adheres to the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to [support@spectrayan.com](mailto:support@spectrayan.com).
 
-## Contributor License Agreement
+## Project Governance
 
-By contributing to Spector, you agree that:
+Spector is an open-source, community-driven project governed under Linux Foundation / AAIF open governance standards. We operate with transparent, vendor-neutral meritocracy:
+- Community roles: **Project Lead**, **Technical Lead**, **Architecture Working Group (AWG)**, **Technical Steering Committee (TSC)**, **Maintainers**, **Committers / Reviewers**, and **Contributors**.
+- We maintain a **4-tier Contributor Ladder** providing clear advancement paths from first-time contributor to committer, maintainer, and TSC member.
+- Decision mechanics follow lazy consensus (72h default), simple majority for operational appointments/deprecations, and 2/3 TSC supermajority for architectural changes.
+- For complete details on roles, review authorities, and voting mechanics, see [GOVERNANCE.md](GOVERNANCE.md).
 
-1. **You have the right** to submit the contribution. The code is your original work, or you have permission to submit it under the project's license terms.
+## Developer Certificate of Origin (DCO 1.1) & Licensing
 
-2. **You grant Spectrayan** a perpetual, worldwide, non-exclusive, royalty-free, irrevocable license to use, reproduce, modify, distribute, and sublicense your contribution under:
-   - The **Apache License 2.0** for all modules except `spector-memory`, `spector-synapse`, and `spector-cortex`.
-   - The **Business Source License 1.1** for the `spector-memory`, `spector-synapse`, and `spector-cortex` modules (which transition to Apache 2.0 on the Change Date specified in each module's LICENSE file).
+Spector uses the standard **Developer Certificate of Origin (DCO 1.1)** alongside our repository licenses:
+- All core engine and infrastructure modules except `spector-memory`, `spector-synapse`, and `spector-cortex` are licensed under the **Apache License 2.0**.
+- `spector-memory`, `spector-synapse`, and `spector-cortex` are licensed under the **Business Source License 1.1** (BSL 1.1), converting to Apache 2.0 on their respective Change Dates.
 
-3. **You understand** that your contribution becomes part of the project and may be distributed under the project's current or future license terms as described above.
+### DCO 1.1 Sign-Off Requirement
 
-### How to Sign Off
-
-All commits must include a `Signed-off-by` line certifying this agreement. Use the `-s` flag when committing:
+All commits must include a `Signed-off-by` line certifying compliance with the Developer Certificate of Origin (DCO 1.1). Use the `-s` flag when committing:
 
 ```bash
 git commit -s -m "feat(core): add new SIMD kernel"
 ```
 
-This adds a line like:
-
+This appends:
 ```
 Signed-off-by: Your Name <your.email@example.com>
 ```
 
-> **Note:** Pull requests without signed-off commits will not be merged.
+> **Note:** Pull requests containing commits without a valid DCO sign-off will not be merged.
 
 ## Getting Started
 
@@ -162,6 +166,69 @@ mvn test -pl spector-core
 mvn test -pl spector-core -Dtest=DotProductTest
 ```
 
+## Architectural Changes (ADRs & RFCs)
+
+Spector maintains an active catalog of **Architecture Decision Records (ADRs)** located in `docs/adr/`. Any proposal that substantially alters the architecture, memory model, compute layer, or public API contract must complete our formal Request for Comments (RFC) and ADR process before code implementation begins.
+
+### When is an ADR Required?
+
+An ADR is **mandatory** for changes that:
+1. **Alter Memory or Storage Layouts**: Introduce or modify zero-copy off-heap Panama FFM memory layouts (`Arena`, `MemorySegment`), bundle kernels (`PartitionBundle`, `RuntimeBundle`, `EngramLayout`), or WAL replay mechanisms (`spector-memory`).
+2. **Introduce Compute or SIMD Kernels**: Modify compute SPIs (`spector-core`), Panama Vector API implementations (`spector-cpu`), or GPU hardware kernels (`spector-gpu`).
+3. **Change Cognitive Memory Semantics**: Modify the 4-tier cognitive memory model (Working, Episodic, Semantic, Procedural), Hebbian co-activation networks, or fused scoring pipelines.
+4. **Impact Distributed Architecture**: Change cell clustering protocols, topology discovery, state replication, or disaster recovery mechanics (`spector-cluster`).
+5. **Break Public APIs**: Introduce backwards-incompatible API changes or deprecate core interfaces.
+6. **Add Major Dependencies**: Introduce substantial external libraries affecting runtime footprint or supply chain security.
+
+Routine bug fixes, documentation updates, internal refactoring, and performance optimizations that preserve existing interfaces and memory layouts do **not** require an ADR.
+
+### The RFC & ADR Lifecycle
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Contributor
+    participant Discussion as GitHub Discussions (RFC)
+    participant PR as Pull Request (docs/adr/)
+    participant AWG as Architecture Working Group
+    participant TSC as Technical Steering Committee
+
+    Contributor->>Discussion: 1. Open RFC Discussion (Problem, Motivation, Alternatives)
+    Contributor->>PR: 2. Author Draft ADR using docs/adr/0000-template.md
+    AWG->>PR: 3. Review, Prototype Verification & Consensus Building
+    TSC->>PR: 4. Formal Vote (2/3 Supermajority required)
+    TSC->>PR: 5. Merge ADR as Accepted (Implemented) or Proposed
+```
+
+The RFC & ADR lifecycle proceeds through 5 steps:
+
+1. **Step 1 — Open an RFC Discussion**:
+   - Start a discussion on [GitHub Discussions](https://github.com/spectrayan/spector/discussions) under the **Architecture** category.
+   - Articulate the problem statement, motivations, technical trade-offs, and alternative approaches considered.
+   - Solicit community, Committer, and Maintainer feedback for at least 7 calendar days.
+
+2. **Step 2 — Draft the ADR**:
+   - Copy the official template: [`docs/adr/0000-template.md`](docs/adr/0000-template.md).
+   - Assign the next sequential ADR number (e.g., `docs/adr/0038-my-feature.md`).
+   - Populate standard metadata headers:
+     - `Status`: `Proposed`
+     - `Date`: `YYYY-MM-DD`
+     - `Authors`: Contributor name(s) & Spector Architecture Working Group
+     - `Deciders`: Spector Technical Steering Committee (TSC)
+     - `Supersedes` / `Superseded By`: Reference relevant ADRs or `None`
+     - `Last Verified`: Current date
+
+3. **Step 3 — Submit Pull Request**:
+   - Open a pull request against `docs/adr/` with the label `type:adr`.
+   - Link the RFC Discussion in the pull request description (`Discussion / RFC: #___`).
+
+4. **Step 4 — Architecture Working Group (AWG) Review**:
+   - The Architecture Working Group and Maintainers evaluate the design against zero-GC, Panama FFM, and SIMD constraints, verifying prototypes and micro-benchmarks.
+
+5. **Step 5 — TSC Supermajority Vote**:
+   - The Technical Steering Committee (TSC) votes on the record. Approval requires a **2/3 supermajority** per [GOVERNANCE.md](GOVERNANCE.md).
+   - Upon acceptance, the ADR is marked `Accepted (Implemented)` once verified against `main`, or `Proposed` if queued for upcoming milestones, and indexed in the MkDocs portal.
+
 ## Making Changes
 
 ### Branch Naming
@@ -251,23 +318,55 @@ mvn license:format
 
 You can always avoid this by running `mvn license:format` locally before pushing.
 
+## Testing Expectations
+
+Testing is a core quality gate in Spector. Because our components deal with off-heap native memory (Panama FFM), vector hardware intrinsics (SIMD), and concurrent event loops, rigorous test coverage is essential.
+
+### Test Categories
+
+| Category | Scope | Framework | Requirement |
+|:---|:---|:---|:---|
+| **Unit Tests** | Module-level correctness, boundary checks | JUnit 5 + AssertJ | Required for all new classes and bug fixes |
+| **Property Tests** | Algorithm invariants, persistence round-trips | jqwik | Required for index algorithms, binary codecs, and layout serializers |
+| **Integration Tests** | Cross-module flows, Spring AI, MCP server | JUnit 5 (`spector-test-support`) | Required for end-to-end pathways and REST/SSE gateways |
+| **Microbenchmarks** | Hot-path throughput, latency, GC overhead | OpenJDK JMH (`spector-bench`) | Required for any performance-sensitive PR or SIMD kernel |
+
+### Running the Test Suites
+
+```bash
+# Run unit tests across the reactor
+mvn test
+
+# Run tests for a specific module
+mvn test -pl spector-core
+
+# Run a specific test class
+mvn test -pl spector-core -Dtest=DotProductTest
+
+# Run with full synapse profile
+mvn test -Psynapse
+```
+
 ## Pull Request Process
 
 1. **Ensure your branch is up to date** with `main`
-2. **All tests pass** — CI will verify this automatically
-3. **Fill out the PR template** — describe what changed and why
-4. **Link related issues** — use `Closes #123` or `Fixes #456`
-5. **One approval required** — a maintainer will review your PR
-6. **Squash merge** — PRs are squash-merged to keep history clean
+2. **Verify DCO 1.1 sign-off** — all commits must be signed with `git commit -s`
+3. **Format license headers** — run `mvn license:format` locally
+4. **All tests pass** — verify locally with `mvn test`; CI will re-verify on push
+5. **Fill out the PR template** — complete `.github/pull_request_template.md` including ADR and Discussion references
+6. **Link related issues** — use `Closes #123` or `Fixes #456`
+7. **Code review & approval** — reviewed and approved by a Maintainer or Committer per [GOVERNANCE.md](GOVERNANCE.md)
+8. **Squash merge** — PRs are squash-merged to preserve clean, linear git history
 
 ### PR Checklist
 
-- [ ] Code follows the project's coding standards
-- [ ] License headers present on all source files (`mvn license:format`)
-- [ ] Tests added/updated for the change
-- [ ] Javadoc updated for public API changes
-- [ ] No hardcoded secrets or credentials
-- [ ] Commit messages follow Conventional Commits
+- [ ] My commits include a valid DCO 1.1 sign-off (`git commit -s`)
+- [ ] License headers are formatted on all source files (`mvn license:format`)
+- [ ] Code adheres to project style, Java 25 idioms, and Panama FFM / SIMD guidelines
+- [ ] Tests added/updated covering changed behavior and edge cases (`mvn test`)
+- [ ] Public classes and methods include clear Javadoc
+- [ ] If this PR introduces an architectural change, the corresponding ADR is referenced (`Implements ADR: ADR-____`)
+- [ ] No hardcoded secrets, tokens, or credentials
 - [ ] JMH benchmarks included (if performance-related)
 
 ## Reporting Issues
