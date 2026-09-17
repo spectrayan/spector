@@ -84,6 +84,8 @@ The Runtime Bundle houses high-velocity, hot memory structures updated during ac
 - **Entity Directory & Names Pool**: Interned entity names and role registries.
 - **Somatic Insula (`InsulaMemory`)**: Dynamic agent self-state, uncertainty indicators, and urgency levels.
 - **Continuity & Provenance**: Cross-turn session continuity checkpoints.
+- **Lexical Indexes (`BM25` & `SPLADE`)**: Binary snapshots of BM25 and SPLADE sparse lexical indexes (`RegionId.BM25`, `RegionId.SPLADE`) for sub-millisecond cold start without re-indexing (ADR-0082).
+- **Entity Reverse Index (Reserved)**: Reserved region (`RegionId.ENTITY_REVERSE_INDEX`) for cached entity-to-memory projections.
 
 ### 2. Partition Bundles (`partition.bundle`)
 Partition bundles store long-term, time-partitioned engram traces. As memory grows, old episodic traces remain frozen in sequential partitions (e.g. `00000`, `00001`), while long-term semantic knowledge and learned procedural skills reside in indexed partition blocks.

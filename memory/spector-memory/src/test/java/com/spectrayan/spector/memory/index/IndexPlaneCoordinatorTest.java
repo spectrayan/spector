@@ -147,4 +147,31 @@ class IndexPlaneCoordinatorTest {
         assertThat(a.closed).isTrue();
         assertThat(b.closed).isTrue();
     }
+
+    @Test
+    @DisplayName("Should execute administrative rebuild for a specific index")
+    void shouldRebuildSpecificIndex() {
+        IndexPlaneCoordinator coordinator = new IndexPlaneCoordinator(null);
+        TestManagedIndex bm25 = new TestManagedIndex("BM25", IndexKind.DERIVED_EXPENSIVE, Set.of(), null);
+        coordinator.register(bm25);
+
+        coordinator.rebuild("BM25").toCompletableFuture().join();
+        assertThat(bm25.hydrated).isTrue();
+
+        assertThatThrownBy(() -> coordinator.rebuild("Unknown"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Unknown index: Unknown");
+    }
+
+    @Test
+    @DisplayName("Should export stats for all registered indexes")
+    void shouldExportStatsAll() {
+        IndexPlaneCoordinator coordinator = new IndexPlaneCoordinator(null);
+        TestManagedIndex bm25 = new TestManagedIndex("BM25", IndexKind.DERIVED_EXPENSIVE, Set.of(), null);
+        coordinator.register(bm25);
+
+        var stats = coordinator.statsAll();
+        assertThat(stats).containsKey("BM25");
+        assertThat(stats.get("BM25").entries()).isEqualTo(10L);
+    }
 }

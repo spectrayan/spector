@@ -127,6 +127,32 @@ public final class IndexPlaneCoordinator implements AutoCloseable {
     }
 
     /**
+     * Executes an administrative rebuild of the specified index using COW partition replacement.
+     *
+     * @param name index identifier
+     * @return completion stage that finishes when rehydration completes
+     */
+    public synchronized CompletionStage<Void> rebuild(String name) {
+        ManagedIndex index = indexes.get(name);
+        if (index == null) {
+            throw new IllegalArgumentException("Unknown index: " + name);
+        }
+        log.info("Admin rebuild requested for index [{}]", name);
+        return index.hydrate();
+    }
+
+    /**
+     * Returns a map of index statistics for all registered indexes.
+     */
+    public synchronized Map<String, IndexStats> statsAll() {
+        Map<String, IndexStats> map = new LinkedHashMap<>();
+        for (Map.Entry<String, ManagedIndex> entry : indexes.entrySet()) {
+            map.put(entry.getKey(), entry.getValue().stats());
+        }
+        return Map.copyOf(map);
+    }
+
+    /**
      * Computes the execution order based on dependencies.
      */
     public synchronized List<ManagedIndex> computeTopologicalOrder() {
