@@ -36,6 +36,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.PrimitiveIterator;
+import java.util.function.IntPredicate;
 
 import com.spectrayan.spector.kernel.id.MemoryId;
 import com.spectrayan.spector.kernel.region.RegionPreamble;
@@ -160,6 +161,26 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
     private int nextHyperedgeId;
     private int nextVertexOffset;
     private int totalHyperedges;
+
+    /**
+     * Optional quarantine filter injected by the memory layer to exclude quarantined
+     * hyperedges from traversal. When set, traversal methods ({@link #findHyperedgesForEntityLocked},
+     * {@link #collectMemoriesRecursive}) skip edges for which {@code test(edgeId)} returns {@code true}.
+     *
+     * <p>Using {@link IntPredicate} rather than a direct registry reference preserves the
+     * kernel→memory module boundary (kernel must not depend on spector-memory).</p>
+     */
+    private volatile IntPredicate quarantineFilter;
+
+    /**
+     * Sets the quarantine filter predicate. Quarantined edges (those for which the predicate
+     * returns {@code true}) are excluded from graph traversal.
+     *
+     * @param filter predicate returning {@code true} for quarantined edge IDs, or {@code null} to disable
+     */
+    public void setQuarantineFilter(IntPredicate filter) {
+        this.quarantineFilter = filter;
+    }
 
     /**
      * On-heap incidence tracking (rebuilt during load/compaction).
@@ -648,6 +669,11 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
         List<HyperEdge> result = new ArrayList<>(edgeIds.size());
 
         for (int edgeId : edgeIds) {
+            // Skip quarantined edges (Phase 2.1, #946)
+            IntPredicate filter = this.quarantineFilter;
+            if (filter != null && filter.test(edgeId)) {
+                continue;
+            }
             HyperEdge edge = getHyperedgeLocked(edgeId);
             if (edge != null) {
                 result.add(edge);
