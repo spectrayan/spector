@@ -63,7 +63,7 @@ public class GatewaySecurityConfiguration {
         // CSRF — disabled (documented exception).
         // This is a stateless reverse proxy with no cookies, no sessions, and no UI.
         // All authentication is header-based (JWT / API-key). CSRF is not applicable.
-        http.csrf(ServerHttpSecurity.CsrfSpec::disable); // lgtm[java/spring-disabled-csrf]
+        http.csrf(ServerHttpSecurity.CsrfSpec::disable);
 
         // Stateless — no form login or HTTP basic
         http.formLogin(ServerHttpSecurity.FormLoginSpec::disable);
