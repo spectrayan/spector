@@ -12,7 +12,9 @@
  */
 package com.spectrayan.spector.memory.index;
 
+import com.spectrayan.spector.kernel.api.MemoryLocation;
 import com.spectrayan.spector.kernel.graph.EntityDirectory;
+import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.cortex.MemorySpladeIndex;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
@@ -20,6 +22,7 @@ import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -53,8 +56,10 @@ public final class IndexReconcileEngine {
     private final MemoryIndex memoryIndex;
     private final MemoryBM25Index bm25Index;
     private final MemorySpladeIndex spladeIndex;
+    private final HyperEntityGraphMemory hyperEntityGraph;
     private final long maxTimeSliceMs;
     private final int maxRepairsPerCycle;
+    private final QuarantineRegistry quarantineRegistry;
 
     // Entity scan cursor for round-robin incremental scanning across cycles
     private final AtomicInteger entityScanCursor = new AtomicInteger(0);
@@ -62,12 +67,19 @@ public final class IndexReconcileEngine {
     // Lexical/sparse scan cursor for round-robin incremental scanning across cycles
     private final AtomicInteger lexicalScanCursor = new AtomicInteger(0);
 
+    // Hypergraph scan cursor for round-robin incremental scanning across cycles
+    private final AtomicInteger hypergraphScanCursor = new AtomicInteger(0);
+
     public IndexReconcileEngine(EntityDirectory entityDirectory, MemoryIndex memoryIndex, MemoryBM25Index bm25Index) {
-        this(entityDirectory, memoryIndex, bm25Index, null, DEFAULT_TIME_SLICE_MS, DEFAULT_MAX_REPAIRS);
+        this(entityDirectory, memoryIndex, bm25Index, null, null, DEFAULT_TIME_SLICE_MS, DEFAULT_MAX_REPAIRS);
     }
 
     public IndexReconcileEngine(EntityDirectory entityDirectory, MemoryIndex memoryIndex, MemoryBM25Index bm25Index, MemorySpladeIndex spladeIndex) {
-        this(entityDirectory, memoryIndex, bm25Index, spladeIndex, DEFAULT_TIME_SLICE_MS, DEFAULT_MAX_REPAIRS);
+        this(entityDirectory, memoryIndex, bm25Index, spladeIndex, null, DEFAULT_TIME_SLICE_MS, DEFAULT_MAX_REPAIRS);
+    }
+
+    public IndexReconcileEngine(EntityDirectory entityDirectory, MemoryIndex memoryIndex, MemoryBM25Index bm25Index, MemorySpladeIndex spladeIndex, HyperEntityGraphMemory hyperEntityGraph) {
+        this(entityDirectory, memoryIndex, bm25Index, spladeIndex, hyperEntityGraph, DEFAULT_TIME_SLICE_MS, DEFAULT_MAX_REPAIRS);
     }
 
     public IndexReconcileEngine(
@@ -77,7 +89,7 @@ public final class IndexReconcileEngine {
             long maxTimeSliceMs,
             int maxRepairsPerCycle
     ) {
-        this(entityDirectory, memoryIndex, bm25Index, null, maxTimeSliceMs, maxRepairsPerCycle);
+        this(entityDirectory, memoryIndex, bm25Index, null, null, maxTimeSliceMs, maxRepairsPerCycle);
     }
 
     public IndexReconcileEngine(
@@ -88,12 +100,26 @@ public final class IndexReconcileEngine {
             long maxTimeSliceMs,
             int maxRepairsPerCycle
     ) {
+        this(entityDirectory, memoryIndex, bm25Index, spladeIndex, null, maxTimeSliceMs, maxRepairsPerCycle);
+    }
+
+    public IndexReconcileEngine(
+            EntityDirectory entityDirectory,
+            MemoryIndex memoryIndex,
+            MemoryBM25Index bm25Index,
+            MemorySpladeIndex spladeIndex,
+            HyperEntityGraphMemory hyperEntityGraph,
+            long maxTimeSliceMs,
+            int maxRepairsPerCycle
+    ) {
         this.entityDirectory = entityDirectory;
         this.memoryIndex = memoryIndex;
         this.bm25Index = bm25Index;
         this.spladeIndex = spladeIndex;
+        this.hyperEntityGraph = hyperEntityGraph;
         this.maxTimeSliceMs = maxTimeSliceMs > 0 ? maxTimeSliceMs : DEFAULT_TIME_SLICE_MS;
         this.maxRepairsPerCycle = maxRepairsPerCycle > 0 ? maxRepairsPerCycle : DEFAULT_MAX_REPAIRS;
+        this.quarantineRegistry = new QuarantineRegistry();
     }
 
     /**
@@ -310,11 +336,98 @@ public final class IndexReconcileEngine {
             }
         }
 
+        // 4. Reconcile Hypergraph Vertex Integrity (Phase 2.1, #946)
+        long scannedHypergraph = 0;
+        long quarantinedHypergraph = 0;
+
+        if (hyperEntityGraph != null && !truncated && repairsCount < maxRepairsPerCycle) {
+            // Build transient set of live graph slots for O(1) memoryIdx verification
+            Set<Integer> liveGraphSlots = new HashSet<>();
+            if (memoryIndex != null) {
+                var locMap = memoryIndex.locationMap();
+                if (locMap != null) {
+                    for (MemoryLocation loc : locMap.values()) {
+                        liveGraphSlots.add(loc.graphSlot());
+                    }
+                }
+            }
+
+            int entityCount = entityDirectory != null ? entityDirectory.entityCount() : 0;
+            int totalEdgeIds = hyperEntityGraph.totalHyperedges();
+            // Scan by edgeId range (0..nextHyperedgeId), not totalHyperedges (which excludes tombstoned)
+            // We use totalHyperedges + estimate for the scan range upper bound via getHyperedge null-check
+            int scanLimit = totalEdgeIds > 0 ? totalEdgeIds * 2 : 0; // upper bound estimate
+            int startIndex = hypergraphScanCursor.get();
+            if (startIndex < 0) startIndex = 0;
+
+            for (int step = 0; step < scanLimit && !truncated; step++) {
+                if (System.nanoTime() - startNs >= maxTimeSliceNs || repairsCount >= maxRepairsPerCycle) {
+                    truncated = true;
+                    break;
+                }
+
+                int edgeId = startIndex + step;
+                HyperEntityGraphMemory.HyperEdge edge = hyperEntityGraph.getHyperedge(edgeId);
+                if (edge == null) {
+                    // No more edges beyond this point, or tombstoned — wrap cursor
+                    if (step > 0 && edgeId > startIndex + totalEdgeIds) {
+                        break; // exhausted scan range
+                    }
+                    continue;
+                }
+
+                scannedHypergraph++;
+
+                // Check vertex entity validity
+                boolean allDangling = true;
+                boolean hasDanglingEntity = false;
+                for (HyperEntityGraphMemory.HyperEdgeVertex v : edge.vertices()) {
+                    if (v.entityId() < 0 || v.entityId() >= entityCount) {
+                        hasDanglingEntity = true;
+                    } else {
+                        allDangling = false;
+                    }
+                }
+
+                // Check memoryIdx validity
+                boolean hasDanglingMemory = false;
+                if (edge.memoryIdx() >= 0 && !liveGraphSlots.isEmpty()
+                        && !liveGraphSlots.contains(edge.memoryIdx())) {
+                    hasDanglingMemory = true;
+                }
+
+                // Determine quarantine reason
+                QuarantineReason reason = null;
+                if (allDangling && hasDanglingEntity) {
+                    reason = QuarantineReason.ORPHANED_HYPEREDGE;
+                } else if (hasDanglingEntity) {
+                    reason = QuarantineReason.DANGLING_ENTITY;
+                } else if (hasDanglingMemory) {
+                    reason = QuarantineReason.DANGLING_MEMORY;
+                }
+
+                if (reason != null && !quarantineRegistry.isQuarantined(edgeId)) {
+                    quarantineRegistry.quarantine(edgeId, reason);
+                    quarantinedHypergraph++;
+                    repairsCount++;
+                    log.debug("Quarantined hyperedge edgeId={} reason={}", edgeId, reason);
+                }
+
+                hypergraphScanCursor.set(edgeId + 1);
+            }
+
+            // Wrap cursor if we've exhausted the range
+            if (!truncated) {
+                hypergraphScanCursor.set(0);
+            }
+        }
+
         long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNs);
         IndexReconcileReport report = new IndexReconcileReport(
                 scannedEntities, missingReverse, danglingReverse, repairedReverse,
                 scannedLexical, missingLexical, staleLexical, repairedLexical,
                 scannedSplade, missingSplade, staleSplade, repairedSplade,
+                scannedHypergraph, quarantinedHypergraph, 0L,
                 elapsedMs, truncated
         );
 
@@ -325,6 +438,13 @@ public final class IndexReconcileEngine {
         }
 
         return report;
+    }
+
+    /**
+     * Returns the quarantine registry for hypergraph vertex quarantine (Phase 2.1, #946).
+     */
+    public QuarantineRegistry quarantineRegistry() {
+        return quarantineRegistry;
     }
 
     public long maxTimeSliceMs() {
@@ -342,4 +462,9 @@ public final class IndexReconcileEngine {
     int lexicalScanCursor() {
         return lexicalScanCursor.get();
     }
+
+    int hypergraphScanCursor() {
+        return hypergraphScanCursor.get();
+    }
 }
+
