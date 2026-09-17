@@ -14,6 +14,9 @@ package com.spectrayan.spector.synapse.cluster.gateway;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.spectrayan.spector.cluster.gateway.ForwardRequest;
+import com.spectrayan.spector.cluster.gateway.ForwardResponse;
+import com.spectrayan.spector.cluster.gateway.GatewayForwarder;
 import com.spectrayan.spector.cluster.node.NodeRole;
 import com.spectrayan.spector.cluster.routing.RoutingKey;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
