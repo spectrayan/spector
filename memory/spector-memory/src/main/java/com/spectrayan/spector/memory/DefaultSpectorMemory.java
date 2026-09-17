@@ -215,6 +215,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     private final MemoryObservationHook hook;
     private final com.spectrayan.spector.memory.index.IndexPlaneCoordinator indexPlaneCoordinator;
+    private final com.spectrayan.spector.memory.index.IndexReconcileEngine indexReconcileEngine;
 
     DefaultSpectorMemory(SpectorMemoryBuilder builder) {
         var bundle = SpectorMemoryFactory.assemble(builder);
@@ -322,6 +323,12 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.hook = builder.hook() != null ? builder.hook() : MemoryObservationHook.NOOP;
         this.sharedPathways = builder.sharedPathways();
 
+        this.indexReconcileEngine = new com.spectrayan.spector.memory.index.IndexReconcileEngine(
+                this.entityDirectory,
+                this.index,
+                this.bm25Index
+        );
+
         //  Quartz Memory Scheduler (In-Memory Multi-Tenant Background Scheduling & Auditing)
         if (builder.scheduler() != null) {
             this.memoryScheduler = builder.scheduler();
@@ -343,6 +350,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                                     bundle.aismeBundle().homeostaticCore(),
                                     aismeConfig.backgroundDecayFactor()) : null)
                     .checkpointIntervalSeconds(memProps.getCheckpointIntervalSeconds())
+                    .indexReconcileEngine(this.indexReconcileEngine)
                     .suppliedExecutor(builder.suppliedExecutor())
                     .quartzScheduler(builder.customQuartzScheduler())
                     .build();
@@ -1626,6 +1634,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     public DreamPathway dreamPathway() { return dreamPathway; }
     public WanderPathway wanderPathway() { return wanderPathway; }
     public com.spectrayan.spector.memory.index.IndexPlaneCoordinator indexPlaneCoordinator() { return indexPlaneCoordinator; }
+    public com.spectrayan.spector.memory.index.IndexReconcileEngine indexReconcileEngine() { return indexReconcileEngine; }
 
     public void bindRecallSignalContext(com.spectrayan.spector.memory.pathway.recall.relay.RecallSignal signal) {
         if (signal == null) return;

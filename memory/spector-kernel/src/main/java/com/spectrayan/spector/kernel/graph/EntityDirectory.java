@@ -883,6 +883,18 @@ public class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLayout> 
     }
 
     /**
+     * Ensures the reverse mapping between the given memory slot and entity id exists.
+     *
+     * @param memorySlot slot index in cognitive router / working memory
+     * @param entityId   internal entity id
+     * @return true if the mapping was newly added, false if already present
+     */
+    public boolean repairMemoryToEntityMapping(int memorySlot, int entityId) {
+        if (memorySlot < 0 || entityId < 0 || entityId >= entityCount) return false;
+        return memoryToEntities.computeIfAbsent(memorySlot, k -> ConcurrentHashMap.newKeySet()).add(entityId);
+    }
+
+    /**
      * Rebuilds the in-memory reverse index from the authoritative memory-mapped adjacency segment.
      */
     public void rebuildReverseIndex() {

@@ -222,6 +222,20 @@ public final class MemoryBM25Index extends AbstractMemoryIndex<BM25Index> {
     }
 
     /**
+     * Checks if a document ID is present in any partition.
+     *
+     * @param id memory identifier
+     * @return true if present
+     */
+    public boolean contains(String id) {
+        if (id == null || partitions.isEmpty()) return false;
+        for (BM25Index idx : partitions) {
+            if (idx.contains(id)) return true;
+        }
+        return false;
+    }
+
+    /**
      * Persists the active BM25 index into a V4 {@link RuntimeBundle} with dynamic variable-slice growth.
      *
      * <p>If the serialized BM25 index payload exceeds the current {@link RegionId#BM25} region size,

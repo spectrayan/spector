@@ -429,6 +429,17 @@ public class BM25Index implements KeywordIndex {
         }
     }
 
+    @Override
+    public boolean contains(String id) {
+        if (id == null) return false;
+        rwLock.readLock().lock();
+        try {
+            return docIdToIndex.containsKey(id);
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
     // ─────────────── Binary Persistence (bm25.bidx) ───────────────
 
     /** Magic bytes for the BM25 binary index file format. */

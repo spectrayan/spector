@@ -267,6 +267,17 @@ public class SpladeIndex implements KeywordIndex {
     }
 
     @Override
+    public boolean contains(String id) {
+        if (id == null) return false;
+        rwLock.readLock().lock();
+        try {
+            return docIdToIndex.containsKey(id);
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    @Override
     public void close() {
         rwLock.writeLock().lock();
         try {
