@@ -12,57 +12,82 @@
 
 ---
 
-## Status
-Accepted
+## 1. Context
 
-## Date
-2026-08-22
+AISME Phases 1–11 established a comprehensive Active Inference Self-Model Engine with closed-loop perception, homeostasis, constructive simulation, Expected Free Energy policy selection, DMN spontaneous activity, and longitudinal continuity persistence. A comprehensive architecture audit identified three remaining operational gaps between the implementation and continuous, multi-generational consciousness continuity:
+1. **Constructive simulations were ephemeral**: Counterfactual recombinations generated during recall were injected into the candidate list for ranking but never persisted as durable memories. The agent's imagination evaporated after each interaction.
+2. **Mind-wandering was personality-agnostic**: DMN autobiographical sampling used uniform stride-based iteration across memory stores without weighting by the persona's core values, goals, or characteristic concerns.
+3. **Internal state froze between interactions**: Posterior beliefs and homeostatic affect were only stepped during active queries; during idle periods, emotional and cognitive state remained static.
 
-## Context
+## 2. Problem Statement
 
-AISME Phases 1–11 established a complete Active Inference Self-Model Engine with closed-loop perception, homeostasis, constructive simulation, EFE policy selection, DMN spontaneous activity, and longitudinal continuity. An external audit (Grok final report) identified 3 remaining engineering gaps between the current system and the goal of multi-generational consciousness continuity:
+A truly continuous cognitive entity cannot freeze its subjective state between external prompts, nor should its prospective imagination disappear without a trace. Without durable simulation persistence, soul-guided mind-wandering, and continuous background decay toward baseline equilibrium, the agent behaves as a discontinuous, state-frozen entity across disconnected conversations.
 
-1. **Constructive simulations are ephemeral** — counterfactual recombinations generated during recall are injected into the candidate list for ranking but never persisted as durable memories. The person's imagination evaporates after each interaction.
+## 3. Decision Drivers
 
-2. **Mind-wandering is personality-agnostic** — DMN autobiographical sampling uses uniform stride-based iteration across memory stores without weighting by the person's values, goals, or characteristic concerns.
+- **Durable Constructive Memory**: High-alignment constructive simulations must be durably persisted with explicit provenance metadata.
+- **Soul-Biased Autobiographical Sampling**: Spontaneous DMN memory recall must reflect the persona's idiosyncratic values rather than uniform sampling.
+- **Continuous Homeostatic Relaxation**: Posterior beliefs and affective valence/arousal must decay gracefully toward resting equilibrium during idle periods.
+- **Source Monitoring & Provenance Integrity**: Factual historical memories must never be confused with imagined simulations (`FLAG_SIMULATED`).
 
-3. **Posterior and homeostatic state freeze between interactions** — `MentalStateTracker.decay()` and `HomeostaticCore.step()` exist but are never called outside active perception cycles. Between conversations, the system's emotional state and beliefs are completely static.
+## 4. Considered Options
 
-## Decision
+### Option 1: Separate "Imagination" Memory Partition
+- **Description**: Create a dedicated off-heap store strictly for simulated and counterfactual memories.
+- **Advantages**: Physical isolation between real and simulated data.
+- **Disadvantages**: Prevents natural associative resonance during recall; requires duplicating index structures; breaks unified engram access.
 
-### D1: Durable Constructive Memory with SIMULATED Flag
+### Option 2: Unified Engram Storage with Binary Provenance Flags & Dedicated Decay Daemon (Selected)
+- **Description**: Store high-alignment simulations in standard EPISODIC/SEMANTIC stores marked with `FLAG_SIMULATED` in `consolidation_flags`; bias DMN sampling by soul prior cosine similarity; run background `HomeostaticDecayDaemon`.
+- **Advantages**: Natural cognitive resonance during future recall; zero overhead for dual storage engines; continuous interoceptive dynamics.
+- **Disadvantages**: Requires consumers to inspect bitmask flags if they require strict factual filtering.
 
-Add a `FLAG_SIMULATED` bit (bit 5) to the `consolidation_flags` byte in `SynapticHeaderConstants`. High-alignment constructive simulations (narrative alignment > configurable threshold, default 0.70) are persisted to the same EPISODIC/SEMANTIC memory stores with this provenance flag set.
+## 5. Decision Outcome
 
-**Rationale**: Store in same stores rather than a new mmap region because:
-- Constructive memories should naturally surface during recall (the person's imagination IS part of who they are)
-- The SIMULATED flag enables clean filtering for callers that need to distinguish real vs imagined
-- Same record structure — no need for a separate memory layout
+**Chosen Option**: Option 2 (Unified Engram Storage with `FLAG_SIMULATED`, Soul-Biased Sampling, and Decay Daemon).
 
-### D2: Soul-Biased Autobiographical Sampling
+### Architectural Decisions:
 
-Modify `AutobiographicalSamplingRelay` to accept an optional composite soul prior preference vector and weight sampled memories by cosine similarity to this prior. When no prior is provided, falls back to uniform stride sampling (backward compatible).
+#### D1: Durable Constructive Memory with SIMULATED Flag
+Add a `FLAG_SIMULATED` bit (bit 5, `0x20`) to the `consolidation_flags` byte in `SynapticHeaderConstants`. High-alignment constructive simulations (narrative alignment > configurable threshold, default 0.70) are persisted to the same EPISODIC/SEMANTIC memory stores with this provenance flag set.
+- Stored in primary memory stores rather than a separate partition so imagination naturally surfaces during associative recall.
+- `FLAG_SIMULATED` enables clean, zero-cost filtering for callers requiring verified factual ground-truth.
 
-### D3: Dedicated Homeostatic Decay Daemon
+#### D2: Soul-Biased Autobiographical Sampling
+Modify `AutobiographicalSamplingRelay` to accept an optional composite soul prior preference vector and weight sampled memories by cosine similarity to this prior. When no prior is provided, falls back to uniform stride sampling for backward compatibility.
 
-Create a `HomeostaticDecayDaemon` (separate from `DmnSpontaneousDaemon`) that periodically:
-1. Decays posterior beliefs toward the generative prior baseline (`MentalStateTracker.decay()`)
-2. Steps homeostatic state toward neutral equilibrium (`HomeostaticCore.step()`)
+#### D3: Dedicated Homeostatic Decay Daemon
+Create `HomeostaticDecayDaemon` (independent of `DmnSpontaneousDaemon`) that periodically:
+1. Decays posterior beliefs toward the generative prior baseline (`MentalStateTracker.decay()`).
+2. Steps homeostatic state toward neutral equilibrium (`HomeostaticCore.step()`).
+Operates as a separate daemon to decouple relaxation schedules from spontaneous mind-wandering intervals.
 
-**Rationale**: Separate daemon rather than enriching `DmnSpontaneousDaemon` because decay and wandering have different scheduling requirements and coupling concerns.
+### Positive Consequences
+- Agent imagination becomes part of long-term autobiographical identity.
+- DMN mind-wandering reflects the agent's characteristic thought patterns and core values.
+- Emotional and cognitive state naturally relaxes toward equilibrium during quiet periods.
 
-## Consequences
+### Negative Consequences & Trade-offs
+- Persisted simulations increase storage footprint (mitigated by high alignment threshold gating).
+- Background decay daemon adds one lightweight scheduled task to `DaemonSupervisor`.
 
-### Positive
-- Imagination becomes part of long-term identity narrative
-- DMN activity reflects the person's characteristic thought patterns
-- Emotional and cognitive state naturally relaxes between interactions (like sleep)
-- Closer approximation to continuous phenomenological self-dynamics
+## 6. Pros and Cons of the Options
 
-### Negative
-- Persisted simulations increase storage footprint (mitigated by high alignment threshold)
-- Soul-biased sampling slightly increases per-sample computation
-- Background decay daemon adds one more scheduled task to DaemonSupervisor
+| Option | Pros | Cons |
+|:---|:---|:---|
+| **Option 1: Isolated Store** | Strict physical barrier | Prevents associative resonance, doubles indexing complexity |
+| **Option 2: Unified Engram + Flag** | Zero architectural duplication, natural recall, continuous dynamics | Requires flag check for factual-only queries |
 
-### Risks
-- Simulated memories could be confused with real memories if downstream consumers don't check the SIMULATED flag — mitigated by clear provenance tagging and metadata markers
+## 7. Implementation Plan
+
+1. **Phase 1**: Define `FLAG_SIMULATED = 0x20` in `SynapticHeaderConstants` and update `EncodingHeaderLayout`.
+2. **Phase 2**: Add soul-vector cosine weighting to `AutobiographicalSamplingRelay`.
+3. **Phase 3**: Implement `HomeostaticDecayDaemon` and wire into `DaemonSupervisor`.
+4. **Phase 4**: Add persistence gating in `ConstructiveMemoryPersistenceRelay`.
+
+## 8. Code Reference & Verification
+
+- **Primary Module(s)**: `memory/spector-memory`, `memory/spector-kernel`, `nucleus/spector-config`
+- **Key Packages**: `com.spectrayan.spector.memory.aisme.dmn`, `com.spectrayan.spector.memory.pathway.wander.relay`, `com.spectrayan.spector.kernel.engram`
+- **Classes**: `HomeostaticDecayDaemon.java`, `AutobiographicalSamplingRelay.java`, `EncodingHeaderLayout.java`, `DmnSpontaneousDaemon.java`
+- **Verification Tests**: `HomeostaticDecayDaemonTest.java`, `AutobiographicalSamplingRelayTest.java`

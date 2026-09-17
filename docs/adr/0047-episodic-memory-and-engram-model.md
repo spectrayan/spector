@@ -1,4 +1,4 @@
-# ADR-0010-S: Engram Model — Stores, Facade Split, and Class Hierarchy
+# ADR-0047: Episodic Memory and Engram Model Hierarchy
 
 | Field | Value |
 |:---|:---|
@@ -7,18 +7,17 @@
 | **Authors** | Spector Maintainers & Architecture Working Group |
 | **Deciders** | Spector Technical Steering Committee (TSC) |
 | **Supersedes** | None |
-| **Superseded By** | None |
+| **Superseded By** | ADR-0030 (Engram Header Alignment) |
 | **Last Verified** | 2026-09-16 (Verified against `main`) |
 
 ---
 
-**Status:** design discussion (not an ADR revision)  
-**Date:** 3 September 2026  
-**Constraint:** stay on existing Spector types (`SpectorMemory`, ISP, pathways, `*RecordMemory`). Invented names from earlier drafts are withdrawn.
 
----
+## 1. Context
 
-## 1. What this is
+This Architectural Decision Record provides the detailed class hierarchy, store model, facade decomposition, and interaction sequences for the engram storage architecture established in ADR-0046.
+
+### Architectural Scope
 
 Four tier stores. One encoding-header type. Strength in its own region. No second write API. No `MemoryEngine`. No `TraceLog`. No `TraceKind`.
 
@@ -35,7 +34,7 @@ If facts and skills do not live in that store, a TURN/FACT/SKILL discriminator o
 
 ---
 
-## 2. Vocabulary
+### Canonical Terminology & Domain Vocabulary
 
 | Term | Meaning | Not |
 |---|---|---|
@@ -91,7 +90,29 @@ classDiagram
 
 ---
 
-## 3. Facade: keep `SpectorMemory`, split the impl
+## 2. Problem Statement
+
+A robust cognitive architecture requires clean conceptual boundaries between domain operations and underlying physical off-heap storage:
+1. **Monolithic API Surface**: Implementing all ingestion, query, consolidation, and administrative methods in a single monolithic implementation class creates tight coupling and makes unit testing individual cognitive pathways unwieldy.
+2. **Ambiguous Store Typing**: Treating all memory categories as homogenous byte blobs risks type punning and prevents type-safe queries on episodic conversations versus semantic assertions.
+3. **Pipeline vs Pathway Divergence**: Legacy code mixed procedural `Pipeline` patterns with event-driven `Pathway` execution graphs.
+
+## 3. Decision Drivers
+
+- **Facade Delegation over Inheritance**: Keep the clean `SpectorMemory` public interface for consumers while decomposing the internal implementation into focused, single-responsibility delegates.
+- **Strict Cognitive Typing**: Distinct physical store classes (`EpisodicMemory`, `SemanticMemory`, `ProceduralMemory`, `WorkingMemory`) sharing a common engram identity model.
+- **Explicit Sequence Invariants**: Deterministic, verifiable ordering of operations during remember, recall, and consolidation cycles.
+- **Zero Ambiguity in Data Flow**: Direct, linear sequence diagrams for all major cognitive pathways.
+
+## 4. Considered Options
+
+### Facade Decomposition: Inheritance vs. Delegation
+- **Inheritance (`DefaultSpectorMemory extends DefaultMemoryRemember...`)**: Rejected. Deep inheritance hierarchies create brittle coupling, diamond-dependency issues, and violate composition principles.
+- **Delegation (`DefaultSpectorMemory` composing focused delegate classes)**: Selected. Allows each delegate (`DefaultMemoryRemember`, `DefaultMemoryRecall`, `DefaultMemoryReflection`) to be independently instantiated, mocked, and tested.
+
+## 5. Decision Outcome
+
+### Facade Architecture & Decomposition
 
 Do **not** add `MemoryEngine`. The public surface already exists and is ISP-correct:
 
@@ -196,7 +217,7 @@ Shared mutable cortex (`EpisodicMemory`, `SemanticMemory`, `StrengthRecordMemory
 
 ---
 
-## 4. One remember method
+### Unified Ingestion Signature
 
 ```text
 spectorMemory.remember(id, text, MemoryType.EPISODIC,   source, context, tags);
@@ -210,7 +231,7 @@ No `rememberEpisode`. Role, session, sequence live on `IngestionContext` (or the
 
 ---
 
-## 5. Four stores, one header type
+### Physical Store Schemas & Header Placements
 
 ```mermaid
 flowchart TB
@@ -277,7 +298,7 @@ Strength row     [ D | S | counts | lastUse ]     // RegionId.STRENGTH
 
 ---
 
-## 6. Header accessors named after the store
+### Store-Specific Header Accessors
 
 One layout. Three accessors. Javadoc states what the 64 bytes hold; the type name states which store computes the address.
 
@@ -325,7 +346,7 @@ Today’s `HeaderLayout64` / V2 become `EncodingHeaderLayout` when renamed. `Epi
 
 ---
 
-## 7. Strength region (today’s `AUDIT`)
+### Strength Region Management
 
 Yes: the proposed strength store **is** `AuditRecordMemory` on `RegionId.AUDIT` (id = 4). ADR-0028 already put \(S\), \(D\), recall counts, and last use there. “Audit” reads as a log. Rename the enum and the classes; **keep id 4**.
 
@@ -341,7 +362,7 @@ Javadoc on `RegionId.STRENGTH`: per-engram retrieval strength \(D\), storage str
 
 ---
 
-## 8. Lineage
+### Lineage & Provenance Metadata
 
 `LineageRecordMemory`, same `*RecordMemory` pattern.
 
@@ -351,7 +372,7 @@ If `PROVENANCE_LOG` already stores parent ids, use it and do not add a region. O
 
 ---
 
-## 9. Class model — stores and projections
+### Class Model: Stores and Projections
 
 ```mermaid
 classDiagram
@@ -439,7 +460,7 @@ classDiagram
 
 ---
 
-## 10. Pathways, not pipelines
+### Cognitive Pathways Architecture
 
 ```mermaid
 classDiagram
@@ -490,8 +511,9 @@ Never `semantic.readHeader(episodeLogOffset)`.
 
 ---
 
-## 11. Sequence — remember (`MemoryType.EPISODIC`)
+### End-to-End Sequence Diagrams
 
+#### Remember Sequence (`MemoryType.EPISODIC`)
 ```mermaid
 sequenceDiagram
   actor Caller
@@ -520,8 +542,7 @@ sequenceDiagram
 
 ---
 
-## 12. Sequence — recall
-
+#### Recall Sequence
 ```mermaid
 sequenceDiagram
   actor Caller
@@ -548,8 +569,7 @@ sequenceDiagram
 
 ---
 
-## 13. Sequence — consolidate (`ReflectPathway`)
-
+#### Consolidation Sequence (`ReflectPathway`)
 ```mermaid
 sequenceDiagram
   participant FP as ReflectPathway
@@ -568,7 +588,38 @@ sequenceDiagram
 
 ---
 
-## 14. Packages
+### Physical Layout of Episode Records
+
+```text
+EpisodicMemory region (append-only)
+
+record:
+  +0    WalkPrefix          32B
+  +32   EncodingHeader      64B
+  +96   episode payload     N
+  next  = 96 + N
+```
+
+Salience walk: read 64 bytes at `+32`, jump `96+N`. No CBOR.
+
+Facts stay in `SemanticMemory`. Skills stay in `ProceduralMemory`. Episode vectors stay in the vector index. \(D\)/\(S\) stay in `RegionId.STRENGTH`.
+
+---
+
+## 6. Pros and Cons of the Options
+
+### Positive
+- **High Cohesion**: Each store and delegate has a single, well-defined operational responsibility.
+- **Clear Execution Flow**: Sequences clearly demarcate WAL append, vector projection, graph expansion, and strength updates.
+- **Type Safety**: Specialized engram types prevent misinterpreting semantic facts as episodic dialogue turns.
+
+### Negative / Trade-offs
+- **Class Count**: Introduces multiple specialized classes and delegates across `com.spectrayan.spector.memory`.
+- **Indirection**: Public facade methods involve a lightweight forwarding hop to delegate instances.
+
+## 7. Implementation Plan
+
+### Package Organization & Visibility
 
 ```text
 com.spectrayan.spector.memory
@@ -603,7 +654,7 @@ com.spectrayan.spector.memory
 
 ---
 
-## 15. Java patterns
+### Java Idioms & Coding Patterns
 
 | Pattern | Where |
 |---|---|
@@ -629,25 +680,7 @@ com.spectrayan.spector.memory
 
 ---
 
-## 16. Physical episode record
-
-```text
-EpisodicMemory region (append-only)
-
-record:
-  +0    WalkPrefix          32B
-  +32   EncodingHeader      64B
-  +96   episode payload     N
-  next  = 96 + N
-```
-
-Salience walk: read 64 bytes at `+32`, jump `96+N`. No CBOR.
-
-Facts stay in `SemanticMemory`. Skills stay in `ProceduralMemory`. Episode vectors stay in the vector index. \(D\)/\(S\) stay in `RegionId.STRENGTH`.
-
----
-
-## 17. Name map
+### Class & Subsystem Migration Map
 
 | Withdrawn draft name | Use |
 |---|---|
@@ -667,10 +700,26 @@ Kernel types not renamed in this pass: `Memory`, `AbstractMemory`, `MemoryHeader
 
 ---
 
-## 18. Open choices
+### Open Design Choices & Trade-off Log
 
 1. Fact vectors stay inline in the semantic slot, or also go through a shared vector slab.
 2. Episode payload: CBOR vs packed binary — hidden by `EpisodeCodec`.
 3. `WalkPrefix` timestamp vs header timestamp — write both, header wins for recall.
 4. Lineage in `PROVENANCE_LOG` vs a new `LINEAGE` region.
 5. How small `DefaultSpectorMemory` gets: if `SpectorMemoryAdmin` stays on the same class, keep admin as the fourth delegate rather than growing the facade again.
+
+## 8. Code Reference & Verification
+
+All structural contracts, memory offsets, and class hierarchies are verified against the codebase:
+- **Unified Facade**: `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/core/SpectorMemory.java`
+- **Delegate Implementations**:
+  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/core/DefaultMemoryRemember.java`
+  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/core/DefaultMemoryRecall.java`
+  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/core/DefaultMemoryReflection.java`
+- **Engram Storage Implementations**:
+  - `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/record/EpisodicMemory.java`
+  - `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/record/SemanticMemory.java`
+- **Cognitive Pathway Invocations**:
+  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/cortex/pathway/RememberPathway.java`
+  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/cortex/pathway/RecallPathway.java`
+  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/cortex/pathway/ReflectPathway.java`

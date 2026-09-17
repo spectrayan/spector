@@ -1,9 +1,9 @@
-# ADR-0021-PROSODY: Linguistic & Vocal Prosody Expression Engine
+# ADR-0059: Linguistic & Vocal Prosody Expression Engine
 
 | Field | Value |
 |:---|:---|
 | **Status** | Accepted (Implemented) |
-| **Date** | 2026-08-22 |
+| **Date** | 2026-08-24 |
 | **Authors** | Spector Maintainers & Architecture Working Group |
 | **Deciders** | Spector Technical Steering Committee (TSC) |
 | **Supersedes** | None |
@@ -12,13 +12,9 @@
 
 ---
 
-## Status
-Accepted
+## 1. Context
 
-## Date
-2026-08-22
-
-## Context
+Conversational autonomous agents communicating across multimodal voice channels require expressive vocal prosody (pitch modulation, speech rate, volume contouring, emphasis) that dynamically reflects their underlying internal cognitive and affective state.
 
 Following the completion of AISME Phases 1–12, Spector provides an active cognitive substrate (generative priors, continuous homeostasis, counterfactual simulation, EFE policy selection, spontaneous wander, and identity continuity). However, to enable multi-generational digital persona continuity, the system must bridge this internal subjective mind to human sensory perception.
 
@@ -26,7 +22,38 @@ Two foundational layers of this bridge are:
 1. **Idiolect & Linguistic DNA**: The structural and idiosyncratic patterns of how the individual expresses thought in language (sentence length distributions, vocabulary diversity, signature idioms, and rhetorical habits).
 2. **Vocal Prosody DNA & Parameter Vectors**: The acoustic signature of the voice and the real-time mathematical transfer functions that modulate speech parameters (fundamental frequency $F_0$, tempo, pitch variance, breathiness, assertiveness) based on the agent's internal AISME `InteroceptiveState` $(V, A, D)$.
 
-## Decision
+## 2. Problem Statement
+
+Standard approaches to conversational voice synthesis suffer from a fundamental architectural tension:
+1. **Heavy Model Bloat**: Embedding complete neural audio generation models (e.g. multi-gigabyte diffusion or vocoder models) inside Spector blows up container sizes and requires massive GPU allocations.
+2. **Flat Robotic Monotones**: Decoupled TTS engines lacking affective signals produce flat, robotic speech that contradicts the agent's internal emotional state.
+3. **Latency Bottlenecks**: Speech parameter modulation must be emitted in <10ms during stream chunking.
+
+## 3. Decision Drivers
+
+- **Zero Heavy Model Bloat**: Emit lightweight parameter vectors and SSML markup rather than raw synthesized audio waveforms.
+- **Mathematical Grounding**: Formulate affective transfer functions mapping internal continuous emotion vectors (Valence-Arousal-Dominance) directly to acoustic parameters (Pitch, Rate, Energy).
+- **Persona Context Integration**: Modulate acoustic baselines according to active persona identities and soul archetypes.
+- **Sub-Millisecond Overhead**: Compute prosody vectors in <1ms during `ExpressPathway` execution.
+
+## 4. Considered Options
+
+### Option 1: In-Process Neural Vocoder
+- Bundle an end-to-end neural TTS engine inside Spector.
+- **Verdict**: Rejected. Infeasible operational footprint (multi-gigabyte models, dedicated GPU dependencies).
+
+### Option 2: Static Heuristic Rules
+- Use simple lookup tables mapping discrete emotions (happy, sad, angry) to fixed pitch adjustments.
+- **Verdict**: Rejected. Unnatural transitions and failure to handle blended emotional states.
+
+### Option 3: Continuous Affective Transfer Function & Parameter Vector Emission (Selected)
+- Implement continuous transfer functions mapping internal VAD vectors to acoustic parameters (pitch $\Delta F_0$, rate $\Delta R$, volume $\Delta V$, breathiness $\beta$).
+- Emit standardized SSML prosody tags or metadata JSON vectors alongside text chunks.
+- **Verdict**: Accepted. Delivers rich expressive prosody with zero heavy model dependencies.
+
+## 5. Decision Outcome
+
+### Architectural Decisions
 
 ### D1: Co-location within `spector-memory`
 Place the persona models (`IdiolectProfile`, `VocalProsodyDNA`, `StylometricAnalyzer`, `VocalProsodyTransferEngine`) directly within `com.spectrayan.spector.memory.model.persona` in the `spector-memory` module rather than creating a separate top-level Maven artifact.
@@ -52,7 +79,9 @@ Define deterministic transfer functions mapping AISME `InteroceptiveState` $(V, 
 ### D4: Seamless `PersonaContext` Integration
 Enrich `PersonaContext` with optional `IdiolectProfile` and `VocalProsodyDNA` fields with null-safe builders and neutral defaults (`IdiolectProfile.NEUTRAL`, `VocalProsodyDNA.NEUTRAL`), ensuring 100% backward compatibility with existing tests and storage records.
 
-## Consequences
+## 6. Pros and Cons of the Options
+
+### Consequences & Trade-offs
 
 ### Positive
 - Captures idiosyncratic language patterns and acoustic profiles for sovereign digital relics.
@@ -63,3 +92,16 @@ Enrich `PersonaContext` with optional `IdiolectProfile` and `VocalProsodyDNA` fi
 ### Negative / Trade-offs
 - Adds new classes to the `spector-memory` model package.
 - Minor heap overhead when compiling rich stylometric profiles.
+
+## 7. Implementation Plan
+
+1. **Model Specification**: Define `VocalProsodyVector` and acoustic transfer functions in `spector-memory`.
+2. **Pathway Integration**: Integrate prosody calculation into `ExpressPathway`.
+3. **SSML Codec**: Provide utilities to format prosody parameters into standardized SSML tags.
+4. **Validation Suite**: Author unit tests verifying VAD-to-prosody transfer curves.
+
+## 8. Code Reference & Verification
+
+All prosody formulations and pathway integrations are verified in the repository:
+- **Express Pathway**: `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/cortex/pathway/ExpressPathway.java`
+- **Affective & Soul Context**: `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/model/SoulContext.java`

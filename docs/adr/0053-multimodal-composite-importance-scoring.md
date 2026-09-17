@@ -1,4 +1,4 @@
-# ADR-0014-RND: Multimodal Composite Importance Scoring
+# ADR-0053: Multimodal Composite Importance Scoring
 
 | Field | Value |
 |:---|:---|
@@ -12,12 +12,12 @@
 
 ---
 
-**Epic**: Active Inference Self-Model Engine (AISME) — Phase 6  
-**Tracking Issue**: `spectrayan/spector#633`  
 
----
+## 1. Context
 
-## 1. Executive Summary & Biological Analog
+In cognitive architectures and autobiographical memory systems, not all experiences warrant equal long-term storage investment. Biological brains rely on neuromodulatory systems (dopamine, norepinephrine, acetylcholine) to prioritize emotionally intense, surprising, or goal-critical events for rapid consolidation.
+
+### Executive Summary & Biological Analog
 
 Biological episodic memory consolidation is not a photographic recording of all sensory events; rather, it is a ruthlessly selective filtering process modulated by neuromodulators (dopamine, norepinephrine, acetylcholine) and limbic-prefrontal circuits.
 
@@ -31,7 +31,38 @@ This paper formalizes the unified computational architecture for **Composite Imp
 
 ---
 
-## 2. Mathematical Formulation
+## 2. Problem Statement
+
+Standard conversational memory frameworks assign flat or simplistic heuristic importance scores (e.g. word counts, entity counts, or naive turn order):
+1. **Monolithic Scoring Bias**: Relying on a single heuristic fails to capture complex interactions between emotional valence, surprise, goal relevance, and social cues.
+2. **Flashbulb Memory Omission**: Highly consequential events (e.g. safety emergencies, user corrections, commitments) must be permanently retained with near-zero decay, whereas routine small talk should fade rapidly.
+3. **Computational Bottlenecks**: Computing five multi-modal cognitive metrics sequentially on the JVM heap degrades real-time conversational latency.
+
+## 3. Decision Drivers
+
+- **Multimodal Signal Fusion**: Integrate 5 distinct cognitive signals: epistemic surprise, affective resonance, goal relevance, social context significance, and epistemic novelty.
+- **Dynamic Profile Adaptability**: Support persona- and soul-conditioned weighting vectors so analytical personas prioritize epistemic surprise while empathetic personas prioritize affective resonance.
+- **Hardware Acceleration**: Implement vectorized SIMD dot products using Java Panama Vector API to evaluate importance fusion in $<50\mu s$.
+- **Nonlinear Flashbulb Gating**: Implement a biological flashbulb gating function ensuring events exceeding critical salience thresholds bypass normal forgetting curves.
+
+## 4. Considered Options
+
+### Option 1: Single Scalar Heuristic (e.g., TF-IDF / Length Weighting)
+- Score memory importance based on lexical rarity or sentence length.
+- **Verdict**: Rejected. Incapable of distinguishing critical emotional commitments from verbose filler text.
+
+### Option 2: Synchronous LLM Importance Evaluator
+- Call an external LLM on every turn to output an integer score (1-10).
+- **Verdict**: Rejected. Introduces 300–800ms latency, high cost, and severe variance.
+
+### Option 3: Vectorized Multimodal Composite Importance Fusion (Selected)
+- Synthesize 5 orthogonal normalized signal components into a composite score using vectorized dot-product weighting and nonlinear flashbulb gating.
+- Implement in `nucleus/spector-core` and bridge to `spector-memory` via `CompositeImportanceScorer`.
+- **Verdict**: Accepted. Combines cognitive fidelity with sub-millisecond execution.
+
+## 5. Decision Outcome
+
+### Mathematical Formulation & Five-Signal Fusion
 
 ### 2.1 Component Signal Vector \(\boldsymbol{s}(o_t)\)
 
@@ -109,7 +140,7 @@ If \(I(o_t) \ge \theta_{\text{flashbulb}}\) (default \(0.85\)):
 
 ---
 
-## 3. SIMD Acceleration & Memory Architecture
+### SIMD Acceleration & Memory Architecture
 
 Evaluating \(I(o_t)\) on the sensory ingestion hot path demands strictly sub-microsecond latency. Using Java 21 Vector API:
 ```java
@@ -124,9 +155,35 @@ public static float computeImportance(float[] signals, float[] weights) {
 
 ---
 
-## 4. Verification Protocol
+## 6. Pros and Cons of the Options
+
+### Positive
+- **High Cognitive Precision**: Multi-axis evaluation ensures critical interactions are accurately identified and preserved.
+- **Sub-50us Evaluation**: Panama Vector API implementation provides near-instantaneous dot-product calculations off-heap.
+- **Soul Customization**: Adapts smoothly to different agent personalities and domain requirements.
+
+### Negative / Trade-offs
+- **Signal Coordination**: Upstream pathways must supply calibrated input features (affective VAD scores, surprise values, goal matches).
+- **SIMD Architecture Dependency**: Requires fallback paths when running on hardware architectures without vector acceleration.
+
+## 7. Implementation Plan
+
+### Verification Protocol & Test Suites
 
 The implementation must pass:
 1. **Analytical Kernel Tests**: Exact mathematical verification for orthogonal and blended vectors.
 2. **Profile Adaptation Tests**: Proper dynamic weight reassignment across all 5 cognitive profiles.
 3. **Multi-Scenario Ingestion Simulation**: 1,000-signal benchmark simulating high-affect emotional disclosures, technical goal executions, and routine background chatter, validating distinct separation in $I(o_t)$ distribution.
+
+## 8. Code Reference & Verification
+
+All importance kernels, signal models, and relays are verified in the codebase:
+- **Core Math Kernel**:
+  - `nucleus/spector-core/src/main/java/com/spectrayan/spector/core/cognitive/CompositeImportanceKernel.java`
+  - `nucleus/spector-core/src/test/java/com/spectrayan/spector/core/similarity/CompositeImportanceKernelTest.java`
+- **Memory Importance Models & Scorer**:
+  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/importance/CompositeImportanceSignals.java`
+  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/importance/CompositeImportanceScorer.java`
+  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/relay/CompositeImportanceRelay.java`
+  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/model/ImportanceEstimate.java`
+  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/model/ImportanceBreakdown.java`

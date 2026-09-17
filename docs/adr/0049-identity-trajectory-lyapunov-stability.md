@@ -1,4 +1,4 @@
-# ADR-0010-RND: Identity Trajectory Lyapunov Stability
+# ADR-0049: Identity Trajectory Lyapunov Stability
 
 | Field | Value |
 |:---|:---|
@@ -12,14 +12,25 @@
 
 ---
 
-**Document ID**: `RND-2026-012`  
-**Authors**: Architecture Working Group (Cognitive Systems), Architecture Working Group (Systems Architecture), Technical Lead  
-**Status**: Approved & Active  
-**Date**: 2026-08-23  
+
+## 1. Context
+
+In biological organisms, autobiographical identity exhibits a remarkable property: the self continuously assimilates new memories, knowledge, and behavioral adaptations over an 80+ year lifespan, yet remains recognizably the same cohesive individual. This architectural decision establishes the formal control-theoretic and mathematical framework governing lifelong identity trajectories in Spector.
+
+### Biological Analog & Neurocognitive Foundations
+
+In the human brain, identity stability is governed by deep subcortical and insular-prefrontal homeostatic feedback loops:
+
+1. **Allostatic Setpoint Attraction (Insular & vmPFC Network):**
+   The ventromedial prefrontal cortex (vmPFC) and anterior insular cortex maintain stable, low-dimensional attractor states representing self-relevance and affective baselines (Damasio's *Proto-Self* and *Core-Self*).
+2. **Slow-Scale Epigenetic & Synaptic Grounding:**
+   While hippocampal and cortical synapses undergo high-plasticity daily remodeling, core autobiographical attractor networks are anchored by perineuronal nets (PNNs) and structural protein lattices that enforce an infinitesimal restoring bias toward foundational schemas.
+3. **Consolidation Re-anchoring:**
+   During Slow-Wave Sleep (SWS) and sharp-wave ripple (SWR) replay, downscaling is not purely relative; it is constrained by homeostatic reference signals that prevent synaptic weight explosion or divergence.
 
 ---
 
-## 1. Executive Summary & Problem Formulation
+## 2. Problem Statement
 
 In biological organisms, autobiographical identity exhibits a remarkable property: the self continuously assimilates new memories, knowledge, and behavioral adaptations over an 80+ year lifespan, yet remains recognizably the same cohesive individual. 
 
@@ -36,20 +47,31 @@ For $T = 36,500$ (100 years), $\lim_{T \to \infty} \|\boldsymbol{\mu}_T - \bolds
 
 ---
 
-## 2. Biological Analog & Neurocognitive Foundations
+## 3. Decision Drivers
 
-In the human brain, identity stability is governed by deep subcortical and insular-prefrontal homeostatic feedback loops:
+- **Lifelong Personality Coherence**: Prevent catastrophic personality drift or psychological divergence across decades of continuous active inference.
+- **Bounded Adaptive Plasticity**: Allow agents and cognitive personas to learn new facts, evolve habits, and adjust tone without erasing foundational constitutional traits.
+- **Formal Stability Guarantees**: Prove mathematically that the identity trajectory remains within a compact, stable attractor basin under arbitrary environmental perturbations.
+- **Measurable Continuity**: Provide explicit metrics to track and audit identity divergence over time.
 
-1. **Allostatic Setpoint Attraction (Insular & vmPFC Network):**
-   The ventromedial prefrontal cortex (vmPFC) and anterior insular cortex maintain stable, low-dimensional attractor states representing self-relevance and affective baselines (Damasio's *Proto-Self* and *Core-Self*).
-2. **Slow-Scale Epigenetic & Synaptic Grounding:**
-   While hippocampal and cortical synapses undergo high-plasticity daily remodeling, core autobiographical attractor networks are anchored by perineuronal nets (PNNs) and structural protein lattices that enforce an infinitesimal restoring bias toward foundational schemas.
-3. **Consolidation Re-anchoring:**
-   During Slow-Wave Sleep (SWS) and sharp-wave ripple (SWR) replay, downscaling is not purely relative; it is constrained by homeostatic reference signals that prevent synaptic weight explosion or divergence.
+## 4. Considered Options
 
----
+### Option 1: Static Frozen Personality Model
+- Hardcode persona weights and priors permanently, disabling parameter updates.
+- **Verdict**: Rejected. Eliminates adaptive personalization, experiential learning, and conversational rapport.
 
-## 3. Mathematical Formulation: Identity Trajectory Lyapunov Stability
+### Option 2: Unconstrained Online Plasticity
+- Allow unrestricted continuous SGD / Hebbian updates across all identity dimensions.
+- **Verdict**: Rejected. Inevitably suffers from the Divergence Theorem, where unbounded perturbations cause the agent to wander arbitrarily far from its baseline character.
+
+### Option 3: Soft Identity Anchor Control Law with Lyapunov Stability (Selected)
+- Introduce a restoring control force parameterized by core identity anchors and adaptive elasticity.
+- Mathematically guarantee asymptotic stability via Lyapunov function analysis.
+- **Verdict**: Accepted. Balances plastic adaptation with rigorous identity homeostasis.
+
+## 5. Decision Outcome
+
+### Mathematical Formulation & Control Dynamics
 
 ### 3.1 The 4-Component Identity State Vector
 Let the full cognitive state of an agent at epoch $t$ be represented by:
@@ -91,7 +113,7 @@ With $\eta_{\text{anchor}} = 10^{-4}$ and $\eta_{\text{exp}} = 5 \times 10^{-3}$
 
 ---
 
-## 4. Longitudinal Continuity Metric
+### Longitudinal Continuity Metric
 
 The continuity coefficient $C(t, t+\Delta) \in [0, 1]$ is computed as:
 
@@ -106,7 +128,20 @@ $$C(0, 10000) \ge 0.90$$
 
 ---
 
-## 5. Architectural Implementation in Spector
+## 6. Pros and Cons of the Options
+
+### Positive
+- **Proven Mathematical Safety**: Lyapunov proof guarantees that trajectory deviations decay exponentially to bounded equilibria.
+- **Graceful Adaptation**: Agents adapt to local conversational nuances while preserving their authentic soul identity.
+- **Observability**: Continuity scores provide automated telemetry for monitoring persona degradation or drift.
+
+### Negative / Trade-offs
+- **Restoring Torque Tuning**: Requires careful tuning of restoring coefficients ($\lambda$) to balance agility against stiffness.
+- **State Vector Overhead**: Tracking identity trajectory snapshots adds minor computational overhead during reflective consolidation cycles.
+
+## 7. Implementation Plan
+
+### Architectural Implementation & Component Topology
 
 ```
 [ReflectPathway]
@@ -129,3 +164,15 @@ $$C(0, 10000) \ge 0.90$$
 2. `SoftIdentityAnchorRelay`: Synaptic relay executing in `ReflectPathway`.
 3. `MentalStateTracker`: Coordinates prior adaptation and anchor restoration.
 4. `AismeConfig`: Houses hyperparameter switches (`identityAnchorEta`, `identityLyapunovThreshold`).
+
+## 8. Code Reference & Verification
+
+All identity stability mechanisms and simulation suites are verified in the codebase:
+- **Core Identity Anchor**:
+  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/continuity/CoreIdentityAnchor.java`
+- **Soft Identity Anchor Relay**:
+  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/relay/SoftIdentityAnchorRelay.java`
+- **Trajectory Snapshot Telemetry**:
+  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/continuity/IdentityTrajectorySnapshot.java`
+- **Multi-Decade Drift Simulation Test**:
+  - `memory/spector-memory/src/test/java/com/spectrayan/spector/memory/aisme/simulation/MultiDecadeIdentityDriftSimulationTest.java`

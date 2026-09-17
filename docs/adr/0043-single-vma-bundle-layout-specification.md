@@ -1,20 +1,20 @@
-# ADR-0004-S1: V4 Single-VMA Bundle Design Supplement
+# ADR-0043: Single-VMA Bundle Layout Specification
 
 | Field | Value |
 |:---|:---|
-| **Status** | Accepted (Implemented) |
+| **Status** | Superseded by ADR-0004 |
 | **Date** | 2026-08-04 |
 | **Authors** | Spector Maintainers & Architecture Working Group |
 | **Deciders** | Spector Technical Steering Committee (TSC) |
 | **Supersedes** | None |
-| **Superseded By** | None |
+| **Superseded By** | ADR-0004 |
 | **Last Verified** | 2026-09-16 (Verified against `main`) |
 
 ---
 
-> Class diagrams, sequence diagrams, and on-disk format aligned with the Spector Memory Kernel.
+## 1. Context
 
----
+In Spector Memory Kernel V3, off-heap storage was organized around individual `.smd` segment files per memory store. The class hierarchy was structured as follows:
 
 ## 1. Kernel Class Hierarchy — Current State (V3)
 
@@ -168,6 +168,40 @@ classDiagram
 ```
 
 ---
+
+## 2. Problem Statement
+
+Under V3 storage architecture, every cognitive partition and store opened dedicated file descriptors and distinct `MemorySegment` mappings:
+- 10+ open file descriptors per active namespace.
+- Inability to share a single contiguous Virtual Memory Area (VMA) across related stores.
+- High TLB overhead and memory fragmentation when scaling to thousands of concurrent tenants.
+- Independent segment growth triggered uncoordinated unmaps and memory reallocations.
+
+## 3. Decision Drivers
+
+- **Single-VMA Consolidation**: Consolidate multiple distinct store regions into a single file descriptor and memory mapping (`RuntimeBundle` and `PartitionBundle`).
+- **Zero-Copy Region Slicing**: Slices within the bundle must match `AbstractRecordMemory` and `AbstractAppendMemory` contracts without pointer translation overhead.
+- **Coordinated Region Growth**: Controlled virtual memory reservation (`Arena.allocate()`) with automatic remap on exhaustion.
+- **Deterministic Lifecycle**: Hard unmap and flush synchronization owned by bundle managers rather than individual store instances.
+
+## 4. Considered Options
+
+### Option 1: Status Quo (Individual `.smd` files per store)
+- **Description**: Maintain independent files for Working, Episodic, Semantic, Procedural, and Hebbian stores.
+- **Advantages**: Simple isolated file format.
+- **Disadvantages**: Severe file descriptor proliferation; TLB miss amplification; uncoordinated I/O flushing.
+
+### Option 2: Archive Container (Tar/Zip)
+- **Description**: Package `.smd` files inside an uncompressed container archive.
+- **Advantages**: Single file on disk.
+- **Disadvantages**: Lacks random-access zero-copy Panama FFM slicing; requires unpacking or custom seekable I/O.
+
+### Option 3: Single-VMA Binary Bundle Layout with Sub-Region Index (Selected)
+- **Description**: Multiplex multiple named regions (`RegionId`) within a single contiguous off-heap file mapping governed by a 4KB bundle header and dynamic region allocation table.
+- **Advantages**: Exactly 1 file descriptor per bundle; zero-copy sub-segment slicing; unified flush and close lifecycle.
+- **Disadvantages**: Requires region resizing protocol and internal alignment padding.
+
+## 5. Decision Outcome
 
 ## 3. V4 Bundle Classes — How They Fit the Kernel
 
@@ -698,6 +732,8 @@ sequenceDiagram
 
 ---
 
+---
+
 ## 12. Full V4 Package Structure
 
 ```mermaid
@@ -781,6 +817,24 @@ graph TB
 
 ---
 
+## 6. Pros and Cons of the Options
+
+| Alternative | Pros | Cons |
+|:---|:---|:---|
+| **Option 1: Individual Files (V3)** | Simple isolation | FD explosion, high TLB overhead, uncoordinated I/O |
+| **Option 2: Container Archive** | Single file | No zero-copy random access memory mapping |
+| **Option 3: Single-VMA Bundle (Selected)** | 1 FD, zero-copy slicing, unified flush/close | Requires internal region allocation table |
+
+## 7. Implementation Plan
+
+1. **Phase 1**: Define `RegionId`, `BundleHeader`, and `RegionAllocationTable` in `memory/spector-kernel/bundle`.
+2. **Phase 2**: Implement `RuntimeBundle` and `PartitionBundle` memory segment slicers.
+3. **Phase 3**: Refactor `AbstractRecordMemory` and `AbstractAppendMemory` to accept bundle slices.
+4. **Phase 4**: Wire into `PersistenceManager` and validate with migration benchmarks.
+5. **Phase 5**: Superseded by canonical `ADR-0004` (V4 Mmap Bundle Architecture and FD Scaling).
+
+## 8. Code Reference & Verification
+
 ## Summary: Kernel Alignment Checklist
 
 | Kernel Pattern | Bundle Alignment | Where |
@@ -801,3 +855,11 @@ graph TB
 | `RegionEntry.layoutId` stores the store's layout | ✅ Enables `BundleInspector` to decode regions independently | `RegionEntry` record field |
 | `PersistenceManager` flush/close ordering | ✅ V4 path: flush stores → flush bundle directory → close bundle | `PersistenceManager.flushAndClose()` V4 branch |
 | CRC32C integrity | ✅ Bundle header has CRC32C; directory has xxHash64 | `MemoryHeader.write()`, `BundleSubHeader.dirChecksum` |
+
+---
+
+### Code Reference & Verification Gate
+- **Primary Module(s)**: `memory/spector-kernel`
+- **Key Packages**: `com.spectrayan.spector.kernel.bundle`, `com.spectrayan.spector.kernel.layout`
+- **Classes**: `RuntimeBundle.java`, `PartitionBundle.java`, `RegionId.java`, `PersistenceManager.java`
+- **Verification Tests**: `RuntimeBundleTest.java`, `PartitionBundleTest.java`

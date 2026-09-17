@@ -1,9 +1,9 @@
-# ADR-0022-RND: Java 27 Upgrade Strategy & Value Class Migration
+# ADR-0060: Java 27 Upgrade Strategy and Value Class Migration
 
 | Field | Value |
 |:---|:---|
 | **Status** | Proposed |
-| **Date** | 2026-09-12 |
+| **Date** | 2026-08-25 |
 | **Authors** | Spector Maintainers & Architecture Working Group |
 | **Deciders** | Spector Technical Steering Committee (TSC) |
 | **Supersedes** | None |
@@ -12,23 +12,9 @@
 
 ---
 
-**Document ID**: `RND-2026-022`  
-**Status**: Approved (In-Progress)  
-**Date**: 2026-09-12 (Revised from 2026-09-10)  
-**Authors**: Technical Lead, Architecture Working Group (Systems Architecture)  
-**Approved by**: Bharat (Project Lead)  
-**Target Systems**: `spector` (Spector Memory Engine, Nucleus, Synapse, SDKs), `spectrayan`  
-**Related GitHub Issues**: 
-- [#802](https://github.com/spectrayan/spector/issues/802) (Epic)
-- [#803](https://github.com/spectrayan/spector/issues/803) (Toolchain: Pom, CI/CD, Docker)
-- [#804](https://github.com/spectrayan/spector/issues/804) (HTTP/3 QUIC Support)
-- [#805](https://github.com/spectrayan/spector/issues/805) (Lazy Constants)
-- [#806](https://github.com/spectrayan/spector/issues/806) (Structured Concurrency)
-- [#807](https://github.com/spectrayan/spector/issues/807) (Primitive Pattern Matching)
-- [#808](https://github.com/spectrayan/spector/issues/808) (Value Architecture, Compact Headers, AOT)  
-**Related Documents**: [RND-2026-021](0021-RND-021-hardcoded-memory-offsets-remediation.md), [ADR-0030](0030-spacetime-vector-search-synaptic-relay-architecture.md), [ADR-0032](0032-client-sdk-openapi-and-mcp-integration-architecture.md)
+## 1. Context
 
----
+Spector currently targets Java 25 LTS, leveraging Foreign Function & Memory (FFM) APIs and the Vector API incubator for off-heap high-performance storage. Looking ahead to the next Long Term Support milestone (Java 27 LTS), significant language and runtime advancements (Project Valhalla value objects, HTTP/3 QUIC, Lazy Constants, Structured Concurrency) will unlock major performance gains.
 
 ## 1. Executive Summary & Strategic Rationale
 
@@ -43,6 +29,37 @@ While this epic was originally scoped around JDK 26, our architectural review de
 5. **Stable Structured Concurrency Target (JEP 533)**: Targets JDK 27's refined API (`Joiner.timeout()`, third type parameter `R_X` for exception typing, and removal of `Joiner.awaitAll()`), avoiding the discarded `Joiner.onTimeout()` model of JDK 26.
 
 ---
+
+## 2. Problem Statement
+
+Even with off-heap Panama memory structures, JVM object layout overhead imposes memory boundaries:
+1. **Object Header Bloat**: Even small heap records carry 12-16 bytes of object header overhead, causing cache pollution during high-throughput graph and vector traversals.
+2. **Incubator Status of Vector API**: Relying on incubator flags (`--add-modules jdk.incubator.vector`) creates deployment friction in restricted enterprise environments.
+3. **Thread Dispatch Overhead**: Orchestrating asynchronous pathway tasks with classical executors introduces thread context switching latency.
+
+## 3. Decision Drivers
+
+- **Zero-Cost Abstractions via Project Valhalla (JEP 401)**: Migrate high-frequency value models (coordinates, VAD emotion scores, engram headers) to identity-free value classes for flat array packing.
+- **Production Vector API**: Transition from incubator modules to finalized vector APIs in Java 27.
+- **HTTP/3 QUIC Transport (JEP 517)**: Native multiplexed transport for low-latency streaming between Spector clients and inference endpoints.
+- **Clean Roadmap Transition**: Maintain absolute stability on Java 25 today while preparing a modular upgrade path for Java 27.
+
+## 4. Considered Options
+
+### Option 1: Freeze Permanently on Java 25 LTS
+- Disregard post-25 JDK advancements and maintain Java 25 indefinitely.
+- **Verdict**: Rejected. Misses generational memory density improvements from Valhalla and finalization of vector SIMD APIs.
+
+### Option 2: Immediate Early-Access JDK 27 Adoption
+- Migrate production build to JDK 27 early-access builds immediately.
+- **Verdict**: Rejected. Bleeding-edge EA builds are unstable for production enterprise deployments.
+
+### Option 3: Planned Java 27 Migration Roadmap with Value Architecture (Selected)
+- Maintain Java 25 LTS as the production build baseline.
+- Architect value-ready records and abstraction boundaries in anticipation of JEP 401 value classes and JDK 27 LTS release.
+- **Verdict**: Accepted (Proposed status). Establishes architectural readiness with zero disruption to current stability.
+
+## 5. Decision Outcome
 
 ## 2. JDK 27 Feature Matrix & Spector Impact Analysis
 
@@ -207,6 +224,18 @@ graph TD
 
 ---
 
+## 6. Pros and Cons of the Options
+
+## 6. Verification and Risk Mitigation
+
+1. **Preview Flags**: Features like `LazyConstant`, `Structured Concurrency`, and `Primitive Patterns` require `--enable-preview`. Spector already runs with `--enable-preview` due to Vector API incubation; this maintains our established posture.
+2. **Backward Compatibility**: `SpectorClient` will retain compatibility defaults, gracefully falling back to HTTP/2 if the target endpoint does not speak HTTP/3/QUIC.
+3. **Zero Main Disruption**: `main` remains locked to JDK 25 until the entire suite compiles and tests green against JDK 27 GA binaries.
+
+---
+
+## 7. Implementation Plan
+
 ## 5. GitHub Issues & Implementation Roadmap
 
 The upgrade is tracked under master Epic [#802](https://github.com/spectrayan/spector/issues/802) with 6 discrete sub-issues labeled with `jdk-upgrade`:
@@ -243,17 +272,14 @@ The upgrade is tracked under master Epic [#802](https://github.com/spectrayan/sp
 
 ---
 
-## 6. Verification and Risk Mitigation
-
-1. **Preview Flags**: Features like `LazyConstant`, `Structured Concurrency`, and `Primitive Patterns` require `--enable-preview`. Spector already runs with `--enable-preview` due to Vector API incubation; this maintains our established posture.
-2. **Backward Compatibility**: `SpectorClient` will retain compatibility defaults, gracefully falling back to HTTP/2 if the target endpoint does not speak HTTP/3/QUIC.
-3. **Zero Main Disruption**: `main` remains locked to JDK 25 until the entire suite compiles and tests green against JDK 27 GA binaries.
-
----
-
 ## 7. Approval & Sign-Off
 
 - **Document Version**: 2.0 (JDK 27 Alignment)
-- **Approved by**: Bharat (Project Lead)
+- **Approved by**: Project Lead (Project Lead)
 - **Technical Lead**: Technical Lead
-- **Solutions Architect**: @titan
+- **Solutions Architect**: Architecture Working Group
+
+## 8. Code Reference & Verification
+
+- **Current Build Baseline**: Verified on JDK 25 in root `pom.xml` (`<java.version>25</java.version>`).
+- **Panama FFM & Vector Modules**: Verified in `spector-kernel` and `spector-core` compiler configuration.

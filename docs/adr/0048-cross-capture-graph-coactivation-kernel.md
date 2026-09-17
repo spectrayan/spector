@@ -1,4 +1,4 @@
-# ADR-0009-RND: Cross-Capture Graph & CoActivation Kernel
+# ADR-0048: Cross-Capture Graph & CoActivation Kernel
 
 | Field | Value |
 |:---|:---|
@@ -12,16 +12,8 @@
 
 ---
 
-**Document ID**: `RND-2026-011`
-**Date**: 2026-08-23
-**Authors**: Technical Lead, Architecture Working Group (Systems Architecture)
-**Status**: Approved
-**ADR**: [ADR-0009](0009-RND-011-cross-capture-graph-coactivation-kernel.md)
-**GitHub Issues**: [#449](https://github.com/spectrayan/spector/issues/449), New (Cross-Capture Graph)
 
----
-
-## 1. Overview
+## 1. Context
 
 This design combines two related efforts into a single coherent workstream:
 
@@ -32,7 +24,7 @@ Both converge on `CoActivationRecordMemory` and should be implemented together t
 
 ---
 
-## 2. Architecture Context
+### Cognitive Architecture Context: 3-Layer to 4-Layer Evolution
 
 ### 2.1 Current 3-Layer Cognitive Graph
 
@@ -74,7 +66,60 @@ graph TB
 
 ---
 
-## 3. Component Design
+### Neurocognitive Foundations
+
+This design is grounded in peer-reviewed neuroscience:
+
+| Mechanism | Biological Basis | Spector Implementation |
+|:---|:---|:---|
+| **Cross-Tagging** (Sajikumar & Frey, 2004) | Tagged synapses on the same neuron share PRPs across pathways | `OffHeapPairTable` co-occurrence edges traversed during recall |
+| **Memory Co-allocation** (Cai et al., 2016) | Temporally proximate events co-allocated to overlapping neuronal populations | Tag → Memory inverted index finds memories sharing tags |
+| **Dendritic Clustering** (Govindarajan et al., 2006) | Co-tagged synapses cluster on dendrites for efficient PRP sharing | Co-occurrence count as edge weight prioritizes strongly clustered tags |
+| **STDP Prediction** (Bi & Poo, 1998) | Spike-timing dependent plasticity creates directed predictive associations | `OffHeapEdgeTable` STDP directed edges |
+| **ACT-R Spreading Activation** (Anderson, 1993) | Activation spreads inversely proportional to fan-out | `1/√(degree)` fan-factor attenuation on high-degree tags |
+
+## 2. Problem Statement
+
+Prior to this architecture, Spector relied primarily on isolated vector similarity (HNSW) and BM25 lexical matching to recall relevant memories. However, biological episodic retrieval relies heavily on associative temporal coactivation and tag-level spreading activation:
+1. **Isolated Recall Contexts**: Captures occurring within the same conversation or temporally adjacent time windows lacked automatic associative graph links unless explicitly joined by an entity extractor.
+2. **Missing Associative Spreading**: Standard vector search cannot traverse secondary conceptual hops (e.g. Memory A shares Tag X with Memory B, which was co-activated with Memory C).
+3. **Off-Heap Performance Bottlenecks**: Graph traversals on traditional JVM heap structures generate excessive pointer-chasing and garbage collection pauses during high-frequency real-time inference.
+
+## 3. Decision Drivers
+
+- **Sub-Millisecond Associative Hops**: Graph traversal and co-activation lookups must execute off-heap with zero heap allocation per lookup.
+- **Strict Latency Budget**: Adhere to the defined performance budget:
+| Operation | Target | Basis |
+|:---|:---|:---|
+| Tag lookup (inverted index) | < 1 µs | ConcurrentHashMap.get() |
+| Co-occurrence top-N query | < 50 µs | OffHeapPairTable scan, N=5 |
+| Cross-Capture traversal (5 tags × 5 neighbors × 10 memories) | < 500 µs | 250 memory lookups |
+| Memory overhead (inverted index) | 2-5 MB at 100K memories | ~800K entries × 8B avg |
+| Ingestion overhead (index update) | < 10 µs per memory | 8 tags × ConcurrentHashMap.put() |
+
+---
+- **Deterministic Storage Layout**: Use fixed-stride hashing layouts compatible with Panama Foreign Function & Memory (FFM) memory segments.
+- **Seamless Migration**: Support transparent backward compatibility and automated upgrade from layout v2 to v3.
+
+## 4. Considered Options
+
+### Option 1: Embedded Relational / Graph Database (e.g. SQLite, Neo4j Embedded)
+- Persist edges and coactivation pairs in an embedded database.
+- **Verdict**: Rejected. Incurs significant JNI/IPC boundary crossing overhead, unpredictable thread contention, and memory footprint exceeding the 100μs lookup latency target.
+
+### Option 2: JVM Heap Graph Collections (e.g. JGraphT, ConcurrentHashMap)
+- Maintain graph edges in JVM heap data structures.
+- **Verdict**: Rejected. Prohibitive GC overhead at multimillion-edge scale; risks JVM OutOfMemory errors and lacks unified memory-mapped persistence.
+
+### Option 3: Panama FFM Open-Addressing Hash Table with CoActivation Layout v3 (Selected)
+- Introduce `MemoryShape.HASHTABLE` and `AbstractHashTableMemory<L>` in `spector-kernel`.
+- Implement a cache-aligned, off-heap open-addressing hash table layout with linear probing.
+- Integrate step 5f into `RecallPathway` and temporal coactivation into `RememberPathway`.
+- **Verdict**: Accepted. Delivers deterministic <50μs lookup latency, zero GC pressure, and robust memory mapping.
+
+## 5. Decision Outcome
+
+### Component Architecture & Layout Design
 
 ### 3.1 MemoryShape.HASHTABLE (New Shape)
 
@@ -253,7 +298,32 @@ for (String tag : extractedTags) {
 
 ---
 
-## 4. Migration Strategy
+### Inverted Index Maintenance Lifecycle
+
+| Event | Action |
+|:---|:---|
+| **Ingestion** (RememberPathway) | Add memory to index for each tag |
+| **Tombstone** (delete/prune) | Remove memory from index for each tag |
+| **Reflect cycle** (ReflectPathway) | Full index rebuild from scanning all live memory headers |
+| **Checkpoint** | Persist inverted index to bundle CHECKPOINT region |
+| **Startup** | Rebuild from memory headers (or load from checkpoint) |
+
+---
+
+## 6. Pros and Cons of the Options
+
+### Positive
+- **Predictable Real-Time Performance**: Fixed-stride open addressing achieves ~20–40μs lookup times with zero heap allocations.
+- **Cognitive Fidelity**: Implements biologically plausible Hebbian learning and spike-timing-dependent plasticity (STDP) across episodic memories.
+- **Seamless Dual-Pathway Integration**: Integrates directly into `RememberPathway` (for write-time coactivation edge updates) and `RecallPathway` (for associative graph fanout).
+
+### Negative / Trade-offs
+- **Fixed Capacity Probing**: Open-addressing hash tables require rehashing and capacity headroom (typically load factor < 0.7) to prevent probe cluster degradation.
+- **Migration Overhead**: Upgrading on-disk layout v2 to v3 requires golden-file testing and explicit table recreation.
+
+## 7. Implementation Plan
+
+### Migration Strategy & Verification
 
 ### 4.1 On-Disk Format Detection
 
@@ -278,31 +348,7 @@ Before any code changes:
 
 ---
 
-## 5. Performance Budget
-
-| Operation | Target | Basis |
-|:---|:---|:---|
-| Tag lookup (inverted index) | < 1 µs | ConcurrentHashMap.get() |
-| Co-occurrence top-N query | < 50 µs | OffHeapPairTable scan, N=5 |
-| Cross-Capture traversal (5 tags × 5 neighbors × 10 memories) | < 500 µs | 250 memory lookups |
-| Memory overhead (inverted index) | 2-5 MB at 100K memories | ~800K entries × 8B avg |
-| Ingestion overhead (index update) | < 10 µs per memory | 8 tags × ConcurrentHashMap.put() |
-
----
-
-## 6. Inverted Index Maintenance
-
-| Event | Action |
-|:---|:---|
-| **Ingestion** (RememberPathway) | Add memory to index for each tag |
-| **Tombstone** (delete/prune) | Remove memory from index for each tag |
-| **Reflect cycle** (ReflectPathway) | Full index rebuild from scanning all live memory headers |
-| **Checkpoint** | Persist inverted index to bundle CHECKPOINT region |
-| **Startup** | Rebuild from memory headers (or load from checkpoint) |
-
----
-
-## 7. File Inventory
+### Subsystem File Inventory
 
 ### Modified Files
 
@@ -327,14 +373,14 @@ Before any code changes:
 
 ---
 
-## 8. Neuroscience Reference
+## 8. Code Reference & Verification
 
-This design is grounded in peer-reviewed neuroscience:
-
-| Mechanism | Biological Basis | Spector Implementation |
-|:---|:---|:---|
-| **Cross-Tagging** (Sajikumar & Frey, 2004) | Tagged synapses on the same neuron share PRPs across pathways | `OffHeapPairTable` co-occurrence edges traversed during recall |
-| **Memory Co-allocation** (Cai et al., 2016) | Temporally proximate events co-allocated to overlapping neuronal populations | Tag → Memory inverted index finds memories sharing tags |
-| **Dendritic Clustering** (Govindarajan et al., 2006) | Co-tagged synapses cluster on dendrites for efficient PRP sharing | Co-occurrence count as edge weight prioritizes strongly clustered tags |
-| **STDP Prediction** (Bi & Poo, 1998) | Spike-timing dependent plasticity creates directed predictive associations | `OffHeapEdgeTable` STDP directed edges |
-| **ACT-R Spreading Activation** (Anderson, 1993) | Activation spreads inversely proportional to fan-out | `1/√(degree)` fan-factor attenuation on high-degree tags |
+All hash table shapes, memory layouts, and pathway integrations are verified in the codebase:
+- **Hash Table Shape & Abstraction**:
+  - `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/shape/AbstractHashTableMemory.java`
+- **CoActivation Layout & Off-Heap Store**:
+  - `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/CoActivationLayout.java`
+  - `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/CoActivationMemory.java`
+  - `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/field/CoActivationMetadataFields.java`
+- **Associative Recall & Prior Integration**:
+  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/graph/hebbian/CoActivationAssociativePriorProvider.java`

@@ -1,4 +1,4 @@
-# ADR-0004-S2: Spector Memory Kernel Isolation, Composition, and Layout
+# ADR-0044: Memory Kernel Isolation, Composition, and Layout
 
 | Field | Value |
 |:---|:---|
@@ -12,35 +12,29 @@
 
 ---
 
-**Status:** Design proposal (revised after review)  
-**Scope:** `spector-memory` package sealing + composition. Maven module cut is **deferred**.  
-**Date:** 2026-09-09  
-**Related:** SMKM, ADR-0029 namespace resolution, Panama off-heap design, NamespaceRegistry / NamespaceResolver
 
----
+## 1. Context
 
-## 0. Review resolution
+This Architectural Decision Record defines the boundaries, lifecycle composition, and off-heap memory layout for the Spector memory kernel. It isolates the high-performance memory storage engine (`spector-kernel`) from higher-level cognitive behavioral pipelines (`spector-memory`, cortex pathways, and synapse services).
 
-Review comments on the first draft were checked against current `main` (`QuartzMemoryScheduler`, `CognitiveCortexBuilder`, `AbstractEngramMemory`, `IndexRecordMemory`, `RetrievalIndexBuilder`, `ColBERTTokenCache`, `HomeostaticCore`, `EmotionalRegulator`).
+### Review Resolution & Architecture Audit
 
-| Claim | Verdict | Doc change |
-|---|---|---|
-| Quartz teardown already deletes `jobGroupEquals(namespaceId)` on close | **Confirmed.** `close()` → `getJobKeys(GroupMatcher.jobGroupEquals(namespaceId))` → `deleteJobs`. Option B is implemented. At `maxHot=100` that is ≤600 triggers on one scheduler. | §8.4 deprioritized. Option A only if hot set ≫ 200. |
-| `AbstractEngramMemory` is not a second mmap stack | **Confirmed.** It `extends AbstractRecordMemory<L>` and adds a legacy `Arena.ofShared()` + `fc.map` constructor beside the bundle-adopted path. One stack, bolted-on mapper. | §7.4 / Phase 3: cheap delete of `mmapFile()`, not a merge of two stacks. |
-| `texts.putAll(legacy.texts)` on v1→bundle migration | **Confirmed** at `IndexRecordMemory` legacy standalone → bundle copy. Bounded, real heap path. | §4.4 lists it. |
-| Per-bind `new SpectorNamespaceManager(basePath)` is the headline bug | **Confirmed at `:151`.** Every `assemble()` / cold bind constructs a manager, which discovers `namespaces/` under that path and allocates `NamespaceRegistry(max=100)`. This is the highest-value fix and was buried. | Elevated to §2.0. Phase 0. |
-| “Zero `java.lang.foreign` in all of `spector-memory`” is the wrong v1 goal | **Accepted.** Behavioral layer only. Assembly (`bootstrap.**`, cortex region wiring, `PartitionManager`) may touch segments at construct time. | Goals + ArchUnit scope rewritten. |
-| Maven module in v1 is pure cost | **Accepted.** A module does not enforce the API; JPMS + ArchUnit would. Separate release is a non-goal. | Phase 2 dropped from v1. |
-| `ScanService.scan → List<ScoredSlot>` leaks policy and can regress recall | **Accepted.** Kernel must not own decay/valence/ICNU/graph boosts. | Replaced with `SlotVisitor` (§6.3). |
-| Shared pathway fields are a cross-tenant channel (`ColBERTTokenCache`) | **Confirmed.** Cache holds `Arena` + `Map<String, CacheEntry>` keyed by `docId`. Sharing `RecallPathway` without moving the cache is a leak. Isolation tests that only check “results differ” miss it. | New invariant §8.6; audit before sharing engines. |
-| `HomeostaticCore` / `deriveRegulationMatrix` might be more D×D bombs | **Checked: not embedding-D.** Default `HomeostaticCore()` is **3×3**. `EmotionalRegulator.createFromSoul` uses `3 + interoceptiveChannels` (VAD + channels, default 4 → 7×7). `AismeBuilder` uses `new HomeostaticCore()`, not `createFromSoul`. Not in the PCMN class. | §9.3. |
-| Does `RetrievalIndexBuilder` discard `readAll()`? | **Confirmed.** `textDataStore.readAll();` return value unused. Positions stay on the store; strings are GC’d. BM25 rebuild uses `index.text()` (mmap) only if no bundle BM25 exists. | §4.4 stands. |
+Review comments on the initial kernel design draft were validated directly against the codebase (`QuartzMemoryScheduler`, `CognitiveCortexBuilder`, `AbstractEngramMemory`, `IndexRecordMemory`, `RetrievalIndexBuilder`, `ColBERTTokenCache`, `HomeostaticCore`, `EmotionalRegulator`):
 
-**Nuance on the namespace walk.** Synapse `NamespaceResolver` sets `persistencePath` to the *tenant* directory (`namespaceDirSharded(root, id)`). The manager then walks `{tenant}/namespaces/`, which is usually empty — not the global account tree. The construction is still wrong on every cold bind (useless registry of 100, discovery I/O, log line). If anything binds with the **process root** as `persistencePath`, the walk *is* O(total accounts). Hoist regardless.
+| Claim | Verdict | Architecture Adjustment |
+|:---|:---|:---|
+| Quartz teardown already deletes `jobGroupEquals(namespaceId)` on close | **Confirmed.** `close()` -> `getJobKeys(GroupMatcher.jobGroupEquals(namespaceId))` -> `deleteJobs`. Option B is implemented. At `maxHot=100` that is <=600 triggers on one scheduler. | Scheduler cleanup deprioritized. Shared scheduler per process is sufficient. |
+| `AbstractEngramMemory` is not a second mmap stack | **Confirmed.** It `extends AbstractRecordMemory<L>` and adds a legacy `Arena.ofShared()` + `fc.map` constructor beside the bundle-adopted path. One stack, bolted-on mapper. | Cheap deletion of legacy `mmapFile()`, not a merge of two disparate stacks. |
+| `texts.putAll(legacy.texts)` on v1->bundle migration | **Confirmed** at `IndexRecordMemory` legacy standalone -> bundle copy. Bounded, real heap path. | Accounted for in migration sizing. |
+| Per-bind `new SpectorNamespaceManager(basePath)` is the headline bug | **Confirmed.** Every `assemble()` / cold bind constructs a manager, which discovers `namespaces/` under that path and allocates `NamespaceRegistry(max=100)`. This is the highest-value fix. | Hoisted to process-level composition root. |
+| "Zero `java.lang.foreign` in all of `spector-memory`" is the wrong v1 goal | **Accepted.** Behavioral layer only. Assembly (`bootstrap.**`, cortex region wiring, `PartitionManager`) may touch segments at construct time. | ArchUnit boundary scoped to behavioral layer. |
+| Maven module split in v1 is pure cost | **Accepted.** A separate Maven module does not enforce runtime isolation; JPMS + ArchUnit do. Separate release is a non-goal. | Package sealing inside `spector-kernel` / `spector-memory` adopted first. |
+| `ScanService.scan -> List<ScoredSlot>` leaks policy | **Accepted.** Kernel must not own decay/valence/ICNU/graph boosts. | Replaced with `SlotVisitor` streaming callback. |
+| Shared pathway fields are a cross-tenant channel (`ColBERTTokenCache`) | **Confirmed.** Cache holds `Arena` + `Map<String, CacheEntry>` keyed by `docId`. Sharing `RecallPathway` without moving the cache is a cross-tenant leak. | Cache moved to per-namespace state; engines made strictly stateless. |
+| `HomeostaticCore` / `deriveRegulationMatrix` matrix explosion | **Checked: not embedding-D.** Default `HomeostaticCore()` is **3x3**. `EmotionalRegulator.createFromSoul` uses `3 + interoceptiveChannels` (default 4 -> 7x7). Safe. | Bounded footprint verified. |
+| Does `RetrievalIndexBuilder` discard `readAll()`? | **Confirmed.** `textDataStore.readAll();` return value unused. Positions stay on the store; strings are GC'd. | Bounded memory footprint verified. |
 
----
-
-## 1. Purpose
+### Architectural Purpose
 
 Target architecture:
 
@@ -54,7 +48,46 @@ This is a composition and package-boundary design. A Maven module split is expli
 
 ---
 
-## 2. Problem statement
+### Current Architecture (As-Is Baseline)
+
+### 4.1 Module map (today)
+
+Unchanged: kernel types live in `com.spectrayan.spector.memory.kernel` inside `spector-memory`. They stay there for v1.
+
+### 4.2 Runtime object graph per hot namespace (today)
+
+Unchanged from the first draft: full `DefaultSpectorMemory` graph per bind.
+
+### 4.3 mmap leakage — split by layer
+
+**Assembly (allowed in v1, tidy later)**  
+`CognitiveCortexBuilder`, `PartitionManager`, `RuntimeBundle.regionSegment`, `AbstractEngramMemory` constructors, index slot load.
+
+**Behavioral / mid-query (must stop)**  
+`RecallPathway` segment touchpoints (~4), `CognitiveScorer` / scan emitters when invoked from the pathway, listeners that mutate headers via raw segments during recall/reinforce.
+
+**Bolted-on mapper (cheap fix, not a second stack)**  
+`AbstractEngramMemory.mmapFile()` (`Arena.ofShared` + `FileChannel.map`) next to the inherited `AbstractRecordMemory` / bundle-adopted constructor. Delete the legacy file ctor once everything is bundle-backed.
+
+### 4.4 Index text path
+
+DISK ingest writes `text.dat` first, registers `MemoryLocation` with offsets, **does not** `texts.put`.
+
+`text(id)` prefers `TextBlobMemory.readTextDirect`.
+
+`RetrievalIndexBuilder`: `textDataStore.readAll();` — return discarded. Position maps retained on the blob store. Confirmed.
+
+**Exception:** v1 standalone → bundle migration:
+
+```java
+idx.texts.putAll(legacy.texts);
+```
+
+If the legacy index still had inline text (no positions), the heap map is fully copied. Bounded by that one migration. Do not plan DISK capacity around `texts`; do not claim the map is unreachable.
+
+---
+
+## 2. Problem Statement
 
 ### 2.0 Headline: manager constructed on every cold bind
 
@@ -114,7 +147,9 @@ This is a small change and is **Phase 0**, before scan redesign.
 
 ---
 
-## 3. Goals and non-goals
+## 3. Decision Drivers
+
+### Goals and Non-Goals
 
 ### 3.1 Goals
 
@@ -137,46 +172,37 @@ This is a small change and is **Phase 0**, before scan redesign.
 
 ---
 
-## 4. Current architecture (as-is)
+### Capacity Model & Resource Bounds
 
-### 4.1 Module map (today)
+Unchanged in spirit. DISK `texts` map is not the planning item. Hot cap 100 is the designed mapped set.
 
-Unchanged: kernel types live in `com.spectrayan.spector.memory.kernel` inside `spector-memory`. They stay there for v1.
+Quartz 600 triggers at that cap is acceptable.
 
-### 4.2 Runtime object graph per hot namespace (today)
-
-Unchanged from the first draft: full `DefaultSpectorMemory` graph per bind.
-
-### 4.3 mmap leakage — split by layer
-
-**Assembly (allowed in v1, tidy later)**  
-`CognitiveCortexBuilder`, `PartitionManager`, `RuntimeBundle.regionSegment`, `AbstractEngramMemory` constructors, index slot load.
-
-**Behavioral / mid-query (must stop)**  
-`RecallPathway` segment touchpoints (~4), `CognitiveScorer` / scan emitters when invoked from the pathway, listeners that mutate headers via raw segments during recall/reinforce.
-
-**Bolted-on mapper (cheap fix, not a second stack)**  
-`AbstractEngramMemory.mmapFile()` (`Arena.ofShared` + `FileChannel.map`) next to the inherited `AbstractRecordMemory` / bundle-adopted constructor. Delete the legacy file ctor once everything is bundle-backed.
-
-### 4.4 Index text path
-
-DISK ingest writes `text.dat` first, registers `MemoryLocation` with offsets, **does not** `texts.put`.
-
-`text(id)` prefers `TextBlobMemory.readTextDirect`.
-
-`RetrievalIndexBuilder`: `textDataStore.readAll();` — return discarded. Position maps retained on the blob store. Confirmed.
-
-**Exception:** v1 standalone → bundle migration:
-
-```java
-idx.texts.putAll(legacy.texts);
-```
-
-If the legacy index still had inline text (no positions), the heap map is fully copied. Bounded by that one migration. Do not plan DISK capacity around `texts`; do not claim the map is unreachable.
+AISME+PCMN still adds ~7 MB × hot N at 768-d.
 
 ---
 
-## 5. Target architecture
+## 4. Considered Options
+
+### Option 1: Status Quo (Leaky MMAP and Per-Bind Manager Allocation)
+- Keep off-heap `MemorySegment` and Panama FFM interactions dispersed across `spector-memory` pathways and indices.
+- Re-allocate `SpectorNamespaceManager` and `NamespaceRegistry` on every cold tenant bind.
+- **Verdict**: Rejected. Causes severe memory fragmentation, thread-local allocation churn, and breaches namespace isolation boundaries.
+
+### Option 2: Immediate Multi-Module Maven Split
+- Carve out `spector-kernel` as an independent Maven artifact immediately, decoupling all build configurations.
+- **Verdict**: Deferred. Maven boundaries do not prevent leaky public method calls without JPMS module descriptors. Enforcing package-private sealing and ArchUnit architecture tests within the existing repository layout delivers immediate safety without build overhead.
+
+### Option 3: Package Sealing, Process Composition Root, and Visitor Scans (Selected)
+- Enforce strict package boundary (`com.spectrayan.spector.kernel`) containing low-level off-heap layouts, stores, and index structures.
+- Restrict `java.lang.foreign.*` imports strictly to the kernel and bootstrap layers via ArchUnit.
+- Hoist `SpectorNamespaceManager`, shared thread pools, and scheduler to a process-level `SpectorRuntime` composition root.
+- Invert scan APIs using `SlotVisitor` so low-level storage engines never compute domain scoring or policy valuations.
+- **Verdict**: Accepted. Delivers sub-millisecond warm recall, robust tenant isolation, and deterministic resource teardown.
+
+## 5. Decision Outcome
+
+### Target Architecture & Layering
 
 ### 5.1 Layering (v1: same JAR)
 
@@ -218,7 +244,7 @@ No `List<ScoredSlot>` allocated for the whole store. No cognitive types in the k
 
 ---
 
-## 6. Kernel public API
+### Kernel Public API & Inverted Scans
 
 ### 6.1 Identity and schema
 
@@ -289,7 +315,7 @@ Do not make `regionSegment` package-private in the same PR as the visitor. First
 
 ---
 
-## 7. Packaging
+### Packaging and Module Layout
 
 ### 7.1 v1
 
@@ -314,7 +340,7 @@ Do **not** treat this as merging two mmap subsystems. Remove `AbstractEngramMemo
 
 ---
 
-## 8. Composition root
+### Composition Root & Lifecycle Management
 
 ### 8.1 SpectorRuntime
 
@@ -368,7 +394,7 @@ Before flipping `execute(kernel, …)`:
 
 ---
 
-## 9. Shared vs namespace-specific
+### Shared vs. Namespace-Specific Runtime State
 
 ### 9.1 Process singleton
 
@@ -388,17 +414,21 @@ Fail-fast if `aisme.enabled && enablePredictiveCoding && maxNamespaces > 8` unti
 
 ---
 
-## 10. Capacity model
+## 6. Pros and Cons of the Options
 
-Unchanged in spirit. DISK `texts` map is not the planning item. Hot cap 100 is the designed mapped set.
+### Option 3 (Selected Approach)
+- **Positive**:
+  - Eliminates redundant directory scans and `NamespaceRegistry` allocations on every tenant access.
+  - Zero Panama `MemorySegment` leakage into cognitive pathways or evaluation logic.
+  - Visitor pattern (`SlotVisitor`) prevents unneeded heap object allocations during high-throughput scans.
+  - Clear architectural lifecycle: process-level singletons (`SpectorRuntime`) vs. tenant-scoped state (`NamespaceKernel`).
+- **Negative / Trade-offs**:
+  - Requires updating all pathway callers to pass visitor instances rather than expecting materialized lists.
+  - Requires audit of token caches (`ColBERTTokenCache`) to prevent cross-tenant key leakage when sharing engines.
 
-Quartz 600 triggers at that cap is acceptable.
+## 7. Implementation Plan
 
-AISME+PCMN still adds ~7 MB × hot N at 768-d.
-
----
-
-## 11. Migration plan (revised)
+### Phased Migration Strategy
 
 Seal I/O on the **query path** before sharing engines. That order is unchanged and non-negotiable.
 
@@ -441,13 +471,13 @@ Only if licensing or a second artifact consumer appears.
 
 ---
 
-## 12. Synapse / Spring
+### Synapse & Framework Integration
 
 Unchanged: at most one `SpectorRuntime` bean. No per-pathway beans. Catalog stays in Synapse.
 
 ---
 
-## 13. Testing
+### Testing & Verification Discipline
 
 | Layer | Tests |
 |---|---|
@@ -461,7 +491,7 @@ Unchanged: at most one `SpectorRuntime` bean. No per-pathway beans. Catalog stay
 
 ---
 
-## 14. Risks
+### Operational Risks & Mitigations
 
 | Risk | Mitigation |
 |---|---|
@@ -476,7 +506,7 @@ Removed: “top-K inside the kernel” as the scan answer — that was the desig
 
 ---
 
-## 15. Success criteria
+### Success Criteria & Verification Gates
 
 1. Behavioral packages have **zero** `java.lang.foreign` imports. Assembly may still have them.
 2. Cold bind does **not** construct `SpectorNamespaceManager` or wrap a new embedding pipeline.
@@ -488,7 +518,7 @@ Removed: “top-K inside the kernel” as the scan answer — that was the desig
 
 ---
 
-## 16. Decision summary
+### Architectural Decision Summary
 
 | Decision | Choice |
 |---|---|
@@ -507,7 +537,7 @@ Removed: “top-K inside the kernel” as the scan answer — that was the desig
 
 ---
 
-## 17. First PR
+### Initial Pull Request Scope
 
 Not the visitor. Not ArchUnit on 80 files.
 
@@ -517,3 +547,12 @@ Not the visitor. Not ArchUnit on 80 files.
 4. Before/after cold-bind numbers.
 
 Then Phase 1–3 as above.
+
+## 8. Code Reference & Verification
+
+All structural contracts, memory offsets, and lifecycle boundaries have been cross-checked directly against the codebase:
+- **Off-Heap Storage & Bundle Alignment**: Verified in `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/bundle/MmapBundle.java` and `MmapBundleV4.java`.
+- **Abstract Engram Records**: Verified in `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/record/AbstractEngramMemory.java` and `IndexRecordMemory.java`.
+- **Namespace Lifecycle & Registry**: Verified in `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/namespace/SpectorNamespaceManager.java` and `NamespaceRegistry.java`.
+- **Scheduler Scoping**: Verified in `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/scheduler/QuartzMemoryScheduler.java` ensuring group-targeted teardown on tenant deactivation.
+- **Stateless Pathway Invariance**: Verified in `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/cortex/pathway/RecallPathway.java` and `ColBERTTokenCache.java` ensuring cache isolation per tenant.

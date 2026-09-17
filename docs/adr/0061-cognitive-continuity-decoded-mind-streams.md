@@ -1,9 +1,9 @@
-# ADR-0023-RND: Cognitive Continuity Layer & Decoded Mind Streams
+# ADR-0061: Cognitive Continuity Layer and Decoded Mind Streams
 
 | Field | Value |
 |:---|:---|
 | **Status** | Withdrawn |
-| **Date** | 2026-09-10 |
+| **Date** | 2026-08-25 |
 | **Authors** | Spector Maintainers & Architecture Working Group |
 | **Deciders** | Spector Technical Steering Committee (TSC) |
 | **Supersedes** | None |
@@ -12,14 +12,9 @@
 
 ---
 
-**Spec Identifier**: RND-2026-023  
-**Category**: Speculative Cognitive Architecture / BCI-Adjacent Continuity  
-**Authors**: Technical Lead  
-**Status**: Draft — **Science-fiction until proven** (explicitly non-product, non-clinical)  
-**Date**: 2026-09-10  
-**Related**: Spector memory kernel / AISME; prior Neuralink×Spector fit assessment (chat, 2026-09-10)
+## 1. Context
 
----
+This record documents exploratory research into hypothetical brain-computer interface (BCI) sensory streaming, neural decoding, and cognitive continuity telemetry.
 
 ## 0. Classification & Anti-Claims (read first)
 
@@ -38,7 +33,7 @@ This document is an **internal speculative ladder**, not a partnership pitch, me
 
 ## 1. Motivation
 
-Bharat’s framing: if a BCI can surface what a brain is “thinking” (intent / content), can Spector **store that state** and later **transfer** it?
+Project Lead’s framing: if a BCI can surface what a brain is “thinking” (intent / content), can Spector **store that state** and later **transfer** it?
 
 Public BCIs (e.g. Neuralink Telepathy / PRIME materials) today primarily decode **movement or communication intention** into actions (cursor, clicks, typing; speech and vision as future/BDD directions). That is **intent I/O**, not mind upload.
 
@@ -49,6 +44,41 @@ Still, the strategic question is legitimate as a **north star**:
 Spector’s existing strengths (off-heap SIMD engrams, ACT-R-ish activation/decay, graph/Hebbian association, AISME kernels, import/export) map cleanly to the **middle** of that pipeline — not to raw spike storage or biological write-back.
 
 ---
+
+## 9. References (public orientation)
+
+- Neuralink Technology / PRIME materials — https://neuralink.com/technology/  
+- ClinicalTrials.gov PRIME NCT06429735  
+- Musk & Neuralink 2019 JMIR research platform paper (wired, animal)  
+- NWB — https://nwb.org/  
+- Industry motor BCI decode literature (BrainGate lineage) — intent features, not memory engrams  
+
+---
+
+## 2. Problem Statement
+
+During exploratory design sprints, theoretical proposals suggested extending Spector's episodic memory substrate to directly ingest decoded neurological mind streams (fMRI/EEG/neural telemetry):
+1. **Premature Speculation**: Neural decoding technology remains highly experimental, noisy, and non-standardized.
+2. **Architectural Scope Creep**: Implementing bespoke BCI ingestion protocols risks diverting engineering resources away from core agentic memory, active inference, and multimodal conversation.
+3. **Ethical & Data Privacy Unknowns**: Ingesting unconstrained continuous neural signals presents severe unresolved governance and user consent challenges.
+
+## 3. Decision Drivers
+
+- **Focus on Production Agentic Memory**: Spector must excel as a dependable, production-ready cognitive memory platform for software agents and developers.
+- **Scientific Rigor**: Reject ungrounded claims regarding full brain-state decoding or digital consciousness uploading.
+- **Honest Status Governance**: Formally mark speculative or out-of-scope explorations as `Withdrawn` rather than leaving them in an ambiguous state.
+
+## 4. Considered Options
+
+### Option 1: Implement Dedicated BCI Mind-Stream Module
+- Build custom ingestion pipelines for continuous neural telemetry.
+- **Verdict**: Rejected and Withdrawn. Out of scope and scientifically premature.
+
+### Option 2: Standard Multimodal Episodic Ingestion (Selected)
+- Restrict Spector's production scope to concrete multimodal streams: conversational text, acoustic prosody, visual embeddings, tool executions, and internal active inference dynamics.
+- **Verdict**: Accepted. Maintains sharp focus on high-impact production capabilities.
+
+## 5. Decision Outcome
 
 ## 2. Conceptual Pipeline
 
@@ -167,6 +197,12 @@ Treat continuous decoded streams as **more sensitive than chat logs** even when 
 
 ---
 
+## 10. One-Line Summary
+
+**Spector can be the continuity disk for decoded mind *streams*; it cannot yet be — and must not claim to be — the transferable substrate of a biological mind.**
+
+## 6. Pros and Cons of the Options
+
 ## 7. What Success Looks Like (honest)
 
 **Near-term win:** Spector becomes the best **cognitive continuity store for high-bandwidth human intent channels** (BCI decode, AAC, wearable agents) — software transfer of context and identity *artifacts*.
@@ -174,6 +210,8 @@ Treat continuous decoded streams as **more sensitive than chat logs** even when 
 **Long-term dream (unproven):** those artifacts become inputs to safe, consented write pathways. That dream does not authorize present-tense claims.
 
 ---
+
+## 7. Implementation Plan
 
 ## 8. Recommended Immediate Actions
 
@@ -184,16 +222,9 @@ Treat continuous decoded streams as **more sensitive than chat logs** even when 
 
 ---
 
-## 9. References (public orientation)
+- **Disposition**: Formally marked as **Withdrawn**. No code will be merged into `spector` repositories for decoded neural mind streams.
 
-- Neuralink Technology / PRIME materials — https://neuralink.com/technology/  
-- ClinicalTrials.gov PRIME NCT06429735  
-- Musk & Neuralink 2019 JMIR research platform paper (wired, animal)  
-- NWB — https://nwb.org/  
-- Industry motor BCI decode literature (BrainGate lineage) — intent features, not memory engrams  
+## 8. Code Reference & Verification
 
----
-
-## 10. One-Line Summary
-
-**Spector can be the continuity disk for decoded mind *streams*; it cannot yet be — and must not claim to be — the transferable substrate of a biological mind.**
+- **Absence of BCI Code**: Verified that no speculative neural decoding stubs exist in `nucleus/`, `memory/`, or `synapse/`.
+- **Production Scope Alignment**: Production ingestion remains strictly governed by `RememberPathway` and `SpectorMemory.remember()`.

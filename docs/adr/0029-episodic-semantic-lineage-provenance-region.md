@@ -12,36 +12,6 @@
 
 ---
 
-## Status
-
-Accepted (Revised) — **supersedes [ADR-0028](0028-dual-plane-memory-audit-architecture.md) §D4** (`RegionId.PROVENANCE` / `ProvenanceEntry`). Implemented in [spectrayan/spector#731](https://github.com/spectrayan/spector/issues/731). ADR-0028 §D1–D3 remain in force.
-
-## Date
-
-2026-09-03 (revised 2026-09-05)
-
-## Target repo
-
-`spectrayan/spector` — module `memory/spector-memory` (BSL-1.1)
-
-## Related
-
-- Issue [#731](https://github.com/spectrayan/spector/issues/731) — Lineage Audit Region: provenance between episodic conversation logs and consolidated semantic memories
-- Issue [#171](https://github.com/spectrayan/spector/issues/171) — Memory Lineage & Provenance (connector/source-URI plane; explicitly **out of scope** here)
-- [ADR-0006](0006-episodic-conversation-architecture.md) — Episodic conversation architecture
-- [ADR-0028](0028-dual-plane-memory-audit-architecture.md) — Dual-plane memory audit architecture
-
-## Deciders
-
-- **Project Lead** (Product Vision)
-- **Technical Lead** (Engineering Leadership)
-- **Titan** (Solutions Architect — Binary Memory Layouts)
-- **Neuron** (Chief Cognitive Scientist — Consolidation Semantics)
-- **Forge** (Senior Developer — Panama FFM Implementation)
-- **Sentinel** (QA — Concurrency & Regression Gates)
-
----
-
 ## 1. Context
 
 ### 1.1 What exists today
@@ -81,7 +51,36 @@ This ADR takes the reserved slot and replaces the record.
 
 ---
 
-## 2. Decisions
+## 2. Problem Statement
+
+Relying on Bloom-filter synaptic tags (`session-<hex>`) as the sole link between consolidated semantic facts and episodic conversation turns is lossy, unidirectional, and pollutes the tag space consumed by `CognitiveScorer`. Furthermore, variable-length records (as proposed in ADR-0028 §D4) violate the fixed-stride invariant required for automatic hardware-accelerated CRC32C checksum verification in `AbstractRecordMemory`.
+
+## 3. Decision Drivers
+
+- **Zero-Allocation Fixed-Stride Layout**: Provenance records must use fixed 32-byte records matching `AbstractRecordMemory` contracts.
+- **Hardware-Accelerated CRC32C**: Every provenance entry must carry an off-heap CRC32C checksum covering `recordStride - 4` bytes.
+- **1-to-N Bidirectional Traceability**: Enable navigating from any semantic engram back to exact episodic conversation turns, and vice versa.
+- **Cache Isolation**: Ensure provenance recording does not contaminate the L1/L2 cache residency of live `StrengthLayout` recall hot paths.
+
+## 4. Considered Options
+
+| Alternative | Why rejected |
+|:---|:---|
+| Extend `RegionId.STRENGTH(4)` (formerly `AUDIT`) | Mutable 96B recall-telemetry slab on the hot path, 1:1 with cognitive slots, `growable = false`. Adding variable-cardinality edges breaks ADR-0028 §D1–D2 cache isolation. |
+| Session ID in `CognitiveRecordLayout` | Semantic memories are timeless by design; the header is a full cache line with no room, and it would put provenance in every SIMD scan. |
+| Generic JSON/CBOR document region (`[len][collection][key][doc][crc]`) | Schema drift, parse cost on every index rebuild, and no integrity path. Lineage is a closed 64-byte relation. Inspectability is served by a JSON dump in `spector-inspect`. |
+| Multi-collection NoSQL region in v1 | Platform feature with one consumer. Revisit only if a second consumer appears; the reusable part is the shape (record region + rebuilt index), not a collection API. |
+| Growable region with a rebinding hook | No such hook exists; `AbstractMemory.segment`/`arena` are `final`; growth remaps the whole bundle and invalidates every other store's slices. Deferred to §6 as separate work. |
+| Independently appended 16 MiB chunks with a private TOC | `BundleDirectory` / `RegionEntry` **is** the TOC. A parallel chunk table would fight `growRegion` and `compact`, both of which close the arena. |
+| Variable-length packed offset array per row | Forfeits `AbstractRecordMemory`'s CRC32C and slot addressing. Multiple fixed rows express the same information. |
+| RocksDB / SQLite sidecar | Violates the pure-Panama kernel constraint; adds a native dependency and a second durability protocol beside `MemoryWal`. |
+| Persisted secondary indexes | 131k-row rebuild is sub-millisecond. Persistent radix trees are a separate project. |
+
+---
+
+## 5. Decision Outcome
+
+Adopt **Option 3 (Fixed-32B Record in Dedicated Partition Region)**, superseding ADR-0028 §D4.
 
 ### D1: Placement and Naming — runtime bundle, `RegionId.PROVENANCE(26)`
 
@@ -311,7 +310,36 @@ During the provenance redesign, six pre-existing defects in the consolidation pi
 
 ---
 
-## 3. Consequences
+## 6. Pros and Cons of the Options
+
+| Option | Pros | Cons |
+|:---|:---|:---|
+| **Option 1: ADR-0028 §D4 Variable** | Rich flexible metadata | Defeats CRC32C integrity, wrong TSID width, high memory fragmentation |
+| **Option 2: Bloom Synaptic Tags** | Zero new regions | Lossy, unidirectional, pollutes recall tag space |
+| **Option 3: Fixed-32B Mmap Region** | Hardware CRC32C, exact 64-bit TSID, zero cache pollution | Requires managing dedicated growable region per partition |
+
+## 7. Implementation Plan
+
+All phases of ADR-0029 implementation completed in [spectrayan/spector#731](https://github.com/spectrayan/spector/issues/731):
+
+1. `ProvenanceLayout` + `ProvenanceEdge` + `ProvenanceState` + heap-backed and bundle-backed `ProvenanceMemory` implemented with CRC32C integrity and slot indexing.
+2. `RegionId.PROVENANCE(26)` registered in `CognitiveCortexBuilder.getRuntimeBundleSpecs`, wired with `fromBundle` and heap fallback.
+3. `RememberPathway.ingestCognitiveWithHeader(...)` updated from `void` to `boolean` return.
+4. `EpisodicLogConsolidationRelay` fully integrated with transactional write ordering, multi-pass pass number assignment, and system-level `IdStrategy`.
+5. Public facade methods `explain(memoryId)` and `sessionProvenance(sessionId)` added to `MemoryReflection` and `DefaultSpectorMemory`.
+6. MkDocs deep-dive documentation published at `docs/docs/deep-dives/provenance-region.md`.
+7. All 1,687 unit, property, and integration tests passing.
+
+## 6. Follow-up work this ADR does not cover
+
+- **`RuntimeBundle` remap safety** — `growRegion()` and `compact()` both close the arena and invalidate every slice, while stores hold `final` segments. A rebind/invalidate protocol is a prerequisite for **any** growable region backing a long-lived store, and warrants its own issue independent of #731.
+- **`growRegion` ignoring `FLAG_GROWABLE`**, and `withUpdatedRegion` not marking superseded entries dead.
+- **Issue #171** — connector/source-URI provenance on the DTO metadata plane.
+- **ADR-0028 §D4 correction** — its claim that `PartitionBundle` supports region 26 is false; `isPartitionRegion()` is `id < 10`.
+
+*(Note: The `dataOffset()` skew between `EpisodicSessionIndex.rebuild` and `EpisodicLogMemory` was fixed as Bug #1 in #731).*
+
+## 8. Code Reference & Verification
 
 ### Positive
 
@@ -339,39 +367,10 @@ During the provenance redesign, six pre-existing defects in the consolidation pi
 
 ---
 
-## 4. Alternatives rejected
-
-| Alternative | Why rejected |
-|:---|:---|
-| Extend `RegionId.STRENGTH(4)` (formerly `AUDIT`) | Mutable 96B recall-telemetry slab on the hot path, 1:1 with cognitive slots, `growable = false`. Adding variable-cardinality edges breaks ADR-0028 §D1–D2 cache isolation. |
-| Session ID in `CognitiveRecordLayout` | Semantic memories are timeless by design; the header is a full cache line with no room, and it would put provenance in every SIMD scan. |
-| Generic JSON/CBOR document region (`[len][collection][key][doc][crc]`) | Schema drift, parse cost on every index rebuild, and no integrity path. Lineage is a closed 64-byte relation. Inspectability is served by a JSON dump in `spector-inspect`. |
-| Multi-collection NoSQL region in v1 | Platform feature with one consumer. Revisit only if a second consumer appears; the reusable part is the shape (record region + rebuilt index), not a collection API. |
-| Growable region with a rebinding hook | No such hook exists; `AbstractMemory.segment`/`arena` are `final`; growth remaps the whole bundle and invalidates every other store's slices. Deferred to §6 as separate work. |
-| Independently appended 16 MiB chunks with a private TOC | `BundleDirectory` / `RegionEntry` **is** the TOC. A parallel chunk table would fight `growRegion` and `compact`, both of which close the arena. |
-| Variable-length packed offset array per row | Forfeits `AbstractRecordMemory`'s CRC32C and slot addressing. Multiple fixed rows express the same information. |
-| RocksDB / SQLite sidecar | Violates the pure-Panama kernel constraint; adds a native dependency and a second durability protocol beside `MemoryWal`. |
-| Persisted secondary indexes | 131k-row rebuild is sub-millisecond. Persistent radix trees are a separate project. |
-
 ---
 
-## 5. Implementation Status
-
-All phases of ADR-0029 implementation completed in [spectrayan/spector#731](https://github.com/spectrayan/spector/issues/731):
-
-1. `ProvenanceLayout` + `ProvenanceEdge` + `ProvenanceState` + heap-backed and bundle-backed `ProvenanceMemory` implemented with CRC32C integrity and slot indexing.
-2. `RegionId.PROVENANCE(26)` registered in `CognitiveCortexBuilder.getRuntimeBundleSpecs`, wired with `fromBundle` and heap fallback.
-3. `RememberPathway.ingestCognitiveWithHeader(...)` updated from `void` to `boolean` return.
-4. `EpisodicLogConsolidationRelay` fully integrated with transactional write ordering, multi-pass pass number assignment, and system-level `IdStrategy`.
-5. Public facade methods `explain(memoryId)` and `sessionProvenance(sessionId)` added to `MemoryReflection` and `DefaultSpectorMemory`.
-6. MkDocs deep-dive documentation published at `docs/docs/deep-dives/provenance-region.md`.
-7. All 1,687 unit, property, and integration tests passing.
-
-## 6. Follow-up work this ADR does not cover
-
-- **`RuntimeBundle` remap safety** — `growRegion()` and `compact()` both close the arena and invalidate every slice, while stores hold `final` segments. A rebind/invalidate protocol is a prerequisite for **any** growable region backing a long-lived store, and warrants its own issue independent of #731.
-- **`growRegion` ignoring `FLAG_GROWABLE`**, and `withUpdatedRegion` not marking superseded entries dead.
-- **Issue #171** — connector/source-URI provenance on the DTO metadata plane.
-- **ADR-0028 §D4 correction** — its claim that `PartitionBundle` supports region 26 is false; `isPartitionRegion()` is `id < 10`.
-
-*(Note: The `dataOffset()` skew between `EpisodicSessionIndex.rebuild` and `EpisodicLogMemory` was fixed as Bug #1 in #731).*
+### Code Reference & Verification Gate
+- **Primary Module(s)**: `memory/spector-memory`, `memory/spector-kernel`
+- **Key Packages**: `com.spectrayan.spector.memory.pathway.reflect.relay`, `com.spectrayan.spector.kernel.bundle`
+- **Classes**: `EpisodicLogConsolidationRelay.java`, `RegionId.java`, `PartitionBundle.java`
+- **Verification Tests**: `EpisodicLogConsolidationRelayTest.java`

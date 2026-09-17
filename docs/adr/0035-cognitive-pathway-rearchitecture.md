@@ -12,18 +12,6 @@
 
 ---
 
-- **Status:** Accepted
-- **Date:** 2026-09-14
-- **Deciders:** Spector Memory / Nucleus
-- **Affects:** `nucleus/spector-commons` (`commons.pathway`), `memory/spector-memory` (`memory.pathway.*`), `memory/spector-memory` (`runtime.SpectorRuntime`, `bootstrap.SpectorMemoryFactory`)
-- **Supersedes:** Informal pathway-facade convention introduced with `CognitivePathway<S>` (no prior ADR)
-- **Companion:** [ADR-0036 — Pathway Error Handling, Isolation, and Circuit Breakers](0036-pathway-error-handling-and-circuit-breakers.md)
-- **Prerequisite:** [ADR-0037 — Ingestion Boundary and Sensory Relocation](0037-ingestion-boundary-and-sensory-relocation.md) (M1.5)
-- **Code baseline:** all line references verified against `main` @ `33af1601`
-- **Implementation status:** delivered on `feat/cognitive-pathway-rearchitecture`. Post-implementation review and remediation recorded in `.kiro/specs/cognitive-pathway-rearchitecture/tasks.md` (Internal Specification). Sections amended after implementation: §6.6 (outcome import in `finally`, `required(false)` check), §7.1.1 (`StageBuilder` additions).
-
----
-
 ## 1. Context
 
 Spector Memory expresses cognition as *pathways* — Remember, Recall, Reflect, Dream, Decide, Wander, Express — each a chain of `SynapticRelay` stages conducted by `CognitivePathway<S>` in `spector-commons`.
@@ -57,6 +45,20 @@ XxxSignal                    ← request + workspace + service locator
 
 Each domain class is a standalone final type. There is no `Pathway` interface. `SpectorRuntime` holds seven concrete fields and exposes seven getters.
 
+
+### 1.3 Constraints
+
+- Do not rewrite the conductor. `CognitivePathway<S>` stays the engine.
+- Public verbs stay: `recall(...)`, `ingest(...)`, `reflect(...)`, `dream(...)`. They become sugar over `conduct`.
+- Pathways remain process-wide singletons owned by `SpectorRuntime` (already true).
+- Hot path (Recall SIMD scan) must not pay for extra allocations per relay beyond what exists today.
+- Java 25, virtual threads, existing `ConcurrentTasks` / `MemoryScope`.
+- Biological naming is retained.
+
+---
+
+## 2. Problem Statement
+
 ### 1.2 Failure modes we are fixing
 
 All counts below were verified against `main` at commit `33af1601`.
@@ -75,18 +77,45 @@ All counts below were verified against `main` at commit `33af1601`.
 | Duplicated façade boilerplate | Every pathway reimplements builder, interceptor, try/catch → `SpectorPathwayException`, and close. |
 | A pathway doubles as a storage SPI | `RememberPathway implements IngestionTarget` (L71), an SPI from `spector-ingestion`. Its `void ingest(...)` is what blocks `Pathway<RememberSignal, RememberResult>`. See §8.1a and ADR-0037. |
 
-### 1.3 Constraints
+## 3. Decision Drivers
 
-- Do not rewrite the conductor. `CognitivePathway<S>` stays the engine.
-- Public verbs stay: `recall(...)`, `ingest(...)`, `reflect(...)`, `dream(...)`. They become sugar over `conduct`.
-- Pathways remain process-wide singletons owned by `SpectorRuntime` (already true).
-- Hot path (Recall SIMD scan) must not pay for extra allocations per relay beyond what exists today.
-- Java 25, virtual threads, existing `ConcurrentTasks` / `MemoryScope`.
-- Biological naming is retained.
+### Goals
+
+- One interface every domain pathway implements.
+- Invoke pathway B from pathway A without A knowing B’s relays, factory, or constructor.
+- Generic, typed, sharable state across pathways and relays.
+- Collapse Reflect/Dream/Recall execute overloads.
+- Delete `RecallPathway.ACTIVE_SIGNAL` and all 12 of its read sites.
+- Replace positional `*PathwayFactory` overloads with recipes.
+- Preserve existing relay semantics (gate, diverge, short-circuit, intercept, trace).
+- Make tracing work for all seven pathways, not just Recall.
+- Stop `RememberPathway` doubling as an `IngestionTarget` implementation (ADR-0037).
+- Give error handling and circuit breaking a first-class nested-pathway story (ADR-0036).
+
+### Non-goals
+
+- Replacing `CognitivePathway` with a new engine.
+- Introducing a DI framework (Spring, Guice). Runtime + context is enough.
+- Making signals immutable. Working memory stays mutable; services become immutable-per-conduction.
+- Unifying all signal types into one class.
+- Changing MCP / REST / SDK request shapes.
 
 ---
 
-## 2. Decision
+## 4. Considered Options
+
+| Option | Why rejected |
+|---|---|
+| Keep façades, add a marker interface only | Does not fix cross-pathway wiring or god signals. |
+| Make domain pathways *extend* `CognitivePathway` | Collapses “operation” and “conductor”. Conductor is generic over a signal; operation has an input *and* an output. |
+| Global static `Pathways.get(RecallPathway.class)` | Hidden coupling, untestable, fights `SpectorRuntime` as the existing process singleton. |
+| Pass every collaborator through every `execute` overload | Status quo. Overload combinatorics. |
+| Event bus between pathways | Async, unordered, hard to trace, wrong for “Dream ingest *then* continue”. Nested conduct is synchronous and scoped. |
+| One shared `CognitiveSignal` for all pathways | Forces every relay to downcast. Per-pathway signals stay; they implement `ContextualSignal`. |
+
+---
+
+## 5. Decision Outcome
 
 We split three concerns that are currently one class:
 
@@ -114,45 +143,7 @@ SpectorRuntime  ──implements──▶  PathwayCatalog
 
 ---
 
-## 3. Goals and non-goals
-
-### Goals
-
-- One interface every domain pathway implements.
-- Invoke pathway B from pathway A without A knowing B’s relays, factory, or constructor.
-- Generic, typed, sharable state across pathways and relays.
-- Collapse Reflect/Dream/Recall execute overloads.
-- Delete `RecallPathway.ACTIVE_SIGNAL` and all 12 of its read sites.
-- Replace positional `*PathwayFactory` overloads with recipes.
-- Preserve existing relay semantics (gate, diverge, short-circuit, intercept, trace).
-- Make tracing work for all seven pathways, not just Recall.
-- Stop `RememberPathway` doubling as an `IngestionTarget` implementation (ADR-0037).
-- Give error handling and circuit breaking a first-class nested-pathway story (ADR-0036).
-
-### Non-goals
-
-- Replacing `CognitivePathway` with a new engine.
-- Introducing a DI framework (Spring, Guice). Runtime + context is enough.
-- Making signals immutable. Working memory stays mutable; services become immutable-per-conduction.
-- Unifying all signal types into one class.
-- Changing MCP / REST / SDK request shapes.
-
 ---
-
-## 4. Alternatives considered
-
-| Option | Why rejected |
-|---|---|
-| Keep façades, add a marker interface only | Does not fix cross-pathway wiring or god signals. |
-| Make domain pathways *extend* `CognitivePathway` | Collapses “operation” and “conductor”. Conductor is generic over a signal; operation has an input *and* an output. |
-| Global static `Pathways.get(RecallPathway.class)` | Hidden coupling, untestable, fights `SpectorRuntime` as the existing process singleton. |
-| Pass every collaborator through every `execute` overload | Status quo. Overload combinatorics. |
-| Event bus between pathways | Async, unordered, hard to trace, wrong for “Dream ingest *then* continue”. Nested conduct is synchronous and scoped. |
-| One shared `CognitiveSignal` for all pathways | Forces every relay to downcast. Per-pathway signals stay; they implement `ContextualSignal`. |
-
----
-
-## 5. Package layout
 
 New types live in commons so memory, metrics, and tests share them.
 
@@ -1072,163 +1063,6 @@ No change to `TraceableSignal`. Nested pathway traces are appended onto the *cal
 
 ---
 
-## 14. Testing
-
-| Layer | What to test | Where |
-|---|---|---|
-| Conductor | Existing `CognitivePathwayTest` unchanged | `spector-commons` |
-| Context / bag / keys | bind, missing key, nested shares bag, snapshot isolation on fork | new `PathwayContextTest` |
-| Catalog | register-once, require, invoke pushes scope, cycle throws | new `PathwayCatalogTest` |
-| PathwayRelay | maps in/out, missing target + required=false continues, required=true fails | new `PathwayRelayTest` |
-| AbstractPathway | missing context throws, project is called, wrap of checked exceptions | new `AbstractPathwayTest` |
-| Dream → Remember | fake `RememberPathway` registered; Dream ingest calls it N times; Remember failure degrades Dream | `DreamPathwayNestingTest` |
-| Recall without ThreadLocal | listener reads TKG from context; after `conduct` returns, no leftover ambient state | replaces `activeSignal` tests |
-| Nested recall | inner conduction does not clear the outer signal's context on exit (today's L456 bug) | `PathwayCatalogTest` |
-| Scope shared through nesting | `Remember → Dream → Remember` throws `PATHWAY_CYCLE`; proves `nested()` did not reset the frame stack | `PathwayCatalogTest` |
-| `PathwayRelay` in a divergent branch | `PathwayComposer.divergent(...)` throws at **build** time | `PathwayComposerTest` |
-| Retry re-binds context | a retried `PathwayRelay` stage binds twice without throwing; `absorb` invoked once | `PathwayRelayTest` |
-| `project()` sees `Finish` | Remember short-circuited on dedup returns `RememberResult.skipped()` | `AbstractPathwayTest` |
-| `SoulVersionSource` is live | `setSoulVersion` after context construction is visible to a Reflect relay | `SoulDriftRefusionRelayTest` |
-| Six signals traceable | each of the seven pathways records ≥1 `RelayTrace` when tracing is on | `PathwayTraceParityTest` |
-
-Fakes:
-
-```java
-catalog.register(RememberPathway.class, new Pathway<>() {
-    public String name() { return "remember"; }
-    public Class<RememberSignal> inputType() { return RememberSignal.class; }
-    public Class<RememberResult> outputType() { return RememberResult.class; }
-    public RememberResult conduct(RememberSignal in) {
-        return new RememberResult(in.id(), 0, false, in.type(), in.source());
-    }
-});
-```
-
-Dream tests no longer construct Remember’s six relays.
-
----
-
-## 15. Migration
-
-Incremental. Each step is independently shippable.
-
-| Step | Change | Rollback |
-|---|---|---|
-| **M1** | Add commons types. No callers. Also: `CognitivePathwayException` uses `ErrorCode.MEMORY_PATHWAY_FAILED` instead of `INTERNAL_ERROR`; replace raw `IllegalArgumentException` in `CircuitBreakerRelay` / `DivergentRelay` with `SpectorValidationException`. | Delete the package files. |
-| **M1.5** | **Delete `IngestionTarget`; `RememberPathway` stops implementing it.** Sink and pipeline call `SpectorMemory.remember(...)`. ADR-0037. | Restore the interface; it has one implementor. |
-| **M2** | Domain pathways `implements Pathway<I,O>` *and* keep public verbs. `SpectorRuntime` implements/hosts the catalog. | Getters still work; catalog unused. |
-| **M3** | Introduce `PathwayContext` on new conduct paths. Fluent setters on signals delegate to context and are `@Deprecated`. | Setters still populate both. |
-| **M4a** | Thread `RecallSignal` into `effectiveIndex` / `effectivePartitionRegistry` and their 8 call sites. Field fallback retained. No context, no behavior change. | Mechanical revert of one file. |
-| **M4b** | Delete `ACTIVE_SIGNAL` + `activeSignal()`. Migrate 4 external readers. Pass context explicitly into async listener dispatch. | Revert those 3 files. |
-| **M4.5** | **Extract `SoulVersionSource` + `ScalarQuantizer` onto the context** (§8.1b). Unblocks the 5 state-accessor sites. | Sites fall back to the signal getter, still present. |
-| **M5** | Dream + Reflect call Remember via catalog / `PathwayRelay`. Remove `rememberPathway` from their fields, signals, and execute overloads. | Restore field passing. |
-| **M6** | Recipes replace factory overloads. **All six non-traceable signals extend `AbstractSignal`** (§6.3). Widest factory kept as `@Deprecated` wrapper. | Wrapper still used by any missed caller. |
-| **M7** | Slim signals: remove service fields that are now on context. **Delivered:** the dead `kernel` field is gone from `Recall`/`Remember`/`Reflect`/`Dream`/`Wander` signals, with each `Builder.kernel(...)` and write site. Relays read the kernel from the context binding. | After one release of deprecation. |
-| **M8** | **Rename `CognitivePathway` → `PathwayEngine`; one authoring API.** See §19. | Mechanical inverse rename. |
-
-Ordering constraints, all of them load-bearing:
-
-- **M1.5 before M2.** `implements Pathway<RememberSignal, RememberResult>` cannot coexist with `IngestionTarget`'s `void ingest`.
-- **M4a before M4b.** M4b alone would touch 8 hot-path sites with no intermediate safe state.
-- **M4.5 before M5.** M5 deletes the field that the 5 state-accessor sites read; without M4.5 they have nowhere to go.
-- **M6 needs `AbstractSignal`** or §12's trace tree stays inert for six pathways.
-- Do not start M7 until M4–M5 have soaked. Do not combine M5 and M6 in one PR.
-
-Compatibility shims for one minor version:
-
-```java
-@Deprecated
-public RememberPathway rememberPathway() { /* field on DreamSignal */ }
-
-@Deprecated
-public DreamSignal rememberPathway(RememberPathway p) {
-    // no-op store; log once
-    return this;
-}
-```
-
----
-
-## 16. Consequences
-
-### Positive
-
-- Pathways are addressable peers. Adding an eighth pathway (e.g. `SimulatePathway`) is: implement `Pathway`, write a recipe, `catalog.register`. No existing constructor grows.
-- Dream / Reflect constructors stop tracking Remember’s internals.
-- Signals shrink to working memory. Relays become testable with a stub context.
-- Thread-local ambient state goes away — required for correctness under virtual threads.
-- Observability becomes a tree, not a flat list.
-
-### Negative / accepted cost
-
-- One extra type layer (`Pathway` vs `CognitivePathway`). Documented in §2 so newcomers do not collapse them again.
-- Mappers (`DreamPorts`) must be written and kept in sync with `RememberSignal` fields. This is cheaper than constructor coupling.
-- Catalog lookup on every nested call. Cold path only.
-- Deprecation window on fluent setters and factory overloads.
-
-### Risks
-
-| Risk | Mitigation |
-|---|---|
-| Context used as a dump | Review rule: new `Class<T>` binds require a one-line justification in the PR. Prefer `Key<T>` for optionals. |
-| Cycle introduced by a new pathway | `ConductionScope.assertNotOnStack` in `invoke`, over a scope shared through `nested()` (§6.5.1). Test in `PathwayCatalogTest`. |
-| Missed `activeSignal` call site | `grep -rn activeSignal` in CI on M4b. Compile-fail once the method is deleted. M4a first removes the 8 internal readers, leaving 4. |
-| Recipe forgets a relay | Parity test: `CognitivePathwayParityTest` compares recipe-built engine relay names **and order** to the current factory output for all seven pathways. |
-| Stale soul version after M4.5 | `SoulVersionSource` is an accessor, never a snapshot (§6.5.2). Test asserts post-construction `setSoulVersion` visibility. |
-| Scope corruption from a parallel branch | `ConductionScope` is thread-confined; `PathwayRelay` banned inside `DivergentRelay` at build time (§10.8). |
-| Trace tree silently empty | `PathwayTraceParityTest` fails if any of the seven pathways records zero traces with tracing on. |
-
----
-
-## 17. Implementation checklist
-
-Commons (`spector-commons`):
-
-- [ ] `Key`, `AttributeBag`, `PathwayContext`, `DefaultPathwayContext`
-- [ ] `Pathway`, `AbstractPathway`, `ContextualSignal`, `AbstractSignal`, `PathwayExceptions`
-- [ ] `PathwayCatalog`, `DefaultPathwayCatalog`
-- [ ] `ConductionScope` — one per root conduction, thread-confined (§6.5.1)
-- [ ] `PathwayRelay`
-- [ ] `PathwayRecipe`, `PathwayComposer` (delegate to existing builder)
-- [ ] `PathwayComposer.divergent(...)` rejects `PathwayRelay` branches at build time
-- [ ] `RelayFactory` (map-backed)
-- [ ] `CognitivePathwayException` → `ErrorCode.MEMORY_PATHWAY_FAILED`
-- [ ] Raw `IllegalArgumentException` → `SpectorValidationException` in `CircuitBreakerRelay`, `DivergentRelay`
-- [ ] Tests listed in §14
-
-Memory:
-
-- [ ] **`RememberPathway` stops implementing `IngestionTarget`** (M1.5, ADR-0037)
-- [ ] Each domain pathway extends `AbstractPathway` / implements `Pathway`
-- [ ] `SpectorRuntime` hosts the catalog and builds process context
-- [ ] `RememberResult` + Remember `project` (incl. `skipped()` on short-circuit)
-- [ ] `SoulVersionSource`; `ScalarQuantizer` bound on context (M4.5)
-- [ ] `DreamPorts`, Reflect ports
-- [ ] M4a: thread `RecallSignal` into the 8 internal `effective*` call sites
-- [ ] M4b: delete `ACTIVE_SIGNAL` + 4 external readers
-- [ ] `wasLateral` + `recentRetrievalModes` (with eviction) move to `RecallHistory`
-- [ ] Collapse Reflect / Dream execute overloads
-- [x] Recipes for Remember / Recall / Reflect — **superseded by §19: all seven pathways now have a recipe, none stay inline**
-- [ ] All six non-traceable signals extend `AbstractSignal` (M6)
-- [ ] Deprecate fluent service setters on signals
-
-Docs:
-
-- [ ] This ADR
-- [ ] ADR-0036 (error handling, isolation, circuit breakers)
-- [ ] ADR-0037 (ingestion boundary and sensory relocation)
-- [ ] Short note on `docs/architecture/overview.md` pointing at all three
-
----
-
-## 18. Revisit when
-
-- A pathway needs asynchronous nested invocation (not fire-and-forget consolidation). That would require a different primitive than `PathwayRelay`.
-- Relay graphs become data-driven (external YAML). Recipes would become the compiler target; this ADR does not block that.
-- A DI container is adopted process-wide. `RelayFactory` / context binds would delegate to it; `Pathway` / catalog stay.
-
-Error handling, isolation, retries, timeouts, bulkheads, and the circuit-breaker model for nested pathways are specified in **ADR-0036**.
-
 ---
 
 ## 19. M8 — `PathwayEngine` rename and a single authoring API
@@ -1307,3 +1141,178 @@ any production pathway.
 > that the walk did not unwrap. Every `doesNotContain` assertion passed — for the wrong reason. The
 > test now carries an explicit anti-vacuity case asserting the walk finds decorators where they are
 > known to exist. Shape tests that can silently degrade to tautologies need that guard.
+
+## 6. Pros and Cons of the Options
+
+| Alternative | Pros | Cons |
+|:---|:---|:---|
+| **Status Quo (Concrete Facades)** | No refactoring | 26-param factory constructors, signals as god objects, missing common type |
+| **Apache Camel Everywhere** | Established enterprise EIP | Extreme heap allocation, non-vectorizable, high invocation overhead |
+| **Pathway<S,R> & Recipes (Selected)** | Zero-overhead, standard conductor, typed recipes, clean lifecycle | Migration across all 7 cognitive pathways |
+
+## 7. Implementation Plan
+
+| Layer | What to test | Where |
+|---|---|---|
+| Conductor | Existing `CognitivePathwayTest` unchanged | `spector-commons` |
+| Context / bag / keys | bind, missing key, nested shares bag, snapshot isolation on fork | new `PathwayContextTest` |
+| Catalog | register-once, require, invoke pushes scope, cycle throws | new `PathwayCatalogTest` |
+| PathwayRelay | maps in/out, missing target + required=false continues, required=true fails | new `PathwayRelayTest` |
+| AbstractPathway | missing context throws, project is called, wrap of checked exceptions | new `AbstractPathwayTest` |
+| Dream → Remember | fake `RememberPathway` registered; Dream ingest calls it N times; Remember failure degrades Dream | `DreamPathwayNestingTest` |
+| Recall without ThreadLocal | listener reads TKG from context; after `conduct` returns, no leftover ambient state | replaces `activeSignal` tests |
+| Nested recall | inner conduction does not clear the outer signal's context on exit (today's L456 bug) | `PathwayCatalogTest` |
+| Scope shared through nesting | `Remember → Dream → Remember` throws `PATHWAY_CYCLE`; proves `nested()` did not reset the frame stack | `PathwayCatalogTest` |
+| `PathwayRelay` in a divergent branch | `PathwayComposer.divergent(...)` throws at **build** time | `PathwayComposerTest` |
+| Retry re-binds context | a retried `PathwayRelay` stage binds twice without throwing; `absorb` invoked once | `PathwayRelayTest` |
+| `project()` sees `Finish` | Remember short-circuited on dedup returns `RememberResult.skipped()` | `AbstractPathwayTest` |
+| `SoulVersionSource` is live | `setSoulVersion` after context construction is visible to a Reflect relay | `SoulDriftRefusionRelayTest` |
+| Six signals traceable | each of the seven pathways records ≥1 `RelayTrace` when tracing is on | `PathwayTraceParityTest` |
+
+Fakes:
+
+```java
+catalog.register(RememberPathway.class, new Pathway<>() {
+    public String name() { return "remember"; }
+    public Class<RememberSignal> inputType() { return RememberSignal.class; }
+    public Class<RememberResult> outputType() { return RememberResult.class; }
+    public RememberResult conduct(RememberSignal in) {
+        return new RememberResult(in.id(), 0, false, in.type(), in.source());
+    }
+});
+```
+
+Dream tests no longer construct Remember’s six relays.
+
+---
+
+## 15. Migration
+
+Incremental. Each step is independently shippable.
+
+| Step | Change | Rollback |
+|---|---|---|
+| **M1** | Add commons types. No callers. Also: `CognitivePathwayException` uses `ErrorCode.MEMORY_PATHWAY_FAILED` instead of `INTERNAL_ERROR`; replace raw `IllegalArgumentException` in `CircuitBreakerRelay` / `DivergentRelay` with `SpectorValidationException`. | Delete the package files. |
+| **M1.5** | **Delete `IngestionTarget`; `RememberPathway` stops implementing it.** Sink and pipeline call `SpectorMemory.remember(...)`. ADR-0037. | Restore the interface; it has one implementor. |
+| **M2** | Domain pathways `implements Pathway<I,O>` *and* keep public verbs. `SpectorRuntime` implements/hosts the catalog. | Getters still work; catalog unused. |
+| **M3** | Introduce `PathwayContext` on new conduct paths. Fluent setters on signals delegate to context and are `@Deprecated`. | Setters still populate both. |
+| **M4a** | Thread `RecallSignal` into `effectiveIndex` / `effectivePartitionRegistry` and their 8 call sites. Field fallback retained. No context, no behavior change. | Mechanical revert of one file. |
+| **M4b** | Delete `ACTIVE_SIGNAL` + `activeSignal()`. Migrate 4 external readers. Pass context explicitly into async listener dispatch. | Revert those 3 files. |
+| **M4.5** | **Extract `SoulVersionSource` + `ScalarQuantizer` onto the context** (§8.1b). Unblocks the 5 state-accessor sites. | Sites fall back to the signal getter, still present. |
+| **M5** | Dream + Reflect call Remember via catalog / `PathwayRelay`. Remove `rememberPathway` from their fields, signals, and execute overloads. | Restore field passing. |
+| **M6** | Recipes replace factory overloads. **All six non-traceable signals extend `AbstractSignal`** (§6.3). Widest factory kept as `@Deprecated` wrapper. | Wrapper still used by any missed caller. |
+| **M7** | Slim signals: remove service fields that are now on context. **Delivered:** the dead `kernel` field is gone from `Recall`/`Remember`/`Reflect`/`Dream`/`Wander` signals, with each `Builder.kernel(...)` and write site. Relays read the kernel from the context binding. | After one release of deprecation. |
+| **M8** | **Rename `CognitivePathway` → `PathwayEngine`; one authoring API.** See §19. | Mechanical inverse rename. |
+
+Ordering constraints, all of them load-bearing:
+
+- **M1.5 before M2.** `implements Pathway<RememberSignal, RememberResult>` cannot coexist with `IngestionTarget`'s `void ingest`.
+- **M4a before M4b.** M4b alone would touch 8 hot-path sites with no intermediate safe state.
+- **M4.5 before M5.** M5 deletes the field that the 5 state-accessor sites read; without M4.5 they have nowhere to go.
+- **M6 needs `AbstractSignal`** or §12's trace tree stays inert for six pathways.
+- Do not start M7 until M4–M5 have soaked. Do not combine M5 and M6 in one PR.
+
+Compatibility shims for one minor version:
+
+```java
+@Deprecated
+public RememberPathway rememberPathway() { /* field on DreamSignal */ }
+
+@Deprecated
+public DreamSignal rememberPathway(RememberPathway p) {
+    // no-op store; log once
+    return this;
+}
+```
+
+---
+
+---
+
+Commons (`spector-commons`):
+
+- [ ] `Key`, `AttributeBag`, `PathwayContext`, `DefaultPathwayContext`
+- [ ] `Pathway`, `AbstractPathway`, `ContextualSignal`, `AbstractSignal`, `PathwayExceptions`
+- [ ] `PathwayCatalog`, `DefaultPathwayCatalog`
+- [ ] `ConductionScope` — one per root conduction, thread-confined (§6.5.1)
+- [ ] `PathwayRelay`
+- [ ] `PathwayRecipe`, `PathwayComposer` (delegate to existing builder)
+- [ ] `PathwayComposer.divergent(...)` rejects `PathwayRelay` branches at build time
+- [ ] `RelayFactory` (map-backed)
+- [ ] `CognitivePathwayException` → `ErrorCode.MEMORY_PATHWAY_FAILED`
+- [ ] Raw `IllegalArgumentException` → `SpectorValidationException` in `CircuitBreakerRelay`, `DivergentRelay`
+- [ ] Tests listed in §14
+
+Memory:
+
+- [ ] **`RememberPathway` stops implementing `IngestionTarget`** (M1.5, ADR-0037)
+- [ ] Each domain pathway extends `AbstractPathway` / implements `Pathway`
+- [ ] `SpectorRuntime` hosts the catalog and builds process context
+- [ ] `RememberResult` + Remember `project` (incl. `skipped()` on short-circuit)
+- [ ] `SoulVersionSource`; `ScalarQuantizer` bound on context (M4.5)
+- [ ] `DreamPorts`, Reflect ports
+- [ ] M4a: thread `RecallSignal` into the 8 internal `effective*` call sites
+- [ ] M4b: delete `ACTIVE_SIGNAL` + 4 external readers
+- [ ] `wasLateral` + `recentRetrievalModes` (with eviction) move to `RecallHistory`
+- [ ] Collapse Reflect / Dream execute overloads
+- [x] Recipes for Remember / Recall / Reflect — **superseded by §19: all seven pathways now have a recipe, none stay inline**
+- [ ] All six non-traceable signals extend `AbstractSignal` (M6)
+- [ ] Deprecate fluent service setters on signals
+
+Docs:
+
+- [ ] This ADR
+- [ ] ADR-0036 (error handling, isolation, circuit breakers)
+- [ ] ADR-0037 (ingestion boundary and sensory relocation)
+- [ ] Short note on `docs/architecture/overview.md` pointing at all three
+
+---
+
+---
+
+- A pathway needs asynchronous nested invocation (not fire-and-forget consolidation). That would require a different primitive than `PathwayRelay`.
+- Relay graphs become data-driven (external YAML). Recipes would become the compiler target; this ADR does not block that.
+- A DI container is adopted process-wide. `RelayFactory` / context binds would delegate to it; `Pathway` / catalog stay.
+
+Error handling, isolation, retries, timeouts, bulkheads, and the circuit-breaker model for nested pathways are specified in **ADR-0036**.
+
+---
+
+## 8. Code Reference & Verification
+
+### Positive
+
+- Pathways are addressable peers. Adding an eighth pathway (e.g. `SimulatePathway`) is: implement `Pathway`, write a recipe, `catalog.register`. No existing constructor grows.
+- Dream / Reflect constructors stop tracking Remember’s internals.
+- Signals shrink to working memory. Relays become testable with a stub context.
+- Thread-local ambient state goes away — required for correctness under virtual threads.
+- Observability becomes a tree, not a flat list.
+
+### Negative / accepted cost
+
+- One extra type layer (`Pathway` vs `CognitivePathway`). Documented in §2 so newcomers do not collapse them again.
+- Mappers (`DreamPorts`) must be written and kept in sync with `RememberSignal` fields. This is cheaper than constructor coupling.
+- Catalog lookup on every nested call. Cold path only.
+- Deprecation window on fluent setters and factory overloads.
+
+### Risks
+
+| Risk | Mitigation |
+|---|---|
+| Context used as a dump | Review rule: new `Class<T>` binds require a one-line justification in the PR. Prefer `Key<T>` for optionals. |
+| Cycle introduced by a new pathway | `ConductionScope.assertNotOnStack` in `invoke`, over a scope shared through `nested()` (§6.5.1). Test in `PathwayCatalogTest`. |
+| Missed `activeSignal` call site | `grep -rn activeSignal` in CI on M4b. Compile-fail once the method is deleted. M4a first removes the 8 internal readers, leaving 4. |
+| Recipe forgets a relay | Parity test: `CognitivePathwayParityTest` compares recipe-built engine relay names **and order** to the current factory output for all seven pathways. |
+| Stale soul version after M4.5 | `SoulVersionSource` is an accessor, never a snapshot (§6.5.2). Test asserts post-construction `setSoulVersion` visibility. |
+| Scope corruption from a parallel branch | `ConductionScope` is thread-confined; `PathwayRelay` banned inside `DivergentRelay` at build time (§10.8). |
+| Trace tree silently empty | `PathwayTraceParityTest` fails if any of the seven pathways records zero traces with tracing on. |
+
+---
+
+---
+
+### Code Reference & Verification Gate
+- **Primary Module(s)**: `nucleus/spector-commons`, `memory/spector-memory`
+- **Key Packages**: `com.spectrayan.spector.commons.pathway`, `com.spectrayan.spector.memory.pathway`
+- **Classes**: `CognitivePathway.java`, `RecallPathway.java`, `RememberPathway.java`, `ReflectPathway.java`, `DreamPathway.java`, `WanderPathway.java`, `ExpressPathway.java`
+- **Verification Tests**: `RecallPathwayTest.java`, `DreamPathwayTest.java`, `WanderPathwayTest.java`

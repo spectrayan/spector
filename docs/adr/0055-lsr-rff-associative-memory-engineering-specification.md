@@ -1,4 +1,4 @@
-# ADR-0020-RND: LSR & RFF Dense Associative Memory Engineering Specification
+# ADR-0055: LSR & RFF Dense Associative Memory Engineering Specification
 
 | Field | Value |
 |:---|:---|
@@ -12,31 +12,11 @@
 
 ---
 
-**Document ID**: `RND-2026-020` / `NEURO-LSR-RFF-001`  
-**Date**: 2026-08-23  
-**Authors**: Architecture Working Group (Cognitive Systems), Architecture Working Group (Systems Architecture), Technical Lead  
-**Status**: APPROVED FOR IMPLEMENTATION  
-**Target Repos/Modules**: `spector` (`spector-core`, `spector-memory`, `spector-bench`), `spectrayan`  
-**Related ADRs**: [ADR-0011](0011-aisme-phase-3-modern-hopfield-associative-memory.md), [ADR-0020](0020-lsr-rff-dense-associative-memory.md)  
-**Theoretical Reference**: Krotov, Hoover, Ram, Pham (*Modern Methods in Associative Memory*, ICML 2025 Tutorial, arXiv:2507.06211v2)
+## 1. Context
 
----
+This specification establishes the advanced mathematical, neurobiological, and algorithmic architecture for dense associative memory in Spector. It unifies high-capacity pattern completion with constant-time holographic state synthesis.
 
-## 1. Executive Summary & Problem Statement
-
-Spector's AISME Phase 3 currently utilizes a **Continuous Modern Hopfield Network (MHAMN)** based on the standard Log-Sum-Exp (LSE) formulation (Ramsauer et al., 2021). While mathematically elegant and SIMD-accelerated, the LSE architecture possesses three fundamental operational constraints:
-
-1. **Iterative Convergence Latency**: LSE attractor settlement is an asymptotic relaxation process requiring $3\text{--}5$ iterations of scaled softmax updates, imposing a $\sim 0.25\,\text{ms}$ computational floor in `RecallPathway`.
-2. **Diffuse Softmax Contamination (Infinite Support)**: Gaussian kernels have infinite support ($\exp(-x) > 0$ for all $x \in \mathbb{R}$). In candidate memory pools, weak or irrelevant memories constantly leak nonzero attention weights into the retrieved attractor state, introducing subtle semantic noise.
-3. **Candidate-Scoping Bottleneck ($\mathcal{O}(D \cdot K)$)**: Attractor dynamics can only be evaluated over pre-filtered candidate sets (e.g., top-50 vectors from HNSW/BM25). Spector cannot compute whole-brain associative resonance across the agent's entire multi-million memory history in real time.
-
-This specification introduces a **Dual-Engine Associative Memory Substrate** that resolves all three bottlenecks:
-- **Engine 1: Log-Sum-ReLU (LSR) Epanechnikov Kernel** for candidate-level pattern settlement: Achieves **exact single-step ($T=1$) retrieval**, compact finite support (zero long-tail noise), and eliminates all transcendental CPU instructions.
-- **Engine 2: Positive Random Feature (PRF/RFF) Distributed Holographic Tensor** for whole-brain associative memory: Compresses $K$ lifetime memories into an off-heap tensor $\mathbf{T} \in \mathbb{R}^Y$ of fixed size, enabling **$\mathcal{O}(Y)$ constant-time global energy evaluation and subconscious DMN wandering** without candidate pre-filtering.
-
----
-
-## 2. Biological Grounding & Cognitive Neuroscience
+### Biological Grounding & Cognitive Neuroscience
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
@@ -59,7 +39,45 @@ Karl Pribram's holonomic brain theory and Longuet-Higgins' holographic associati
 
 ---
 
-## 3. Mathematical Formalization
+## 2. Problem Statement
+
+Spector's AISME Phase 3 currently utilizes a **Continuous Modern Hopfield Network (MHAMN)** based on the standard Log-Sum-Exp (LSE) formulation (Ramsauer et al., 2021). While mathematically elegant and SIMD-accelerated, the LSE architecture possesses three fundamental operational constraints:
+
+1. **Iterative Convergence Latency**: LSE attractor settlement is an asymptotic relaxation process requiring $3\text{--}5$ iterations of scaled softmax updates, imposing a $\sim 0.25\,\text{ms}$ computational floor in `RecallPathway`.
+2. **Diffuse Softmax Contamination (Infinite Support)**: Gaussian kernels have infinite support ($\exp(-x) > 0$ for all $x \in \mathbb{R}$). In candidate memory pools, weak or irrelevant memories constantly leak nonzero attention weights into the retrieved attractor state, introducing subtle semantic noise.
+3. **Candidate-Scoping Bottleneck ($\mathcal{O}(D \cdot K)$)**: Attractor dynamics can only be evaluated over pre-filtered candidate sets (e.g., top-50 vectors from HNSW/BM25). Spector cannot compute whole-brain associative resonance across the agent's entire multi-million memory history in real time.
+
+This specification introduces a **Dual-Engine Associative Memory Substrate** that resolves all three bottlenecks:
+- **Engine 1: Log-Sum-ReLU (LSR) Epanechnikov Kernel** for candidate-level pattern settlement: Achieves **exact single-step ($T=1$) retrieval**, compact finite support (zero long-tail noise), and eliminates all transcendental CPU instructions.
+- **Engine 2: Positive Random Feature (PRF/RFF) Distributed Holographic Tensor** for whole-brain associative memory: Compresses $K$ lifetime memories into an off-heap tensor $\mathbf{T} \in \mathbb{R}^Y$ of fixed size, enabling **$\mathcal{O}(Y)$ constant-time global energy evaluation and subconscious DMN wandering** without candidate pre-filtering.
+
+---
+
+## 3. Decision Drivers
+
+- **Elimination of Softmax Floating-Point Spill**: Replace exponential softmax functions with compact-support kernels to prevent catastrophic numerical underflow or explosive overflows during iterative settlement.
+- **Single-Step Exact Retrieval**: Guarantee mathematically that probe patterns within the basin of attraction converge to the exact stored pattern in exactly one update step.
+- **Constant-Time Holographic State Synthesis**: Decouple global energy evaluations and mind-wandering Langevin diffusion from the total number of stored memories ($N$), evaluating in constant time.
+- **Vectorized Off-Heap Execution**: Implement SIMD acceleration in `spector-core` using Panama Vector API and cache-aligned off-heap layouts.
+
+## 4. Considered Options
+
+### Option 1: Classical Discrete Hopfield Networks
+- Binary spin states with quadratic Hebbian storage matrix.
+- **Verdict**: Rejected. Severely limited storage capacity, prone to spurious minima and inability to handle continuous embeddings.
+
+### Option 2: Modern Continuous Hopfield Networks (Dense Softmax)
+- Continuous state vectors with exponential energy functions (Demircigil / Krotov / Hopfield / Ramsauer).
+- **Verdict**: Incomplete. While capacity scales exponentially, computing attention over all $N$ memories scales linearly with corpus size, and softmax normalization causes non-zero cross-talk across distant memories.
+
+### Option 3: Log-Sum-ReLU (LSR) and Positive Random Features (PRF) Holographic Memory (Selected)
+- Epanechnikov compact-support kernel ensuring exact single-step settlement with zero cross-talk outside the active support set.
+- Positive Random Features mapping yielding a constant-size distributed memory tensor for global energy evaluation and continuous mind-wandering.
+- **Verdict**: Accepted. Delivers mathematical exactness and constant-time scalability.
+
+## 5. Decision Outcome
+
+### Mathematical Formalization
 
 ```
                                       MATHEMATICAL LANDSCAPES
@@ -141,7 +159,7 @@ where $d\mathbf{W}_t$ is standard Brownian noise and $\mathcal{T}$ is the explor
 
 ---
 
-## 4. Bio-to-Silicon Algorithmic Translation (Titan & Forge)
+### Bio-to-Silicon Algorithmic Translation
 
 ```
 nucleus/spector-core
@@ -243,7 +261,7 @@ The global holographic tensor is backed by a native off-heap `MemorySegment`:
 
 ---
 
-## 5. Cognitive Profile Tuning & Behavioral Modulation
+### Cognitive Profile Tuning & Behavioral Modulation
 
 The basin width parameter $\beta$ dynamically shifts according to the agent's active personality profile and autonomic arousal:
 
@@ -264,7 +282,20 @@ DEFAULT_MODE_NETWORK   0.25      2.828                        Panoramic: global 
 
 ---
 
-## 6. Validation & Quality Gates (Sentinel)
+## 6. Pros and Cons of the Options
+
+### Positive
+- **Exact Single-Step Convergence**: Epanechnikov energy guarantees zero cross-talk outside support and single-step convergence.
+- **Constant-Time Global Operations**: Background mind-wandering and dreaming evaluate against the memory tensor in constant time independent of total memory count.
+- **Hardware Efficiency**: Tailored for AVX-512 / ARM Neon vector instructions.
+
+### Negative / Trade-offs
+- **Bandwidth Tuning**: Support radius $R$ and margin $\Delta$ require careful calibration based on embedding normalization.
+- **Tensor Dimensionality**: Holographic feature dimension requires sufficient capacity to prevent approximation error.
+
+## 7. Implementation Plan
+
+### Validation & Quality Gates
 
 ### 6.1 Mathematical & Unit Test Gates
 1. **$T=1$ Single-Step Settlement Verification**:
@@ -284,9 +315,22 @@ DEFAULT_MODE_NETWORK   0.25      2.828                        Panoramic: global 
 
 ---
 
-## 7. Next Steps & Persona Handover
+### Roadmap & Subsystem Milestones
 
-1. **@titan**: Author [ADR-0020](0020-lsr-rff-dense-associative-memory.md) formally establishing `MemoryShape.HOLOGRAPHIC` and updating `AismeConfig`.
-2. **@forge**: Implement `LsrHopfieldKernel.java` in `spector-core` and `LsrAttractorEngine.java` in `spector-memory`.
-3. **@sentinel**: Implement regression tests in `LsrHopfieldKernelTest.java` and benchmark against `HopfieldKernelTest`.
-4. **@nexus**: Verify Panama FFM off-heap memory safety and native AVX-512 compiler flags in CI/CD.
+1. **Architecture Working Group**: Author [ADR-0056](0056-lsr-rff-dense-associative-memory.md) formally establishing `MemoryShape.HOLOGRAPHIC` and updating `AismeConfig`.
+2. **Development Maintainers**: Implement `LsrHopfieldKernel.java` in `spector-core` and `LsrAttractorEngine.java` in `spector-memory`.
+3. **Test Strategy Working Group**: Implement regression tests in `LsrHopfieldKernelTest.java` and benchmark against `HopfieldKernelTest`.
+4. **Platform Engineering**: Verify Panama FFM off-heap memory safety and native AVX-512 compiler flags in CI/CD.
+
+## 8. Code Reference & Verification
+
+All associative memory kernels and test suites are verified in the repository:
+- **LSR Hopfield Kernel**:
+  - `nucleus/spector-core/src/main/java/com/spectrayan/spector/core/cognitive/LsrHopfieldKernel.java`
+  - `nucleus/spector-core/src/test/java/com/spectrayan/spector/core/similarity/LsrHopfieldKernelTest.java`
+- **Modern Continuous Hopfield Engine**:
+  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/hopfield/ContinuousHopfieldNetwork.java`
+  - `memory/spector-memory/src/test/java/com/spectrayan/spector/memory/aisme/hopfield/LsrContinuousHopfieldNetworkTest.java`
+- **Wander Pathway Mind-Wandering Relays**:
+  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/pathway/wander/relay/RffMindWanderingRelay.java`
+  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/pathway/wander/relay/HopfieldMindWanderingRelay.java`

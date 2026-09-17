@@ -1,9 +1,9 @@
-# ADR-0032-SDK: Client SDK Architecture, OpenAPI, and MCP Integration
+# ADR-0066: Client SDK Architecture, OpenAPI, and MCP Integration
 
 | Field | Value |
 |:---|:---|
 | **Status** | Accepted (Implemented) |
-| **Date** | 2026-09-06 |
+| **Date** | 2026-08-29 |
 | **Authors** | Spector Maintainers & Architecture Working Group |
 | **Deciders** | Spector Technical Steering Committee (TSC) |
 | **Supersedes** | None |
@@ -12,14 +12,7 @@
 
 ---
 
-**Document ID**: `ADR-0032`  
-**Status**: Proposed  
-**Date**: 2026-09-06  
-**Authors**: Technical Lead  
-**Target Repositories**: `spectrayan/spector`, `spectrayan/coding-agents`, `spectrayan/RnD`  
-**Related Issues**: [spectrayan/spector#738](https://github.com/spectrayan/spector/issues/738)
-
----
+## 1. Context
 
 ## 1. Context & Motivation
 
@@ -33,7 +26,7 @@ In response, Titan proposed an extensive hand-crafted custom Java SDK featuring:
    - `McpTransport` (calling JSON-RPC 2.0 over HTTP/SSE)
    - `ProcessTransport` (launching `spector.jar` as a local child process via `ProcessBuilder`)
 
-Project Lead Bharat raised two critical strategic questions:
+Project Lead Project Lead raised two critical strategic questions:
 1. **OpenAPI for REST SDKs**: Should we use OpenAPI (OpenAPI Generator) for all REST-based SDKs across languages instead of writing custom bespoke SDKs?
 2. **MCP SDK Viability**: Does it make sense to build a client SDK for MCP at all? Aren't they supposed to be a drop-in / plug-and-play standard for agents?
 
@@ -41,16 +34,33 @@ This ADR formalizes the architectural decision on these questions for Spector an
 
 ---
 
-## 2. Decision Summary
+## 4. Spector Client Consumption Matrix
 
-| Question | Architectural Decision | Rationale |
-| :--- | :--- | :--- |
-| **Should we build an SDK for MCP?** | **NO (Reject custom MCP Client SDK)** | MCP is an open wire protocol for AI agents. Agent hosts (Claude, Cursor, Antigravity, Spring AI) already contain generic MCP clients. A proprietary Spector MCP client SDK is an anti-pattern that violates the decoupling promise of MCP. Spector's MCP deliverable is the **MCP Server** (`spector-mcp`). |
-| **Should we use OpenAPI for REST SDKs?** | **YES (Adopt OpenAPI-driven generation)** | Handcrafting SDKs across Java, Python, TypeScript, and Go produces severe maintenance debt and schema drift. OpenAPI 3.1 serves as the canonical contract, auto-generating client models and HTTP bindings across all languages. |
-| **SDK Implementation Pattern** | **Option B: OpenAPI Core + Thin Ergonomic Facade** | Auto-generate all models, endpoints, and HTTP plumbing from OpenAPI, and wrap with an ultra-thin handwritten facade (~150–200 LOC per language) for developer delight and domain exception mapping. |
-| **Local Subprocess Transport (`ProcessBuilder`)** | **REJECT as SDK Transport** | Spawning a JVM database/server as an unmonitored child process from a client library risks zombie processes, pipe deadlocks, and slow cold starts. Embedded usage in Java must use the in-process `spector-memory` library directly; out-of-process usage must connect to a running server daemon via REST. |
+To eliminate confusion across users and documentation, Spector defines three clean, mutually exclusive consumption tiers:
+
+| Tier | Primary Target | Package / Artifact | Transport / Protocol | When to Use |
+| :--- | :--- | :--- | :--- | :--- |
+| **1. In-Process Embedded Engine** | Java / JVM high-performance apps | `com.spectrayan:spector-memory` | Direct In-Memory method calls (JNI / Panama FFM) | In-process apps needing sub-millisecond retrieval without network overhead or server management. |
+| **2. Remote REST Service SDK** | Microservices, web backends, scripts (Java, Python, TS, Go, C#) | `com.spectrayan:spector-client`<br>`spector-client` (PyPI)<br>`@spectrayan/client` (npm) | HTTP / HTTPS (REST JSON) generated via OpenAPI 3.1 | Distributed architectures, multi-tenant services, and non-JVM or remote JVM applications. |
+| **3. AI Agent Tool Plugin** | Autonomous agents, LLM tool-calling hosts | `synapse/spector-mcp` (Server) | JSON-RPC 2.0 via Stdio or SSE/HTTP | AI Agents (Claude, Cursor, AGY, Spring AI, AutoGen) requiring autonomous cognitive memory tools. **Zero client SDK required.** |
 
 ---
+
+## 2. Problem Statement
+
+Providing polyglot developers (Python, TypeScript, Go) with access to Spector's cognitive services requires clear interface boundaries:
+1. **Manual SDK Drift**: Hand-writing HTTP client SDKs in multiple languages leads to documentation drift, missing endpoints, and serialization bugs.
+2. **MCP Architecture Confusion**: Conflating Model Context Protocol (MCP) clients with standard HTTP REST client SDKs is an anti-pattern that violates MCP's client-host-server topology.
+3. **Maintenance Overhead**: Maintaining bespoke client code across multiple languages consumes disproportionate engineering capacity.
+
+## 3. Decision Drivers
+
+- **Strict OpenAPI Contract**: Use Spector Synapse's OpenAPI 3.1 specification as the Single Source of Truth for client libraries.
+- **Automated Multi-Language SDK Generation**: Generate Python and TypeScript client SDKs using standard OpenAPI generators during CI builds.
+- **Native MCP Server in Synapse**: Expose Spector tools directly via standard Model Context Protocol servers rather than wrapping clients in MCP adapters.
+- **Zero Runtime Drift**: Automated contract testing ensuring generated SDKs stay 100% synchronized with Synapse controllers.
+
+## 4. Considered Options
 
 ## 3. Deep-Dive: Why an "MCP Client SDK" is an Anti-Pattern
 
@@ -81,18 +91,6 @@ graph TD
 ### 3.2 Verdict on MCP
 - Spector **MUST NOT** build, publish, or maintain a proprietary "Spector MCP Client SDK".
 - Spector's MCP responsibility is strictly **Server-Side**: provide a robust, high-performance, compliant **MCP Server** (`synapse/spector-mcp`) that any standard MCP host or agent can consume as a drop-in plugin.
-
----
-
-## 4. Spector Client Consumption Matrix
-
-To eliminate confusion across users and documentation, Spector defines three clean, mutually exclusive consumption tiers:
-
-| Tier | Primary Target | Package / Artifact | Transport / Protocol | When to Use |
-| :--- | :--- | :--- | :--- | :--- |
-| **1. In-Process Embedded Engine** | Java / JVM high-performance apps | `com.spectrayan:spector-memory` | Direct In-Memory method calls (JNI / Panama FFM) | In-process apps needing sub-millisecond retrieval without network overhead or server management. |
-| **2. Remote REST Service SDK** | Microservices, web backends, scripts (Java, Python, TS, Go, C#) | `com.spectrayan:spector-client`<br>`spector-client` (PyPI)<br>`@spectrayan/client` (npm) | HTTP / HTTPS (REST JSON) generated via OpenAPI 3.1 | Distributed architectures, multi-tenant services, and non-JVM or remote JVM applications. |
-| **3. AI Agent Tool Plugin** | Autonomous agents, LLM tool-calling hosts | `synapse/spector-mcp` (Server) | JSON-RPC 2.0 via Stdio or SSE/HTTP | AI Agents (Claude, Cursor, AGY, Spring AI, AutoGen) requiring autonomous cognitive memory tools. **Zero client SDK required.** |
 
 ---
 
@@ -148,6 +146,35 @@ To eliminate confusion across users and documentation, Spector defines three cle
 
 ---
 
+## 5. Decision Outcome
+
+## 2. Decision Summary
+
+| Question | Architectural Decision | Rationale |
+| :--- | :--- | :--- |
+| **Should we build an SDK for MCP?** | **NO (Reject custom MCP Client SDK)** | MCP is an open wire protocol for AI agents. Agent hosts (Claude, Cursor, Antigravity, Spring AI) already contain generic MCP clients. A proprietary Spector MCP client SDK is an anti-pattern that violates the decoupling promise of MCP. Spector's MCP deliverable is the **MCP Server** (`spector-mcp`). |
+| **Should we use OpenAPI for REST SDKs?** | **YES (Adopt OpenAPI-driven generation)** | Handcrafting SDKs across Java, Python, TypeScript, and Go produces severe maintenance debt and schema drift. OpenAPI 3.1 serves as the canonical contract, auto-generating client models and HTTP bindings across all languages. |
+| **SDK Implementation Pattern** | **Option B: OpenAPI Core + Thin Ergonomic Facade** | Auto-generate all models, endpoints, and HTTP plumbing from OpenAPI, and wrap with an ultra-thin handwritten facade (~150–200 LOC per language) for developer delight and domain exception mapping. |
+| **Local Subprocess Transport (`ProcessBuilder`)** | **REJECT as SDK Transport** | Spawning a JVM database/server as an unmonitored child process from a client library risks zombie processes, pipe deadlocks, and slow cold starts. Embedded usage in Java must use the in-process `spector-memory` library directly; out-of-process usage must connect to a running server daemon via REST. |
+
+---
+
+## 6. Pros and Cons of the Options
+
+## 7. Consequences & Trade-offs
+
+### Positive
+- **Single Source of Truth**: The REST API in `spector-synapse` is the authoritative specification for all client libraries.
+- **Multi-Language Parity**: Java, Python, TypeScript, and Go SDKs stay synchronized automatically.
+- **Clean Architectural Separation**: Clear distinction between embedded library (`spector-memory`), REST client SDK (`spector-client`), and agent MCP server (`spector-mcp`).
+- **Zero Process Leakage**: No fragile child JVM orchestration in application code.
+
+### Negative / Mitigation
+- **Controller Annotation Hygiene**: Spring MVC controllers must maintain clean `@Operation` and schema annotations to ensure generated code has clean method names and types. (Mitigation: Enforce in code review via `Test Strategy Working Group` and `Architecture Working Group`).
+- **Initial Setup**: Requires configuring `springdoc-openapi` and OpenAPI generator tooling in the build pipeline. (Mitigation: One-time DevOps investment by `Platform Engineering` and `Development Maintainers`).
+
+## 7. Implementation Plan
+
 ## 6. Action Plan for Issue #738 and SDK Strategy
 
 1. **Refocus Issue #738**:
@@ -165,14 +192,9 @@ To eliminate confusion across users and documentation, Spector defines three cle
 
 ---
 
-## 7. Consequences & Trade-offs
+## 8. Code Reference & Verification
 
-### Positive
-- **Single Source of Truth**: The REST API in `spector-synapse` is the authoritative specification for all client libraries.
-- **Multi-Language Parity**: Java, Python, TypeScript, and Go SDKs stay synchronized automatically.
-- **Clean Architectural Separation**: Clear distinction between embedded library (`spector-memory`), REST client SDK (`spector-client`), and agent MCP server (`spector-mcp`).
-- **Zero Process Leakage**: No fragile child JVM orchestration in application code.
-
-### Negative / Mitigation
-- **Controller Annotation Hygiene**: Spring MVC controllers must maintain clean `@Operation` and schema annotations to ensure generated code has clean method names and types. (Mitigation: Enforce in code review via `@sentinel` and `@titan`).
-- **Initial Setup**: Requires configuring `springdoc-openapi` and OpenAPI generator tooling in the build pipeline. (Mitigation: One-time DevOps investment by `@nexus` and `@forge`).
+All SDK and MCP components are verified in the repository:
+- **Python Client SDK**: `sdks/python/src/spector_client/`
+- **TypeScript Client SDK**: `sdks/typescript/spector-client/src/`
+- **Model Context Protocol Server**: `synapse/spector-mcp/src/main/java/com/spectrayan/spector/mcp/`

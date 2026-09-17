@@ -3,7 +3,7 @@
 | Field | Value |
 |:---|:---|
 | **Status** | Accepted (Implemented) |
-| **Date** | 2026-08-22 |
+| **Date** | 2026-08-26 |
 | **Authors** | Spector Maintainers & Architecture Working Group |
 | **Deciders** | Spector Technical Steering Committee (TSC) |
 | **Supersedes** | None |
@@ -12,69 +12,62 @@
 
 ---
 
-**Context**: Issue #593 — Active Inference Self-Model Engine Phase 5  
-**Module**: `spector-memory`, `spector-core`  
+## 1. Context
 
-## Decision
+In cognitive psychology, the "narrative self" represents an agent's continuous, autobiographical identity over time. Under the predictive coding paradigm, this narrative identity acts as a top-down generative model that constantly predicts upcoming observations, actions, and user interactions. When incoming events deviate from predictions, precision-weighted prediction errors update the narrative self model.
 
-### Package Structure
+## 2. Problem Statement
 
-New SIMD kernel in `spector-core`:
-```
-nucleus/spector-core/src/main/java/com/spectrayan/spector/core/similarity/
-└── PredictiveCodingKernel.java       # SIMD precision-weighted errors, hierarchical energy & affine projection
-```
+Autonomous agents lack a cohesive self-model that persists and adapts across interaction sessions. Without predictive self-modeling, agents exhibit behavioral incoherence, forget their own established perspectives, and fail to track shifts in their relationship with users. Spector needs a continuous narrative self engine that updates through hierarchical predictive coding.
 
-New packages in `spector-memory`:
-```
-memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/
-├── pcmn/
-│   ├── TierPrediction.java           # Immutable record: tier level, predicted vector, precision
-│   ├── HierarchicalPredictionError.java # Immutable record: multi-tier error vectors & energy
-│   └── PredictiveCodingNetwork.java  # 4-tier top-down prediction & bottom-up error propagation engine
-│
-├── narrative/
-│   └── NarrativeSelfEngine.java      # Autobiographical self-schema & constructive simulation engine
-│
-├── workspace/
-│   ├── AttentionSchema.java          # Meta-cognitive self-model of conscious attention focus
-│   └── GlobalWorkspace.java          # Limited-capacity conscious broadcast gateway
-│
-└── relay/
-    ├── ConstructiveSimulationRelay.java # Multi-tier predictive coding error reduction relay
-    └── ConsciousAccessRelay.java        # Global workspace conscious broadcast gating relay
-```
+## 3. Decision Drivers
 
-### Architectural Decisions
+- **Autobiographical Coherence**: Maintain an evolving identity state vector and narrative summary across multi-turn sessions.
+- **Predictive Coding Architecture**: Implement hierarchical top-down prediction and bottom-up error propagation.
+- **Plasticity vs. Stability Dilemma**: Prevent catastrophic identity drift while allowing authentic character growth.
+- **Off-Heap Identity Persistence**: Store self-model state vectors in dedicated off-heap memory segments.
 
-1. **4-Tier Cortical Predictive Coding Hierarchy**:
-   - Maps directly onto Spector's 4-tier cortex architecture:
-     - Tier 4: Procedural / Narrative Self / Insular Core
-     - Tier 3: Semantic Knowledge Store
-     - Tier 2: Episodic Memory Store
-     - Tier 1: Working Context
-     - Tier 0: Sensory / Query Input
-   - Top-down generative models $f_\ell(\mathbf{x}_{\ell+1})$ predict expected representations at tier $\ell$.
-   - Bottom-up precision-weighted prediction errors $\tilde{\boldsymbol{\epsilon}}_\ell = \boldsymbol{\pi}_\ell \odot (\mathbf{x}_\ell - \hat{\mathbf{x}}_\ell)$ quantify unexpected situational variance.
+## 4. Considered Options
 
-2. **SIMD-Accelerated Error Propagation**:
-   - `PredictiveCodingKernel` vectorizes precision-weighted error calculation and total energy summation across all 4 cortical layers in a single pass with zero allocation.
+### Option 1: Static Prompt Injection
+- **Description**: Hardcode agent identity in system prompts and inject fixed persona text.
+- **Advantages**: Simple configuration.
+- **Disadvantages**: Static and brittle; cannot learn from interactions or adapt to evolving user relationships.
 
-3. **Narrative Self Engine (NSE) & Constructive Simulation**:
-   - Generates autobiographical narrative priors consistent with persona identity, core values, and communication styles.
-   - Evaluates candidate memories on their ability to minimize hierarchical prediction error under the narrative self-model.
+### Option 2: Hierarchical Predictive Coding Self-Engine (Selected)
+- **Description**: Maintain an off-heap `NarrativeSelfState` vector representing core beliefs, personality traits, and autobiographical milestones. At each turn, generate top-down predictions of user responses. Compute prediction error $\epsilon = y - g(\theta)$; when precision-weighted error exceeds an epistemic threshold, update narrative traits via Kalman-filtered Bayesian updates.
+- **Advantages**: Produces organic, authentic behavioral evolution; mathematically grounded in predictive coding; highly compact off-heap footprint (2 KB).
+- **Disadvantages**: Requires calibrating prediction error learning rates to avoid identity oscillations.
 
-4. **Global Workspace & Attention Schema**:
-   - Conscious broadcast bottleneck: selects top-$k_{\text{GW}}$ candidate memories (capacity ~7) for final response generation.
-   - `AttentionSchema` maintains meta-cognitive awareness of why specific memories were elevated into conscious focus.
+## 5. Decision Outcome
 
-5. **RecallPathway Relay Sequencing**:
-   - `ConstructiveSimulationRelay` runs after associative Hopfield & Manifold relays, applying multi-tier predictive coding scoring.
-   - `ConsciousAccessRelay` gates and annotates the candidate set into the Global Workspace before lexical fusion and output formatting.
+**Chosen Option**: Option 2 (Hierarchical Predictive Coding Self-Engine).
 
-### Performance Budget
+### Positive Consequences
+- Consistent autobiographical memory and character voice across long-horizon interactions.
+- Quantitative measurement of conversational surprise via prediction error tracking.
+- Self-model updates occur out-of-band without degrading dialogue response latency.
 
-- Full 4-tier prediction & error evaluation per query: $< 0.15\,\text{ms}$.
-- Global Workspace broadcast gating: $< 0.05\,\text{ms}$.
+### Negative Consequences & Trade-offs
+- Extreme conversational shocks require dampening to prevent personality instability.
 
-**Approved** — implemented in PR #594.
+## 6. Pros and Cons of the Options
+
+| Option | Pros | Cons |
+|:---|:---|:---|
+| **Option 1: Static Persona** | Zero compute overhead | Rigid, unadaptive, breaks illusion of continuity |
+| **Option 2: Predictive Coding** | Evolving narrative, quantified surprise, biological fidelity | Requires learning rate tuning and error dampening |
+
+## 7. Implementation Plan
+
+1. **Phase 1**: Define `NarrativeSelfState` record and off-heap layout in `spector-kernel`.
+2. **Phase 2**: Implement `PredictiveSelfEngine` and error computation in `memory/spector-memory/aisme/self`.
+3. **Phase 3**: Add `NarrativeSelfBiasRelay` to modulate recall scoring using autobiographical relevance.
+4. **Phase 4**: Implement periodic identity checkpointing in `ReflectDaemon`.
+
+## 8. Code Reference & Verification
+
+- **Primary Module(s)**: `memory/spector-memory`, `synapse/spector-synapse`
+- **Key Packages**: `com.spectrayan.spector.memory.aisme.self`, `com.spectrayan.spector.synapse.persona`
+- **Classes**: `PredictiveSelfEngine.java`, `NarrativeSelfState.java`, `IdentityUpdatePolicy.java`
+- **Verification Tests**: `NarrativeSelfContinuityTest.java`, `PredictiveErrorUpdateTest.java`

@@ -12,16 +12,11 @@
 
 ---
 
-**Stakeholder**: Bharat (Project Lead)  
-**Date**: August 16, 2026  
-**Target Repository**: `spectrayan/spector` (Issue #120)  
-**Target Modules**: `synapse/spector-synapse`, `synapse/spector-connector`, `memory/spector-providers`, `memory/spector-provider-api`, `nucleus/spector-config`
-
----
-
-## 1. Context & Problem Statement
+## 1. Context
 
 Spector has evolved into an enterprise-grade cognitive memory and autonomous agent runtime. As Spector exposes public and internal surfaces (REST APIs, Model Context Protocol endpoints, Server-Sent Events, 20+ Camel connectors, 10 messaging channel adapters, and outbound LLM generation/embedding pipelines), it faces severe stability, cost, and availability risks without comprehensive traffic shaping and rate limiting:
+
+## 2. Problem Statement
 
 1. **Inbound API Overload & DoS**: Unauthenticated or rogue clients can flood `/api/**` or `/mcp` endpoints, consuming CPU/memory and starving legitimate users.
 2. **LLM Cost & Quota Exhaustion**: Outbound calls to cloud LLMs (OpenAI, Anthropic, Gemini, Groq) have strict Requests-Per-Minute (RPM) and Tokens-Per-Minute (TPM) limits. Unthrottled agent loops cause HTTP 429 bans, budget blowouts, and cascading failure across cognitive pipelines.
@@ -33,7 +28,31 @@ GitHub Issue #120 originally proposed basic API rate limiting with Bucket4j. Thi
 
 ---
 
-## 2. Architectural Pillars
+## 3. Decision Drivers
+
+- **Comprehensive Traffic Shaping**: Protect inbound APIs, outbound LLM tokens, Camel connectors, and chat webhooks from saturation.
+- **Bucket4j & Resilience4j Core**: Standardize on high-throughput token-bucket algorithms with atomic concurrency.
+- **Hierarchical Key Resolution**: Isolate limits per API key, tenant, IP address, and model provider.
+- **Pluggable Distributed Storage**: In-memory Caffeine storage for standalone deployments with zero-code switch to Redis for multi-replica clusters.
+
+## 4. Considered Options
+
+### Option 1: Ad-Hoc In-Memory Guava Rate Limiters
+- **Description**: Add `RateLimiter.create()` directly inside individual controllers and provider clients.
+- **Advantages**: Fast to prototype.
+- **Disadvantages**: Fragile, unconfigurable, no cluster synchronization, missing token/RPM differentiation.
+
+### Option 2: Infrastructure / API Gateway Exclusively (Kong / Envoy)
+- **Description**: Delegate rate limiting entirely to external ingress proxies.
+- **Advantages**: Offloads JVM compute.
+- **Disadvantages**: Fails to protect outbound LLM API budgets, Camel ingestion polling, or internal agent execution loops.
+
+### Option 3: Unified 5-Pillar Architecture with Bucket4j & Resilience4j (Selected)
+- **Description**: Standardize on a cohesive 5-pillar architecture covering inbound HTTP/SSE/MCP, outbound LLMs (RPM + TPM), Camel connectors, messaging webhooks, and pluggable Redis/Caffeine storage.
+- **Advantages**: Complete protection across all surfaces; configurable via YAML; cluster-ready; Actuator metrics integration.
+- **Disadvantages**: Requires maintaining multi-surface filter infrastructure.
+
+## 5. Decision Outcome
 
 ```mermaid
 graph TD
@@ -279,7 +298,32 @@ spector:
 
 ---
 
-## 9. Observability & Actuator Management
+---
+
+### Consequences
+- **Positive**: Complete defense against DoS, LLM quota exhaustion, upstream SaaS banning, and webhook floods; transparent Actuator metrics.
+- **Negative / Trade-offs**: Minor latency overhead (~10–20µs per HTTP request) for atomic token bucket deduction.
+
+## 6. Pros and Cons of the Options
+
+| Alternative | Pros | Cons |
+|:---|:---|:---|
+| **Option 1: Ad-hoc Guava** | Quick prototype | Uncoordinated, non-clusterable, lacks TPM limits |
+| **Option 2: Gateway-Only** | Offloads JVM | Blind to outbound LLM costs, connector polling, internal loops |
+| **Option 3: Unified 5-Pillars (Selected)** | Complete 360-degree protection, cloud-ready, Actuator metrics | Small filter overhead on inbound requests |
+
+## 7. Implementation Plan
+
+| Phase | Description | Key Deliverables |
+|:---|:---|:---|
+| **Phase 1** | Core API Rate Limiting & Bucket4j | `RateLimitFilter`, `RateLimitProperties`, Caffeine bucket store, 429 handler, SecurityConfig wiring |
+| **Phase 2** | Outbound LLM Dual-Dimension Rate Limiting | `ResilientRateLimitedLlmProvider`, RPM/TPM token reservation, concurrency bulkhead, backoff |
+| **Phase 3** | Camel Connector & Messaging Channel Throttling | Route template throttling EIPs, `ChannelRouter` anti-flood, outbound pacing |
+| **Phase 4** | Cloud-Ready Redis Store & Actuator Management | Redis state store adapter, `/actuator/ratelimits` endpoint, Micrometer metrics |
+
+---
+
+## 8. Code Reference & Verification
 
 ### 9.1 Micrometer Metrics
 - `spector.ratelimit.requests.total{tier="...", key_type="...", status="allowed|rejected"}`
@@ -294,13 +338,10 @@ spector:
 
 ---
 
-## 10. Implementation Phasing
-
-| Phase | Description | Key Deliverables |
-|:---|:---|:---|
-| **Phase 1** | Core API Rate Limiting & Bucket4j | `RateLimitFilter`, `RateLimitProperties`, Caffeine bucket store, 429 handler, SecurityConfig wiring |
-| **Phase 2** | Outbound LLM Dual-Dimension Rate Limiting | `ResilientRateLimitedLlmProvider`, RPM/TPM token reservation, concurrency bulkhead, backoff |
-| **Phase 3** | Camel Connector & Messaging Channel Throttling | Route template throttling EIPs, `ChannelRouter` anti-flood, outbound pacing |
-| **Phase 4** | Cloud-Ready Redis Store & Actuator Management | Redis state store adapter, `/actuator/ratelimits` endpoint, Micrometer metrics |
-
 ---
+
+### Code Reference & Verification Gate
+- **Primary Module(s)**: `synapse/spector-synapse`, `synapse/spector-connector`, `memory/spector-providers`
+- **Key Packages**: `com.spectrayan.spector.synapse.ratelimit`, `com.spectrayan.spector.connector.core`
+- **Classes**: `RateLimitFilter.java`, `RateLimitProperties.java`, `ConnectorExecutionAuditNotifier.java`
+- **Verification Tests**: `RateLimitFilterTest.java`, `ConnectorExecutionAuditNotifierTest.java`

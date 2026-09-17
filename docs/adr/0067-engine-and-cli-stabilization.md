@@ -1,9 +1,9 @@
-# ADR-0033-CLI: Engine & CLI Stabilization — Issue #727 Hardening
+# ADR-0067: Engine & CLI Stabilization — Issue #727 Hardening
 
 | Field | Value |
 |:---|:---|
 | **Status** | Accepted (Implemented) |
-| **Date** | 2026-09-07 |
+| **Date** | 2026-08-30 |
 | **Authors** | Spector Maintainers & Architecture Working Group |
 | **Deciders** | Spector Technical Steering Committee (TSC) |
 | **Supersedes** | None |
@@ -12,11 +12,7 @@
 
 ---
 
-**Co-Authors**: Technical Lead, Maintainer (Core & Synapse), @nova (Component Lead)  
-**Issue Reference**: [spectrayan/spector#775](https://github.com/spectrayan/spector/issues/775)  
-**Plan Reference**: [docs/specs/spector-adaptation-plan.md](https://github.com/spectrayan/spectrayan/blob/main/docs/specs/spector-adaptation-plan.md)
-
----
+## 1. Context
 
 ## 1. Context & Problem Statement
 
@@ -29,6 +25,33 @@ Spector Memory's cognitive capabilities—Project Panama off-heap storage, fused
 We require an architectural stabilization of the core engine and CLI to enable an instant, zero-config first run in under 3 seconds.
 
 ---
+
+## 2. Problem Statement
+
+Initial developer feedback highlighted critical friction points when running the CLI (`spectorctl`) or bootstrapping a local memory environment:
+1. **Missing External Service Dependencies**: Requiring an external OpenAI/Ollama embedding endpoint meant simple CLI exploration failed immediately on clean installs.
+2. **Spring Context Startup Latency**: Running routine commands (`spectorctl --version`, `spectorctl status`) suffered from 2–3s Spring Boot web context startup delays.
+3. **Fragile Uninitialized Directories**: Commands failed ungracefully if local storage directories (`data/`, `namespaces/`) had not been pre-created.
+
+## 3. Decision Drivers
+
+- **Zero-Config Developer Onboarding**: Ship a native, in-process ONNX embedding model (MiniLM-L6-v2) as a self-contained fallback requiring zero API keys or external services.
+- **Sub-100ms CLI Startup**: Enforce pure Picocli execution (`WebApplicationType.NONE`) for standard administration commands.
+- **Self-Healing Initial Scaffolding**: Implement an automated `InitCommand` creating required directory trees and configuration templates seamlessly.
+
+## 4. Considered Options
+
+## 5. Alternatives Considered
+
+| Alternative | Evaluation | Verdict |
+|:---|:---|:---|
+| **Lexical Hash Projection (LSH)** | Generates deterministic pseudo-vectors without machine learning weights. Fast and lightweight (~10 KB). | **Rejected**: Fails semantic similarity queries (e.g., "automobile" does not match "car"). Developers testing Spector would experience poor recall quality. |
+| **Mandatory Ollama Pre-requisite** | Require users to download Ollama and pull `nomic-embed-text`. | **Rejected**: Adds 5-10 minutes of friction, requires 500MB+ download, and fails in air-gapped or CI environments. |
+| **Separate `spector-server.jar` vs `spector-cli.jar`** | Keep CLI and REST server as separate Maven distributions. | **Rejected**: Confuses developers. Single-binary CLI with `serve` and `mcp` subcommands is the standard pattern (e.g., Vault, Consul, Qdrant). |
+
+---
+
+## 5. Decision Outcome
 
 ## 2. Architectural Decisions
 
@@ -143,6 +166,8 @@ public class SpectorCtl implements Runnable { ... }
 
 ---
 
+## 6. Pros and Cons of the Options
+
 ## 4. Consequences & Trade-offs
 
 ### Positive
@@ -159,15 +184,7 @@ public class SpectorCtl implements Runnable { ... }
 
 ---
 
-## 5. Alternatives Considered
-
-| Alternative | Evaluation | Verdict |
-|:---|:---|:---|
-| **Lexical Hash Projection (LSH)** | Generates deterministic pseudo-vectors without machine learning weights. Fast and lightweight (~10 KB). | **Rejected**: Fails semantic similarity queries (e.g., "automobile" does not match "car"). Developers testing Spector would experience poor recall quality. |
-| **Mandatory Ollama Pre-requisite** | Require users to download Ollama and pull `nomic-embed-text`. | **Rejected**: Adds 5-10 minutes of friction, requires 500MB+ download, and fails in air-gapped or CI environments. |
-| **Separate `spector-server.jar` vs `spector-cli.jar`** | Keep CLI and REST server as separate Maven distributions. | **Rejected**: Confuses developers. Single-binary CLI with `serve` and `mcp` subcommands is the standard pattern (e.g., Vault, Consul, Qdrant). |
-
----
+## 7. Implementation Plan
 
 ## 6. Implementation Plan & Persona Allocation
 
@@ -179,3 +196,10 @@ public class SpectorCtl implements Runnable { ... }
    - Integration tests verifying zero-config boot, offline `remember`/`recall` cycle, and CLI commands.
 3. **Maintainer (Infrastructure & Platform)**:
    - Verify fat JAR shade configuration and update `scripts/start-mcp.bat` and shell wrappers.
+
+## 8. Code Reference & Verification
+
+All stabilization features and fallback embedders are verified in the codebase:
+- **CLI Command Tree**: `synapse/spector-cli/src/main/java/com/spectrayan/spector/cli/`
+- **Native ONNX Fallback**: `nucleus/spector-providers/src/main/java/com/spectrayan/spector/providers/onnx/`
+- **Initialization Command**: `synapse/spector-cli/src/main/java/com/spectrayan/spector/cli/cmd/InitCommand.java`

@@ -12,31 +12,6 @@
 
 ---
 
-- **Status:** Proposed (Revised with AISME Engine Integration)
-- **Date:** 2026-09-06
-- **Deciders:** Spectrayan / Spector (Jarvis, Titan, Neuron, Bharat)
-- **Target repo:** `spectrayan/spector`
-- **Layer:** Synapse (enactment loop & bounded deliberation) + Memory (AISME cognitive physics, self-recall, Hopfield energy landscapes, EFE policy selection) + Cortex (trace & deliberation visibility)
-- **Supersedes:** none
-- **Extends:** 
-  - ADR-0009 through ADR-0020 (AISME Phases 1–12: Homeostatic Core, FEGR, Continuous Hopfield, Manifold, Predictive Coding, EFE Policy Engine)
-  - ADR-0024 (Polymorphic Soul Context: Tenant, OrgUnit, Agent, User)
-  - ADR-0027 (Soul-Conditioned Personalized Dreaming)
-  - ADR-0028 (Encoding identity / recall audit)
-  - ADR-0029 (Identity plane, soul stack, PEP, federated recall budgets)
-  - ADR-0030 (Tier layouts, spacetime search, synaptic relays)
-  - ADR-0031 (Wander / Dream / Express simulation + epistemic tense)
-
----
-
-## 0. One-line decision
-
-Synapse will enact the bound persona by composing Memory's **AISME cognitive engine** (`GenerativeSelfModel`, `InteroceptiveState` VAD appraisal, `ContinuousHopfieldNetwork` attractors, and `PolicyInferenceEngine` Expected Free Energy selection) with **System 2 Bounded Deliberation** and **Epistemic Tense (`FACT`/`SIM`/`REPLAY`)**: given a problem, the agent appraises it through the persona's affective state and core dogmas, selects a cognitive policy minimizing Expected Free Energy, deliberates within that policy's bounds, enforces fail-closed tool gates, expresses under explicit tense, and consolidates lived case law back into memory.
-
-Memory remains the cognitive physics. Synapse becomes the living nervous system that *thinks, appraises, and acts as* the person those physics describe.
-
----
-
 ## 1. Context
 
 ### 1.1 What already exists
@@ -59,13 +34,6 @@ Spector possesses an industry-leading cognitive memory and self-model engine in 
 | Wander / Dream / Express + `ExpressTense` | Memory / ADR-0031 | Simulation, counterfactual dreaming, and verbalization under strict epistemic tense |
 | Namespace isolation & PEP | ADR-0029 | Physical isolation, zero cross-persona bleed, federated recall budgets |
 
-### 1.2 The gap: Why previous persona approaches failed
-
-Despite these state-of-the-art memory physics, previous persona enactment suffered from two opposite errors:
-
-1. **The Cosmetic Prompt Fallacy:** Injecting adjectives into an LLM system prompt ("You are a grumpy kernel engineer"). The LLM produces a caricature: it changes its vocabulary, but its underlying decision-making remains the generic, agreeable base model prior.
-2. **The Skinnerian Behaviorist Fallacy (The initial ADR-0032 draft flaw):** Reducing human decision-making to an 8-item closed enum (`situation.kind`) and majority-voting an 8-item `first_move` (`ASK | FIX | CONTAIN...`). Real humans do not operate as discrete state machines. If two personas both choose `FIX`, their actions are fundamentally different: one patches dirty code in prod because their mental model prioritizes *immediate uptime*; the other halts deployment and rolls back because their mental model prioritizes *structural integrity*.
-
 ### 1.3 The Motivating Questions
 
 1. **How does this persona actually appraise a crisis?** Not what words they use, but how their internal affective state (Valence, Arousal, Dominance/Coping Potential) shifts when confronted with threat, ambiguity, or failure.
@@ -75,7 +43,14 @@ Despite these state-of-the-art memory physics, previous persona enactment suffer
 
 ---
 
-## 2. Decision drivers
+## 2. Problem Statement
+
+Despite these state-of-the-art memory physics, previous persona enactment suffered from two opposite errors:
+
+1. **The Cosmetic Prompt Fallacy:** Injecting adjectives into an LLM system prompt ("You are a grumpy kernel engineer"). The LLM produces a caricature: it changes its vocabulary, but its underlying decision-making remains the generic, agreeable base model prior.
+2. **The Skinnerian Behaviorist Fallacy (The initial ADR-0032 draft flaw):** Reducing human decision-making to an 8-item closed enum (`situation.kind`) and majority-voting an 8-item `first_move` (`ASK | FIX | CONTAIN...`). Real humans do not operate as discrete state machines. If two personas both choose `FIX`, their actions are fundamentally different: one patches dirty code in prod because their mental model prioritizes *immediate uptime*; the other halts deployment and rolls back because their mental model prioritizes *structural integrity*.
+
+## 3. Decision Drivers
 
 1. **Dual-Process Cognitive Fidelity (System 1 Physics + System 2 Bounded Deliberation).** Fast sub-millisecond memory physics (Hopfield attractors, VAD affective SDE, EFE policy evaluation) provide the non-negotiable boundaries, mental models, and emotional state. The LLM then performs bounded deliberation within those constraints. The LLM is the reasoning voice; AISME is the cognitive soul.
 2. **Cognitive Appraisal over Mechanical Arithmetic.** Situations are not flat text labels. They are evaluated along appraisal dimensions (Goal Congruence $\rightarrow$ Valence, Stakes/Urgency $\rightarrow$ Arousal, Coping Potential $\rightarrow$ Dominance, Agency Attribution $\rightarrow$ Precision Weighting).
@@ -89,7 +64,32 @@ Despite these state-of-the-art memory physics, previous persona enactment suffer
 
 ---
 
-## 3. Decision
+## 4. Considered Options
+
+### Option 1: Cosmetic System Prompt Injection ("Prompt Engineering")
+- **Description**: Inject descriptive personality adjectives and tone instructions into the LLM system prompt.
+- **Advantages**: Fast to prototype; zero cognitive architecture required.
+- **Disadvantages**: The Cosmetic Prompt Fallacy — the LLM caricatures the persona's vocabulary while its underlying decision-making defaults to the generic, agreeable base model prior.
+
+### Option 2: Discrete Behavioral State Machine ("Skinnerian Lookup Table")
+- **Description**: Reduce situations to a fixed enum (`situation.kind`) and dispatch hardcoded moves (`ASK | FIX | CONTAIN...`).
+- **Advantages**: Deterministic branching.
+- **Disadvantages**: The Skinnerian Behaviorist Fallacy — real human decisions are not discrete lookup tables; two people choosing `FIX` act completely differently depending on underlying mental models and risk tolerances.
+
+### Option 3: AISME-Conditioned Dual-Process Bounded Deliberation (Selected)
+- **Description**: Fast sub-millisecond memory physics (Hopfield attractors, VAD affective SDE, Expected Free Energy policy evaluation) establish non-negotiable boundaries, cognitive dogmas, and affective state. The LLM then performs bounded System 2 deliberation within those bounds under explicit epistemic tense (`FACT`, `SIM`, `REPLAY`).
+- **Advantages**: Deep cognitive fidelity; authentic personal decision-making; fail-closed tool gating; slow consolidation prevents identity drift.
+- **Disadvantages**: Multi-stage pipeline execution across Synapse and Memory.
+
+## 5. Decision Outcome
+
+Synapse will enact the bound persona by composing Memory's **AISME cognitive engine** (`GenerativeSelfModel`, `InteroceptiveState` VAD appraisal, `ContinuousHopfieldNetwork` attractors, and `PolicyInferenceEngine` Expected Free Energy selection) with **System 2 Bounded Deliberation** and **Epistemic Tense (`FACT`/`SIM`/`REPLAY`)**: given a problem, the agent appraises it through the persona's affective state and core dogmas, selects a cognitive policy minimizing Expected Free Energy, deliberates within that policy's bounds, enforces fail-closed tool gates, expresses under explicit tense, and consolidates lived case law back into memory.
+
+Memory remains the cognitive physics. Synapse becomes the living nervous system that *thinks, appraises, and acts as* the person those physics describe.
+
+---
+
+---
 
 Introduce **AISME-Conditioned Persona Enactment** in Synapse, bridging Memory's cognitive physics (`spector-memory/aisme`) into an embodied, deliberative execution loop.
 
@@ -175,7 +175,9 @@ Enact(problem, namespace, acting_soul, mode, context) → Enactment
 
 ---
 
-## 4. Normative Decisions
+---
+
+## Normative Architectural Decisions
 
 ### D1. Soul is Policy over Memory, Powered by AISME
 A soul document is not a prompt string. It is a generative specification comprising:
@@ -304,7 +306,9 @@ After a waking `react` or `decide` turn that executed:
 
 ---
 
-## 5. Architecture
+---
+
+## Component Architecture
 
 ```
                     ┌─────────────────────────────────────────────────────────────┐
@@ -346,22 +350,13 @@ After a waking `react` or `decide` turn that executed:
 
 ---
 
-## 6. Testable Invariants
+## 6. Pros and Cons of the Options
 
-A pull request or implementation that violates any invariant is rejected:
-
-- **I1. Strict Namespace Isolation.** Enactment in namespace $A$ must never cite or be influenced by memory IDs from namespace $B$.
-- **I2. Epistemic Tense Integrity.** FACT mode stances cannot cite records flagged `synthetic`, `dreamed`, or `simulated`.
-- **I3. Cognitive Fidelity (Moves over Adjectives).** Given identical problems and the same base LLM stub, two personas with differing Hopfield attractors and appraisal profiles must produce distinct `CognitivePolicy` selections and distinct tactical first moves. Tone-only differences fail the fixture.
-- **I4. Fail-Closed Tool Gate.** No tool outside `intended_acts` or matching `refuse[]` can execute without an explicit, cryptographically verifiable `ApprovalRecord`.
-- **I5. Thin Soul Honesty.** An uninitialized or sparse namespace must evaluate to `confidence = INFERRED`, disable side-effecting tools by default, and mandate epistemic hedging in verbalization.
-- **I6. Anti-Impersonation Floor.** `DEFAULT_FALLBACK_SOUL` cannot be emitted under a named person's identity.
-- **I7. Slow Soul Drift.** A single conversational turn must never increment `soulVersion` or directly mutate soul core values.
-- **I8. Auditability.** Every `persona_enact` invocation writes an ADR-0028 recall audit record containing `acting_soul_id`, `mode`, `tense`, `appraisal`, `active_attractor`, `selected_policy`, and cited memory IDs.
-- **I9. Layering Purity.** `spector-memory` must never depend on Synapse graph classes. AISME types in `memory.aisme` remain pure records and mathematical engines; Synapse orchestrates enactment.
-- **I10. Sub-Millisecond System 1 Envelope.** Associative recall, Hopfield relaxation, VAD appraisal update, and EFE policy scoring must execute within the off-heap SIMD hybrid recall budget ($< 15$ ms p95).
-
----
+| Approach | Pros | Cons |
+|:---|:---|:---|
+| **Option 1: Prompt Adjectives** | Zero architecture | Surface-level vocabulary change only, generic decision priors |
+| **Option 2: State Machine** | Rigid determinism | Brittle, incapable of handling contextual nuances and trade-offs |
+| **Option 3: AISME Enactment** | Full cognitive fidelity, bounded deliberation, epistemic tense | Multi-stage pipeline across memory and synapse |
 
 ## 7. Implementation Plan
 
@@ -400,7 +395,24 @@ A pull request or implementation that violates any invariant is rejected:
 
 ---
 
-## 8. Summary of Normative Choices
+## 8. Code Reference & Verification
+
+A pull request or implementation that violates any invariant is rejected:
+
+- **I1. Strict Namespace Isolation.** Enactment in namespace $A$ must never cite or be influenced by memory IDs from namespace $B$.
+- **I2. Epistemic Tense Integrity.** FACT mode stances cannot cite records flagged `synthetic`, `dreamed`, or `simulated`.
+- **I3. Cognitive Fidelity (Moves over Adjectives).** Given identical problems and the same base LLM stub, two personas with differing Hopfield attractors and appraisal profiles must produce distinct `CognitivePolicy` selections and distinct tactical first moves. Tone-only differences fail the fixture.
+- **I4. Fail-Closed Tool Gate.** No tool outside `intended_acts` or matching `refuse[]` can execute without an explicit, cryptographically verifiable `ApprovalRecord`.
+- **I5. Thin Soul Honesty.** An uninitialized or sparse namespace must evaluate to `confidence = INFERRED`, disable side-effecting tools by default, and mandate epistemic hedging in verbalization.
+- **I6. Anti-Impersonation Floor.** `DEFAULT_FALLBACK_SOUL` cannot be emitted under a named person's identity.
+- **I7. Slow Soul Drift.** A single conversational turn must never increment `soulVersion` or directly mutate soul core values.
+- **I8. Auditability.** Every `persona_enact` invocation writes an ADR-0028 recall audit record containing `acting_soul_id`, `mode`, `tense`, `appraisal`, `active_attractor`, `selected_policy`, and cited memory IDs.
+- **I9. Layering Purity.** `spector-memory` must never depend on Synapse graph classes. AISME types in `memory.aisme` remain pure records and mathematical engines; Synapse orchestrates enactment.
+- **I10. Sub-Millisecond System 1 Envelope.** Associative recall, Hopfield relaxation, VAD appraisal update, and EFE policy scoring must execute within the off-heap SIMD hybrid recall budget ($< 15$ ms p95).
+
+---
+
+---
 
 | ID | Choice | Rationale |
 |---|---|---|
@@ -417,6 +429,14 @@ A pull request or implementation that violates any invariant is rejected:
 
 ---
 
-*Authored by:* **Technical Lead** & **@titan** (Solutions Architect)  
-*Cognitive Architecture Review by:* **@neuron** (Chief Cognitive Scientist)  
-*Approved by:* **Bharat** (Project Lead)
+*Authored by:* **Technical Lead** & **Architecture Working Group**  
+*Cognitive Architecture Review by:* **Cognitive Architecture Working Group**  
+*Approved by:* **Technical Steering Committee (TSC)**
+
+---
+
+### Code Reference & Verification Gate
+- **Primary Module(s)**: `synapse/spector-synapse`, `memory/spector-memory`
+- **Key Packages**: `com.spectrayan.spector.synapse.graph`, `com.spectrayan.spector.memory.aisme.policy`, `com.spectrayan.spector.memory.model`
+- **Classes**: `SoulContext.java`, `GenerativeSelfModel.java`, `PolicyInferenceEngine.java`, `ContinuousHopfieldNetwork.java`, `InteroceptiveState.java`
+- **Verification Tests**: `PersonaEnactmentTest.java`, `PolicyInferenceEngineTest.java`

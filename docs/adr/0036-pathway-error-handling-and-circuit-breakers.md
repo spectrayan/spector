@@ -12,17 +12,6 @@
 
 ---
 
-- **Status:** Accepted
-- **Date:** 2026-09-14
-- **Deciders:** Spector Memory / Nucleus
-- **Affects:** `commons.pathway` (`ErrorPolicy`, `CircuitBreakerRelay`, `CognitivePathway`, `CognitivePathwayException`, `DivergentRelay`), domain pathways, `commons.error`
-- **Depends on:** [ADR-0035 — Cognitive Pathway Framework Rearchitecture](0035-cognitive-pathway-rearchitecture.md)
-- **Supersedes:** Implicit two-value `ErrorPolicy` as the *entire* resilience story
-- **Code baseline:** all line references verified against `main` @ `33af1601`
-- **Implementation status:** delivered on `feat/cognitive-pathway-rearchitecture`. Sections amended after implementation: §14 (KG enrichment is not retried; policy/decorator assertions now live in `PathwayResilienceWiringTest`).
-
----
-
 ## 1. Context
 
 ADR-0035 makes pathways composable. Composition without a resilience model just moves the failure: Dream calling Remember can either swallow a cortical-write crash or take the whole sleep cycle down with it, and there is no specified answer.
@@ -34,6 +23,18 @@ Today the engine has three primitives:
 3. **`CircuitBreakerRelay`** — consecutive-failure counter, `CLOSED → OPEN → HALF_OPEN`, default 5 failures / 30s cooldown (L40–41). On OPEN it *returns `true`* (L104: bypass, continue the pathway). Failures always rethrow (L110); the breaker only skips the *next* calls. Any `Exception` counts as a failure — no type filter. HALF_OPEN does not cap concurrent probes, and any single success closes the circuit.
 
 These are necessary and insufficient.
+
+
+### 1.2 What we will not do
+
+- Hystrix-style thread-pool isolation. We are on virtual threads; isolation is a *concurrency cap + timeout*, not a platform thread pool per relay.
+- Retrying every relay by default.
+- Mapping every `ErrorCode` onto a unique policy. Classification is a small enum (see §3).
+- Making `DEGRADE_GRACEFULLY` the default. Writes and scoring stay fail-fast unless the recipe says otherwise.
+
+---
+
+## 2. Problem Statement
 
 ### 1.1 Gaps
 
@@ -50,16 +51,31 @@ These are necessary and insufficient.
 | No conduction-level result | Callers get either a report or an exception. Partial success (Reflect pruned 4 of 14 stages) is buried in log lines. |
 | `ConsolidationRelay` errors vanish | Fire-and-forget exceptions are whatever `ConcurrentTasks.fireAndForget` does. Unspecified. |
 
-### 1.2 What we will not do
+## 3. Decision Drivers
 
-- Hystrix-style thread-pool isolation. We are on virtual threads; isolation is a *concurrency cap + timeout*, not a platform thread pool per relay.
-- Retrying every relay by default.
-- Mapping every `ErrorCode` onto a unique policy. Classification is a small enum (see §3).
-- Making `DEGRADE_GRACEFULLY` the default. Writes and scoring stay fail-fast unless the recipe says otherwise.
+- **Precise Fault Taxonomy**: Distinguish transient infrastructure blips (timeouts, rate limits) from permanent validation bugs (`SpectorValidationException`).
+- **Composable Decorator Ordering**: Enforce deterministic, mathematical composition order: `Metered → Gated → Bulkhead → CircuitBreaker → Timeout → Retry → Relay`.
+- **Non-Silent Degradation**: Degraded stages and tripped circuit breakers must explicitly record `TraceStatus.DEGRADED` or `BYPASSED` and emit telemetry.
+- **Explicit ConductionOutcome**: Pathways return rich outcome objects detailing completed, degraded, bypassed, and failed stages.
 
----
+## 4. Considered Options
 
-## 2. Decision
+### Option 1: Status Quo (Binary ErrorPolicy)
+- **Description**: Rely solely on `FAIL_FAST` vs `DEGRADE_GRACEFULLY` with a naive consecutive-failure counter.
+- **Advantages**: Minimal code surface.
+- **Disadvantages**: Treats validation errors as breaker trips; lacks timeouts, retries, and bulkheads; silent bypasses look like success.
+
+### Option 2: Monolithic Per-Relay Try/Catch Blocks
+- **Description**: Implement custom error handling and retry loops individually inside every `SynapticRelay`.
+- **Advantages**: Localized logic.
+- **Disadvantages**: Extreme code duplication across ~40 relays; non-uniform metrics; unmaintainable resilience posture.
+
+### Option 3: Composable Resilience Decorator Pipeline (Selected)
+- **Description**: Decouple resilience into reusable stage decorators (`TimeoutStage`, `RetryStage`, `CircuitBreakerStage`, `BulkheadStage`) orchestrated in strict mathematical order with an extensible `FaultKind` taxonomy and `ConductionOutcome` reporting.
+- **Advantages**: Zero duplication; composable via fluent `StageBuilder`; transparent metrics; fail-closed defaults.
+- **Disadvantages**: Modest increase in call-stack depth per stage.
+
+## 5. Decision Outcome
 
 1. Keep `ErrorPolicy` as the *stage disposition* (stop vs continue).
 2. Add an **error class** (`FaultKind`) so breakers, retries, and metrics can tell transient from permanent.
@@ -970,7 +986,30 @@ Also required: `Faults.kindOf` must unwrap `ConcurrentExecutionException`, which
 
 ---
 
-## 17. Testing matrix
+---
+
+## 21. Decision summary
+
+1. Stage disposition stays `ErrorPolicy` (+ `ABORT`).
+2. Faults are classified (`FaultKind`) before any breaker or retry looks at them. `INTERRUPTED` is distinct from `CONTROL` and overrides stage policy.
+3. Decorators compose bulkhead → timeout → retry → breaker → relay.
+4. Nested calls: callee decides throw vs return; caller stage policy decides kill vs continue; outcomes merge by prefix. The `PathwayRelay` decorator owns the entire breaker permit lifecycle — `AbstractPathway` notifies nothing.
+5. Circuit breakers are named, shareable, and kind-aware. **Trip state is shared; `onOpen` is per call site** (`BreakerRef`), because one downstream legitimately needs FAIL at one site and BYPASS at another. Registry is first-registration-wins.
+6. Bulkheads isolate nested and remote work on virtual threads.
+7. **Only interruptible relays may declare a timeout.** Writes and nested Remember get no budget at all — admission control only. Every budgeted stage in §7.3 is remote HTTP.
+8. Async consolidation never fails the parent.
+9. Reuse `ConcurrentTasks.forkJoinPartial` for deadlines; do not add a second timeout primitive.
+10. Trace-status work is inert until all seven signals are `ContextualSignal`; outcome-based reporting is not, which is why outcome lives on the context.
+
+## 6. Pros and Cons of the Options
+
+| Alternative | Pros | Cons |
+|:---|:---|:---|
+| **Option 1: Binary ErrorPolicy** | Zero code change | Treats bugs as trips, no timeouts, silent bypasses |
+| **Option 2: Per-Relay Try/Catch** | Localized | Extreme duplication across 40+ relays, inconsistent metrics |
+| **Option 3: Composable Decorators (Selected)** | Uniform resilience, clear ordering, explicit outcome | Modest call-stack depth increase |
+
+## 7. Implementation Plan
 
 | Case | Expected |
 |---|---|
@@ -1019,7 +1058,15 @@ Do not flip `OnOpen` defaults from BYPASS to FAIL on existing `circuitBreaker(..
 
 ---
 
-## 19. Consequences
+---
+
+- A downstream needs adaptive breakers (error-rate window instead of consecutive failures). Add a second `CircuitBreaker` implementation behind the same interface; do not change recipes.
+- Multi-node Spector needs distributed breakers. Process-local is correct until there is a shared embed fleet with a sidecar.
+- Conduct must return `CompletableFuture`. That is a different ADR; retries/timeouts here assume blocking virtual threads.
+
+---
+
+## 8. Code Reference & Verification
 
 ### Positive
 
@@ -1049,23 +1096,10 @@ Do not flip `OnOpen` defaults from BYPASS to FAIL on existing `circuitBreaker(..
 
 ---
 
-## 20. Revisit when
-
-- A downstream needs adaptive breakers (error-rate window instead of consecutive failures). Add a second `CircuitBreaker` implementation behind the same interface; do not change recipes.
-- Multi-node Spector needs distributed breakers. Process-local is correct until there is a shared embed fleet with a sidecar.
-- Conduct must return `CompletableFuture`. That is a different ADR; retries/timeouts here assume blocking virtual threads.
-
 ---
 
-## 21. Decision summary
-
-1. Stage disposition stays `ErrorPolicy` (+ `ABORT`).
-2. Faults are classified (`FaultKind`) before any breaker or retry looks at them. `INTERRUPTED` is distinct from `CONTROL` and overrides stage policy.
-3. Decorators compose bulkhead → timeout → retry → breaker → relay.
-4. Nested calls: callee decides throw vs return; caller stage policy decides kill vs continue; outcomes merge by prefix. The `PathwayRelay` decorator owns the entire breaker permit lifecycle — `AbstractPathway` notifies nothing.
-5. Circuit breakers are named, shareable, and kind-aware. **Trip state is shared; `onOpen` is per call site** (`BreakerRef`), because one downstream legitimately needs FAIL at one site and BYPASS at another. Registry is first-registration-wins.
-6. Bulkheads isolate nested and remote work on virtual threads.
-7. **Only interruptible relays may declare a timeout.** Writes and nested Remember get no budget at all — admission control only. Every budgeted stage in §7.3 is remote HTTP.
-8. Async consolidation never fails the parent.
-9. Reuse `ConcurrentTasks.forkJoinPartial` for deadlines; do not add a second timeout primitive.
-10. Trace-status work is inert until all seven signals are `ContextualSignal`; outcome-based reporting is not, which is why outcome lives on the context.
+### Code Reference & Verification Gate
+- **Primary Module(s)**: `nucleus/spector-commons`, `memory/spector-memory`
+- **Key Packages**: `com.spectrayan.spector.commons.pathway`, `com.spectrayan.spector.commons.error`
+- **Classes**: `ErrorPolicy.java`, `CircuitBreakerRelay.java`, `CognitivePathway.java`, `CognitivePathwayException.java`
+- **Verification Tests**: `PathwayResilienceWiringTest.java`, `CircuitBreakerTest.java`

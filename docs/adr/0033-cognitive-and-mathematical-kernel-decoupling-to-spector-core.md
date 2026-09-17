@@ -1,50 +1,18 @@
-# ADR-0033: Decoupling Cognitive and Mathematical Kernels to Spector Core
+# ADR-0033: Decoupling Cognitive & Mathematical Kernels to Spector Core
 
 | Field | Value |
 |:---|:---|
 | **Status** | Accepted (Implemented) |
-| **Date** | 2026-09-10 |
+| **Date** | 2026-09-08 |
 | **Authors** | Spector Maintainers & Architecture Working Group |
 | **Deciders** | Spector Technical Steering Committee (TSC) |
-| **Supersedes** | None |
+| **Supersedes** | ADR-0033 Draft (Rev 1) |
 | **Superseded By** | None |
 | **Last Verified** | 2026-09-16 (Verified against `main`) |
 
 ---
 
-## Status
-Proposed — Revision 2 (TSC Review incorporated)
-
-## Date
-2026-09-10 (rev 2: 2026-09-10)
-
-## Authors
-- **@titan** (Solutions Architect)
-- **Technical Lead**
-- **@neuron** (Chief Cognitive Scientist)
-
-## Reviewers & Approvers
-- **Bharat** (Project Lead) — licensing decision recorded in §1.2
-
-## Revision History
-
-| Rev | Change |
-|:--|:--|
-| 1 | Initial proposal: 34 algorithms, 14 domains, 5 phases. |
-| 2 | Technical Lead code-verification pass. Added explicit Apache 2.0 licensing decision (§1.2); corrected the SIMD rationale and made the seam batch-shaped (§2.1 P3); resolved three name collisions with existing `spector-core` types (§2.2); tightened the purity contract for stateful and stochastic kernels (§2.1 P2); corrected verified factual errors (§1.3); added mandatory boundary enforcement (§2.1 P5) and a per-phase behavioural-parity harness (§2.1 P6); expanded the duplication catalog from 3 to 12 confirmed clusters (§1.1); added Phase 0 baseline capture and cross-spec sequencing (§4, §7). |
-
-## Related Documents
-
-- **ADR-0028** — Separate Encoding, Identity and Recall Audit Regions (`StrengthLayout` ring buffer)
-- **ADR-0030** — Unified Engram Encoding Header Architecture
-- **ADR-0031** — Unified Configuration Architecture (mass-dilated decay, algorithm #7)
-- **ADR-0021** — Nucleus Symmetric Hardware Abstraction Layer (`AcceleratorRegistry`, SPI naming)
-- **Spec `sealed-kernel-module`** — moves storage code *into* `spector-kernel`; sequencing constraint, see §7
-- **Spec `kernel-techdebt-remediation`** — overlapping file set, see §7
-
----
-
-## 1. Context & Problem Statement
+## 1. Context
 
 Spector is a bio-computational cognitive memory engine designed to bring human-like episodic, semantic, working, and procedural memory to autonomous AI agents. To achieve high retrieval fidelity and biological validity, Spector implements a rich suite of mathematical formulations and computational neuroscience algorithms, including:
 - **Anderson’s ACT-R Activation Dynamics** (base-level learning, power-law recency, spaced repetition, and associative fan effect)
@@ -57,6 +25,8 @@ Spector is a bio-computational cognitive memory engine designed to bring human-l
 - **Welford’s Numerically Stable Online Algorithm** for running variance, mean, and z-score surprise estimation
 - **ADHD-Informed Sigmoid-Gated ICNU Salience** (Interest, Challenge, Novelty, Urgency)
 - **Riemannian Manifold Metric Tensor Deformation** for subjective experiential curvature
+
+## 2. Problem Statement
 
 ### 1.1 Architectural Anti-Patterns Surfaced in Code Audit
 
@@ -107,7 +77,7 @@ An architectural audit across the 25 modules of the Spector reactor revealed tha
 4. **Inability to Reuse Cognitive Math Standalone**:
    External microservices, edge agents, and sibling repositories (`coding-agents`, `homo-digitalis`) cannot consume these algorithms without pulling in the entire off-heap `spector-kernel` and `spector-memory` reactor. Two constraints bound how far this goal can be met — see §5.3.
 
-### 1.2 Licensing Decision (Project Lead — Bharat)
+### 1.2 Licensing Decision (Project Lead — Project Lead)
 
 `spector-core` is Apache 2.0. `spector-memory` is BSL-1.1 (own `LICENSE`, enforced by a `license-maven-plugin` override at `memory/spector-memory/pom.xml:126-153` pointing at `src/license/bsl-header.txt`). **Roughly 18 of the 34 catalogued algorithms currently carry BSL-1.1 headers**, including the flagship `CognitiveScoreFusion`, `SurpriseDetector`, `WelfordStats`, `IcnuWeights`, `HabituationPenalty`, `LateralEvaluator`, `TemperatureSoftmax`, `PersonalityTemperature`, `HomeostaticCore`, `ColBERTReranker`, `ManifoldConsolidator`, `EventDensityFilter`, and `ActRActivation`.
 
@@ -123,9 +93,9 @@ An architectural audit across the 25 modules of the Spector reactor revealed tha
 
 | # | Task | Owner |
 |:--|:--|:--|
-| L1 | Reconcile `memory/spector-kernel/pom.xml` — remove the stale BSL-1.1 comment and confirm Apache 2.0 as the intended license for the module, **or** add the BSL licenseSet override for the parts that must stay BSL. Decide once; do not leave the pom and the headers disagreeing. | @nexus |
-| L2 | Update the `sealed-kernel-module` spec, which currently states `memory/spector-kernel` is BSL-1.1, to match the outcome of L1. | @nova |
-| L3 | For each of the 18 BSL→Apache file moves, record the relicensing in the commit body (`Relicense: BSL-1.1 → Apache-2.0 per ADR-0033 §1.2`) so the provenance is auditable. | @forge |
+| L1 | Reconcile `memory/spector-kernel/pom.xml` — remove the stale BSL-1.1 comment and confirm Apache 2.0 as the intended license for the module, **or** add the BSL licenseSet override for the parts that must stay BSL. Decide once; do not leave the pom and the headers disagreeing. | Platform Engineer |
+| L2 | Update the `sealed-kernel-module` spec, which currently states `memory/spector-kernel` is BSL-1.1, to match the outcome of L1. | Product Working Group |
+| L3 | For each of the 18 BSL→Apache file moves, record the relicensing in the commit body (`Relicense: BSL-1.1 → Apache-2.0 per ADR-0033 §1.2`) so the provenance is auditable. | Developer |
 | L4 | Confirm the BSL-1.1 Change Date clause (May 27, 2030) has no residual obligation for code relicensed early to a *more permissive* license. Apache 2.0 is the declared Change License, so early conversion is directionally consistent — but state it, do not assume it. | Technical Lead |
 
 ### 1.3 Corrections to Rev 1 (verified against `main`)
@@ -148,7 +118,31 @@ Rev 1 contained factual errors that materially under-scoped the work. Corrected 
 
 ---
 
-## 2. Architectural Decision
+## 3. Decision Drivers
+
+- **Mathematical Purity**: Cognitive equations (ACT-R, Wixted decay, Friston Free Energy, Hopfield energy) must be pure functions over primitives (`float[]`, `double[]`, `int[]`), completely decoupled from off-heap storage segments or domain handles.
+- **Zero-Allocation Hot Paths**: Reranking, temperature softmax, and score fusion must operate in-place with zero heap allocations on high-frequency query paths.
+- **Unified Reactor Placement**: Deduplicate 12 math clusters across the 25 modules into a single authoritative root foundation module (`nucleus/spector-core`).
+- **Permissive Open-Source Licensing**: Mathematical formulations published in academic literature belong in the Apache 2.0 foundation (`spector-core`), while proprietary cognitive orchestration stays in `spector-memory` (BSL-1.1).
+
+## 4. Considered Options
+
+### Option 1: Status Quo (Monolithic Coupled Modules)
+- **Description**: Keep mathematical utilities scattered across `spector-memory` and `spector-kernel`.
+- **Advantages**: Avoids code movement and refactoring of call sites.
+- **Disadvantages**: 12 confirmed duplication clusters; pure equations cannot be tested without off-heap Panama FFM slabs; sibling modules cannot reuse math.
+
+### Option 2: Fine-Grained Micro-Libraries
+- **Description**: Split math into multiple independent Maven modules (`spector-math-actr`, `spector-math-hopfield`, `spector-math-stats`).
+- **Advantages**: Extreme modularity.
+- **Disadvantages**: Maven reactor explosion; circular dependency management overhead.
+
+### Option 3: Unified Decoupled Foundation in `nucleus/spector-core` (Selected)
+- **Description**: Migrate all 34 pure mathematical and computational neuroscience algorithms into `nucleus/spector-core`, providing pure array-based signatures while higher-level modules retain storage cursor facades.
+- **Advantages**: Single source of truth; zero GC allocations; headless unit testability; unblocks sibling repo reuse (`coding-agents`).
+- **Disadvantages**: Requires coordinated migration across ~4,671 test methods and 25 reactor modules.
+
+## 5. Decision Outcome
 
 ```mermaid
 flowchart TD
@@ -318,7 +312,9 @@ Rev 1's target names collide with types that already exist on `main`. Resolution
 
 ---
 
-## 3. Catalog of the 34 Migrated Mathematical & Neuroscience Algorithms
+---
+
+## Catalog of Migrated Algorithms
 
 The following 34 algorithms are cataloged across 14 computational domains, defining their exact source location, mathematical formula, proposed core class, and parameterized signature.
 
@@ -803,7 +799,47 @@ public static void computeFusedScores(
 
 ---
 
-## 4. Implementation Phasing Roadmap
+---
+
+## Architectural Consequences
+
+### 5.1 Positive Consequences
+
+- **Mathematical Single Source of Truth**: Eliminates **12 confirmed duplication clusters** (§1.1), not 3. The largest is scalar cosine similarity with **5 hand-rolled copies in main source** plus one in bench, none of which used `spector-core`'s SIMD implementation.
+- **Fixes a latent numerical bug**: consolidating softmax exposes and removes the missing max-shift stabilization in `PolicyInferenceEngine:95-107`, which overflows for large `gamma * totalG`. This alone justifies the softmax work.
+- **Purity & Testability**: Every **T1** formula becomes a deterministic pure function verifiable via `jqwik` without buffers or mocked file segments. **T2** accumulators become deterministic once the clock is injected. **T3** kernels become reproducible once seeded. (Rev 1 claimed this universally; it is true only after the Principle 2 classification is applied — see §2.1.)
+- **Removes allocation from a hot path**: the `TemperatureSoftmax` refactor eliminates a per-element `ScoreBreakdown` + 17-component `CognitiveResult` reallocation, which is the actual cost there.
+- **Hardware Acceleration Enabled Where It Applies**: the mandated batch seams (Principle 3) give `AcceleratorRegistry` / `spector-cpu` / `spector-gpu` something to accelerate on the scan, fusion, BM25 and MaxSim paths. **This is a scoped claim** — roughly 26 of the 34 algorithms are scalar-in/scalar-out with no loop to vectorize, and for those the benefit is dedup, testability and C2 inlinability.
+- **Standalone Reusability**: `spector-core` becomes a coherent computational cognitive-neuroscience library. Bounded by two real constraints — see §5.3.
+
+### 5.2 Negative & Neutral Consequences
+
+- **Licensing**: ~18 algorithms move from BSL-1.1 to Apache 2.0. **Accepted deliberately** per §1.2; the moat moves to the orchestration layers. This must not be treated as a side effect of a package move.
+- **Behavioural change risk, not merely refactor risk**: at least four migrations change observable output — the `double`→`float` cosine accumulator swap in `DenseDerivedSparseProvider`, the softmax stabilization fix, the choice of a single cosine zero-guard contract across 5 divergent call sites, and any tidy-up of `Math.min/max` → `Math.clamp` that alters NaN handling. Mitigated by the Principle 6 parity harness; **not** eliminated by it.
+- **New reactor edge required**: `spector-providers` has no `spector-core` dependency today. Adding it is an architecture change (legal under `nucleus` → `memory`, but currently undeclared).
+- **JPMS seal change**: moving `XxHash64` out of the sealed `spector-kernel` module requires a `module-info.java` change and re-validation of three seal test classes.
+- **Call-Site Refactoring**: call sites in `spector-kernel` and `spector-memory` must pass primitives instead of domain objects. Largest single job is unpacking `AssociativePriorProvider` out of `computeFusedScore` (#34).
+- **Mitigation**: retained facades marked `@Deprecated(since = "<release>", forRemoval = true)`, removal after **two minor releases**, one tracking issue per phase. (Rev 1 said "1 minor version" without naming one, which was unactionable.)
+- **Coordination cost**: two in-flight specs touch the same files — see §7.
+
+### 5.3 Limits on the "Standalone Library" Goal — state these, do not overclaim
+
+Two constraints bound §1.1(4) and must be acknowledged rather than papered over:
+
+1. **`spector-core` depends on `spector-commons`, which is not thin.** Commons carries Quartz, PDFBox/Tika, Handlebars, Caffeine, an executor/thread-plane framework, chunkers and document readers. Consuming `spector-core` for `ValenceMath` drags that transitive weight along. If genuine edge/embedded reuse is a goal, either (a) split a `spector-commons-error` micro-artifact containing only `ErrorCode` + the exception hierarchy and depend on that, or (b) have `spector-core` throw plain `IllegalArgumentException`. **Recommendation: (a)**, as a follow-up ADR — it is out of scope here but should not be left implicit.
+2. **Every consumer JVM must pass `--add-modules jdk.incubator.vector --enable-preview`.** `spector-core` uses `jdk.incubator.vector` directly in 23 classes and inherits these flags only from the root pom's compiler/surefire config. Any external service embedding `spector-core` inherits that launch requirement. This is a hard constraint on "usable in edge agents and external services" and belongs in the module README, not just this ADR.
+
+---
+
+## 6. Pros and Cons of the Options
+
+| Approach | Pros | Cons |
+|:---|:---|:---|
+| **Option 1: Status Quo** | Zero refactoring | 12 duplication clusters, storage coupled to math, impossible headless testing |
+| **Option 2: Micro-Libraries** | Granular decoupling | Severe Maven reactor sprawl (>35 modules) |
+| **Option 3: Spector Core (Selected)** | Pure math, zero-GC array signatures, Apache 2.0 foundation | Broad migration across 25 modules |
+
+## 7. Implementation Plan
 
 To ensure continuous build pass and no regression across the **~4,671 test methods in 697 test classes** (corrected from Rev 1's "1,083 test cases"), execution proceeds in six dependency-ordered phases. **Phase 0 is a hard gate** — no algorithm moves before the baselines and the boundary enforcement exist, because without them "no regression" is unverifiable and Principle 1 is unenforceable.
 
@@ -885,51 +921,23 @@ Phase 5: Search & Full Cognitive Score Fusion
 
 ---
 
-## 5. Consequences
-
-### 5.1 Positive Consequences
-
-- **Mathematical Single Source of Truth**: Eliminates **12 confirmed duplication clusters** (§1.1), not 3. The largest is scalar cosine similarity with **5 hand-rolled copies in main source** plus one in bench, none of which used `spector-core`'s SIMD implementation.
-- **Fixes a latent numerical bug**: consolidating softmax exposes and removes the missing max-shift stabilization in `PolicyInferenceEngine:95-107`, which overflows for large `gamma * totalG`. This alone justifies the softmax work.
-- **Purity & Testability**: Every **T1** formula becomes a deterministic pure function verifiable via `jqwik` without buffers or mocked file segments. **T2** accumulators become deterministic once the clock is injected. **T3** kernels become reproducible once seeded. (Rev 1 claimed this universally; it is true only after the Principle 2 classification is applied — see §2.1.)
-- **Removes allocation from a hot path**: the `TemperatureSoftmax` refactor eliminates a per-element `ScoreBreakdown` + 17-component `CognitiveResult` reallocation, which is the actual cost there.
-- **Hardware Acceleration Enabled Where It Applies**: the mandated batch seams (Principle 3) give `AcceleratorRegistry` / `spector-cpu` / `spector-gpu` something to accelerate on the scan, fusion, BM25 and MaxSim paths. **This is a scoped claim** — roughly 26 of the 34 algorithms are scalar-in/scalar-out with no loop to vectorize, and for those the benefit is dedup, testability and C2 inlinability.
-- **Standalone Reusability**: `spector-core` becomes a coherent computational cognitive-neuroscience library. Bounded by two real constraints — see §5.3.
-
-### 5.2 Negative & Neutral Consequences
-
-- **Licensing**: ~18 algorithms move from BSL-1.1 to Apache 2.0. **Accepted deliberately** per §1.2; the moat moves to the orchestration layers. This must not be treated as a side effect of a package move.
-- **Behavioural change risk, not merely refactor risk**: at least four migrations change observable output — the `double`→`float` cosine accumulator swap in `DenseDerivedSparseProvider`, the softmax stabilization fix, the choice of a single cosine zero-guard contract across 5 divergent call sites, and any tidy-up of `Math.min/max` → `Math.clamp` that alters NaN handling. Mitigated by the Principle 6 parity harness; **not** eliminated by it.
-- **New reactor edge required**: `spector-providers` has no `spector-core` dependency today. Adding it is an architecture change (legal under `nucleus` → `memory`, but currently undeclared).
-- **JPMS seal change**: moving `XxHash64` out of the sealed `spector-kernel` module requires a `module-info.java` change and re-validation of three seal test classes.
-- **Call-Site Refactoring**: call sites in `spector-kernel` and `spector-memory` must pass primitives instead of domain objects. Largest single job is unpacking `AssociativePriorProvider` out of `computeFusedScore` (#34).
-- **Mitigation**: retained facades marked `@Deprecated(since = "<release>", forRemoval = true)`, removal after **two minor releases**, one tracking issue per phase. (Rev 1 said "1 minor version" without naming one, which was unactionable.)
-- **Coordination cost**: two in-flight specs touch the same files — see §7.
-
-### 5.3 Limits on the "Standalone Library" Goal — state these, do not overclaim
-
-Two constraints bound §1.1(4) and must be acknowledged rather than papered over:
-
-1. **`spector-core` depends on `spector-commons`, which is not thin.** Commons carries Quartz, PDFBox/Tika, Handlebars, Caffeine, an executor/thread-plane framework, chunkers and document readers. Consuming `spector-core` for `ValenceMath` drags that transitive weight along. If genuine edge/embedded reuse is a goal, either (a) split a `spector-commons-error` micro-artifact containing only `ErrorCode` + the exception hierarchy and depend on that, or (b) have `spector-core` throw plain `IllegalArgumentException`. **Recommendation: (a)**, as a follow-up ADR — it is out of scope here but should not be left implicit.
-2. **Every consumer JVM must pass `--add-modules jdk.incubator.vector --enable-preview`.** `spector-core` uses `jdk.incubator.vector` directly in 23 classes and inherits these flags only from the root pom's compiler/surefire config. Any external service embedding `spector-core` inherits that launch requirement. This is a hard constraint on "usable in edge agents and external services" and belongs in the module README, not just this ADR.
-
 ---
 
-## 6. Open Decisions Requiring Sign-Off
-
+### Open Implementation Decisions & Sign-Off
 | # | Decision | Owner | Blocking |
 |:--|:--|:--|:--|
-| OD1 | Licensing: math/algorithms → Apache 2.0 on migration | **Bharat (Project Lead)** | **RESOLVED — §1.2** |
-| OD2 | `spector-kernel` license: Apache throughout (matching current headers), or restore BSL for part of it? The pom, the headers and the `sealed-kernel-module` spec currently disagree three ways. | Bharat / @nexus | Phase 0 (L1, L2) |
-| OD3 | Single cosine zero-guard contract: `denom == 0` (core's current), `<= 0.0f`, or reject-on-degenerate? Changes behaviour in 4 call sites. | @titan / @neuron | Phase 0 |
-| OD4 | Parity tolerance: bit-exact, or a named epsilon per kernel? Bit-exact is impossible for the `double`→`float` cosine swap. | @sentinel | Phase 0 |
-| OD5 | Split `spector-commons-error` to make `spector-core` genuinely embeddable (§5.3.1)? | @titan | Not blocking; follow-up ADR |
-| OD6 | Do the batch kernel forms get SPI-dispatched through `AcceleratorRegistry` (ADR-0021) now, or ship as in-core static SIMD with SPI dispatch deferred? | @titan / Technical Lead | Phase 2 |
+| OD1 | Licensing: math/algorithms → Apache 2.0 on migration | **Project Lead** | **RESOLVED — §1.2** |
+| OD2 | `spector-kernel` license: Apache throughout (matching current headers), or restore BSL for part of it? The pom, the headers and the `sealed-kernel-module` spec currently disagree three ways. | Project Lead / Platform Engineering | Phase 0 (L1, L2) |
+| OD3 | Single cosine zero-guard contract: `denom == 0` (core's current), `<= 0.0f`, or reject-on-degenerate? Changes behaviour in 4 call sites. | Architecture Working Group / Cognitive Working Group | Phase 0 |
+| OD4 | Parity tolerance: bit-exact, or a named epsilon per kernel? Bit-exact is impossible for the `double`→`float` cosine swap. | Test Strategy Working Group | Phase 0 |
+| OD5 | Split `spector-commons-error` to make `spector-core` genuinely embeddable (§5.3.1)? | Architecture Working Group | Not blocking; follow-up ADR |
+| OD6 | Do the batch kernel forms get SPI-dispatched through `AcceleratorRegistry` (ADR-0021) now, or ship as in-core static SIMD with SPI dispatch deferred? | Architecture Working Group / Technical Lead | Phase 2 |
 
 ---
 
-## 7. Sequencing Against In-Flight Specs
+---
 
+### In-Flight Spec Sequencing
 ADR-0033 moves code **out of** `spector-kernel` while the `sealed-kernel-module` spec moves storage code **into** it, and `kernel-techdebt-remediation` is also active. All three touch an overlapping file set: `StrengthLayout`, `DecayStrategy`, `CoActivationMemory`, `EdgeImportance`, `BridgeDetector`, `MemoryBM25Index`, `module-info.java`.
 
 **Binding sequencing rules:**
@@ -938,11 +946,11 @@ ADR-0033 moves code **out of** `spector-kernel` while the `sealed-kernel-module`
 2. **`sealed-kernel-module` completes its `module-info.java` and seal-test work before ADR-0033 Phase 4** touches `module-info.java` for `XxHash64`. Two concurrent seal changes will conflict.
 3. **ADR-0033 Phase 5 `MemoryBM25Index` work coordinates with the `sealed-kernel-module` `regionSegment()` grower fix** — `MemoryBM25Index` is the only current grower and is named in both documents.
 4. `kernel-techdebt-remediation` items overlapping the §3 catalog are **merged into the relevant ADR-0033 phase** rather than executed separately, to avoid two refactors of the same method.
-5. Owner for cross-spec conflict resolution: **@titan**, escalating to Technical Lead.
+5. Owner for cross-spec conflict resolution: **Architecture Working Group**, escalating to Technical Lead.
 
 ---
 
-## 8. References
+## 8. Code Reference & Verification
 
 - Anderson, J. R. (1993). *Rules of the Mind*. Hillsdale, NJ: Erlbaum.
 - Bi, G. Q., & Poo, M. M. (1998). *Synaptic modifications in cultured hippocampal neurons*. Journal of Neuroscience.
@@ -953,3 +961,11 @@ ADR-0033 moves code **out of** `spector-kernel` while the `sealed-kernel-module`
 - Welford, B. P. (1962). *Note on a method for calculating corrected sums of squares and products*. Technometrics.
 - Wilson, D. B. (1996). *Generating random spanning trees more quickly than the cover time*. STOC.
 - Wixted, J. T. (2004). *The psychology and neuroscience of forgetting*. Annual Review of Psychology.
+
+---
+
+### Code Reference & Verification Gate
+- **Primary Module(s)**: `nucleus/spector-core`, `memory/spector-memory`, `memory/spector-kernel`
+- **Key Packages**: `com.spectrayan.spector.core.cognitive`, `com.spectrayan.spector.core.similarity`, `com.spectrayan.spector.core.spi`
+- **Classes**: `ExpectedFreeEnergyKernel.java`, `HopfieldKernel.java`, `NeuralManifoldDistance.java`, `PredictiveCodingKernel.java`
+- **Verification Tests**: `ExpectedFreeEnergyKernelTest.java`, `HopfieldKernelTest.java`, `NeuralManifoldDistanceTest.java`

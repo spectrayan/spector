@@ -12,19 +12,9 @@
 
 ---
 
-**All four memory types are engrams. One cognitive substrate. Dedicated per-tier header fields. No field punning.**
+## 1. Context
 
----
-
-## 1. Decision
-
-1. **All four memory types — Episodic, Semantic, Procedural, Working — are engrams.** The engram is the fundamental unit of the memory model (MF-001 §4.2). Physical storage shape (fixed-stride vs append-only) does not determine cognitive identity.
-2. **Expand the `EngramMemory` interface** so that all four tier stores implement it, regardless of their physical layout inheritance (`AbstractRecordMemory` vs `AbstractAppendMemory`). The name follows the existing `*Memory` naming convention (`SemanticMemory`, `ProceduralMemory`, `WorkingMemory`, `EpisodicMemory`).
-3. **Share a common cognitive substrate** (18 bytes) within the existing 64-byte `EncodingHeader` across all four tiers. These fields have identical meaning and byte layout everywhere.
-4. **Allow dedicated per-tier header fields** within the remaining header space. Semantic/Procedural/Working reuse the current `EncodingHeaderLayout` without change. Episodic gets an honest `EpisodicEncodingHeader` that maps its unique fields (session, model, role) into currently-reserved or currently-punned bytes.
-5. **Eliminate field punning.** No encoding-header byte may be used as a different concept than its declared name. `synapticTags` is always a Bloom filter. `agentRecallCount` is never a model registry ID.
-
----
+All four Spector memory types — Episodic, Semantic, Procedural, and Working — are biological engrams representing memory traces (MF-001 §4.2). The memory model requires a single cognitive substrate across all tiers while accommodating their distinct operational characteristics.
 
 ## 2. Problem Statement
 
@@ -94,8 +84,40 @@ These are currently split between the prefix (`WalkPrefix` holds sequence) and p
 
 ---
 
-## 3. Proposed Architecture
+## 3. Decision Drivers
 
+- **Unified Cognitive Identity**: The engram is the fundamental unit across all four stores; physical layout (fixed-stride vs variable-length append) must not bifurcate cognitive identity.
+- **Elimination of Field Punning**: No encoding-header byte may be punned for unrelated concepts (`synapticTags` must never store `sessionId`; `agentRecallCount` must never store `modelId`).
+- **Common Cognitive Substrate**: All engrams must share an immutable 18-byte core substrate in identical byte positions.
+- **Dedicated Per-Tier Extensions**: Honest field allocations for episodic metadata (`sessionId`, `modelId`, `role`, `sequence`) within the 64-byte cache line.
+- **Binary Backward Compatibility**: Existing semantic, procedural, and working layouts must remain 100% binary compatible.
+
+## 4. Considered Options
+
+- **A monolithic `EngramLayout` that excludes episodic.** The old naming (`EngramLayout` for 3 tiers, `EpisodeLayout` for 1) embeds the asymmetry we are fixing. Each tier gets its own symmetric `RegionLayout`.
+- **A single `EncodingHeaderFields` class with all tiers' constants.** Monolithic constants allow cross-tier field access (the root cause of punning). Flat per-tier field classes with `static import` eliminate this structurally.
+- **Separate Accessor classes (e.g. `EpisodicHeaderAccessor`).** The address computation (+16 prefix for episodic) is absorbed into the per-tier `HeaderLayout`. The accessor layer is unnecessary when each tier's `RegionLayout` composes its own `HeaderLayout`.
+- **`KnowledgeEncodingHeader` naming.** "Knowledge" is too generic and collides with the knowledge graph. The shared Semantic + Procedural base is named `SemanticProceduralEncodingHeader` / `SemanticProceduralHeaderLayout` / `SemanticProceduralHeaderFields` — explicit and unambiguous.
+- **Collapsing episodic into `AbstractEngramMemory`.** The physical shape difference (fixed-stride vs append-only) is real. The fix is an interface (`EngramMemory`), not forced inheritance.
+- **Moving episodic fields to the payload only.** Fields that participate in scan/filter (session, model, role) must be in the header, not behind a CBOR decode.
+- **A `HEADER_SLAB` region for episodic.** The header rides the episode record (ADR-0010 §5). A derived scan projection may be added later, but the record is the source of truth.
+- **Changing the 64-byte header size.** The cache-line alignment constraint is load-bearing for scan throughput. All tiers carry full 64B headers, including working memory.
+- **Inheritance for HeaderFields constants.** `static final int` is not polymorphic. Inheritance creates a confusing parent chain. Flat classes with `static import` are cleaner.
+
+---
+
+## 5. Decision Outcome
+
+### Core Principles
+1. **All four memory types — Episodic, Semantic, Procedural, Working — are engrams.** The engram is the fundamental unit of the memory model (MF-001 §4.2). Physical storage shape (fixed-stride vs append-only) does not determine cognitive identity.
+2. **Expand the `EngramMemory` interface** so that all four tier stores implement it, regardless of their physical layout inheritance (`AbstractRecordMemory` vs `AbstractAppendMemory`). The name follows the existing `*Memory` naming convention (`SemanticMemory`, `ProceduralMemory`, `WorkingMemory`, `EpisodicMemory`).
+3. **Share a common cognitive substrate** (18 bytes) within the existing 64-byte `EncodingHeader` across all four tiers. These fields have identical meaning and byte layout everywhere.
+4. **Allow dedicated per-tier header fields** within the remaining header space. Semantic/Procedural/Working reuse the current `EncodingHeaderLayout` without change. Episodic gets an honest `EpisodicEncodingHeader` that maps its unique fields (session, model, role) into currently-reserved or currently-punned bytes.
+5. **Eliminate field punning.** No encoding-header byte may be used as a different concept than its declared name. `synapticTags` is always a Bloom filter. `agentRecallCount` is never a model registry ID.
+
+---
+
+### Proposed Architecture
 ### 3.1 The `EngramMemory` interface
 
 ```java
@@ -471,8 +493,7 @@ Memory<L> parameterization:
 
 ---
 
-## 4. Alignment with MF-001
-
+### Alignment with MF-001
 ### 4.1 Normal Forms
 
 | Normal Form | Requirement | Status | How This ADR Satisfies |
@@ -520,8 +541,7 @@ $$
 
 ---
 
-## 5. Physical Record Layouts
-
+### Physical Record Layouts
 ### 5.1 Episode record
 
 ```
@@ -560,90 +580,7 @@ Strength is per-engram, keyed by slot/offset, shared across all tiers. Unchanged
 
 ---
 
-## 6. Migration Path
-
-### Phase 1: Per-tier RegionLayouts + `EngramMemory` interface (non-breaking)
-
-1. Create `SemanticLayout`, `ProceduralLayout`, `WorkingLayout` as thin wrappers around the existing `EngramLayout` (compose it, delegate stride/vector). Each holds the current `EncodingHeaderLayout` via `headerLayout()`.
-2. Create `FixedEngramLayout` abstract base for the three fixed-stride layouts. Move shared stride/vector logic there.
-3. Update `EpisodicLayout` to hold an `EncodingHeaderLayout` via `headerLayout()` composition (same pattern as the fixed-stride layouts).
-4. Reparameterize: `SemanticMemory<SemanticLayout>`, `ProceduralMemory<ProceduralLayout>`, `WorkingMemory<WorkingLayout>`.
-5. Expand the `EngramMemory` interface so `EpisodicMemory` implements it.
-6. Update `CognitiveMemoryRouter` to hold `Map<MemoryType, EngramMemory>` with all 4 entries.
-7. Remove special-casing of `episodicStore` in `countFor()`, `totalCount()`, basic header reads.
-
-### Phase 2: Per-tier HeaderLayouts + HeaderFields (non-breaking)
-
-1. Create `SemanticProceduralHeaderFields` — extract vec/Bloom offset constants from `EncodingHeaderFields`.
-2. Create `EpisodicHeaderFields` — define honest episodic-specific offset constants.
-3. Create `SemanticProceduralHeaderLayout extends EncodingHeaderLayout` — move vec/Bloom read/write methods.
-4. Create `SemanticHeaderLayout extends SemanticProceduralHeaderLayout` (empty).
-5. Create `ProceduralHeaderLayout extends SemanticProceduralHeaderLayout` (empty).
-6. Create `EpisodicHeaderLayout extends EncodingHeaderLayout` — absorb `EpisodicHeaderAccessor` methods.
-7. Create `WorkingHeaderLayout extends EncodingHeaderLayout` (empty).
-8. Update per-tier RegionLayouts to hold their specific HeaderLayout type.
-9. Absorb `EpisodicHeaderAccessor` into `EpisodicHeaderLayout`. Mark `EpisodicHeaderAccessor` as `@Deprecated(forRemoval = true)`.
-
-### Phase 3: Episodic header de-punning (breaking for on-disk format)
-
-1. Write new episodic records with `sessionId` at honest offset +16 (header-relative), `modelId` at +24, `role` at +26.
-2. Dual-read: detect `headerVersion` or magic to decide old-punned vs new-honest layout.
-3. Old punned-field readers annotated `@Deprecated(forRemoval = true)`.
-4. Deprecation window: **2 release versions**, then remove punned readers.
-
-### Phase 4: Value object hierarchy + cleanup
-
-1. Create `EncodingHeader` → `EngramEncodingHeader` → per-tier sealed class hierarchy.
-2. Create `SemanticProceduralEncodingHeader` as shared base for `SemanticEncodingHeader` and `ProceduralEncodingHeader`.
-3. Update `HeaderLayout.readHeader()` return types to per-tier value objects.
-4. Delete deprecated `EpisodicHeaderAccessor`.
-5. Delete old monolithic `EngramLayout` (replaced by `SemanticLayout` / `ProceduralLayout` / `WorkingLayout`).
-
----
-
-## 7. What This ADR Rejects
-
-- **A monolithic `EngramLayout` that excludes episodic.** The old naming (`EngramLayout` for 3 tiers, `EpisodeLayout` for 1) embeds the asymmetry we are fixing. Each tier gets its own symmetric `RegionLayout`.
-- **A single `EncodingHeaderFields` class with all tiers' constants.** Monolithic constants allow cross-tier field access (the root cause of punning). Flat per-tier field classes with `static import` eliminate this structurally.
-- **Separate Accessor classes (e.g. `EpisodicHeaderAccessor`).** The address computation (+16 prefix for episodic) is absorbed into the per-tier `HeaderLayout`. The accessor layer is unnecessary when each tier's `RegionLayout` composes its own `HeaderLayout`.
-- **`KnowledgeEncodingHeader` naming.** "Knowledge" is too generic and collides with the knowledge graph. The shared Semantic + Procedural base is named `SemanticProceduralEncodingHeader` / `SemanticProceduralHeaderLayout` / `SemanticProceduralHeaderFields` — explicit and unambiguous.
-- **Collapsing episodic into `AbstractEngramMemory`.** The physical shape difference (fixed-stride vs append-only) is real. The fix is an interface (`EngramMemory`), not forced inheritance.
-- **Moving episodic fields to the payload only.** Fields that participate in scan/filter (session, model, role) must be in the header, not behind a CBOR decode.
-- **A `HEADER_SLAB` region for episodic.** The header rides the episode record (ADR-0010 §5). A derived scan projection may be added later, but the record is the source of truth.
-- **Changing the 64-byte header size.** The cache-line alignment constraint is load-bearing for scan throughput. All tiers carry full 64B headers, including working memory.
-- **Inheritance for HeaderFields constants.** `static final int` is not polymorphic. Inheritance creates a confusing parent chain. Flat classes with `static import` are cleaner.
-
----
-
-## 8. Acceptance Criteria
-
-- [ ] `EngramMemory` interface exists; all four tier stores implement it
-- [ ] `CognitiveMemoryRouter` holds a single `Map<MemoryType, EngramMemory>` (no separate `episodicStore` field)
-- [ ] Per-tier `RegionLayout` classes: `SemanticLayout`, `ProceduralLayout`, `WorkingLayout`, `EpisodicLayout`
-- [ ] `FixedEngramLayout` abstract base for the three fixed-stride layouts
-- [ ] Old monolithic `EngramLayout` deleted (replaced by per-tier layouts)
-- [ ] Per-tier `HeaderLayout` classes: `SemanticHeaderLayout`, `ProceduralHeaderLayout`, `WorkingHeaderLayout`, `EpisodicHeaderLayout`
-- [ ] `SemanticProceduralHeaderLayout` shared base for `SemanticHeaderLayout` and `ProceduralHeaderLayout`
-- [ ] Per-tier `HeaderFields` classes: `EncodingHeaderFields` (substrate), `SemanticProceduralHeaderFields` (vec/Bloom), `EpisodicHeaderFields` (session/model)
-- [ ] `EpisodicHeaderAccessor` absorbed into `EpisodicHeaderLayout` and deleted
-- [ ] No encoding-header byte is used for a concept other than its declared name
-- [ ] `EpisodicHeaderLayout` reads `sessionId` from `EpisodicHeaderFields.OFFSET_SESSION_ID`, not `OFFSET_SYNAPTIC_TAGS`
-- [ ] `EpisodicHeaderLayout` reads `modelId` from `EpisodicHeaderFields.OFFSET_MODEL_ID`, not `OFFSET_RECALL_COUNT`
-- [ ] Cognitive substrate fields (importance, valence, arousal, timestamp, flags) are at identical byte offsets across all 4 tiers
-- [ ] Dual-read supports both old punned and new honest episodic header formats
-- [ ] Old punned-field readers annotated `@Deprecated(forRemoval = true)` with 2-version window
-- [ ] All four tiers carry full 64B cache-aligned encoding header (including working memory)
-- [ ] Episodic header includes 128-bit `episodicTags` context tags at offsets 48–63
-- [ ] `EncodingHeader` value object hierarchy: `EncodingHeader` → `EngramEncodingHeader` → `SemanticProceduralEncodingHeader` / `EpisodicEncodingHeader` / `WorkingEncodingHeader`
-- [ ] `SemanticEncodingHeader` and `ProceduralEncodingHeader` extend `SemanticProceduralEncodingHeader`
-- [ ] All TierMemory classes access headers via `this.layout().headerLayout().readXxx()`
-- [ ] All existing tests pass (1,680+) with no regression
-- [ ] NF0, NF1, NF6, NF7, M1, M3, M5 compliance validated
-
----
-
-## 9. Resolved Design Decisions
-
+### Resolved Design Decisions
 The following questions were raised during review and resolved by the Project Lead:
 
 ### 9.1 Working memory header — **Keep full 64B, cache-aligned**
@@ -744,8 +681,7 @@ classDiagram
 
 ---
 
-## 10. Summary Diagram
-
+### Summary Diagram
 ```mermaid
 flowchart TB
   subgraph Fields["Layer 1 — HeaderFields (flat, static import)"]
@@ -797,3 +733,90 @@ flowchart TB
 ```
 
 Every tier is symmetric. Every tier is an engram. Physical shape (fixed vs variable stride) is an implementation detail of the `RegionLayout`, not a naming distinction. This ADR succeeds when every encoding-header byte honestly names its purpose, every tier accesses headers through the same `this.layout().headerLayout().readXxx()` pattern, and the recall algebra sees a single engram regardless of which tier store wrote it.
+
+## 6. Pros and Cons of the Options
+
+| Approach | Pros | Cons |
+|:---|:---|:---|
+| **Rejected: Variable Header Lengths** | Tailored per-tier sizes | Violates 64-byte single cache-line guarantee |
+| **Rejected: Inheritance in Layouts** | OO modeling | Complex FFM memory segment pointer arithmetic |
+| **Rejected: Union Structs** | Multi-purpose bytes | Reintroduces cognitive field punning and subtle data corruption |
+| **Selected: Unified 64B Substrate** | 100% cache-line fit, zero punning, shared 18B substrate | Requires honest per-tier field offset mapping |
+
+## 7. Implementation Plan
+
+### Migration Path
+### Phase 1: Per-tier RegionLayouts + `EngramMemory` interface (non-breaking)
+
+1. Create `SemanticLayout`, `ProceduralLayout`, `WorkingLayout` as thin wrappers around the existing `EngramLayout` (compose it, delegate stride/vector). Each holds the current `EncodingHeaderLayout` via `headerLayout()`.
+2. Create `FixedEngramLayout` abstract base for the three fixed-stride layouts. Move shared stride/vector logic there.
+3. Update `EpisodicLayout` to hold an `EncodingHeaderLayout` via `headerLayout()` composition (same pattern as the fixed-stride layouts).
+4. Reparameterize: `SemanticMemory<SemanticLayout>`, `ProceduralMemory<ProceduralLayout>`, `WorkingMemory<WorkingLayout>`.
+5. Expand the `EngramMemory` interface so `EpisodicMemory` implements it.
+6. Update `CognitiveMemoryRouter` to hold `Map<MemoryType, EngramMemory>` with all 4 entries.
+7. Remove special-casing of `episodicStore` in `countFor()`, `totalCount()`, basic header reads.
+
+### Phase 2: Per-tier HeaderLayouts + HeaderFields (non-breaking)
+
+1. Create `SemanticProceduralHeaderFields` — extract vec/Bloom offset constants from `EncodingHeaderFields`.
+2. Create `EpisodicHeaderFields` — define honest episodic-specific offset constants.
+3. Create `SemanticProceduralHeaderLayout extends EncodingHeaderLayout` — move vec/Bloom read/write methods.
+4. Create `SemanticHeaderLayout extends SemanticProceduralHeaderLayout` (empty).
+5. Create `ProceduralHeaderLayout extends SemanticProceduralHeaderLayout` (empty).
+6. Create `EpisodicHeaderLayout extends EncodingHeaderLayout` — absorb `EpisodicHeaderAccessor` methods.
+7. Create `WorkingHeaderLayout extends EncodingHeaderLayout` (empty).
+8. Update per-tier RegionLayouts to hold their specific HeaderLayout type.
+9. Absorb `EpisodicHeaderAccessor` into `EpisodicHeaderLayout`. Mark `EpisodicHeaderAccessor` as `@Deprecated(forRemoval = true)`.
+
+### Phase 3: Episodic header de-punning (breaking for on-disk format)
+
+1. Write new episodic records with `sessionId` at honest offset +16 (header-relative), `modelId` at +24, `role` at +26.
+2. Dual-read: detect `headerVersion` or magic to decide old-punned vs new-honest layout.
+3. Old punned-field readers annotated `@Deprecated(forRemoval = true)`.
+4. Deprecation window: **2 release versions**, then remove punned readers.
+
+### Phase 4: Value object hierarchy + cleanup
+
+1. Create `EncodingHeader` → `EngramEncodingHeader` → per-tier sealed class hierarchy.
+2. Create `SemanticProceduralEncodingHeader` as shared base for `SemanticEncodingHeader` and `ProceduralEncodingHeader`.
+3. Update `HeaderLayout.readHeader()` return types to per-tier value objects.
+4. Delete deprecated `EpisodicHeaderAccessor`.
+5. Delete old monolithic `EngramLayout` (replaced by `SemanticLayout` / `ProceduralLayout` / `WorkingLayout`).
+
+---
+
+### Acceptance Criteria
+- [ ] `EngramMemory` interface exists; all four tier stores implement it
+- [ ] `CognitiveMemoryRouter` holds a single `Map<MemoryType, EngramMemory>` (no separate `episodicStore` field)
+- [ ] Per-tier `RegionLayout` classes: `SemanticLayout`, `ProceduralLayout`, `WorkingLayout`, `EpisodicLayout`
+- [ ] `FixedEngramLayout` abstract base for the three fixed-stride layouts
+- [ ] Old monolithic `EngramLayout` deleted (replaced by per-tier layouts)
+- [ ] Per-tier `HeaderLayout` classes: `SemanticHeaderLayout`, `ProceduralHeaderLayout`, `WorkingHeaderLayout`, `EpisodicHeaderLayout`
+- [ ] `SemanticProceduralHeaderLayout` shared base for `SemanticHeaderLayout` and `ProceduralHeaderLayout`
+- [ ] Per-tier `HeaderFields` classes: `EncodingHeaderFields` (substrate), `SemanticProceduralHeaderFields` (vec/Bloom), `EpisodicHeaderFields` (session/model)
+- [ ] `EpisodicHeaderAccessor` absorbed into `EpisodicHeaderLayout` and deleted
+- [ ] No encoding-header byte is used for a concept other than its declared name
+- [ ] `EpisodicHeaderLayout` reads `sessionId` from `EpisodicHeaderFields.OFFSET_SESSION_ID`, not `OFFSET_SYNAPTIC_TAGS`
+- [ ] `EpisodicHeaderLayout` reads `modelId` from `EpisodicHeaderFields.OFFSET_MODEL_ID`, not `OFFSET_RECALL_COUNT`
+- [ ] Cognitive substrate fields (importance, valence, arousal, timestamp, flags) are at identical byte offsets across all 4 tiers
+- [ ] Dual-read supports both old punned and new honest episodic header formats
+- [ ] Old punned-field readers annotated `@Deprecated(forRemoval = true)` with 2-version window
+- [ ] All four tiers carry full 64B cache-aligned encoding header (including working memory)
+- [ ] Episodic header includes 128-bit `episodicTags` context tags at offsets 48–63
+- [ ] `EncodingHeader` value object hierarchy: `EncodingHeader` → `EngramEncodingHeader` → `SemanticProceduralEncodingHeader` / `EpisodicEncodingHeader` / `WorkingEncodingHeader`
+- [ ] `SemanticEncodingHeader` and `ProceduralEncodingHeader` extend `SemanticProceduralEncodingHeader`
+- [ ] All TierMemory classes access headers via `this.layout().headerLayout().readXxx()`
+- [ ] All existing tests pass (1,680+) with no regression
+- [ ] NF0, NF1, NF6, NF7, M1, M3, M5 compliance validated
+
+---
+
+## 8. Code Reference & Verification
+
+---
+
+### Code Reference & Verification Gate
+- **Primary Module(s)**: `memory/spector-kernel`, `memory/spector-memory`
+- **Key Packages**: `com.spectrayan.spector.kernel.engram`, `com.spectrayan.spector.kernel.engram.field`
+- **Classes**: `EncodingHeaderLayout.java`, `EncodingHeader.java`, `EncodingHeaderFields.java`, `LegacyEncodingHeaderReader.java`
+- **Verification Tests**: `EncodingHeaderLayoutTest.java`, `EncodingHeaderProvenanceRoundTripTest.java`, `EncodingHeaderFieldsTest.java`

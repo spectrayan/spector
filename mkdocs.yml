@@ -230,83 +230,80 @@ nav:
       - "Architecture Decision Records (ADRs)":
           - Overview: adr/README.md
           - Template: adr/0000-template.md
-          - "Master Catalog": adr/catalog.md
-          - "Storage & Bundles (0001-0005, 0010, 0028-0030)":
-              - "Graph Compression Strategy for Entity G...": adr/0001-graph-compression-strategy.md
-              - "Graph Recall Architecture and Cognitive...": adr/0001-supplement-graph-recall-architecture.md
-              - "Multi-Partition Recall Fan-Out & Frozen...": adr/0002-multi-partition-recall-fanout.md
-              - "Completing Hypergraph Entity-Graph Grad...": adr/0003-hypergraph-entity-graph-graduation.md
-              - "V4 Single-VMA Bundle Design Supplement": adr/0004-supplement-bundle-design.md
-              - "Spector Memory Kernel Isolation, Compos...": adr/0004-supplement-spector-memory-kernel-architecture.md
-              - "V4 Mmap Bundle Architecture & File Desc...": adr/0004-v4-mmap-bundle-architecture-and-fd-scaling.md
-              - "spector-memory Technical Debt Hardening": adr/0005-spector-memory-technical-debt-hardening.md
-              - "Single Engram, Four Stores Storage Arch...": adr/0010-single-engram-storage.md
-              - "Engram Model — Stores, Facade Split, an...": adr/0010-supplement-episodic-memory-and-engram-model.md
-              - "Dual-Plane Memory Audit Architecture (S...": adr/0028-dual-plane-memory-audit-architecture.md
-              - "Episodic→Semantic Lineage Provenance Re...": adr/0029-episodic-semantic-lineage-provenance-region.md
-              - "Spector Memory Organization — 3-Plane A...": adr/0029-spector-memory-organization-logical-tiers-v4.md
-              - "Unified Engram Encoding Header Architec...": adr/0030-unified-engram-encoding-header-architecture.md
-          - "AISME & Biological Memory (0006-0020, 0023-0024, 0027, 0031-0032)":
-              - "Episodic Conversation Architecture": adr/0006-episodic-conversation-architecture.md
-              - "Spector Memory Import & Export Pipeline": adr/0006-spector-memory-import-export-pipeline.md
-              - "ReflectPathway — Biological Sleep Conso...": adr/0007-reflect-pathway-sleep-consolidation.md
-              - "Cognitive Substrate Evolution (TANGLE, ...": adr/0008-cognitive-substrate-evolution-tangle-gpm-msce.md
-              - "Cross-Capture Graph & CoActivation Kernel": adr/0009-RND-011-cross-capture-graph-coactivation-kernel.md
-              - "AISME Phase 1 — Homeostatic Affective Core": adr/0009-aisme-phase-1-homeostatic-affective-core.md
-              - "Identity Trajectory Lyapunov Stability": adr/0010-RND-012-identity-trajectory-lyapunov-stability.md
-              - "AISME Phase 2 — Free-Energy Guided Recall": adr/0010-aisme-phase-2-free-energy-guided-recall.md
-              - "Event Density Gating & Epistemic Compre...": adr/0011-RND-013-event-density-gating-epistemic-compression.md
-              - "AISME Phase 3 — Modern Hopfield Associa...": adr/0011-aisme-phase-3-modern-hopfield-associative-memory.md
-              - "Bayesian Online Change-Point Episode Se...": adr/0012-RND-014-bayesian-online-changepoint-episode-segmentation.md
-              - "AISME Phase 4 — Neural Manifold Distanc...": adr/0012-aisme-phase-4-neural-manifold-distance.md
-              - "Differential Privacy & Edge Anonymization": adr/0013-RND-015-differential-privacy-edge-anonymization.md
-              - "AISME Phase 5 — Predictive Coding Narra...": adr/0013-aisme-phase-5-predictive-coding-narrative-self.md
-              - "Multimodal Composite Importance Scoring": adr/0014-RND-016-multimodal-composite-importance-scoring.md
-              - "AISME Phase 6 — Consciousness Continuit...": adr/0014-aisme-phase-6-consciousness-continuity-metric.md
-              - "Lifespan-Adaptive Forgetting & Retentio...": adr/0015-RND-017-lifespan-adaptive-forgetting-retention.md
-              - "AISME Phase 7 — Synaptic Relay Wiring &...": adr/0015-aisme-phase-7-synaptic-relay-wiring.md
-              - "AISME Phase 8 — Closed-Loop Epistemic L...": adr/0016-aisme-phase-8-closed-loop-epistemic-learning.md
-              - "AISME Phase 9 — Generative Counterfactu...": adr/0017-aisme-phase-9-generative-counterfactuals-prior-plasticity.md
-              - "AISME Phase 10 — WanderPathway & Kernel...": adr/0018-aisme-phase-10-wander-pathway-continuity-mmap-layout.md
-              - "AISME Phase 11 — Expected Free Energy P...": adr/0019-aisme-phase-11-expected-free-energy-policy-engine.md
-              - "LSR & RFF Dense Associative Memory Engi...": adr/0020-RND-020-lsr-rff-associative-memory-specification.md
-              - "AISME Phase 12 — Continuous Self-Dynamics": adr/0020-aisme-phase-12-continuous-self-dynamics.md
-              - "Log-Sum-ReLU (LSR) & Random Fourier Fea...": adr/0020-lsr-rff-dense-associative-memory.md
-              - "AISME Completeness Verification Report": adr/0020-supplement-aisme-verification-report.md
-              - "Cognitive Continuity Layer & Decoded Mi...": adr/0023-RND-023-cognitive-continuity-decoded-mind-streams.md
-              - "AISME Complete Loop Closure & Cognitive...": adr/0023-aisme-loop-closure-and-cognitive-vector-accessor.md
-              - "Polymorphic SoulContext Hierarchy in AISME": adr/0024-polymorphic-soul-context-aisme.md
-              - "Soul-Conditioned & Salience-Modulated P...": adr/0027-soul-conditioned-personalized-dreaming.md
-              - "Spacetime Simulation on Wander, Dream, ...": adr/0031-spacetime-simulation-wander-dream-express.md
-              - "Persona Enactment — Soul as Policy over...": adr/0032-persona-enactment.md
-          - "Hardware Acceleration & Kernels (0021-0022, 0033, 0038)":
-              - "Remediation of Hardcoded Memory Offsets...": adr/0021-RND-021-hardcoded-memory-offsets-remediation.md
-              - "Linguistic & Vocal Prosody Expression E...": adr/0021-linguistic-vocal-prosody-expression-engine.md
-              - "Nucleus Symmetric Hardware Abstraction ...": adr/0021-nucleus-symmetric-hardware-abstraction-layer.md
-              - "Java 27 Upgrade Strategy & Value Class ...": adr/0022-RND-022-jdk27-upgrade-and-feature-architecture.md
-              - "Embodied Kinesics & Phenomenological MC...": adr/0022-embodied-kinesics-phenomenological-mcp-engine.md
-              - "Spacetime Vector Search & Synaptic Rela...": adr/0030-spacetime-vector-search-synaptic-relay-architecture.md
-              - "Decoupling Cognitive and Mathematical K...": adr/0033-cognitive-and-mathematical-kernel-decoupling-to-spector-core.md
-              - "SIMD-Accelerated BM25 Lexical Scoring O...": adr/0038-bm25-optimization.md
-          - "Clustering, HA & Concurrency (0026, 0028, 0034)":
-              - "Dual-Plane Concurrency & Async Queue Ba...": adr/0026-dual-plane-concurrency-and-backpressure.md
-              - "In-Memory Multi-Tenant Quartz Scheduler": adr/0028-in-memory-multi-tenant-quartz-scheduler.md
-              - "Cell Topology, Namespace Ownership, and...": adr/0034-cell-ha-namespace-ownership.md
-              - "Cell-Based HA & Namespace-Sticky Shardi...": adr/0034-cell-ha-namespace-sticky-sharding.md
-          - "Cognitive Pathways & Ingestion (0035-0037)":
-              - "Cognitive Pathway Framework Rearchitecture": adr/0035-cognitive-pathway-rearchitecture.md
-              - "Pathway Error Handling, Isolation, and ...": adr/0036-pathway-error-handling-and-circuit-breakers.md
-              - "Ingestion Boundary and Sensory Relocation": adr/0037-ingestion-boundary-and-sensory-relocation.md
-          - "Gateways, MCP & Connectors (0025, 0031-0035, 0039-0041)":
-              - "Declarative MCP Tool Definitions via JS...": adr/0025-declarative-mcp-tool-definitions.md
-              - "Unified Configuration Architecture & By...": adr/0031-unified-configuration-architecture.md
-              - "Client SDK Architecture, OpenAPI, and M...": adr/0032-client-sdk-openapi-and-mcp-integration-architecture.md
-              - "Engine & CLI Stabilization — Issue #727...": adr/0033-engine-and-cli-stabilization.md
-              - "Phileas PII Engine for Spector Synapse": adr/0034-phileas-pii-engine-for-spector-synapse.md
-              - "Synapse-Owned Tool Access Policy": adr/0035-synapse-owned-tool-access-policy.md
-              - "Robust Unified Rate Limiting Architecture": adr/0039-robust-unified-rate-limiting-architecture.md
-              - "Universal Apache Camel Messaging Channels": adr/0040-universal-camel-messaging-channels.md
-              - "Unified Connector Architecture for Inge...": adr/0041-connector-architecture-unification.md
+          - "Master Catalog (0001-0070)": adr/catalog.md
+          - "Memory Kernel & Storage Formats":
+              - "ADR-0001: Graph Compression Strategy for Entity Graph": adr/0001-graph-compression-strategy.md
+              - "ADR-0002: Multi-Partition Recall Fan-Out & Frozen Reten...": adr/0002-multi-partition-recall-fanout.md
+              - "ADR-0003: Completing Hypergraph Entity-Graph Graduation": adr/0003-hypergraph-entity-graph-graduation.md
+              - "ADR-0004: Mmap Bundle Architecture & File Descriptor Sc...": adr/0004-mmap-bundle-architecture-and-fd-scaling.md
+              - "ADR-0005: spector-memory Technical Debt Hardening": adr/0005-spector-memory-technical-debt-hardening.md
+              - "ADR-0042: Graph Recall Architecture and Cognitive Trave...": adr/0042-graph-recall-architecture-and-cognitive-traversals.md
+              - "ADR-0043: Single-VMA Bundle Layout Specification": adr/0043-single-vma-bundle-layout-specification.md
+              - "ADR-0044: Memory Kernel Isolation, Composition, and Layout": adr/0044-memory-kernel-isolation-and-layout.md
+              - "ADR-0045: Spector Memory Import & Export Pipeline": adr/0045-spector-memory-import-export-pipeline.md
+              - "ADR-0046: Single Engram, Four Stores Storage Architecture": adr/0046-single-engram-storage-architecture.md
+              - "ADR-0047: Episodic Memory and Engram Model Hierarchy": adr/0047-episodic-memory-and-engram-model.md
+              - "ADR-0058: Remediation of Hardcoded Memory Offsets and A...": adr/0058-hardcoded-memory-offsets-and-alignment-constants.md
+              - "ADR-0063: Spector Memory Organization — Three-Plane Arc...": adr/0063-memory-organization-three-plane-architecture.md
+          - "Active Inference Self-Model Engine (AISME)":
+              - "ADR-0006: Episodic Conversation Architecture": adr/0006-episodic-conversation-architecture.md
+              - "ADR-0007: ReflectPathway — Biological Sleep Consolidation": adr/0007-reflect-pathway-sleep-consolidation.md
+              - "ADR-0008: Cognitive Substrate Evolution (TANGLE, GPM, M...": adr/0008-cognitive-substrate-evolution-tangle-gpm-msce.md
+              - "ADR-0009: AISME Phase 1 — Homeostatic Affective Core": adr/0009-aisme-phase-1-homeostatic-affective-core.md
+              - "ADR-0010: AISME Phase 2 — Free-Energy Guided Recall": adr/0010-aisme-phase-2-free-energy-guided-recall.md
+              - "ADR-0011: AISME Phase 3 — Modern Hopfield Associative M...": adr/0011-aisme-phase-3-modern-hopfield-associative-memory.md
+              - "ADR-0012: AISME Phase 4 — Neural Manifold Distance (NMD)": adr/0012-aisme-phase-4-neural-manifold-distance.md
+              - "ADR-0013: AISME Phase 5 — Predictive Coding Narrative Self": adr/0013-aisme-phase-5-predictive-coding-narrative-self.md
+              - "ADR-0014: AISME Phase 6 — Consciousness Continuity Metr...": adr/0014-aisme-phase-6-consciousness-continuity-metric.md
+              - "ADR-0015: AISME Phase 7 — Synaptic Relay Wiring & Pathw...": adr/0015-aisme-phase-7-synaptic-relay-wiring.md
+              - "ADR-0016: AISME Phase 8 — Closed-Loop Epistemic Learning": adr/0016-aisme-phase-8-closed-loop-epistemic-learning.md
+              - "ADR-0017: AISME Phase 9 — Generative Counterfactuals & ...": adr/0017-aisme-phase-9-generative-counterfactuals-prior-plasticity.md
+              - "ADR-0018: AISME Phase 10 — WanderPathway & Kernel Conti...": adr/0018-aisme-phase-10-wander-pathway-continuity-mmap-layout.md
+              - "ADR-0019: AISME Phase 11 — Expected Free Energy Policy ...": adr/0019-aisme-phase-11-expected-free-energy-policy-engine.md
+              - "ADR-0020: AISME Phase 12 — Continuous Self-Dynamics": adr/0020-aisme-phase-12-continuous-self-dynamics.md
+              - "ADR-0023: AISME Complete Loop Closure & CognitiveVector...": adr/0023-aisme-loop-closure-and-cognitive-vector-accessor.md
+              - "ADR-0024: Polymorphic SoulContext Hierarchy in AISME": adr/0024-polymorphic-soul-context-aisme.md
+              - "ADR-0027: Soul-Conditioned & Salience-Modulated Persona...": adr/0027-soul-conditioned-personalized-dreaming.md
+              - "ADR-0048: Cross-Capture Graph & CoActivation Kernel": adr/0048-cross-capture-graph-coactivation-kernel.md
+              - "ADR-0049: Identity Trajectory Lyapunov Stability": adr/0049-identity-trajectory-lyapunov-stability.md
+              - "ADR-0050: Event Density Gating and Dynamic Epistemic Co...": adr/0050-event-density-gating-epistemic-compression.md
+              - "ADR-0051: Bayesian Online Change-Point Episode Segmenta...": adr/0051-bayesian-online-changepoint-episode-segmentation.md
+              - "ADR-0052: Differential Privacy and Edge Anonymization": adr/0052-differential-privacy-edge-anonymization.md
+              - "ADR-0053: Multimodal Composite Importance Scoring": adr/0053-multimodal-composite-importance-scoring.md
+              - "ADR-0054: Lifespan-Adaptive Forgetting & Retention Kernel": adr/0054-lifespan-adaptive-forgetting-retention.md
+              - "ADR-0055: LSR & RFF Dense Associative Memory Engineerin...": adr/0055-lsr-rff-associative-memory-engineering-specification.md
+              - "ADR-0056: Log-Sum-ReLU (LSR) & Random Fourier Features ...": adr/0056-lsr-rff-dense-associative-memory.md
+              - "ADR-0057: AISME Completeness Verification Report": adr/0057-aisme-completeness-verification-report.md
+              - "ADR-0059: Linguistic & Vocal Prosody Expression Engine": adr/0059-linguistic-vocal-prosody-expression-engine.md
+              - "ADR-0064: Spacetime Vector Search and Synaptic Relay Ar...": adr/0064-spacetime-vector-search-synaptic-relay-architecture.md
+              - "ADR-0065: Spacetime Simulation on Wander, Dream, and Ex...": adr/0065-spacetime-simulation-wander-dream-express.md
+          - "Platform, Synapse & Clustering":
+              - "ADR-0021: Nucleus Symmetric Hardware Abstraction Layer ...": adr/0021-nucleus-symmetric-hardware-abstraction-layer.md
+              - "ADR-0022: Embodied Kinesics & Phenomenological MCP Engine": adr/0022-embodied-kinesics-phenomenological-mcp-engine.md
+              - "ADR-0025: Declarative MCP Tool Definitions via JSON Sch...": adr/0025-declarative-mcp-tool-definitions.md
+              - "ADR-0026: Dual-Plane Concurrency & Async Queue Backpres...": adr/0026-dual-plane-concurrency-and-backpressure.md
+              - "ADR-0028: Dual-Plane Memory Audit Architecture (Separat...": adr/0028-dual-plane-memory-audit-architecture.md
+              - "ADR-0029: Episodic→Semantic Lineage Provenance Region": adr/0029-episodic-semantic-lineage-provenance-region.md
+              - "ADR-0030: Unified Engram Encoding Header Architecture": adr/0030-unified-engram-encoding-header-architecture.md
+              - "ADR-0031: Unified Configuration Architecture & Bypass E...": adr/0031-unified-configuration-architecture.md
+              - "ADR-0032: Persona Enactment — Soul as Policy over Memory": adr/0032-persona-enactment.md
+              - "ADR-0033: Decoupling Cognitive & Mathematical Kernels t...": adr/0033-cognitive-and-mathematical-kernel-decoupling-to-spector-core.md
+              - "ADR-0034: Cell Topology, Namespace Ownership, and HA Cl...": adr/0034-cell-ha-namespace-ownership.md
+              - "ADR-0035: Cognitive Pathway Framework Rearchitecture": adr/0035-cognitive-pathway-rearchitecture.md
+              - "ADR-0036: Pathway Error Handling, Isolation, and Circui...": adr/0036-pathway-error-handling-and-circuit-breakers.md
+              - "ADR-0037: Ingestion Boundary and Sensory Relocation": adr/0037-ingestion-boundary-and-sensory-relocation.md
+              - "ADR-0038: SIMD-Accelerated BM25 Lexical Scoring Optimiz...": adr/0038-bm25-optimization.md
+              - "ADR-0039: Robust Unified Rate Limiting Architecture": adr/0039-robust-unified-rate-limiting-architecture.md
+              - "ADR-0040: Universal Apache Camel Messaging Channels": adr/0040-universal-camel-messaging-channels.md
+              - "ADR-0041: Unified Connector Architecture for Ingestion": adr/0041-connector-architecture-unification.md
+              - "ADR-0060: Java 27 Upgrade Strategy and Value Class Migr...": adr/0060-jdk27-upgrade-and-feature-architecture.md
+              - "ADR-0061: Cognitive Continuity Layer and Decoded Mind S...": adr/0061-cognitive-continuity-decoded-mind-streams.md
+              - "ADR-0062: In-Memory Multi-Tenant Quartz Scheduler": adr/0062-in-memory-multi-tenant-quartz-scheduler.md
+              - "ADR-0066: Client SDK Architecture, OpenAPI, and MCP Int...": adr/0066-client-sdk-openapi-and-mcp-integration-architecture.md
+              - "ADR-0067: Engine & CLI Stabilization — Issue #727 Harde...": adr/0067-engine-and-cli-stabilization.md
+              - "ADR-0068: Cell-Based High Availability and Namespace-St...": adr/0068-cell-ha-namespace-sticky-sharding.md
+              - "ADR-0069: Phileas PII Redaction Engine for Spector Synapse": adr/0069-phileas-pii-engine-for-spector-synapse.md
+              - "ADR-0070: Synapse-Owned Tool Access Policy": adr/0070-synapse-owned-tool-access-policy.md
       - "Modules Registry":
           - Overview: modules/index.md
           - "Foundation Layer (/nucleus)":

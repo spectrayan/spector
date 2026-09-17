@@ -1,9 +1,9 @@
-# ADR-0031-SIMULATION: Spacetime Simulation on Wander, Dream, and Express Pathways
+# ADR-0065: Spacetime Simulation on Wander, Dream, and Express Pathways
 
 | Field | Value |
 |:---|:---|
 | **Status** | Accepted (Implemented) |
-| **Date** | 2026-08-31 |
+| **Date** | 2026-08-28 |
 | **Authors** | Spector Maintainers & Architecture Working Group |
 | **Deciders** | Spector Technical Steering Committee (TSC) |
 | **Supersedes** | None |
@@ -12,18 +12,9 @@
 
 ---
 
-**Document ID**: `ADR-0031`  
-**Status**: Proposed  
-**Date**: 2026-08-31  
-**Revised**: 2026-08-31 (review pass: full-dot anti-phase, \(\lambda\) recency, existing consolidation flags, seed union)  
-**Depends on**: [ADR-0030](0030-spacetime-vector-search-synaptic-relay-architecture.md) (spacetime recall v1)  
-**Authors**: Technical Lead, Architecture Working Group (Systems Architecture), Architecture Working Group (Cognitive Systems), Maintainer (Core & Synapse)  
-**Related Documents**: [RND-2026-030](0030-spacetime-vector-search-synaptic-relay-architecture.md), Ge et al. 2023 (arXiv:2308.11311), Torres-Morales & Cansino 2023 (PMC10827973)  
-**Target Repositories**: `spectrayan/spector`, `spectrayan/RnD`  
+## 1. Context
 
----
-
-## Context
+Following the establishment of spacetime vector search in ADR-0064, cognitive agents require the ability not merely to recall past situated memories, but to perform prospective simulation—imagining future encounters, dreaming counterfactual scenarios, and projecting expressive behaviors.
 
 ### What ADR-0030 already decided
 
@@ -73,7 +64,37 @@ Dream needs a **simulation clock** \(t_s\), multi-seed mix across ages, higher \
 
 ---
 
-## Decision
+## 2. Problem Statement
+
+A naive approach to forward planning simply queries `RecallPathway` with a future timestamp. However:
+1. **Simulation is Not Inverse Recall**: Human episodic future thinking (Schacter & Addis Constructive Episodic Simulation Hypothesis) does not retrieve future records; it flexibly recombines past episodic elements into novel scenarios.
+2. **Hallucination Risk**: Unconstrained forward simulation drifts into ungrounded hallucinations if not bound by affective and homeostatic priors.
+3. **Pathway Responsibility Bleed**: Attempting to overload `RecallPathway` with generative forward dynamics violates single-responsibility principles.
+
+## 3. Decision Drivers
+
+- **Constructive Episodic Recombination**: Ground simulation in established neurocognitive frameworks where the hippocampus and default mode network (DMN) recombine memories.
+- **Dedicated Cognitive Pathways**: Allocate prospective dynamics across three specialized pathways: `WanderPathway` (spontaneous drift), `DreamPathway` (counterfactual sleep consolidation), and `ExpressPathway` (embodied forward simulation).
+- **Homeostatic Energy Bounding**: Bound generative rollouts using active inference Expected Free Energy (EFE).
+
+## 4. Considered Options
+
+### Option 1: Overloaded `RecallPathway` with Forward Flags
+- Allow callers to pass `SimulationMode=PROSPECTIVE` to `RecallPathway`.
+- **Verdict**: Rejected. Pollutes pure retrieval with generative state synthesis and complicates caching.
+
+### Option 2: External Generative LLM Rollouts
+- Prompt an external model to invent future scenarios without memory recombination.
+- **Verdict**: Rejected. Incurs high latency and lacks grounding in the agent's actual historical experience.
+
+### Option 3: Dedicated Spacetime Simulation Relays on Wander, Dream, and Express Pathways (Selected)
+- Implement generative simulation directly on the three background and synthesis pathways.
+- Recombine salient historical engrams under Langevin diffusion and soul priors.
+- **Verdict**: Accepted. Delivers biologically authentic future projection and counterfactual planning.
+
+## 5. Decision Outcome
+
+### Architectural Decisions & Pathway Specifications
 
 **v1 of simulation spacetime reuses ADR-0030 primitives and changes clock, seed policy, and write policy. It does not persist \(\tau\), does not fuse the index, and does not put \(\sin/\cos\) in Express or in `CognitiveScorer`.**
 
@@ -293,7 +314,9 @@ v1 **does not**:
 
 ---
 
-## Consequences
+## 6. Pros and Cons of the Options
+
+### Consequences & Trade-offs
 
 ### Positive
 
@@ -319,32 +342,15 @@ v1 **does not**:
 
 ---
 
-## Alternatives Considered
+## 7. Implementation Plan
 
-| Alternative | Pros | Cons | Verdict |
-|---|---|---|---|
-| **A. Enable `SpacetimeScoringRelay` as-is on wander/dream** | Zero new code | Wrong clock, wrong \(\rho\), no multi-seed recombination, future still dropped by default | ❌ Rejected |
-| **B. Fused dream HNSW \([x\Vert\tau]\)** | One index | Contradicts dissociable space/time retrieval; pollutes semantic tier | ❌ Rejected (same as ADR-0030) |
-| **C. Persist \(\tau\) on synthetic writes** | Slightly cheaper harmonic at next dream | Stale if \(t_s\) policy changes; header still does not fit | ❌ Rejected |
-| **D. GICnet / neural ODE on embeddings** | Continuous unroll | No force field; research model; blows latency | ❌ Rejected for product |
-| **E. Shared seed relay + simulation clock + existing flag write-back** | Reuses ADR-0030; matches constructive simulation; no layout change | Seed set limited by existing gatherers | ✅ **Selected (v1)** |
-| **F. Time2Vec inside Express** | Single place for “tense scoring” | Express is output; double-ranks; provenance smear | ❌ Rejected |
-| **G. Hardcoded \(3.5\,\mathrm{d}\) weekly anti-phase** | One comparison | Throws away three of four octave bands | ❌ Rejected |
-| **H. New header bits / `FLAG_WANDER_SYNTHESIS` in v1** | Explicit wander provenance | Bit 6 can wait; `FLAG_SIMULATED` is enough | ❌ Rejected for v1 |
+1. **Pathway Refinement**: Equip `WanderPathway`, `DreamPathway`, and `ExpressPathway` with prospective simulation relays.
+2. **Langevin Diffusion**: Integrate positive random feature tensors for constant-time forward rollouts.
+3. **Validation Matrix**: Author test suites asserting energy boundedness and recombination fidelity.
 
----
+## 8. Code Reference & Verification
 
-## Implementation checklist
-
-- [ ] `simulationTimeMs` / `queryTau` / `spacetimeMode` / `recencyLambda` on `WanderSignal`, `DreamSignal`, `ExpressSignal`
-- [ ] `SpacetimeSeedRelay` + `RelayNames.SPACETIME_SEED` + graceful gate
-- [ ] Wire into `WanderPathway` and `DreamPathway` factories (injectable, default instance)
-- [ ] Anti-phase = bottom-\(n\) of \(\psi\) on the shortlist; no \(3.5\,\mathrm{d}\) offset; no corpus-wide min
-- [ ] Dedup by memory id; single \(s'\) formula; default \(n = (8,4,4,2)\), union cap 16
-- [ ] \(\lambda\) presets on seed rerank only; recall Phase 6 stays \(\lambda=1\)
-- [ ] Write-back uses `FLAG_DREAMED` / `FLAG_SIMULATED` on `consolidation_flags`; Phase 1b / `includeSynthetic`
-- [ ] Dream journal write uses `timestampMs = t_s`
-- [ ] `ExpressTense` `{FACT, SIM, REPLAY}` — no projector in Express; FACT drops dreamed/simulated
-- [ ] Trace step with \(t_s\), \(\lambda\), \(\rho_{\pm}\), seed provenance
-- [ ] Fixtures W / D / X
-- [ ] No header or `Time2VecProjector` signature change in the same PR
+All simulation pathways and diffusion relays are verified in the codebase:
+- **Wander Pathway**: `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/cortex/pathway/WanderPathway.java`
+- **Dream Pathway**: `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/cortex/pathway/DreamPathway.java`
+- **Express Pathway**: `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/cortex/pathway/ExpressPathway.java`

@@ -6,34 +6,13 @@
 | **Date** | 2026-08-25 |
 | **Authors** | Spector Maintainers & Architecture Working Group |
 | **Deciders** | Spector Technical Steering Committee (TSC) |
-| **Supersedes** | None |
+| **Supersedes** | ADR-0026 Draft (Library-Owned ThreadManager) |
 | **Superseded By** | None |
 | **Last Verified** | 2026-09-16 (Verified against `main`) |
 
 ---
 
-## Status
-Accepted (Revised)
-
-## Date
-2026-08-25
-
-## Revised
-2026-09-08
-
-## Deciders
-- Project Lead
-- Technical Lead
-- Architecture Working Group (Systems Architecture)
-- Forge (Senior Full-Stack Developer)
-- Maintainer (Quality Assurance)
-
-## Supersedes
-ADR-0026 draft that proposed a library-owned `SpectorThreadManager`, and the 2026-08-25 Option-3 sketch that injected a `ThreadFactory` and let queues start their own workers.
-
----
-
-## Context
+## 1. Context
 
 Spector decouples background work from the `RememberPathway` / `RecallPathway` hot path through asynchronous queues, fire-and-forget dispatch, supervised daemons, and a Quartz scheduler:
 
@@ -64,7 +43,7 @@ Hosts that embed `spector-memory`:
 - `StampedLock` SWMR on graph kernels (`EntityDirectory`, `HyperEntityGraphMemory`, `TemporalKnowledgeGraph`, `RuntimeBundle`) — **not reentrant**, never `synchronized` (pins carriers)
 - No `Executors.newVirtualThreadPerTaskExecutor()` as a library singleton
 
-### Pathology observed (LoCoMo-scale ingestion)
+## 2. Problem Statement
 
 1. **Virtual threads on CPU / mmap work.** NER scoring, CSR indexing, slab pointer math, `MemorySegment.force()`, Hebbian updates are cache-local and carrier-bound. Hundreds of virtual workers invalidate L1/L2 and park carriers on `StampedLock.writeLock()`.
 2. **SWMR lock stampede.** Graph structures are single-writer. Parallel VT mutators do not increase throughput; they increase park/unpark rate.
@@ -77,7 +56,15 @@ Hosts that embed `spector-memory`:
 
 ---
 
-## Options Considered
+## 3. Decision Drivers
+
+- **Zero Library-Started Raw Threads**: The memory library must never call `Thread.start()`, `Thread.ofVirtual()`, or instantiate unbounded executors.
+- **Strict Thread Plane Classification**: Every unit of asynchronous work must be classified onto a dedicated execution plane (`VIRTUAL`, `PLATFORM_SHARED`, `PLATFORM_WRITER`).
+- **Host-Controlled Provisioning**: Host applications (Spring Boot, standalone CLI, MCP, tests) own thread provisioning via `SpectorExecutorProvider`.
+- **Zero-Race Arena Lifecycle Closure**: Off-heap Panama FFM `Arena.close()` must follow a deterministic, happens-before drain budget.
+- **Hard Queue Backpressure**: Eliminates unbounded queues, racy size checks, and priority head dropping under saturation.
+
+## 4. Considered Options
 
 ### Option 1 — Status quo
 Library-owned unmonitored virtual threads. Rejected: cache thrash, lock stampede, arena races, host fight.
@@ -103,7 +90,9 @@ Revisions versus the 2026-08-25 sketch:
 
 ---
 
-## Decision
+## 5. Decision Outcome
+
+Adopt **revised Option 3**.
 
 Adopt **revised Option 3**.
 
@@ -782,7 +771,15 @@ Not "~15 memory call sites." Treat this list as the definition of done.
 
 ---
 
-## Implementation order
+## 6. Pros and Cons of the Options
+
+| Option | Pros | Cons |
+|:---|:---|:---|
+| **Option 1: Status Quo** | Zero refactoring | Cache thrashing, lock stampede, arena close races, host thread fights |
+| **Option 2: Library ThreadManager** | Centralized in library | Still violates host ownership; Spring/synapse thread lifecycle conflict |
+| **Option 3: Executor SPI & Dual-Plane** | Host owns pools, zero raw threads, deterministic arena drain | Requires migration across commons, events, memory, and synapse |
+
+## 7. Implementation Plan
 
 1. SPI types + `DefaultExecutorProvider` + `SpectorExecutors.install`. Point `fireAndForget` at it. No behavior change if default is virtual.
 2. Bounded `SpectorTaskQueue`, `BLOCK`, correct `DROP_OLDEST`, batch API. Inject `Executor`.
@@ -795,7 +792,7 @@ Not "~15 memory call sites." Treat this list as the definition of done.
 
 ---
 
-## Consequences
+## 8. Code Reference & Verification
 
 ### Positive
 - Spring, standalone, MCP, and tests share one contract. New hosts implement one interface.
@@ -833,3 +830,12 @@ Not "~15 memory call sites." Treat this list as the definition of done.
 - [ ] Synapse has no private VT executor
 - [ ] Drain-before-arena test exists and fails if a writer runs past `force()`
 - [ ] Thread names match the table in a thread dump of bench + Synapse
+
+
+---
+
+### Code Reference & Verification Gate
+- **Primary Module(s)**: `nucleus/spector-commons`, `memory/spector-memory`, `synapse/spector-synapse`
+- **Key Packages**: `com.spectrayan.spector.commons.concurrent`, `com.spectrayan.spector.memory.scheduler`
+- **Classes**: `SpectorExecutorProvider.java`, `TaskQueueManager.java`, `SpectorTaskQueue.java`, `SpectorQuartzThreadPool.java`, `DefaultSpectorMemory.java`
+- **Verification Tests**: `DualPlaneExecutorTest.java`, `SpectorTaskQueueBackpressureTest.java`, `ArenaDrainCloseTest.java`

@@ -12,15 +12,11 @@
 
 ---
 
-**Stakeholder**: Bharat (Project Lead)  
-**Target Repositories**: `spectrayan/spector` (OSS) and `spectrayan/spector-enterprise` (Enterprise)  
-**Related Issues**: #140, #141, #142, #143, #144, #145, #166, #167, #181, #218, #219, #241, #242, #243, #244, #266  
-
----
-
-## 1. Context & Problem Statement
+## 1. Context
 
 Data ingestion is the lifeblood of Spector's cognitive memory engine. Users need automated, event-driven pipelines that extract knowledge from enterprise document repositories, cloud object stores, ticketing systems, databases, and APIs.
+
+## 2. Problem Statement
 
 Currently, Spector's connector ecosystem is in an inconsistent state:
 1. In the open-source repository (`spectrayan/spector`), `ConnectorController` in `spector-synapse` is a mock in-memory controller that does not execute real ingestion pipelines. Apache Camel is missing from the Maven reactor, and no connector engine module exists.
@@ -30,7 +26,31 @@ Currently, Spector's connector ecosystem is in an inconsistent state:
 
 ---
 
-## 2. Decision & Architecture
+## 3. Decision Drivers
+
+- **Automated Knowledge Ingestion**: Event-driven pipelines to ingest documents from enterprise repositories, object stores, databases, and APIs.
+- **Declarative YAML Route Templates**: Easy authoring of new connectors without Java compilation.
+- **High-Throughput Ingestion Sink**: Direct integration with Spector's `IngestionTarget` and `EmbeddingProvider`, with PII scrubbing and chunk change detection.
+- **Autonomous Agent Tooling**: Enable AI agents to discover, trigger, and parameterize connector ingestion on demand via `CamelRouteInvoker`.
+
+## 4. Considered Options
+
+### Option 1: Custom Standalone Java Connectors
+- **Description**: Implement custom network clients and polling loops for each external SaaS service.
+- **Advantages**: Tailored to each protocol.
+- **Disadvantages**: Massive maintenance burden; bespoke retry and connection pooling; no unified lifecycle.
+
+### Option 2: External Ingestion Service (Airbyte / Singer)
+- **Description**: Require users to deploy an external ingestion tool to write into Spector.
+- **Advantages**: Large catalog of existing community connectors.
+- **Disadvantages**: Heavy operational dependencies; no in-process embedded execution; cannot be triggered synchronously by LLM agents.
+
+### Option 3: Unified Apache Camel 4 Connector Engine with YAML Templates (Selected)
+- **Description**: Port and embed `spector-connector-engine` with Apache Camel 4.11 into the open-source reactor, driven by declarative YAML route templates and exposed to agents via `CamelRouteInvoker`.
+- **Advantages**: Battle-tested 300+ Camel components; zero external services; dynamic route lifecycle; agent callable.
+- **Disadvantages**: Camel dependency surface in connector module.
+
+## 5. Decision Outcome
 
 We establish a unified, two-tiered connector architecture:
 
@@ -67,6 +87,8 @@ The enterprise tier extends OSS `spector-connector-engine` by layering enterpris
 ### 2.3 Synapse & Agent Tooling (`spector-synapse`)
 - **`ConnectorController`**: Refactored to delegate directly to `RouteLifecycleService` and `TemplateRegistry`.
 - **`CamelRouteInvoker`**: Registered as an `AgentTool` (`@Component`) allowing LLM agents in Spector to discover running routes and invoke connector jobs on demand with parameters.
+
+---
 
 ---
 
@@ -113,9 +135,34 @@ graph TD
 
 ---
 
+## 6. Pros and Cons of the Options
+
+| Alternative | Pros | Cons |
+|:---|:---|:---|
+| **Option 1: Custom Java** | Exact fit | Unmaintainable protocol sprawl, bespoke polling loops |
+| **Option 2: External Service** | Existing catalog | Heavy external infrastructure, cannot trigger from agent loops |
+| **Option 3: Embedded Camel (Selected)** | Lightweight, YAML templates, 300+ protocols, agent-tool ready | Requires Camel route normalizers |
+
+## 7. Implementation Plan
+
+1. **Phase 1**: Port `spector-connector-engine` into `synapse/spector-connector` with Apache Camel 4.
+2. **Phase 2**: Add standard connector YAML templates (`file-watch`, `rest-api-poll`, `github-ingest`, `s3-poll`).
+3. **Phase 3**: Implement `SpectorIngestionSink` bridging exchanges into `IngestionTarget`.
+4. **Phase 4**: Author `CamelRouteInvoker` tool and wire into `spector-synapse` agent graph.
+
+## 8. Code Reference & Verification
+
 ## 4. Consequences & Benefits
 
 - **Unified Codebase**: Resolves divergence between OSS and Enterprise repos; eliminates mock controllers in OSS.
 - **Zero Lock-in**: Connectors are declared in declarative YAML route templates utilizing Apache Camel's mature ecosystem of 300+ components.
 - **Agentic Integration**: Autonomous agents can now act as active data ingestion managers via `CamelRouteInvoker`.
 - **Fault-Tolerant Ingestion**: Cognitive DLQ and batch Saga rollback ensure no corrupted or orphaned memories persist on ingestion errors.
+
+---
+
+### Code Reference & Verification Gate
+- **Primary Module(s)**: `synapse/spector-connector`, `synapse/spector-synapse`
+- **Key Packages**: `com.spectrayan.spector.connector.core`, `com.spectrayan.spector.synapse.tools`
+- **Classes**: `CamelConnectorEngine.java`, `RouteLifecycleService.java`, `TemplateRegistry.java`, `SpectorIngestionSink.java`, `CamelRouteInvoker.java`
+- **Verification Tests**: `ConnectorExecutionAuditNotifierTest.java`, `RouteLifecycleServiceTest.java`

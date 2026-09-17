@@ -1,4 +1,4 @@
-# ADR-0010: Single Engram, Four Stores Storage Architecture
+# ADR-0046: Single Engram, Four Stores Storage Architecture
 
 | Field | Value |
 |:---|:---|
@@ -7,32 +7,17 @@
 | **Authors** | Spector Maintainers & Architecture Working Group |
 | **Deciders** | Spector Technical Steering Committee (TSC) |
 | **Supersedes** | None |
-| **Superseded By** | None |
+| **Superseded By** | ADR-0030 (Engram Header Alignment) |
 | **Last Verified** | 2026-09-16 (Verified against `main`) |
 
 ---
 
-**One identity per memory. Four tier stores. Encoding header on the record. Strength in its own region. No second write universe.**
 
----
+## 1. Context
 
-## 1. Decision
+In cognitive memory systems, memories undergo multi-stage life cycles—from raw episodic captures to consolidated semantic concepts, procedural skills, and transient working memory tokens.
 
-1. Treat every durable memory as one **engram**: id + `MemoryType` + encoding header + payload + location. Faces (text, vector, strength, associations) are projections of that id. They must not be independently authoritative (MF-001 NF0 / M1).
-2. Keep **four stores**, one payload schema each. Do **not** put facts and skills in the conversation file.
-   - `EpisodicMemory` — episodes (rename of `EpisodicLogMemory`)
-   - `SemanticMemory` — facts
-   - `ProceduralMemory` — skills
-   - `WorkingMemory` — evictable thoughts
-3. Place the **encoding header** on the record itself (episode prefix or fact/skill slot). Do not invent `HEADER_SLAB` as a source of truth. A derived header scan file is allowed later if walks show up in p99.
-4. Keep **strength** (`D`, `S`, use counts) off the episode record. Rename `RegionId.AUDIT` → `RegionId.STRENGTH` (keep numeric id 4) and `AuditRecordMemory` → `StrengthRecordMemory`.
-5. One write verb: `SpectorMemory.remember(..., MemoryType.EPISODIC, ...)`. `rememberEpisodic(...)` becomes a compatibility default that fills `IngestionContext` and calls the same `RememberPathway`.
-6. Do **not** add `MemoryEngine`. Split `DefaultSpectorMemory` by **delegation** onto `DefaultMemoryRemember`, `DefaultMemoryRecall`, `DefaultMemoryReflection`, `DefaultMemoryAdminView`. Pathways stay the implementation; `RecallPipeline` stays deprecated.
-7. Do **not** replace Panama with a document database. JSON/CBOR is the episode **payload codec**, not the query engine.
-
----
-
-## 2. Why
+### Rationale & Architectural History
 
 ADR-0006 correctly introduced a variable-length conversation store. The cutover stopped halfway.
 
@@ -56,7 +41,7 @@ That is also an MF-001 miss: turns lack a real encoding header (NF6 / M3), HNSW 
 
 ---
 
-## 3. Alignment with MF-001
+### Alignment with MF-001 Standards
 
 Physical layout is not the model (MF-001 §12). This ADR is a realization of the algebra on the existing substrate.
 
@@ -79,7 +64,61 @@ Working memory remains NF6-exempt.
 
 ---
 
-## 4. Public API — no new facade
+## 2. Problem Statement
+
+Prior to this architectural decision, the transition from fixed-size legacy records to variable-length episodic storage was incomplete:
+1. **Dual Write Universes**: Episodic logs and text/vector stores maintained independent write paths, leading to potential inconsistency and split-brain states where index records existed without corresponding durable engrams.
+2. **Scattered Headers**: Memory metadata and flags were partially stored in secondary header slabs and partially on payload records, violating Single Source of Truth principles.
+3. **Facade Bloat**: `DefaultSpectorMemory` grew into an unmaintainable monolithic class attempting to implement dozens of unrelated orchestration and data access responsibilities.
+
+## 3. Decision Drivers
+
+- **One Identity Per Memory (NF0 / M1)**: Every memory is anchored by a single authoritative engram ID. Projections (lexical tokens, vector embeddings, graph edges, and strength values) are secondary indices referencing this ID.
+- **Physical Tier Separation**: Store schemas must reflect biological memory boundaries: episodic conversations, semantic facts, procedural habits, and transient working memory.
+- **Off-Heap Performance**: High-throughput writes and recalls must avoid JVM garbage collection pressure using structured off-heap layouts.
+- **API Stability**: Maintain backward compatibility for existing callers while establishing a unified `remember` paradigm.
+
+## 4. Considered Options
+
+### Rejected Approaches
+
+- Mongo / Postgres / JSON as the SIMD record or the source of truth for \(D/S/I\)
+- One shared file that stores facts and skills beside episodes
+- `TraceKind` (TURN/FACT/SKILL) on the episode file
+- `HEADER_SLAB` as an authoritative store
+- Inlining episode vectors after variable payload
+- Putting \(D\)/\(S\) on the episode record
+- A new `MemoryEngine` interface
+- `rememberEpisode(...)` as a second persistence universe
+- Using `ReflectPathway` as search
+- Shared BM25/HNSW across rememberers (M10 / MF-T10)
+
+---
+
+### Option Comparison
+- **Option 1: Central Document Database Engine**: Replace low-level off-heap stores with a document store (e.g. SQLite/RocksDB/CBOR engine). Rejected due to query latency overhead and lack of zero-copy vector/token scans.
+- **Option 2: Standalone Header Slab (`HEADER_SLAB`)**: Maintain a central global table of all engram headers. Rejected because it introduces a second source of truth and write-synchronization bottleneck.
+- **Option 3: Four Dedicated Stores with On-Record Headers & Facade Delegation (Selected)**: Treat memories as unified engrams across 4 distinct physical stores (`EpisodicMemory`, `SemanticMemory`, `ProceduralMemory`, `WorkingMemory`), with the encoding header embedded directly on the record.
+
+## 5. Decision Outcome
+
+### Core Architectural Decisions
+
+1. Treat every durable memory as one **engram**: id + `MemoryType` + encoding header + payload + location. Faces (text, vector, strength, associations) are projections of that id. They must not be independently authoritative (MF-001 NF0 / M1).
+2. Keep **four stores**, one payload schema each. Do **not** put facts and skills in the conversation file.
+   - `EpisodicMemory` — episodes (rename of `EpisodicLogMemory`)
+   - `SemanticMemory` — facts
+   - `ProceduralMemory` — skills
+   - `WorkingMemory` — evictable thoughts
+3. Place the **encoding header** on the record itself (episode prefix or fact/skill slot). Do not invent `HEADER_SLAB` as a source of truth. A derived header scan file is allowed later if walks show up in p99.
+4. Keep **strength** (`D`, `S`, use counts) off the episode record. Rename `RegionId.AUDIT` → `RegionId.STRENGTH` (keep numeric id 4) and `AuditRecordMemory` → `StrengthRecordMemory`.
+5. One write verb: `SpectorMemory.remember(..., MemoryType.EPISODIC, ...)`. `rememberEpisodic(...)` becomes a compatibility default that fills `IngestionContext` and calls the same `RememberPathway`.
+6. Do **not** add `MemoryEngine`. Split `DefaultSpectorMemory` by **delegation** onto `DefaultMemoryRemember`, `DefaultMemoryRecall`, `DefaultMemoryReflection`, `DefaultMemoryAdminView`. Pathways stay the implementation; `RecallPipeline` stays deprecated.
+7. Do **not** replace Panama with a document database. JSON/CBOR is the episode **payload codec**, not the query engine.
+
+---
+
+### Public API Specification
 
 ```text
 SpectorMemory
@@ -142,7 +181,7 @@ MemoryReflection → ReflectPathway / DreamPathway
 
 ---
 
-## 5. Stores and header placement
+### Physical Store Topologies & Header Placement
 
 ```mermaid
 flowchart TB
@@ -195,7 +234,7 @@ No `HEADER_SLAB` region as the home of the header. Optional later: a derived sca
 
 ---
 
-## 6. Strength region
+### Strength Region Management
 
 Today’s `RegionId.AUDIT` (id 4) + `AuditRecordMemory` is the strength face (ADR-0028): \(S\), \(D\), recall counts, last use, ACT-R.
 
@@ -209,7 +248,7 @@ Encoding identity does not move here. `PROVENANCE_LOG` (26) stays a different re
 
 ---
 
-## 7. Lineage
+### Semantic Lineage & Provenance
 
 `LineageRecordMemory`. Prefer existing `RegionId.PROVENANCE_LOG` if it already stores parent ids; otherwise add `RegionId.LINEAGE`.
 
@@ -217,7 +256,7 @@ Encoding identity does not move here. `PROVENANCE_LOG` (26) stays a different re
 
 ---
 
-## 8. Write and recall
+### Write & Recall Pipelines
 
 ```mermaid
 sequenceDiagram
@@ -273,7 +312,7 @@ Salience over episodes walks `EncodingHeader` at `recordOffset + 32`. Arousal is
 
 ---
 
-## 9. Kernel impact
+### Kernel Impact & Region Mappings
 
 The kernel already has `RECORD`, `APPEND`, `GRAPH`, `BUNDLE`. This ADR changes contracts, not primitives.
 
@@ -299,22 +338,21 @@ The kernel already has `RECORD`, `APPEND`, `GRAPH`, `BUNDLE`. This ADR changes c
 
 ---
 
-## 10. What this ADR rejects
+## 6. Pros and Cons of the Options
 
-- Mongo / Postgres / JSON as the SIMD record or the source of truth for \(D/S/I\)
-- One shared file that stores facts and skills beside episodes
-- `TraceKind` (TURN/FACT/SKILL) on the episode file
-- `HEADER_SLAB` as an authoritative store
-- Inlining episode vectors after variable payload
-- Putting \(D\)/\(S\) on the episode record
-- A new `MemoryEngine` interface
-- `rememberEpisode(...)` as a second persistence universe
-- Using `ReflectPathway` as search
-- Shared BM25/HNSW across rememberers (M10 / MF-T10)
+### Positive
+- **Single Source of Truth**: Eliminates index-without-payload anomalies; the engram record is the sole authority.
+- **Clean Cognitive Model**: Four dedicated stores match cognitive taxonomy without schema contamination.
+- **Predictable Performance**: Fixed-stride scans for facts/skills and streaming chunking for episodic payloads.
+- **Decoupled Facade**: `DefaultSpectorMemory` becomes a pure coordinator delegating to pathway implementations.
 
----
+### Negative / Trade-offs
+- **Store Migration**: Existing v1 records require migration tooling to adopt the new on-record header layouts.
+- **Variable Length Record Parsing**: Requires explicit byte-length validation on reading episodic payloads to prevent buffer overflows.
 
-## 11. Phased cutover
+## 7. Implementation Plan
+
+### Phased Cutover
 
 ```mermaid
 gantt
@@ -343,7 +381,7 @@ gantt
 
 ---
 
-## 12. Risks
+### Operational Risks & Mitigations
 
 | Risk | Mitigation |
 |---|---|
@@ -356,7 +394,7 @@ gantt
 
 ---
 
-## 13. Acceptance
+### Acceptance Criteria
 
 - `remember(..., EPISODIC, ...)` writes episode payload, encoding header, strength row (\(D_0,S_0\)), and directory loc
 - No encoding-header byte is used as role, session, token count, or body length
@@ -371,7 +409,7 @@ gantt
 
 ---
 
-## 14. First PR (Phase A)
+### Initial Pull Request Scope
 
 1. `RememberPathway`: on `MemoryType.EPISODIC`, extract text, BM25, embed, `vectorIndex.add`, `IndexRecordMemory.register(EPISODIC)`.
 2. Persist \(I\), valence, arousal on the episode (real header bytes, even if prefix is still transitional).
@@ -383,7 +421,7 @@ Do not wait on the facade split, the STRENGTH rename, or `LineageRecordMemory` f
 
 ---
 
-## 15. Open questions
+### Open Questions & Long-Term Roadmap
 
 - Fact vectors stay inline in the semantic slot, or join a shared vector slab later?
 - Lineage in `PROVENANCE_LOG` vs new `LINEAGE` region?
@@ -391,3 +429,15 @@ Do not wait on the facade split, the STRENGTH rename, or `LineageRecordMemory` f
 - How much of `SpectorMemoryAdmin` moves with `DefaultMemoryAdminView` in the same PR as the remember/recall split?
 
 Physical design remains outside MF-001. This ADR succeeds if the algebra closes on `SpectorMemory` and a live episode cannot vanish because the first index was the wrong one.
+
+## 8. Code Reference & Verification
+
+The single-engram, four-store architecture is verified across the codebase:
+- **Engram Storage Base**: `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/record/AbstractEngramMemory.java`
+- **Physical Stores**:
+  - `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/record/EpisodicMemory.java`
+  - `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/record/SemanticMemory.java`
+  - `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/record/ProceduralMemory.java`
+  - `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/record/WorkingMemory.java`
+- **Strength Region**: `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/record/StrengthRecordMemory.java`
+- **Ingestion & Inverted Pathways**: `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/cortex/pathway/RememberPathway.java`

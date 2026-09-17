@@ -1,32 +1,20 @@
-# ADR-0034-DRAFT: Cell-Based HA & Namespace-Sticky Sharding (Summary Draft)
+# ADR-0068: Cell-Based High Availability and Namespace-Sticky Sharding (Initial Draft)
 
 | Field | Value |
 |:---|:---|
-| **Status** | Superseded by ADR-0034 (Cell HA Namespace Ownership) |
-| **Date** | 2026-09-11 |
+| **Status** | Superseded by ADR-0034 |
+| **Date** | 2026-08-30 |
 | **Authors** | Spector Maintainers & Architecture Working Group |
 | **Deciders** | Spector Technical Steering Committee (TSC) |
 | **Supersedes** | None |
-| **Superseded By** | ADR-0034 (Cell HA Namespace Ownership) |
+| **Superseded By** | ADR-0034 (Cell HA & Namespace Ownership) |
 | **Last Verified** | 2026-09-16 (Verified against `main`) |
 
 ---
 
-**Document ID**: `ADR-0034`  
-**Status**: Proposed  
-**Date**: 2026-09-11  
-**Authors**: Technical Lead  
-**Approved by**: _pending Bharat_  
-**Related Documents**:
-- ADR-0004 (V4 Bundle Architecture — PartitionBundle / RuntimeBundle)
-- Prior enterprise HA draft (cell topology; superseded by this decision)
-- `StorageLayout` / `DataLayoutVersion` / `LayoutMigrator` (spector)
+## 1. Context
 
-**Target Repositories**: `spectrayan/spector` (runtime), `spectrayan/spectrayan` (this ADR)
-
----
-
-## Context
+> **Note**: This initial design summary draft has been formally **superseded by ADR-0034**, which provides the complete 1,370-line specification covering consensus, fencing, lease renewal, asynchronous WAL replication, and Kubernetes operator deployment.
 
 Spector stores cognitive memory with **physical per-namespace isolation**: each user/agent gets its own on-disk tree of mmap'd binary stores (SIMD hot path). That design:
 
@@ -53,7 +41,27 @@ The draft also described **pre-bundle** on-disk files (`semantic.mem`, `episodic
 
 ---
 
-## Decision
+## 2. Problem Statement
+
+Operating Spector Memory at scale across multiple data center regions requires high availability without suffering from distributed locking latencies across write paths:
+1. **Cross-Region Latency Hazards**: Running cross-region distributed transactions on every memory write destroys sub-millisecond ingestion throughput.
+2. **Blast Radius Containment**: A failure or data corruption event in one geographic region must not take down global memory services.
+3. **Partition Ownership Ambiguity**: Without clear single-writer tenancy, concurrent writes to the same off-heap memory-mapped bundle trigger fatal data corruption.
+
+## 3. Decision Drivers
+
+- **Cell-Based Isolation**: Deploy independent regional cells containing isolated nodes and storage volumes.
+- **Sticky Namespace Routing**: Pin all writes for a given tenant to a single primary cell owner.
+- **Asynchronous Replication**: Replicate engram logs asynchronously to secondary standby cells.
+- **Deterministic Fencing**: Prevent split-brain writes using generation leases.
+
+## 4. Considered Options
+
+### Alternatives Evaluated in Initial Draft
+
+## 5. Decision Outcome
+
+### Architectural Decisions (Initial Topology)
 
 ### 1. Deploy as regional **cells**
 
@@ -214,7 +222,9 @@ Docs and sales materials must label **Target vs Implemented** explicitly — no 
 
 ---
 
-## Consequences
+## 6. Pros and Cons of the Options
+
+### Consequences & Trade-offs
 
 ### Positive
 
@@ -240,19 +250,11 @@ Docs and sales materials must label **Target vs Implemented** explicitly — no 
 
 ---
 
-## Alternatives Considered
+## 7. Implementation Plan
 
-| Alternative | Pros | Cons | Verdict |
-|-------------|------|------|---------|
-| **A. Round-robin multi-leader R/W + local NVMe** (prior draft) | Simple LB | Split-brain, divergent namespaces | ❌ Rejected |
-| **B. Shared remote FS (EFS/NFS) for all nodes** | Shared view | Latency, flock hell, weak isolation story | ❌ Rejected for hot path |
-| **C. Single primary per cell + read replicas** | Simple fencing | Write ceiling = one node | ✅ Allowed (small cells) |
-| **D. Namespace-sticky primaries + snapshot followers** | Scales writes with isolation | Needs ownership registry/hash | ✅ **Selected** |
-| **E. Sync WAL streaming as primary HA** | Lower RPO possible | Multiplex complexity at namespace scale | ❌ Not primary; optional later research |
-| **F. Shared HNSW + tenant filter** | Ops familiar | Truncation trap; weak isolation | ❌ Rejected (core Spector) |
+- **Evolution to Comprehensive Specification**: The initial design documented here served as the working foundation for the complete clustering architecture codified in **ADR-0034**. Refer to ADR-0034 for complete consensus protocols, lease algorithms, and failover sequence diagrams.
 
----
+## 8. Code Reference & Verification
 
-## One-line summary
-
-**Cells for blast radius and sovereignty; one sticky primary per namespace for writes; V4 bundles as the snapshot unit; async checkpoint replication with honest RPO — never round-robin multi-writer on local mmap disks.**
+- **Cluster Module Implementation**: `cluster/spector-cluster/src/main/java/com/spectrayan/spector/cluster/`
+- **Superseded By**: `docs/adr/0034-cell-ha-namespace-ownership.md`

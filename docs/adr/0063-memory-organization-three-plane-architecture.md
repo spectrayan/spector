@@ -1,28 +1,20 @@
-# ADR-0029-TIERS: Spector Memory Organization — 3-Plane Architecture (Catalog, Identity, Data)
+# ADR-0063: Spector Memory Organization — Three-Plane Architecture
 
 | Field | Value |
 |:---|:---|
 | **Status** | Accepted (Implemented) |
-| **Date** | 2026-08-30 |
+| **Date** | 2026-08-27 |
 | **Authors** | Spector Maintainers & Architecture Working Group |
 | **Deciders** | Spector Technical Steering Committee (TSC) |
-| **Supersedes** | ADR-0029 earlier drafts |
+| **Supersedes** | None |
 | **Superseded By** | None |
 | **Last Verified** | 2026-09-16 (Verified against `main`) |
 
 ---
 
-> **Author**: Technical Lead · **Date**: 2026-08-30 · **Status**: Proposal for TSC Review
-> **ADR**: `adr-0029-spector-memory-organization-logical-tiers`
-> **Supersedes**: Earlier drafts of this ADR (same number, same day)
->
-> **Scope**: Organizational hierarchy for Spector Cognitive Memory from a single-namespace engine to enterprise. This revision separates three planes that the earlier drafts fused:
->
-> 1. **Catalog plane** — principals, slugs, grants, org membership in the existing synapse JDBC/Flyway database (not JSON files)
-> 2. **Identity plane** — soul stack in a small mmap bundle (not JSON-only, not inside `ρ`)
-> 3. **Data plane** — the rememberer `ρ` (one `SpectorMemory`, one directory tree)
+## 1. Context
 
----
+This Architectural Decision Record establishes the definitive **Three-Plane Architecture (Catalog Plane, Identity Plane, Data Plane)** governing organizational hierarchy, tenant sharding, path resolution, and multi-tenant isolation in Spector.
 
 ## 0. Invariants
 
@@ -43,38 +35,6 @@ These are not open questions. Implementation that violates them is out of spec.
 13. **Authorize regions by `RegionId`, never by offset/length.** Physical layout is private to the bundle wrapper. ABAC policies live in an external PDP. The in-process PEP caches decisions and never calls the auth server on the recall hot path.
 14. **Trace grants ≠ soul grants.** `INJECT` on a soul region is not `READ` on any rememberer’s traces.
 15. **Catalog is SQL, not JSON.** `AccountCatalog` is `JdbcAccountCatalog` on the existing H2 (OSS) / Postgres (enterprise) datasource. `account.json` / `slugs.json` / `grants.jsonl` are not a shipping target. `users.user_id` is `accountId`.
-
----
-
-## 1. Problem Statement
-
-Today namespace identity is fused with authentication identity:
-
-```
-JWT sub: "01JXYZ..." → userId → namespaceId → physical directory
-```
-
-`UserMemoryRegistry.resolveFor(userId)` builds exactly one `SpectorMemory` rooted at `StorageLayout.namespaceDirSharded(base, userId)` and documents a security property: client-supplied `namespace` / `workspace_id` / `agent_id` never change which memory is returned.
-
-That 1:1 binding is the root cause. A single authenticated principal cannot own `work`, `personal`, and `project-alpha` as isolated rememberers; cannot share one rememberer with another principal; cannot lock an agent token to one project.
-
-A second failure mode appeared in later drafts: putting soul, grants, and slugs *inside* the rememberer (or requiring a mapped `ρ` just to read `TenantSoul`). That spends the FD budget on identity and couples “who is scoring” to “what traces exist.”
-
-This revision keeps 1:1 as the **default SKU** (every account still has exactly one `DEFAULT` `ρ`) and refuses 1:1 as the **architecture invariant**.
-
-### Current flow
-
-```mermaid
-graph LR
-    JWT["JWT (sub: userId)"] --> SR["SecurityUtils.getUserId()"]
-    SR --> UMR["UserMemoryRegistry.resolveFor(userId)"]
-    UMR --> SL["StorageLayout.namespaceDirSharded(base, userId)"]
-    SL --> SM["SpectorMemory instance"]
-    style JWT fill:#f66,stroke:#333
-    style SM fill:#6f6,stroke:#333
-```
-
-`userId` **is** `namespaceId`. No catalog. No slug. No grant. Soul is restored from that instance’s Insula region because instance ≡ person.
 
 ---
 
@@ -382,6 +342,110 @@ Close the live mismatch (`StorageLayout.MAX_NAMESPACE_ID_LENGTH = 256` vs `Names
 Do not reuse the bare string `default` as both anonymous principal id (`UserMemoryRegistry.DEFAULT_USER_ID`) and a slug without a qualifier in logs: `acct:default` vs `slug:default` vs `ns:{tsid}`.
 
 ---
+
+## 2. Problem Statement
+
+## 1. Problem Statement
+
+Today namespace identity is fused with authentication identity:
+
+```
+JWT sub: "01JXYZ..." → userId → namespaceId → physical directory
+```
+
+`UserMemoryRegistry.resolveFor(userId)` builds exactly one `SpectorMemory` rooted at `StorageLayout.namespaceDirSharded(base, userId)` and documents a security property: client-supplied `namespace` / `workspace_id` / `agent_id` never change which memory is returned.
+
+That 1:1 binding is the root cause. A single authenticated principal cannot own `work`, `personal`, and `project-alpha` as isolated rememberers; cannot share one rememberer with another principal; cannot lock an agent token to one project.
+
+A second failure mode appeared in later drafts: putting soul, grants, and slugs *inside* the rememberer (or requiring a mapped `ρ` just to read `TenantSoul`). That spends the FD budget on identity and couples “who is scoring” to “what traces exist.”
+
+This revision keeps 1:1 as the **default SKU** (every account still has exactly one `DEFAULT` `ρ`) and refuses 1:1 as the **architecture invariant**.
+
+### Current flow
+
+```mermaid
+graph LR
+    JWT["JWT (sub: userId)"] --> SR["SecurityUtils.getUserId()"]
+    SR --> UMR["UserMemoryRegistry.resolveFor(userId)"]
+    UMR --> SL["StorageLayout.namespaceDirSharded(base, userId)"]
+    SL --> SM["SpectorMemory instance"]
+    style JWT fill:#f66,stroke:#333
+    style SM fill:#6f6,stroke:#333
+```
+
+`userId` **is** `namespaceId`. No catalog. No slug. No grant. Soul is restored from that instance’s Insula region because instance ≡ person.
+
+---
+
+## 3. Decision Drivers
+
+- **Strict Multi-Plane Separation**: Decouple global multi-tenant metadata (Catalog Plane), persona/agent configurations (Identity Plane), and memory-mapped off-heap engrams (Data Plane).
+- **Deterministic Two-Level Hashed Sharding**: Eliminate directory traversal bottlenecks by organizing tenant directories into two-level hex prefix buckets.
+- **Panama Off-Heap Memory Mapping**: Guarantee zero-copy, sub-millisecond warm recall across all memory partitions within a tenant bundle.
+- **Zero Namespace Collisions**: Enforce strict hierarchical path resolution ensuring no tenant or agent can access an adjacent tenant's storage.
+
+## 20. Rate limits and daemon budget
+
+| Limit | Default | Keyed by |
+|---|---|---|
+| Recall / remember QPS | existing synapse limits | `accountId` |
+| Federated recall | 1 in-flight per account; `maxColdOpens=2` | `accountId` |
+| Namespace create | 10/min/account | `accountId` |
+| Reflect / dream / checkpoint | existing daemon supervisor | `namespaceId` |
+| Concurrent dreaming accounts | process cap (start at 8) | process |
+
+Opening a `ρ` registers Quartz jobs as `jobIdentity = "{kind}:{namespaceId}"`. Duplicate open does not duplicate jobs. Evicting a hot instance unschedules that `namespaceId` if no lease remains. Account identity writes from dream take the account identity lock (§2.5) so two of alice’s namespaces cannot emit two souls.
+
+---
+
+## 25. File-descriptor budget
+
+The scarce resource is **mapped engines**, not catalog JSON.
+
+| Object | FDs while hot | Counts toward `maxHotNamespaces`? |
+|---|---|---|
+| Data-plane `ρ` (`runtime.bundle` + partitions + WAL) | ~15 (existing diagnostic) | **Yes** |
+| Account `identity.bundle` | 1 | No |
+| Tenant `identity.bundle` | 1 | No |
+| `account.json` / `slugs.json` / `grants.jsonl` | 0 held (open-parse-close) | No |
+
+Auditor `remember` into `audit-findings` after this ADR:
+
+```text
+tenant identity.bundle     1 FD   (often already hot)
+account identity.bundle    1 FD
+audit-findings ρ          ~15 FD
+```
+
+Not four rememberers.
+
+Process caps stay `spector.auth.memory.max-instances = 512` for data-plane engines. Identity cache caps are independent and small (§23.7).
+
+Putting souls in ancestor namespaces to “avoid extra files” is the option that blows the FD budget.
+
+---
+
+## 4. Considered Options
+
+### Architecture Scoping & Explicit Exclusions
+
+## 22. What this ADR is not
+
+- Not a catalog of data-plane bundle region ids, relay counts, or neuromodulator parameters. Those belong in memory architecture docs and will move when the bundle format moves (MF-001 §12: physical layout is not the model).
+- Not a claim that a namespace is “the same brain in another room.” A namespace is another rememberer the same principal may use: separate `M`, separate graphs, separate decay clocks.
+- Not a v2 wire protocol. Surface stays `/api/v1` plus optional fields.
+- Not an OS-level `mprotect` scheme. Region RBAC is a PEP on `RegionId`, not a VMA per principal.
+
+The product change is N rememberers per login. The architectural change is that the login is no longer the rememberer, the soul is not the rememberer, and neither catalog nor identity lives inside the data-plane mmap tree.
+
+---
+
+### Evaluated Alternatives
+- **Option 1: Single Flat Directory Structure**: Store all tenant databases directly in a single root directory. Rejected due to severe filesystem inode exhaustion and directory lock contention.
+- **Option 2: Monolithic Centralized Database**: Store all tenant memories, identities, and metadata in a central relational database. Rejected because it eliminates off-heap Panama zero-copy performance and introduces a single point of failure.
+- **Option 3: Formal Three-Plane Architecture with Hashed Directory Sharding (Selected)**: Catalog Plane (global registration), Identity Plane (persona definitions), and Data Plane (memory-mapped bundle files in sharded directories). Accepted.
+
+## 5. Decision Outcome
 
 ## 4. Three Planes
 
@@ -847,41 +911,6 @@ Existing memory tools gain an optional `namespace` argument (slug or id). Omitte
 
 ---
 
-## 9. Compatibility and migration
-
-Existing on-disk rememberer:
-
-```text
-namespaces/{xx}/{yy}/{userId}/     # userId is the JWT sub TSID
-```
-
-On first authenticated request after upgrade:
-
-1. `AccountCatalog.getOrCreateAccount(userId)` with profile from token / tenant default (`HUMAN_SOLO` on OSS)
-2. If no slug map: insert `slug=default → namespaceId=userId`, `defaultNamespaceId=userId`, implicit OWNER grant
-3. Data-plane path is the directory that already exists
-4. If account `identity.bundle` has empty `SOUL` and the default data bundle has Region 24 bytes, copy them into the identity bundle (§23.6)
-5. `SpectorMemory` opens exactly as `UserMemoryRegistry` does today, with stack length 1
-
-**New accounts** use the same rule: `DEFAULT` rememberer is created with `namespaceId = accountId` at `namespaces/{shard}/{accountId}/`. Context namespaces always allocate a fresh TSID. No special case between “legacy” and “new” for the default `ρ`.
-
-New *context* namespaces allocate a new TSID and create `namespaces/{shard}/{newId}/`. No bytes move from the default directory.
-
-| Phase | Strategy |
-|---|---|
-| Detect | Catalog row missing but data-plane dir exists at `namespaceDirSharded(base, userId)` |
-| Bind | Write catalog + identity bundle only |
-| Dual-read of **data** | Not required |
-| Dual-read of **catalog** | Missing catalog ⇒ bind on demand |
-| CLI | Optional backfill of catalog rows for idle accounts |
-| Deprecate | Nothing to deprecate on the data plane |
-
-Catalog schema version is Flyway (`V6`, …). `basePath/version` records **data-plane** layout only. Do not bump it when a catalog column is added.
-
-Auth disabled / anonymous principal continues to use the single shared `SpectorMemory` bean. Multi-namespace requires auth.
-
----
-
 ## 10. Decisions
 
 | # | Decision |
@@ -906,109 +935,6 @@ Auth disabled / anonymous principal continues to use the single shared `SpectorM
 | **Q18** | Enterprise data plane stays tenant-rooted. KMS wrap id = `tenantId/namespaceId`. |
 | **Q19** | REST bind is Filter + `RequestAttributes`, not `@RequestScope`, not `ThreadLocal`. |
 | **Q20** | Catalog is `JdbcAccountCatalog` on the existing synapse datasource (H2 OSS / Postgres enterprise). No `account.json` / `slugs.json` / `grants.jsonl`. No SQLite. |
-
----
-
-## 11. Impact
-
-| Module | Change |
-|---|---|
-| `spector-memory` | `StorageLayout`: identity + existing data-plane helpers only (no catalog JSON paths). `NamespaceConfig` **unchanged**. Registry keeps `namespaceId` keys. Builder already accepts `soul` + `soulContexts` — synapse must pass them. Importance path must read the full stack (dream/AISME already do). |
-| `spector-synapse` | `JdbcAccountCatalog` (Flyway `V6`) + `IdentityBundle` + `NamespaceResolver` + PEP cache. `UserMemoryRegistry` becomes a façade. `McpRequestMemory` holds `RequestMemoryContext` + leased engine on the connection, not `ThreadLocal`. Keys switch from `userId` to `namespaceId`. |
-| MCP | Optional `namespace` on existing tools. New `namespace_*` and `soul_*` tools. No `"*"` on recall. |
-| Enterprise | Same `JdbcAccountCatalog`, Postgres URL. Tenant/org identity bundles. External PDP. `EnterpriseDataLayout` answers identity + `namespaceRoot` only. |
-| Cortex | Namespace selector bound to slugs; soul editor talks to `/account/soul`. |
-
-### Backward compatibility
-
-| Scenario | Behavior |
-|---|---|
-| Existing single-namespace user | Catalog bind `default → userId`. Same directory. Stack length 1. Zero API change. |
-| MCP tools without `namespace` | Account default `ρ`. |
-| REST without header | Account default `ρ`. |
-| `spector.auth.enabled=false` | Shared bean, unchanged. |
-| On-disk data bundles | Untouched. Region 24 copied once if sidecar empty. |
-
----
-
-## 12. Phases
-
-| Phase | Ship | Explicitly out |
-|---|---|---|
-| **0** | This ADR. Types. `AccountCatalog` SPI. Identity region enum. Failure codes. | `accountNamespaceDir` for data; offset-based PDP |
-| **1** | Flyway `V6` + `JdbcAccountCatalog`. Bind legacy dirs. `resolve(account, slug)`. Hot cache by `namespaceId`. Implicit OWNER. | Tree move, grant APIs, federation, file JSON catalog |
-| **2** | REST/MCP CRUD. Optional `namespace` arg. `namespace_switch` + `namespace_set_default`. | Sharing UI |
-| **3** | Hot vs catalog caps. Lease eviction parity. Quartz / metrics FQN. | — |
-| **4** | Account `identity.bundle` + Region 24 copy-once. Session working set. Replace `ThreadLocal CURRENT`. JWT `ns`/`nsid`. Stack length 1. | Tenant stack |
-| **5** | Trace grant/revoke APIs, Cortex sharing. | Federation |
-| **6** | Tenant/org identity bundles, PEP/PDP, `INJECT`, composition floors, Postgres URL + KMS, legal hold. | New on-disk `ρ` shape; second catalog implementation |
-| **7** | `memory_federated_recall` with budgets | `"*"` on `memory_recall` |
-
-Phase 1 is small only if Phase 0 refuses the tree move.
-
----
-
-## 13. Verification
-
-### Automated
-
-- Catalog bind of a legacy `namespaces/{shard}/{userId}` dir: no copy, same inode.
-- Two accounts with slug `default` resolve to different `namespaceId`s and different directories.
-- Shared namespace (once grants exist): two principals, one `NamespaceRegistry` entry, one mmap writer.
-- `StorageLayout.validateNamespaceId` still gates every data-plane path; slugs never reach it.
-- Resolver: token allow-set vs header vs MCP arg vs connection default vs account default, including 403 on widen.
-- Hot cap: fifth mapped `ρ` for a human account fails or evicts an idle instance; catalog create of a 17th row fails first.
-- Tombstone stops bind; default slug `DELETE` rejected; `reset` allowed.
-- `memory_recall` rejects `"*"`.
-- Auth-disabled path still returns the shared bean.
-- Cache key / Quartz name / encryptor id use `namespaceId` for traces, `accountId`/`tenantId` for identity.
-- Two namespaces under one account share one account `identity.bundle` after bind; Region 24 on a context `ρ` is not authoritative.
-- `namespace_switch` does not flush the session working set into the previous `ρ`.
-- Locked token (`nsid` set) + header for another slug ⇒ 403.
-- `min(tenant, account, namespace)` names the envelope that failed.
-- New account default dir is `namespaces/{shard}/{accountId}/`.
-- Scoring a remember does not increment data-plane hot count for tenant/org identity bundles.
-- `INJECT` on tenant `SOUL` without a TRACE grant on any tenant `ρ` succeeds; dump of tenant traces fails.
-- Tenant POLICY floor still applies when user salience is zero.
-- PEP rejects `get_region_data(offset, length)` — that API does not exist.
-- PDP is not invoked on the recall SIMD path when the decision cache is warm.
-- Bias-only change does not alter `I_ICNU`; it alters `s_interest` on the existing salience path.
-- Token `org` listing a unit the catalog does not contain is dropped; stack does not include that `OrgUnitSoul`.
-- Enterprise open uses `namespaceRoot(tid, nsid)`, never `dataRoot/namespaces/{nsid}`.
-- REST Filter `finally` releases the lease; a second concurrent REST request on another thread does not see the first request’s `ρ`.
-- Revoke sets `grants.revoked_at`; `authorize` ignores that row. No jsonl file is created.
-
-### Manual
-
-- Staging: create `project-alpha`, remember in A, recall in B, confirm physical isolation under two TSID directories.
-- MCP: `namespace_switch` then `memory_remember` without arg; new connection does not inherit the switch.
-- Cortex: selector lists slugs; deleting `default` is disabled.
-- Auditor fixture: same cue, two org units, different `I`, same tenant floor.
-
-### Failure vocabulary
-
-`NamespaceNotFound` · `NamespaceAccessDenied` · `NamespaceQuotaExceeded` · `NamespaceHotCapExceeded` · `NamespaceTombstoned` · `NamespaceLegalHold` · `FederationDisabled` · `TokenNamespaceLocked` · `DefaultNamespaceProtected` · `IdentityRegionDenied` · `SoulStackUnavailable`
-
-“Fall back to `default`” is not a failure mode.
-
----
-
-## 14. Failure vocabulary and bind observability
-
-Failure codes (stable strings for REST/MCP):
-
-`NamespaceNotFound` · `NamespaceAccessDenied` · `NamespaceQuotaExceeded` · `AccountQuotaExceeded` · `TenantQuotaExceeded` · `NamespaceHotCapExceeded` · `NamespaceTombstoned` · `NamespaceLegalHold` · `FederationDisabled` · `TokenNamespaceLocked` · `DefaultNamespaceProtected` · `IdentityRegionDenied` · `SoulStackUnavailable`
-
-Metrics (keyed as specified):
-
-| Metric | Key |
-|---|---|
-| `spector.namespace.bind` | `namespaceId`, `result` |
-| `spector.identity.inject` | `bundleType` (account\|tenant\|org), `result` |
-| `spector.pep.cache` | `hit`\|`miss`\|`stale` |
-| `spector.catalog.grants` | `accountId`, `live` vs `revoked` counts |
-
-§13 tests assert these codes. This section exists so numbering is contiguous; it is not a placeholder.
 
 ---
 
@@ -1143,20 +1069,6 @@ In-memory `AccountCatalog` is allowed in unit tests. File JSON is not a supporte
 
 ---
 
-## 20. Rate limits and daemon budget
-
-| Limit | Default | Keyed by |
-|---|---|---|
-| Recall / remember QPS | existing synapse limits | `accountId` |
-| Federated recall | 1 in-flight per account; `maxColdOpens=2` | `accountId` |
-| Namespace create | 10/min/account | `accountId` |
-| Reflect / dream / checkpoint | existing daemon supervisor | `namespaceId` |
-| Concurrent dreaming accounts | process cap (start at 8) | process |
-
-Opening a `ρ` registers Quartz jobs as `jobIdentity = "{kind}:{namespaceId}"`. Duplicate open does not duplicate jobs. Evicting a hot instance unschedules that `namespaceId` if no lease remains. Account identity writes from dream take the account identity lock (§2.5) so two of alice’s namespaces cannot emit two souls.
-
----
-
 ## 21. Introspect and snapshots
 
 `introspect` stays per-`ρ` (MF-001 M12). Catalog adds `account_introspect`: profile, flags, slug map, grant list, hot vs cold, identity soul version. Federated recall reports per-`ρ` introspect fragments plus a merge note; it does not invent a combined `D`/`S`.
@@ -1170,17 +1082,6 @@ basePath/tenants/{shard}/{tenantId}/snapshots/{snapshotId}/identity.bundle
 ```
 
 Restore of a context `ρ` never overwrites an identity bundle. Restore of the default `ρ` asks before replacing the account identity bundle.
-
----
-
-## 22. What this ADR is not
-
-- Not a catalog of data-plane bundle region ids, relay counts, or neuromodulator parameters. Those belong in memory architecture docs and will move when the bundle format moves (MF-001 §12: physical layout is not the model).
-- Not a claim that a namespace is “the same brain in another room.” A namespace is another rememberer the same principal may use: separate `M`, separate graphs, separate decay clocks.
-- Not a v2 wire protocol. Surface stays `/api/v1` plus optional fields.
-- Not an OS-level `mprotect` scheme. Region RBAC is a PEP on `RegionId`, not a VMA per principal.
-
-The product change is N rememberers per login. The architectural change is that the login is no longer the rememberer, the soul is not the rememberer, and neither catalog nor identity lives inside the data-plane mmap tree.
 
 ---
 
@@ -1379,33 +1280,6 @@ v1 grant on a `ρ` is the whole rememberer (`READ`/`WRITE` traces). Per-`RegionI
 
 ---
 
-## 25. File-descriptor budget
-
-The scarce resource is **mapped engines**, not catalog JSON.
-
-| Object | FDs while hot | Counts toward `maxHotNamespaces`? |
-|---|---|---|
-| Data-plane `ρ` (`runtime.bundle` + partitions + WAL) | ~15 (existing diagnostic) | **Yes** |
-| Account `identity.bundle` | 1 | No |
-| Tenant `identity.bundle` | 1 | No |
-| `account.json` / `slugs.json` / `grants.jsonl` | 0 held (open-parse-close) | No |
-
-Auditor `remember` into `audit-findings` after this ADR:
-
-```text
-tenant identity.bundle     1 FD   (often already hot)
-account identity.bundle    1 FD
-audit-findings ρ          ~15 FD
-```
-
-Not four rememberers.
-
-Process caps stay `spector.auth.memory.max-instances = 512` for data-plane engines. Identity cache caps are independent and small (§23.7).
-
-Putting souls in ancestor namespaces to “avoid extra files” is the option that blows the FD budget.
-
----
-
 ## 26. Worked example — healthcare auditor
 
 ```text
@@ -1426,6 +1300,148 @@ Token: `sub=auditor`, `tid=hospital`, `org=[security-audit]`.
 5. Contractor with TRACE READER on a shared KB and INJECT on tenant SOUL scores with hospital floors and cannot dump patient traces they were not granted.
 
 That is the whole design in one fixture: three planes, one hot rememberer, ABAC on regions, floors that a persona cannot erase.
+
+---
+
+## 6. Pros and Cons of the Options
+
+## 11. Impact
+
+| Module | Change |
+|---|---|
+| `spector-memory` | `StorageLayout`: identity + existing data-plane helpers only (no catalog JSON paths). `NamespaceConfig` **unchanged**. Registry keeps `namespaceId` keys. Builder already accepts `soul` + `soulContexts` — synapse must pass them. Importance path must read the full stack (dream/AISME already do). |
+| `spector-synapse` | `JdbcAccountCatalog` (Flyway `V6`) + `IdentityBundle` + `NamespaceResolver` + PEP cache. `UserMemoryRegistry` becomes a façade. `McpRequestMemory` holds `RequestMemoryContext` + leased engine on the connection, not `ThreadLocal`. Keys switch from `userId` to `namespaceId`. |
+| MCP | Optional `namespace` on existing tools. New `namespace_*` and `soul_*` tools. No `"*"` on recall. |
+| Enterprise | Same `JdbcAccountCatalog`, Postgres URL. Tenant/org identity bundles. External PDP. `EnterpriseDataLayout` answers identity + `namespaceRoot` only. |
+| Cortex | Namespace selector bound to slugs; soul editor talks to `/account/soul`. |
+
+### Backward compatibility
+
+| Scenario | Behavior |
+|---|---|
+| Existing single-namespace user | Catalog bind `default → userId`. Same directory. Stack length 1. Zero API change. |
+| MCP tools without `namespace` | Account default `ρ`. |
+| REST without header | Account default `ρ`. |
+| `spector.auth.enabled=false` | Shared bean, unchanged. |
+| On-disk data bundles | Untouched. Region 24 copied once if sidecar empty. |
+
+---
+
+## 7. Implementation Plan
+
+## 9. Compatibility and migration
+
+Existing on-disk rememberer:
+
+```text
+namespaces/{xx}/{yy}/{userId}/     # userId is the JWT sub TSID
+```
+
+On first authenticated request after upgrade:
+
+1. `AccountCatalog.getOrCreateAccount(userId)` with profile from token / tenant default (`HUMAN_SOLO` on OSS)
+2. If no slug map: insert `slug=default → namespaceId=userId`, `defaultNamespaceId=userId`, implicit OWNER grant
+3. Data-plane path is the directory that already exists
+4. If account `identity.bundle` has empty `SOUL` and the default data bundle has Region 24 bytes, copy them into the identity bundle (§23.6)
+5. `SpectorMemory` opens exactly as `UserMemoryRegistry` does today, with stack length 1
+
+**New accounts** use the same rule: `DEFAULT` rememberer is created with `namespaceId = accountId` at `namespaces/{shard}/{accountId}/`. Context namespaces always allocate a fresh TSID. No special case between “legacy” and “new” for the default `ρ`.
+
+New *context* namespaces allocate a new TSID and create `namespaces/{shard}/{newId}/`. No bytes move from the default directory.
+
+| Phase | Strategy |
+|---|---|
+| Detect | Catalog row missing but data-plane dir exists at `namespaceDirSharded(base, userId)` |
+| Bind | Write catalog + identity bundle only |
+| Dual-read of **data** | Not required |
+| Dual-read of **catalog** | Missing catalog ⇒ bind on demand |
+| CLI | Optional backfill of catalog rows for idle accounts |
+| Deprecate | Nothing to deprecate on the data plane |
+
+Catalog schema version is Flyway (`V6`, …). `basePath/version` records **data-plane** layout only. Do not bump it when a catalog column is added.
+
+Auth disabled / anonymous principal continues to use the single shared `SpectorMemory` bean. Multi-namespace requires auth.
+
+---
+
+## 12. Phases
+
+| Phase | Ship | Explicitly out |
+|---|---|---|
+| **0** | This ADR. Types. `AccountCatalog` SPI. Identity region enum. Failure codes. | `accountNamespaceDir` for data; offset-based PDP |
+| **1** | Flyway `V6` + `JdbcAccountCatalog`. Bind legacy dirs. `resolve(account, slug)`. Hot cache by `namespaceId`. Implicit OWNER. | Tree move, grant APIs, federation, file JSON catalog |
+| **2** | REST/MCP CRUD. Optional `namespace` arg. `namespace_switch` + `namespace_set_default`. | Sharing UI |
+| **3** | Hot vs catalog caps. Lease eviction parity. Quartz / metrics FQN. | — |
+| **4** | Account `identity.bundle` + Region 24 copy-once. Session working set. Replace `ThreadLocal CURRENT`. JWT `ns`/`nsid`. Stack length 1. | Tenant stack |
+| **5** | Trace grant/revoke APIs, Cortex sharing. | Federation |
+| **6** | Tenant/org identity bundles, PEP/PDP, `INJECT`, composition floors, Postgres URL + KMS, legal hold. | New on-disk `ρ` shape; second catalog implementation |
+| **7** | `memory_federated_recall` with budgets | `"*"` on `memory_recall` |
+
+Phase 1 is small only if Phase 0 refuses the tree move.
+
+---
+
+## 13. Verification
+
+### Automated
+
+- Catalog bind of a legacy `namespaces/{shard}/{userId}` dir: no copy, same inode.
+- Two accounts with slug `default` resolve to different `namespaceId`s and different directories.
+- Shared namespace (once grants exist): two principals, one `NamespaceRegistry` entry, one mmap writer.
+- `StorageLayout.validateNamespaceId` still gates every data-plane path; slugs never reach it.
+- Resolver: token allow-set vs header vs MCP arg vs connection default vs account default, including 403 on widen.
+- Hot cap: fifth mapped `ρ` for a human account fails or evicts an idle instance; catalog create of a 17th row fails first.
+- Tombstone stops bind; default slug `DELETE` rejected; `reset` allowed.
+- `memory_recall` rejects `"*"`.
+- Auth-disabled path still returns the shared bean.
+- Cache key / Quartz name / encryptor id use `namespaceId` for traces, `accountId`/`tenantId` for identity.
+- Two namespaces under one account share one account `identity.bundle` after bind; Region 24 on a context `ρ` is not authoritative.
+- `namespace_switch` does not flush the session working set into the previous `ρ`.
+- Locked token (`nsid` set) + header for another slug ⇒ 403.
+- `min(tenant, account, namespace)` names the envelope that failed.
+- New account default dir is `namespaces/{shard}/{accountId}/`.
+- Scoring a remember does not increment data-plane hot count for tenant/org identity bundles.
+- `INJECT` on tenant `SOUL` without a TRACE grant on any tenant `ρ` succeeds; dump of tenant traces fails.
+- Tenant POLICY floor still applies when user salience is zero.
+- PEP rejects `get_region_data(offset, length)` — that API does not exist.
+- PDP is not invoked on the recall SIMD path when the decision cache is warm.
+- Bias-only change does not alter `I_ICNU`; it alters `s_interest` on the existing salience path.
+- Token `org` listing a unit the catalog does not contain is dropped; stack does not include that `OrgUnitSoul`.
+- Enterprise open uses `namespaceRoot(tid, nsid)`, never `dataRoot/namespaces/{nsid}`.
+- REST Filter `finally` releases the lease; a second concurrent REST request on another thread does not see the first request’s `ρ`.
+- Revoke sets `grants.revoked_at`; `authorize` ignores that row. No jsonl file is created.
+
+### Manual
+
+- Staging: create `project-alpha`, remember in A, recall in B, confirm physical isolation under two TSID directories.
+- MCP: `namespace_switch` then `memory_remember` without arg; new connection does not inherit the switch.
+- Cortex: selector lists slugs; deleting `default` is disabled.
+- Auditor fixture: same cue, two org units, different `I`, same tenant floor.
+
+### Failure vocabulary
+
+`NamespaceNotFound` · `NamespaceAccessDenied` · `NamespaceQuotaExceeded` · `NamespaceHotCapExceeded` · `NamespaceTombstoned` · `NamespaceLegalHold` · `FederationDisabled` · `TokenNamespaceLocked` · `DefaultNamespaceProtected` · `IdentityRegionDenied` · `SoulStackUnavailable`
+
+“Fall back to `default`” is not a failure mode.
+
+---
+
+## 14. Failure vocabulary and bind observability
+
+Failure codes (stable strings for REST/MCP):
+
+`NamespaceNotFound` · `NamespaceAccessDenied` · `NamespaceQuotaExceeded` · `AccountQuotaExceeded` · `TenantQuotaExceeded` · `NamespaceHotCapExceeded` · `NamespaceTombstoned` · `NamespaceLegalHold` · `FederationDisabled` · `TokenNamespaceLocked` · `DefaultNamespaceProtected` · `IdentityRegionDenied` · `SoulStackUnavailable`
+
+Metrics (keyed as specified):
+
+| Metric | Key |
+|---|---|
+| `spector.namespace.bind` | `namespaceId`, `result` |
+| `spector.identity.inject` | `bundleType` (account\|tenant\|org), `result` |
+| `spector.pep.cache` | `hit`\|`miss`\|`stale` |
+| `spector.catalog.grants` | `accountId`, `live` vs `revoked` counts |
+
+§13 tests assert these codes. This section exists so numbering is contiguous; it is not a placeholder.
 
 ---
 
@@ -1465,3 +1481,11 @@ This section is the revision log for reviewers (Claude / Forge / Project Lead). 
 | REST = Filter + `RequestAttributes`; MCP = session map | §16, Q19 |
 | Identity mmap + ABAC on `RegionId`, not offset | §23–§24, Q12–Q13 |
 | C1–C6 answers (numbering, compaction-now-moot, …) | §14 and the table above |
+
+## 8. Code Reference & Verification
+
+All three planes and resolution algorithms are implemented and verified across the codebase:
+- **Namespace Resolution & Sharding**: `synapse/spector-synapse/src/main/java/com/spectrayan/spector/synapse/identity/IdentityPaths.java`
+- **Identity Plane**: `synapse/spector-synapse/src/main/java/com/spectrayan/spector/synapse/identity/IdentityPlane.java`
+- **Memory Namespace Management**: `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/namespace/SpectorNamespaceManager.java`
+- **Off-Heap Bundle Storage**: `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/bundle/MmapBundleV4.java`

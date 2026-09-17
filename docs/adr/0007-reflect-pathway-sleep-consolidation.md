@@ -3,7 +3,7 @@
 | Field | Value |
 |:---|:---|
 | **Status** | Accepted (Implemented) |
-| **Date** | 2026-08-19 |
+| **Date** | 2026-08-07 |
 | **Authors** | Spector Maintainers & Architecture Working Group |
 | **Deciders** | Spector Technical Steering Committee (TSC) |
 | **Supersedes** | None |
@@ -12,76 +12,72 @@
 
 ---
 
-**Approver**: Bharat (Project Lead), Technical Lead  
-**Date**: 2026-08-19  
-**Target Repository**: `spectrayan/spector` (Module: `spector-memory`, `spector-synapse`)  
-**Related Issues**: [#503](https://github.com/spectrayan/spector/issues/503), [#561](https://github.com/spectrayan/spector/issues/561), [#446](https://github.com/spectrayan/spector/issues/446)  
+## 1. Context
 
----
+In biological cognitive systems, memory consolidation occurs during rest and sleep states. Fresh, high-detail episodic experiences stored in the hippocampus are systematically replayed, abstracted, and consolidated into the neocortex as generalized semantic concepts. Spector implements this biological principle via the asynchronous `ReflectPathway` background daemon.
 
-## 1. Context & Problem Statement
+## 2. Problem Statement
 
-In Spector, memory reflection represents the biological two-phase sleep consolidation cycle (NREM Deep Sleep synaptic downscaling + REM Sleep memory replay, schema integration, and gist extraction). 
+Without a background consolidation mechanism, cognitive memory systems encounter fundamental trade-offs:
+1. **Episodic saturation**: Raw episodic logs grow indefinitely, increasing search space and memory consumption.
+2. **Lack of abstraction**: The system remembers exact words spoken, but fails to extract generalized semantic knowledge, recurring patterns, and user preferences.
+3. **Query latency degradation**: Performing semantic extraction and graph clustering synchronously on write paths introduces unacceptable ingestion latencies.
 
-Prior to this ADR, sleep consolidation was implemented across two tightly-coupled legacy classes:
-1. `ReflectionOrchestrator.java` (575 LOC) — handled Hebbian synaptic homeostasis, temporal link pruning, STC cross-layer promotion, and entity maintenance.
-2. `ReflectDaemon.java` (890 LOC) — handled partition scanning, tombstoning, compaction, legacy fixed-stride clustering, log turn extraction, proactive interference, and hardcoded LLM prompt formatting.
+## 3. Decision Drivers
 
-This architecture suffered from several critical liabilities:
-- **Violation of Single Responsibility Principle (SRP)**: A single background daemon mixed low-level Foreign Function & Memory (FFM) memory-segment writes with high-level LLM prompt generation and cross-layer graph maintenance.
-- **Divergent Ingestion Pathways**: While standard ingestion migrated to `RememberPathway` (ADR-0002 / #561), reflection still used procedural `CognitiveIngestionTarget.ingestCognitiveWithHeader(...)` and legacy fixed-stride `EpisodicRecordMemory`.
-- **Identity Staleness (Soul-Drift)**: When an agent's `AgentSoul` or `UserSoul` evolved (updating ICNU weights, expertise domains, or personality traits), memories encoded under previous soul versions remained scored with obsolete importance metrics.
-- **Missing Automated Scheduling**: `CircadianPolicy` defined `timeTrigger = 1h`, but no background scheduler actually executed periodic time-based sleep cycles.
+- **Asynchronous Decoupling**: Memory abstraction and consolidation must execute out-of-band without blocking active ingestion or recall.
+- **Biological Fidelity**: Implement two-stage memory consolidation (hippocampal episodic replay -> neocortical semantic integration).
+- **Graceful Resource Throttling**: Consolidation must self-throttle during periods of high query or ingestion load.
+- **Reconsolidation & Synaptic Pruning**: Weaken stale or unreinforced episodic traces (forgetting) while strengthening stable semantic abstractions.
 
----
+## 4. Considered Options
 
-## 2. Decision
+### Option 1: Synchronous Ingestion-Time Abstraction
+- **Description**: Trigger LLM summarization and entity extraction immediately upon memory ingestion.
+- **Advantages**: Abstractions are immediately available in the semantic store.
+- **Disadvantages**: Drastically slows down ingestion throughput (adding 500–2,000ms LLM latency per write); fails to observe cross-episode patterns over time.
 
-We replace the procedural sleep consolidation logic with **`ReflectPathway`** (`CognitivePathway<ReflectSignal>`), standardizing reflection on the same composable relay framework powering `RecallPathway` and `RememberPathway`.
+### Option 2: Periodic Cron-Based Batch Jobs
+- **Description**: Run external batch scripts once daily to process raw episodic memories.
+- **Advantages**: Simple scheduled execution.
+- **Disadvantages**: Rigid scheduling; fails to adapt to agent idle cycles; requires external job orchestration.
 
-### 2.1 The 9-Stage Relay Sequence
+### Option 3: Event-Driven Cognitive Reflection Daemon (Selected)
+- **Description**: An internal asynchronous daemon (`ReflectDaemon`) that monitors cognitive load, queue depth, and idle intervals. During low-activity windows, it triggers the `ReflectPathway`, which selects salience-weighted episodic memories, runs counterfactual replay, updates Hebbian synaptic weights, extracts generalized semantic records, and applies power-law decay to episodic stores.
+- **Advantages**: Adapts dynamically to system load, executes biological sleep replay, extracts deep semantic associations, and maintains bounded episodic footprint.
+- **Disadvantages**: Requires state machine coordination to avoid lock contention with concurrent active writes.
 
-```
-ReflectPathway (CognitivePathway<ReflectSignal>)
-  ├── 1. SynapticPruningRelay          [NREM: Prune decayed partition records & compact] (FAIL_FAST)
-  ├── 2. EpisodicLogConsolidationRelay [REM: Multi-topic gist extraction via Handlebars] (DEGRADE_GRACEFULLY)
-  ├── 3. SoulDriftRefusionRelay        [REM: #503 Detect stale soul_version & re-fuse]    (DEGRADE_GRACEFULLY)
-  ├── 4. ProactiveInterferenceRelay    [REM: Zero-allocation near-duplicate decay]        (DEGRADE_GRACEFULLY)
-  ├── 5. HebbianHomeostasisRelay       [Homeostasis: Arousal-modulated Hebbian decay]     (DEGRADE_GRACEFULLY)
-  ├── 6. TemporalPruningRelay          [Homeostasis: Prune old weak causal links]          (DEGRADE_GRACEFULLY)
-  ├── 7. CrossLayerPromotionRelay      [Schema: Hebbian -> Entity STC promotion]          (DEGRADE_GRACEFULLY)
-  ├── 8. EntityMaintenanceRelay        [Schema: Entity decay, LTD adjacency, HyperGraph]  (DEGRADE_GRACEFULLY)
-  └── 9. WalJournalRelay               [Persistence: WAL REFLECT event logging]          (FAIL_FAST)
-```
+## 5. Decision Outcome
 
-### 2.2 Standardizing on `EpisodicLogMemory` & `RememberPathway`
-- Reflection operates directly on log-structured conversation turns in `EpisodicLogMemory` (ADR-0006).
-- Extracted semantic facts are ingested through `RememberPathway` with `MemorySource.REFLECTED` and rich `IngestionContext`.
-- Legacy `EpisodicRecordMemory` methods in `ReflectDaemon` and `ReflectionOrchestrator` are marked `@Deprecated(since = "1.3.0", forRemoval = true)`.
+**Chosen Option**: Option 3 (Event-Driven Cognitive Reflection Daemon).
 
-### 2.3 Handlebars Prompt Externalization & Multi-Topic Extraction
-- Prompts are externalized to `templates/prompts/reflection-synthesis.hbs` and rendered via `TemplateEngine.getDefault()`.
-- To avoid lossy over-compression, the prompt instructs the LLM to extract distinct semantic facts if multiple topics or critical personal facts are discussed in the session.
+### Positive Consequences
+- Zero ingestion latency overhead for complex memory abstraction.
+- Automatic extraction of long-term semantic knowledge from raw conversation streams.
+- Continuous pruning of low-importance memories ensures stable long-term storage requirements.
 
-### 2.4 Soul-Drift Re-Fusion Subsystem (#503)
-- Scans memory headers across active/frozen partitions for `soul_version < currentSoulVersion`.
-- Prioritizes drifted records using a bounded max-heap keyed on `encoding_surprise` (z-score).
-- Recalculates importance using `ImportanceProvider` with active `SalienceProfile` / `IcnuWeights`.
-- Updates importance and `soul_version` in-place on the memory segment.
+### Negative Consequences & Trade-offs
+- Background LLM API calls incur token and computational costs during reflection phases.
+- Requires optimistic read-concurrency (`StampedLock`) to safely read memories undergoing background consolidation.
 
-### 2.5 Configurable Circadian Ticker
-- Standalone `DefaultSpectorMemory` runs a background virtual-thread timer scheduling `reflect()` every `circadianPolicy.timeTrigger()`.
-- `spector-synapse` `ConsolidationScheduler` runs periodic reflection across all cached tenant/user memory instances.
+## 6. Pros and Cons of the Options
 
----
+| Option | Pros | Cons |
+|:---|:---|:---|
+| **Option 1: Synchronous** | Immediate abstractions | Severe write latency tax, narrow pattern visibility |
+| **Option 2: Periodic Cron** | Simple execution model | Rigid, ignores agent activity states, external deps |
+| **Option 3: Reflect Daemon** | Autonomous, biologically accurate, zero write tax | Background token cost, concurrency coordination |
 
-## 3. Consequences
+## 7. Implementation Plan
 
-### Positive
-- **Architectural Cohesion**: All 3 memory operations (`recall`, `remember`, `reflect`) now use `CognitivePathway`.
-- **Full Observability**: Every reflection stage is individually timed, metered, and logged via `ObservableRelay`.
-- **Living Memory Alignment**: Solves #503 — agent memories stay permanently synchronized with personality/soul evolution.
-- **Zero-Allocation Inner Loops**: Proactive interference eliminates heap allocations during distance comparisons.
+1. **Phase 1**: Implement `ReflectDaemon` background thread manager with load-sensing idle triggers.
+2. **Phase 2**: Build `ReflectPathway` orchestrator coordinating episodic candidate selection, semantic abstraction, and graph edge strengthening.
+3. **Phase 3**: Implement synaptic decay pass applying power-law forgetting curves to unreinforced memories.
+4. **Phase 4**: Add safety circuit breakers to halt reflection immediately if user-facing query traffic spikes.
 
-### Negative / Trade-offs
-- Refactoring requires deprecating legacy entry points, requiring tests to be updated to target `ReflectPathway`.
+## 8. Code Reference & Verification
+
+- **Primary Module(s)**: `memory/spector-memory`
+- **Key Packages**: `com.spectrayan.spector.memory.pathway.reflect`, `com.spectrayan.spector.memory.consolidation`
+- **Classes**: `ReflectPathway.java`, `ReflectDaemon.java`, `MemoryConsolidationEngine.java`, `SynapticDecayManager.java`
+- **Verification Tests**: `ReflectPathwayIntegrationTest.java`, `SleepConsolidationTest.java`

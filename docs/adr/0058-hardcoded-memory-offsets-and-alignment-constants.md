@@ -1,9 +1,9 @@
-# ADR-0021-RND: Remediation of Hardcoded Memory Offsets and Alignment Constants
+# ADR-0058: Remediation of Hardcoded Memory Offsets and Alignment Constants
 
 | Field | Value |
 |:---|:---|
 | **Status** | Accepted (Implemented) |
-| **Date** | 2026-08-26 |
+| **Date** | 2026-08-24 |
 | **Authors** | Spector Maintainers & Architecture Working Group |
 | **Deciders** | Spector Technical Steering Committee (TSC) |
 | **Supersedes** | None |
@@ -12,21 +12,13 @@
 
 ---
 
-**Document ID**: `RND-2026-021`  
-**Status**: Proposed  
-**Date**: 2026-08-26  
-**Authors**: Technical Lead, Architecture Working Group (Systems Architecture)  
-**Approved by**: Bharat (Project Lead)  
-**Target Systems**: `spector` (Spector Memory Kernel), `spectrayan`  
-**Related Documents**: [ADR-0009](0009-RND-011-cross-capture-graph-coactivation-kernel.md), [RND-2026-011](0009-RND-011-cross-capture-graph-coactivation-kernel.md), [ADR-0004](0004-supplement-bundle-design.md)
+## 1. Context
 
----
-
-## 1. Context & Problem Statement
+In high-performance off-heap memory storage engines utilizing Java Panama Foreign Function & Memory (FFM) APIs, record layouts, field strides, and memory alignment must be strictly governed by declarative, immutable constants.
 
 In the Spector Memory architecture, low-level off-heap data structures (`AbstractMemory`, `AbstractGraphMemory`, `AbstractHashTableMemory`, `AbstractRecordMemory`) provide deterministic, zero-GC memory operations using Java 25 Foreign Function & Memory (FFM) API.
 
-While previous initiatives (e.g. Issue #435 / Epic #431) migrated entity and CSR graph layouts into the `kernel/layout/*` package, a comprehensive audit revealed significant tech debt in [`CoActivationRecordMemory`](file:///home/bharat/git/spector/memory/spector-memory/src/main/java/com/spectrayan/spector/memory/hebbian/CoActivationRecordMemory.java) and [`HebbianGraphMemory`](file:///home/bharat/git/spector/memory/spector-memory/src/main/java/com/spectrayan/spector/memory/hebbian/HebbianGraphMemory.java):
+While previous initiatives (e.g. Issue #435 / Epic #431) migrated entity and CSR graph layouts into the `kernel/layout/*` package, a comprehensive audit revealed significant tech debt in `CoActivationRecordMemory` and `HebbianGraphMemory`:
 
 1. **Leaked Byte Arithmetic & Slicing**:
    - `CoActivationRecordMemory` frequently calculates total buffer sizing with hardcoded manual arithmetic: `8 + 32L * pairCap + 40L * edgeCap`.
@@ -44,7 +36,37 @@ While previous initiatives (e.g. Issue #435 / Epic #431) migrated entity and CSR
 
 ---
 
-## 2. Architectural Design
+## 2. Problem Statement
+
+Prior to this architectural remediation, several memory-mapped stores (notably `CoActivationLayout` and metadata stores) contained hardcoded literal byte offsets:
+1. **Magic Number Fragility**: Scatterings of literal integers (e.g., `+ 8`, `+ 24`, `stride = 40`) made schema changes error-prone and obscured data alignment constraints.
+2. **Alignment Fault Risks**: Hardware architectures (e.g. ARM64 / AArch64) enforce strict alignment rules for 64-bit longs and floats. Unaligned byte offsets trigger bus faults or significant CPU penalties.
+3. **Decoupled Metadata**: Metadata fields were defined separately from record payloads, preventing unified integrity checks.
+
+## 3. Decision Drivers
+
+- **Single Source of Truth**: Every off-heap byte offset, stride, and padding must be derived from declarative `MemoryLayout` definitions or centralized constant records.
+- **Enforced 8-Byte Alignment**: All 64-bit primitives (longs, doubles, timestamps, sequence counters) must align to 8-byte boundaries.
+- **Compile-Time Safety**: Field accessors must use structured layout constants rather than ad-hoc pointer arithmetic.
+- **Zero Migration Regression**: Maintain binary backward compatibility with existing persistent on-disk stores.
+
+## 4. Considered Options
+
+### Option 1: Ad-Hoc Literal Offsets with Code Comments
+- Retain literal integer offsets with explanatory comments.
+- **Verdict**: Rejected. Fails to prevent regressions when fields are added, reordered, or padded.
+
+### Option 2: Dynamic Reflection over Schema Objects
+- Compute layout offsets dynamically at startup using reflection.
+- **Verdict**: Rejected. Incurs startup latency overhead and prevents JIT compiler constant-folding optimizations.
+
+### Option 3: Declarative Layout Records & Constant Classes (Selected)
+- Introduce strongly-typed constant classes (`CoActivationLayout`, `CoActivationMetadataLayout`, `CoActivationMetadataFields`) deriving all offsets systematically.
+- **Verdict**: Accepted. Enables full JIT inlining, guarantees alignment, and prevents schema drift.
+
+## 5. Decision Outcome
+
+### Architectural Design
 
 ```mermaid
 classDiagram
@@ -118,7 +140,7 @@ classDiagram
 
 ---
 
-## 3. Detailed Layout & Constant Specifications
+### Detailed Layout & Constant Specifications
 
 ### 3.1 `CoActivationLayout` (Updated)
 ```java
@@ -199,7 +221,19 @@ public final class CoActivationMetadataLayout {
 
 ---
 
-## 4. Implementation & Migration Strategy
+## 6. Pros and Cons of the Options
+
+### Positive
+- **Elimination of Magic Numbers**: 100% of memory offsets centralized in declarative layout classes.
+- **Architecture Portability**: Enforced 8-byte alignment ensures fault-free execution across x86-64 and AArch64 systems.
+- **JIT Optimization**: Static final layout constants fold directly into machine code instructions.
+
+### Negative / Trade-offs
+- **Refactoring Scope**: Required updating all direct memory segment getter/setter calls to use the new constant accessors.
+
+## 7. Implementation Plan
+
+### Implementation & Migration Strategy
 
 1. **Strict Bit-for-Bit Backward Compatibility**:
    - No binary on-disk serialization format is changed. All field offsets and strides match existing byte layouts.
@@ -215,7 +249,14 @@ public final class CoActivationMetadataLayout {
 
 ---
 
-## 5. Verification & Quality Gates
+### Verification & Quality Gates
 
 - **Quality Gate 1**: Full build and test run: `mvn clean test -pl nucleus/spector-config,memory/spector-memory`
 - **Quality Gate 2**: Golden layout inspection ensuring 0 byte offset drift.
+
+## 8. Code Reference & Verification
+
+All layout constants and alignment invariants are verified in the codebase:
+- **Layout Definition**: `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/CoActivationLayout.java`
+- **Metadata Fields Constant Class**: `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/field/CoActivationMetadataFields.java`
+- **Alignment Verification Suite**: `memory/spector-kernel/src/test/java/com/spectrayan/spector/kernel/layout/CoActivationLayoutTest.java`

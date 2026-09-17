@@ -12,16 +12,6 @@
 
 ---
 
-- **Status:** Accepted
-- **Date:** 2026-09-14
-- **Deciders:** Spector Memory / Nucleus / Synapse
-- **Affects:** `memory/spector-ingestion`, `memory/spector-memory` (`RememberPathway`, `SpectorMemory`, `SpectorMemoryAdmin`, `SpectorMemoryBuilder`), `synapse/spector-cli`, `synapse/spector-connector`, `synapse/spector-synapse`
-- **Blocks:** [ADR-0035 — Cognitive Pathway Framework Rearchitecture](0035-cognitive-pathway-rearchitecture.md) step M1.5
-- **Supersedes:** `IngestionTarget` as a storage-target abstraction
-- **Code baseline:** all line references verified against `main` @ `33af1601`
-
----
-
 ## 1. Context
 
 Two unrelated-looking problems share one root cause.
@@ -110,18 +100,11 @@ Concrete extractors are exercised only from tests (`AudioIngestionE2ETest`, `Vid
 
 ---
 
-## 2. Decision
+## 2. Problem Statement
 
-1. **Delete `IngestionTarget`.** Do not replace it with an adapter. Callers use `SpectorMemory`, the single entry point MCP and REST already use.
-2. **Add the one entry point that is genuinely missing** — a `remember` overload accepting a pre-computed vector (§4.2). This is not optional; see the regression it prevents.
-3. **Move `IngestionPipeline` + `FileDiscoveryService` to `spector-cli`**, their only consumer. This is what breaks the module cycle that made `IngestionTarget` necessary.
-4. **Split the sensory package**: SPIs stay, concrete implementations move to `spector-synapse`.
-5. **Drop both Tika dependencies from `spector-ingestion`.**
-6. **Leave `AttachmentProcessor` alone.** It is already optional, already no-op, and has no heavy dependencies.
 
----
 
-## 3. Goals and non-goals
+## 3. Decision Drivers
 
 ### Goals
 
@@ -141,7 +124,7 @@ Concrete extractors are exercised only from tests (`AudioIngestionE2ETest`, `Vid
 
 ---
 
-## 4. Alternatives considered
+## 4. Considered Options
 
 ### 4.1 Destination for the relocated code
 
@@ -206,7 +189,18 @@ Both are called today and do nothing. Deleting them makes an existing no-op hone
 
 ---
 
-## 5. Module moves
+## 5. Decision Outcome
+
+1. **Delete `IngestionTarget`.** Do not replace it with an adapter. Callers use `SpectorMemory`, the single entry point MCP and REST already use.
+2. **Add the one entry point that is genuinely missing** — a `remember` overload accepting a pre-computed vector (§4.2). This is not optional; see the regression it prevents.
+3. **Move `IngestionPipeline` + `FileDiscoveryService` to `spector-cli`**, their only consumer. This is what breaks the module cycle that made `IngestionTarget` necessary.
+4. **Split the sensory package**: SPIs stay, concrete implementations move to `spector-synapse`.
+5. **Drop both Tika dependencies from `spector-ingestion`.**
+6. **Leave `AttachmentProcessor` alone.** It is already optional, already no-op, and has no heavy dependencies.
+
+---
+
+---
 
 ### 5.1 The cycle that forced `IngestionTarget`
 
@@ -334,7 +328,15 @@ Update the module description, which is currently false:
 
 ---
 
-## 8. Migration
+## 6. Pros and Cons of the Options
+
+| Alternative | Pros | Cons |
+|:---|:---|:---|
+| **Status Quo (`RememberPathway implements IngestionTarget`)** | No moves | Blocks typed `Pathway<S,R>`, circular dependency, crawls in memory layer |
+| **Merge Ingestion into Memory** | Fewer modules | Memory module bloat with web crawlers and file extractors |
+| **Invert Boundary & Sensory Relocation (Selected)** | Pure downward layering, typed results, clean sensory separation | Requires module moves across 3 modules |
+
+## 7. Implementation Plan
 
 Each step is independently shippable and revertible.
 
@@ -375,6 +377,8 @@ Ordering constraints:
 The seven connector E2E tests already assign into an `IngestionTarget`-typed local (`IngestionTarget target = memory.target();`), so they change to holding `SpectorMemory` — mechanical.
 
 ---
+
+## 8. Code Reference & Verification
 
 ## 10. Consequences
 
@@ -423,3 +427,11 @@ Recorded so they are not rediscovered as bugs:
 1. **Parent-document metadata** — `storeParentMetadata` deleted. It was a no-op; no regression. If wanted, design it as `SpectorMemory` API.
 2. **Batch completion hook** — `onBatchComplete` deleted. Was a no-op; `SpectorMemory` has no flush/checkpoint to map it to. If WAL flush on batch boundaries is wanted, add it explicitly.
 3. **Multi-modal extraction is deprecated-in-place, not functional.** Unchanged from today (§1.3), but now labelled as such.
+
+---
+
+### Code Reference & Verification Gate
+- **Primary Module(s)**: `memory/spector-memory`, `memory/spector-ingestion`, `synapse/spector-connector`
+- **Key Packages**: `com.spectrayan.spector.memory.pathway.remember`, `com.spectrayan.spector.ingestion`
+- **Classes**: `RememberPathway.java`, `SpectorMemory.java`, `SpectorMemoryBuilder.java`
+- **Verification Tests**: `RememberPathwayTest.java`, `IngestionBoundaryTest.java`

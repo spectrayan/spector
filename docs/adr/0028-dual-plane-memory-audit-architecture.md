@@ -12,31 +12,7 @@
 
 ---
 
-## Status
-Proposed (Architectural Blueprint for Issue #506 & Memory Audit Subsystems)
-
-## Date
-2026-08-28
-
-## Deciders
-- **Project Lead** (Product Vision & Strategic Direction)
-- **Technical Lead** (Engineering Leadership & Portfolio Architecture)
-- **Titan** (Solutions Architect — System Design & Binary Memory Layouts)
-- **Neuron** (Chief Cognitive Scientist — Memory Models & Synaptic Formulations)
-- **Forge** (Senior Full-Stack Developer — Off-Heap Panama FFM Implementation)
-- **Sentinel** (QA Engineer — Concurrency, Cache Line & Regression Gates)
-- **Nexus** (Platform Engineer — Storage Formats & Bundle Migrations)
-
----
-
-## 1. Context & Problem Statement
-
-### 1.1 The Mixed 64-Byte Cache Line Pathology
-In Spector Memory, every cognitive memory record in off-heap Panama FFM storage (`spector-memory`) consists of a 64-byte `SynapticHeader` (`HeaderLayout64`) followed by a quantized vector payload (INT8 scalar quantized float vector).
-
-The 64-byte header was designed to match a single CPU cache line (64 bytes). However, as cognitive capabilities evolved (emotional gating, Zeigarnik effect, Two-Factor Bjork memory decay, auto-LTP cooldowns, adaptive cognitive profile learning, and soul-state tracking), the 64-byte header became a **mixed-tenancy cache line** containing two fundamentally opposing classes of data:
-- **Immutable Encoding Identity**: `header_version`, `flags`, `valence`, `arousal`, `base_importance`, `timestamp_ms`, `exact_norm`, `synaptic_tags` (Bloom filter), `centroid_id`, `consolidation_flags`, `encoding_profile`, `encoding_alpha/beta`, `soul_version`, `encoding_surprise`. (Written once during ingestion).
-- **Mutable Recall Audit Telemetry**: `agent_recall_count`, `storage_strength` ($S(t)$), `spector_recall_cnt`, `last_auto_ltp`, `last_recall_profile`, `effective_importance`. (Mutated on every query retrieval and reinforcement).
+## 1. Context
 
 ### 1.2 The Two Distinct Audit Needs in Spector Architecture
 A deep architectural analysis across the Spectrayan portfolio reveals **two fundamentally distinct auditing tiers** within the `spector-memory` engine (in addition to the high-level application/REST audit log in `spector-synapse` #211):
@@ -63,7 +39,40 @@ A deep architectural analysis across the Spectrayan portfolio reveals **two fund
 
 ---
 
-## 2. Architectural Decisions
+## 2. Problem Statement
+
+### 1.1 The Mixed 64-Byte Cache Line Pathology
+In Spector Memory, every cognitive memory record in off-heap Panama FFM storage (`spector-memory`) consists of a 64-byte `SynapticHeader` (`HeaderLayout64`) followed by a quantized vector payload (INT8 scalar quantized float vector).
+
+The 64-byte header was designed to match a single CPU cache line (64 bytes). However, as cognitive capabilities evolved (emotional gating, Zeigarnik effect, Two-Factor Bjork memory decay, auto-LTP cooldowns, adaptive cognitive profile learning, and soul-state tracking), the 64-byte header became a **mixed-tenancy cache line** containing two fundamentally opposing classes of data:
+- **Immutable Encoding Identity**: `header_version`, `flags`, `valence`, `arousal`, `base_importance`, `timestamp_ms`, `exact_norm`, `synaptic_tags` (Bloom filter), `centroid_id`, `consolidation_flags`, `encoding_profile`, `encoding_alpha/beta`, `soul_version`, `encoding_surprise`. (Written once during ingestion).
+- **Mutable Recall Audit Telemetry**: `agent_recall_count`, `storage_strength` ($S(t)$), `spector_recall_cnt`, `last_auto_ltp`, `last_recall_profile`, `effective_importance`. (Mutated on every query retrieval and reinforcement).
+
+## 3. Decision Drivers
+
+- **100% Cache Line Isolation**: Immutable memory identity headers must remain untouched by frequent query retrieval mutations.
+- **Sub-Millisecond ACT-R Power-Law Decay**: Support 8-slot ring-buffer timestamp tracking for Anderson (1993) spacing effect without heap churn.
+- **Zero-Allocation Mmap Stride**: Per-slot recall audit telemetry must align to fixed byte strides accessed via Panama FFM memory segments.
+- **Append-Only Provenance Separation**: Decouple high-frequency per-slot recall stats from long-term immutable ingestion and consolidation provenance logs.
+
+## 4. Considered Options
+
+### Option 1: Monolithic 128-Byte Expanded Header
+- **Description**: Expand `HeaderLayout64` to 128 bytes, putting both identity and audit telemetry on adjacent cache lines.
+- **Advantages**: Single contiguous allocation per record.
+- **Disadvantages**: Doubling header footprint severely impairs vector scan cache residency; false sharing across threads.
+
+### Option 2: External Relational / JDBC Audit Logging
+- **Description**: Direct all recall counters and timestamp updates to an external RDBMS or embedded H2 database.
+- **Advantages**: Rich SQL querying.
+- **Disadvantages**: Introduces multi-millisecond disk I/O and transaction serialization onto the sub-millisecond recall hot path.
+
+### Option 3: Dual-Plane Separate Region Architecture (Selected)
+- **Description**: Physically split immutable encoding headers (in data slabs) from mutable recall telemetry (in dedicated fixed-stride mmap regions: `RegionId.STRENGTH` / `RECALL_AUDIT`), while recording engine-level provenance in append-only chronicle regions (`RegionId.PROVENANCE_CHRONICLE`, superseded by ADR-0029).
+- **Advantages**: 100% L1/L2 cache isolation; zero-allocation point updates; unblocks ACT-R 8-slot power-law calculations.
+- **Disadvantages**: Requires managing an additional mmap region per partition.
+
+## 5. Decision Outcome
 
 ### D1: Pure 64-Byte V2 Synaptic Header (`HeaderLayout64V2`)
 The Synaptic Header is bumped to `header_version = 2`. All mutable runtime counters are excised from the header cache line.
@@ -247,7 +256,23 @@ classDiagram
 
 ---
 
-## 4. Summary of Consequences
+## 6. Pros and Cons of the Options
+
+| Option | Pros | Cons |
+|:---|:---|:---|
+| **Option 1: 128B Header** | Single region | False sharing, vector scan cache pollution |
+| **Option 2: JDBC Logging** | SQL queries | 100× latency penalty on recall hot paths |
+| **Option 3: Dual-Plane Regions** | Pristine cache isolation, zero GC, ACT-R power-law ready | Additional mmap region per partition |
+
+## 7. Implementation Plan
+
+1. **Phase 1**: Define `RegionId.STRENGTH` / `RecallAuditLayout` in `memory/spector-kernel`.
+2. **Phase 2**: Migrate mutable telemetry fields out of `HeaderLayout64`.
+3. **Phase 3**: Implement 8-slot timestamp ring buffer for ACT-R Bjork spacing decay.
+4. **Phase 4**: Author `BundleMigrationCli` to migrate V1 shards to the dual-plane layout.
+5. **Phase 5**: Superceded §D4 provenance chronicle via ADR-0029 (`LineageProvenanceRegion`).
+
+## 8. Code Reference & Verification
 
 ### Positive
 - **100% Cache Isolation**: Read-mostly encoding headers remain pristine in CPU caches during intense concurrent recall and reinforcement.
@@ -259,3 +284,11 @@ classDiagram
 ### Negative / Trade-Offs
 - **Disk Footprint Growth**: +96 bytes per allocated record in the partition bundle (~91 MB per 1M records). Mitigated by fixed-size bundle provisioning and sparse allocation.
 - **Migration Requirement**: Existing V1 persistent shards require a one-time migration step via `BundleMigrationCli`.
+
+---
+
+### Code Reference & Verification Gate
+- **Primary Module(s)**: `memory/spector-kernel`, `memory/spector-memory`, `bench/spector-bench`
+- **Key Packages**: `com.spectrayan.spector.kernel.layout`, `com.spectrayan.spector.memory.scheduler`
+- **Classes**: `EncodingHeaderLayout.java`, `TaskRunAuditRecord.java`, `MindSpanStrengthAndAuditInspectionTest.java`
+- **Verification Tests**: `EncodingHeaderLayoutTest.java`, `EncodingHeaderFieldsTest.java`

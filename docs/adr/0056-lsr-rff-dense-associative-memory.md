@@ -1,4 +1,4 @@
-# ADR-0020-LSR: Log-Sum-ReLU (LSR) & Random Fourier Features (RFF) Dense Associative Memory
+# ADR-0056: Log-Sum-ReLU (LSR) & Random Fourier Features (RFF) Dense Associative Memory
 
 | Field | Value |
 |:---|:---|
@@ -12,14 +12,11 @@
 
 ---
 
-**Context**: Active Inference Self-Model Engine Phase 12 (Next-Generation Associative Memory & Holographic State Synthesis)  
-**Module**: `spector-core`, `spector-memory`, `spector-config`  
-**Specification**: [RND-2026-020](0020-RND-020-lsr-rff-associative-memory-specification.md)  
-**Related ADRs**: [ADR-0011](0011-aisme-phase-3-modern-hopfield-associative-memory.md), [ADR-0018](0018-aisme-phase-10-wander-pathway-continuity-mmap-layout.md)  
+## 1. Context
 
----
+In Spector's Active Inference Self-Model Engine (AISME Phase 12), memory retrieval and cognitive mind-wandering require high-capacity pattern completion that scales beyond traditional vector indexing.
 
-## 1. Context & Problem Statement
+### Context & Architectural Background
 
 ADR-0011 (AISME Phase 3) successfully introduced the **Continuous Modern Hopfield Network (MHAMN)** based on the standard Log-Sum-Exp (LSE) formulation (Ramsauer et al., 2021). While functional, production profiling and cognitive benchmarks have exposed three key bottlenecks:
 
@@ -29,7 +26,38 @@ ADR-0011 (AISME Phase 3) successfully introduced the **Continuous Modern Hopfiel
 
 ---
 
-## 2. Architectural Decisions
+## 2. Problem Statement
+
+Standard associative recall mechanisms face severe limitations in production cognitive architectures:
+1. **Iterative Convergence Latency**: Classical and modern continuous Hopfield networks require multiple numerical settlement loops, making latency non-deterministic.
+2. **Exponential Tail Interference**: Softmax attention functions evaluate over all stored memory tokens, allowing distant, irrelevant memories to leak noise into recalled patterns.
+3. **Linear Scan Overhead in Dreaming**: Simulating spontaneous mind-wandering and dreaming requires evaluating global free-energy landscapes, which scales poorly when computed against millions of individual memory vectors.
+
+## 3. Decision Drivers
+
+- **Deterministic Latency**: Settle candidate memories in a single vectorized pass.
+- **Zero Heap Overhead**: Run associative kernels off-heap via Panama Vector API without garbage collection allocation.
+- **Compact Epanechnikov Support**: Hard zeroing outside the attraction basin eliminates spurious pattern interference.
+- **Constant-Time Diffusion**: Support continuous Langevin diffusion over a fixed-size memory hologram.
+
+## 4. Considered Options
+
+### Option 1: Iterative Softmax Continuous Hopfield Network
+- Maintain standard Demircigil/Hopfield exponential energy formulations.
+- **Verdict**: Rejected for real-time inference due to variable loop iterations and $O(N)$ energy evaluation overhead.
+
+### Option 2: Approximate Nearest Neighbor (ANN) HNSW Probing
+- Rely purely on vector index traversal.
+- **Verdict**: Incomplete. ANN does not reconstruct missing features or perform holographic state synthesis.
+
+### Option 3: Two-Tier LSR Settlement and PRF Holographic Tensor (Selected)
+- Use Log-Sum-ReLU (LSR) Epanechnikov energy for single-step pattern completion.
+- Maintain Positive Random Features (PRF) holographic tensor for constant-time global energy evaluation.
+- **Verdict**: Accepted. Delivers deterministic sub-100us settlement and constant-time mind-wandering.
+
+## 5. Decision Outcome
+
+### Architectural Decisions & Subsystem Layout
 
 ### 2.1 Package & Class Layout
 
@@ -83,7 +111,20 @@ $$\mathbf{\Phi}(\mathbf{x}) = \frac{\exp\left(-\frac{\beta \|\mathbf{x}\|^2}{2}\
 
 ---
 
-## 3. Performance & Quality Budgets
+## 6. Pros and Cons of the Options
+
+### Positive
+- **Guaranteed Single-Step Settlement**: Mathematical proof guarantees exact retrieval in one vectorized step.
+- **Strict Energy Bounding**: Epanechnikov kernel eliminates floating-point softmax underflow and overflow.
+- **Sub-100us Execution**: Highly optimized SIMD kernel executes directly on off-heap memory segments.
+
+### Negative / Trade-offs
+- **Radius Parameterization**: Requires calibrating support radius $R$ and threshold $\Delta$ according to embedding dimension.
+- **Pre-computed Random Projections**: PRF requires generating and caching orthogonal Gaussian projection matrices.
+
+## 7. Implementation Plan
+
+### Performance & Quality Budgets
 
 | Metric | Target |
 |:---|:---|
@@ -94,8 +135,15 @@ $$\mathbf{\Phi}(\mathbf{x}) = \frac{\exp\left(-\frac{\beta \|\mathbf{x}\|^2}{2}\
 
 ---
 
-## 4. Rollout & Handover Plan
+### Rollout & Delivery Plan
 
 1. **Phase 1**: Merge `LsrHopfieldKernel.java` in `spector-core` and wire into `HopfieldAssociativeRelay`.
 2. **Phase 2**: Add `DistributedMemoryTensor` in `spector-memory` and integrate with WAL lifecycle.
 3. **Phase 3**: Activate `RffMindWanderingRelay` in `WanderPathway` for global DMN associative synthesis.
+
+## 8. Code Reference & Verification
+
+All associative memory components are implemented and verified in the repository:
+- **Core Math Kernel**: `nucleus/spector-core/src/main/java/com/spectrayan/spector/core/cognitive/LsrHopfieldKernel.java`
+- **Memory Network Engine**: `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/hopfield/ContinuousHopfieldNetwork.java`
+- **Unit and Benchmark Verification**: `nucleus/spector-core/src/test/java/com/spectrayan/spector/core/similarity/LsrHopfieldKernelTest.java`

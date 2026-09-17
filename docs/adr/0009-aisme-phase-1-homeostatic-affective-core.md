@@ -12,61 +12,71 @@
 
 ---
 
-**Context**: Issue #585 — Active Inference Self-Model Engine Phase 1  
-**Module**: `spector-memory`, `spector-core`  
+## 1. Context
 
-## Decision
+As part of Issue #585 (Active Inference Self-Model Engine Phase 1), Spector requires an affective homeostatic substrate to model emotional dynamics and internal states for autonomous AI agents. In human cognitive neuroscience, emotional state modulates retrieval bias: internal interoceptive state dynamically influences memory accessibility (mood-congruent recall) rather than relying exclusively on static semantic embeddings.
 
-### Package Structure
+## 2. Problem Statement
 
-New package `com.spectrayan.spector.memory.aisme.homeostasis` within `spector-memory`:
+Previous cognitive recall in Spector lacked homeostatic regulation and affective state representation. Memory retrieval operated on objective lexical and semantic similarity without accounting for the agent's internal drive, valence, arousal, or dominance (VAD). We need an off-heap, zero-GC homeostatic engine capable of computing continuous affective trajectories without degrading sub-millisecond retrieval SLAs.
 
-```
-memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/
-├── homeostasis/
-│   ├── InteroceptiveState.java       # Immutable record: VAD + K channels
-│   ├── HomeostaticCore.java          # Neural ODE step integration
-│   ├── EmotionalRegulator.java       # A_person matrix from Soul/Profile
-│   └── AffectiveResonanceScorer.java # Mood-congruent scoring kernel
-└── relay/
-    └── HomeostaticBiasRelay.java     # RecallPathway relay integration
-```
+## 3. Decision Drivers
 
-New SIMD kernel in `spector-core`:
+- **Neurocomputational Fidelity**: Biological modeling of emotional state dynamics via continuous ordinary differential equations (ODEs).
+- **Sub-Microsecond Latency**: State evolution and resonance scoring must execute in < 1µs to preserve Spector's real-time retrieval contracts.
+- **Zero-GC & Thread Safety**: State must be immutable across thread boundaries (`InteroceptiveState`) with virtual-thread-safe state advancement.
+- **Modular Decoupling**: Pure mathematical kernels (affective distance) in `nucleus/spector-core`, pathway relay and state management in `memory/spector-memory`.
 
-```
-nucleus/spector-core/src/main/java/com/spectrayan/spector/core/similarity/
-└── AffectiveDistance.java            # SIMD affective resonance kernel
-```
+## 4. Considered Options
 
-### Architectural Decisions
+### Option 1: Full High-Order Neural ODE (Runge-Kutta RK4)
+- **Description**: Implement a 4th-order Runge-Kutta numerical integrator for high-dimensional nonlinear emotional dynamics.
+- **Advantages**: Higher mathematical precision for stiff systems.
+- **Disadvantages**: Significant computational overhead (multiple function evaluations per step) unnecessary for 10-dimensional VAD dynamics.
 
-1. **InteroceptiveState as immutable record** — follows Spector's pattern of immutable data on API boundaries. Contains `float[] state` (VAD + channels), epoch timestamp, and version.
+### Option 2: Explicit Euler Integration with Off-Heap Insular Storage (Selected)
+- **Description**: Use explicit Euler step integration for the 10-dimensional affective state $h(t+dt) = h(t) + dt \cdot (A \cdot h(t) + B \cdot u(t) + C \cdot 	ext{recall}(t) + \sigma \cdot w(t))$ stored in `InsularCortex`.
+- **Advantages**: Executes in < 1µs, numerically stable with state clamping to $[-1, 1]$, lightweight and deterministic.
+- **Disadvantages**: First-order approximation requiring bounded time-steps ($dt$).
 
-2. **HomeostaticCore uses explicit Euler integration** — Neural ODE with RK4 is unnecessary for the 10-dimensional affective state. Euler step: `h(t+dt) = h(t) + dt * (A·h(t) + B·u(t) + C·recall(t) + σ·w(t))`. Simpler, faster, sufficient for smooth emotional dynamics.
+## 5. Decision Outcome
 
-3. **A_person stored off-heap in InsularCortex** — the personal dynamics matrix lives alongside the self-model JSON in the Insula region. At 10×10 floats = 400 bytes, this fits easily within the existing InsularCortex allocation.
+**Chosen Option**: Option 2 (Explicit Euler Integration with Off-Heap Insular Storage).
 
-4. **HomeostaticBiasRelay position in pathway** — inserted between `QueryTransductionRelay` and `CorticalTierScanRelay`. It reads the current emotional state and injects scoring bias into the `RecallSignal` before tier scanning begins. This matches the neuroscience: emotional state biases what you look for, not just how you score results.
+### Positive Consequences
+- Real-time emotional modulation of memory recall without latency penalty (< 0.1ms at 10K candidates).
+- Mood-congruent scoring via SIMD Gaussian kernel in `nucleus/spector-core`.
+- Clean backward compatibility: `HomeostaticBiasRelay` acts as a no-op if no `HomeostaticCore` is configured.
 
-5. **AffectiveDistance SIMD kernel** — computes Gaussian kernel `exp(-||v_μ - v_s||² / 2σ²)` using existing `FloatVector` pattern. Same structure as `CosineSimilarity.java`. Lives in `spector-core` (Apache 2.0 licensed).
+### Negative Consequences & Trade-offs
+- The 10×10 personal dynamics matrix ($A_{	ext{person}}$) requires off-heap space in the Insular region (400 bytes).
+- State clamping is required after each step to prevent ODE divergence under extreme inputs.
 
-6. **Thread safety** — `HomeostaticCore` uses `ReentrantLock` for state mutation (no `synchronized`). `InteroceptiveState` is immutable and freely shareable across virtual threads.
+## 6. Pros and Cons of the Options
 
-7. **Backward compatibility** — the `HomeostaticBiasRelay` is optional. If no `HomeostaticCore` is configured, the relay is a no-op pass-through. Existing users see zero behavior change.
+| Option | Pros | Cons |
+|:---|:---|:---|
+| **Option 1: RK4 ODE** | Continuous high-order precision | High CPU cost, multiple evaluations per step |
+| **Option 2: Euler Integration** | < 1µs execution, minimal memory footprint, SIMD-friendly | Requires clamping to guarantee numerical stability |
 
-### Performance Budget
+## 7. Implementation Plan
 
-- Euler ODE step: <1μs (10-dim matrix-vector multiply)
-- Affective resonance scoring per candidate: <0.5μs (SIMD Gaussian kernel)
-- Total pipeline latency increase: <0.1ms at 10K candidates
+1. **Phase 1**: Define `InteroceptiveState` immutable record and `HomeostaticCore` Euler integrator in `com.spectrayan.spector.memory.aisme.homeostasis`.
+2. **Phase 2**: Implement `AffectiveDistance` SIMD Gaussian kernel in `nucleus/spector-core` under `com.spectrayan.spector.core.similarity`.
+3. **Phase 3**: Integrate `HomeostaticBiasRelay` into `RecallPathway` between `QueryTransductionRelay` and `CorticalTierScanRelay`.
+4. **Phase 4**: Add risk mitigations: state clamping to `[-1, 1]` and backward-compatible conditional activation.
 
-### Risk Assessment
+## 8. Code Reference & Verification
 
-| Risk | Mitigation |
-|---|---|
-| ODE divergence under extreme inputs | Clamp state to [-1, 1] per dimension after each step |
-| Performance regression in hot path | HomeostaticBiasRelay is conditional — disabled when no HomeostaticCore configured |
-| InsularCortex layout breaking change | Add new region section with schema version bump, backward-compatible read |
-
-**Approved** — implemented in PR #586.
+- **Primary Module(s)**: `memory/spector-memory`, `nucleus/spector-core`
+- **Key Packages**:
+  - `com.spectrayan.spector.memory.aisme.homeostasis`
+  - `com.spectrayan.spector.core.similarity`
+- **Classes**:
+  - `InteroceptiveState.java`
+  - `HomeostaticCore.java`
+  - `EmotionalRegulator.java`
+  - `AffectiveResonanceScorer.java`
+  - `HomeostaticBiasRelay.java`
+  - `AffectiveDistance.java`
+- **Verification Tests**: `HomeostaticCoreTest.java`, `AffectiveDistanceTest.java`

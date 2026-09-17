@@ -6,34 +6,44 @@
 | **Date** | 2026-09-11 |
 | **Authors** | Spector Maintainers & Architecture Working Group |
 | **Deciders** | Spector Technical Steering Committee (TSC) |
-| **Supersedes** | ADR-0034 draft |
+| **Supersedes** | ADR-0034 Draft (HA, Scaling & Data Replication) |
 | **Superseded By** | None |
 | **Last Verified** | 2026-09-16 (Verified against `main`) |
 
 ---
 
-title: "ADR-0034 — Cell Topology, Namespace Ownership, and Checkpoint Snapshot HA"
-status: Accepted (Implemented)
-date: 2026-09-11
-deciders: Spector Architecture
-consulted: Memory Kernel (ADR-0004), Identity Plane (ADR-0029), Synapse Gateway
-related:
-  - ADR-0004 — V4 mmap bundle layout (runtime.bundle + partition.bundle)
-  - ADR-0009 — Memory shapes
-  - ADR-0029 — Account catalog and identity bundles
-  - ADR-0031 — Epistemic tense (out of scope here)
-  - ADR-0032 — Persona enactment (out of scope here)
-supersedes: Informal draft "HA, Scaling & Data Replication" (V3 file tree, round-robin multi-writer)
-renumbered_from: ADR-0033 (2026-09-11) — the number collided with two other documents:
-  "Cognitive and Mathematical Kernel Decoupling to Spector Core" (Proposed, whose Phases 0 and 1
-  shipped as #809/#810) and RnD "Engine & CLI Stabilization" (Accepted, #775). Git history before
-  this rename uses "ADR-0033 Phase 0/Phase 1" to mean kernel decoupling; commits touching this
-  document reference #819 (Phase 0.1) and are unambiguous.
+## 1. Context
+
+Spector stores each user/agent namespace as a physically isolated directory of memory-mapped V4 bundles (ADR-0004). Recall is a SIMD scan of off-heap `MemorySegment`s. That design gives:
+
+- zero cross-tenant leakage without a query predicate
+- sub-millisecond in-process recall
+- predictable FD/mmap cost (2 bundles per active partition + WAL, not ~15 V3 files)
+
+It also forbids the usual vector-DB HA pattern (shared index + `owner_id` filter + stateless replicas behind a round-robin load balancer).
+
+The previous HA draft proposed a cell of several **Read/Write leaders** behind least-conn/round-robin, with checkpoint snapshot shipping to a read replica. That conflicts with local NVMe mmap:
+
+- two writers on two nodes produce two divergent bundle files
+- a request that lands on a non-owner either misses data or pays a 2–5s cold pull
+- S3 CRR of the *cold* tier does not protect hot namespaces (idle archival default is 30 days)
+
+This ADR replaces that draft with **namespace-primary ownership inside regional cells**, Redis as a **routing cache + invalidation bus** (not the durability plane), and **bundle-aware snapshot replication**.
+
 ---
 
-# ADR-0034: Cell Topology, Namespace Ownership, and Checkpoint Snapshot HA
+### Constraints Inherited from the Memory Kernel
+| Constraint | Source | HA implication |
+|---|---|---|
+| One directory tree per namespace | Physical isolation / MF-001 NF3 | Routing key is namespace, not request |
+| V4 `partition.bundle` + `runtime.bundle` | ADR-0004 | Snapshot and ship bundles, not V3 `*.mem` / `*.graph` |
+| Partition regions are fixed-size; overflow rolls a new dir | `PartitionBundle` | Sealed partitions are immutable replica objects |
+| `RegionLease` / namespace lease | Kernel pager | Never unmap or change owner mid-query |
+| Off-heap mmap + small JVM heap | Panama + k8s StatefulSet | Page cache *is* the working set; RWO local NVMe |
+| Identity bundle is not the rememberer | ADR-0029 §23 | Soul/salience live in `identity.bundle`; do not fold them into data-plane snapshots by default |
+| Two shard alphabets | `StoragePaths` SHA-256 vs `IdentityPaths` char-prefix | Do not mix resolvers; HA copy must use the path the opener uses |
 
-## 1. Status
+## 2. Problem Statement
 
 **Accepted (Implemented).** Implementation is phased (see §16). Nothing in this ADR authorizes multi-writer access to a single namespace.
 
@@ -123,26 +133,34 @@ Phase 0.1 (Namespace Path Unification, issue #819) completed all KI-5 exit crite
 > [!NOTE]
 > Phase 0.1 is complete (see `.kiro/specs/namespace-path-unification/`). §9.2 is now true on disk when `spector.namespace.tenant-rooted.enabled=true`.
 
-## 2. Context
+### Multi-Writer Failure Mode
+In off-heap memory-mapped architectures (`spector-kernel`), concurrent process writes to identical slabs cause immediate, unrecoverable data corruption and SIGBUS crashes. Prior to this design, Spector lacked a formal clustering topology, strict single-writer namespace lease fencing, and transparent request routing.
 
-Spector stores each user/agent namespace as a physically isolated directory of memory-mapped V4 bundles (ADR-0004). Recall is a SIMD scan of off-heap `MemorySegment`s. That design gives:
+## 3. Decision Drivers
 
-- zero cross-tenant leakage without a query predicate
-- sub-millisecond in-process recall
-- predictable FD/mmap cost (2 bundles per active partition + WAL, not ~15 V3 files)
+- **Strict Single-Writer Affinity**: Exactly one cell process owns write authority over any given tenant namespace at any given millisecond.
+- **Zero-Copy Checkpoint Snapshotting**: Asynchronous background replication utilizing immutable bundle checkpoints rather than distributed consensus log shipping.
+- **Fail-Closed Fencing**: Guaranteed lease expiration and split-brain fencing before a standby cell assumes primary status.
+- **Transparent Ingress Routing**: Gateways route requests to current namespace owners with zero caller disruption.
 
-It also forbids the usual vector-DB HA pattern (shared index + `owner_id` filter + stateless replicas behind a round-robin load balancer).
+## 4. Considered Options
 
-The previous HA draft proposed a cell of several **Read/Write leaders** behind least-conn/round-robin, with checkpoint snapshot shipping to a read replica. That conflicts with local NVMe mmap:
+| Option | Why rejected |
+|---|---|
+| **A. Stateless RR over N R/W leaders** | Split-brain on local bundles. |
+| **B. Shared POSIX volume (EFS/NFS) + multi-writer** | mmap coherency, lock latency, and noisy-neighbor I/O destroy the performance claim. |
+| **C. Classic WAL streaming as the only replica path** | Multiplexed frames + per-namespace demux at 10k–100k namespaces is operationally worse than shipping sealed bundles + a WAL *tail*. WAL tail is retained; WAL-as-primary-stream is not. |
+| **D. Redis Cluster as source of truth for ownership** | Fast, but membership + fencing belong in a lease/epoch object that survives a Redis flush. Redis is the cache and the pub/sub bus. |
+| **E. One primary per cell (all namespaces on node-0)** | Simple, not scalable, terrible blast radius. |
+| **F. Hash only, no override map** | Failover and drain cannot pin a namespace to a living node without changing the whole ring. |
 
-- two writers on two nodes produce two divergent bundle files
-- a request that lands on a non-owner either misses data or pays a 2–5s cold pull
-- S3 CRR of the *cold* tier does not protect hot namespaces (idle archival default is 30 days)
+Chosen: **cells + consistent hash + override leases + Redis cache + bundle snapshots + WAL tail.**
 
-This ADR replaces that draft with **namespace-primary ownership inside regional cells**, Redis as a **routing cache + invalidation bus** (not the durability plane), and **bundle-aware snapshot replication**.
+---
+
+## 5. Decision Outcome
 
 ## 3. Decision summary
-
 1. Deploy Spector as **regional cells**. An organization is pinned to exactly one cell for data-plane traffic (sovereignty + blast radius).
 2. Inside a cell, every namespace has **exactly one primary owner node** at a time. All `remember` / `reinforce` / consolidate / checkpoint writes go to that owner. Recall goes to the owner by default; a replica may serve recall only when the namespace is locally mapped and lag is within SLA.
 3. Owner assignment is **consistent hashing of `tenantId/namespaceId` over the live owner-member set**, plus explicit **override leases** for failover and rebalance. Redis caches the resolved `{cell, owner, epoch, hwm}` tuple and publishes invalidations. Redis is not the source of truth for membership.
@@ -169,31 +187,6 @@ This ADR replaces that draft with **namespace-primary ownership inside regional 
 - Synchronously replicating every store into every replica (replica L1 is a subset).
 - Making Redis the durable catalog of tenants, API keys, or identity bundles (ADR-0029 stays on the catalog/identity plane).
 - Surviving working-memory contents across failover (working tier is volatile unless later checkpointed into the runtime bundle).
-
-## 5. Constraints inherited from the kernel
-
-| Constraint | Source | HA implication |
-|---|---|---|
-| One directory tree per namespace | Physical isolation / MF-001 NF3 | Routing key is namespace, not request |
-| V4 `partition.bundle` + `runtime.bundle` | ADR-0004 | Snapshot and ship bundles, not V3 `*.mem` / `*.graph` |
-| Partition regions are fixed-size; overflow rolls a new dir | `PartitionBundle` | Sealed partitions are immutable replica objects |
-| `RegionLease` / namespace lease | Kernel pager | Never unmap or change owner mid-query |
-| Off-heap mmap + small JVM heap | Panama + k8s StatefulSet | Page cache *is* the working set; RWO local NVMe |
-| Identity bundle is not the rememberer | ADR-0029 §23 | Soul/salience live in `identity.bundle`; do not fold them into data-plane snapshots by default |
-| Two shard alphabets | `StoragePaths` SHA-256 vs `IdentityPaths` char-prefix | Do not mix resolvers; HA copy must use the path the opener uses |
-
-## 6. Alternatives considered
-
-| Option | Why rejected |
-|---|---|
-| **A. Stateless RR over N R/W leaders** | Split-brain on local bundles. |
-| **B. Shared POSIX volume (EFS/NFS) + multi-writer** | mmap coherency, lock latency, and noisy-neighbor I/O destroy the performance claim. |
-| **C. Classic WAL streaming as the only replica path** | Multiplexed frames + per-namespace demux at 10k–100k namespaces is operationally worse than shipping sealed bundles + a WAL *tail*. WAL tail is retained; WAL-as-primary-stream is not. |
-| **D. Redis Cluster as source of truth for ownership** | Fast, but membership + fencing belong in a lease/epoch object that survives a Redis flush. Redis is the cache and the pub/sub bus. |
-| **E. One primary per cell (all namespaces on node-0)** | Simple, not scalable, terrible blast radius. |
-| **F. Hash only, no override map** | Failover and drain cannot pin a namespace to a living node without changing the whole ring. |
-
-Chosen: **cells + consistent hash + override leases + Redis cache + bundle snapshots + WAL tail.**
 
 ---
 
@@ -1233,6 +1226,66 @@ spector:
 
 ---
 
+---
+
+## 17. Open questions — all resolved (2026-09-11)
+
+Each question is answered by a decision in the phase spec that owns it. Specs live in
+`spectrayan/.kiro/specs/`; the index is `cell-ha-roadmap.md`.
+
+| # | Question | Resolved in | Decision |
+|:--|:--|:--|:--|
+| 1 | Control store for membership: K8s Lease + ConfigMap vs etcd vs Redis with AOF and *manual* fencing | **Phase 4 D1** | **K8s-native** (Lease + ConfigMap); file/static for compose. **Redis rejected**: Phase 2's invariant K1 requires the cell to survive a Redis outage, and a control store that dies with the cache cannot fence at the moment fencing matters. **etcd rejected**: the cluster already provides Lease, so etcd adds an operational dependency for a primitive already available |
+| 2 | Is `identity.bundle` (ADR-0029) snapshotted with the data plane, or rebuilt from the catalog on failover? | **Phase 3 D1** | **Catalog-rebuild** — as recommended. Keeps the planes decoupled and makes "identity leaked into a data snapshot" structurally impossible rather than guarded by review. Phase 6 R3.8 re-confirms the choice holds cross-cell, where the source catalog may be *gone* rather than merely stale |
+| 3 | Encryption: per-tenant DEK in snapshot headers vs node-level LUKS | **Phase 6 D6** | **Per-tenant DEK as the design of record, LUKS as defence in depth**, implementation sequenced after Phase 6's filesystem erase lands. DEK is what makes "erase every copy" tractable: you cannot enumerate every object-store copy with confidence, but you can destroy one key. Until it exists, erasure must not claim crypto-erase semantics |
+| 4 | Consistent-hash family (jump vs ketama) and virtual-node count | **Phase 1 D1** | **Ketama over virtual nodes**, frozen behind `ring.version` as this ADR asked. **Jump rejected**: it cannot express "member 1 of 3 is gone" without renumbering the remaining members, so a routine Kubernetes drain would be forced through Phase 4's failover exception path. See §15.2 and §8.3's correction |
+| 5 | Must MCP streamable-HTTP sessions stick to an owner for the session lifetime? | **Phase 1 D5** + **Phase 2** | **RESOLVED (Phase 1 + Phase 2)**: Refuse-at-bind landed in Phase 1 (a session cannot bind to a namespace this node does not own). Phase 1 Task 3.9 confirmed MCP sessions hold volatile working-memory state (`SESSION_WORKING_SETS`) across requests. Phase 2 implemented MCP session affinity routing in `McpSessionContext` and enforced mid-session owner divergence termination with a typed error (Task 5.2 / Req R10.2) |
+
+### 17.1 Verification record
+
+Every phase spec checked this ADR's factual claims against the code before designing around them. **Six
+named claims and one behaviour did not survive.** Each is corrected inline in the section that made it:
+
+| Claim | Section | Reality |
+|:--|:--|:--|
+| `Account.tenantId` usable for tenant-rooted paths | §1.1 KI-1 / §9.2 | was structurally unreachable; Phase 0.1 made it operational |
+| "Redis already exists in Synapse (Bucket4j / rate-limit)" | §8.1 | only `bucket4j-core` + `CaffeineRateLimitStateStore`; no redis/lettuce in any pom |
+| `CheckpointDaemon` | §10, §15.1 | real class is `CheckpointEngine` |
+| `WalReplicationLeader` / `Follower` "already marked deprecated" | §10.1 | neither exists |
+| FS check "already in `FilesystemHealthCheck`" | §13.5 | does not exist; only `SpectorHealthIndicator` |
+| L3 cold tier, regional buckets, `coldTier.*` | §9.6, §13.4, §14 | no object storage in any module — no class, no config, no SDK |
+| Tenant deletion = tree `rm` + prefix delete + DEK destroy | §16 | none implemented; `deleteNamespace` tombstones and nothing collects |
+
+Three internal inconsistencies were also fixed: `CheckpointCompletedEvent` has no `epoch` (§10),
+`jumpConsistentHash` in the §8.3 pseudocode contradicted question 4's resolution, and §8.3's
+`rt:ns:{cellId}:{tenantId}:{nsId}` contradicted §15.2's literal hash-tag form.
+
+**The pattern is worth naming**: this ADR's *reasoning* has held up under verification — the alternatives
+analysis, the single-writer decision, the snapshot-over-WAL-streaming argument, the fencing model — while its
+*inventory* of existing code has not. Claims about what is already built should be treated as unverified
+until checked. The same applies to §11.3's RPO/RTO numbers, which remain **unmeasured projections** until
+Phase 4 and Phase 6 measure them; where measurement disagrees, this document is what changes.
+
+---
+
+## 6. Pros and Cons of the Options
+
+| Architecture | Pros | Cons |
+|:---|:---|:---|
+| **Multi-Writer Shared-Disk** | Symmetric nodes | SIGBUS corruption under Panama FFM, StampedLock failure |
+| **Raft Log Shipping per Op** | Microsecond sync | Extreme I/O serialization, incompatible with off-heap bundle slabs |
+| **Cell Topology + Lease Fencing (Selected)** | 100% crash-safe, zero mmap corruption, scale-out partitioning | Failover takes lease heartbeat timeout (~3-5s) |
+
+## 7. Implementation Plan
+
+1. **Phase 0**: Directory layout unification (`StoragePaths` vs `IdentityPaths`).
+2. **Phase 1**: Gateway reverse-proxy and namespace-sticky sharding router.
+3. **Phase 2**: Heartbeat leasing and split-brain fencing coordinator.
+4. **Phase 3**: Asynchronous checkpoint snapshot replicator.
+5. **Phase 4**: Automated standby promotion and disaster recovery drill.
+
+## 8. Code Reference & Verification
+
 ## 16. Consequences
 
 ### Positive
@@ -1298,44 +1351,6 @@ spector:
 
 ---
 
-## 17. Open questions — all resolved (2026-09-11)
-
-Each question is answered by a decision in the phase spec that owns it. Specs live in
-`spectrayan/.kiro/specs/`; the index is `cell-ha-roadmap.md`.
-
-| # | Question | Resolved in | Decision |
-|:--|:--|:--|:--|
-| 1 | Control store for membership: K8s Lease + ConfigMap vs etcd vs Redis with AOF and *manual* fencing | **Phase 4 D1** | **K8s-native** (Lease + ConfigMap); file/static for compose. **Redis rejected**: Phase 2's invariant K1 requires the cell to survive a Redis outage, and a control store that dies with the cache cannot fence at the moment fencing matters. **etcd rejected**: the cluster already provides Lease, so etcd adds an operational dependency for a primitive already available |
-| 2 | Is `identity.bundle` (ADR-0029) snapshotted with the data plane, or rebuilt from the catalog on failover? | **Phase 3 D1** | **Catalog-rebuild** — as recommended. Keeps the planes decoupled and makes "identity leaked into a data snapshot" structurally impossible rather than guarded by review. Phase 6 R3.8 re-confirms the choice holds cross-cell, where the source catalog may be *gone* rather than merely stale |
-| 3 | Encryption: per-tenant DEK in snapshot headers vs node-level LUKS | **Phase 6 D6** | **Per-tenant DEK as the design of record, LUKS as defence in depth**, implementation sequenced after Phase 6's filesystem erase lands. DEK is what makes "erase every copy" tractable: you cannot enumerate every object-store copy with confidence, but you can destroy one key. Until it exists, erasure must not claim crypto-erase semantics |
-| 4 | Consistent-hash family (jump vs ketama) and virtual-node count | **Phase 1 D1** | **Ketama over virtual nodes**, frozen behind `ring.version` as this ADR asked. **Jump rejected**: it cannot express "member 1 of 3 is gone" without renumbering the remaining members, so a routine Kubernetes drain would be forced through Phase 4's failover exception path. See §15.2 and §8.3's correction |
-| 5 | Must MCP streamable-HTTP sessions stick to an owner for the session lifetime? | **Phase 1 D5** + **Phase 2** | **RESOLVED (Phase 1 + Phase 2)**: Refuse-at-bind landed in Phase 1 (a session cannot bind to a namespace this node does not own). Phase 1 Task 3.9 confirmed MCP sessions hold volatile working-memory state (`SESSION_WORKING_SETS`) across requests. Phase 2 implemented MCP session affinity routing in `McpSessionContext` and enforced mid-session owner divergence termination with a typed error (Task 5.2 / Req R10.2) |
-
-### 17.1 Verification record
-
-Every phase spec checked this ADR's factual claims against the code before designing around them. **Six
-named claims and one behaviour did not survive.** Each is corrected inline in the section that made it:
-
-| Claim | Section | Reality |
-|:--|:--|:--|
-| `Account.tenantId` usable for tenant-rooted paths | §1.1 KI-1 / §9.2 | was structurally unreachable; Phase 0.1 made it operational |
-| "Redis already exists in Synapse (Bucket4j / rate-limit)" | §8.1 | only `bucket4j-core` + `CaffeineRateLimitStateStore`; no redis/lettuce in any pom |
-| `CheckpointDaemon` | §10, §15.1 | real class is `CheckpointEngine` |
-| `WalReplicationLeader` / `Follower` "already marked deprecated" | §10.1 | neither exists |
-| FS check "already in `FilesystemHealthCheck`" | §13.5 | does not exist; only `SpectorHealthIndicator` |
-| L3 cold tier, regional buckets, `coldTier.*` | §9.6, §13.4, §14 | no object storage in any module — no class, no config, no SDK |
-| Tenant deletion = tree `rm` + prefix delete + DEK destroy | §16 | none implemented; `deleteNamespace` tombstones and nothing collects |
-
-Three internal inconsistencies were also fixed: `CheckpointCompletedEvent` has no `epoch` (§10),
-`jumpConsistentHash` in the §8.3 pseudocode contradicted question 4's resolution, and §8.3's
-`rt:ns:{cellId}:{tenantId}:{nsId}` contradicted §15.2's literal hash-tag form.
-
-**The pattern is worth naming**: this ADR's *reasoning* has held up under verification — the alternatives
-analysis, the single-writer decision, the snapshot-over-WAL-streaming argument, the fencing model — while its
-*inventory* of existing code has not. Claims about what is already built should be treated as unverified
-until checked. The same applies to §11.3's RPO/RTO numbers, which remain **unmeasured projections** until
-Phase 4 and Phase 6 measure them; where measurement disagrees, this document is what changes.
-
 ---
 
 ## 18. References
@@ -1345,3 +1360,11 @@ Phase 4 and Phase 6 measure them; where measurement disagrees, this document is 
 - `memory/spector-kernel/.../bundle/compat/LegacyV3BundleFormat.java` — what we are leaving
 - `deploy/k8s-statefulset.yaml` — anti-affinity, small heap, local NVMe, `:9090`
 - Previous draft: `ha-scaling-replication.md` (V3 tree, RR multi-writer) — superseded by this ADR for topology and routing
+
+---
+
+### Code Reference & Verification Gate
+- **Primary Module(s)**: `synapse/spector-synapse`, `cluster/spector-cluster` (roadmapped)
+- **Key Packages**: `com.spectrayan.spector.synapse.cluster.failover`, `com.spectrayan.spector.synapse.dr`
+- **Classes**: `FailoverAuditRecord.java`, `ErasureAuditReport.java`
+- **Verification Tests**: `ClusterFailoverIntegrationTest.java`
