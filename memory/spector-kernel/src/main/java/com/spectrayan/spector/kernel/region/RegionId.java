@@ -43,11 +43,13 @@ public enum RegionId {
     CHECKPOINT(23),
     INSULA(24),
     CONTINUITY(25),
-    PROVENANCE(26);
+    PROVENANCE(26),
+    SPLADE(27),
+    ENTITY_REVERSE_INDEX(28);
 
     private final int id;
     
-    private static final RegionId[] LOOKUP = new RegionId[27];
+    private static final RegionId[] LOOKUP = new RegionId[32];
     static {
         for (RegionId region : values()) {
             LOOKUP[region.id()] = region;

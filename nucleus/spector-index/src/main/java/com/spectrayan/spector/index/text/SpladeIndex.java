@@ -24,11 +24,19 @@ import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.lang.foreign.MemorySegment;
+import java.lang.foreign.ValueLayout;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -83,6 +91,40 @@ public class SpladeIndex implements KeywordIndex {
      * Matches the strategy in {@link BM25Index}  --  virtual thread scheduling
      * overhead only pays off for large posting lists. */
     private static final int PARALLEL_POSTING_THRESHOLD = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_INDEX_SPLADE_PARALLEL_THRESHOLD;
+
+    /** Magic header for V4 binary persistence ("SPLD"). */
+    public static final int MAGIC = 0x53504C44;
+
+    /** Format version for binary serialization. */
+    public static final int FORMAT_VERSION = 2;
+
+    private volatile long generation = 0L;
+    private volatile String modelId = "splade";
+
+    public long generation() {
+        return generation;
+    }
+
+    public void setGeneration(long generation) {
+        this.generation = generation;
+    }
+
+    public String modelId() {
+        return modelId;
+    }
+
+    public void setModelId(String modelId) {
+        this.modelId = modelId != null ? modelId : "splade";
+    }
+
+    public Set<String> docIds() {
+        rwLock.readLock().lock();
+        try {
+            return Set.copyOf(docIds);
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
 
     private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
 
@@ -254,6 +296,17 @@ public class SpladeIndex implements KeywordIndex {
     }
 
     @Override
+    public boolean contains(String id) {
+        if (id == null) return false;
+        rwLock.readLock().lock();
+        try {
+            return docIdToIndex.containsKey(id);
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    @Override
     public void close() {
         rwLock.writeLock().lock();
         try {
@@ -404,5 +457,172 @@ public class SpladeIndex implements KeywordIndex {
                 postings.removeByDocIndex(idx);
             }
         }
+    }
+
+    /**
+     * Serializes this SPLADE index into a byte array in FORMAT_VERSION 2 layout.
+     *
+     * @return serialized binary payload
+     */
+    public byte[] toByteArray() {
+        rwLock.readLock().lock();
+        try {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            DataOutputStream dos = new DataOutputStream(baos);
+
+            // Header (v2)
+            dos.writeInt(MAGIC);
+            dos.writeInt(FORMAT_VERSION);
+            dos.writeLong(generation);
+            byte[] modelBytes = (modelId != null ? modelId : "splade").getBytes(StandardCharsets.UTF_8);
+            dos.writeInt(modelBytes.length);
+            dos.write(modelBytes);
+
+            dos.writeInt(totalDocs);
+            dos.writeInt(docIds.size());
+            dos.writeInt(invertedIndex.size());
+
+            // DocIds
+            for (String id : docIds) {
+                byte[] idBytes = id.getBytes(StandardCharsets.UTF_8);
+                dos.writeInt(idBytes.length);
+                dos.write(idBytes);
+            }
+
+            // Terms + Postings
+            for (Map.Entry<String, WeightedPostingList> entry : invertedIndex.entrySet()) {
+                byte[] termBytes = entry.getKey().getBytes(StandardCharsets.UTF_8);
+                WeightedPostingList pl = entry.getValue();
+                dos.writeInt(termBytes.length);
+                dos.write(termBytes);
+                dos.writeInt(pl.size);
+                for (int i = 0; i < pl.size; i++) {
+                    dos.writeInt(pl.docIndices[i]);
+                    dos.writeFloat(pl.docWeights[i]);
+                }
+            }
+
+            dos.flush();
+            return baos.toByteArray();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to serialize SPLADE index", e);
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    /**
+     * Deserializes a SPLADE index from a binary byte array (supporting v1 and v2 formats).
+     *
+     * @param data binary payload
+     * @return deserialized SpladeIndex, or null if invalid
+     */
+    public static SpladeIndex fromByteArray(byte[] data) {
+        if (data == null || data.length < 24) return null;
+        ByteBuffer buf = ByteBuffer.wrap(data);
+
+        int magic = buf.getInt();
+        if (magic != MAGIC) return null;
+        int version = buf.getInt();
+        if (version != 1 && version != FORMAT_VERSION) return null;
+
+        long gen = 0L;
+        String loadedModelId = "splade";
+        if (version >= 2) {
+            gen = buf.getLong();
+            int mIdLen = buf.getInt();
+            if (mIdLen > 0 && mIdLen <= buf.remaining()) {
+                byte[] mBytes = new byte[mIdLen];
+                buf.get(mBytes);
+                loadedModelId = new String(mBytes, StandardCharsets.UTF_8);
+            }
+        }
+
+        int savedTotalDocs = buf.getInt();
+        int docCount = buf.getInt();
+        int termCount = buf.getInt();
+
+        SpladeIndex idx = new SpladeIndex();
+        idx.setGeneration(gen);
+        idx.setModelId(loadedModelId);
+
+        // DocIds
+        for (int i = 0; i < docCount; i++) {
+            int idLen = buf.getInt();
+            byte[] idBytes = new byte[idLen];
+            buf.get(idBytes);
+            String id = new String(idBytes, StandardCharsets.UTF_8);
+            idx.docIds.add(id);
+            idx.docIdToIndex.put(id, i);
+        }
+
+        // Terms + Postings
+        for (int t = 0; t < termCount; t++) {
+            int termLen = buf.getInt();
+            byte[] termBytes = new byte[termLen];
+            buf.get(termBytes);
+            String term = new String(termBytes, StandardCharsets.UTF_8);
+
+            int postingsSize = buf.getInt();
+            WeightedPostingList pl = new WeightedPostingList(Math.max(postingsSize, 16));
+            for (int p = 0; p < postingsSize; p++) {
+                int docIdx = buf.getInt();
+                float weight = buf.getFloat();
+                pl.add(docIdx, weight);
+            }
+            idx.invertedIndex.put(term, pl);
+        }
+
+        idx.totalDocs = savedTotalDocs;
+        return idx;
+    }
+
+    /**
+     * Serializes this SPLADE index into a bundle region MemorySegment (V4 format).
+     *
+     * @param region the SPLADE region MemorySegment
+     * @return number of bytes written, or -1 if region is too small or on error
+     */
+    public int saveToRegion(MemorySegment region) {
+        if (region == null) {
+            return -1;
+        }
+        byte[] data = toByteArray();
+        int totalBytes = 4 + data.length; // 4-byte length prefix + payload
+
+        if (totalBytes > region.byteSize()) {
+            log.warn("SPLADE index ({} bytes) exceeds region capacity ({}B)",
+                    totalBytes, region.byteSize());
+            return -1;
+        }
+
+        // Write length prefix then payload
+        region.set(ValueLayout.JAVA_INT, 0, data.length);
+        MemorySegment.copy(
+                MemorySegment.ofArray(data), 0,
+                region, 4, data.length);
+
+        log.info("SPLADE index saved to bundle region: {} docs, {} terms, {} bytes (gen={})",
+                totalDocs, invertedIndex.size(), totalBytes, generation);
+        return totalBytes;
+    }
+
+    /**
+     * Loads a SPLADE index from a V4 bundle region MemorySegment.
+     *
+     * @param region the SPLADE region MemorySegment
+     * @return the loaded SpladeIndex, or null if no valid data present
+     */
+    public static SpladeIndex loadFromRegion(MemorySegment region) {
+        if (region == null || region.byteSize() < 24) return null; // 4B len + 20B min header
+
+        int payloadLen = region.get(ValueLayout.JAVA_INT, 0);
+        if (payloadLen <= 0 || 4 + (long) payloadLen > region.byteSize()) return null;
+
+        byte[] data = new byte[payloadLen];
+        MemorySegment.copy(region, 4,
+                MemorySegment.ofArray(data), 0, payloadLen);
+
+        return fromByteArray(data);
     }
 }

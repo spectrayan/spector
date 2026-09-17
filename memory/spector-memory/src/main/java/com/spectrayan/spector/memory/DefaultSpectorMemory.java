@@ -214,9 +214,12 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final EpisodicMemory episodicMemory;
 
     private final MemoryObservationHook hook;
+    private final com.spectrayan.spector.memory.index.IndexPlaneCoordinator indexPlaneCoordinator;
+    private final com.spectrayan.spector.memory.index.IndexReconcileEngine indexReconcileEngine;
 
     DefaultSpectorMemory(SpectorMemoryBuilder builder) {
         var bundle = SpectorMemoryFactory.assemble(builder);
+        this.indexPlaneCoordinator = bundle.indexPlaneCoordinator();
         this.rememberPathway = bundle.rememberPathway();
         this.reflectPathway = bundle.reflectPathway();
         this.expressPathway = bundle.expressPathway();
@@ -320,6 +323,19 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.hook = builder.hook() != null ? builder.hook() : MemoryObservationHook.NOOP;
         this.sharedPathways = builder.sharedPathways();
 
+        var spladeIdx = this.indexPlaneCoordinator != null 
+                ? this.indexPlaneCoordinator.get("SPLADE")
+                        .filter(com.spectrayan.spector.memory.cortex.MemorySpladeIndex.class::isInstance)
+                        .map(com.spectrayan.spector.memory.cortex.MemorySpladeIndex.class::cast)
+                        .orElse(null)
+                : null;
+        this.indexReconcileEngine = new com.spectrayan.spector.memory.index.IndexReconcileEngine(
+                this.entityDirectory,
+                this.index,
+                this.bm25Index,
+                spladeIdx
+        );
+
         //  Quartz Memory Scheduler (In-Memory Multi-Tenant Background Scheduling & Auditing)
         if (builder.scheduler() != null) {
             this.memoryScheduler = builder.scheduler();
@@ -341,6 +357,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                                     bundle.aismeBundle().homeostaticCore(),
                                     aismeConfig.backgroundDecayFactor()) : null)
                     .checkpointIntervalSeconds(memProps.getCheckpointIntervalSeconds())
+                    .indexReconcileEngine(this.indexReconcileEngine)
                     .suppliedExecutor(builder.suppliedExecutor())
                     .quartzScheduler(builder.customQuartzScheduler())
                     .build();
@@ -1623,6 +1640,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override public HyperEntityGraphMemory hyperEntityGraph() { return hyperEntityGraph; }
     public DreamPathway dreamPathway() { return dreamPathway; }
     public WanderPathway wanderPathway() { return wanderPathway; }
+    @Override public com.spectrayan.spector.memory.index.IndexPlaneCoordinator indexPlaneCoordinator() { return indexPlaneCoordinator; }
+    @Override public com.spectrayan.spector.memory.index.IndexReconcileEngine indexReconcileEngine() { return indexReconcileEngine; }
 
     public void bindRecallSignalContext(com.spectrayan.spector.memory.pathway.recall.relay.RecallSignal signal) {
         if (signal == null) return;
@@ -1992,12 +2011,12 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             }
         }
 
-        // Save BM25 binary index for instant load on next startup
-        if (persistenceMode == MemoryPersistenceMode.DISK
-                && partitionManager.activePartitionDir() != null
-                && bm25Index != null && bm25Index.totalDocuments() > 0) {
-            if (runtimeBundle != null) {
-                bm25Index.persistToBundle(runtimeBundle, null);
+        // Persist derived indexes (BM25, SPLADE) into bundle regions
+        if (indexPlaneCoordinator != null) {
+            try {
+                indexPlaneCoordinator.checkpointAll();
+            } catch (Exception e) {
+                log.warn("Failed checkpoint on IndexPlaneCoordinator during close", e);
             }
         }
 
@@ -2016,6 +2035,13 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 insularCortex.close();
             } catch (Exception e) {
                 log.warn("Failed to close InsulaMemory on close", e);
+            }
+        }
+        if (indexPlaneCoordinator != null) {
+            try {
+                indexPlaneCoordinator.close();
+            } catch (Exception e) {
+                log.warn("Failed to close IndexPlaneCoordinator on close", e);
             }
         }
         if (runtimeBundle != null) {

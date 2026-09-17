@@ -1,11 +1,11 @@
 # Architecture Decision Records (ADRs) — Master Catalog
 
-> **Authoritative registry of all 80 Architecture Decision Records governing Spector.** Every record tracks architectural rationale, options evaluated, trade-offs accepted, and code verification against `main`.
+> **Authoritative registry of all 82 Architecture Decision Records governing Spector.** Every record tracks architectural rationale, options evaluated, trade-offs accepted, and code verification against `main`.
 
 > [!NOTE]
 > The Active Inference Self-Model Engine verification report has graduated to the architecture audit section: [Architecture Verification Report: Active Inference Self-Model Engine (AISME)](../architecture/aisme-completeness-verification-report.md).
 
-## Master Registry (0001–0080)
+## Master Registry (0001–0082)
 
 | ADR | Title | Status | Date | Target File |
 |:---|:---|:---:|:---:|:---|
@@ -89,6 +89,8 @@
 | **ADR-0078** | [Salience Network and Thalamic Cognitive Profiles Architecture](0078-salience-network-and-thalamic-cognitive-profiles.md) | `Accepted (Implemented)` | 2026-08-23 | [`0078-salience-network-and-thalamic-cognitive-profiles.md`](0078-salience-network-and-thalamic-cognitive-profiles.md) |
 | **ADR-0079** | [Asynchronous Memory Event and Telemetry Notification Bus](0079-memory-event-and-telemetry-notification-bus.md) | `Accepted (Implemented)` | 2026-08-25 | [`0079-memory-event-and-telemetry-notification-bus.md`](0079-memory-event-and-telemetry-notification-bus.md) |
 | **ADR-0080** | [Observed Memory and Pathway Metrics Telemetry Architecture](0080-observed-memory-and-pathway-metrics-telemetry.md) | `Accepted (Implemented)` | 2026-08-28 | [`0080-observed-memory-and-pathway-metrics-telemetry.md`](0080-observed-memory-and-pathway-metrics-telemetry.md) |
+| **ADR-0081** | [Dedicated Reactive Cell Ingress Router](0081-dedicated-reactive-cell-ingress-router.md) | `Accepted` | 2026-09-15 | [`0081-dedicated-reactive-cell-ingress-router.md`](0081-dedicated-reactive-cell-ingress-router.md) |
+| **ADR-0082** | [Index Plane Lifecycle, Derived Views, and Reconciliation](0082-index-plane-lifecycle-and-derived-view-reconciliation.md) | `Proposed` | 2026-09-17 | [`0082-index-plane-lifecycle-and-derived-view-reconciliation.md`](0082-index-plane-lifecycle-and-derived-view-reconciliation.md) |
 
 ---
 
@@ -110,6 +112,7 @@ Low-level memory alignment, zero-GC layouts, entity graphs, off-heap bundles, an
 - **[ADR-0047: Episodic Memory and Engram Model Hierarchy](0047-episodic-memory-and-engram-model.md)** (`Accepted (Implemented)`)
 - **[ADR-0057: Remediation of Hardcoded Memory Offsets and Alignment Constants](0057-hardcoded-memory-offsets-and-alignment-constants.md)** (`Accepted (Implemented)`)
 - **[ADR-0062: Spector Memory Organization — Three-Plane Architecture](0062-memory-organization-three-plane-architecture.md)** (`Accepted (Implemented)`)
+- **[ADR-0082: Index Plane Lifecycle, Derived Views, and Reconciliation](0082-index-plane-lifecycle-and-derived-view-reconciliation.md)** (`Proposed`)
 
 ### 2. Cognitive Neuroscience, Active Inference & Dynamic Mind Simulation
 Biological memory pathways, free-energy active inference, dynamic dreaming, associative manifolds, and speech prosody:
@@ -185,3 +188,4 @@ Hardware Abstraction Layer (HAL), actor concurrency, clustering & cell HA, REST/
 - **[ADR-0077: Model B Asynchronous Task Queue and Context-Propagated Concurrency](0077-model-b-asynchronous-task-queue-concurrency.md)** (`Accepted (Implemented)`)
 - **[ADR-0079: Asynchronous Memory Event and Telemetry Notification Bus](0079-memory-event-and-telemetry-notification-bus.md)** (`Accepted (Implemented)`)
 - **[ADR-0080: Observed Memory and Pathway Metrics Telemetry Architecture](0080-observed-memory-and-pathway-metrics-telemetry.md)** (`Accepted (Implemented)`)
+- **[ADR-0081: Dedicated Reactive Cell Ingress Router](0081-dedicated-reactive-cell-ingress-router.md)** (`Accepted`)

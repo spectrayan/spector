@@ -76,4 +76,14 @@ public interface AbstractBundle extends RegionOpener, AutoCloseable {
     default void ensureCapacity(RegionId id, long requiredBytes) {
         // Default no-op for fixed bundles
     }
+
+    /**
+     * Updates the recorded used size for a specific region.
+     *
+     * @param id the region identifier
+     * @param usedSize the new used byte size
+     */
+    default void updateRegionUsedSize(RegionId id, long usedSize) {
+        // Default no-op for bundles that do not track used size in directory
+    }
 }

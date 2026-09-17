@@ -429,11 +429,50 @@ public class BM25Index implements KeywordIndex {
         }
     }
 
+    @Override
+    public boolean contains(String id) {
+        if (id == null) return false;
+        rwLock.readLock().lock();
+        try {
+            return docIdToIndex.containsKey(id);
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    public long generation() {
+        return generation;
+    }
+
+    public void setGeneration(long generation) {
+        this.generation = generation;
+    }
+
+    public String analyzerId() {
+        return analyzerId;
+    }
+
+    public void setAnalyzerId(String analyzerId) {
+        this.analyzerId = analyzerId != null ? analyzerId : "stemming-analyzer";
+    }
+
+    public java.util.Set<String> docIds() {
+        rwLock.readLock().lock();
+        try {
+            return java.util.Set.copyOf(docIds);
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    private volatile long generation = 0L;
+    private volatile String analyzerId = "stemming-analyzer";
+
     // ─────────────── Binary Persistence (bm25.bidx) ───────────────
 
     /** Magic bytes for the BM25 binary index file format. */
-    private static final int MAGIC = 0x42494458; // "BIDX"
-    private static final int FORMAT_VERSION = 1;
+    public static final int MAGIC = 0x42494458; // "BIDX"
+    public static final int FORMAT_VERSION = 2;
 
     /**
      * Saves the current BM25 index to a binary file ({@code bm25.bidx}).
@@ -657,18 +696,25 @@ public class BM25Index implements KeywordIndex {
      * to a memory-mapped region instead of a file. The first 4 bytes store the
      * total payload length, followed by the binary index data.</p>
      *
-     * @param region the BM25 region MemorySegment
-     * @return number of bytes written, or -1 if region too small
+    /**
+     * Serializes this BM25 index into a byte array in FORMAT_VERSION 2 layout.
+     *
+     * @return serialized binary payload
      */
-    public int saveToRegion(java.lang.foreign.MemorySegment region) {
+    public byte[] toByteArray() {
         rwLock.readLock().lock();
         try {
             java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
             java.io.DataOutputStream dos = new java.io.DataOutputStream(baos);
 
-            // Header
+            // Header (v2)
             dos.writeInt(MAGIC);
             dos.writeInt(FORMAT_VERSION);
+            dos.writeLong(generation);
+            byte[] analyzerBytes = (analyzerId != null ? analyzerId : "stemming-analyzer").getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            dos.writeInt(analyzerBytes.length);
+            dos.write(analyzerBytes);
+
             dos.writeInt(totalDocs);
             dos.writeInt(invertedIndex.size());
             dos.writeLong(totalDocLength);
@@ -703,72 +749,49 @@ public class BM25Index implements KeywordIndex {
             }
 
             dos.flush();
-            byte[] data = baos.toByteArray();
-            int totalBytes = 4 + data.length; // 4-byte length prefix + payload
-
-            if (totalBytes > region.byteSize()) {
-                log.warn("BM25 index ({} bytes) exceeds region capacity ({}B)",
-                        totalBytes, region.byteSize());
-                return -1;
-            }
-
-            // Write length prefix then payload
-            region.set(java.lang.foreign.ValueLayout.JAVA_INT, 0, data.length);
-            java.lang.foreign.MemorySegment.copy(
-                    java.lang.foreign.MemorySegment.ofArray(data), 0,
-                    region, 4, data.length);
-
-            log.info("BM25 index saved to bundle region: {} docs, {} terms, {} bytes",
-                    totalDocs, invertedIndex.size(), totalBytes);
-            return totalBytes;
-
+            return baos.toByteArray();
         } catch (java.io.IOException e) {
-            log.error("Failed to save BM25 index to bundle region", e);
-            return -1;
+            throw new RuntimeException("Failed to serialize BM25 index", e);
         } finally {
             rwLock.readLock().unlock();
         }
     }
 
     /**
-     * Loads a BM25 index from a V4 bundle region MemorySegment.
+     * Deserializes a BM25 index from a binary byte array (supporting v1 and v2 formats).
      *
-     * @param region the BM25 region MemorySegment
-     * @return the loaded BM25Index, or null if no valid data present
+     * @param data binary payload
+     * @param analyzer analyzer to use
+     * @return deserialized BM25Index, or null if invalid
      */
-    public static BM25Index loadFromRegion(java.lang.foreign.MemorySegment region) {
-        return loadFromRegion(region, new StemmingAnalyzer());
-    }
-
-    /**
-     * Loads a BM25 index from a V4 bundle region MemorySegment using the specified analyzer.
-     *
-     * @param region   the BM25 region MemorySegment
-     * @param analyzer the text analyzer to use for query analysis
-     * @return the loaded BM25Index, or null if no valid data present
-     */
-    public static BM25Index loadFromRegion(java.lang.foreign.MemorySegment region, Analyzer analyzer) {
-        if (region == null || region.byteSize() < 28) return null; // 4B len + 24B min header
-
-        int payloadLen = region.get(java.lang.foreign.ValueLayout.JAVA_INT, 0);
-        if (payloadLen <= 0 || 4 + payloadLen > region.byteSize()) return null;
-
-        byte[] data = new byte[payloadLen];
-        java.lang.foreign.MemorySegment.copy(region, 4,
-                java.lang.foreign.MemorySegment.ofArray(data), 0, payloadLen);
-
+    public static BM25Index fromByteArray(byte[] data, Analyzer analyzer) {
+        if (data == null || data.length < 24) return null;
         java.nio.ByteBuffer buf = java.nio.ByteBuffer.wrap(data);
 
-        // Header
         int magic = buf.getInt();
         if (magic != MAGIC) return null;
         int version = buf.getInt();
-        if (version != FORMAT_VERSION) return null;
+        if (version != 1 && version != FORMAT_VERSION) return null;
+
+        long gen = 0L;
+        String loadedAnalyzerId = "stemming-analyzer";
+        if (version >= 2) {
+            gen = buf.getLong();
+            int aIdLen = buf.getInt();
+            if (aIdLen > 0 && aIdLen <= buf.remaining()) {
+                byte[] aBytes = new byte[aIdLen];
+                buf.get(aBytes);
+                loadedAnalyzerId = new String(aBytes, java.nio.charset.StandardCharsets.UTF_8);
+            }
+        }
+
         int savedTotalDocs = buf.getInt();
-        int termCount = buf.getInt();
+        int savedTermCount = buf.getInt();
         long savedTotalDocLength = buf.getLong();
 
         BM25Index idx = new BM25Index(analyzer != null ? analyzer : new StemmingAnalyzer());
+        idx.setGeneration(gen);
+        idx.setAnalyzerId(loadedAnalyzerId);
 
         // DocIds
         int docCount = buf.getInt();
@@ -792,8 +815,8 @@ public class BM25Index implements KeywordIndex {
         }
 
         // Terms + Postings
-        int savedTermCount = buf.getInt();
-        for (int t = 0; t < savedTermCount; t++) {
+        int termCount = buf.getInt();
+        for (int t = 0; t < termCount; t++) {
             int termLen = buf.getInt();
             byte[] termBytes = new byte[termLen];
             buf.get(termBytes);
@@ -810,9 +833,63 @@ public class BM25Index implements KeywordIndex {
         idx.totalDocs = savedTotalDocs;
         idx.totalDocLength = savedTotalDocLength;
         idx.avgDocLength = savedTotalDocs > 0 ? (double) savedTotalDocLength / savedTotalDocs : 0;
-
-        log.info("BM25 index loaded from bundle region: {} docs, {} terms, {} bytes",
-                savedTotalDocs, savedTermCount, payloadLen + 4);
         return idx;
+    }
+
+    /**
+     * Saves this BM25 index to a V4 bundle region MemorySegment.
+     *
+     * @param region the BM25 region MemorySegment
+     * @return number of bytes written, or -1 if region too small
+     */
+    public int saveToRegion(java.lang.foreign.MemorySegment region) {
+        if (region == null) return -1;
+        byte[] data = toByteArray();
+        int totalBytes = 4 + data.length;
+
+        if (totalBytes > region.byteSize()) {
+            log.warn("BM25 index ({} bytes) exceeds region capacity ({}B)",
+                    totalBytes, region.byteSize());
+            return -1;
+        }
+
+        region.set(java.lang.foreign.ValueLayout.JAVA_INT, 0, data.length);
+        java.lang.foreign.MemorySegment.copy(
+                java.lang.foreign.MemorySegment.ofArray(data), 0,
+                region, 4, data.length);
+
+        log.info("BM25 index saved to bundle region: {} docs, {} terms, {} bytes (gen={})",
+                totalDocs, invertedIndex.size(), totalBytes, generation);
+        return totalBytes;
+    }
+
+    /**
+     * Loads a BM25 index from a V4 bundle region MemorySegment.
+     *
+     * @param region the BM25 region MemorySegment
+     * @return the loaded BM25Index, or null if no valid data present
+     */
+    public static BM25Index loadFromRegion(java.lang.foreign.MemorySegment region) {
+        return loadFromRegion(region, new StemmingAnalyzer());
+    }
+
+    /**
+     * Loads a BM25 index from a V4 bundle region MemorySegment using the specified analyzer.
+     *
+     * @param region   the BM25 region MemorySegment
+     * @param analyzer the text analyzer to use for query analysis
+     * @return the loaded BM25Index, or null if no valid data present
+     */
+    public static BM25Index loadFromRegion(java.lang.foreign.MemorySegment region, Analyzer analyzer) {
+        if (region == null || region.byteSize() < 28) return null; // 4B len + 24B min header
+
+        int payloadLen = region.get(java.lang.foreign.ValueLayout.JAVA_INT, 0);
+        if (payloadLen <= 0 || 4 + (long) payloadLen > region.byteSize()) return null;
+
+        byte[] data = new byte[payloadLen];
+        java.lang.foreign.MemorySegment.copy(region, 4,
+                java.lang.foreign.MemorySegment.ofArray(data), 0, payloadLen);
+
+        return fromByteArray(data, analyzer);
     }
 }

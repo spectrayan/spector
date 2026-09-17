@@ -115,6 +115,8 @@ class PersistedIdentityPinTest {
             pinned.put(RegionId.INSULA, 24);
             pinned.put(RegionId.CONTINUITY, 25);
             pinned.put(RegionId.PROVENANCE, 26);
+            pinned.put(RegionId.SPLADE, 27);
+            pinned.put(RegionId.ENTITY_REVERSE_INDEX, 28);
 
             pinned.forEach((region, expectedId) ->
                     assertThat(region.id())
@@ -131,7 +133,7 @@ class PersistedIdentityPinTest {
         void regionIdSetIsComplete() {
             assertThat(RegionId.values())
                     .as("a new RegionId was added — pin its numeric id in regionIdNumbersArePinned()")
-                    .hasSize(22);
+                    .hasSize(24);
         }
 
         @Test

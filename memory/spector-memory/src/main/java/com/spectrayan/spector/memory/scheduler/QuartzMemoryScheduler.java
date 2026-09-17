@@ -32,6 +32,8 @@ import com.spectrayan.spector.memory.scheduler.jobs.HomeostaticDecayJob;
 import com.spectrayan.spector.memory.scheduler.jobs.RemDreamJob;
 import com.spectrayan.spector.memory.scheduler.jobs.SleepConsolidationJob;
 import com.spectrayan.spector.memory.error.SpectorSchedulerException;
+import com.spectrayan.spector.memory.index.IndexReconcileEngine;
+import com.spectrayan.spector.memory.scheduler.jobs.IndexReconcileJob;
 import com.spectrayan.spector.memory.sync.CheckpointEngine;
 import org.quartz.*;
 import org.quartz.impl.DirectSchedulerFactory;
@@ -73,6 +75,7 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
     public static final String TASK_DMN_WANDERING = "dmn-wandering";
     public static final String TASK_HOMEOSTATIC_DECAY = "homeostatic-decay";
     public static final String TASK_GRAPH_ENRICHMENT = "graph-enrichment";
+    public static final String TASK_INDEX_RECONCILE = "index-reconcile";
 
     private final String namespaceId;
     private final Scheduler quartzScheduler;
@@ -93,6 +96,27 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
             long checkpointIntervalSeconds,
             Executor suppliedExecutor,
             Scheduler suppliedScheduler) {
+        this(namespaceId, reflectAction, circadianPolicy, dreamPathway, partitionManager, aismeConfig,
+                checkpointEngine, graphEnrichmentEngine, dmnDaemon, decayDaemon, checkpointIntervalSeconds,
+                null, 300L, suppliedExecutor, suppliedScheduler);
+    }
+
+    public QuartzMemoryScheduler(
+            String namespaceId,
+            Supplier<ReflectReport> reflectAction,
+            CircadianProperties circadianPolicy,
+            DreamPathway dreamPathway,
+            PartitionManager partitionManager,
+            AismeProperties aismeConfig,
+            CheckpointEngine checkpointEngine,
+            GraphEnrichmentEngine graphEnrichmentEngine,
+            Runnable dmnDaemon,
+            Runnable decayDaemon,
+            long checkpointIntervalSeconds,
+            com.spectrayan.spector.memory.index.IndexReconcileEngine indexReconcileEngine,
+            long indexReconcileIntervalSeconds,
+            Executor suppliedExecutor,
+            Scheduler suppliedScheduler) {
 
         this.namespaceId = namespaceId != null && !namespaceId.isBlank() ? namespaceId : "default";
 
@@ -111,7 +135,8 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
 
             // Register core memory tasks under group = namespaceId
             registerTasks(reflectAction, circadianPolicy, dreamPathway, partitionManager, aismeConfig,
-                    checkpointEngine, graphEnrichmentEngine, dmnDaemon, decayDaemon, checkpointIntervalSeconds);
+                    checkpointEngine, graphEnrichmentEngine, dmnDaemon, decayDaemon, checkpointIntervalSeconds,
+                    indexReconcileEngine, indexReconcileIntervalSeconds);
 
             this.active.set(true);
             log.info("QuartzMemoryScheduler initialized for namespace [{}]", this.namespaceId);
@@ -176,7 +201,9 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
             GraphEnrichmentEngine graphEnrichmentEngine,
             Runnable dmnDaemon,
             Runnable decayDaemon,
-            long checkpointIntervalSeconds) throws SchedulerException {
+            long checkpointIntervalSeconds,
+            IndexReconcileEngine indexReconcileEngine,
+            long indexReconcileIntervalSeconds) throws SchedulerException {
 
         // 1. Sleep Consolidation (Circadian reflect())
         if (reflectAction != null && circadianPolicy != null && circadianPolicy.timeTrigger() != null
@@ -263,6 +290,19 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
                     GraphEnrichmentJob.class, map,
                     SimpleScheduleBuilder.simpleSchedule().withIntervalInSeconds(30).repeatForever(),
                     10_000L);
+        }
+
+        // 7. Index Plane Derived View Reconciliation (ADR-0082)
+        if (indexReconcileEngine != null && indexReconcileIntervalSeconds > 0) {
+            JobDataMap map = new JobDataMap();
+            map.put("indexReconcileEngine", indexReconcileEngine);
+            map.put("namespaceId", namespaceId);
+
+            scheduleJobInternal(TASK_INDEX_RECONCILE,
+                    "Index Plane Reconciliation — cooperative rate-limited repair of derived views and reverse indexes",
+                    IndexReconcileJob.class, map,
+                    SimpleScheduleBuilder.simpleSchedule().withIntervalInSeconds((int) indexReconcileIntervalSeconds).repeatForever(),
+                    Math.max(15_000L, indexReconcileIntervalSeconds * 1000L));
         }
     }
 
@@ -520,6 +560,8 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
         private Runnable dmnDaemon;
         private Runnable decayDaemon;
         private long checkpointIntervalSeconds;
+        private IndexReconcileEngine indexReconcileEngine;
+        private long indexReconcileIntervalSeconds = 300L;
         private Executor suppliedExecutor;
         private Scheduler quartzScheduler;
 
@@ -586,6 +628,16 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
             return this;
         }
 
+        public Builder indexReconcileEngine(IndexReconcileEngine indexReconcileEngine) {
+            this.indexReconcileEngine = indexReconcileEngine;
+            return this;
+        }
+
+        public Builder indexReconcileIntervalSeconds(long seconds) {
+            this.indexReconcileIntervalSeconds = seconds;
+            return this;
+        }
+
         public Builder suppliedExecutor(Executor executor) {
             this.suppliedExecutor = executor;
             return this;
@@ -600,7 +652,8 @@ public final class QuartzMemoryScheduler implements MemoryScheduler {
             return new QuartzMemoryScheduler(
                     namespaceId, reflectAction, circadianPolicy, dreamPathway, partitionManager,
                     aismeConfig, checkpointEngine, graphEnrichmentEngine, dmnDaemon, decayDaemon,
-                    checkpointIntervalSeconds, suppliedExecutor, quartzScheduler
+                    checkpointIntervalSeconds, indexReconcileEngine, indexReconcileIntervalSeconds,
+                    suppliedExecutor, quartzScheduler
             );
         }
     }

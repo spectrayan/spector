@@ -56,4 +56,14 @@ public interface KeywordIndex extends AutoCloseable {
     default void remove(String id) {
         // Default no-op; implementations may override for actual deletion.
     }
+
+    /**
+     * Checks if a document is present in the index.
+     *
+     * @param id the document identifier
+     * @return true if the document is present, false otherwise
+     */
+    default boolean contains(String id) {
+        return false;
+    }
 }

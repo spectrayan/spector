@@ -109,6 +109,7 @@ public class MemoryProperties implements Serializable {
     private WalProperties wal = new WalProperties();
     private VacuumProperties vacuum = new VacuumProperties();
     private SessionProperties session = new SessionProperties();
+    private IndexReconcileProperties reconcile = new IndexReconcileProperties();
     private int maxNamespaces = 100;
     private boolean pathwayEnabled = true;
 
@@ -629,6 +630,9 @@ public class MemoryProperties implements Serializable {
     public MemoryProperties wal(WalProperties w) { setWal(w); return this; }
     public MemoryProperties vacuum(VacuumProperties v) { setVacuum(v); return this; }
     public MemoryProperties session(SessionProperties s) { setSession(s); return this; }
+    public IndexReconcileProperties getReconcile() { return reconcile; }
+    public void setReconcile(IndexReconcileProperties reconcile) { this.reconcile = reconcile != null ? reconcile : new IndexReconcileProperties(); }
+    public MemoryProperties reconcile(IndexReconcileProperties reconcile) { setReconcile(reconcile); return this; }
 
     /**
      * Creates a full copy of this {@link MemoryProperties} instance.
@@ -704,6 +708,7 @@ public class MemoryProperties implements Serializable {
         cp.wal = this.wal != null ? this.wal.copy() : new WalProperties();
         cp.vacuum = this.vacuum != null ? this.vacuum.copy() : new VacuumProperties();
         cp.session = this.session != null ? this.session.copy() : new SessionProperties();
+        cp.reconcile = this.reconcile != null ? this.reconcile.copy() : new IndexReconcileProperties();
         return cp;
     }
 }

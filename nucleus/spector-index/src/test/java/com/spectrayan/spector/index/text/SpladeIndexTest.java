@@ -278,4 +278,62 @@ class SpladeIndexTest {
                 .as("No errors during concurrent read/write")
                 .isEmpty();
     }
+
+    // ══════════════════════════════════════════════════════════════
+    // Serialization (saveToRegion / loadFromRegion)
+    // ══════════════════════════════════════════════════════════════
+
+    @Test
+    @DisplayName("saveToRegion and loadFromRegion round trip preserves index and scores")
+    void saveAndLoadRegion_roundTrip() {
+        try (var arena = java.lang.foreign.Arena.ofConfined()) {
+            index.indexSparse("doc-1", Map.of("java", 2.5f, "concurrency", 1.8f));
+            index.indexSparse("doc-2", Map.of("java", 1.0f, "python", 3.0f));
+            index.indexSparse("doc-3", Map.of("concurrency", 4.0f));
+
+            var segment = arena.allocate(65536);
+            int written = index.saveToRegion(segment);
+            assertThat(written).isGreaterThan(0);
+
+            SpladeIndex loaded = SpladeIndex.loadFromRegion(segment);
+            assertThat(loaded).isNotNull();
+            assertThat(loaded.size()).isEqualTo(3);
+
+            ScoredResult[] originalResults = index.searchSparse(Map.of("java", 1.0f, "concurrency", 1.0f), 10);
+            ScoredResult[] loadedResults = loaded.searchSparse(Map.of("java", 1.0f, "concurrency", 1.0f), 10);
+
+            assertThat(loadedResults).hasSameSizeAs(originalResults);
+            for (int i = 0; i < originalResults.length; i++) {
+                assertThat(loadedResults[i].id()).isEqualTo(originalResults[i].id());
+                assertThat(loadedResults[i].score()).isCloseTo(originalResults[i].score(), within(1e-5f));
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("saveToRegion fails gracefully when buffer capacity is too small")
+    void saveToRegion_insufficientCapacity_returnsMinusOne() {
+        try (var arena = java.lang.foreign.Arena.ofConfined()) {
+            index.indexSparse("doc-1", Map.of("term", 1.0f));
+            var smallSegment = arena.allocate(8);
+            int written = index.saveToRegion(smallSegment);
+            assertThat(written).isEqualTo(-1);
+        }
+    }
+
+    @Test
+    @DisplayName("loadFromRegion returns null on invalid or corrupted region")
+    void loadFromRegion_invalidOrCorrupted_returnsNull() {
+        assertThat(SpladeIndex.loadFromRegion(null)).isNull();
+
+        try (var arena = java.lang.foreign.Arena.ofConfined()) {
+            var tooSmall = arena.allocate(16);
+            assertThat(SpladeIndex.loadFromRegion(tooSmall)).isNull();
+
+            var corrupt = arena.allocate(64);
+            corrupt.set(java.lang.foreign.ValueLayout.JAVA_INT, 0, 32); // payload len = 32
+            corrupt.set(java.lang.foreign.ValueLayout.JAVA_INT, 4, 0xDEADBEEF); // bad magic
+            assertThat(SpladeIndex.loadFromRegion(corrupt)).isNull();
+        }
+    }
 }

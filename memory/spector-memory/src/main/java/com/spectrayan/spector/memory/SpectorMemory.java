@@ -637,6 +637,16 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
         return admin().scheduler();
     }
 
+    /** Returns the index plane coordinator managing all primary and derived index lifecycles. */
+    default com.spectrayan.spector.memory.index.IndexPlaneCoordinator indexPlaneCoordinator() {
+        return null;
+    }
+
+    /** Returns the index reconcile engine managing cooperative drift detection and repair. */
+    default com.spectrayan.spector.memory.index.IndexReconcileEngine indexReconcileEngine() {
+        return null;
+    }
+
     /** Stores ephemeral text in working memory. */
     void scratchpad(String text);
 

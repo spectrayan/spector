@@ -870,18 +870,89 @@ public class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLayout> 
         }
     }
 
-    private void rebuildReverseIndex() {
-        memoryToEntities.clear();
-        for (int i = 0; i < entityCount; i++) {
-            long entOffset = (long) i * ENTITY_NODE_BYTES;
-            int adjOff = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_OFFSET);
-            int adjCnt = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_COUNT);
-            if (adjOff < 0 || adjCnt <= 0) continue;
-            for (int r = 0; r < adjCnt; r++) {
-                int refMem = adjacencySegment.get(ValueLayout.JAVA_INT,
-                        (long) (adjOff + r) * ADJ_ENTRY_BYTES + ADJ_OFF_MEM_IDX);
-                memoryToEntities.computeIfAbsent(refMem, k -> ConcurrentHashMap.newKeySet()).add(i);
+    /**
+     * Returns all entity IDs associated with the specified memory slot from the reverse index.
+     *
+     * @param memorySlot memory slot identifier
+     * @return unmodifiable set of entity IDs, or empty set if none
+     */
+    public Set<Integer> entityIdsForMemory(int memorySlot) {
+        if (memorySlot < 0 || entityCount == 0) return Set.of();
+        Set<Integer> entities = memoryToEntities.get(memorySlot);
+        return entities != null ? java.util.Collections.unmodifiableSet(entities) : Set.of();
+    }
+
+    /**
+     * Ensures the reverse mapping between the given memory slot and entity id exists.
+     *
+     * @param memorySlot slot index in cognitive router / working memory
+     * @param entityId   internal entity id
+     * @return true if the mapping was newly added, false if already present
+     */
+    public boolean repairMemoryToEntityMapping(int memorySlot, int entityId) {
+        if (memorySlot < 0 || entityId < 0 || entityId >= entityCount) return false;
+        long stamp = lock.writeLock();
+        try {
+            return memoryToEntities.computeIfAbsent(memorySlot, k -> ConcurrentHashMap.newKeySet()).add(entityId);
+        } finally {
+            lock.unlockWrite(stamp);
+        }
+    }
+
+    /**
+     * Removes the reverse mapping between the given memory slot and entity id (e.g. during reconciliation).
+     *
+     * @param memorySlot slot index in cognitive router / working memory
+     * @param entityId   internal entity id
+     * @return true if the mapping was removed, false if not present
+     */
+    public boolean removeMemoryToEntityMapping(int memorySlot, int entityId) {
+        if (memorySlot < 0 || entityId < 0) return false;
+        long stamp = lock.writeLock();
+        try {
+            Set<Integer> entities = memoryToEntities.get(memorySlot);
+            if (entities != null) {
+                boolean removed = entities.remove(entityId);
+                if (entities.isEmpty()) {
+                    memoryToEntities.remove(memorySlot);
+                }
+                return removed;
             }
+            return false;
+        } finally {
+            lock.unlockWrite(stamp);
+        }
+    }
+
+    /**
+     * Returns an unmodifiable snapshot set of memory slots currently indexed in the reverse index.
+     *
+     * @return snapshot set of memory slots
+     */
+    public Set<Integer> indexedMemorySlots() {
+        return Set.copyOf(memoryToEntities.keySet());
+    }
+
+    /**
+     * Rebuilds the in-memory reverse index from the authoritative memory-mapped adjacency segment.
+     */
+    public void rebuildReverseIndex() {
+        long stamp = lock.writeLock();
+        try {
+            memoryToEntities.clear();
+            for (int i = 0; i < entityCount; i++) {
+                long entOffset = (long) i * ENTITY_NODE_BYTES;
+                int adjOff = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_OFFSET);
+                int adjCnt = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_COUNT);
+                if (adjOff < 0 || adjCnt <= 0) continue;
+                for (int r = 0; r < adjCnt; r++) {
+                    int refMem = adjacencySegment.get(ValueLayout.JAVA_INT,
+                            (long) (adjOff + r) * ADJ_ENTRY_BYTES + ADJ_OFF_MEM_IDX);
+                    memoryToEntities.computeIfAbsent(refMem, k -> ConcurrentHashMap.newKeySet()).add(i);
+                }
+            }
+        } finally {
+            lock.unlockWrite(stamp);
         }
     }
 

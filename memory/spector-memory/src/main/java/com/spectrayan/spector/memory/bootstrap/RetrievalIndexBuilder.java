@@ -62,51 +62,20 @@ public final class RetrievalIndexBuilder {
         var basePath = cortex.basePath();
         var resolvedPartitionDir = cortex.resolvedPartitionDir();
 
-        //  BM25 Text Search 
-        MemoryBM25Index bm25Index;
+        // ── BM25 Text Search ──
+        MemoryBM25Index bm25Index = new MemoryBM25Index(1);
         TextBlobMemory textDataStore = cortex.textStore();
         if (isDisk && basePath != null && resolvedPartitionDir != null && textDataStore != null) {
             textDataStore.readAll();
             index.setTextDataStore(textDataStore);
-
-            // V4 bundle path: load from BM25 region
-            BM25Index loadedBm25 = null;
-            if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
-                loadedBm25 = MemoryBM25Index.loadFromBundle(cortex.runtimeBundle());
-                if (loadedBm25 != null) {
-                    log.info("BM25 loaded from bundle region: {} docs", loadedBm25.size());
-                }
-            }
-
-            bm25Index = new MemoryBM25Index(1);
-            if (loadedBm25 != null) {
-                bm25Index.setPartition(0, loadedBm25);
-            } else {
-                Map<String, String> allTexts = new java.util.HashMap<>();
-                for (var entry : index.locationMap().entrySet()) {
-                    String text = index.text(entry.getKey());
-                    if (text != null && !text.isEmpty()) {
-                        allTexts.put(entry.getKey(), text);
-                    }
-                }
-                if (!allTexts.isEmpty()) {
-                    bm25Index.rebuildPartition(0, allTexts);
-                    log.info("Rebuilt BM25 index with {} documents from memory index", allTexts.size());
-                    // Save to bundle region (V4)
-                    if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
-                        bm25Index.persistToBundle(cortex.runtimeBundle(), null);
-                    }
-                }
-            }
         } else {
-            bm25Index = new MemoryBM25Index(1);
             textDataStore = null;
         }
 
-        //  SPLADE Index 
+        // ── SPLADE Index ──
         MemorySpladeIndex memorySpladeIndex = null;
         if (builder.SparseEmbeddingProvider() != null) {
-            memorySpladeIndex = new MemorySpladeIndex(1);
+            memorySpladeIndex = new MemorySpladeIndex(1, builder.SparseEmbeddingProvider());
             log.info("SPLADE index enabled: provider={}", builder.SparseEmbeddingProvider().modelName());
         }
 

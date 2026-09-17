@@ -190,6 +190,27 @@ For complete byte-level specifications, see [Binary Record Specifications & Syna
 
 ---
 
+## Index Plane Lifecycle & Derived View Reconciliation (ADR-0082)
+
+Spector decouples **mmap-primary graph stores** (`HebbianGraphMemory`, `TemporalChainMemory`, `EntityDirectory`, `HyperEntityGraphMemory`) from **derived views and secondary indexes** (`EntityReverseIndex`, `MemoryBM25Index`, `MemorySpladeIndex`) through the **Index Plane Lifecycle** architecture:
+
+1. **Topological Coordinator (`IndexPlaneCoordinator`)**:
+   - Manages dependency-ordered hydration across primary stores and derived indexes.
+   - Primary stores (mapped in native memory) are attached without warm-up latency.
+   - Derived indexes (`EntityReverseIndex` $\to$ `BM25Index` $\to$ `SpladeIndex`) hydrate sequentially according to composite generation tokens (`hash(MemoryIndex.HWM, ModelID, SchemaVersion)`).
+   - Guarantees cold-start readiness without redundant rebuilds.
+
+2. **Persistent Derived Regions**:
+   - `RegionId.BM25 (22)` & `RegionId.SPLADE (27)`: Persisted directly into `runtime.bundle` with dynamic slice growth, eliminating full-text re-extraction and sparse neural model re-inference on restart.
+   - `RegionId.ENTITY_REVERSE_INDEX (28)`: Reserved catalog slot for reverse memory-to-entity projections.
+
+3. **Continuous Background Drift Reconciliation (`IndexReconcileJob`)**:
+   - Executes cooperatively on `ThreadPlane.PLATFORM_WRITER` via `QuartzMemoryScheduler`.
+   - Bounded time-slicing ($\le 50\text{ ms}$) and repair caps ($\le 500\text{ repairs/cycle}$) prevent lock contention or ingestion degradation.
+   - Incrementally detects and heals reverse index drift and orphaned lexical index entries.
+
+---
+
 ## Client SDK Integration
 
 Client applications connect to the cognitive architecture through our multi-language client SDKs:

@@ -208,10 +208,7 @@ class MemoryBM25IndexTest {
         }
 
         try (var runtimeBundle = com.spectrayan.spector.kernel.bundle.RuntimeBundle.Init.mmap(bundlePath, specs)) {
-            com.spectrayan.spector.kernel.bundle.BundleManager mgr =
-                    new com.spectrayan.spector.kernel.bundle.BundleManager(runtimeBundle);
-
-            int written = bm25Index.persistToBundle(runtimeBundle, mgr);
+            int written = bm25Index.persistToBundle(runtimeBundle);
             assertThat(written).isGreaterThan(4096);
 
             // Verify BM25 region grew
