@@ -220,6 +220,17 @@ public class GatewayProperties {
         public void setOwnerTimeout(Duration ownerTimeout) {
             this.ownerTimeout = ownerTimeout;
         }
+
+        /** Idle-between-reads timeout for SSE / streaming responses (default 60 s). */
+        private Duration sseIdleTimeout = Duration.ofSeconds(60);
+
+        public Duration getSseIdleTimeout() {
+            return sseIdleTimeout;
+        }
+
+        public void setSseIdleTimeout(Duration sseIdleTimeout) {
+            this.sseIdleTimeout = sseIdleTimeout;
+        }
     }
 
     public static class AuthProperties {

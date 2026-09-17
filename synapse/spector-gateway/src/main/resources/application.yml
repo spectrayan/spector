@@ -20,6 +20,7 @@ spector:
       retry-max: ${SPECTOR_ROUTING_GATEWAY_RETRY_MAX:2}
       max-buffered-body-bytes: 10485760
       owner-timeout: 10s
+      sse-idle-timeout: 60s
   auth:
     enabled: ${SPECTOR_AUTH_ENABLED:false}
   cors:

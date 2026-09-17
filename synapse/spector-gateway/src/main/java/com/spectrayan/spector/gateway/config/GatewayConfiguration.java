@@ -184,12 +184,13 @@ public class GatewayConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public GatewayHttpTransport gatewayHttpTransport(GatewayProperties properties) {
-        Duration timeout = properties.getRouting().getGateway().getOwnerTimeout();
+        Duration connectTimeout = properties.getRouting().getGateway().getOwnerTimeout();
+        Duration sseIdleTimeout = properties.getRouting().getGateway().getSseIdleTimeout();
         try {
-            return new ReactorNettyGatewayHttpTransport(timeout);
+            return new ReactorNettyGatewayHttpTransport(connectTimeout, sseIdleTimeout);
         } catch (Throwable t) {
             log.warn("Falling back to standard JDK HttpClient transport: {}", t.getMessage());
-            return GatewayHttpTransport.defaultJdkTransport(timeout);
+            return GatewayHttpTransport.defaultJdkTransport(connectTimeout);
         }
     }
 
