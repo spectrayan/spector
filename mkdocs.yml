@@ -272,6 +272,7 @@ nav:
 
   # Tab 7: Community & Labs
   - Community:
+      - Governance: community/governance.md
       - Contributing: operations/contributing.md
       - FAQ: faq.md
       - Glossary: glossary.md
