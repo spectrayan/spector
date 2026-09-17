@@ -128,11 +128,14 @@ FROM --platform=$BUILDPLATFORM maven:3.9-eclipse-temurin-25 AS builder-gateway
 
 WORKDIR /build
 
-# Copy Maven reactor modules (only what gateway needs)
+# Copy Maven reactor modules (full reactor for module resolution; -pl -am limits compilation)
 COPY pom.xml .
 COPY nucleus/ nucleus/
+COPY memory/ memory/
 COPY cluster/ cluster/
-COPY synapse/spector-gateway/ synapse/spector-gateway/
+COPY synapse/ synapse/
+COPY sdks/java/ sdks/java/
+COPY bench/ bench/
 
 # Package Gateway executable fat JAR
 RUN --mount=type=cache,target=/root/.m2/repository \

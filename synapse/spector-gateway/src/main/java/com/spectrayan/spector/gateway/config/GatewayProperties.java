@@ -28,6 +28,8 @@ public class GatewayProperties {
     private CellProperties cell = new CellProperties();
     private RoutingProperties routing = new RoutingProperties();
     private AuthProperties auth = new AuthProperties();
+    private CorsProperties cors = new CorsProperties();
+    private CsrfProperties csrf = new CsrfProperties();
 
     public CellProperties getCell() {
         return cell;
@@ -51,6 +53,22 @@ public class GatewayProperties {
 
     public void setAuth(AuthProperties auth) {
         this.auth = auth;
+    }
+
+    public CorsProperties getCors() {
+        return cors;
+    }
+
+    public void setCors(CorsProperties cors) {
+        if (cors != null) this.cors = cors;
+    }
+
+    public CsrfProperties getCsrf() {
+        return csrf;
+    }
+
+    public void setCsrf(CsrfProperties csrf) {
+        if (csrf != null) this.csrf = csrf;
     }
 
     public static class CellProperties {
@@ -222,5 +240,50 @@ public class GatewayProperties {
         public void setEnabled(boolean enabled) {
             this.enabled = enabled;
         }
+    }
+
+    /**
+     * CORS configuration for the gateway edge. Mirrors synapse CorsProperties pattern.
+     */
+    public static class CorsProperties {
+        private String allowedOrigins = "http://localhost:4200,http://localhost:3000";
+        private String allowedMethods = "GET,POST,PUT,PATCH,DELETE,OPTIONS";
+        private String allowedHeaders = "Content-Type,Authorization,X-API-Key,X-Spector-Namespace,X-Spector-Tenant,Idempotency-Key";
+        private String exposedHeaders = "Content-Type";
+        private boolean allowCredentials = true;
+        private long maxAge = 3600;
+
+        public String getAllowedOrigins() { return allowedOrigins; }
+        public void setAllowedOrigins(String allowedOrigins) {
+            if (allowedOrigins != null && !allowedOrigins.isBlank()) {
+                this.allowedOrigins = allowedOrigins;
+            }
+        }
+
+        public String getAllowedMethods() { return allowedMethods; }
+        public void setAllowedMethods(String allowedMethods) { this.allowedMethods = allowedMethods; }
+
+        public String getAllowedHeaders() { return allowedHeaders; }
+        public void setAllowedHeaders(String allowedHeaders) { this.allowedHeaders = allowedHeaders; }
+
+        public String getExposedHeaders() { return exposedHeaders; }
+        public void setExposedHeaders(String exposedHeaders) { this.exposedHeaders = exposedHeaders; }
+
+        public boolean isAllowCredentials() { return allowCredentials; }
+        public void setAllowCredentials(boolean allowCredentials) { this.allowCredentials = allowCredentials; }
+
+        public long getMaxAge() { return maxAge; }
+        public void setMaxAge(long maxAge) { this.maxAge = maxAge; }
+    }
+
+    /**
+     * CSRF configuration. Gateway uses stateless token-based auth (JWT/API-key), so CSRF
+     * protection is selectively ignored on API and actuator paths rather than blanket-disabled.
+     */
+    public static class CsrfProperties {
+        private String[] ignoredPaths = {"/api/**", "/actuator/**"};
+
+        public String[] getIgnoredPaths() { return ignoredPaths; }
+        public void setIgnoredPaths(String[] ignoredPaths) { this.ignoredPaths = ignoredPaths; }
     }
 }

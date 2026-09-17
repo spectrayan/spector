@@ -22,6 +22,15 @@ spector:
       owner-timeout: 10s
   auth:
     enabled: ${SPECTOR_AUTH_ENABLED:false}
+  cors:
+    allowed-origins: ${SPECTOR_CORS_ORIGINS:http://localhost:4200,http://localhost:3000}
+    allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
+    allowed-headers: Content-Type,Authorization,X-API-Key,X-Spector-Namespace,X-Spector-Tenant,Idempotency-Key
+    exposed-headers: Content-Type
+    allow-credentials: true
+    max-age: 3600
+  csrf:
+    ignored-paths: /api/**,/actuator/**
 
 management:
   endpoints:
