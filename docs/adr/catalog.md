@@ -110,6 +110,7 @@ Low-level memory alignment, zero-GC layouts, entity graphs, off-heap bundles, an
 - **[ADR-0047: Episodic Memory and Engram Model Hierarchy](0047-episodic-memory-and-engram-model.md)** (`Accepted (Implemented)`)
 - **[ADR-0057: Remediation of Hardcoded Memory Offsets and Alignment Constants](0057-hardcoded-memory-offsets-and-alignment-constants.md)** (`Accepted (Implemented)`)
 - **[ADR-0062: Spector Memory Organization — Three-Plane Architecture](0062-memory-organization-three-plane-architecture.md)** (`Accepted (Implemented)`)
+- **[ADR-0082: Index Plane Lifecycle, Derived Views, and Reconciliation](0082-index-plane-lifecycle-and-derived-view-reconciliation.md)** (`Accepted`)
 
 ### 2. Cognitive Neuroscience, Active Inference & Dynamic Mind Simulation
 Biological memory pathways, free-energy active inference, dynamic dreaming, associative manifolds, and speech prosody:
@@ -185,3 +186,4 @@ Hardware Abstraction Layer (HAL), actor concurrency, clustering & cell HA, REST/
 - **[ADR-0077: Model B Asynchronous Task Queue and Context-Propagated Concurrency](0077-model-b-asynchronous-task-queue-concurrency.md)** (`Accepted (Implemented)`)
 - **[ADR-0079: Asynchronous Memory Event and Telemetry Notification Bus](0079-memory-event-and-telemetry-notification-bus.md)** (`Accepted (Implemented)`)
 - **[ADR-0080: Observed Memory and Pathway Metrics Telemetry Architecture](0080-observed-memory-and-pathway-metrics-telemetry.md)** (`Accepted (Implemented)`)
+- **[ADR-0081: Dedicated Reactive Cell Ingress Router](0081-dedicated-reactive-cell-ingress-router.md)** (`Accepted`)
