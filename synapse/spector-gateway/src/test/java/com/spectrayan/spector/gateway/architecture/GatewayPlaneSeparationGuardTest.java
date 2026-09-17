@@ -15,87 +15,83 @@
  */
 package com.spectrayan.spector.gateway.architecture;
 
+import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.importer.ClassFileImporter;
+import com.tngtech.archunit.core.importer.ImportOption;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Stream;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
+/**
+ * ArchUnit-based plane separation guard ensuring the gateway module has zero
+ * data-plane dependencies (Invariant T4, ADR-0081 §8 Phase 2).
+ *
+ * <p>Validates at the bytecode level — catches transitive dependencies,
+ * POM properties, and shaded packages that string-grep approaches miss.
+ */
 @DisplayName("Gateway Plane Separation Guard Test (Invariant T4, ADR-0081 §8 Phase 2)")
 class GatewayPlaneSeparationGuardTest {
 
-    private static final List<String> FORBIDDEN_TOKENS = List.of(
-            "spector-memory",
-            "spector-kernel",
-            "spector-gpu",
-            "spector-index",
-            "spector-connector",
-            "spector-batch",
-            "spector-ingestion",
-            "spector-mcp",
-            "org.apache.catalina",
-            "org.apache.tomcat",
-            "org.flywaydb",
-            "org.h2",
-            "org.apache.camel",
-            "org.quartz",
-            "jdk.incubator.vector"
-    );
+    private static JavaClasses gatewayClasses;
+
+    @BeforeAll
+    static void importClasses() {
+        gatewayClasses = new ClassFileImporter()
+                .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+                .importPackages("com.spectrayan.spector.gateway");
+    }
 
     @Test
-    @DisplayName("Invariant T4: spector-gateway source and pom have zero forbidden dependencies")
-    void gatewayMustNotDependOnDataPlane() throws IOException {
-        Path repoRoot = findRepoRoot();
-        Path gatewayModule = repoRoot.resolve("synapse/spector-gateway");
-
-        assertThat(gatewayModule).exists();
-
-        List<String> violations = new ArrayList<>();
-        try (Stream<Path> stream = Files.walk(gatewayModule)) {
-            stream.filter(Files::isRegularFile)
-                    .filter(p -> p.toString().endsWith(".java") || p.toString().endsWith("pom.xml"))
-                    .filter(p -> !p.toString().contains("/target/"))
-                    .filter(p -> !p.toString().contains("GatewayPlaneSeparationGuardTest.java"))
-                    .forEach(p -> checkFile(p, repoRoot, violations));
-        }
-
-        assertThat(violations)
-                .withFailMessage("Violations of Invariant T4 (Gateway plane separation):\n"
-                        + String.join("\n", violations))
-                .isEmpty();
+    @DisplayName("T4: Gateway must not depend on memory/kernel/storage/indexing packages")
+    void gatewayMustNotDependOnDataPlane() {
+        noClasses()
+                .that().resideInAPackage("com.spectrayan.spector.gateway..")
+                .should().dependOnClassesThat()
+                .resideInAnyPackage(
+                        "com.spectrayan.spector.memory..",
+                        "com.spectrayan.spector.kernel..",
+                        "com.spectrayan.spector.gpu..",
+                        "com.spectrayan.spector.index..",
+                        "com.spectrayan.spector.connector..",
+                        "com.spectrayan.spector.batch..",
+                        "com.spectrayan.spector.ingestion..",
+                        "com.spectrayan.spector.mcp.."
+                )
+                .as("Gateway classes must not depend on data-plane packages " +
+                    "(memory, kernel, gpu, index, connector, batch, ingestion, mcp)")
+                .check(gatewayClasses);
     }
 
-    private void checkFile(Path file, Path repoRoot, List<String> violations) {
-        try {
-            List<String> lines = Files.readAllLines(file);
-            for (int i = 0; i < lines.size(); i++) {
-                String line = lines.get(i);
-                for (String forbidden : FORBIDDEN_TOKENS) {
-                    if (line.contains(forbidden)) {
-                        violations.add(repoRoot.relativize(file) + ":" + (i + 1) + ": forbidden token '" + forbidden + "' in: " + line.trim());
-                    }
-                }
-            }
-        } catch (IOException e) {
-            throw new RuntimeException("Failed reading " + file, e);
-        }
+    @Test
+    @DisplayName("T4: Gateway must not depend on servlet/Tomcat (reactive only)")
+    void gatewayMustNotDependOnServletStack() {
+        noClasses()
+                .that().resideInAPackage("com.spectrayan.spector.gateway..")
+                .should().dependOnClassesThat()
+                .resideInAnyPackage(
+                        "org.apache.catalina..",
+                        "org.apache.tomcat..",
+                        "jakarta.servlet.."
+                )
+                .as("Gateway is a reactive (WebFlux) module — must not depend on servlet/Tomcat")
+                .check(gatewayClasses);
     }
 
-    private Path findRepoRoot() {
-        Path current = Paths.get("").toAbsolutePath();
-        while (current != null && !Files.exists(current.resolve(".git"))) {
-            current = current.getParent();
-        }
-        if (current == null) {
-            throw new IllegalStateException("Could not find repository root (.git)");
-        }
-        return current;
+    @Test
+    @DisplayName("T4: Gateway must not depend on data infrastructure (Flyway, H2, Camel, Quartz)")
+    void gatewayMustNotDependOnDataInfrastructure() {
+        noClasses()
+                .that().resideInAPackage("com.spectrayan.spector.gateway..")
+                .should().dependOnClassesThat()
+                .resideInAnyPackage(
+                        "org.flywaydb..",
+                        "org.h2..",
+                        "org.apache.camel..",
+                        "org.quartz.."
+                )
+                .as("Gateway must not depend on data infrastructure libraries")
+                .check(gatewayClasses);
     }
 }

@@ -141,6 +141,43 @@
                     </execution>
                 </executions>
             </plugin>
+
+            <!-- Invariant T4: Ban data-plane dependencies at POM resolution level -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>ban-data-plane-deps</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <exclude>com.spectrayan:spector-memory</exclude>
+                                        <exclude>com.spectrayan:spector-kernel</exclude>
+                                        <exclude>com.spectrayan:spector-gpu</exclude>
+                                        <exclude>com.spectrayan:spector-index</exclude>
+                                        <exclude>com.spectrayan:spector-connector</exclude>
+                                        <exclude>com.spectrayan:spector-batch</exclude>
+                                        <exclude>com.spectrayan:spector-ingestion</exclude>
+                                        <exclude>com.spectrayan:spector-mcp</exclude>
+                                        <exclude>org.flywaydb:*</exclude>
+                                        <exclude>com.h2database:*</exclude>
+                                        <exclude>org.apache.camel:*</exclude>
+                                    </excludes>
+                                    <message>
+                                        Invariant T4 violation: spector-gateway must not depend on data-plane modules.
+                                    </message>
+                                </bannedDependencies>
+                            </rules>
+                            <fail>true</fail>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 </project>

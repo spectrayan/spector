@@ -67,7 +67,7 @@ public interface GatewayHttpTransport {
 
             if (req.contentLength() > 0 || (req.contentLength() < 0 && req.bodySupplier() != null)) {
                 builder.method(req.method(), HttpRequest.BodyPublishers.ofInputStream(req.bodySupplier()));
-            } else if (req.contentLength() == 0 && "POST".equalsIgnoreCase(req.method()) || "PUT".equalsIgnoreCase(req.method()) || "PATCH".equalsIgnoreCase(req.method())) {
+            } else if (("POST".equalsIgnoreCase(req.method()) || "PUT".equalsIgnoreCase(req.method()) || "PATCH".equalsIgnoreCase(req.method())) && req.contentLength() == 0) {
                 builder.method(req.method(), HttpRequest.BodyPublishers.noBody());
             } else {
                 builder.method(req.method(), HttpRequest.BodyPublishers.noBody());

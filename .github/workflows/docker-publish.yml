@@ -132,7 +132,10 @@ jobs:
         run: |
           PRIMARY_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n 1)
           echo "Smoke testing gateway image: $PRIMARY_TAG"
-          docker run -d --name gateway-smoke -p 7070:7070 "$PRIMARY_TAG" || true
+          docker run -d --name gateway-smoke -p 7070:7070 \
+            -e SPECTOR_ROUTING_REDIS_ENABLED=false \
+            -e SPECTOR_CELL_RING_MEMBERS=localhost:7071,localhost:7072 \
+            "$PRIMARY_TAG" || true
           for i in {1..20}; do
             if curl -sf http://127.0.0.1:7070/actuator/health >/dev/null 2>&1; then
               echo "Gateway healthcheck /actuator/health passed!"

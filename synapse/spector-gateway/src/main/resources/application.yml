@@ -29,8 +29,6 @@ spector:
     exposed-headers: Content-Type
     allow-credentials: true
     max-age: 3600
-  csrf:
-    ignored-paths: /api/**,/actuator/**
 
 management:
   endpoints:

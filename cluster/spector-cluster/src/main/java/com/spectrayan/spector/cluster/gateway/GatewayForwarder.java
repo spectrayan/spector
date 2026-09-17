@@ -116,15 +116,21 @@ public class GatewayForwarder {
 
             // Check for STALE_ROUTE / NOT_OWNER refusal (HTTP 421 Misdirected Request)
             if (response.statusCode() == 421) {
+                // Peek at the 421 body (≤8 KiB) to extract reported owner without consuming the stream.
+                // This preserves body content for the client if retries are exhausted.
+                OwnerExtraction extraction = extractReportedOwner(response);
+
                 // Check retry bounds (Req R7.4)
                 if (attempts > retryMax) {
                     log.warn("Exhausted bounded retries ({}/{}) for namespace '{}' after node '{}' returned 421; surfacing refusal",
                             attempts - 1, retryMax, routingKey.namespaceId(), ownerId);
-                    return new ForwardResponse(response.statusCode(), response.headers(), response.bodyStream(), ownerId, attempts);
+                    // Return with peeked body so client receives the 421 content
+                    return new ForwardResponse(response.statusCode(), response.headers(),
+                            extraction.peekedBody, ownerId, attempts);
                 }
 
                 // G45: Check if refusing node reported the true authoritative owner
-                String reportedOwner = extractReportedOwner(response);
+                String reportedOwner = extraction.owner;
                 if (reportedOwner != null && !reportedOwner.isBlank() && !reportedOwner.equals(ownerId)) {
                     log.info("Retargeting gateway forward for namespace '{}' directly to reported owner '{}' (was '{}', attempt {}/{})",
                             routingKey.namespaceId(), reportedOwner, ownerId, attempts, retryMax);
@@ -133,11 +139,15 @@ public class GatewayForwarder {
                     // Req R7.6: If route came from degraded path (HASH_FALLBACK) and node reported no alternative owner, do NOT forward again!
                     log.warn("Target node '{}' refused request for namespace '{}' resolved via degraded HASH_FALLBACK; surfacing refusal immediately (Req R7.6)",
                             ownerId, routingKey.namespaceId());
-                    return new ForwardResponse(response.statusCode(), response.headers(), response.bodyStream(), ownerId, attempts);
+                    return new ForwardResponse(response.statusCode(), response.headers(),
+                            extraction.peekedBody, ownerId, attempts);
                 } else {
                     log.info("Retrying gateway forward for namespace '{}' after 421 refusal from node '{}' (attempt {}/{})",
                             routingKey.namespaceId(), ownerId, attempts, retryMax);
                 }
+
+                // Close the consumed 421 response before retrying
+                try { response.close(); } catch (Exception ignored) {}
 
                 // Bounded retry (Req R7.4, G40):
                 // Invalidate local Caffeine L1 cache, and evict Redis ONLY if mode == HASH (never delete shared Redis overrides!)
@@ -150,25 +160,49 @@ public class GatewayForwarder {
         }
     }
 
-    private static String extractReportedOwner(ForwardResponse response) {
+    /**
+     * Result of owner extraction from a 421 response, preserving peeked body bytes.
+     */
+    private record OwnerExtraction(String owner, byte[] peekedBody) {}
+
+    /**
+     * Maximum bytes to peek from a 421 response body when looking for a JSON "owner" field.
+     * Capped to avoid reading a large misdirected payload.
+     */
+    private static final int MAX_421_PEEK_BYTES = 8192;
+
+    private static OwnerExtraction extractReportedOwner(ForwardResponse response) {
+        // 1. Check X-Spector-Owner header first — no body consumption needed
         if (response.headers() != null) {
             java.util.List<String> ownerHeaders = response.headers().get("X-Spector-Owner");
             if (ownerHeaders != null && !ownerHeaders.isEmpty()) {
                 String val = ownerHeaders.get(0);
                 if (val != null && !val.isBlank()) {
-                    return val.trim();
+                    // Peek body anyway so it's preserved for exhausted-retry path
+                    byte[] peeked = peekBody(response);
+                    return new OwnerExtraction(val.trim(), peeked);
                 }
             }
         }
-        byte[] body = response.body();
-        if (body != null && body.length > 0) {
-            String bodyStr = new String(body, StandardCharsets.UTF_8);
+
+        // 2. Peek at most 8 KiB from body for JSON "owner" fallback
+        byte[] peeked = peekBody(response);
+        if (peeked.length > 0) {
+            String bodyStr = new String(peeked, StandardCharsets.UTF_8);
             java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("\"owner\"\\s*:\\s*\"([^\"]+)\"").matcher(bodyStr);
             if (matcher.find()) {
-                return matcher.group(1).trim();
+                return new OwnerExtraction(matcher.group(1).trim(), peeked);
             }
         }
-        return null;
+        return new OwnerExtraction(null, peeked);
+    }
+
+    private static byte[] peekBody(ForwardResponse response) {
+        try {
+            return response.bodyStream().readNBytes(MAX_421_PEEK_BYTES);
+        } catch (Exception e) {
+            return new byte[0];
+        }
     }
 
     public static Function<String, String> defaultNodeUrlResolver(int defaultPort) {
@@ -183,3 +217,4 @@ public class GatewayForwarder {
         };
     }
 }
+

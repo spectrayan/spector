@@ -90,10 +90,10 @@ public class GatewayForwardingFilter extends OncePerRequestFilter {
         if (path == null || !path.startsWith("/api/v1/")) {
             return true;
         }
-        // Exclude health, auth, events from forwarding
-        return path.startsWith("/api/v1/auth")
-                || path.startsWith("/api/v1/events")
-                || path.contains("/health");
+        // Exclude only health and actuator paths from forwarding (ADR-0081 §9).
+        // Auth and events are forwarded to owner (aligned with dedicated spector-gateway).
+        return path.startsWith("/api/v1/health")
+                || path.startsWith("/actuator");
     }
 
     @Override

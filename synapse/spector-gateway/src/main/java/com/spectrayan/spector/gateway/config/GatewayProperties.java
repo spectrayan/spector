@@ -29,7 +29,6 @@ public class GatewayProperties {
     private RoutingProperties routing = new RoutingProperties();
     private AuthProperties auth = new AuthProperties();
     private CorsProperties cors = new CorsProperties();
-    private CsrfProperties csrf = new CsrfProperties();
 
     public CellProperties getCell() {
         return cell;
@@ -63,13 +62,6 @@ public class GatewayProperties {
         if (cors != null) this.cors = cors;
     }
 
-    public CsrfProperties getCsrf() {
-        return csrf;
-    }
-
-    public void setCsrf(CsrfProperties csrf) {
-        if (csrf != null) this.csrf = csrf;
-    }
 
     public static class CellProperties {
         private String id = "default";
@@ -274,16 +266,5 @@ public class GatewayProperties {
 
         public long getMaxAge() { return maxAge; }
         public void setMaxAge(long maxAge) { this.maxAge = maxAge; }
-    }
-
-    /**
-     * CSRF configuration. Gateway uses stateless token-based auth (JWT/API-key), so CSRF
-     * protection is selectively ignored on API and actuator paths rather than blanket-disabled.
-     */
-    public static class CsrfProperties {
-        private String[] ignoredPaths = {"/api/**", "/actuator/**"};
-
-        public String[] getIgnoredPaths() { return ignoredPaths; }
-        public void setIgnoredPaths(String[] ignoredPaths) { this.ignoredPaths = ignoredPaths; }
     }
 }

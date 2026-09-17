@@ -2,7 +2,7 @@
 
 | Field | Value |
 |:---|:---|
-| **Status** | Accepted (Implemented) |
+| **Status** | Proposed |
 | **Date** | 2026-09-17 |
 | **Authors** | Spector Maintainers & Architecture Working Group |
 | **Deciders** | Spector Technical Steering Committee (TSC) |
