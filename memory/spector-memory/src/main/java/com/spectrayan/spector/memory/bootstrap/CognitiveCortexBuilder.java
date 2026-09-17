@@ -509,6 +509,15 @@ public final class CognitiveCortexBuilder {
                         true  // growable — term/posting lists grow dynamically
                 ),
                 new RegionSizeSpec(
+                        RegionId.SPLADE,
+                        bm25InitialSize,
+                        1,
+                        0,
+                        0x53504C44,  // "SPLD" magic
+                        1,
+                        true  // growable — sparse neural term/posting lists grow dynamically
+                ),
+                new RegionSizeSpec(
                         RegionId.PROVENANCE,
                         64 + (long) memProps.getProvenanceCapacity() * ProvenanceLayout.RECORD_STRIDE,
                         memProps.getProvenanceCapacity(),

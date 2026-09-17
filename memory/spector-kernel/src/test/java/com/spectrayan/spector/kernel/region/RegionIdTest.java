@@ -37,6 +37,10 @@ class RegionIdTest {
         assertThat(RegionId.fromId(0)).isEqualTo(RegionId.SEMANTIC);
         assertThat(RegionId.fromId(10)).isEqualTo(RegionId.WORKING);
         assertThat(RegionId.fromId(23)).isEqualTo(RegionId.CHECKPOINT);
+        assertThat(RegionId.fromId(27)).isEqualTo(RegionId.SPLADE);
+        assertThat(RegionId.fromId(28)).isEqualTo(RegionId.ENTITY_REVERSE_INDEX);
+        assertThat(RegionId.SPLADE.isRuntimeRegion()).isTrue();
+        assertThat(RegionId.ENTITY_REVERSE_INDEX.isRuntimeRegion()).isTrue();
     }
 
     @Test

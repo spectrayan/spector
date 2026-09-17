@@ -432,8 +432,8 @@ public class BM25Index implements KeywordIndex {
     // ─────────────── Binary Persistence (bm25.bidx) ───────────────
 
     /** Magic bytes for the BM25 binary index file format. */
-    private static final int MAGIC = 0x42494458; // "BIDX"
-    private static final int FORMAT_VERSION = 1;
+    public static final int MAGIC = 0x42494458; // "BIDX"
+    public static final int FORMAT_VERSION = 1;
 
     /**
      * Saves the current BM25 index to a binary file ({@code bm25.bidx}).

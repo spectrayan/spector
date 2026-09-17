@@ -59,7 +59,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * @see BM25Index
  * @see TextBlobMemory
  */
-public final class MemoryBM25Index implements AutoCloseable {
+public final class MemoryBM25Index extends AbstractMemoryIndex<BM25Index> {
 
     private static final Logger log = LoggerFactory.getLogger(MemoryBM25Index.class);
 
@@ -72,14 +72,12 @@ public final class MemoryBM25Index implements AutoCloseable {
      */
     public record BM25Candidate(String id, float bm25Score, int partitionIndex) {}
 
-    private final CopyOnWriteArrayList<BM25Index> partitions;
-
     /**
      * Creates an empty MemoryBM25Index with no partitions.
      * Call {@link #addPartition()} or {@link #rebuildPartition(int, Map)} to populate.
      */
     public MemoryBM25Index() {
-        this.partitions = new CopyOnWriteArrayList<>();
+        super("BM25", java.util.Set.of("MemoryIndex", "EntityReverseIndex"));
     }
 
     /**
@@ -88,10 +86,12 @@ public final class MemoryBM25Index implements AutoCloseable {
      * @param partitionCount number of partitions to pre-allocate
      */
     public MemoryBM25Index(int partitionCount) {
-        this.partitions = new CopyOnWriteArrayList<>();
-        for (int i = 0; i < partitionCount; i++) {
-            partitions.add(createBM25Index());
-        }
+        super("BM25", java.util.Set.of("MemoryIndex", "EntityReverseIndex"), partitionCount);
+    }
+
+    @Override
+    protected BM25Index createPartitionIndex() {
+        return new BM25Index(new StemmingAnalyzer());
     }
 
     /**
@@ -188,7 +188,7 @@ public final class MemoryBM25Index implements AutoCloseable {
         ensurePartition(partitionIndex);
 
         // Close old index and create a fresh one
-        BM25Index newIndex = createBM25Index();
+        BM25Index newIndex = createPartitionIndex();
         for (Map.Entry<String, String> entry : texts.entrySet()) {
             newIndex.index(entry.getKey(), entry.getValue());
         }
@@ -212,45 +212,13 @@ public final class MemoryBM25Index implements AutoCloseable {
         log.debug("Set BM25 partition {} with {} documents", partitionIndex, index.size());
     }
 
-    /**
-     * Adds a new empty partition (called when a partition rolls).
-     *
-     * @return the index of the newly added partition
-     */
-    public int addPartition() {
-        BM25Index newIndex = createBM25Index();
-        partitions.add(newIndex);
-        int idx = partitions.size() - 1;
-        log.debug("Added BM25 partition {}", idx);
-        return idx;
-    }
-
-    /**
-     * Returns the number of partitions.
-     */
-    public int partitionCount() {
-        return partitions.size();
-    }
-
-    /**
-     * Returns the total number of indexed documents across all partitions.
-     */
+    @Override
     public int totalDocuments() {
         int total = 0;
         for (BM25Index idx : partitions) {
             total += idx.size();
         }
         return total;
-    }
-
-    /**
-     * Returns the BM25 index for a specific partition (for direct access).
-     *
-     * @param partitionIndex the partition index
-     * @return the BM25Index for that partition
-     */
-    public BM25Index partition(int partitionIndex) {
-        return partitions.get(partitionIndex);
     }
 
     /**
@@ -317,24 +285,47 @@ public final class MemoryBM25Index implements AutoCloseable {
     }
 
     @Override
-    public void close() {
-        for (BM25Index idx : partitions) {
-            idx.close();
+    public void checkpoint() {
+        if (context != null && context.runtimeBundle() != null) {
+            persistToBundle(context.runtimeBundle(), null);
         }
-        partitions.clear();
+    }
+
+    @Override
+    public java.util.concurrent.CompletionStage<Void> hydrate() {
+        long start = System.currentTimeMillis();
+        if (context != null && context.runtimeBundle() != null) {
+            BM25Index loaded = loadFromBundle(context.runtimeBundle());
+            if (loaded != null) {
+                setPartition(0, loaded);
+                this.lastHydrateMs = System.currentTimeMillis() - start;
+                this.generation = computeGeneration(totalDocuments(), "stemming-analyzer", BM25Index.FORMAT_VERSION);
+                log.info("BM25 hydrated from bundle region in {}ms ({} docs)", lastHydrateMs, loaded.size());
+                return java.util.concurrent.CompletableFuture.completedFuture(null);
+            }
+        }
+        if (context != null && context.memoryIndex() != null) {
+            Map<String, String> allTexts = new java.util.HashMap<>();
+            for (var entry : context.memoryIndex().locationMap().entrySet()) {
+                String text = context.memoryIndex().text(entry.getKey());
+                if (text != null && !text.isEmpty()) {
+                    allTexts.put(entry.getKey(), text);
+                }
+            }
+            if (!allTexts.isEmpty()) {
+                rebuildPartition(0, allTexts);
+                log.info("Rebuilt BM25 index with {} documents from memory index", allTexts.size());
+                if (context.runtimeBundle() != null) {
+                    persistToBundle(context.runtimeBundle(), null);
+                }
+            }
+        }
+        this.lastHydrateMs = System.currentTimeMillis() - start;
+        this.generation = computeGeneration(totalDocuments(), "stemming-analyzer", BM25Index.FORMAT_VERSION);
+        return java.util.concurrent.CompletableFuture.completedFuture(null);
     }
 
     // ── Internal helpers ──
-
-    private void ensurePartition(int partitionIndex) {
-        while (partitions.size() <= partitionIndex) {
-            partitions.add(createBM25Index());
-        }
-    }
-
-    private BM25Index createBM25Index() {
-        return new BM25Index(new StemmingAnalyzer());
-    }
 
     private List<BM25Candidate> searchSequential(List<BM25Index> snapshot, String query, int topK) {
         List<BM25Candidate> results = new ArrayList<>();

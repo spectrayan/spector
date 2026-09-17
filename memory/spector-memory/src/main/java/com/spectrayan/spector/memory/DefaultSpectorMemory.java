@@ -1995,12 +1995,12 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             }
         }
 
-        // Save BM25 binary index for instant load on next startup
-        if (persistenceMode == MemoryPersistenceMode.DISK
-                && partitionManager.activePartitionDir() != null
-                && bm25Index != null && bm25Index.totalDocuments() > 0) {
-            if (runtimeBundle != null) {
-                bm25Index.persistToBundle(runtimeBundle, null);
+        // Persist derived indexes (BM25, SPLADE) into bundle regions
+        if (indexPlaneCoordinator != null) {
+            try {
+                indexPlaneCoordinator.checkpointAll();
+            } catch (Exception e) {
+                log.warn("Failed checkpoint on IndexPlaneCoordinator during close", e);
             }
         }
 

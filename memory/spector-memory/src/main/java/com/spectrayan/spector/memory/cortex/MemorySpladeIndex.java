@@ -16,6 +16,10 @@ import com.spectrayan.spector.commons.concurrent.ConcurrentExecutionException;
 import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
 import com.spectrayan.spector.index.ScoredResult;
 import com.spectrayan.spector.index.text.SpladeIndex;
+import com.spectrayan.spector.kernel.bundle.BundleManager;
+import com.spectrayan.spector.kernel.bundle.RegionRef;
+import com.spectrayan.spector.kernel.bundle.RuntimeBundle;
+import com.spectrayan.spector.kernel.region.RegionId;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,7 +31,6 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-// TODO(#428): Extract common index infrastructure to AbstractMemoryIndex
 /**
  * Per-partition SPLADE index manager for learned sparse retrieval.
  *
@@ -59,7 +62,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * @see SpladeIndex
  * @see MemoryBM25Index
  */
-public final class MemorySpladeIndex implements AutoCloseable {
+public final class MemorySpladeIndex extends AbstractMemoryIndex<SpladeIndex> {
 
     private static final Logger log = LoggerFactory.getLogger(MemorySpladeIndex.class);
 
@@ -72,13 +75,11 @@ public final class MemorySpladeIndex implements AutoCloseable {
      */
     public record SpladeCandidate(String id, float spladeScore, int partitionIndex) {}
 
-    private final CopyOnWriteArrayList<SpladeIndex> partitions;
-
     /**
      * Creates an empty MemorySpladeIndex with no partitions.
      */
     public MemorySpladeIndex() {
-        this.partitions = new CopyOnWriteArrayList<>();
+        super("SPLADE", java.util.Set.of("MemoryIndex"));
     }
 
     /**
@@ -87,10 +88,12 @@ public final class MemorySpladeIndex implements AutoCloseable {
      * @param partitionCount number of partitions to pre-allocate
      */
     public MemorySpladeIndex(int partitionCount) {
-        this.partitions = new CopyOnWriteArrayList<>();
-        for (int i = 0; i < partitionCount; i++) {
-            partitions.add(new SpladeIndex());
-        }
+        super("SPLADE", java.util.Set.of("MemoryIndex"), partitionCount);
+    }
+
+    @Override
+    protected SpladeIndex createPartitionIndex() {
+        return new SpladeIndex();
     }
 
     /**
@@ -189,25 +192,7 @@ public final class MemorySpladeIndex implements AutoCloseable {
         log.debug("Rebuilt SPLADE for partition {} with {} documents", partitionIndex, sparseVecs.size());
     }
 
-    /**
-     * Adds a new empty partition (called when a partition rolls).
-     *
-     * @return the index of the newly added partition
-     */
-    public int addPartition() {
-        SpladeIndex newIndex = new SpladeIndex();
-        partitions.add(newIndex);
-        int idx = partitions.size() - 1;
-        log.debug("Added SPLADE partition {}", idx);
-        return idx;
-    }
-
-    /** Returns the number of partitions. */
-    public int partitionCount() {
-        return partitions.size();
-    }
-
-    /** Returns the total number of indexed documents across all partitions. */
+    @Override
     public int totalDocuments() {
         int total = 0;
         for (SpladeIndex idx : partitions) {
@@ -216,25 +201,92 @@ public final class MemorySpladeIndex implements AutoCloseable {
         return total;
     }
 
-    /** Returns the SPLADE index for a specific partition. */
-    public SpladeIndex partition(int partitionIndex) {
-        return partitions.get(partitionIndex);
+    /**
+     * Persists the active SPLADE index into a V4 {@link RuntimeBundle} with dynamic variable-slice growth.
+     *
+     * <p>If the serialized SPLADE index payload exceeds the current {@link RegionId#SPLADE} region size,
+     * this method automatically ensures capacity via {@link RegionRef#ensureCapacity(long)}
+     * and retries the save into the expanded slice.</p>
+     *
+     * @param runtimeBundle the runtime bundle containing the SPLADE region
+     * @param bundleManager optional bundle manager for usage tracking (may be null)
+     * @return number of bytes written to the bundle region, or -1 on error
+     */
+    public int persistToBundle(RuntimeBundle runtimeBundle, BundleManager bundleManager) {
+        if (runtimeBundle == null || partitions.isEmpty() || totalDocuments() == 0) {
+            return 0;
+        }
+
+        try {
+            RegionRef spladeRef = runtimeBundle.regionRef(RegionId.SPLADE);
+            if (spladeRef == null) {
+                return -1;
+            }
+
+            int written = partition(0).saveToRegion(spladeRef.resolve());
+            if (written == -1) {
+                // Payload exceeds current capacity -> dynamically ensure capacity
+                log.info("SPLADE index exceeded region capacity; ensuring expanded capacity");
+                spladeRef.ensureCapacity(spladeRef.byteSize() + 1);
+
+                // Retry write into expanded slice
+                written = partition(0).saveToRegion(spladeRef.resolve());
+            }
+
+            if (written > 0) {
+                runtimeBundle.updateRegionUsedSize(RegionId.SPLADE, written);
+            }
+            return written;
+        } catch (Exception e) {
+            log.warn("Failed to persist SPLADE index to runtime bundle: {}", e.getMessage(), e);
+            return -1;
+        }
+    }
+
+    /**
+     * Loads a SPLADE index from a V4 {@link RuntimeBundle}.
+     *
+     * @param runtimeBundle the runtime bundle containing the SPLADE region
+     * @return the loaded SpladeIndex, or null if no valid data is found
+     */
+    public static SpladeIndex loadFromBundle(RuntimeBundle runtimeBundle) {
+        if (runtimeBundle == null) {
+            return null;
+        }
+        try {
+            RegionRef spladeRef = runtimeBundle.regionRef(RegionId.SPLADE);
+            if (spladeRef != null) {
+                return SpladeIndex.loadFromRegion(spladeRef.resolve());
+            }
+        } catch (Exception e) {
+            log.debug("SPLADE load from bundle region failed: {}", e.getMessage());
+        }
+        return null;
     }
 
     @Override
-    public void close() {
-        for (SpladeIndex idx : partitions) {
-            idx.close();
+    public void checkpoint() {
+        if (context != null && context.runtimeBundle() != null) {
+            persistToBundle(context.runtimeBundle(), null);
         }
-        partitions.clear();
     }
 
-    //  Internal helpers 
-
-    private void ensurePartition(int partitionIndex) {
-        while (partitions.size() <= partitionIndex) {
-            partitions.add(new SpladeIndex());
+    @Override
+    public java.util.concurrent.CompletionStage<Void> hydrate() {
+        long start = System.currentTimeMillis();
+        if (context != null && context.runtimeBundle() != null) {
+            SpladeIndex loaded = loadFromBundle(context.runtimeBundle());
+            if (loaded != null) {
+                setPartition(0, loaded);
+                this.lastHydrateMs = System.currentTimeMillis() - start;
+                this.generation = computeGeneration(totalDocuments(), "splade", SpladeIndex.FORMAT_VERSION);
+                log.info("SPLADE hydrated from bundle region in {}ms ({} docs)", lastHydrateMs, loaded.size());
+                return java.util.concurrent.CompletableFuture.completedFuture(null);
+            }
         }
+        this.lastHydrateMs = System.currentTimeMillis() - start;
+        this.generation = computeGeneration(totalDocuments(), "splade", SpladeIndex.FORMAT_VERSION);
+        return java.util.concurrent.CompletableFuture.completedFuture(null);
     }
 
     private List<SpladeCandidate> searchSequential(List<SpladeIndex> snapshot,

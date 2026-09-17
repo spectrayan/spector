@@ -308,4 +308,62 @@ class MemorySpladeIndexTest {
         assertThat(latch.await(30, TimeUnit.SECONDS)).isTrue();
         assertThat(errors).isEmpty();
     }
+
+    @Test
+    @DisplayName("persistToBundle and loadFromBundle with dynamic region growth")
+    void persistToBundle_and_loadFromBundle_with_growth(@org.junit.jupiter.api.io.TempDir java.nio.file.Path tempDir) {
+        java.nio.file.Path bundlePath = tempDir.resolve("runtime.bundle");
+        List<com.spectrayan.spector.kernel.region.RegionSizeSpec> specs = List.of(
+                new com.spectrayan.spector.kernel.region.RegionSizeSpec(
+                        com.spectrayan.spector.kernel.region.RegionId.WORKING, 4096, 10, 64, 1, 1, false),
+                // Start with a small SPLADE region to trigger growth
+                new com.spectrayan.spector.kernel.region.RegionSizeSpec(
+                        com.spectrayan.spector.kernel.region.RegionId.SPLADE, 4096, 1, 0, 0x53504C44, 1, true)
+        );
+
+        spladeIndex.addPartition();
+        // Insert documents to exceed initial 4096 bytes
+        for (int i = 0; i < 200; i++) {
+            spladeIndex.index(0, "doc-" + i, Map.of(
+                    "term_" + i, 2.0f,
+                    "shared_neural", 1.5f,
+                    "sparse_weight_" + (i % 10), 0.8f
+            ));
+        }
+
+        try (var runtimeBundle = com.spectrayan.spector.kernel.bundle.RuntimeBundle.Init.mmap(bundlePath, specs)) {
+            com.spectrayan.spector.kernel.bundle.BundleManager mgr =
+                    new com.spectrayan.spector.kernel.bundle.BundleManager(runtimeBundle);
+
+            int written = spladeIndex.persistToBundle(runtimeBundle, mgr);
+            assertThat(written).isGreaterThan(4096);
+
+            // Verify SPLADE region grew
+            assertThat(runtimeBundle.regionRef(com.spectrayan.spector.kernel.region.RegionId.SPLADE).resolve().byteSize())
+                    .isGreaterThan(4096);
+        }
+
+        // Reopen bundle and load SPLADE index
+        try (var reopenedBundle = com.spectrayan.spector.kernel.bundle.RuntimeBundle.Init.open(bundlePath)) {
+            com.spectrayan.spector.index.text.SpladeIndex loaded = MemorySpladeIndex.loadFromBundle(reopenedBundle);
+            assertThat(loaded).isNotNull();
+            assertThat(loaded.size()).isEqualTo(200);
+
+            var scored = loaded.searchSparse(Map.of("term_105", 1.0f), 5);
+            assertThat(scored).isNotEmpty();
+            assertThat(scored[0].id()).isEqualTo("doc-105");
+        }
+    }
+
+    @Test
+    @DisplayName("ManagedIndex lifecycle contract on MemorySpladeIndex")
+    void managedIndex_lifecycle() {
+        assertThat(spladeIndex.name()).isEqualTo("SPLADE");
+        assertThat(spladeIndex.kind()).isEqualTo(com.spectrayan.spector.memory.index.IndexKind.DERIVED_EXPENSIVE);
+        assertThat(spladeIndex.dependsOn()).contains("MemoryIndex");
+
+        var stats = spladeIndex.stats();
+        assertThat(stats).isNotNull();
+        assertThat(stats.entries()).isEqualTo(0);
+    }
 }

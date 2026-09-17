@@ -106,12 +106,20 @@ public final class CheckpointEngine {
     // ── Event Bus (replaces CheckpointListener) ──
     private volatile EventBus<SpectorLifecycleEvent> eventBus;
     private volatile Map<String, String> eventContext = Map.of();
+    private volatile com.spectrayan.spector.memory.index.IndexPlaneCoordinator indexPlaneCoordinator;
 
     /**
      * Sets the active router supplier to dynamically resolve active partition stores across rolls (#446).
      */
     public void setRouterSupplier(java.util.function.Supplier<CognitiveMemoryRouter> supplier) {
         this.routerSupplier = supplier;
+    }
+
+    /**
+     * Sets the index plane coordinator for unified derived index checkpointing (ADR-0082).
+     */
+    public void setIndexPlaneCoordinator(com.spectrayan.spector.memory.index.IndexPlaneCoordinator coordinator) {
+        this.indexPlaneCoordinator = coordinator;
     }
 
 
@@ -235,6 +243,10 @@ public final class CheckpointEngine {
             if (coActivationTracker != null) {
                 saveGraph("CoActivationTracker", () ->
                         coActivationTracker.save(bundlePath));
+            }
+            if (indexPlaneCoordinator != null) {
+                saveGraph("IndexPlaneCoordinator", () ->
+                        indexPlaneCoordinator.checkpointAll());
             }
         }
 

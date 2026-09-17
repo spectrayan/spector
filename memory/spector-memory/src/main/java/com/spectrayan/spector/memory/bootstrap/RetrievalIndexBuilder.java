@@ -103,10 +103,21 @@ public final class RetrievalIndexBuilder {
             textDataStore = null;
         }
 
-        //  SPLADE Index 
+        // ── SPLADE Index ──
         MemorySpladeIndex memorySpladeIndex = null;
         if (builder.SparseEmbeddingProvider() != null) {
+            com.spectrayan.spector.index.text.SpladeIndex loadedSplade = null;
+            if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
+                loadedSplade = MemorySpladeIndex.loadFromBundle(cortex.runtimeBundle());
+                if (loadedSplade != null) {
+                    log.info("SPLADE loaded from bundle region: {} docs", loadedSplade.size());
+                }
+            }
+
             memorySpladeIndex = new MemorySpladeIndex(1);
+            if (loadedSplade != null) {
+                memorySpladeIndex.setPartition(0, loadedSplade);
+            }
             log.info("SPLADE index enabled: provider={}", builder.SparseEmbeddingProvider().modelName());
         }
 

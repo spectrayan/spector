@@ -614,12 +614,14 @@ public final class SpectorMemoryFactory {
                 "MemoryIndex", index, java.util.Set.of()));
 
         if (retrieval.bm25Index() != null) {
-            indexPlaneCoordinator.register(new com.spectrayan.spector.memory.index.GraphStoreAdapter(
-                    "BM25", retrieval.bm25Index(), java.util.Set.of("MemoryIndex", "EntityReverseIndex")));
+            indexPlaneCoordinator.register(retrieval.bm25Index());
         }
         if (retrieval.memorySpladeIndex() != null) {
-            indexPlaneCoordinator.register(new com.spectrayan.spector.memory.index.GraphStoreAdapter(
-                    "SPLADE", retrieval.memorySpladeIndex(), java.util.Set.of("MemoryIndex")));
+            indexPlaneCoordinator.register(retrieval.memorySpladeIndex());
+        }
+
+        if (checkpointEngine != null) {
+            checkpointEngine.setIndexPlaneCoordinator(indexPlaneCoordinator);
         }
 
         // Hydrate all registered indexes deterministically
