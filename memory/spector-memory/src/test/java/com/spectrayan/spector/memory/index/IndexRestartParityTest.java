@@ -13,8 +13,11 @@
 package com.spectrayan.spector.memory.index;
 
 import com.spectrayan.spector.config.properties.MemoryProperties;
+import com.spectrayan.spector.kernel.api.MemorySource;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemory;
+import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.EmbeddingResult;
@@ -27,6 +30,7 @@ import java.util.Map;
 import java.util.Random;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.*;
 
 @DisplayName("ADR-0082 Index Plane Restart Parity Integration Tests")
 class IndexRestartParityTest {
@@ -133,5 +137,116 @@ class IndexRestartParityTest {
             assertThat(stats.generation()).isGreaterThan(0L);
             assertThat(stats.hydrateMs()).isLessThan(50L); // Well within budget
         }
+    }
+
+    @Test
+    @DisplayName("Should persist and restore BM25 lexical index across cold restart")
+    void shouldRestoreBM25AcrossRestart(@TempDir Path tmp) {
+        MemoryProperties props = new MemoryProperties();
+        props.setDimensions(32);
+        props.getGraph().getEntity().setExtractionMode("NONE");
+
+        String mem1;
+        String mem2;
+
+        try (SpectorMemory memory = SpectorMemory.builder(props)
+                .embeddingProvider(new MockEmbeddingProvider(32))
+                .persistence(tmp)
+                .persistenceMode(MemoryPersistenceMode.DISK)
+                .bundleMode(true)
+                .build()) {
+
+            DefaultSpectorMemory dsm = (DefaultSpectorMemory) memory;
+            IndexPlaneCoordinator coordinator = dsm.indexPlaneCoordinator();
+            mem1 = memory.remember("Quantum computing algorithmic advances and qubits", MemoryType.SEMANTIC, MemorySource.USER_STATED);
+            mem2 = memory.remember("Cognitive memory architecture and active inference free energy", MemoryType.SEMANTIC, MemorySource.USER_STATED);
+
+            MemoryBM25Index bm25 = (MemoryBM25Index) coordinator.get("BM25").orElseThrow();
+            assertThat(bm25.totalDocuments()).isGreaterThanOrEqualTo(2);
+            var results = bm25.search("quantum", 5);
+            assertThat(results).isNotEmpty();
+            assertThat(results.get(0).id()).isEqualTo(mem1);
+        }
+
+        // Reopen from disk
+        MemoryProperties reopenProps = new MemoryProperties();
+        reopenProps.setDimensions(32);
+        reopenProps.getGraph().getEntity().setExtractionMode("NONE");
+
+        try (SpectorMemory reopened = SpectorMemory.builder(reopenProps)
+                .embeddingProvider(new MockEmbeddingProvider(32))
+                .persistence(tmp)
+                .persistenceMode(MemoryPersistenceMode.DISK)
+                .bundleMode(true)
+                .build()) {
+
+            DefaultSpectorMemory dsm = (DefaultSpectorMemory) reopened;
+            var coordinator = dsm.indexPlaneCoordinator();
+            MemoryBM25Index bm25 = (MemoryBM25Index) coordinator.get("BM25").orElseThrow();
+            assertThat(bm25.totalDocuments()).isGreaterThanOrEqualTo(2);
+
+            var quantumResults = bm25.search("quantum", 5);
+            assertThat(quantumResults).isNotEmpty();
+            assertThat(quantumResults.get(0).id()).isEqualTo(mem1);
+
+            var cognitiveResults = bm25.search("cognitive", 5);
+            assertThat(cognitiveResults).isNotEmpty();
+            assertThat(cognitiveResults.get(0).id()).isEqualTo(mem2);
+
+            IndexStats stats = bm25.stats();
+            assertThat(stats.entries()).isGreaterThanOrEqualTo(2);
+            assertThat(stats.generation()).isGreaterThan(0L);
+        }
+    }
+
+    @Test
+    @DisplayName("IndexPlaneCoordinator close should be strictly non-owning for primary kernel stores")
+    void coordinatorCloseShouldBeNonOwning() {
+        IndexContext ctx = mock(IndexContext.class);
+        IndexPlaneCoordinator coordinator = new IndexPlaneCoordinator(ctx);
+
+        AutoCloseable kernelStore = mock(AutoCloseable.class);
+        GraphStoreAdapter primaryAdapter = new GraphStoreAdapter("KernelStore", kernelStore, java.util.Set.of());
+        coordinator.register(primaryAdapter);
+
+        // Closing coordinator must NOT close primary kernel store (DefaultSpectorMemory owns it)
+        coordinator.close();
+        assertThat(coordinator.state()).isEqualTo(IndexPlaneCoordinator.State.CLOSED);
+
+        try {
+            verify(kernelStore, never()).close();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Test
+    @DisplayName("BM25 hydrate should detect generation mismatch and rebuild from MemoryIndex texts")
+    void shouldForceRebuildOnGenerationMismatch() {
+        com.spectrayan.spector.memory.cortex.index.MemoryIndex memIndex =
+                mock(com.spectrayan.spector.memory.cortex.index.MemoryIndex.class);
+        com.spectrayan.spector.kernel.api.MemoryLocation loc =
+                mock(com.spectrayan.spector.kernel.api.MemoryLocation.class);
+
+        java.util.concurrent.ConcurrentHashMap<String, com.spectrayan.spector.kernel.api.MemoryLocation> map =
+                new java.util.concurrent.ConcurrentHashMap<>();
+        map.put("doc-rebuild", loc);
+
+        when(memIndex.size()).thenReturn(1);
+        when(memIndex.locationMap()).thenReturn(map);
+        when(memIndex.text("doc-rebuild")).thenReturn("Rebuilt text content from primary memory");
+
+        IndexContext ctx = new IndexContext(null, null, memIndex, null);
+        com.spectrayan.spector.memory.cortex.MemoryBM25Index bm25 =
+                new com.spectrayan.spector.memory.cortex.MemoryBM25Index(1);
+        bm25.attach(ctx);
+
+        // Initially hydrate when bundle has no region -> rebuilds from memoryIndex
+        bm25.hydrate().toCompletableFuture().join();
+
+        assertThat(bm25.totalDocuments()).isEqualTo(1);
+        assertThat(bm25.contains("doc-rebuild")).isTrue();
+        assertThat(bm25.search("rebuilt", 1)).isNotEmpty();
+        assertThat(bm25.stats().generation()).isGreaterThan(0L);
     }
 }

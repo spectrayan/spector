@@ -29,18 +29,40 @@ package com.spectrayan.spector.memory.index;
 public record IndexReconcileReport(
         long scannedEntities,
         long missingReverseMappings,
+        long danglingReverseMappings,
         long repairedReverseMappings,
         long scannedLexicalDocs,
         long missingLexicalEntries,
+        long staleLexicalEntries,
         long repairedLexicalEntries,
+        long scannedSpladeDocs,
+        long missingSpladeEntries,
+        long staleSpladeEntries,
+        long repairedSpladeEntries,
         long elapsedMs,
         boolean truncated
 ) {
+    /** Backwards-compatible constructor for reports without dangling, stale, or SPLADE metrics. */
+    public IndexReconcileReport(
+            long scannedEntities,
+            long missingReverseMappings,
+            long repairedReverseMappings,
+            long scannedLexicalDocs,
+            long missingLexicalEntries,
+            long repairedLexicalEntries,
+            long elapsedMs,
+            boolean truncated
+    ) {
+        this(scannedEntities, missingReverseMappings, 0L, repairedReverseMappings,
+                scannedLexicalDocs, missingLexicalEntries, 0L, repairedLexicalEntries,
+                0L, 0L, 0L, 0L, elapsedMs, truncated);
+    }
+
     public static IndexReconcileReport empty() {
         return new IndexReconcileReport(0, 0, 0, 0, 0, 0, 0, false);
     }
 
     public boolean hasRepairs() {
-        return repairedReverseMappings > 0 || repairedLexicalEntries > 0;
+        return repairedReverseMappings > 0 || repairedLexicalEntries > 0 || repairedSpladeEntries > 0;
     }
 }

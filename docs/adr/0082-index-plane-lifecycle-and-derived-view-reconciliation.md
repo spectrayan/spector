@@ -2,7 +2,7 @@
 
 | Field | Value |
 |:---|:---|
-| **Status** | Accepted |
+| **Status** | Proposed |
 | **Date** | 2026-09-17 |
 | **Authors** | Spector Maintainers & Architecture Working Group |
 | **Deciders** | Spector Technical Steering Committee (TSC) |
@@ -295,7 +295,7 @@ flowchart LR
     end
 
     subgraph Optional["Optional checkpoint cache"]
-        REG["RegionId.ENTITY_REVERSE_INDEX(27)<br/>magic + version + generation + postings"]
+        REG["RegionId.ENTITY_REVERSE_INDEX(28)<br/>magic + version + generation + postings"]
     end
 
     ED --> ADJ

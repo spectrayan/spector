@@ -40,11 +40,24 @@ public interface ManagedIndex extends AutoCloseable {
     /** Hydrates or rebuilds the index asynchronously. */
     CompletionStage<Void> hydrate();
 
+    /**
+     * Executes an administrative rebuild from primary memory using copy-on-write
+     * partition swapping, updating the generation token and checkpointing to the bundle region.
+     */
+    default CompletionStage<Void> rebuild() {
+        return hydrate();
+    }
+
     /** Flushes dirty state or snapshots the index to its bundle region. */
     void checkpoint();
 
     /** Returns current sizing and generation telemetry. */
     IndexStats stats();
+
+    /** Returns the current index generation stamp. */
+    default long generation() {
+        return stats().generation();
+    }
 
     @Override
     default void close() throws Exception {}

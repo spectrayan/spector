@@ -138,7 +138,7 @@ public final class IndexPlaneCoordinator implements AutoCloseable {
             throw new IllegalArgumentException("Unknown index: " + name);
         }
         log.info("Admin rebuild requested for index [{}]", name);
-        return index.hydrate();
+        return index.rebuild();
     }
 
     /**
@@ -180,6 +180,8 @@ public final class IndexPlaneCoordinator implements AutoCloseable {
                 if (!visited.contains(depName)) {
                     dfs(dep, visited, visiting, result);
                 }
+            } else {
+                log.warn("Index [{}] depends on unknown index [{}]", current.name(), depName);
             }
         }
         visiting.remove(current.name());

@@ -323,10 +323,17 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.hook = builder.hook() != null ? builder.hook() : MemoryObservationHook.NOOP;
         this.sharedPathways = builder.sharedPathways();
 
+        var spladeIdx = this.indexPlaneCoordinator != null 
+                ? this.indexPlaneCoordinator.get("SPLADE")
+                        .filter(com.spectrayan.spector.memory.cortex.MemorySpladeIndex.class::isInstance)
+                        .map(com.spectrayan.spector.memory.cortex.MemorySpladeIndex.class::cast)
+                        .orElse(null)
+                : null;
         this.indexReconcileEngine = new com.spectrayan.spector.memory.index.IndexReconcileEngine(
                 this.entityDirectory,
                 this.index,
-                this.bm25Index
+                this.bm25Index,
+                spladeIdx
         );
 
         //  Quartz Memory Scheduler (In-Memory Multi-Tenant Background Scheduling & Auditing)

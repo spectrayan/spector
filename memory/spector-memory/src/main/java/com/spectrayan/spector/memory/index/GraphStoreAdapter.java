@@ -82,7 +82,20 @@ public final class GraphStoreAdapter implements ManagedIndex {
 
     @Override
     public IndexStats stats() {
-        return new IndexStats(0L, offHeapBytes, entries, 1L, 0L);
+        long e = entries;
+        long b = offHeapBytes;
+        if (e == 0L) {
+            if (store instanceof com.spectrayan.spector.kernel.graph.EntityDirectory ed) {
+                e = ed.entityCount();
+                b = (long) ed.entityCount() * 128L;
+            } else if (store instanceof com.spectrayan.spector.kernel.shape.AbstractMemory<?> am) {
+                e = am.visibleCount();
+                b = am.layout() != null ? (long) am.layout().recordStride() * am.visibleCount() : 0L;
+            } else if (store instanceof com.spectrayan.spector.memory.cortex.index.MemoryIndex mi) {
+                e = mi.size();
+            }
+        }
+        return new IndexStats(0L, b, e, 1L, 0L);
     }
 
     public Object store() {
@@ -98,8 +111,6 @@ public final class GraphStoreAdapter implements ManagedIndex {
     public void close() throws Exception {
         if (closeAction != null) {
             closeAction.close();
-        } else if (store instanceof AutoCloseable ac) {
-            ac.close();
         }
     }
 }

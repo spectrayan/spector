@@ -21,6 +21,8 @@ import com.spectrayan.spector.kernel.bundle.RegionRef;
 import com.spectrayan.spector.kernel.bundle.RuntimeBundle;
 import com.spectrayan.spector.kernel.region.RegionId;
 
+import com.spectrayan.spector.provider.embedding.SparseEmbeddingProvider;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,6 +68,11 @@ public final class MemorySpladeIndex extends AbstractMemoryIndex<SpladeIndex> {
 
     private static final Logger log = LoggerFactory.getLogger(MemorySpladeIndex.class);
 
+    /** Magic header for multi-partition SPLADE bundle container ("SPLM"). */
+    public static final int MAGIC_MULTI = 0x53504C4D;
+
+    private final SparseEmbeddingProvider spladeProvider;
+
     /**
      * A SPLADE search result with its source partition.
      *
@@ -79,7 +86,7 @@ public final class MemorySpladeIndex extends AbstractMemoryIndex<SpladeIndex> {
      * Creates an empty MemorySpladeIndex with no partitions.
      */
     public MemorySpladeIndex() {
-        super("SPLADE", java.util.Set.of("MemoryIndex"));
+        this(0, null);
     }
 
     /**
@@ -88,7 +95,25 @@ public final class MemorySpladeIndex extends AbstractMemoryIndex<SpladeIndex> {
      * @param partitionCount number of partitions to pre-allocate
      */
     public MemorySpladeIndex(int partitionCount) {
+        this(partitionCount, null);
+    }
+
+    /**
+     * Creates a MemorySpladeIndex with the given partition count and sparse embedding provider.
+     *
+     * @param partitionCount number of partitions to pre-allocate
+     * @param spladeProvider provider for generating sparse embeddings
+     */
+    public MemorySpladeIndex(int partitionCount, SparseEmbeddingProvider spladeProvider) {
         super("SPLADE", java.util.Set.of("MemoryIndex"), partitionCount);
+        this.spladeProvider = spladeProvider;
+    }
+
+    /**
+     * Returns the configured sparse embedding provider, or null if none.
+     */
+    public SparseEmbeddingProvider provider() {
+        return spladeProvider;
     }
 
     @Override
@@ -202,17 +227,50 @@ public final class MemorySpladeIndex extends AbstractMemoryIndex<SpladeIndex> {
     }
 
     /**
+     * Checks if a document ID is present in any partition.
+     *
+     * @param id memory identifier
+     * @return true if present
+     */
+    public boolean contains(String id) {
+        if (id == null || partitions.isEmpty()) return false;
+        for (SpladeIndex idx : partitions) {
+            if (idx.contains(id)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Removes a document by ID across all partitions.
+     *
+     * @param id document identifier
+     */
+    public void remove(String id) {
+        for (SpladeIndex p : partitions) {
+            p.remove(id);
+        }
+    }
+
+    /**
+     * Returns an unmodifiable set of all document IDs across all partitions.
+     */
+    public java.util.Set<String> docIds() {
+        java.util.Set<String> all = new java.util.HashSet<>();
+        for (SpladeIndex p : partitions) {
+            all.addAll(p.docIds());
+        }
+        return all;
+    }
+
+    /**
      * Persists the active SPLADE index into a V4 {@link RuntimeBundle} with dynamic variable-slice growth.
      *
-     * <p>If the serialized SPLADE index payload exceeds the current {@link RegionId#SPLADE} region size,
-     * this method automatically ensures capacity via {@link RegionRef#ensureCapacity(long)}
-     * and retries the save into the expanded slice.</p>
+     * <p>If multiple partitions are present, persists a multi-partition container snapshot.</p>
      *
      * @param runtimeBundle the runtime bundle containing the SPLADE region
-     * @param bundleManager optional bundle manager for usage tracking (may be null)
      * @return number of bytes written to the bundle region, or -1 on error
      */
-    public int persistToBundle(RuntimeBundle runtimeBundle, BundleManager bundleManager) {
+    public int persistToBundle(RuntimeBundle runtimeBundle) {
         if (runtimeBundle == null || partitions.isEmpty() || totalDocuments() == 0) {
             return 0;
         }
@@ -223,24 +281,49 @@ public final class MemorySpladeIndex extends AbstractMemoryIndex<SpladeIndex> {
                 return -1;
             }
 
-            int written = partition(0).saveToRegion(spladeRef.resolve());
-            if (written == -1) {
-                // Payload exceeds current capacity -> dynamically ensure capacity
+            byte[] data;
+            if (partitions.size() == 1) {
+                data = partition(0).toByteArray();
+            } else {
+                java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+                java.io.DataOutputStream dos = new java.io.DataOutputStream(baos);
+                dos.writeInt(MAGIC_MULTI);
+                dos.writeInt(SpladeIndex.FORMAT_VERSION);
+                dos.writeInt(partitions.size());
+                for (SpladeIndex p : partitions) {
+                    byte[] pData = p.toByteArray();
+                    dos.writeInt(pData.length);
+                    dos.write(pData);
+                }
+                dos.flush();
+                data = baos.toByteArray();
+            }
+
+            int totalBytes = 4 + data.length;
+            if (totalBytes > spladeRef.byteSize()) {
                 log.info("SPLADE index exceeded region capacity; ensuring expanded capacity");
-                spladeRef.ensureCapacity(spladeRef.byteSize() + 1);
-
-                // Retry write into expanded slice
-                written = partition(0).saveToRegion(spladeRef.resolve());
+                spladeRef.ensureCapacity(totalBytes);
             }
 
-            if (written > 0) {
-                runtimeBundle.updateRegionUsedSize(RegionId.SPLADE, written);
-            }
-            return written;
+            var segment = spladeRef.resolve();
+            segment.set(java.lang.foreign.ValueLayout.JAVA_INT, 0, data.length);
+            java.lang.foreign.MemorySegment.copy(
+                    java.lang.foreign.MemorySegment.ofArray(data), 0,
+                    segment, 4, data.length);
+
+            runtimeBundle.updateRegionUsedSize(RegionId.SPLADE, totalBytes);
+            return totalBytes;
         } catch (Exception e) {
             log.warn("Failed to persist SPLADE index to runtime bundle: {}", e.getMessage(), e);
             return -1;
         }
+    }
+
+    /**
+     * Backwards-compatible overload for persistToBundle.
+     */
+    public int persistToBundle(RuntimeBundle runtimeBundle, BundleManager bundleManager) {
+        return persistToBundle(runtimeBundle);
     }
 
     /**
@@ -256,7 +339,29 @@ public final class MemorySpladeIndex extends AbstractMemoryIndex<SpladeIndex> {
         try {
             RegionRef spladeRef = runtimeBundle.regionRef(RegionId.SPLADE);
             if (spladeRef != null) {
-                return SpladeIndex.loadFromRegion(spladeRef.resolve());
+                var segment = spladeRef.resolve();
+                if (segment != null && segment.byteSize() >= 28) {
+                    int payloadLen = segment.get(java.lang.foreign.ValueLayout.JAVA_INT, 0);
+                    if (payloadLen > 0 && 4 + (long) payloadLen <= segment.byteSize()) {
+                        byte[] data = new byte[payloadLen];
+                        java.lang.foreign.MemorySegment.copy(segment, 4,
+                                java.lang.foreign.MemorySegment.ofArray(data), 0, payloadLen);
+                        java.nio.ByteBuffer buf = java.nio.ByteBuffer.wrap(data);
+                        int magic = buf.getInt();
+                        if (magic == MAGIC_MULTI) {
+                            int ver = buf.getInt();
+                            int count = buf.getInt();
+                            if (count > 0) {
+                                int len = buf.getInt();
+                                byte[] pData = new byte[len];
+                                buf.get(pData);
+                                return SpladeIndex.fromByteArray(pData);
+                            }
+                        } else if (magic == SpladeIndex.MAGIC) {
+                            return SpladeIndex.fromByteArray(data);
+                        }
+                    }
+                }
             }
         } catch (Exception e) {
             log.debug("SPLADE load from bundle region failed: {}", e.getMessage());
@@ -267,26 +372,104 @@ public final class MemorySpladeIndex extends AbstractMemoryIndex<SpladeIndex> {
     @Override
     public void checkpoint() {
         if (context != null && context.runtimeBundle() != null) {
-            persistToBundle(context.runtimeBundle(), null);
+            persistToBundle(context.runtimeBundle());
         }
     }
 
     @Override
     public java.util.concurrent.CompletionStage<Void> hydrate() {
         long start = System.currentTimeMillis();
+        String modelId = spladeProvider != null ? spladeProvider.modelName() : "splade";
+        long expectedGen = computeGeneration(context != null && context.memoryIndex() != null ? context.memoryIndex().size() : 0, modelId, SpladeIndex.FORMAT_VERSION);
+
+        boolean loadedValid = false;
         if (context != null && context.runtimeBundle() != null) {
-            SpladeIndex loaded = loadFromBundle(context.runtimeBundle());
-            if (loaded != null) {
-                setPartition(0, loaded);
-                this.lastHydrateMs = System.currentTimeMillis() - start;
-                this.generation = computeGeneration(totalDocuments(), "splade", SpladeIndex.FORMAT_VERSION);
-                log.info("SPLADE hydrated from bundle region in {}ms ({} docs)", lastHydrateMs, loaded.size());
-                return java.util.concurrent.CompletableFuture.completedFuture(null);
+            try {
+                RegionRef spladeRef = context.runtimeBundle().regionRef(RegionId.SPLADE);
+                if (spladeRef != null) {
+                    var segment = spladeRef.resolve();
+                    if (segment != null && segment.byteSize() >= 28) {
+                        int payloadLen = segment.get(java.lang.foreign.ValueLayout.JAVA_INT, 0);
+                        if (payloadLen > 0 && 4 + (long) payloadLen <= segment.byteSize()) {
+                            byte[] data = new byte[payloadLen];
+                            java.lang.foreign.MemorySegment.copy(segment, 4,
+                                    java.lang.foreign.MemorySegment.ofArray(data), 0, payloadLen);
+                            java.nio.ByteBuffer buf = java.nio.ByteBuffer.wrap(data);
+                            int magic = buf.getInt();
+                            if (magic == MAGIC_MULTI) {
+                                int ver = buf.getInt();
+                                int count = buf.getInt();
+                                for (int i = 0; i < count; i++) {
+                                    int len = buf.getInt();
+                                    byte[] pData = new byte[len];
+                                    buf.get(pData);
+                                    SpladeIndex pIdx = SpladeIndex.fromByteArray(pData);
+                                    if (pIdx != null) {
+                                        setPartition(i, pIdx);
+                                    }
+                                }
+                                if (!partitions.isEmpty() && partition(0).generation() == expectedGen
+                                        && java.util.Objects.equals(partition(0).modelId(), modelId)) {
+                                    loadedValid = true;
+                                    log.info("SPLADE hydrated multi-partition from bundle ({} partitions, gen={})", count, expectedGen);
+                                }
+                            } else if (magic == SpladeIndex.MAGIC) {
+                                SpladeIndex single = SpladeIndex.fromByteArray(data);
+                                if (single != null && single.generation() == expectedGen
+                                        && java.util.Objects.equals(single.modelId(), modelId)) {
+                                    setPartition(0, single);
+                                    loadedValid = true;
+                                    log.info("SPLADE hydrated from bundle region ({} docs, gen={})", single.size(), expectedGen);
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.debug("SPLADE load from bundle failed: {}", e.getMessage());
             }
         }
+
+        if (!loadedValid) {
+            log.info("SPLADE index not present or generation mismatched (expected gen={}), rebuilding from primary memory", expectedGen);
+            rebuildInternal(expectedGen, modelId);
+        }
+
         this.lastHydrateMs = System.currentTimeMillis() - start;
-        this.generation = computeGeneration(totalDocuments(), "splade", SpladeIndex.FORMAT_VERSION);
+        this.generation = expectedGen;
         return java.util.concurrent.CompletableFuture.completedFuture(null);
+    }
+
+    @Override
+    public java.util.concurrent.CompletionStage<Void> rebuild() {
+        long start = System.currentTimeMillis();
+        String modelId = spladeProvider != null ? spladeProvider.modelName() : "splade";
+        long expectedGen = computeGeneration(context != null && context.memoryIndex() != null ? context.memoryIndex().size() : 0, modelId, SpladeIndex.FORMAT_VERSION);
+        rebuildInternal(expectedGen, modelId);
+        this.lastHydrateMs = System.currentTimeMillis() - start;
+        this.generation = expectedGen;
+        return java.util.concurrent.CompletableFuture.completedFuture(null);
+    }
+
+    private void rebuildInternal(long newGen, String modelId) {
+        SpladeIndex newIdx = createPartitionIndex();
+        newIdx.setGeneration(newGen);
+        newIdx.setModelId(modelId);
+        if (spladeProvider != null && context != null && context.memoryIndex() != null) {
+            for (var entry : context.memoryIndex().locationMap().entrySet()) {
+                String text = context.memoryIndex().text(entry.getKey());
+                if (text != null && !text.isEmpty()) {
+                    var res = spladeProvider.encode(text);
+                    if (res != null && res.weights() != null) {
+                        newIdx.indexSparse(entry.getKey(), res.weights());
+                    }
+                }
+            }
+        }
+        setPartition(0, newIdx);
+        if (context != null && context.runtimeBundle() != null && newIdx.size() > 0) {
+            persistToBundle(context.runtimeBundle());
+        }
     }
 
     private List<SpladeCandidate> searchSequential(List<SpladeIndex> snapshot,

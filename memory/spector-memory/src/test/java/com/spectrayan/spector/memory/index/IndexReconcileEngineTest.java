@@ -137,7 +137,96 @@ class IndexReconcileEngineTest {
             // Out-of-bounds or invalid returns false
             assertThat(dir.repairMemoryToEntityMapping(-1, alice)).isFalse();
             assertThat(dir.repairMemoryToEntityMapping(7, 999)).isFalse();
+
+            // Real removeMemoryToEntityMapping removes mapping cleanly
+            boolean removed = dir.removeMemoryToEntityMapping(7, alice);
+            assertThat(removed).isTrue();
+            assertThat(dir.entityIdsForMemory(7)).isEmpty();
+            assertThat(dir.indexedMemorySlots()).doesNotContain(7);
+
+            // Removing non-existent mapping returns false
+            assertThat(dir.removeMemoryToEntityMapping(7, alice)).isFalse();
         }
+    }
+
+    @Test
+    @DisplayName("reconcile detects and drops dangling entity reverse index mappings")
+    void reconcile_danglingReverse_detectsAndRemoves() {
+        EntityDirectory dir = mock(EntityDirectory.class);
+        when(dir.entityCount()).thenReturn(1);
+        when(dir.memoryRefCount(0)).thenReturn(0); // Entity 0 references no memories
+
+        // Reverse map has slot 50 -> entity 0 (dangling forward ref) and slot 51 -> entity 999 (out of bounds)
+        when(dir.indexedMemorySlots()).thenReturn(Set.of(50, 51));
+        when(dir.entityIdsForMemory(50)).thenReturn(Set.of(0));
+        when(dir.entityIdsForMemory(51)).thenReturn(Set.of(999));
+        when(dir.removeMemoryToEntityMapping(50, 0)).thenReturn(true);
+        when(dir.removeMemoryToEntityMapping(51, 999)).thenReturn(true);
+
+        IndexReconcileEngine engine = new IndexReconcileEngine(dir, null, null, 1000L, 100);
+        IndexReconcileReport report = engine.reconcile();
+
+        assertThat(report.danglingReverseMappings()).isEqualTo(2);
+        assertThat(report.repairedReverseMappings()).isEqualTo(2);
+        verify(dir, times(1)).removeMemoryToEntityMapping(50, 0);
+        verify(dir, times(1)).removeMemoryToEntityMapping(51, 999);
+    }
+
+    @Test
+    @DisplayName("reconcile detects and drops stale BM25 index postings")
+    void reconcile_staleBM25Postings_detectsAndRemoves() {
+        MemoryIndex memIndex = mock(MemoryIndex.class);
+        MemoryBM25Index bm25Index = mock(MemoryBM25Index.class);
+
+        MemoryLocation loc = mock(MemoryLocation.class);
+        ConcurrentHashMap<String, MemoryLocation> locMap = new ConcurrentHashMap<>();
+        locMap.put("live-doc", loc);
+
+        when(memIndex.locationMap()).thenReturn(locMap);
+        when(bm25Index.contains("live-doc")).thenReturn(true);
+        when(bm25Index.docIds()).thenReturn(Set.of("live-doc", "stale-doc"));
+
+        IndexReconcileEngine engine = new IndexReconcileEngine(null, memIndex, bm25Index, 1000L, 100);
+        IndexReconcileReport report = engine.reconcile();
+
+        assertThat(report.staleLexicalEntries()).isEqualTo(1);
+        assertThat(report.repairedLexicalEntries()).isEqualTo(1);
+        verify(bm25Index, times(1)).remove("stale-doc");
+        verify(bm25Index, never()).remove("live-doc");
+    }
+
+    @Test
+    @DisplayName("reconcile detects and repairs SPLADE drift and drops stale postings")
+    void reconcile_spladeDrift_detectsAndRepairs() {
+        MemoryIndex memIndex = mock(MemoryIndex.class);
+        com.spectrayan.spector.memory.cortex.MemorySpladeIndex spladeIndex =
+                mock(com.spectrayan.spector.memory.cortex.MemorySpladeIndex.class);
+        com.spectrayan.spector.provider.embedding.SparseEmbeddingProvider provider =
+                mock(com.spectrayan.spector.provider.embedding.SparseEmbeddingProvider.class);
+
+        when(spladeIndex.provider()).thenReturn(provider);
+        when(provider.encode("Sparse text representation")).thenReturn(
+                new com.spectrayan.spector.provider.embedding.SparseEmbeddingResult(Map.of("sparse", 1.5f), 1, "test-splade")
+        );
+
+        MemoryLocation loc = mock(MemoryLocation.class);
+        ConcurrentHashMap<String, MemoryLocation> locMap = new ConcurrentHashMap<>();
+        locMap.put("doc-splade", loc);
+
+        when(memIndex.locationMap()).thenReturn(locMap);
+        when(spladeIndex.contains("doc-splade")).thenReturn(false);
+        when(memIndex.text("doc-splade")).thenReturn("Sparse text representation");
+        when(spladeIndex.docIds()).thenReturn(Set.of("doc-splade", "stale-splade"));
+
+        IndexReconcileEngine engine = new IndexReconcileEngine(null, memIndex, null, spladeIndex, 1000L, 100);
+        IndexReconcileReport report = engine.reconcile();
+
+        assertThat(report.missingSpladeEntries()).isEqualTo(1);
+        assertThat(report.staleSpladeEntries()).isEqualTo(1);
+        assertThat(report.repairedSpladeEntries()).isEqualTo(2);
+
+        verify(spladeIndex, times(1)).index(0, "doc-splade", Map.of("sparse", 1.5f));
+        verify(spladeIndex, times(1)).remove("stale-splade");
     }
 
     @Test

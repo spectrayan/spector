@@ -231,7 +231,7 @@ nav:
       - "Architecture Decision Records (ADRs)":
           - Overview: adr/README.md
           - Template: adr/0000-template.md
-          - "Master Catalog (0001-0080)": adr/catalog.md
+          - "Master Catalog (0001-0082)": adr/catalog.md
           - "Memory Kernel & Storage Formats":
               - "ADR-0001: Graph Compression Strategy for Entity Graph": adr/0001-graph-compression-strategy.md
               - "ADR-0002: Multi-Partition Recall Fan-Out & Frozen Reten...": adr/0002-multi-partition-recall-fanout.md
@@ -246,6 +246,7 @@ nav:
               - "ADR-0047: Episodic Memory and Engram Model Hierarchy": adr/0047-episodic-memory-and-engram-model.md
               - "ADR-0057: Remediation of Hardcoded Memory Offsets and Alignment Constants": adr/0057-hardcoded-memory-offsets-and-alignment-constants.md
               - "ADR-0062: Spector Memory Organization — Three-Plane Architecture": adr/0062-memory-organization-three-plane-architecture.md
+              - "ADR-0082: Index Plane Lifecycle, Derived Views, and Reconciliation": adr/0082-index-plane-lifecycle-and-derived-view-reconciliation.md
           - "Active Inference Self-Model Engine (AISME)":
               - "ADR-0006: Episodic Conversation Architecture": adr/0006-episodic-conversation-architecture.md
               - "ADR-0007: ReflectPathway — Biological Sleep Consolidation": adr/0007-reflect-pathway-sleep-consolidation.md

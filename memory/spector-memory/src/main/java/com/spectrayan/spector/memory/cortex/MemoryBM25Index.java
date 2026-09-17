@@ -241,12 +241,40 @@ public final class MemoryBM25Index extends AbstractMemoryIndex<BM25Index> {
      * <p>If the serialized BM25 index payload exceeds the current {@link RegionId#BM25} region size,
      * this method automatically ensures capacity via {@link RegionRef#ensureCapacity(long)}
      * and retries the save into the expanded slice.</p>
+     */
+    public static final int MAGIC_MULTI = 0x4249444D; // "BIDM"
+
+    /**
+     * Removes a document by ID across all partitions.
+     *
+     * @param id document identifier
+     */
+    public void remove(String id) {
+        for (BM25Index p : partitions) {
+            p.remove(id);
+        }
+    }
+
+    /**
+     * Returns an unmodifiable set of all document IDs across all partitions.
+     */
+    public java.util.Set<String> docIds() {
+        java.util.Set<String> all = new java.util.HashSet<>();
+        for (BM25Index p : partitions) {
+            all.addAll(p.docIds());
+        }
+        return all;
+    }
+
+    /**
+     * Persists the active BM25 index into a V4 {@link RuntimeBundle} with dynamic variable-slice growth.
+     *
+     * <p>If multiple partitions are present, persists a multi-partition container snapshot.</p>
      *
      * @param runtimeBundle the runtime bundle containing the BM25 region
-     * @param bundleManager optional bundle manager for usage tracking (may be null)
      * @return number of bytes written to the bundle region, or -1 on error
      */
-    public int persistToBundle(RuntimeBundle runtimeBundle, BundleManager bundleManager) {
+    public int persistToBundle(RuntimeBundle runtimeBundle) {
         if (runtimeBundle == null || partitions.isEmpty() || totalDocuments() == 0) {
             return 0;
         }
@@ -257,24 +285,49 @@ public final class MemoryBM25Index extends AbstractMemoryIndex<BM25Index> {
                 return -1;
             }
 
-            int written = partition(0).saveToRegion(bm25Ref.resolve());
-            if (written == -1) {
-                // Payload exceeds current capacity -> dynamically ensure capacity
+            byte[] data;
+            if (partitions.size() == 1) {
+                data = partition(0).toByteArray();
+            } else {
+                java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+                java.io.DataOutputStream dos = new java.io.DataOutputStream(baos);
+                dos.writeInt(MAGIC_MULTI);
+                dos.writeInt(BM25Index.FORMAT_VERSION);
+                dos.writeInt(partitions.size());
+                for (BM25Index p : partitions) {
+                    byte[] pData = p.toByteArray();
+                    dos.writeInt(pData.length);
+                    dos.write(pData);
+                }
+                dos.flush();
+                data = baos.toByteArray();
+            }
+
+            int totalBytes = 4 + data.length;
+            if (totalBytes > bm25Ref.byteSize()) {
                 log.info("BM25 index exceeded region capacity; ensuring expanded capacity");
-                bm25Ref.ensureCapacity(bm25Ref.byteSize() + 1);
-
-                // Retry write into expanded slice
-                written = partition(0).saveToRegion(bm25Ref.resolve());
+                bm25Ref.ensureCapacity(totalBytes);
             }
 
-            if (written > 0) {
-                runtimeBundle.updateRegionUsedSize(RegionId.BM25, written);
-            }
-            return written;
+            var segment = bm25Ref.resolve();
+            segment.set(java.lang.foreign.ValueLayout.JAVA_INT, 0, data.length);
+            java.lang.foreign.MemorySegment.copy(
+                    java.lang.foreign.MemorySegment.ofArray(data), 0,
+                    segment, 4, data.length);
+
+            runtimeBundle.updateRegionUsedSize(RegionId.BM25, totalBytes);
+            return totalBytes;
         } catch (Exception e) {
             log.warn("Failed to persist BM25 index to runtime bundle: {}", e.getMessage(), e);
             return -1;
         }
+    }
+
+    /**
+     * Backwards-compatible overload for persistToBundle.
+     */
+    public int persistToBundle(RuntimeBundle runtimeBundle, BundleManager bundleManager) {
+        return persistToBundle(runtimeBundle);
     }
 
     /**
@@ -290,7 +343,29 @@ public final class MemoryBM25Index extends AbstractMemoryIndex<BM25Index> {
         try {
             RegionRef bm25Ref = runtimeBundle.regionRef(RegionId.BM25);
             if (bm25Ref != null) {
-                return BM25Index.loadFromRegion(bm25Ref.resolve());
+                var segment = bm25Ref.resolve();
+                if (segment != null && segment.byteSize() >= 28) {
+                    int payloadLen = segment.get(java.lang.foreign.ValueLayout.JAVA_INT, 0);
+                    if (payloadLen > 0 && 4 + (long) payloadLen <= segment.byteSize()) {
+                        byte[] data = new byte[payloadLen];
+                        java.lang.foreign.MemorySegment.copy(segment, 4,
+                                java.lang.foreign.MemorySegment.ofArray(data), 0, payloadLen);
+                        java.nio.ByteBuffer buf = java.nio.ByteBuffer.wrap(data);
+                        int magic = buf.getInt();
+                        if (magic == MAGIC_MULTI) {
+                            int ver = buf.getInt();
+                            int count = buf.getInt();
+                            if (count > 0) {
+                                int len = buf.getInt();
+                                byte[] pData = new byte[len];
+                                buf.get(pData);
+                                return BM25Index.fromByteArray(pData, new StemmingAnalyzer());
+                            }
+                        } else if (magic == BM25Index.MAGIC) {
+                            return BM25Index.fromByteArray(data, new StemmingAnalyzer());
+                        }
+                    }
+                }
             }
         } catch (Exception e) {
             log.debug("BM25 load from bundle region failed: {}", e.getMessage());
@@ -301,42 +376,99 @@ public final class MemoryBM25Index extends AbstractMemoryIndex<BM25Index> {
     @Override
     public void checkpoint() {
         if (context != null && context.runtimeBundle() != null) {
-            persistToBundle(context.runtimeBundle(), null);
+            persistToBundle(context.runtimeBundle());
         }
     }
 
     @Override
     public java.util.concurrent.CompletionStage<Void> hydrate() {
         long start = System.currentTimeMillis();
+        long expectedGen = computeGeneration(context != null && context.memoryIndex() != null ? context.memoryIndex().size() : 0, "stemming-analyzer", BM25Index.FORMAT_VERSION);
+
+        boolean loadedValid = false;
         if (context != null && context.runtimeBundle() != null) {
-            BM25Index loaded = loadFromBundle(context.runtimeBundle());
-            if (loaded != null) {
-                setPartition(0, loaded);
-                this.lastHydrateMs = System.currentTimeMillis() - start;
-                this.generation = computeGeneration(totalDocuments(), "stemming-analyzer", BM25Index.FORMAT_VERSION);
-                log.info("BM25 hydrated from bundle region in {}ms ({} docs)", lastHydrateMs, loaded.size());
-                return java.util.concurrent.CompletableFuture.completedFuture(null);
+            try {
+                RegionRef bm25Ref = context.runtimeBundle().regionRef(RegionId.BM25);
+                if (bm25Ref != null) {
+                    var segment = bm25Ref.resolve();
+                    if (segment != null && segment.byteSize() >= 28) {
+                        int payloadLen = segment.get(java.lang.foreign.ValueLayout.JAVA_INT, 0);
+                        if (payloadLen > 0 && 4 + (long) payloadLen <= segment.byteSize()) {
+                            byte[] data = new byte[payloadLen];
+                            java.lang.foreign.MemorySegment.copy(segment, 4,
+                                    java.lang.foreign.MemorySegment.ofArray(data), 0, payloadLen);
+                            java.nio.ByteBuffer buf = java.nio.ByteBuffer.wrap(data);
+                            int magic = buf.getInt();
+                            if (magic == MAGIC_MULTI) {
+                                int ver = buf.getInt();
+                                int count = buf.getInt();
+                                for (int i = 0; i < count; i++) {
+                                    int len = buf.getInt();
+                                    byte[] pData = new byte[len];
+                                    buf.get(pData);
+                                    BM25Index pIdx = BM25Index.fromByteArray(pData, new StemmingAnalyzer());
+                                    if (pIdx != null) {
+                                        setPartition(i, pIdx);
+                                    }
+                                }
+                                if (!partitions.isEmpty() && partition(0).generation() == expectedGen
+                                        && java.util.Objects.equals(partition(0).analyzerId(), "stemming-analyzer")) {
+                                    loadedValid = true;
+                                    log.info("BM25 hydrated multi-partition from bundle ({} partitions, gen={})", count, expectedGen);
+                                }
+                            } else if (magic == BM25Index.MAGIC) {
+                                BM25Index single = BM25Index.fromByteArray(data, new StemmingAnalyzer());
+                                if (single != null && single.generation() == expectedGen
+                                        && java.util.Objects.equals(single.analyzerId(), "stemming-analyzer")) {
+                                    setPartition(0, single);
+                                    loadedValid = true;
+                                    log.info("BM25 hydrated from bundle region ({} docs, gen={})", single.size(), expectedGen);
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.debug("BM25 load from bundle failed: {}", e.getMessage());
             }
         }
+
+        if (!loadedValid) {
+            log.info("BM25 index not present or generation mismatched (expected gen={}), rebuilding from primary memory", expectedGen);
+            rebuildInternal(expectedGen);
+        }
+
+        this.lastHydrateMs = System.currentTimeMillis() - start;
+        this.generation = expectedGen;
+        return java.util.concurrent.CompletableFuture.completedFuture(null);
+    }
+
+    @Override
+    public java.util.concurrent.CompletionStage<Void> rebuild() {
+        long start = System.currentTimeMillis();
+        long expectedGen = computeGeneration(context != null && context.memoryIndex() != null ? context.memoryIndex().size() : 0, "stemming-analyzer", BM25Index.FORMAT_VERSION);
+        rebuildInternal(expectedGen);
+        this.lastHydrateMs = System.currentTimeMillis() - start;
+        this.generation = expectedGen;
+        return java.util.concurrent.CompletableFuture.completedFuture(null);
+    }
+
+    private void rebuildInternal(long newGen) {
+        BM25Index newIdx = createPartitionIndex();
+        newIdx.setGeneration(newGen);
+        newIdx.setAnalyzerId("stemming-analyzer");
         if (context != null && context.memoryIndex() != null) {
-            Map<String, String> allTexts = new java.util.HashMap<>();
             for (var entry : context.memoryIndex().locationMap().entrySet()) {
                 String text = context.memoryIndex().text(entry.getKey());
                 if (text != null && !text.isEmpty()) {
-                    allTexts.put(entry.getKey(), text);
-                }
-            }
-            if (!allTexts.isEmpty()) {
-                rebuildPartition(0, allTexts);
-                log.info("Rebuilt BM25 index with {} documents from memory index", allTexts.size());
-                if (context.runtimeBundle() != null) {
-                    persistToBundle(context.runtimeBundle(), null);
+                    newIdx.index(entry.getKey(), text);
                 }
             }
         }
-        this.lastHydrateMs = System.currentTimeMillis() - start;
-        this.generation = computeGeneration(totalDocuments(), "stemming-analyzer", BM25Index.FORMAT_VERSION);
-        return java.util.concurrent.CompletableFuture.completedFuture(null);
+        setPartition(0, newIdx);
+        if (context != null && context.runtimeBundle() != null && newIdx.size() > 0) {
+            persistToBundle(context.runtimeBundle());
+        }
     }
 
     // ── Internal helpers ──

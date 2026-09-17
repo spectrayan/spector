@@ -355,6 +355,19 @@ public final class SpectorPropertyConstants {
     public static final String MEMORY_BM25_ENABLED = "spector.memory.bm25-enabled";
     public static final boolean DEFAULT_MEMORY_BM25_ENABLED = true;
 
+    // Indexes Reconcile Subsystem (ADR-0082)
+    public static final String MEMORY_INDEXES_RECONCILE_ENABLED = "spector.memory.indexes.reconcile.enabled";
+    public static final boolean DEFAULT_MEMORY_INDEXES_RECONCILE_ENABLED = true;
+
+    public static final String MEMORY_INDEXES_RECONCILE_INTERVAL_SECONDS = "spector.memory.indexes.reconcile.interval-seconds";
+    public static final long DEFAULT_MEMORY_INDEXES_RECONCILE_INTERVAL_SECONDS = 300L;
+
+    public static final String MEMORY_INDEXES_RECONCILE_TIME_SLICE_MS = "spector.memory.indexes.reconcile.time-slice-ms";
+    public static final long DEFAULT_MEMORY_INDEXES_RECONCILE_TIME_SLICE_MS = 50L;
+
+    public static final String MEMORY_INDEXES_RECONCILE_MAX_REPAIRS_PER_CYCLE = "spector.memory.indexes.reconcile.max-repairs-per-cycle";
+    public static final int DEFAULT_MEMORY_INDEXES_RECONCILE_MAX_REPAIRS_PER_CYCLE = 500;
+
     // LLM Sampling Parameters
     public static final String MEMORY_LLM_TEMPERATURE = "spector.memory.llm.temperature";
     public static final float DEFAULT_MEMORY_LLM_TEMPERATURE = 0.3f;

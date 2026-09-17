@@ -85,9 +85,14 @@ public final class EntityReverseIndexAdapter implements ManagedIndex {
     }
 
     @Override
+    public CompletionStage<Void> rebuild() {
+        return hydrate();
+    }
+
+    @Override
     public IndexStats stats() {
         int slots = entityDirectory.reverseIndexSize();
-        // Approximate on-heap footprint: ConcurrentHashMap table + Set entries
+        // Approximate on-heap footprint: ~64 bytes per memory slot (ConcurrentHashMap node + KeySet overhead)
         long estimatedHeap = (long) slots * 64L;
         return new IndexStats(estimatedHeap, 0L, slots, generation, lastHydrateMs);
     }

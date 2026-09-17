@@ -50,6 +50,29 @@ public class SpectorMemoryGauges implements MeterBinder {
                 .tag("type", "hard")
                 .description("Hard page faults (major faults) on Linux")
                 .register(registry);
+
+        // Index Plane Gauges (ADR-0082)
+        if (memory.indexPlaneCoordinator() != null) {
+            for (com.spectrayan.spector.memory.index.ManagedIndex idx : memory.indexPlaneCoordinator().registeredIndexes()) {
+                String name = idx.name();
+                Gauge.builder("spector.memory.index.entries", idx, i -> i.stats().entries())
+                        .tag("index", name)
+                        .description("Total entries in index")
+                        .register(registry);
+                Gauge.builder("spector.memory.index.heap.bytes", idx, i -> i.stats().heapBytes())
+                        .tag("index", name)
+                        .description("Estimated heap bytes used by index")
+                        .register(registry);
+                Gauge.builder("spector.memory.index.off_heap.bytes", idx, i -> i.stats().offHeapBytes())
+                        .tag("index", name)
+                        .description("Off-heap bytes used by index")
+                        .register(registry);
+                Gauge.builder("spector.memory.index.generation", idx, com.spectrayan.spector.memory.index.ManagedIndex::generation)
+                        .tag("index", name)
+                        .description("Index generation number")
+                        .register(registry);
+            }
+        }
     }
     
     private static long[] readPageFaults() {
