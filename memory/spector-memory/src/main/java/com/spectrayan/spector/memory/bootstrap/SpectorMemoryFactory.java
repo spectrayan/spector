@@ -186,7 +186,8 @@ public final class SpectorMemoryFactory {
             DecidePathway decidePathway,
             DreamPathway dreamPathway,
             com.spectrayan.spector.memory.aisme.AismeBundle aismeBundle,
-            com.spectrayan.spector.kernel.store.ProvenanceMemory provenanceMemory
+            com.spectrayan.spector.kernel.store.ProvenanceMemory provenanceMemory,
+            com.spectrayan.spector.memory.index.IndexPlaneCoordinator indexPlaneCoordinator
     ) {}
 
     private SpectorMemoryFactory() {}
@@ -578,6 +579,52 @@ public final class SpectorMemoryFactory {
             attachmentProcessor = null;
         }
 
+        // ── Index Plane Lifecycle Coordination (ADR-0082) ──
+        com.spectrayan.spector.memory.index.IndexContext indexContext = new com.spectrayan.spector.memory.index.IndexContext(
+                cortex.runtimeBundle(),
+                partitionManager,
+                index,
+                com.spectrayan.spector.commons.concurrent.spi.DefaultExecutorProvider.INSTANCE
+        );
+        com.spectrayan.spector.memory.index.IndexPlaneCoordinator indexPlaneCoordinator =
+                new com.spectrayan.spector.memory.index.IndexPlaneCoordinator(indexContext);
+
+        if (graphs.entityDirectory() != null && graphs.entityDirectory().entityTypeRegistry() != null) {
+            indexPlaneCoordinator.register(new com.spectrayan.spector.memory.index.GraphStoreAdapter(
+                    "TypeRegistry", graphs.entityDirectory().entityTypeRegistry(), java.util.Set.of()));
+        }
+        if (graphs.entityDirectory() != null) {
+            indexPlaneCoordinator.register(new com.spectrayan.spector.memory.index.GraphStoreAdapter(
+                    "EntityDirectory", graphs.entityDirectory(), java.util.Set.of("TypeRegistry")));
+            indexPlaneCoordinator.register(new com.spectrayan.spector.memory.index.EntityReverseIndexAdapter(graphs.entityDirectory()));
+        }
+        if (graphs.hyperEntityGraph() != null) {
+            indexPlaneCoordinator.register(new com.spectrayan.spector.memory.index.GraphStoreAdapter(
+                    "HyperEntityGraph", graphs.hyperEntityGraph(), java.util.Set.of("EntityDirectory")));
+        }
+        if (graphs.temporalChain() != null) {
+            indexPlaneCoordinator.register(new com.spectrayan.spector.memory.index.GraphStoreAdapter(
+                    "TemporalChain", graphs.temporalChain(), java.util.Set.of()));
+        }
+        if (graphs.hebbianGraph() != null) {
+            indexPlaneCoordinator.register(new com.spectrayan.spector.memory.index.GraphStoreAdapter(
+                    "HebbianGraph", graphs.hebbianGraph(), java.util.Set.of()));
+        }
+        indexPlaneCoordinator.register(new com.spectrayan.spector.memory.index.GraphStoreAdapter(
+                "MemoryIndex", index, java.util.Set.of()));
+
+        if (retrieval.bm25Index() != null) {
+            indexPlaneCoordinator.register(new com.spectrayan.spector.memory.index.GraphStoreAdapter(
+                    "BM25", retrieval.bm25Index(), java.util.Set.of("MemoryIndex", "EntityReverseIndex")));
+        }
+        if (retrieval.memorySpladeIndex() != null) {
+            indexPlaneCoordinator.register(new com.spectrayan.spector.memory.index.GraphStoreAdapter(
+                    "SPLADE", retrieval.memorySpladeIndex(), java.util.Set.of("MemoryIndex")));
+        }
+
+        // Hydrate all registered indexes deterministically
+        indexPlaneCoordinator.hydrateAll().toCompletableFuture().join();
+
         return new SubsystemBundle(
                 rememberPathway, embeddingProvider, recallPathway, reflectPathway, expressPathway, index, cortex.quantizer(),
                 partitionManager, importanceProvider,
@@ -590,7 +637,7 @@ public final class SpectorMemoryFactory {
                 parallelPipeline, embedConfig, cortex.resolvedPartitionDir(), cortex.basePath(),
                 cortex.namespaceManager(), profileAdaptor, cortex.runtimeBundle(), cortex.insularCortex(),
                 wanderPathway, cortex.continuityMemory(), decidePathway, dreamPathway, aismeBundle,
-                cortex.provenanceMemory()
+                cortex.provenanceMemory(), indexPlaneCoordinator
         );
     }
     private static void rebuildHnswIfNeeded(SpectorMemoryBuilder builder, PartitionManager partitionManager, MemoryIndex index, ScalarQuantizer quantizer) {

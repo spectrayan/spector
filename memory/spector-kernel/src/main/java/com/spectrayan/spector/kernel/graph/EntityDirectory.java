@@ -870,7 +870,22 @@ public class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLayout> 
         }
     }
 
-    private void rebuildReverseIndex() {
+    /**
+     * Returns all entity IDs associated with the specified memory slot from the reverse index.
+     *
+     * @param memorySlot memory slot identifier
+     * @return unmodifiable set of entity IDs, or empty set if none
+     */
+    public Set<Integer> entityIdsForMemory(int memorySlot) {
+        if (memorySlot < 0 || entityCount == 0) return Set.of();
+        Set<Integer> entities = memoryToEntities.get(memorySlot);
+        return entities != null ? java.util.Collections.unmodifiableSet(entities) : Set.of();
+    }
+
+    /**
+     * Rebuilds the in-memory reverse index from the authoritative memory-mapped adjacency segment.
+     */
+    public void rebuildReverseIndex() {
         memoryToEntities.clear();
         for (int i = 0; i < entityCount; i++) {
             long entOffset = (long) i * ENTITY_NODE_BYTES;
