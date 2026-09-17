@@ -11,7 +11,7 @@
 | **Amends** | [ADR-0034](0034-cell-ha-namespace-ownership.md) §7 (edge gateway / cell router), §8 (gateway forwarding) |
 | **Related** | [ADR-0026](0026-dual-plane-concurrency-and-backpressure.md) (T4 plane separation, backpressure), [ADR-0029](0029-episodic-semantic-lineage-provenance-region.md) (tenant/namespace identity), [ADR-0031](0031-unified-configuration-architecture.md), [ADR-0039](0039-robust-unified-rate-limiting-architecture.md), [ADR-0070](0070-unified-error-taxonomy-and-exception-handling.md), [ADR-0079](0079-memory-event-and-telemetry-notification-bus.md) |
 | **Issue** | [#876](https://github.com/spectrayan/spector/issues/876) |
-| **Last Verified** | 2026-09-17 (Implemented on `main` — all phases complete, 112+ tests passing) |
+| **Last Verified** | 2026-09-17 (branch `feat/adr-0081-reactive-gateway` @ `92cc1e88`, pending merge to `main`) |
 
 ---
 

@@ -22,6 +22,8 @@ import io.netty.handler.codec.http.HttpMethod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import reactor.netty.http.client.HttpClient;
 
 import java.io.IOException;
@@ -45,19 +47,47 @@ import java.util.concurrent.atomic.AtomicReference;
  * without full buffering. Response headers are returned as soon as they arrive;
  * the response body streams asynchronously through a {@link PipedInputStream}/{@link PipedOutputStream}
  * pair, allowing SSE and large recalls to flow without sitting in memory.
+ *
+ * <p><strong>Timeout model</strong> (ADR-0081 §3.2):
+ * <ul>
+ *   <li>{@code connectTimeout} — TCP connect + TLS handshake to the owner node.</li>
+ *   <li>{@code responseTimeout} — max idle time between owner response reads.
+ *       Set high enough for SSE heartbeat intervals (default 60 s).</li>
+ * </ul>
  */
 public class ReactorNettyGatewayHttpTransport implements GatewayHttpTransport {
 
     private static final Logger log = LoggerFactory.getLogger(ReactorNettyGatewayHttpTransport.class);
 
-    private final HttpClient httpClient;
-    private final Duration timeout;
+    /** Default connect/headers timeout. */
+    private static final Duration DEFAULT_CONNECT_TIMEOUT = Duration.ofSeconds(5);
 
-    public ReactorNettyGatewayHttpTransport(Duration timeout) {
-        this.timeout = timeout != null ? timeout : Duration.ofSeconds(10);
+    /** Default idle-between-reads timeout (covers SSE heartbeat intervals). */
+    private static final Duration DEFAULT_RESPONSE_TIMEOUT = Duration.ofSeconds(60);
+
+    private final HttpClient httpClient;
+    private final Duration headersTimeout;
+
+    /**
+     * @param connectTimeout  TCP connect + headers arrival timeout (default 5 s)
+     * @param responseTimeout idle-between-reads timeout on the owner hop (default 60 s for SSE)
+     */
+    public ReactorNettyGatewayHttpTransport(Duration connectTimeout, Duration responseTimeout) {
+        this.headersTimeout = connectTimeout != null ? connectTimeout : DEFAULT_CONNECT_TIMEOUT;
+        Duration idleTimeout = responseTimeout != null ? responseTimeout : DEFAULT_RESPONSE_TIMEOUT;
+
         this.httpClient = HttpClient.create()
-                .responseTimeout(this.timeout)
+                .option(io.netty.channel.ChannelOption.CONNECT_TIMEOUT_MILLIS, (int) this.headersTimeout.toMillis())
+                .responseTimeout(idleTimeout)
                 .followRedirect(false);
+    }
+
+    /**
+     * Single-timeout convenience constructor — uses 5 s connect, specified value as idle timeout.
+     */
+    public ReactorNettyGatewayHttpTransport(Duration ownerTimeout) {
+        this(DEFAULT_CONNECT_TIMEOUT,
+             ownerTimeout != null ? ownerTimeout : DEFAULT_RESPONSE_TIMEOUT);
     }
 
     @Override
@@ -141,16 +171,18 @@ public class ReactorNettyGatewayHttpTransport implements GatewayHttpTransport {
             resultRef.set(new ForwardResponse(statusCode, resHeaders, pipeIn, targetNodeId, 1));
             headersReady.countDown();
 
-            // Stream response body chunks into the pipe asynchronously
+            // Stream response body chunks into the pipe on boundedElastic to avoid
+            // stalling the Netty event loop when the pipe buffer is full (slow client).
             return conn.inbound().receive().asByteArray()
-                    .doOnNext(bytes -> {
+                    .publishOn(Schedulers.boundedElastic())
+                    .concatMap(bytes -> Mono.fromRunnable(() -> {
                         try {
                             pipeOut.write(bytes);
                             pipeOut.flush();
                         } catch (IOException e) {
                             log.debug("Pipe write error during response streaming: {}", e.getMessage());
                         }
-                    })
+                    }))
                     .doOnComplete(() -> {
                         try { pipeOut.close(); } catch (IOException ignored) {}
                     })
@@ -176,7 +208,7 @@ public class ReactorNettyGatewayHttpTransport implements GatewayHttpTransport {
         );
 
         // Block only until headers arrive (not until the entire body is received)
-        if (!headersReady.await(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
+        if (!headersReady.await(headersTimeout.toMillis(), TimeUnit.MILLISECONDS)) {
             try { pipeOut.close(); } catch (IOException ignored) {}
             try { pipeIn.close(); } catch (IOException ignored) {}
             throw new IOException("Timed out waiting for response headers from " + fullUrl);

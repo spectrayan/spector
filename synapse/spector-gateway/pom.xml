@@ -167,6 +167,10 @@
                                         <exclude>org.flywaydb:*</exclude>
                                         <exclude>com.h2database:*</exclude>
                                         <exclude>org.apache.camel:*</exclude>
+                                        <!-- Servlet/Tomcat — gateway is reactive-only (WebFlux) -->
+                                        <exclude>org.springframework.boot:spring-boot-starter-web</exclude>
+                                        <exclude>org.springframework.boot:spring-boot-starter-tomcat</exclude>
+                                        <exclude>org.apache.tomcat.embed:*</exclude>
                                     </excludes>
                                     <message>
                                         Invariant T4 violation: spector-gateway must not depend on data-plane modules.

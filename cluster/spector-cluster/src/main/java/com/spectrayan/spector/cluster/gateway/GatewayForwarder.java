@@ -172,15 +172,20 @@ public class GatewayForwarder {
     private static final int MAX_421_PEEK_BYTES = 8192;
 
     private static OwnerExtraction extractReportedOwner(ForwardResponse response) {
-        // 1. Check X-Spector-Owner header first — no body consumption needed
+        // 1. Check X-Spector-Owner header first (case-insensitive — Netty may normalize to lowercase)
         if (response.headers() != null) {
-            java.util.List<String> ownerHeaders = response.headers().get("X-Spector-Owner");
-            if (ownerHeaders != null && !ownerHeaders.isEmpty()) {
-                String val = ownerHeaders.get(0);
-                if (val != null && !val.isBlank()) {
-                    // Peek body anyway so it's preserved for exhausted-retry path
-                    byte[] peeked = peekBody(response);
-                    return new OwnerExtraction(val.trim(), peeked);
+            for (Map.Entry<String, java.util.List<String>> entry : response.headers().entrySet()) {
+                if ("X-Spector-Owner".equalsIgnoreCase(entry.getKey())) {
+                    java.util.List<String> values = entry.getValue();
+                    if (values != null && !values.isEmpty()) {
+                        String val = values.get(0);
+                        if (val != null && !val.isBlank()) {
+                            // Peek body so it's preserved for exhausted-retry path
+                            byte[] peeked = peekBody(response);
+                            return new OwnerExtraction(val.trim(), peeked);
+                        }
+                    }
+                    break;
                 }
             }
         }
