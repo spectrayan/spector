@@ -2,12 +2,12 @@
 
 | Field | Value |
 |:---|:---|
-| **Status** | Accepted (Implemented) |
+| **Status** | Superseded by ADR-0074 |
 | **Date** | 2026-08-07 |
 | **Authors** | Spector Maintainers & Architecture Working Group |
 | **Deciders** | Spector Technical Steering Committee (TSC) |
 | **Supersedes** | None |
-| **Superseded By** | None |
+| **Superseded By** | ADR-0074 |
 | **Last Verified** | 2026-09-16 (Verified against `main`) |
 
 ---

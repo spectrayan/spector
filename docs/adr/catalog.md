@@ -1,11 +1,11 @@
 # Architecture Decision Records (ADRs) — Master Catalog
 
-> **Authoritative registry of all 69 Architecture Decision Records governing Spector.** Every record tracks architectural rationale, options evaluated, trade-offs accepted, and code verification against `main`.
+> **Authoritative registry of all 80 Architecture Decision Records governing Spector.** Every record tracks architectural rationale, options evaluated, trade-offs accepted, and code verification against `main`.
 
 > [!NOTE]
 > The Active Inference Self-Model Engine verification report has graduated to the architecture audit section: [Architecture Verification Report: Active Inference Self-Model Engine (AISME)](../architecture/aisme-completeness-verification-report.md).
 
-## Master Registry (0001–0069)
+## Master Registry (0001–0080)
 
 | ADR | Title | Status | Date | Target File |
 |:---|:---|:---:|:---:|:---|
@@ -15,7 +15,7 @@
 | **ADR-0004** | [Mmap Bundle Architecture & File Descriptor Scaling](0004-mmap-bundle-architecture-and-fd-scaling.md) | `Accepted (Implemented)` | 2026-08-04 | [`0004-mmap-bundle-architecture-and-fd-scaling.md`](0004-mmap-bundle-architecture-and-fd-scaling.md) |
 | **ADR-0005** | [spector-memory Technical Debt Hardening](0005-spector-memory-technical-debt-hardening.md) | `Accepted (Implemented)` | 2026-08-05 | [`0005-spector-memory-technical-debt-hardening.md`](0005-spector-memory-technical-debt-hardening.md) |
 | **ADR-0006** | [Episodic Conversation Architecture](0006-episodic-conversation-architecture.md) | `Accepted (Implemented)` | 2026-08-06 | [`0006-episodic-conversation-architecture.md`](0006-episodic-conversation-architecture.md) |
-| **ADR-0007** | [ReflectPathway — Biological Sleep Consolidation](0007-reflect-pathway-sleep-consolidation.md) | `Accepted (Implemented)` | 2026-08-07 | [`0007-reflect-pathway-sleep-consolidation.md`](0007-reflect-pathway-sleep-consolidation.md) |
+| **ADR-0007** | [ReflectPathway — Biological Sleep Consolidation](0007-reflect-pathway-sleep-consolidation.md) | `Superseded by ADR-0074` | 2026-08-07 | [`0007-reflect-pathway-sleep-consolidation.md`](0007-reflect-pathway-sleep-consolidation.md) |
 | **ADR-0008** | [Cognitive Substrate Evolution (TANGLE, GPM, MSCE)](0008-cognitive-substrate-evolution-tangle-gpm-msce.md) | `Accepted (Implemented)` | 2026-08-08 | [`0008-cognitive-substrate-evolution-tangle-gpm-msce.md`](0008-cognitive-substrate-evolution-tangle-gpm-msce.md) |
 | **ADR-0009** | [AISME Phase 1 — Homeostatic Affective Core](0009-aisme-phase-1-homeostatic-affective-core.md) | `Accepted (Implemented)` | 2026-08-22 | [`0009-aisme-phase-1-homeostatic-affective-core.md`](0009-aisme-phase-1-homeostatic-affective-core.md) |
 | **ADR-0010** | [AISME Phase 2 — Free-Energy Guided Recall](0010-aisme-phase-2-free-energy-guided-recall.md) | `Accepted (Implemented)` | 2026-08-23 | [`0010-aisme-phase-2-free-energy-guided-recall.md`](0010-aisme-phase-2-free-energy-guided-recall.md) |
@@ -78,6 +78,17 @@
 | **ADR-0067** | [Cell-Based High Availability and Namespace-Sticky Sharding (Initial Draft)](0067-cell-ha-namespace-sticky-sharding.md) | `Superseded by ADR-0034` | 2026-08-30 | [`0067-cell-ha-namespace-sticky-sharding.md`](0067-cell-ha-namespace-sticky-sharding.md) |
 | **ADR-0068** | [Phileas PII Redaction Engine for Spector Synapse](0068-phileas-pii-engine-for-spector-synapse.md) | `Accepted (Implemented)` | 2026-08-31 | [`0068-phileas-pii-engine-for-spector-synapse.md`](0068-phileas-pii-engine-for-spector-synapse.md) |
 | **ADR-0069** | [Synapse-Owned Tool Access Policy](0069-synapse-owned-tool-access-policy.md) | `Accepted (Implemented)` | 2026-08-31 | [`0069-synapse-owned-tool-access-policy.md`](0069-synapse-owned-tool-access-policy.md) |
+| **ADR-0070** | [Unified Error Taxonomy and Exception Handling Architecture](0070-unified-error-taxonomy-and-exception-handling.md) | `Accepted (Implemented)` | 2026-08-12 | [`0070-unified-error-taxonomy-and-exception-handling.md`](0070-unified-error-taxonomy-and-exception-handling.md) |
+| **ADR-0071** | [Remember Cognitive Pathway Architecture](0071-remember-cognitive-pathway-architecture.md) | `Accepted (Implemented)` | 2026-08-14 | [`0071-remember-cognitive-pathway-architecture.md`](0071-remember-cognitive-pathway-architecture.md) |
+| **ADR-0072** | [Six-Phase Fused Cognitive Scoring Pipeline](0072-six-phase-fused-cognitive-scoring-pipeline.md) | `Accepted (Implemented)` | 2026-08-16 | [`0072-six-phase-fused-cognitive-scoring-pipeline.md`](0072-six-phase-fused-cognitive-scoring-pipeline.md) |
+| **ADR-0073** | [Recall Cognitive Pathway and Multi-Phase Retrieval Architecture](0073-recall-cognitive-pathway-multi-phase-retrieval.md) | `Accepted (Implemented)` | 2026-08-18 | [`0073-recall-cognitive-pathway-multi-phase-retrieval.md`](0073-recall-cognitive-pathway-multi-phase-retrieval.md) |
+| **ADR-0074** | [Reflect Cognitive Pathway and Sleep Consolidation Architecture](0074-reflect-cognitive-pathway-sleep-consolidation.md) | `Accepted (Implemented)` | 2026-08-19 | [`0074-reflect-cognitive-pathway-sleep-consolidation.md`](0074-reflect-cognitive-pathway-sleep-consolidation.md) |
+| **ADR-0075** | [Extensible LLM and Multimodal Embedding Provider SPI](0075-extensible-llm-and-embedding-provider-spi.md) | `Accepted (Implemented)` | 2026-08-20 | [`0075-extensible-llm-and-embedding-provider-spi.md`](0075-extensible-llm-and-embedding-provider-spi.md) |
+| **ADR-0076** | [Zero-Dependency Pluggable Cache Abstraction](0076-zero-dependency-pluggable-cache-abstraction.md) | `Accepted (Implemented)` | 2026-08-21 | [`0076-zero-dependency-pluggable-cache-abstraction.md`](0076-zero-dependency-pluggable-cache-abstraction.md) |
+| **ADR-0077** | [Model B Asynchronous Task Queue and Context-Propagated Concurrency](0077-model-b-asynchronous-task-queue-concurrency.md) | `Accepted (Implemented)` | 2026-08-22 | [`0077-model-b-asynchronous-task-queue-concurrency.md`](0077-model-b-asynchronous-task-queue-concurrency.md) |
+| **ADR-0078** | [Salience Network and Thalamic Cognitive Profiles Architecture](0078-salience-network-and-thalamic-cognitive-profiles.md) | `Accepted (Implemented)` | 2026-08-23 | [`0078-salience-network-and-thalamic-cognitive-profiles.md`](0078-salience-network-and-thalamic-cognitive-profiles.md) |
+| **ADR-0079** | [Asynchronous Memory Event and Telemetry Notification Bus](0079-memory-event-and-telemetry-notification-bus.md) | `Accepted (Implemented)` | 2026-08-25 | [`0079-memory-event-and-telemetry-notification-bus.md`](0079-memory-event-and-telemetry-notification-bus.md) |
+| **ADR-0080** | [Observed Memory and Pathway Metrics Telemetry Architecture](0080-observed-memory-and-pathway-metrics-telemetry.md) | `Accepted (Implemented)` | 2026-08-28 | [`0080-observed-memory-and-pathway-metrics-telemetry.md`](0080-observed-memory-and-pathway-metrics-telemetry.md) |
 
 ---
 
@@ -104,7 +115,7 @@ Low-level memory alignment, zero-GC layouts, entity graphs, off-heap bundles, an
 Biological memory pathways, free-energy active inference, dynamic dreaming, associative manifolds, and speech prosody:
 
 - **[ADR-0006: Episodic Conversation Architecture](0006-episodic-conversation-architecture.md)** (`Accepted (Implemented)`)
-- **[ADR-0007: ReflectPathway — Biological Sleep Consolidation](0007-reflect-pathway-sleep-consolidation.md)** (`Accepted (Implemented)`)
+- **[ADR-0007: ReflectPathway — Biological Sleep Consolidation](0007-reflect-pathway-sleep-consolidation.md)** (`Superseded by ADR-0074`)
 - **[ADR-0008: Cognitive Substrate Evolution (TANGLE, GPM, MSCE)](0008-cognitive-substrate-evolution-tangle-gpm-msce.md)** (`Accepted (Implemented)`)
 - **[ADR-0009: AISME Phase 1 — Homeostatic Affective Core](0009-aisme-phase-1-homeostatic-affective-core.md)** (`Accepted (Implemented)`)
 - **[ADR-0010: AISME Phase 2 — Free-Energy Guided Recall](0010-aisme-phase-2-free-energy-guided-recall.md)** (`Accepted (Implemented)`)
@@ -133,6 +144,11 @@ Biological memory pathways, free-energy active inference, dynamic dreaming, asso
 - **[ADR-0058: Linguistic & Vocal Prosody Expression Engine](0058-linguistic-vocal-prosody-expression-engine.md)** (`Accepted (Implemented)`)
 - **[ADR-0063: Spacetime Vector Search and Synaptic Relay Architecture](0063-spacetime-vector-search-synaptic-relay-architecture.md)** (`Accepted (Implemented)`)
 - **[ADR-0064: Spacetime Simulation on Wander, Dream, and Express Pathways](0064-spacetime-simulation-wander-dream-express.md)** (`Accepted (Implemented)`)
+- **[ADR-0071: Remember Cognitive Pathway Architecture](0071-remember-cognitive-pathway-architecture.md)** (`Accepted (Implemented)`)
+- **[ADR-0072: Six-Phase Fused Cognitive Scoring Pipeline](0072-six-phase-fused-cognitive-scoring-pipeline.md)** (`Accepted (Implemented)`)
+- **[ADR-0073: Recall Cognitive Pathway and Multi-Phase Retrieval Architecture](0073-recall-cognitive-pathway-multi-phase-retrieval.md)** (`Accepted (Implemented)`)
+- **[ADR-0074: Reflect Cognitive Pathway and Sleep Consolidation Architecture](0074-reflect-cognitive-pathway-sleep-consolidation.md)** (`Accepted (Implemented)`)
+- **[ADR-0078: Salience Network and Thalamic Cognitive Profiles Architecture](0078-salience-network-and-thalamic-cognitive-profiles.md)** (`Accepted (Implemented)`)
 
 ### 3. Platform, Hardware Abstraction, Security & Synapse Services
 Hardware Abstraction Layer (HAL), actor concurrency, clustering & cell HA, REST/gRPC gateways, MCP server integration, and client SDKs:
@@ -163,3 +179,9 @@ Hardware Abstraction Layer (HAL), actor concurrency, clustering & cell HA, REST/
 - **[ADR-0067: Cell-Based High Availability and Namespace-Sticky Sharding (Initial Draft)](0067-cell-ha-namespace-sticky-sharding.md)** (`Superseded by ADR-0034`)
 - **[ADR-0068: Phileas PII Redaction Engine for Spector Synapse](0068-phileas-pii-engine-for-spector-synapse.md)** (`Accepted (Implemented)`)
 - **[ADR-0069: Synapse-Owned Tool Access Policy](0069-synapse-owned-tool-access-policy.md)** (`Accepted (Implemented)`)
+- **[ADR-0070: Unified Error Taxonomy and Exception Handling Architecture](0070-unified-error-taxonomy-and-exception-handling.md)** (`Accepted (Implemented)`)
+- **[ADR-0075: Extensible LLM and Multimodal Embedding Provider SPI](0075-extensible-llm-and-embedding-provider-spi.md)** (`Accepted (Implemented)`)
+- **[ADR-0076: Zero-Dependency Pluggable Cache Abstraction](0076-zero-dependency-pluggable-cache-abstraction.md)** (`Accepted (Implemented)`)
+- **[ADR-0077: Model B Asynchronous Task Queue and Context-Propagated Concurrency](0077-model-b-asynchronous-task-queue-concurrency.md)** (`Accepted (Implemented)`)
+- **[ADR-0079: Asynchronous Memory Event and Telemetry Notification Bus](0079-memory-event-and-telemetry-notification-bus.md)** (`Accepted (Implemented)`)
+- **[ADR-0080: Observed Memory and Pathway Metrics Telemetry Architecture](0080-observed-memory-and-pathway-metrics-telemetry.md)** (`Accepted (Implemented)`)

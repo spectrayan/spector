@@ -231,7 +231,7 @@ nav:
       - "Architecture Decision Records (ADRs)":
           - Overview: adr/README.md
           - Template: adr/0000-template.md
-          - "Master Catalog (0001-0069)": adr/catalog.md
+          - "Master Catalog (0001-0080)": adr/catalog.md
           - "Memory Kernel & Storage Formats":
               - "ADR-0001: Graph Compression Strategy for Entity Graph": adr/0001-graph-compression-strategy.md
               - "ADR-0002: Multi-Partition Recall Fan-Out & Frozen Reten...": adr/0002-multi-partition-recall-fanout.md
@@ -277,6 +277,11 @@ nav:
               - "ADR-0058: Linguistic & Vocal Prosody Expression Engine": adr/0058-linguistic-vocal-prosody-expression-engine.md
               - "ADR-0063: Spacetime Vector Search and Synaptic Relay Architecture": adr/0063-spacetime-vector-search-synaptic-relay-architecture.md
               - "ADR-0064: Spacetime Simulation on Wander, Dream, and Express Pathways": adr/0064-spacetime-simulation-wander-dream-express.md
+              - "ADR-0071: Remember Cognitive Pathway Architecture": adr/0071-remember-cognitive-pathway-architecture.md
+              - "ADR-0072: Six-Phase Fused Cognitive Scoring Pipeline": adr/0072-six-phase-fused-cognitive-scoring-pipeline.md
+              - "ADR-0073: Recall Cognitive Pathway and Multi-Phase Retrieval Architecture": adr/0073-recall-cognitive-pathway-multi-phase-retrieval.md
+              - "ADR-0074: Reflect Cognitive Pathway and Sleep Consolidation Architecture": adr/0074-reflect-cognitive-pathway-sleep-consolidation.md
+              - "ADR-0078: Salience Network and Thalamic Cognitive Profiles Architecture": adr/0078-salience-network-and-thalamic-cognitive-profiles.md
           - "Platform, Synapse & Clustering":
               - "ADR-0021: Nucleus Symmetric Hardware Abstraction Layer ...": adr/0021-nucleus-symmetric-hardware-abstraction-layer.md
               - "ADR-0022: Embodied Kinesics & Phenomenological MCP Engine": adr/0022-embodied-kinesics-phenomenological-mcp-engine.md
@@ -304,6 +309,12 @@ nav:
               - "ADR-0067: Cell-Based High Availability and Namespace-Sticky Sharding": adr/0067-cell-ha-namespace-sticky-sharding.md
               - "ADR-0068: Phileas PII Redaction Engine for Spector Synapse": adr/0068-phileas-pii-engine-for-spector-synapse.md
               - "ADR-0069: Synapse-Owned Tool Access Policy": adr/0069-synapse-owned-tool-access-policy.md
+              - "ADR-0070: Unified Error Taxonomy and Exception Handling Architecture": adr/0070-unified-error-taxonomy-and-exception-handling.md
+              - "ADR-0075: Extensible LLM and Multimodal Embedding Provider SPI": adr/0075-extensible-llm-and-embedding-provider-spi.md
+              - "ADR-0076: Zero-Dependency Pluggable Cache Abstraction": adr/0076-zero-dependency-pluggable-cache-abstraction.md
+              - "ADR-0077: Model B Asynchronous Task Queue and Concurrency": adr/0077-model-b-asynchronous-task-queue-concurrency.md
+              - "ADR-0079: Asynchronous Memory Event and Telemetry Notification Bus": adr/0079-memory-event-and-telemetry-notification-bus.md
+              - "ADR-0080: Observed Memory and Pathway Metrics Telemetry Architecture": adr/0080-observed-memory-and-pathway-metrics-telemetry.md
       - "Modules Registry":
           - Overview: modules/index.md
           - "Foundation Layer (/nucleus)":
