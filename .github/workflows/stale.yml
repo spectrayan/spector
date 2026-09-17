@@ -20,11 +20,11 @@ jobs:
       - uses: actions/stale@v11
         with:
           # Issue configuration
-          days-before-issue-stale: 30
+          days-before-issue-stale: 90
           days-before-issue-close: 14
           stale-issue-label: 'stale'
           stale-issue-message: |
-            This issue has been automatically marked as **stale** because it has not had activity in 30 days.
+            This issue has been automatically marked as **stale** because it has not had activity in 90 days.
 
             If you're still working on this or it's still relevant, please leave a comment and we'll keep it open. Otherwise, it will be closed in 14 days.
 
@@ -35,11 +35,11 @@ jobs:
             Thanks for your interest in Spector! 🙏
 
           # PR configuration
-          days-before-pr-stale: 21
+          days-before-pr-stale: 90
           days-before-pr-close: 14
           stale-pr-label: 'stale'
           stale-pr-message: |
-            This pull request has been automatically marked as **stale** because it has not had activity in 21 days.
+            This pull request has been automatically marked as **stale** because it has not had activity in 90 days.
 
             If you're still working on this, please push an update or leave a comment and we'll keep it open. Otherwise, it will be closed in 14 days.
 
