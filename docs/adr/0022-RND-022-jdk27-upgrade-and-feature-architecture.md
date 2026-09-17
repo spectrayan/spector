@@ -16,7 +16,7 @@
 **Status**: Approved (In-Progress)  
 **Date**: 2026-09-12 (Revised from 2026-09-10)  
 **Authors**: Technical Lead, Architecture Working Group (Systems Architecture)  
-**Approved by**: Bharat (CEO)  
+**Approved by**: Bharat (Project Lead)  
 **Target Systems**: `spector` (Spector Memory Engine, Nucleus, Synapse, SDKs), `spectrayan`  
 **Related GitHub Issues**: 
 - [#802](https://github.com/spectrayan/spector/issues/802) (Epic)
@@ -239,7 +239,7 @@ The upgrade is tracked under master Epic [#802](https://github.com/spectrayan/sp
 - **Issue #803 (Finalize)**: Pin official `eclipse-temurin:27-jdk` Docker base images and GitHub Actions GA runner matrices.
 - **Issue #808 (Finalize)**: Build and package ZGC AOT cache (`spector.aotcache`).
 - **Testing & Benchmarks**: Run full Sentinel test suite and JMH benchmarks (`spector-bench`).
-- **PR & Merge**: Open final PR to `main` for CEO sign-off.
+- **PR & Merge**: Open final PR to `main` for Project Lead sign-off.
 
 ---
 
@@ -254,6 +254,6 @@ The upgrade is tracked under master Epic [#802](https://github.com/spectrayan/sp
 ## 7. Approval & Sign-Off
 
 - **Document Version**: 2.0 (JDK 27 Alignment)
-- **Approved by**: Bharat (CEO)
+- **Approved by**: Bharat (Project Lead)
 - **Technical Lead**: Technical Lead
 - **Solutions Architect**: @titan

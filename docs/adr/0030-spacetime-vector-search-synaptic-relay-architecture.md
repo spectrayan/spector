@@ -17,7 +17,7 @@
 **Date**: 2026-08-31  
 **Supersedes**: ADR-0030 draft that persisted \(\vec{\tau}(t)\) and \(M_i\) into the off-heap stride and added `SpacetimeEncodingRelay` / `CausalHorizonGateRelay`  
 **Authors**: Technical Lead, Architecture Working Group (Systems Architecture), Architecture Working Group (Cognitive Systems), Maintainer (Core & Synapse)  
-**Approved by**: Bharat (CEO), 2026-08-31  
+**Approved by**: Bharat (Project Lead), 2026-08-31  
 **Related Documents**: [RND-2026-030](0030-spacetime-vector-search-synaptic-relay-architecture.md)  
 **Target Repositories**: `spectrayan/spector`, `spectrayan/RnD`  
 

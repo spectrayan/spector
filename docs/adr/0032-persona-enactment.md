@@ -417,6 +417,6 @@ A pull request or implementation that violates any invariant is rejected:
 
 ---
 
-*Authored by:* **Technical Lead** (CTO) & **@titan** (Solutions Architect)  
+*Authored by:* **Technical Lead** & **@titan** (Solutions Architect)  
 *Cognitive Architecture Review by:* **@neuron** (Chief Cognitive Scientist)  
-*Approved by:* **Bharat** (CEO)
+*Approved by:* **Bharat** (Project Lead)

@@ -333,7 +333,7 @@ that such pre-fix data is unrecoverable). Java constraints hold throughout: no
 
 ---
 
-## Addendum — Phase 2 `.midx` format decision (CEO-approved 2026-08-02)
+## Addendum — Phase 2 `.midx` format decision (Project Lead-approved 2026-08-02)
 
 The `.midx` file already carries the standard **64-byte kernel `MemoryHeader`** (via `DefaultRecordMemory<IndexEntryLayout>`); only the **per-record slot** changes. Decision:
 

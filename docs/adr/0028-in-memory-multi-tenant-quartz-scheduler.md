@@ -13,7 +13,7 @@
 ---
 
 **Author:** Titan (@titanspectrayan, Solutions Architect)  
-**Reviewer:** Jarvis (Technical Leadpectrayan, CTO) & Project Lead  
+**Reviewer:** Jarvis (Technical Lead) & Project Lead  
 **Status:** Accepted  
 **Target Modules:** `nucleus/spector-commons`, `nucleus/spector-bom`, `memory/spector-memory`, `synapse/spector-synapse`  
 **Issue:** #683  

@@ -19,8 +19,8 @@ Proposed (Architectural Blueprint for Issue #506 & Memory Audit Subsystems)
 2026-08-28
 
 ## Deciders
-- **Project Lead** (CEO — Product Vision & Strategic Direction)
-- **Jarvis** (CTO — Engineering Leadership & Portfolio Architecture)
+- **Project Lead** (Product Vision & Strategic Direction)
+- **Technical Lead** (Engineering Leadership & Portfolio Architecture)
 - **Titan** (Solutions Architect — System Design & Binary Memory Layouts)
 - **Neuron** (Chief Cognitive Scientist — Memory Models & Synaptic Formulations)
 - **Forge** (Senior Full-Stack Developer — Off-Heap Panama FFM Implementation)

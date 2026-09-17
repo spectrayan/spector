@@ -14,17 +14,6 @@
 
 **All four memory types are engrams. One cognitive substrate. Dedicated per-tier header fields. No field punning.**
 
-| Field | Value |
-|---|---|
-| **Status** | Proposed |
-| **Date** | 4 September 2026 |
-| **Author** | Solutions architecture review (Titan + Neuron) |
-| **Supersedes** | Partial header design in `Episodic-Memory-and-Engram-Model.md` §5–§6 |
-| **Related** | ADR-0010 (Single Engram, Four Stores) · ADR-0028 (Encoding/Audit Split) · `Episodic-Memory-and-Engram-Model.md` |
-| **Companion spec** | [MF-001](https://github.com/spectrayan/memory-fundamentals) v1.0.0 |
-| **Codebase** | `spectrayan/spector` · `memory/spector-memory` |
-| **Branch** | `refactor/engram-layout-unification` |
-
 ---
 
 ## 1. Decision
@@ -655,7 +644,7 @@ Strength is per-engram, keyed by slot/offset, shared across all tiers. Unchanged
 
 ## 9. Resolved Design Decisions
 
-The following questions were raised during review and resolved by the CEO:
+The following questions were raised during review and resolved by the Project Lead:
 
 ### 9.1 Working memory header — **Keep full 64B, cache-aligned**
 

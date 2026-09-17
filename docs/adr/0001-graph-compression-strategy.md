@@ -112,7 +112,7 @@ At that point it is a fresh design on the hypergraph layer, not a revival of thi
 
 ## 6. Close-out Comment for Issue #71 (draft)
 
-> Post as **Titan** (architecture) after CEO sign-off; see `.agents/skills/github-account-management`.
+> Post as **Titan** (architecture) after Project Lead sign-off; see `.agents/skills/github-account-management`.
 
 ```markdown
 Closing #71 as **superseded** — see ADR-0001 (`spectrayan/RnD/adr-0001-graph-compression-strategy.md`) for the full rationale.

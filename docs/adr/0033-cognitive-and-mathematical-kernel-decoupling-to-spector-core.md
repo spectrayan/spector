@@ -20,18 +20,18 @@ Proposed — Revision 2 (TSC Review incorporated)
 
 ## Authors
 - **@titan** (Solutions Architect)
-- **Technical Lead** (CTO & Chief Technical Officer)
+- **Technical Lead**
 - **@neuron** (Chief Cognitive Scientist)
 
 ## Reviewers & Approvers
-- **Bharat** (CEO) — licensing decision recorded in §1.2
+- **Bharat** (Project Lead) — licensing decision recorded in §1.2
 
 ## Revision History
 
 | Rev | Change |
 |:--|:--|
 | 1 | Initial proposal: 34 algorithms, 14 domains, 5 phases. |
-| 2 | CTO code-verification pass. Added explicit Apache 2.0 licensing decision (§1.2); corrected the SIMD rationale and made the seam batch-shaped (§2.1 P3); resolved three name collisions with existing `spector-core` types (§2.2); tightened the purity contract for stateful and stochastic kernels (§2.1 P2); corrected verified factual errors (§1.3); added mandatory boundary enforcement (§2.1 P5) and a per-phase behavioural-parity harness (§2.1 P6); expanded the duplication catalog from 3 to 12 confirmed clusters (§1.1); added Phase 0 baseline capture and cross-spec sequencing (§4, §7). |
+| 2 | Technical Lead code-verification pass. Added explicit Apache 2.0 licensing decision (§1.2); corrected the SIMD rationale and made the seam batch-shaped (§2.1 P3); resolved three name collisions with existing `spector-core` types (§2.2); tightened the purity contract for stateful and stochastic kernels (§2.1 P2); corrected verified factual errors (§1.3); added mandatory boundary enforcement (§2.1 P5) and a per-phase behavioural-parity harness (§2.1 P6); expanded the duplication catalog from 3 to 12 confirmed clusters (§1.1); added Phase 0 baseline capture and cross-spec sequencing (§4, §7). |
 
 ## Related Documents
 
@@ -107,7 +107,7 @@ An architectural audit across the 25 modules of the Spector reactor revealed tha
 4. **Inability to Reuse Cognitive Math Standalone**:
    External microservices, edge agents, and sibling repositories (`coding-agents`, `homo-digitalis`) cannot consume these algorithms without pulling in the entire off-heap `spector-kernel` and `spector-memory` reactor. Two constraints bound how far this goal can be met — see §5.3.
 
-### 1.2 Licensing Decision (CEO — Bharat)
+### 1.2 Licensing Decision (Project Lead — Bharat)
 
 `spector-core` is Apache 2.0. `spector-memory` is BSL-1.1 (own `LICENSE`, enforced by a `license-maven-plugin` override at `memory/spector-memory/pom.xml:126-153` pointing at `src/license/bsl-header.txt`). **Roughly 18 of the 34 catalogued algorithms currently carry BSL-1.1 headers**, including the flagship `CognitiveScoreFusion`, `SurpriseDetector`, `WelfordStats`, `IcnuWeights`, `HabituationPenalty`, `LateralEvaluator`, `TemperatureSoftmax`, `PersonalityTemperature`, `HomeostaticCore`, `ColBERTReranker`, `ManifoldConsolidator`, `EventDensityFilter`, and `ActRActivation`.
 
@@ -919,7 +919,7 @@ Two constraints bound §1.1(4) and must be acknowledged rather than papered over
 
 | # | Decision | Owner | Blocking |
 |:--|:--|:--|:--|
-| OD1 | Licensing: math/algorithms → Apache 2.0 on migration | **Bharat (CEO)** | **RESOLVED — §1.2** |
+| OD1 | Licensing: math/algorithms → Apache 2.0 on migration | **Bharat (Project Lead)** | **RESOLVED — §1.2** |
 | OD2 | `spector-kernel` license: Apache throughout (matching current headers), or restore BSL for part of it? The pom, the headers and the `sealed-kernel-module` spec currently disagree three ways. | Bharat / @nexus | Phase 0 (L1, L2) |
 | OD3 | Single cosine zero-guard contract: `denom == 0` (core's current), `<= 0.0f`, or reject-on-degenerate? Changes behaviour in 4 call sites. | @titan / @neuron | Phase 0 |
 | OD4 | Parity tolerance: bit-exact, or a named epsilon per kernel? Bit-exact is impossible for the `double`→`float` cosine swap. | @sentinel | Phase 0 |

@@ -1431,7 +1431,7 @@ That is the whole design in one fixture: three planes, one hot rememberer, ABAC 
 
 ## 27. What changed in this revision
 
-This section is the revision log for reviewers (Claude / Forge / CEO). It is not normative beyond the sections it points at.
+This section is the revision log for reviewers (Claude / Forge / Project Lead). It is not normative beyond the sections it points at.
 
 ### 2026-08-30 — Catalog is JDBC (this edit)
 

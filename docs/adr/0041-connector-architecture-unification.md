@@ -12,7 +12,7 @@
 
 ---
 
-**Stakeholder**: Bharat (CEO)  
+**Stakeholder**: Bharat (Project Lead)  
 **Target Repositories**: `spectrayan/spector` (OSS) and `spectrayan/spector-enterprise` (Enterprise)  
 **Related Issues**: #140, #141, #142, #143, #144, #145, #166, #167, #181, #218, #219, #241, #242, #243, #244, #266  
 

@@ -33,7 +33,7 @@ In response, Titan proposed an extensive hand-crafted custom Java SDK featuring:
    - `McpTransport` (calling JSON-RPC 2.0 over HTTP/SSE)
    - `ProcessTransport` (launching `spector.jar` as a local child process via `ProcessBuilder`)
 
-CEO Bharat raised two critical strategic questions:
+Project Lead Bharat raised two critical strategic questions:
 1. **OpenAPI for REST SDKs**: Should we use OpenAPI (OpenAPI Generator) for all REST-based SDKs across languages instead of writing custom bespoke SDKs?
 2. **MCP SDK Viability**: Does it make sense to build a client SDK for MCP at all? Aren't they supposed to be a drop-in / plug-and-play standard for agents?
 

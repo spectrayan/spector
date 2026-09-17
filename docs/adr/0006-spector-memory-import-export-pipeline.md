@@ -15,7 +15,7 @@
 - **Status**: Accepted
 - **Date**: 2026-08-13
 - **Authors**: Technical Lead, Architecture Working Group (Systems Architecture)
-- **Deciders**: CEO Bharat, Technical Lead, @titan
+- **Deciders**: Project Lead (Bharat), Technical Lead, @titan
 - **Target Module**: `synapse/spector-batch`, `synapse/spector-synapse`, `synapse/spector-cli`
 
 ---
@@ -31,7 +31,7 @@ Spector Memory stores complex cognitive state, including:
 
 As Spector Memory evolves, schemas, index layouts, vector dimensions, and biological model configurations change across releases (e.g. V1.0.0 to V2.0.0). To enable zero-downtime migrations, disaster recovery, cloud backups, and offline data transfer, Spector requires a high-throughput, chunk-oriented **Import & Export Pipeline**.
 
-Per CEO feedback:
+Per Project Lead feedback:
 1. The batch module must reside in **`synapse/spector-batch`**.
 2. Exports MUST be comprehensive, capturing ALL memory text, tags, key-values, hypergraph edges, vectors, keys, and biological states.
 

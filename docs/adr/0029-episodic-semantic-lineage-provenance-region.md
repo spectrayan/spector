@@ -33,8 +33,8 @@ Accepted (Revised) — **supersedes [ADR-0028](0028-dual-plane-memory-audit-arch
 
 ## Deciders
 
-- **Project Lead** (CEO — Product Vision)
-- **Jarvis** (CTO — Engineering Leadership)
+- **Project Lead** (Product Vision)
+- **Technical Lead** (Engineering Leadership)
 - **Titan** (Solutions Architect — Binary Memory Layouts)
 - **Neuron** (Chief Cognitive Scientist — Consolidation Semantics)
 - **Forge** (Senior Developer — Panama FFM Implementation)

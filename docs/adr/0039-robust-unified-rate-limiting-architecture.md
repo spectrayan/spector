@@ -12,7 +12,7 @@
 
 ---
 
-**Stakeholder**: Bharat (CEO)  
+**Stakeholder**: Bharat (Project Lead)  
 **Date**: August 16, 2026  
 **Target Repository**: `spectrayan/spector` (Issue #120)  
 **Target Modules**: `synapse/spector-synapse`, `synapse/spector-connector`, `memory/spector-providers`, `memory/spector-provider-api`, `nucleus/spector-config`

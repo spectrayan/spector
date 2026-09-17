@@ -16,7 +16,7 @@
 **Status**: Proposed  
 **Date**: 2026-08-26  
 **Authors**: Technical Lead, Architecture Working Group (Systems Architecture)  
-**Approved by**: Bharat (CEO)  
+**Approved by**: Bharat (Project Lead)  
 **Target Systems**: `spector` (Spector Memory Kernel), `spectrayan`  
 **Related Documents**: [ADR-0009](0009-RND-011-cross-capture-graph-coactivation-kernel.md), [RND-2026-011](0009-RND-011-cross-capture-graph-coactivation-kernel.md), [ADR-0004](0004-supplement-bundle-design.md)
 

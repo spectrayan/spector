@@ -17,7 +17,7 @@
 > **Date**: 2026-08-04
 > **Status**: Proposed — Awaiting Final Approval
 > **Replaces**: —
-> **Issue**: TBD (Standalone issue, per CEO decision)
+> **Issue**: TBD (Standalone issue, per Project Lead decision)
 
 ---
 
@@ -25,9 +25,9 @@
 
 Spector Memory V3 layout creates **13 mmap files per namespace** in `runtime/` plus **4 files per colocated partition** in `partitions/`. Every file holds an open `FileChannel` for its entire lifetime (`AbstractMemory.java:186-197`), consuming both a **file descriptor** and a **Virtual Memory Area (VMA)** simultaneously.
 
-At the CEO-mandated target of **10,000 concurrent users**, this architecture will **catastrophically fail** due to kernel resource exhaustion.
+At the Project Lead-mandated target of **10,000 concurrent users**, this architecture will **catastrophically fail** due to kernel resource exhaustion.
 
-### CEO Decisions (2026-08-04)
+### Project Lead Decisions (2026-08-04)
 
 | Question | Decision |
 |:---------|:---------|
@@ -129,7 +129,7 @@ Close `FileChannel` immediately after `fc.map()` in `AbstractMemory`. The `Memor
 
 Merge 13 runtime files into 1 `runtime.bundle` file per namespace.
 
-**Key design change (CEO directive)**: ALL stores are growable. No store silently rejects or drops data on capacity overflow. Instead, the region grows via relocate-to-tail.
+**Key design change (Project Lead directive)**: ALL stores are growable. No store silently rejects or drops data on capacity overflow. Instead, the region grows via relocate-to-tail.
 
 ### Option B: Consolidated Partition Bundle
 
@@ -137,7 +137,7 @@ Merge 4 partition files into 1 `partition.bundle` file per partition. All stores
 
 ### Option E: Shared Cross-User Files (Rejected)
 
-> *"We cannot store all users' data in the same file. Our main selling point is complete data isolation."* — CEO
+> *"We cannot store all users' data in the same file. Our main selling point is complete data isolation."* — Project Lead
 
 ---
 
@@ -396,7 +396,7 @@ partition.bundle (1 mmap, 1 VMA):
 
 | Alternative | Verdict | Reason |
 |:------------|:--------|:-------|
-| Option E: Shared cross-user files | Rejected | Violates data isolation (CEO) |
+| Option E: Shared cross-user files | Rejected | Violates data isolation (Project Lead) |
 | Option D: Lazy mapping | Already implemented | `UserMemoryRegistry` LRU (cap=512) |
 | Per-region mappings (N VMAs) | Rejected in favor of single mapping | With generous pre-allocation, growth is rare enough to accept full remap |
 | Hybrid mapping (fixed + per-region growable) | Deferred | Adds VMA management complexity; single mapping is simpler and sufficient |

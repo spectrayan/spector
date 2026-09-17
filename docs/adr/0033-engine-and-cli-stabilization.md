@@ -12,7 +12,7 @@
 
 ---
 
-**Co-Authors**: Technical Lead, Maintainer (Core & Synapse), @nova (Product Owner)  
+**Co-Authors**: Technical Lead, Maintainer (Core & Synapse), @nova (Component Lead)  
 **Issue Reference**: [spectrayan/spector#775](https://github.com/spectrayan/spector/issues/775)  
 **Plan Reference**: [docs/specs/spector-adaptation-plan.md](https://github.com/spectrayan/spectrayan/blob/main/docs/specs/spector-adaptation-plan.md)
 

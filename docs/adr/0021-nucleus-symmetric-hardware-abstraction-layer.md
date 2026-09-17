@@ -12,7 +12,7 @@
 
 ---
 
-**Approver**: Bharat (CEO)  
+**Approver**: Bharat (Project Lead)  
 **Target Repository**: `spectrayan/spector`  
 
 ---

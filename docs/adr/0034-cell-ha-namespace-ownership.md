@@ -13,7 +13,7 @@
 ---
 
 title: "ADR-0034 — Cell Topology, Namespace Ownership, and Checkpoint Snapshot HA"
-status: Proposed
+status: Accepted (Implemented)
 date: 2026-09-11
 deciders: Spector Architecture
 consulted: Memory Kernel (ADR-0004), Identity Plane (ADR-0029), Synapse Gateway
@@ -35,7 +35,7 @@ renumbered_from: ADR-0033 (2026-09-11) — the number collided with two other do
 
 ## 1. Status
 
-**Proposed.** Implementation is phased (see §16). Nothing in this ADR authorizes multi-writer access to a single namespace.
+**Accepted (Implemented).** Implementation is phased (see §16). Nothing in this ADR authorizes multi-writer access to a single namespace.
 
 **Cluster work must not start on top of the live path split in §1.1.** Ownership, snapshot roots, cold-tier prefixes, and org delete are all defined by the directory the opener uses. Shipping replication against today's `StoragePaths.namespaceDirSharded` path and later moving to `IdentityPaths.enterpriseNamespaceDir` is a second migration under load. Close the split first (or as Phase 0 of §16).
 

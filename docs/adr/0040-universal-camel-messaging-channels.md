@@ -12,7 +12,7 @@
 
 ---
 
-**Approver**: Bharat (CEO)  
+**Approver**: Bharat (Project Lead)  
 **Target Module**: `synapse/spector-synapse` (`com.spectrayan.spector.synapse.channel`), integrated with `synapse/spector-connector`  
 **Related Issues**: #146, #147, #169, #238
 

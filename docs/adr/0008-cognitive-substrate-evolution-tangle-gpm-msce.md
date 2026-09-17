@@ -14,8 +14,8 @@
 
 **Document ID**: `ADR-2026-008`  
 **Status**: `PROPOSED`  
-**Authors**: Architecture Working Group (Systems Architecture), Technical Lead (CTO & Chief Technical Officer)  
-**Stakeholder**: Bharat (CEO)  
+**Authors**: Architecture Working Group (Systems Architecture), Technical Lead  
+**Stakeholder**: Bharat (Project Lead)  
 **Target Repositories**: [`spectrayan/spector`](https://github.com/spectrayan/spector), [`spectrayan/homo-digitalis`](https://github.com/spectrayan/homo-digitalis)  
 **Related Documents**: `RnD/features-08-21-2026.md` (`features-08-21-2026.md`), `RnD/deep-research-grok-features-homo-digitalis-2026-08-21.md` (`deep-research-grok-features-homo-digitalis-2026-08-21.md`), `RnD/homo-digitalis-consciousness-continuity-architecture.md` (`homo-digitalis-consciousness-continuity-architecture.md`)
 

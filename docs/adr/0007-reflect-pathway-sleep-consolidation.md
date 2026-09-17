@@ -12,7 +12,7 @@
 
 ---
 
-**Approver**: Bharat (CEO), Technical Lead  
+**Approver**: Bharat (Project Lead), Technical Lead  
 **Date**: 2026-08-19  
 **Target Repository**: `spectrayan/spector` (Module: `spector-memory`, `spector-synapse`)  
 **Related Issues**: [#503](https://github.com/spectrayan/spector/issues/503), [#561](https://github.com/spectrayan/spector/issues/561), [#446](https://github.com/spectrayan/spector/issues/446)  

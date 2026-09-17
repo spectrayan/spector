@@ -14,17 +14,6 @@
 
 **One identity per memory. Four tier stores. Encoding header on the record. Strength in its own region. No second write universe.**
 
-| Field | Value |
-|---|---|
-| **Status** | Proposed |
-| **Date** | 3 September 2026 |
-| **Author** | Solutions architecture review |
-| **Supersedes** | Unfinished cutover of ADR-0006 (log-structured episodic store) |
-| **Related** | ADR-0004 bundles · ADR-0009 semantic HNSW · ADR-0028 encoding/audit split |
-| **Companion spec** | [MF-001](https://github.com/spectrayan/memory-fundamentals) v1.0.0 |
-| **Codebase** | `spectrayan/spector` · `memory/spector-memory` |
-| **Companion design** | `Episodic-Memory-and-Engram-Model.md` |
-
 ---
 
 ## 1. Decision
