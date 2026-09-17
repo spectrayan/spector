@@ -18,6 +18,7 @@
   <a href="https://github.com/spectrayan/spector/pkgs/container/spector"><img src="https://img.shields.io/badge/Docker-GHCR-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" /></a>
   <a href="https://github.com/spectrayan/spector/actions"><img src="https://img.shields.io/github/actions/workflow/status/spectrayan/spector/ci.yml?branch=main&style=for-the-badge" alt="Build" /></a>
   <a href="https://spectrayan.github.io/spector/"><img src="https://img.shields.io/badge/Docs-MkDocs-blue?logo=materialformkdocs&style=for-the-badge" alt="Docs" /></a>
+  <a href="ACKNOWLEDGMENTS.md#open-source-contributors"><img src="https://img.shields.io/github/contributors/spectrayan/spector?style=for-the-badge&color=blue" alt="Contributors" /></a>
 </p>
 
 ---
@@ -322,7 +323,7 @@ All numbers measured on Intel Core Ultra 9 285K, Java 25, AVX2 256-bit.
 | **Use client SDKs** | [TypeScript SDK](https://spectrayan.github.io/spector/sdk-usage/typescript-sdk/) · [Python SDK](https://spectrayan.github.io/spector/sdk-usage/python-sdk/) · [Java SDK](https://spectrayan.github.io/spector/sdk-usage/java-client/) · [Spring AI](https://spectrayan.github.io/spector/sdk-usage/spring-ai/) |
 | **Explore cognitive memory** | [Memory Overview](https://spectrayan.github.io/spector/memory/) · [Cognitive Profiles](https://spectrayan.github.io/spector/memory/cognitive-profiles/) · [Scoring Pipeline](https://spectrayan.github.io/spector/memory/scoring-pipeline/) |
 | **Deploy to production** | [Docker & Compose](https://spectrayan.github.io/spector/deployment/docker/) · [Kubernetes Helm](https://spectrayan.github.io/spector/deployment/helm/) · [Terraform Cloud](https://spectrayan.github.io/spector/deployment/terraform/) |
-| **Contribute to Spector** | [Developer Guide](https://spectrayan.github.io/spector/getting-started/developer-guide/) · [Contributing Guide](CONTRIBUTING.md) |
+| **Contribute & Governance** | [Developer Guide](https://spectrayan.github.io/spector/getting-started/developer-guide/) · [Contributing Guide](CONTRIBUTING.md) · [Project Governance](GOVERNANCE.md) |
 
 > 📖 **[Full Documentation Portal →](https://spectrayan.github.io/spector/)**
 
@@ -332,9 +333,10 @@ All numbers measured on Intel Core Ultra 9 285K, Java 25, AVX2 256-bit.
 
 We welcome contributions of all kinds — code, docs, tests, benchmarks, and ideas!
 
+- 🏛️ **Open Governance** → See [GOVERNANCE.md](GOVERNANCE.md) for our 4-tier contributor ladder and decision mechanics
+- 🔧 **Want to contribute code?** → See [CONTRIBUTING.md](CONTRIBUTING.md)
 - 🐛 **Found a bug?** → [Open an Issue](https://github.com/spectrayan/spector/issues/new?template=bug_report.md)
 - 💡 **Have an idea?** → [Start a Discussion](https://github.com/spectrayan/spector/discussions)
-- 🔧 **Want to contribute code?** → See [CONTRIBUTING.md](CONTRIBUTING.md)
 - 🤖 **AI-assisted PRs welcome!**
 
 ---
@@ -370,7 +372,7 @@ See [SECURITY.md](SECURITY.md) for our security policy and vulnerability reporti
 
 ## 🙏 Acknowledgments
 
-See [ACKNOWLEDGMENTS.md](ACKNOWLEDGMENTS.md) for credits to the cognitive science researchers, open-source frameworks, and AI coding tools that made Spector possible.
+See [ACKNOWLEDGMENTS.md](ACKNOWLEDGMENTS.md) for our [Open Source Contributors](ACKNOWLEDGMENTS.md#open-source-contributors) hall of fame, as well as credits to the cognitive science researchers, open-source frameworks, and AI coding tools that made Spector possible.
 
 ---
 

@@ -135,12 +135,15 @@ graph TD
 *   **Platform-Agnostic SIMD**: Lane widths cannot be hardcoded (e.g., AVX-512 vs. AVX2). Use `FloatVector.SPECIES_PREFERRED` inside `spector-core`, `spector-cpu`, `spector-index`, or `spector-memory`.
 *   **Bundle Kernel Architecture**: Storage and persistence are encapsulated within `spector-memory` using zero-copy Panama FFM memory layouts (`PartitionBundle`, `RuntimeBundle`, `EngramLayout`). Vector indexes are managed in-memory by `spector-index`.
 *   **Structured Concurrency**: Centralized in `ConcurrentTasks` (`spector-commons`) with automatic fallback to classic virtual thread executors via `-Dspector.concurrency.structured=false`.
+*   **Open Governance & Architectural Decisions**: All architectural modifications, memory layout shifts, and core SPI evolutions require an Architecture Decision Record in [`docs/adr/`](docs/adr/) approved per the governance process defined in [`GOVERNANCE.md`](GOVERNANCE.md).
 
 ---
 
 ## 5. Quick Directory Map
 
+*   **Project Governance**: [`GOVERNANCE.md`](GOVERNANCE.md) (open-source governance charter, 4-tier ladder, and voting mechanics).
+*   **Architecture Decision Records**: [`docs/adr/`](docs/adr/) (canonical catalog of living and historical ADRs).
 *   **Runtime Config**: `spector-local.yml` (overrides default options).
 *   **On-Disk Storage**: `.spector/` (ignored via `.gitignore` - do not delete or commit).
-*   **Biologically-Inspired Design**: `spector-memory/RnD/` holds raw design math for cognitive memory mechanisms.
+*   **Biologically-Inspired Design**: Cognitive math, biological taxonomies, and formulas documented in `docs/adr/` and module documentation.
 *   **Documentation Site**: `docs/` (built via MkDocs Material: `python -m mkdocs build --clean`).
