@@ -276,7 +276,18 @@ public class NamespaceResolver implements AutoCloseable {
         if (namespaceId == null) return;
         MemoryHandle handle = cache.remove(namespaceId);
         if (handle != null) {
+            unbindNamespaceMeters(namespaceId);
             closeQuietly(handle.memory);
+        }
+    }
+
+    private void unbindNamespaceMeters(String namespaceId) {
+        if (meterRegistry != null && namespaceId != null) {
+            meterRegistry.getMeters().removeIf(meter -> {
+                String nsTag = meter.getId().getTag("spector.namespace");
+                return namespaceId.equals(nsTag);
+            });
+            log.debug("[NamespaceResolver] Unbound meters for namespace: ns={}", namespaceId);
         }
     }
 
@@ -360,6 +371,10 @@ public class NamespaceResolver implements AutoCloseable {
                 SpectorMemory instance = buildInstance(tenantId, namespaceId, ownerAccountId != null ? ownerAccountId : accountId);
                 handle = new MemoryHandle(namespaceId, ownerAccountId, accountId, instance);
                 cache.put(namespaceId, handle);
+                if (meterRegistry != null) {
+                    new com.spectrayan.spector.metrics.observation.SpectorMemoryGauges(handle.memory, namespaceId)
+                            .bindTo(meterRegistry);
+                }
             } finally {
                 coldPathLock.unlock();
             }
@@ -409,6 +424,13 @@ public class NamespaceResolver implements AutoCloseable {
         return cache.values().stream()
                 .map(h -> h.memory)
                 .toList();
+    }
+
+    /** Returns a snapshot of all cached namespace IDs and their SpectorMemory instances. */
+    public java.util.Map<String, SpectorMemory> cachedEntries() {
+        var snapshot = new java.util.LinkedHashMap<String, SpectorMemory>();
+        cache.forEach((nsId, handle) -> snapshot.put(nsId, handle.memory));
+        return java.util.Collections.unmodifiableMap(snapshot);
     }
 
     /** Returns the underlying AccountCatalog (test/admin). */
@@ -789,6 +811,7 @@ public class NamespaceResolver implements AutoCloseable {
         if (oldestKey != null) {
             MemoryHandle ev = cache.remove(oldestKey);
             if (ev != null) {
+                unbindNamespaceMeters(oldestKey);
                 log.info("[NamespaceResolver] Evicting unleased hot namespace '{}' for account '{}' (hot cap reached)",
                         oldestKey, accountId);
                 return ev;
@@ -812,6 +835,7 @@ public class NamespaceResolver implements AutoCloseable {
         if (oldestKey != null) {
             MemoryHandle ev = cache.remove(oldestKey);
             if (ev != null) {
+                unbindNamespaceMeters(oldestKey);
                 log.info("[NamespaceResolver] Evicting unleased hot namespace '{}' (process capacity={})",
                         oldestKey, maxInstances);
                 return ev;
