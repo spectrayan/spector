@@ -77,14 +77,6 @@ public final class MemoryRegistry implements AutoCloseable {
         return binderProvider != null ? binderProvider.getIfAvailable() : null;
     }
 
-    /**
-     * Registers an eviction listener with the underlying {@link NamespaceResolver}.
-     */
-    public void addEvictionListener(java.util.function.Consumer<String> listener) {
-        if (resolver != null) {
-            resolver.addEvictionListener(listener);
-        }
-    }
 
     /**
      * Test/non-Spring constructor that bypasses the catalog plane. When auth is enabled,

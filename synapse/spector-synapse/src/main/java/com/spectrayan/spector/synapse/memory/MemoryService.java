@@ -182,8 +182,8 @@ public class MemoryService {
         this.statsCache = effectiveManager.getCache(com.spectrayan.spector.memory.cortex.cache.MemoryCacheNames.MEMORY_STATS);
         this.scoringStatsCache = effectiveManager.getCache(com.spectrayan.spector.memory.cortex.cache.MemoryCacheNames.SCORING_STATS);
 
-        if (this.userMemoryRegistry != null) {
-            this.userMemoryRegistry.addEvictionListener(this::evictNamespace);
+        if (this.userMemoryRegistry != null && this.userMemoryRegistry.namespaceResolver() != null) {
+            this.userMemoryRegistry.namespaceResolver().addEvictionListener(this::evictNamespace);
         }
     }
 

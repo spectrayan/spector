@@ -65,8 +65,8 @@ public class TelemetryBroadcasterService {
         this.userMemoryRegistry = userMemoryRegistryProvider != null ? userMemoryRegistryProvider.getIfAvailable() : null;
         this.memoryProvider = memoryProvider;
         this.meterRegistry = meterRegistryProvider != null ? meterRegistryProvider.getIfAvailable() : null;
-        if (this.userMemoryRegistry != null) {
-            this.userMemoryRegistry.addEvictionListener(this::evictNamespace);
+        if (this.userMemoryRegistry != null && this.userMemoryRegistry.namespaceResolver() != null) {
+            this.userMemoryRegistry.namespaceResolver().addEvictionListener(this::evictNamespace);
         }
     }
 
