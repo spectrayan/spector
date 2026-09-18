@@ -145,21 +145,16 @@ $$C(0, 10000) \ge 0.90$$
 
 ### Architectural Implementation & Component Topology
 
-```
-[ReflectPathway]
-       │
-       ▼
-
-1. SynapticPruningRelay
-2. EpisodicLogConsolidationRelay
-3. SoulDriftRefusionRelay (computes experiential centroid c_t)
-4. ManifoldConsolidationRelay (updates G(s))
-5. SoftIdentityAnchorRelay (NEW: applies Lyapunov restoring pull towards s_core)
-6. ProceduralCrystallizationRelay
-7. CrossLayerPromotionRelay
-       │
-       ▼
-[ReflectReport & IdentityTrajectorySnapshot]
+```mermaid
+flowchart LR
+    Start["[ReflectPathway]"] --> R1["1. SynapticPruningRelay"]
+    R1 --> R2["2. EpisodicLogConsolidationRelay"]
+    R2 --> R3["3. SoulDriftRefusionRelay (computes experiential centroid c_t)"]
+    R3 --> R4["4. ManifoldConsolidationRelay (updates G(s))"]
+    R4 --> R5["5. SoftIdentityAnchorRelay (NEW: applies Lyapunov restoring pull towards s_core)"]
+    R5 --> R6["6. ProceduralCrystallizationRelay"]
+    R6 --> R7["7. CrossLayerPromotionRelay"]
+    R7 --> End["[ReflectReport & IdentityTrajectorySnapshot]"]
 ```
 
 ### Key Components:

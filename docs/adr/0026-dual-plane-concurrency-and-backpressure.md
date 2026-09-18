@@ -222,9 +222,10 @@ public enum ThreadPlane {
 
 `AsyncEntityExtractionQueue` becomes a two-stage pipeline:
 
-```
-submit(text) → extractQueue (VIRTUAL)
-                 └─ on success → mutationQueue (PLATFORM_WRITER) { PostIngestSync }
+```mermaid
+flowchart LR
+    submit["submit(text)"] --> extractQueue["extractQueue (VIRTUAL)"]
+    extractQueue -- "on success" --> mutationQueue["mutationQueue (PLATFORM_WRITER) { PostIngestSync }"]
 ```
 
 Same pattern for `GraphEnrichmentJob` and `RemDreamJob`: I/O on `VIRTUAL`, persist on `PLATFORM_WRITER`. Circadian volume-trigger `ConcurrentTasks.fireAndForget(this::reflect)` moves to the writer executor.
@@ -644,45 +645,26 @@ Writer jobs that mutate the same namespace share the **same** `PLATFORM_WRITER` 
 
 One budget owned by the host. Default 15s Spring / 10s standalone. Components share it; they do not each take 5s.
 
-```
-DefaultSpectorMemory.close() / PersistenceManager.close()
-        │
-        ▼
- 0. closed.set(true) on the façade
-    Remember/Recall/submit paths fail fast
-        │
-        ▼
- 1. QuartzMemoryScheduler.standby()
-    SpectorQuartzThreadPool stops accepting
-    in-flight jobs finish or hit remaining budget
-        │
-        ▼
- 2. DaemonSupervisor: running=false, interrupt sleeps,
-    wait for current cycle (never interrupt inside force())
-        │
-        ▼
- 3. SpectorTaskQueue.close() for extract, mutation,
-    eager-consolidation (finish in-flight batch only)
-        │
-        ▼
- 4. SpectorExecutorProvider.drain(remaining budget)
-    Spring: TaskExecutor shutdown + awaitTermination
-    Standalone: ExecutorService.shutdown + awaitTermination
-        │
-        ▼
- 5. MemorySegment.force() dirty pages
-        │
-        ▼
- 6. Close MemoryBundles / Arenas
-    If drain timed out AND fail-closed policy:
-       log + refuse close (leave arenas mapped) OR
-       leak-on-purpose with a fatal metric
-    Default policy: FAIL_OPEN after budget, log remaining
-    in-flight count, then unmap — only acceptable if
-    step 0-3 made new segment access impossible
-        │
-        ▼
- 7. Host-level SmartLifecycle / @PreDestroy complete
+```mermaid
+flowchart TD
+    start["DefaultSpectorMemory.close() / PersistenceManager.close()"]
+    step0["0. closed.set(true) on the façade\nRemember/Recall/submit paths fail fast"]
+    step1["1. QuartzMemoryScheduler.standby()\nSpectorQuartzThreadPool stops accepting\nin-flight jobs finish or hit remaining budget"]
+    step2["2. DaemonSupervisor: running=false, interrupt sleeps,\nwait for current cycle (never interrupt inside force())"]
+    step3["3. SpectorTaskQueue.close() for extract, mutation,\neager-consolidation (finish in-flight batch only)"]
+    step4["4. SpectorExecutorProvider.drain(remaining budget)\nSpring: TaskExecutor shutdown + awaitTermination\nStandalone: ExecutorService.shutdown + awaitTermination"]
+    step5["5. MemorySegment.force() dirty pages"]
+    step6["6. Close MemoryBundles / Arenas\nIf drain timed out AND fail-closed policy:\nlog + refuse close (leave arenas mapped) OR\nleak-on-purpose with a fatal metric\nDefault policy: FAIL_OPEN after budget, log remaining\nin-flight count, then unmap — only acceptable if\nstep 0-3 made new segment access impossible"]
+    step7["7. Host-level SmartLifecycle / @PreDestroy complete"]
+
+    start --> step0
+    step0 --> step1
+    step1 --> step2
+    step2 --> step3
+    step3 --> step4
+    step4 --> step5
+    step5 --> step6
+    step6 --> step7
 ```
 
 Invariants:

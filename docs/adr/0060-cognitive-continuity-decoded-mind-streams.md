@@ -83,25 +83,14 @@ During exploratory design sprints, theoretical proposals suggested extending Spe
 
 ## 2. Conceptual Pipeline
 
-```
-brain
-  │
-  ▼
-BCI read (sparse neural sampling)
-  │
-  ▼
-decoder  ──►  intent / text / speech hyp. / latent z_t
-  │
-  ▼
-┌─────────────────────────────────────────┐
-│  Spector Cognitive Continuity Layer     │
-│  episodes · latents · graph · decay     │
-│  activation · export / import           │
-└─────────────────────────────────────────┘
-  │
-  ├──► software agent / co-pilot / other Spector store   ✅ near-term
-  │
-  └──► decoder⁻¹ / stim policy → brain                   ❓ far-horizon
+```mermaid
+flowchart LR
+    B["brain"] --> R["BCI read (sparse neural sampling)"]
+    R --> D["decoder"]
+    D --> I["intent / text / speech hyp. / latent z_t"]
+    D --> S["Spector Cognitive Continuity Layer<br>episodes · latents · graph · decay<br>activation · export / import"]
+    S --> A["software agent / co-pilot / other Spector store ✅ near-term"]
+    S --> F["decoder⁻¹ / stim policy → brain ❓ far-horizon"]
 ```
 
 | Hop | Status |

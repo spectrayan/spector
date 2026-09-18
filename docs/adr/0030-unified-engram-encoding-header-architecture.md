@@ -345,28 +345,17 @@ Both call through `this.layout().headerLayout()`. The `EpisodicHeaderAccessor` s
 
 The 64-byte `EncodingHeader` is divided into two layers:
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                    64-BYTE ENCODING HEADER                       │
-├──────────────────────────────────────────────────────────────────┤
-│  LAYER 1: Cognitive Substrate (bytes 0–15, 18B)                 │
-│  ────────────────────────────────────────────────                │
-│   +0   1B  headerVersion     uint8    Always 2                  │
-│   +1   1B  flags             uint8    Tombstone, type, pin, etc │
-│   +2   1B  valence           int8     Emotional valence         │
-│   +3   1B  arousal           uint8    Emotional arousal         │
-│   +4   4B  importance        float32  ICNU base importance      │
-│   +8   8B  timestampMs       int64    Encoding timestamp        │
-│                                                                  │
-│  These 18 bytes are IDENTICAL across all four tiers.             │
-│  Every tier reads and writes them with the same semantics.       │
-├──────────────────────────────────────────────────────────────────┤
-│  LAYER 2: Tier-Specific Fields (bytes 16–63, 48B)               │
-│  ────────────────────────────────────────────────                │
-│  The remaining 48 bytes have tier-specific semantics.            │
-│  See §3.8 and §3.9 for per-tier layouts.                        │
-└──────────────────────────────────────────────────────────────────┘
-```
+| Layer | Offset | Size | Field | Type | Description |
+|:---|:---|:---|:---|:---|:---|
+| **LAYER 1: Cognitive Substrate (bytes 0–15, 18B)** | +0 | 1B | `headerVersion` | `uint8` | Always 2 |
+| | +1 | 1B | `flags` | `uint8` | Tombstone, type, pin, etc |
+| | +2 | 1B | `valence` | `int8` | Emotional valence |
+| | +3 | 1B | `arousal` | `uint8` | Emotional arousal |
+| | +4 | 4B | `importance` | `float32` | ICNU base importance |
+| | +8 | 8B | `timestampMs` | `int64` | Encoding timestamp |
+| **LAYER 2: Tier-Specific Fields (bytes 16–63, 48B)** | | | | | The remaining 48 bytes have tier-specific semantics. See §3.8 and §3.9 for per-tier layouts. |
+
+> **Note:** The 18 bytes of Layer 1 are IDENTICAL across all four tiers. Every tier reads and writes them with the same semantics.
 
 #### Why 18 bytes for the cognitive substrate?
 

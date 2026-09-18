@@ -120,57 +120,31 @@ Enact(problem, namespace, acting_soul, mode, context) → Enactment
 
 `DynamicGraphBuilder` incorporates the enactment cognitive pipeline into `NodeType.ENACT`:
 
-```
-                 ┌────────────────────────────────────────────────────────┐
-                 │                   STIMULUS / PROBLEM                   │
-                 └──────────────────────────┬─────────────────────────────┘
-                                            │
-                                            ▼
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│ SYNAPSE COGNITIVE LOOP                                                                  │
-│                                                                                         │
-│  1. PERCEIVE & PRE-APPRAISE (Amended D3)                                                │
-│     AttentionSchema + GlobalWorkspace (~7 conscious items)                             │
-│     ↳ System 1 Fast Intuitive Pre-Appraisal: Evaluates baseline VAD and stakes          │
-│                                            │                                            │
-│                                            ▼                                            │
-│  2. PERSONA-CONDITIONED, INTENSITY-GATED SELF-RECALL                                    │
-│     PersonaRecall (4-Tier)                                                              │
-│     ↳ Low urgency (A < 0.15) gates retrieval to lightweight top-K queries               │
-│     ↳ Recalls autobiographical scars, procedural habits, dogmas, and constitution       │
-│                                            │                                            │
-│                                            ▼                                            │
-│  3. REFINED COGNITIVE APPRAISAL & ATTRACTOR CONVERGENCE                                 │
-│     ContinuousHopfieldNetwork + Refined Appraisal Engine                                │
-│     ↳ Recalled scars/playbooks serve as PRIMARY signal (keywords faint fallback)        │
-│     ↳ Relaxes sensory state into nearest Hopfield AttractorState (Causal Dogma)         │
-│     ↳ Pure functional evaluation: HomeostaticCore SDE is stepped post-turn, not in-turn │
-│     ↳ Computes dynamic policy precision: γ = γ₀(1 + 0.5·A + 0.3·D)                      │
-│                                            │                                            │
-│                                            ▼                                            │
-│  4. ACTIVE POLICY INFERENCE (EFE)                                                       │
-│     PolicyInferenceEngine + ExpectedFreeEnergyCalculator                                │
-│     ↳ Evaluates candidate PolicyTypes against composite soul prior p(o)                 │
-│     ↳ Boltzmann softmax selects winning CognitivePolicy minimizing G(π)                 │
-│                                            │                                            │
-│                                            ▼                                            │
-│  5. SYSTEM 2: BOUNDED PERSONA DELIBERATION                                              │
-│     Structured Deliberation Node (LLM constrained by winning policy & attractor)        │
-│     ↳ Generates internal monologue: trade-off matrix, blind spot check, first move      │
-│                                            │                                            │
-│                                            ▼                                            │
-│  6. FAIL-CLOSED TOOL GATE                                                               │
-│     Policy Action Filter ∩ Soul Tool Allow-List \ Refused Tools                         │
-│     ↳ Strips unauthorized tools; enforces ancestor guardrails and PEP                   │
-│                                            │                                            │
-│                                            ▼                                            │
-│  7. EXECUTION & EMBODIMENT                                                              │
-│     Act (Agent + Tools, decide mode) → Embody (Express under FACT | SIM | REPLAY)       │
-│                                            │                                            │
-│                                            ▼                                            │
-│  8. EPISODIC LEARNING & SLEEP CONSOLIDATION                                             │
-│     EnactmentLearner writes lived trace; Sleep consolidation at N ≥ 3 waking trials     │
-└─────────────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    STIMULUS["STIMULUS / PROBLEM"]
+    
+    subgraph LOOP ["SYNAPSE COGNITIVE LOOP"]
+        direction TD
+        step1["1. PERCEIVE & PRE-APPRAISE (Amended D3)\nAttentionSchema + GlobalWorkspace (~7 conscious items)\n↳ System 1 Fast Intuitive Pre-Appraisal: Evaluates baseline VAD and stakes"]
+        step2["2. PERSONA-CONDITIONED, INTENSITY-GATED SELF-RECALL\nPersonaRecall (4-Tier)\n↳ Low urgency (A < 0.15) gates retrieval to lightweight top-K queries\n↳ Recalls autobiographical scars, procedural habits, dogmas, and constitution"]
+        step3["3. REFINED COGNITIVE APPRAISAL & ATTRACTOR CONVERGENCE\nContinuousHopfieldNetwork + Refined Appraisal Engine\n↳ Recalled scars/playbooks serve as PRIMARY signal (keywords faint fallback)\n↳ Relaxes sensory state into nearest Hopfield AttractorState (Causal Dogma)\n↳ Pure functional evaluation: HomeostaticCore SDE is stepped post-turn, not in-turn\n↳ Computes dynamic policy precision: γ = γ₀(1 + 0.5·A + 0.3·D)"]
+        step4["4. ACTIVE POLICY INFERENCE (EFE)\nPolicyInferenceEngine + ExpectedFreeEnergyCalculator\n↳ Evaluates candidate PolicyTypes against composite soul prior p(o)\n↳ Boltzmann softmax selects winning CognitivePolicy minimizing G(π)"]
+        step5["5. SYSTEM 2: BOUNDED PERSONA DELIBERATION\nStructured Deliberation Node (LLM constrained by winning policy & attractor)\n↳ Generates internal monologue: trade-off matrix, blind spot check, first move"]
+        step6["6. FAIL-CLOSED TOOL GATE\nPolicy Action Filter ∩ Soul Tool Allow-List \ Refused Tools\n↳ Strips unauthorized tools; enforces ancestor guardrails and PEP"]
+        step7["7. EXECUTION & EMBODIMENT\nAct (Agent + Tools, decide mode) → Embody (Express under FACT | SIM | REPLAY)"]
+        step8["8. EPISODIC LEARNING & SLEEP CONSOLIDATION\nEnactmentLearner writes lived trace; Sleep consolidation at N ≥ 3 waking trials"]
+        
+        step1 --> step2
+        step2 --> step3
+        step3 --> step4
+        step4 --> step5
+        step5 --> step6
+        step6 --> step7
+        step7 --> step8
+    end
+    
+    STIMULUS --> step1
 ```
 
 ---
@@ -314,42 +288,37 @@ After a waking `react` or `decide` turn that executed:
 
 ## Component Architecture
 
-```
-                    ┌─────────────────────────────────────────────────────────────┐
-                    │                           CORTEX                            │
-                    │   VAD gauge · Hopfield Attractor · EFE Policy Distribution  │
-                    │   Internal Monologue · Citations · Epistemic Tense Badge    │
-                    └─────────────────────────────▲───────────────────────────────┘
-                                                  │ enactment telemetry & audit
-┌──────────── Synapse ────────────────────────────┼───────────────────────────────┐
-│  MCP persona_enact / Companion Chat / FlowSpec  │                               │
-│                                                                                 │
-│   perceive → self_recall → appraise → infer_policy → deliberate → gate → act    │
-│                 │              │            │             │        │     │      │
-│                 │              │            │      Bounded LLM     │  Tools     │
-│                 │              │            │      Deliberation    │     │      │
-│                 │              │            ▼                      ▼     │      │
-│                 │              │     PolicyInferenceEngine     Approval  │      │
-│                 │              │     (EFE G(π) Boltzmann)      Override  │      │
-│                 │              │                                         │      │
-│                 │              ▼                                         ▼      │
-│                 │       HomeostaticCore                              Express    │
-│                 │       & EmotionalRegulator                         (ADR-0031) │
-│                 │       (VAD SDE Dynamics)                               │      │
-│                 │                                                        ▼      │
-│                 │                                                  learn (D7)   │
-└─────────────────┼────────────────────────────────────────────────────────┼──────┘
-                  │                                                        │
-                  ▼                                                        ▼
-┌──────────── Memory (AISME) ─────────────────────┐          IdentityPlane (ADR-0029)
-│ SpectorMemory (Bound Namespace)                 │          Soul Stack + PEP
-│  • 4-tier PersonaRecall profile                 │
-│  • ContinuousHopfieldNetwork (Dogma Attractors) │
-│  • GenerativeSelfModel & MentalStateTracker     │
-│  • GlobalWorkspace (Conscious Access Bottleneck)│
-│  • NarrativeSelfEngine (Autobiographical Prior) │
-│  • Off-heap AVX-512 EFE Kernel (spector-core)   │
-└─────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    CORTEX["CORTEX\nVAD gauge · Hopfield Attractor · EFE Policy Distribution\nInternal Monologue · Citations · Epistemic Tense Badge"]
+    
+    subgraph Synapse ["Synapse"]
+        mcp["MCP persona_enact / Companion Chat / FlowSpec"]
+        pipeline["perceive → self_recall → appraise → infer_policy → deliberate → gate → act"]
+        PIE["PolicyInferenceEngine\n(EFE G(π) Boltzmann)"]
+        HC["HomeostaticCore\n& EmotionalRegulator\n(VAD SDE Dynamics)"]
+        LLM["Bounded LLM\nDeliberation"]
+        Tools["Tools\nApproval\nOverride"]
+        Express["Express\n(ADR-0031)"]
+        learn["learn (D7)"]
+        
+        pipeline -.-> HC
+        pipeline -.-> PIE
+        pipeline -.-> LLM
+        pipeline -.-> Tools
+        Tools -.-> Express
+        Express -.-> learn
+    end
+    
+    Synapse -- "enactment telemetry & audit" --> CORTEX
+    
+    Memory["Memory (AISME)\nSpectorMemory (Bound Namespace)\n• 4-tier PersonaRecall profile\n• ContinuousHopfieldNetwork (Dogma Attractors)\n• GenerativeSelfModel & MentalStateTracker\n• GlobalWorkspace (Conscious Access Bottleneck)\n• NarrativeSelfEngine (Autobiographical Prior)\n• Off-heap AVX-512 EFE Kernel (spector-core)"]
+    
+    IP["IdentityPlane (ADR-0029)\nSoul Stack + PEP"]
+    
+    Synapse --> Memory
+    learn --> Memory
+    Express --> IP
 ```
 
 ---

@@ -17,25 +17,9 @@
 ### 1.2 The Two Distinct Audit Needs in Spector Architecture
 A deep architectural analysis across the Spectrayan portfolio reveals **two fundamentally distinct auditing tiers** within the `spector-memory` engine (in addition to the high-level application/REST audit log in `spector-synapse` #211):
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                               SPECTOR AUDIT TAXONOMY                                    │
-├───────────────────────────────┬───────────────────────────────┬─────────────────────────┤
-│ 1. SYNAPSE GOVERNANCE AUDIT   │ 2. SYNAPTIC RECALL AUDIT      │ 3. KERNEL PROVENANCE    │
-│    (spector-synapse #211)     │    (spector-memory #506)      │    CHRONICLE (spector-  │
-│                               │                               │    memory MF-001)       │
-├───────────────────────────────┼───────────────────────────────┼─────────────────────────┤
-│ • Layer: Spring Boot / REST   │ • Layer: Off-Heap Cortex      │ • Layer: Off-Heap Kernel│
-│ • Scope: Agent / System Level │ • Scope: Per-Memory Slot      │ • Scope: Engine History │
-│ • Storage: H2 / JDBC / RDBMS  │ • Storage: Fixed-Stride Mmap  │ • Storage: Append-Only  │
-│ • Events: Chat sessions, tool │ • Metrics: Recall counters,   │ • Chronicle: Ingestion  │
-│   calls, guardrail blocks,    │   ACT-R 8-slot ring buffer,   │   source lineage (S3,   │
-│   approval requests, PII      │   Two-Factor S(t), LTP        │   Git SHA, URI),        │
-│   redactions, config changes  │   cooldowns, agent hash, rank │   reconsolidate diffs,  │
-│ • Purpose: Enterprise SOC2 /  │ • Purpose: SIMD cache-line    │   consolidate lineage,  │
-│   compliance querying         │   isolation & spacing effect  │   pruning & retractions │
-└───────────────────────────────┴───────────────────────────────┴─────────────────────────┘
-```
+| 1. SYNAPSE GOVERNANCE AUDIT (spector-synapse #211) | 2. SYNAPTIC RECALL AUDIT (spector-memory #506) | 3. KERNEL PROVENANCE CHRONICLE (spector-memory MF-001) |
+|:---|:---|:---|
+| • Layer: Spring Boot / REST<br>• Scope: Agent / System Level<br>• Storage: H2 / JDBC / RDBMS<br>• Events: Chat sessions, tool calls, guardrail blocks, approval requests, PII redactions, config changes<br>• Purpose: Enterprise SOC2 / compliance querying | • Layer: Off-Heap Cortex<br>• Scope: Per-Memory Slot<br>• Storage: Fixed-Stride Mmap<br>• Metrics: Recall counters, ACT-R 8-slot ring buffer, Two-Factor S(t), LTP cooldowns, agent hash, rank<br>• Purpose: SIMD cache-line isolation & spacing effect | • Layer: Off-Heap Kernel<br>• Scope: Engine History<br>• Storage: Append-Only<br>• Chronicle: Ingestion source lineage (S3, Git SHA, URI), reconsolidate diffs, consolidate lineage, pruning & retractions |
 
 ---
 
@@ -121,29 +105,29 @@ Instead of creating separate strength/audit regions per tier (`AUDIT_SEMANTIC`, 
 
 3. **Parity with Text Region**: Just as `RegionId.TEXT` in `PartitionBundle` serves all tiers as a single shared text blob store, `RegionId.STRENGTH` serves all tiers as a single shared strength store.
 
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                    PARTITION BUNDLE FILE (partition.bundle)                  │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ 64B SMKM MemoryHeader                                                        │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ 64B SPTB BundleSubHeader                                                     │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ Bundle Directory Entries (SEMANTIC, EPISODIC, PROCEDURAL, TEXT, STRENGTH)    │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ Region 0: SEMANTIC (64B V2 Header + INT8 Vector)  ──► Pure Read-Only Pages   │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ Region 1: EPISODIC (Episodic Log Structure)                                  │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ Region 2: PROCEDURAL (64B V2 Header + INT8 Vector)──► Pure Read-Only Pages   │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ Region 3: TEXT (Shared variable length text blobs)                           │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ Region 4: STRENGTH (Single Unified Recall Strength Region)──► Write-Heavy    │
-│   ├── [0 .. N_sem - 1]     : Semantic Strength Records                       │
-│   ├── [N_sem .. N_sem+epi] : Episodic Strength Records                       │
-│   └── [N_sem+epi .. Total] : Procedural Strength Records                     │
-└──────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph bundle ["PARTITION BUNDLE FILE (partition.bundle)"]
+        direction TB
+        header["64B SMKM MemoryHeader"]
+        subHeader["64B SPTB BundleSubHeader"]
+        dirEntries["Bundle Directory Entries (SEMANTIC, EPISODIC, PROCEDURAL, TEXT, STRENGTH)"]
+        
+        region0["Region 0: SEMANTIC (64B V2 Header + INT8 Vector) ──► Pure Read-Only Pages"]
+        region1["Region 1: EPISODIC (Episodic Log Structure)"]
+        region2["Region 2: PROCEDURAL (64B V2 Header + INT8 Vector) ──► Pure Read-Only Pages"]
+        region3["Region 3: TEXT (Shared variable length text blobs)"]
+        
+        subgraph region4 ["Region 4: STRENGTH (Single Unified Recall Strength Region) ──► Write-Heavy"]
+            direction TB
+            semStr["[0 .. N_sem - 1] : Semantic Strength Records"]
+            epiStr["[N_sem .. N_sem+epi] : Episodic Strength Records"]
+            proStr["[N_sem+epi .. Total] : Procedural Strength Records"]
+            semStr ~~~ epiStr ~~~ proStr
+        end
+        
+        header ~~~ subHeader ~~~ dirEntries ~~~ region0 ~~~ region1 ~~~ region2 ~~~ region3 ~~~ region4
+    end
 ```
 
 #### Complete `AuditRecordLayout` Byte Map (96 Bytes, 32-Byte Aligned)

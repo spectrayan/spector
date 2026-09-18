@@ -542,17 +542,12 @@ A namespace directory never contains `identity.bundle`. An account directory nev
 
 ### 9.4 Bundle internals (replication-relevant)
 
-```
-partition.bundle
-┌─────────────────────────────────────┐
-│ 64B RegionPreamble  shape=BUNDLE    │
-│ 64B BundleSubHeader magic=SPTB      │
-│ RegionEntry[SEMANTIC, EPISODIC,     │
-│            PROCEDURAL, TEXT,        │
-│            STRENGTH]                │
-│ page-aligned regions                │
-└─────────────────────────────────────┘
-```
+| `partition.bundle` |
+|:---|
+| 64B `RegionPreamble` shape=BUNDLE |
+| 64B `BundleSubHeader` magic=SPTB |
+| `RegionEntry` [SEMANTIC, EPISODIC, PROCEDURAL, TEXT, STRENGTH] |
+| page-aligned regions |
 
 - One `Arena.ofShared()`, one FD (`PartitionBundle`, ADR-0004).
 - Regions do not grow. Roll → new partition directory → old bundle becomes immutable.

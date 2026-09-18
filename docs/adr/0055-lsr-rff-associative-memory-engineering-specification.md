@@ -18,18 +18,10 @@ This specification establishes the advanced mathematical, neurobiological, and a
 
 ### Biological Grounding & Cognitive Neuroscience
 
-```
-┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                Neurobiological Memory Circuit                                    │
-├─────────────────────────────────────────────┬────────────────────────────────────────────────────┤
-│  Hippocampal CA3 Recurrent Collaterals      │  Pribram's Holonomic Brain / Neocortical Ensemble │
-│  (LSR: Sparse, Exact Attractor Settlement)  │  (RFF: Distributed Holographic Memory Tensor)      │
-│                                             │                                                    │
-│  • Sparse pyramidal cell assemblies         │  • Wide-field phase-interference patterns          │
-│  • Finite basin of attraction per engram    │  • Whole-brain ambient associative resonance       │
-│  • Sharp-Wave Ripples (SWRs) in single pass │  • Default Mode Network (DMN) spontaneous wander   │
-└─────────────────────────────────────────────┴────────────────────────────────────────────────────┘
-```
+| Hippocampal CA3 Recurrent Collaterals | Pribram's Holonomic Brain / Neocortical Ensemble |
+| --- | --- |
+| *(LSR: Sparse, Exact Attractor Settlement)* | *(RFF: Distributed Holographic Memory Tensor)* |
+| • Sparse pyramidal cell assemblies<br>• Finite basin of attraction per engram<br>• Sharp-Wave Ripples (SWRs) in single pass | • Wide-field phase-interference patterns<br>• Whole-brain ambient associative resonance<br>• Default Mode Network (DMN) spontaneous wander |
 
 ### 2.1 Hippocampal CA3: Compact Support and Exact Sharp-Wave Ripples
 In the mammalian hippocampus, the CA3 subfield exhibits dense recurrent collateral connectivity ($> 10^4$ synaptic contacts per pyramidal neuron). Crucially, biological synaptic firing is not a diffuse softmax; it operates via thresholded membrane potentials ($\text{ReLU}$). When an associative cue triggers CA3 during Sharp-Wave Ripples (SWRs, $150\text{--}250\,\text{Hz}$), settlement into an attractor basin occurs in a single burst ($15\text{--}30\,\text{ms}$), not through prolonged gradual iterations. The **Epanechnikov kernel ($\text{ReLU}(1 - r^2)$)** reflects this biological reality: a memory has a finite radius of attraction; outside that basin, synaptic conductance is strictly zero.
@@ -79,19 +71,10 @@ This specification introduces a **Dual-Engine Associative Memory Substrate** tha
 
 ### Mathematical Formalization
 
-```
-                                      MATHEMATICAL LANDSCAPES
-                                      
-      [Log-Sum-Exp: Infinite Support]                   [Log-Sum-ReLU: Compact Support]
-      
-      E_LSE(v) = -1/β ln ∑ exp(-β/2 ||v-ξ||²)           E_LSR(v) = -ln ∑ ReLU(1 - β/2 ||v-ξ||²)
-      
-             ▲ Energy                                          ▲ Energy
-             │    \       /                                    │  \           /
-             │     \     /                                     │   \         /
-             │  ~~~~\   /~~~~  [Noise leakage]                 │    \_______/  [Strict zero outside r_c]
-             └────────────────► State                          └────────────────► State
-```
+| Log-Sum-Exp: Infinite Support | Log-Sum-ReLU: Compact Support |
+| --- | --- |
+| `E_LSE(v) = -1/β ln ∑ exp(-β/2 ||v-ξ||²)` | `E_LSR(v) = -ln ∑ ReLU(1 - β/2 ||v-ξ||²)` |
+| **Noise leakage** (asymptotic tails) | **Strict zero outside r_c** (flat bottom) |
 
 ### 3.1 Log-Sum-ReLU (LSR) Energy & Single-Step Settlement
 
@@ -246,17 +229,17 @@ public final class LsrHopfieldKernel {
 
 The global holographic tensor is backed by a native off-heap `MemorySegment`:
 
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                   HOLOGRAPHIC TENSOR BINARY MMAP LAYOUT                │
-├──────────────┬──────────────┬──────────────┬───────────────────────────┤
-│ Offset 0..7  │ Offset 8..15 │ Offset 16..23│ Offset 24..31             │
-│ MAGIC (8B)   │ VERSION (8B) │ DIMS D (8B)  │ PROJECTION DIM Y (8B)     │
-│ 0x5350454354 │ 0x00000001   │ e.g. 768     │ e.g. 2048                 │
-├──────────────┼──────────────┼──────────────┼───────────────────────────┤
-│ Offset 32..39│ Offset 40..47│ Offset 48..63│ Offset 64 .. (64 + 4*Y)   │
-│ COUNT K (8B) │ SEED (8B)    │ RESERVED(16B)│ ACCUMULATOR VECTOR T[Y]   │
-└──────────────┴──────────────┴──────────────┴───────────────────────────┘
+```mermaid
+flowchart TD
+    H["HOLOGRAPHIC TENSOR BINARY MMAP LAYOUT"]
+    H --> M1["Offset 0..7<br>MAGIC (8B)<br>0x5350454354"]
+    M1 --> M2["Offset 8..15<br>VERSION (8B)<br>0x00000001"]
+    M2 --> M3["Offset 16..23<br>DIMS D (8B)<br>e.g. 768"]
+    M3 --> M4["Offset 24..31<br>PROJECTION DIM Y (8B)<br>e.g. 2048"]
+    M4 --> M5["Offset 32..39<br>COUNT K (8B)"]
+    M5 --> M6["Offset 40..47<br>SEED (8B)"]
+    M6 --> M7["Offset 48..63<br>RESERVED(16B)"]
+    M7 --> M8["Offset 64 .. (64 + 4*Y)<br>ACCUMULATOR VECTOR T[Y]"]
 ```
 
 - **Zero Serialization Overhead**: Updates modify the off-heap `T[Y]` floats directly using Panama memory segments.
