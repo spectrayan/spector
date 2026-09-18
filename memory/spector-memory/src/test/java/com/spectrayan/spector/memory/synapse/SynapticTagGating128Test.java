@@ -260,6 +260,16 @@ class SynapticTagGating128Test {
                     .build();
             assertThat(legacyOptions.synapticTagMaskHi()).isEqualTo(0L);
             assertThat(legacyOptions.synapticTagMask()).isEqualTo(synapseTag.lo());
+
+            // Verify SynapticTag128 overloads
+            RecallOptions tagCarrierOptions = RecallOptions.builder()
+                    .synapticTagMask(synapseTag)
+                    .hyperfocusMask(synapseTag)
+                    .build();
+            assertThat(tagCarrierOptions.synapticTagMask()).isEqualTo(synapseTag.lo());
+            assertThat(tagCarrierOptions.synapticTagMaskHi()).isEqualTo(synapseTag.hi());
+            assertThat(tagCarrierOptions.hyperfocusMask()).isEqualTo(synapseTag.lo());
+            assertThat(tagCarrierOptions.hyperfocusMaskHi()).isEqualTo(synapseTag.hi());
         }
     }
 

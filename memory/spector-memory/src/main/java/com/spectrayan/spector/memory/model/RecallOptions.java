@@ -570,6 +570,20 @@ public record RecallOptions(
         }
 
         /**
+         * Sets the 128-bit synaptic tag filter mask from a {@link com.spectrayan.spector.core.cognitive.SynapticTag128} carrier.
+         */
+        public Builder synapticTagMask(com.spectrayan.spector.core.cognitive.SynapticTag128 tag128) {
+            if (tag128 == null) {
+                this.synapticTagMask = 0L;
+                this.synapticTagMaskHi = 0L;
+            } else {
+                this.synapticTagMask = tag128.lo();
+                this.synapticTagMaskHi = tag128.hi();
+            }
+            return this;
+        }
+
+        /**
          * Minimum importance threshold  --  memories below this are skipped.
          */
         public Builder minImportance(float minImportance) {
@@ -675,6 +689,20 @@ public record RecallOptions(
             com.spectrayan.spector.core.cognitive.SynapticTag128 tag128 = SynapticTagEncoder.encode128(tags);
             this.hyperfocusMask = tag128.lo();
             this.hyperfocusMaskHi = tag128.hi();
+            return this;
+        }
+
+        /**
+         * Sets the 128-bit hyperfocus Bloom filter mask from a {@link com.spectrayan.spector.core.cognitive.SynapticTag128} carrier.
+         */
+        public Builder hyperfocusMask(com.spectrayan.spector.core.cognitive.SynapticTag128 tag128) {
+            if (tag128 == null) {
+                this.hyperfocusMask = 0L;
+                this.hyperfocusMaskHi = 0L;
+            } else {
+                this.hyperfocusMask = tag128.lo();
+                this.hyperfocusMaskHi = tag128.hi();
+            }
             return this;
         }
 

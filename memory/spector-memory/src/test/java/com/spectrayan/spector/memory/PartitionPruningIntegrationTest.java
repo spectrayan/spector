@@ -182,10 +182,9 @@ class PartitionPruningIntegrationTest {
         memory.remember("s-1", t2, MemoryType.SEMANTIC, MemorySource.USER_STATED, "infra");
         memory.remember("s-2", t3, MemoryType.SEMANTIC, MemorySource.USER_STATED, "infra");
 
-        long hyperfocusMask = SynapticTagEncoder.encode("infra", "production");
         RecallOptions hfOpts = RecallOptions.builder()
                 .topK(10)
-                .hyperfocusMask(hyperfocusMask)
+                .hyperfocusMask("infra", "production")
                 .build();
 
         List<CognitiveResult> results = memory.recall("deployment runbook", hfOpts);
