@@ -71,4 +71,54 @@ class SynapticTagMathTest {
         float ratio = SynapticTagMath.overlapRatio(record, query);
         assertThat(ratio).isBetween(0.0f, 1.0f);
     }
+
+    @Test
+    @DisplayName("128-bit encode tag produces K_128 bits bounded between 1 and 4")
+    void encodeTag128BitBounds() {
+        SynapticTag128 tag = SynapticTagMath.encodeTag128("neuroscience");
+        int count = tag.popcount();
+        assertThat(count).isBetween(1, 4);
+        assertThat(tag.isEmpty()).isFalse();
+    }
+
+    @Test
+    @DisplayName("128-bit tag matches itself and handles non-matching tag")
+    void tagMatchesSelf128() {
+        SynapticTag128 filter = SynapticTagMath.encode128("memory", "episodic", "hippocampus");
+        assertThat(SynapticTagMath.matches128(filter, "memory")).isTrue();
+        assertThat(SynapticTagMath.matches128(filter, "episodic")).isTrue();
+        assertThat(SynapticTagMath.matches128(filter, "hippocampus")).isTrue();
+        assertThat(SynapticTagMath.matches128(filter, "nonexistent-tag")).isFalse();
+    }
+
+    @Test
+    @DisplayName("128-bit overlap ratio is 1.0 on exact subset")
+    void overlapRatio128FullMatch() {
+        SynapticTag128 record = SynapticTagMath.encode128("alpha", "beta", "gamma", "delta");
+        SynapticTag128 query = SynapticTagMath.encode128("alpha", "gamma");
+        assertThat(SynapticTagMath.overlapRatio128(record.lo(), record.hi(), query.lo(), query.hi()))
+                .isEqualTo(1.0f);
+        assertThat(record.overlapRatio(query)).isEqualTo(1.0f);
+    }
+
+    @Test
+    @DisplayName("128-bit merge combines low and high words")
+    void merge128() {
+        SynapticTag128 t1 = SynapticTagMath.encodeTag128("tag1");
+        SynapticTag128 t2 = SynapticTagMath.encodeTag128("tag2");
+        SynapticTag128 merged = t1.merge(t2);
+        assertThat(merged.lo()).isEqualTo(t1.lo() | t2.lo());
+        assertThat(merged.hi()).isEqualTo(t1.hi() | t2.hi());
+        assertThat(merged.matches(t1)).isTrue();
+        assertThat(merged.matches(t2)).isTrue();
+    }
+
+    @Test
+    @DisplayName("128-bit false positive probability is monotonic and lower than 64-bit for same tag count")
+    void fpp128Bounds() {
+        double p1 = SynapticTagMath.falsePositiveProbability128(5);
+        double p2 = SynapticTagMath.falsePositiveProbability128(10);
+        assertThat(p1).isLessThan(p2);
+        assertThat(p1).isLessThan(SynapticTagMath.falsePositiveProbability(5));
+    }
 }

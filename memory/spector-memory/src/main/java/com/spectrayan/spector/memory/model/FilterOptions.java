@@ -31,6 +31,7 @@ import com.spectrayan.spector.kernel.api.MemoryType;
  */
 public record FilterOptions(
         long synapticTagMask,
+        long synapticTagMaskHi,
         float minImportance,
         MemoryType[] memoryTypes,
         byte minValence,
@@ -38,11 +39,21 @@ public record FilterOptions(
 ) {
     /** No filters — all memories eligible. */
     public static final FilterOptions NONE = new FilterOptions(
-            0L, 0.0f, null, Byte.MIN_VALUE, Byte.MAX_VALUE);
+            0L, 0L, 0.0f, null, Byte.MIN_VALUE, Byte.MAX_VALUE);
+
+    /** Backward-compatible constructor for 64-bit low mask callers. */
+    public FilterOptions(
+            long synapticTagMask,
+            float minImportance,
+            MemoryType[] memoryTypes,
+            byte minValence,
+            byte maxValence) {
+        this(synapticTagMask, 0L, minImportance, memoryTypes, minValence, maxValence);
+    }
 
     /** Returns true if any filter is active. */
     public boolean hasTagFilter() {
-        return synapticTagMask != 0L;
+        return synapticTagMask != 0L || synapticTagMaskHi != 0L;
     }
 
     /** Returns true if memory type filtering is active. */

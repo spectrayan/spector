@@ -295,7 +295,11 @@ public abstract sealed class AbstractEngramMemory<L extends FixedEngramLayout>
      * @param maxTimestampMs maximum record timestamp in epoch milliseconds (0 if none)
      * @param synapticTagMask cumulative bitwise-OR of synaptic tag masks
      */
-    public record SummaryStats(int liveCount, long minTimestampMs, long maxTimestampMs, long synapticTagMask) {}
+    public record SummaryStats(int liveCount, long minTimestampMs, long maxTimestampMs, long synapticTagMask, long synapticTagMaskHi) {
+        public SummaryStats(int liveCount, long minTimestampMs, long maxTimestampMs, long synapticTagMask) {
+            this(liveCount, minTimestampMs, maxTimestampMs, synapticTagMask, 0L);
+        }
+    }
 
     /**
      * Scans record headers and returns summary statistics without leaking raw segments.
@@ -303,7 +307,7 @@ public abstract sealed class AbstractEngramMemory<L extends FixedEngramLayout>
     public SummaryStats scanSummary() {
         int vCount = visibleCount();
         if (vCount <= 0) {
-            return new SummaryStats(0, 0L, 0L, 0L);
+            return new SummaryStats(0, 0L, 0L, 0L, 0L);
         }
         MemorySegment seg = segment();
         int stride = layout.stride();
@@ -312,6 +316,7 @@ public abstract sealed class AbstractEngramMemory<L extends FixedEngramLayout>
         long minTs = Long.MAX_VALUE;
         long maxTs = Long.MIN_VALUE;
         long tagMask = 0L;
+        long tagMaskHi = 0L;
         var headerLayout = layout.headerLayout();
         for (int i = 0; i < vCount; i++) {
             long offset = base + (long) i * stride;
@@ -319,18 +324,21 @@ public abstract sealed class AbstractEngramMemory<L extends FixedEngramLayout>
             if (EncodingHeaderFields.isTombstoned(flags)) continue;
             live++;
             long ts = headerLayout.readTimestamp(seg, offset);
-            long tags = headerLayout.readSynapticTags(seg, offset);
+            long tags = headerLayout.readSynapticTagsLo(seg, offset);
+            long tagsHi = headerLayout.readSynapticTagsHi(seg, offset);
             if (ts > 0) {
                 minTs = Math.min(minTs, ts);
                 maxTs = Math.max(maxTs, ts);
             }
             tagMask |= tags;
+            tagMaskHi |= tagsHi;
         }
         return new SummaryStats(
                 live,
                 minTs == Long.MAX_VALUE ? 0L : minTs,
                 maxTs == Long.MIN_VALUE ? 0L : maxTs,
-                tagMask
+                tagMask,
+                tagMaskHi
         );
     }
 

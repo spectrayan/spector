@@ -60,7 +60,8 @@ import com.spectrayan.spector.kernel.api.SourceModality;
  */
 public record EncodingHeader(
         long timestampMs,
-        long synapticTags,
+        long synapticTagsLo,
+        long synapticTagsHi,
         float exactNorm,
         float importance,
         int agentRecallCount,
@@ -82,6 +83,13 @@ public record EncodingHeader(
         EngramSource source
 ) {
     /**
+     * Backward-compatible accessor returning the lower 64 bits of synaptic tags.
+     */
+    public long synapticTags() {
+        return synapticTagsLo;
+    }
+
+    /**
      * Compact constructor — defaults null source per NF7.
      */
     public EncodingHeader {
@@ -95,15 +103,12 @@ public record EncodingHeader(
     }
 
     /**
-     * V1-compatible constructor — defaults for extended fields.
-     *
-     * <p>Provides backward compatibility for code that constructs headers
-     * without arousal or storage strength fields.</p>
+     * V1-compatible constructor — defaults for extended fields and zero high tags.
      */
     public EncodingHeader(long timestampMs, long synapticTags, float exactNorm,
                           float importance, int agentRecallCount, short centroidId,
                           byte valence, byte flags) {
-        this(timestampMs, synapticTags, exactNorm, importance,
+        this(timestampMs, synapticTags, 0L, exactNorm, importance,
                 agentRecallCount, centroidId, valence, flags,
                 (byte) 0, 1.0f,
                 (byte) 0, (byte) 0, (byte) 0, (short) 0, 0.0f,
@@ -111,13 +116,26 @@ public record EncodingHeader(
     }
 
     /**
-     * V2-compatible constructor — defaults for encoding state fields.
+     * V1-compatible 128-bit constructor with explicit low and high synaptic tags.
+     */
+    public EncodingHeader(long timestampMs, long synapticTagsLo, long synapticTagsHi, float exactNorm,
+                          float importance, int agentRecallCount, short centroidId,
+                          byte valence, byte flags) {
+        this(timestampMs, synapticTagsLo, synapticTagsHi, exactNorm, importance,
+                agentRecallCount, centroidId, valence, flags,
+                (byte) 0, 1.0f,
+                (byte) 0, (byte) 0, (byte) 0, (short) 0, 0.0f,
+                (byte) 0, EngramSource.EXPERIENCED);
+    }
+
+    /**
+     * V2-compatible constructor — defaults for encoding state fields and zero high tags.
      */
     public EncodingHeader(long timestampMs, long synapticTags, float exactNorm,
                           float importance, int agentRecallCount, short centroidId,
                           byte valence, byte flags,
                           byte arousal, float storageStrength) {
-        this(timestampMs, synapticTags, exactNorm, importance,
+        this(timestampMs, synapticTags, 0L, exactNorm, importance,
                 agentRecallCount, centroidId, valence, flags,
                 arousal, storageStrength,
                 (byte) 0, (byte) 0, (byte) 0, (short) 0, 0.0f,
@@ -125,7 +143,21 @@ public record EncodingHeader(
     }
 
     /**
-     * Backward-compatible 16-parameter constructor without explicit source.
+     * V2-compatible 128-bit constructor with explicit low and high synaptic tags.
+     */
+    public EncodingHeader(long timestampMs, long synapticTagsLo, long synapticTagsHi, float exactNorm,
+                          float importance, int agentRecallCount, short centroidId,
+                          byte valence, byte flags,
+                          byte arousal, float storageStrength) {
+        this(timestampMs, synapticTagsLo, synapticTagsHi, exactNorm, importance,
+                agentRecallCount, centroidId, valence, flags,
+                arousal, storageStrength,
+                (byte) 0, (byte) 0, (byte) 0, (short) 0, 0.0f,
+                (byte) 0, EngramSource.EXPERIENCED);
+    }
+
+    /**
+     * Backward-compatible 16-parameter constructor without explicit source or high tags.
      */
     public EncodingHeader(long timestampMs, long synapticTags, float exactNorm,
                           float importance, int agentRecallCount, short centroidId,
@@ -134,7 +166,45 @@ public record EncodingHeader(
                           byte encodingProfile, byte encodingAlpha, byte encodingBeta,
                           short soulVersion, float encodingSurprise,
                           byte consolidationFlags) {
-        this(timestampMs, synapticTags, exactNorm, importance,
+        this(timestampMs, synapticTags, 0L, exactNorm, importance,
+                agentRecallCount, centroidId, valence, flags,
+                arousal, storageStrength,
+                encodingProfile, encodingAlpha, encodingBeta,
+                soulVersion, encodingSurprise,
+                consolidationFlags);
+    }
+
+    /**
+     * Backward-compatible 17-parameter constructor without high tags.
+     */
+    public EncodingHeader(long timestampMs, long synapticTags, float exactNorm,
+                          float importance, int agentRecallCount, short centroidId,
+                          byte valence, byte flags,
+                          byte arousal, float storageStrength,
+                          byte encodingProfile, byte encodingAlpha, byte encodingBeta,
+                          short soulVersion, float encodingSurprise,
+                          byte consolidationFlags,
+                          EngramSource source) {
+        this(timestampMs, synapticTags, 0L, exactNorm, importance,
+                agentRecallCount, centroidId, valence, flags,
+                arousal, storageStrength,
+                encodingProfile, encodingAlpha, encodingBeta,
+                soulVersion, encodingSurprise,
+                consolidationFlags,
+                source);
+    }
+
+    /**
+     * 128-bit 17-parameter constructor without explicit source.
+     */
+    public EncodingHeader(long timestampMs, long synapticTagsLo, long synapticTagsHi, float exactNorm,
+                          float importance, int agentRecallCount, short centroidId,
+                          byte valence, byte flags,
+                          byte arousal, float storageStrength,
+                          byte encodingProfile, byte encodingAlpha, byte encodingBeta,
+                          short soulVersion, float encodingSurprise,
+                          byte consolidationFlags) {
+        this(timestampMs, synapticTagsLo, synapticTagsHi, exactNorm, importance,
                 agentRecallCount, centroidId, valence, flags,
                 arousal, storageStrength,
                 encodingProfile, encodingAlpha, encodingBeta,

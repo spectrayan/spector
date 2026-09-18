@@ -15,12 +15,13 @@
  */
 package com.spectrayan.spector.kernel.score;
 
+import com.spectrayan.spector.core.cognitive.SynapticTag128;
 import com.spectrayan.spector.core.cognitive.SynapticTagMath;
 
 import java.util.Collection;
 
 /**
- * 64-bit inline Bloom filter encoder for synaptic tags (R17.1).
+ * 64-bit and 128-bit inline Bloom filter encoder for synaptic tags (R17.1, #795).
  *
  * @deprecated since 0.1.0-beta, forRemoval = true. Use {@link SynapticTagMath}.
  */
@@ -28,6 +29,34 @@ import java.util.Collection;
 public final class SynapticTagEncoder {
 
     private SynapticTagEncoder() {}
+
+    public static SynapticTag128 encode128(String... tags) {
+        return SynapticTagMath.encode128(tags);
+    }
+
+    public static SynapticTag128 encode128(Collection<String> tags) {
+        return SynapticTagMath.encode128(tags);
+    }
+
+    public static SynapticTag128 encodeTag128(String tag) {
+        return SynapticTagMath.encodeTag128(tag);
+    }
+
+    public static boolean matches128(long recordLo, long recordHi, long queryLo, long queryHi) {
+        return SynapticTagMath.matches128(recordLo, recordHi, queryLo, queryHi);
+    }
+
+    public static boolean matches128(SynapticTag128 record, String tag) {
+        return SynapticTagMath.matches128(record, tag);
+    }
+
+    public static float overlapRatio128(long recordLo, long recordHi, long queryLo, long queryHi) {
+        return SynapticTagMath.overlapRatio128(recordLo, recordHi, queryLo, queryHi);
+    }
+
+    public static double falsePositiveProbability128(int numTags) {
+        return SynapticTagMath.falsePositiveProbability128(numTags);
+    }
 
     public static long encode(String... tags) {
         return SynapticTagMath.encode(tags);

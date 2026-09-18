@@ -767,7 +767,9 @@ public final class RecallPathway extends AbstractPathway<RecallSignal, List<Cogn
         }
 
         final long queryTagMask = options.synapticTagMask();
+        final long queryTagMaskHi = options.synapticTagMaskHi();
         final long hyperfocusMask = options.hyperfocusMask();
+        final long hyperfocusMaskHi = options.hyperfocusMaskHi();
         final float minImportance = options.minImportance();
         final byte minValence = options.minValence();
         final byte maxValence = options.maxValence();
@@ -807,9 +809,10 @@ public final class RecallPathway extends AbstractPathway<RecallSignal, List<Cogn
                 }
 
                 // Phase 2: Synaptic tag gating
-                final long recordTags = cur.synapticTagsLo();
-                if (hyperfocusMask != 0 || queryTagMask != 0) {
-                    if (RecordGates.isTagGated(recordTags, queryTagMask, hyperfocusMask)) {
+                final long recordTagsLo = cur.synapticTagsLo();
+                final long recordTagsHi = cur.synapticTagsHi();
+                if (hyperfocusMask != 0 || hyperfocusMaskHi != 0 || queryTagMask != 0 || queryTagMaskHi != 0) {
+                    if (RecordGates.isTagGated128(recordTagsLo, recordTagsHi, queryTagMask, queryTagMaskHi, hyperfocusMask, hyperfocusMaskHi)) {
                         continue;
                     }
                 }
@@ -873,8 +876,8 @@ public final class RecallPathway extends AbstractPathway<RecallSignal, List<Cogn
                     }
                 }
             }
-            if (queryTagMask != 0) {
-                float tagOverlap = SynapticTagEncoder.overlapRatio(recordTags, queryTagMask);
+            if (queryTagMask != 0 || queryTagMaskHi != 0) {
+                float tagOverlap = SynapticTagEncoder.overlapRatio128(recordTagsLo, recordTagsHi, queryTagMask, queryTagMaskHi);
                 similarity = Math.max(similarity, tagOverlap);
             }
 
@@ -884,7 +887,9 @@ public final class RecallPathway extends AbstractPathway<RecallSignal, List<Cogn
             final int adjusted = DecayStrategy.adjustForReconsolidation(rawBucket, recallCount);
             final float rawDecay = DecayStrategy.decay(rawBucket);
 
-            final boolean focusMatch = hyperfocusMask != 0 && (recordTags & hyperfocusMask) == hyperfocusMask;
+            final boolean focusMatch = (hyperfocusMask != 0 || hyperfocusMaskHi != 0)
+                    && (recordTagsLo & hyperfocusMask) == hyperfocusMask
+                    && (recordTagsHi & hyperfocusMaskHi) == hyperfocusMaskHi;
             final boolean zeroTimeDecay = focusMatch || (!EncodingHeaderFields.isResolved(flags) && !EncodingHeaderFields.isPinned(flags));
             final float ltpDecay = zeroTimeDecay ? 1.0f : DecayStrategy.decay(adjusted);
 
