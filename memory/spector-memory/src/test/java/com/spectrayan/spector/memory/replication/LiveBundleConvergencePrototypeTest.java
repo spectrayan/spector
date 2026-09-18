@@ -77,9 +77,7 @@ class LiveBundleConvergencePrototypeTest {
                         String id = "mem-" + threadId + "-" + i;
                         wal.appendRemember(id, ("payload-" + threadId + "-" + i).getBytes());
                         writtenIds.add(id);
-                        if (copying.get()) {
-                            Thread.yield();
-                        }
+                        Thread.sleep(1);
                     }
                 } catch (Exception e) {
                     throw new RuntimeException(e);
@@ -90,6 +88,10 @@ class LiveBundleConvergencePrototypeTest {
         }
 
         startLatch.countDown();
+        // Wait until writers have begun producing events so snapshot is taken concurrently
+        while (wal.highWaterMark() == 0) {
+            Thread.sleep(1);
+        }
         // Take an uncoordinated snapshot concurrently while writers are active
         copying.set(true);
         long recordedHwm = wal.highWaterMark();
