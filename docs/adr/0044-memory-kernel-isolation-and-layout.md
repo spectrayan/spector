@@ -206,16 +206,12 @@ AISME+PCMN still adds ~7 MB × hot N at 768-d.
 
 ### 5.1 Layering (v1: same JAR)
 
-```text
-Synapse / MCP / embedded
-        │
-SpectorRuntime + SpectorMemory handle
-        │  no segment() on the query path
-pathway / neuromod / aisme / session     ← ArchUnit: no java.lang.foreign
-        │  NamespaceKernel + SlotVisitor
-kernel.api + kernel internals            ← still in spector-memory
-        │
-mmap / RuntimeBundle / partitions
+```mermaid
+flowchart TB
+    A["Synapse / MCP / embedded"] --> B["SpectorRuntime + SpectorMemory handle"]
+    B -->|"no segment() on the query path"| C["pathway / neuromod / aisme / session<br>← ArchUnit: no java.lang.foreign"]
+    C -->|"NamespaceKernel + SlotVisitor"| D["kernel.api + kernel internals<br>← still in spector-memory"]
+    D --> E["mmap / RuntimeBundle / partitions"]
 ```
 
 Assembly (`bootstrap`, store ctors) sits beside the kernel and may see segments.

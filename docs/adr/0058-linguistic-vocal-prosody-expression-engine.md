@@ -19,12 +19,14 @@ Conversational autonomous agents communicating across multimodal voice channels 
 Following the completion of AISME Phases 1–12, Spector provides an active cognitive substrate (generative priors, continuous homeostasis, counterfactual simulation, EFE policy selection, spontaneous wander, and identity continuity). However, to enable multi-generational digital persona continuity, the system must bridge this internal subjective mind to human sensory perception.
 
 Two foundational layers of this bridge are:
+
 1. **Idiolect & Linguistic DNA**: The structural and idiosyncratic patterns of how the individual expresses thought in language (sentence length distributions, vocabulary diversity, signature idioms, and rhetorical habits).
 2. **Vocal Prosody DNA & Parameter Vectors**: The acoustic signature of the voice and the real-time mathematical transfer functions that modulate speech parameters (fundamental frequency $F_0$, tempo, pitch variance, breathiness, assertiveness) based on the agent's internal AISME `InteroceptiveState` $(V, A, D)$.
 
 ## 2. Problem Statement
 
 Standard approaches to conversational voice synthesis suffer from a fundamental architectural tension:
+
 1. **Heavy Model Bloat**: Embedding complete neural audio generation models (e.g. multi-gigabyte diffusion or vocoder models) inside Spector blows up container sizes and requires massive GPU allocations.
 2. **Flat Robotic Monotones**: Decoupled TTS engines lacking affective signals produce flat, robotic speech that contradicts the agent's internal emotional state.
 3. **Latency Bottlenecks**: Speech parameter modulation must be emitted in <10ms during stream chunking.

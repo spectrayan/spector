@@ -19,6 +19,7 @@ Spector memory partitions store multiple off-heap data regions: episodic records
 ## 2. Problem Statement
 
 Spreading a single cognitive partition across 8–12 distinct disk files created severe operational failure modes:
+
 1. **File descriptor exhaustion**: With 1,000 active namespaces and 5 partitions each, the engine consumed > 50,000 concurrent file descriptors.
 2. **Crash inconsistency across split files**: A system crash during a partition append could flush the index file while the record file was still buffered in kernel page caches, causing desynchronization upon restart.
 3. **VMA fragmentation**: Hundreds of thousands of small mmap areas degraded TLB efficiency and exceeded Linux kernel `max_map_count` limits.

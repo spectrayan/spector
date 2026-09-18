@@ -30,17 +30,16 @@ The surrounding *domain* layer is not sound.
 
 ### 1.1 Current shape
 
-```
-RecallPathway / RememberPathway / ReflectPathway / …
-        │  owns
-        ▼
-CognitivePathway<S>          ← conductor (commons)
-        │  conducts
-        ▼
-SynapticRelay<S>[]           ← stages
-        │  mutate
-        ▼
-XxxSignal                    ← request + workspace + service locator
+```mermaid
+flowchart TD
+    pathway["RecallPathway / RememberPathway / ReflectPathway / …"]
+    conductor["CognitivePathway&lt;S&gt;<br>← conductor (commons)"]
+    stages["SynapticRelay&lt;S&gt;[]<br>← stages"]
+    signal["XxxSignal<br>← request + workspace + service locator"]
+
+    pathway -- "owns" --> conductor
+    conductor -- "conducts" --> stages
+    stages -- "mutate" --> signal
 ```
 
 Each domain class is a standalone final type. There is no `Pathway` interface. `SpectorRuntime` holds seven concrete fields and exposes seven getters.
@@ -125,20 +124,30 @@ We split three concerns that are currently one class:
 
 Cross-pathway calls happen through a **`PathwayCatalog`** (implemented by `SpectorRuntime`) and a **`PathwayRelay`** adapter. A caller never constructs the callee’s relays and never holds the callee as a field unless it *is* the composition root.
 
-```
-SpectorRuntime  ──implements──▶  PathwayCatalog
-        │
-        │ register(Remember, Recall, Reflect, Dream, Decide, Wander, Express)
-        ▼
-   PathwayContext ──contains──▶ catalog, kernel, typed services, AttributeBag
-        │
-        ▼
-   DreamPathway.conduct(DreamSignal)
-        │
-        ├─ SynapticRelay…
-        └─ PathwayRelay<RememberPathway>  ──catalog.invoke──▶  RememberPathway.conduct(RememberSignal)
-                                                                  │
-                                                                  └─ CognitivePathway<RememberSignal>
+```mermaid
+flowchart TD
+    SR["SpectorRuntime"]
+    PCatalog["PathwayCatalog"]
+    PContext["PathwayContext"]
+    Items["catalog, kernel, typed services, AttributeBag"]
+    
+    DP["DreamPathway.conduct(DreamSignal)"]
+    SRelay["SynapticRelay…"]
+    PRelay["PathwayRelay&lt;RememberPathway&gt;"]
+    
+    RP["RememberPathway.conduct(RememberSignal)"]
+    CP["CognitivePathway&lt;RememberSignal&gt;"]
+
+    SR -- "implements" --> PCatalog
+    SR -- "register(Remember, Recall, Reflect, Dream, Decide, Wander, Express)" --> PContext
+    PContext -- "contains" --> Items
+    
+    PContext --> DP
+    DP --> SRelay
+    DP --> PRelay
+    
+    PRelay -- "catalog.invoke" --> RP
+    RP --> CP
 ```
 
 ---

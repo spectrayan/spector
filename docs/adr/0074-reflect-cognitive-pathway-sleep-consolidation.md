@@ -15,6 +15,7 @@
 ## 1. Context
 
 In biological neuroscience, memory does not remain static once encoded. During rest and slow-wave / REM sleep cycles, mammalian brains perform two critical restorative functions:
+
 1. **Systems Memory Consolidation**: The hippocampus replays episodic experiences at accelerated speeds (sharp-wave ripples), transferring compressed gists and relational patterns to the neocortex where they crystallize into permanent semantic knowledge.
 2. **Synaptic Homeostasis Hypothesis (SHY)**: Synaptic weights that grew during waking learning are systematically downscaled and pruned to restore baseline metabolic energy and prevent neural network saturation.
 
@@ -23,6 +24,7 @@ ADR-0007 established the initial concept of sleep consolidation. This ADR formal
 ## 2. Problem Statement
 
 Automating long-term consolidation in a high-throughput memory engine introduces difficult architectural challenges:
+
 1. **Ingestion Throttling & Lock Contention**: Replay and abstraction consume significant CPU and LLM resources. Consolidation must never block live user queries or starve foreground `RememberPathway` writes.
 2. **Cascading Failure Protection**: When episodic memories are abstracted into semantic gists, the reflection engine calls `RememberPathway` internally. If the write pathway is degraded or full, reflection must throttle itself rather than exacerbating the failure.
 3. **Resumable State & Checkpointing**: In production deployments subject to container restarts or Kubernetes pod evictions, deep reflection sweeps across millions of memories must record durable checkpoints (`ReflectCheckpointStore`) to avoid repeating expensive LLM operations.

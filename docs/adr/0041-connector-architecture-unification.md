@@ -19,6 +19,7 @@ Data ingestion is the lifeblood of Spector's cognitive memory engine. Users need
 ## 2. Problem Statement
 
 Currently, Spector's connector ecosystem is in an inconsistent state:
+
 1. In the open-source repository (`spectrayan/spector`), `ConnectorController` in `spector-synapse` is a mock in-memory controller that does not execute real ingestion pipelines. Apache Camel is missing from the Maven reactor, and no connector engine module exists.
 2. In `spectrayan/spector-enterprise`, a full `spector-connector-engine` was developed with Apache Camel 4.11.0, YAML route templates, pre-flight connection probers, and ingestion sinks. However, it has not been ported to the OSS repository, leaving OSS users without data connectors and creating divergence.
 3. Neither repository provides an agent tool (`CamelRouteInvoker`) to allow autonomous agents in Spector to trigger connector ingestion on demand.

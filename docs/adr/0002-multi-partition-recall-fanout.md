@@ -19,6 +19,7 @@ In `DISK` mode, Spector cognitive memory stores data in partitioned off-heap mem
 ## 2. Problem Statement
 
 Prior to this decision, multi-partition operation suffered from four core architectural defects:
+
 1. **Arena/mmap leak & router staleness**: `PartitionManager.rollPartition()` constructed fresh tier stores in the new partition directory and swapped the active router, but old frozen stores lost reachable references without being properly closed or registered.
 2. **Restart darkness**: `PartitionManager.discoverOrCreatePartition` returned only the newest partition directory, failing to map older partitions upon node restart.
 3. **Reverse-key collision**: `IndexRecordMemory.reverseKey` was composed of `(type.ordinal() << 48) | offset` without a partition dimension. Because record offsets reset to 0 in each new partition, identical keys collided in the reverse index.

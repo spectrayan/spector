@@ -33,6 +33,7 @@ While this epic was originally scoped around JDK 26, our architectural review de
 ## 2. Problem Statement
 
 Even with off-heap Panama memory structures, JVM object layout overhead imposes memory boundaries:
+
 1. **Object Header Bloat**: Even small heap records carry 12-16 bytes of object header overhead, causing cache pollution during high-throughput graph and vector traversals.
 2. **Incubator Status of Vector API**: Relying on incubator flags (`--add-modules jdk.incubator.vector`) creates deployment friction in restricted enterprise environments.
 3. **Thread Dispatch Overhead**: Orchestrating asynchronous pathway tasks with classical executors introduces thread context switching latency.
@@ -113,12 +114,15 @@ graph TD
      - No synchronization on instance references (`synchronized(this)`).
      - Equality and hash codes strictly derived from field values.
      - No identity assumption or `==` reference comparison.
+
 2. **Compact Object Headers (JEP 534)**:
    - Enabled by default in JDK 27 on 64-bit architectures.
    - Reduces standard object headers from 16 bytes down to 8 bytes.
    - For an HNSW graph or Spector memory store containing 10,000,000 nodes/records, this frees up **80 MB to 160 MB** of pure header overhead without application code changes.
+
 3. **Off-Heap Flat Memory via FFM**:
    - Use `java.lang.foreign.MemorySegment` and `ValueLayout` for contiguous flat vector arrays, providing cache-line density identical to Valhalla flattened arrays today.
+
 4. **Experimental Valhalla Profile**:
    - Maintain a dedicated Maven profile `<id>valhalla-preview</id>` allowing developers with Valhalla EA builds to compile and benchmark `value record` declarations ahead of JDK 28.
 

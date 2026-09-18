@@ -42,7 +42,7 @@ Spector Memory implements a 4-tier cognitive architecture:
 
 - Language: Java 25
 - Build: Maven 3.9+
-- License: Apache 2.0 (core) / BSL 1.1 (memory module)
+- License: Apache 2.0
 - SIMD: AVX2 / AVX-512 / NEON via jdk.incubator.vector
 - Off-heap: Project Panama FFM API
 - Concurrency: Virtual Threads (Project Loom)

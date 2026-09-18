@@ -19,6 +19,7 @@ Spector's Model Context Protocol (MCP) server exposes 22+ cognitive memory tools
 ## 2. Problem Statement
 
 The imperative Java builder approach created several severe maintenance and architectural problems:
+
 1. **Code Bloat & Noise**: Approximately 60–70% of each tool class (~150–200 lines per file) consisted of repetitive schema construction and string formatting rather than tool execution logic.
 2. **Schema Drift & Verification**: Validating imperative builder calls against standard JSON Schema specifications (Draft 7 / 2020-12) was difficult without instantiating the entire JVM server at runtime.
 3. **Documentation Siloing**: Tool descriptions and schemas could not easily be extracted, linted, or exported for documentation (MkDocs), client SDK generators, or external IDE schemas without running reflection.
@@ -89,6 +90,7 @@ Each MCP tool defines its metadata and JSON Schema in a dedicated JSON file unde
 ```
 
 ### Architectural Components:
+
 1. **`McpToolSpec` (Record)**: Immutable representation of the tool contract (`name`, `description`, `category`, `scopes`, `inputSchema`, `outputSchema`).
 2. **`McpToolSpecLoader`**: Classpath scanner and parser utilizing Jackson to load and cache tool specifications on startup.
 3. **`McpToolHandler`**: Base class automatically resolving its metadata from `McpToolSpecLoader.load(name)`, supplying `name()`, `description()`, `inputSchema()`, and `requiredScopes()`.

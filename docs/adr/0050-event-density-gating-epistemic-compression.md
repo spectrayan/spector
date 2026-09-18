@@ -22,6 +22,7 @@ This paper presents the formal mathematical foundations and algorithmic specific
 ### Biological Analogs & Neurocognitive Foundations
 
 In biological nervous systems, sensory receptors (e.g., retinal ganglion cells, cochlear hair cells) do not transmit raw unprocessed pixels or audio waveforms to higher cortical areas. Instead:
+
 1. **Sensory Adaptation**: Receptors rapidly adapt to static, unchanging stimuli, dropping firing rates to baseline (Barlow's Efficient Coding Hypothesis).
 2. **Precision-Weighted Prediction Error**: Ascending cortical pathways primarily transmit precision-weighted prediction errors that cannot be explained away by top-down generative priors (Friston, 2005; Clark, 2013).
 3. **Neuromodulatory Saccadic Gating**: High-density novelty bursts trigger pupillary dilation, microsaccades, and elevated hippocampal theta synchronization to increase sampling resolution during unfamiliar or critical events.
@@ -33,6 +34,7 @@ Phase 3 operationalizes these biological principles into a real-time SIMD-accele
 ## 2. Problem Statement
 
 Continuous multimodal agent perception streams vast amounts of high-bandwidth observations (audio chunks, visual features, telemetry streams, and interaction transcripts). Without intelligent peripheral gating:
+
 1. **Sensory Deluge**: Ingesting quiescent or redundant sensory observations exhausts off-heap storage and floods vector indices with near-identical embeddings.
 2. **Computational Inefficiency**: Downstream cognitive pipelines (consolidation, active inference policies, spreading activation) expend critical compute cycles processing uninformative inputs.
 3. **Loss of Critical Transitions**: Naive fixed-frequency downsampling often misses sharp, high-entropy phase transitions occurring between sample ticks.
@@ -96,31 +98,14 @@ $$f(t+1) = \text{clamp}\left( f_{\text{min}} + (f_{\text{max}} - f_{\text{min}})
 
 ### Algorithmic Architecture & Pipeline Integration
 
-```
-                       Observation Frame o_t
-                                │
-                                ▼
-                   ┌───────────────────────────┐
-                   │     FreeEnergyKernel      │ (SIMD Vector API)
-                   │  - Gradient Norm ||∇F||   │
-                   │  - Sensory Surprisal      │
-                   │  - KL Divergence D_KL     │
-                   └─────────────┬─────────────┘
-                                 │
-                                 ▼
-                   ┌───────────────────────────┐
-                   │    EventDensityFilter     │
-                   │  Computes \nu(o_t)        │
-                   └─────────────┬─────────────┘
-                                 │
-                 ┌───────────────┴───────────────┐
-                 ▼                               ▼
-      [\nu(o_t) >= \tau_density]       [\nu(o_t) < \tau_density]
-           SALIENT SPIKE                  REDUNDANT BACKGROUND
-                 │                               │
-                 ▼                               ▼
-       Pass to Ingest Buffer             Drop / Compress
-       Upscale Sampling Rate             Downscale Sampling Rate
+```mermaid
+flowchart TD
+    O["Observation Frame o_t"] --> F["FreeEnergyKernel (SIMD Vector API)<br>- Gradient Norm ||∇F||<br>- Sensory Surprisal<br>- KL Divergence D_KL"]
+    F --> E["EventDensityFilter<br>Computes ν(o_t)"]
+    E --> S1["[ν(o_t) >= τ_density]<br>SALIENT SPIKE"]
+    E --> S2["[ν(o_t) < τ_density]<br>REDUNDANT BACKGROUND"]
+    S1 --> A1["Pass to Ingest Buffer<br>Upscale Sampling Rate"]
+    S2 --> A2["Drop / Compress<br>Downscale Sampling Rate"]
 ```
 
 ---

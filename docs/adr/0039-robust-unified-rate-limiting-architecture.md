@@ -122,6 +122,7 @@ flowchart TD
 
 ### 3.2 Endpoint Categorization & Custom Policies
 Different routes require different rate-limiting envelopes:
+
 1. **Public / Static / Probes**: `/actuator/health`, `/actuator/info`, `/index.html`, `/assets/**` &rarr; **Bypassed / Excluded**.
 2. **Auth Endpoints**: `/api/v1/auth/login`, `/api/v1/auth/token` &rarr; **Strict (10 req/min, burst 20)** to prevent credential brute forcing.
 3. **Standard REST & MCP**: `/api/v1/memories/**`, `/mcp`, `/api/v1/query` &rarr; **Standard Tier (100 req/s, burst 200)**.
@@ -227,9 +228,11 @@ public interface RateLimitStateStore {
 ```
 
 Implementations:
+
 1. **`CaffeineRateLimitStateStore` (In-Memory Default)**:
    - Uses `Bucket4j` with local `Caffeine` cache with TTL eviction (e.g. expire buckets after 10 minutes of inactivity).
    - Zero external dependency, sub-microsecond latency, ideal for single-node deployments.
+
 2. **`RedisRateLimitStateStore` (Distributed Cloud)**:
    - Uses `bucket4j-redis` (Lettuce / Redisson) with atomic Redis EVAL scripts.
    - Enables multiple Spector Synapse nodes behind AWS ALB / Kubernetes Ingress to share atomic rate limits.

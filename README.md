@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0%20%2F%20BSL_1.1-blue.svg?style=for-the-badge" alt="License" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=for-the-badge" alt="License" /></a>
   <a href="https://openjdk.org/"><img src="https://img.shields.io/badge/Java-25-orange.svg?style=for-the-badge" alt="Java" /></a>
   <a href="https://pypi.org/project/spector-client/"><img src="https://img.shields.io/pypi/v/spector-client?color=3776AB&style=for-the-badge&logo=pypi&logoColor=white" alt="PyPI" /></a>
   <a href="https://www.npmjs.com/package/@spectrayan/spector-client"><img src="https://img.shields.io/npm/v/@spectrayan/spector-client?color=CB3837&style=for-the-badge&logo=npm&logoColor=white" alt="npm" /></a>
@@ -350,21 +350,8 @@ We welcome contributions of all kinds — code, docs, tests, benchmarks, and ide
 ---
 
 ## 📄 License
-
-This repository uses a **split licensing model**:
-
-- **`spector-memory`** — [Business Source License 1.1](memory/spector-memory/LICENSE) (transitions to Apache 2.0 on May 27, 2030)
-- **`spector-cortex`** — [Business Source License 1.1](cortex/spector-cortex/LICENSE) (transitions to Apache 2.0 on July 6, 2030)
-- **`spector-synapse`** — [Business Source License 1.1](synapse/spector-synapse/LICENSE) (transitions to Apache 2.0 on July 6, 2030)
-- **Client SDKs, Tooling & Connectors** — [Apache License 2.0](LICENSE) (`spector-client` for Python, `@spectrayan/spector-client` for TypeScript/Node.js, Java client SDK, Spring AI starter, Helm chart, Terraform modules, and CLI)
-
-> [!NOTE]
-> **Plain-English Licensing Summary**:
-> - **100% Free**: Free for testing, education, personal projects, internal business workflows, and agent development.
-> - **Client Libraries & Connectors**: Client SDKs and integration libraries are **100% Apache 2.0**.
-> - **Source Available**: Full source code for the core cognitive memory engine and UI is open and auditable under BSL 1.1, automatically converting to Apache 2.0.
-> - **Commercial SaaS**: Only offering Spector as a managed, competitive commercial database-as-a-service requires a commercial license. Using Spector as the memory backend for your own agents, applications, or company products is completely free.
-
+ 
+Spector is free and open-source software licensed under the [Apache License 2.0](LICENSE). All modules, client SDKs, tooling, and connectors are distributed under Apache 2.0.
 
 For branding and trademark guidelines, see the [NOTICE](NOTICE) file.
 

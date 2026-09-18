@@ -93,6 +93,7 @@ classDiagram
 ## 2. Problem Statement
 
 A robust cognitive architecture requires clean conceptual boundaries between domain operations and underlying physical off-heap storage:
+
 1. **Monolithic API Surface**: Implementing all ingestion, query, consolidation, and administrative methods in a single monolithic implementation class creates tight coupling and makes unit testing individual cognitive pathways unwieldy.
 2. **Ambiguous Store Typing**: Treating all memory categories as homogenous byte blobs risks type punning and prevents type-safe queries on episodic conversations versus semantic assertions.
 3. **Pipeline vs Pathway Divergence**: Legacy code mixed procedural `Pipeline` patterns with event-driven `Pathway` execution graphs.

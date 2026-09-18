@@ -19,6 +19,7 @@ Spector is a high-performance cognitive memory and vector search architecture wr
 ## 2. Problem Statement
 
 Prior to this architectural change, Spector suffered from severe hardware coupling and architectural asymmetry:
+
 1. **Asymmetric Hardware Coupling in `spector-core`**: `nucleus/spector-core` contained both domain abstractions and low-level CPU SIMD vector implementations using the Panama Vector API (`jdk.incubator.vector`). This forced all downstream modules depending on `spector-core` to inherit incubator module requirements, violating the principle of a stable, portable foundation core.
 2. **Orphan GPU Acceleration Kernels**: `nucleus/spector-gpu` contained specialized kernels (`CudaHnswKernel`, `CudaSvasqKernel`, `CudaMaxSimKernel`) that were disconnected from indexing classes (`AbstractHnswIndex`, `QuantizedHnswIndex`) and cognitive rerankers (`ColBERTReranker`).
 3. **Scalar Candidate Evaluation in HNSW Traversal**: `AbstractHnswIndex.searchLayer()` evaluated unvisited neighbor candidates one-by-one in a scalar loop rather than dispatching batched candidate sets to SIMD or GPU.
@@ -61,56 +62,26 @@ Prior to this architectural change, Spector suffered from severe hardware coupli
 
 ### 5.1 Module Layering Matrix
 
-```
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                               SYNAPSE (Nervous System)                                 │
-│                     (spector-synapse, spector-mcp, spector-spring)                     │
-└───────────────────────────────────────────┬────────────────────────────────────────────┘
-                                            │
-                                            ▼
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                               MEMORY (Cognitive Engine)                                │
-│                   (spector-memory, spector-query, spector-ingestion)                   │
-│         • Cognitive Rerankers: ColBERTReranker, MmrReranker, CognitiveReranker         │
-│         • Partitions: Working, Episodic, Semantic, Procedural, Habituation             │
-└───────────────────────────────────────────┬────────────────────────────────────────────┘
-                                            │
-                                            ▼
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                              NUCLEUS (Foundation Layer)                                │
-│                                                                                        │
-│  ┌──────────────────────────────────────────────────────────────────────────────────┐  │
-│  │                               nucleus/spector-index                              │  │
-│  │               (HnswIndex, DiskHnswIndex, QuantizedHnswIndex, BM25, SPLADE)        │  │
-│  │                  • 100% Hardware-Agnostic & Zero Provider Dependencies           │  │
-│  │                  • Batched Candidate Evaluation via Compute SPIs                 │  │
-│  └────────────────────────────────────────┬─────────────────────────────────────────┘  │
-│                                           │                                            │
-│                                           ▼                                            │
-│  ┌──────────────────────────────────────────────────────────────────────────────────┐  │
-│  │                               nucleus/spector-core                               │  │
-│  │               • Pure SPIs: Similarity, HnswCandidate, Svasq, MaxSim              │  │
-│  │               • Domain Enums & Mathematical Models                               │  │
-│  │               • AcceleratorRegistry & Dynamic Fallback Dispatcher                │  │
-│  │               • Zero Incubator / Zero Native Dependencies                        │  │
-│  └────────────────────────────────────────┬─────────────────────────────────────────┘  │
-│                                           │ (ServiceLoader SPI Discovery)              │
-│                        ┌──────────────────┴──────────────────┐                         │
-│                        ▼                                     ▼                         │
-│  ┌───────────────────────────────────────────┐ ┌────────────────────────────────────┐  │
-│  │            nucleus/spector-cpu            │ │        nucleus/spector-gpu         │  │
-│  │ • Panama Vector API (AVX-512, AVX2, Neon) │ │ • Panama FFM + CUDA Driver & PTX   │  │
-│  │ • CpuSimdAccelerator (Priority: 0)        │ │ • CudaComputeAccelerator (Prio:100)│  │
-│  │ • CpuSimdSimilarityKernel                 │ │ • CudaSimilarityKernel            │  │
-│  │ • CpuSimdCandidateKernel (HNSW)           │ │ • CudaCandidateKernel (HNSW)      │  │
-│  │ • CpuSimdSvasqKernel (SVASQ)              │ │ • CudaSvasqKernel (SVASQ)          │  │
-│  │ • CpuSimdMaxSimKernel (ColBERT MaxSim)    │ │ • CudaMaxSimKernel (ColBERT MaxSim)│  │
-│  └───────────────────────────────────────────┘ └────────────────────────────────────┘  │
-│                                                                                        │
-│  ┌──────────────────────────────────────────────────────────────────────────────────┐  │
-│  │      nucleus/spector-storage   •   nucleus/spector-config   •   spector-commons      │  │
-│  └──────────────────────────────────────────────────────────────────────────────────┘  │
-└────────────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    SYNAPSE["SYNAPSE (Nervous System)\n(spector-synapse, spector-mcp, spector-spring)"]
+    MEMORY["MEMORY (Cognitive Engine)\n(spector-memory, spector-query, spector-ingestion)\n• Cognitive Rerankers: ColBERTReranker, MmrReranker, CognitiveReranker\n• Partitions: Working, Episodic, Semantic, Procedural, Habituation"]
+    
+    subgraph NUCLEUS ["NUCLEUS (Foundation Layer)"]
+        direction TB
+        index["nucleus/spector-index\n(HnswIndex, DiskHnswIndex, QuantizedHnswIndex, BM25, SPLADE)\n• 100% Hardware-Agnostic & Zero Provider Dependencies\n• Batched Candidate Evaluation via Compute SPIs"]
+        core["nucleus/spector-core\n• Pure SPIs: Similarity, HnswCandidate, Svasq, MaxSim\n• Domain Enums & Mathematical Models\n• AcceleratorRegistry & Dynamic Fallback Dispatcher\n• Zero Incubator / Zero Native Dependencies"]
+        cpu["nucleus/spector-cpu\n• Panama Vector API (AVX-512, AVX2, Neon)\n• CpuSimdAccelerator (Priority: 0)\n• CpuSimdSimilarityKernel\n• CpuSimdCandidateKernel (HNSW)\n• CpuSimdSvasqKernel (SVASQ)\n• CpuSimdMaxSimKernel (ColBERT MaxSim)"]
+        gpu["nucleus/spector-gpu\n• Panama FFM + CUDA Driver & PTX\n• CudaComputeAccelerator (Prio:100)\n• CudaSimilarityKernel\n• CudaCandidateKernel (HNSW)\n• CudaSvasqKernel (SVASQ)\n• CudaMaxSimKernel (ColBERT MaxSim)"]
+        commons["nucleus/spector-storage • nucleus/spector-config • spector-commons"]
+        
+        index --> core
+        core -- "(ServiceLoader SPI Discovery)" --> cpu
+        core --> gpu
+    end
+    
+    SYNAPSE --> MEMORY
+    MEMORY --> index
 ```
 
 ### 5.2 Compute Kernel SPI Definitions (`spector-core`)

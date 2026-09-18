@@ -81,6 +81,7 @@ This design is grounded in peer-reviewed neuroscience:
 ## 2. Problem Statement
 
 Prior to this architecture, Spector relied primarily on isolated vector similarity (HNSW) and BM25 lexical matching to recall relevant memories. However, biological episodic retrieval relies heavily on associative temporal coactivation and tag-level spreading activation:
+
 1. **Isolated Recall Contexts**: Captures occurring within the same conversation or temporally adjacent time windows lacked automatic associative graph links unless explicitly joined by an entity extractor.
 2. **Missing Associative Spreading**: Standard vector search cannot traverse secondary conceptual hops (e.g. Memory A shares Tag X with Memory B, which was co-activated with Memory C).
 3. **Off-Heap Performance Bottlenecks**: Graph traversals on traditional JVM heap structures generate excessive pointer-chasing and garbage collection pauses during high-frequency real-time inference.
@@ -342,6 +343,7 @@ Read MemoryHeader → check shape ordinal:
 ### 4.3 Golden-File Testing
 
 Before any code changes:
+
 1. Capture a snapshot of the current `coactivation.dat` binary from production data
 2. Write a test that loads this golden file and asserts all pair/edge data is preserved
 3. Write a test that loads the golden file through the v2→v3 migration path and asserts identical data

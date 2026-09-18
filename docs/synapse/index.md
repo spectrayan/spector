@@ -347,7 +347,7 @@ All settings are configurable via environment variables:
 
 ## License
 
-Spector Synapse is licensed under the **Business Source License 1.1** (BSL 1.1).
+Spector Synapse is licensed under the **Apache License 2.0**.
 
 - **Change Date**: July 6, 2030
 - **Change License**: Apache License, Version 2.0

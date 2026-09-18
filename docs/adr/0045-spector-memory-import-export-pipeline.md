@@ -26,6 +26,7 @@ As Spector Memory evolves, schemas, index layouts, vector dimensions, and biolog
 ## 2. Problem Statement
 
 Migrating or backing up multi-gigabyte cognitive memory states introduces critical architectural challenges:
+
 1. **Memory Pressure & OOM Hazards**: Ingesting or dumping millions of high-dimensional vectors and graph nodes into monolithic heap objects inevitably triggers Garbage Collection pauses or JVM `OutOfMemoryError` failures.
 2. **Dual Operational Contexts**: Administrators require both online live backups via Synapse REST/gRPC endpoints and offline maintenance operations via the CLI (`spectorctl`) for air-gapped or disaster-recovery environments.
 3. **CLI Latency vs Heavy Runtimes**: Standard CLI invocations (`spectorctl status`, `spectorctl version`) must start in under 100 milliseconds and cannot tolerate a 2–3 second Spring Boot bootstrap delay.
@@ -64,10 +65,12 @@ The batch processing engine is isolated in **`synapse/spector-batch`**:
 
 ### 5.2 Dual-Mode CLI Architecture
 We adopt a split execution model:
+
 1. **Online Mode (Default)**:
    - `spectorctl memory export` connects to `spector-synapse` REST API (`/api/v1/migration/export`).
    - Synapse executes the Spring Batch job asynchronously.
    - `spectorctl` streams progress via Server-Sent Events (SSE) or polls job execution status. Startup time remains <100ms.
+
 2. **Offline / Standalone Mode (`--offline`)**:
    - `spectorctl memory export --offline` launches an embedded Spring Batch context directly inside the CLI using `picocli-spring-boot-starter`.
    - Used for air-gapped environments or emergency disaster recovery when Synapse is down.
@@ -130,9 +133,11 @@ flowchart LR
    - Implement `SpectorBundleCodec` supporting `.smb` archive packaging with Zstd compression and CRC32 verification.
    - Implement `SpectorExportJobConfig` and `SpectorImportJobConfig` defining readers, processors, and writers.
    - Implement `ReflectConsolidationJobConfig` and `SpringBatchReflectSweepExecutor` for background consolidation sweeps.
+
 2. **REST Integration (`synapse/spector-synapse`)**:
    - Expose asynchronous endpoints `/api/v1/migration/export` and `/api/v1/migration/import`.
    - Expose Server-Sent Events (SSE) stream for real-time progress monitoring.
+
 3. **CLI Integration (`synapse/spector-cli`)**:
    - Wire Picocli command tree for `spectorctl memory export` and `spectorctl memory import`.
    - Support `--offline` flag to trigger embedded batch executor when running out-of-band.

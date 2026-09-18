@@ -70,6 +70,7 @@ G(\pi, \tau) = \underbrace{-\mathbb{E}_{q(o_\tau \mid \pi)}[\ln p(o_\tau)]}_{\te
 
 #### 2. Canonical Policy Taxonomy
 We establish 6 canonical cognitive policy categories in `PolicyType`:
+
 1. `EPISTEMIC_EXPLORATION`: Deep multi-partition memory retrieval and associative search across sparse or novel knowledge clusters.
 2. `PRAGMATIC_EXPLOITATION`: Direct factual synthesis and goal-directed task execution when observation ambiguity is low.
 3. `CLARIFYING_INTERACTION`: Active interrogation and dialogue disambiguation when query entropy exceeds confidence thresholds.

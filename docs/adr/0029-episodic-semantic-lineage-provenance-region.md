@@ -301,6 +301,7 @@ Memory IDs must be consistent across the entire system rather than relying on di
 ### D15: Six discovered consolidation bugs resolved
 
 During the provenance redesign, six pre-existing defects in the consolidation pipeline were surfaced and fixed:
+
 1. **`EpisodicSessionIndex.rebuild()` offset corruption**: Stored absolute offsets instead of region-relative offsets (`cursor - dataOffset`).
 2. **`turnToOffset` collision in consolidation relay**: Keyed on `EpisodeRecord` value object; identical empty turns collided and dropped offsets.
 3. **Discarded affect metadata**: Fact valence, arousal, and importance were previously ignored and defaulted to 0.

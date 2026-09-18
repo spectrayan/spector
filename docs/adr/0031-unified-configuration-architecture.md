@@ -19,14 +19,17 @@ Configuration across Spector's 24 modules was unified under the aggregate root `
 ## 2. Problem Statement
 
 Despite the introduction of `SpectorProperties`, an architectural audit across the 24 modules of Spector revealed three critical defects:
+
 1. **Dual Defaulting & Disconnected Builders**:
    - `SpectorMemoryBuilder` declared 44 fields initialized to static constants (`DEFAULT_*`).
    - When instantiated via `SpectorMemoryBuilder.create()`, YAML configurations and environment variables were completely ignored unless `.fromProperties(SpectorProperties.load())` was manually called.
    - `MemoryProperties` omitted ~15 properties present in `spector-defaults.yml` (tier capacities, segment sizes, WAL chunk sizes, vacuum thresholds, and session buffers).
    - Sub-domains such as `DreamConfig` (22 parameters) and `TwoFactorConfig` (4 parameters) lacked POJO representation in `spector-config`, forcing runtime classes to fall back to hardcoded constants.
+
 2. **Runtime System Property & Environment Variable Bypasses**:
    - 14 production locations directly accessed JVM system properties or environment variables post-bootstrap (`System.getProperty("spector.*")`, `Long.getLong("spector.*")`, `System.getenv(...)`).
    - Bypasses created an untracked, invisible configuration shadow plane inaccessible to telemetry and admin auditing.
+
 3. **Synapse UI & Engine Disconnect**:
    - Synapse's `ConfigResolutionService.systemDefaults()` declared conflicting hardcoded defaults (`chunk-size: 800/100` vs memory engine's `2500/200`, `top-k: 5` vs engine's `10`).
 

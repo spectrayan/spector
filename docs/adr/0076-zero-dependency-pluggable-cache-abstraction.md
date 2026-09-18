@@ -24,6 +24,7 @@ However, binding low-level foundation modules (`spector-commons`, `spector-core`
 ## 2. Problem Statement
 
 Spector requires a caching architecture that meets three strict criteria:
+
 1. **Zero Framework Dependencies**: The core caching abstraction must reside in `nucleus/spector-commons` and depend only on the Java Standard Edition runtime.
 2. **High-Performance In-Process Default**: Provide an out-of-the-box in-memory implementation supporting non-blocking concurrent reads, lock-amortized writes, and configurable Time-To-Live (TTL) expiration.
 3. **Enterprise Pluggability**: Allow enterprise host environments (such as Spring Boot `spector-synapse` or distributed Kubernetes clusters) to seamlessly substitute distributed cache backends (e.g., Redis) without changing a single line of memory kernel code.

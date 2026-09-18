@@ -17,25 +17,9 @@
 ### 1.2 The Two Distinct Audit Needs in Spector Architecture
 A deep architectural analysis across the Spectrayan portfolio reveals **two fundamentally distinct auditing tiers** within the `spector-memory` engine (in addition to the high-level application/REST audit log in `spector-synapse` #211):
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                               SPECTOR AUDIT TAXONOMY                                    │
-├───────────────────────────────┬───────────────────────────────┬─────────────────────────┤
-│ 1. SYNAPSE GOVERNANCE AUDIT   │ 2. SYNAPTIC RECALL AUDIT      │ 3. KERNEL PROVENANCE    │
-│    (spector-synapse #211)     │    (spector-memory #506)      │    CHRONICLE (spector-  │
-│                               │                               │    memory MF-001)       │
-├───────────────────────────────┼───────────────────────────────┼─────────────────────────┤
-│ • Layer: Spring Boot / REST   │ • Layer: Off-Heap Cortex      │ • Layer: Off-Heap Kernel│
-│ • Scope: Agent / System Level │ • Scope: Per-Memory Slot      │ • Scope: Engine History │
-│ • Storage: H2 / JDBC / RDBMS  │ • Storage: Fixed-Stride Mmap  │ • Storage: Append-Only  │
-│ • Events: Chat sessions, tool │ • Metrics: Recall counters,   │ • Chronicle: Ingestion  │
-│   calls, guardrail blocks,    │   ACT-R 8-slot ring buffer,   │   source lineage (S3,   │
-│   approval requests, PII      │   Two-Factor S(t), LTP        │   Git SHA, URI),        │
-│   redactions, config changes  │   cooldowns, agent hash, rank │   reconsolidate diffs,  │
-│ • Purpose: Enterprise SOC2 /  │ • Purpose: SIMD cache-line    │   consolidate lineage,  │
-│   compliance querying         │   isolation & spacing effect  │   pruning & retractions │
-└───────────────────────────────┴───────────────────────────────┴─────────────────────────┘
-```
+| 1. SYNAPSE GOVERNANCE AUDIT (spector-synapse #211) | 2. SYNAPTIC RECALL AUDIT (spector-memory #506) | 3. KERNEL PROVENANCE CHRONICLE (spector-memory MF-001) |
+|:---|:---|:---|
+| • Layer: Spring Boot / REST<br>• Scope: Agent / System Level<br>• Storage: H2 / JDBC / RDBMS<br>• Events: Chat sessions, tool calls, guardrail blocks, approval requests, PII redactions, config changes<br>• Purpose: Enterprise SOC2 / compliance querying | • Layer: Off-Heap Cortex<br>• Scope: Per-Memory Slot<br>• Storage: Fixed-Stride Mmap<br>• Metrics: Recall counters, ACT-R 8-slot ring buffer, Two-Factor S(t), LTP cooldowns, agent hash, rank<br>• Purpose: SIMD cache-line isolation & spacing effect | • Layer: Off-Heap Kernel<br>• Scope: Engine History<br>• Storage: Append-Only<br>• Chronicle: Ingestion source lineage (S3, Git SHA, URI), reconsolidate diffs, consolidate lineage, pruning & retractions |
 
 ---
 
@@ -78,6 +62,7 @@ The 64-byte header was designed to match a single CPU cache line (64 bytes). How
 The Synaptic Header is bumped to `header_version = 2`. All mutable runtime counters are excised from the header cache line.
 
 The freed space is leveraged to:
+
 1. **Upgrade Synaptic Tags Bloom Filter to 128-Bit (16 Bytes)**: Offsets 24–39 now hold a 128-bit double-hash Bloom filter, reducing false-positive rates during pre-filtering from ~3.2% down to <0.05% across 100K concepts.
 2. **Establish 16-Byte Reserved Gating Block**: Offsets 48–63 provide future-proof reserved capacity for holographic manifold representations, Riemannian curvature invariants, and multi-modal sensory routing without requiring further header size shifts.
 
@@ -113,34 +98,36 @@ Instead of creating separate strength/audit regions per tier (`AUDIT_SEMANTIC`, 
 > **Diagnostic CLI (`spector-inspect`) Drift**: For on-disk backward compatibility, `StrengthLayout.LAYOUT_ID` remains pinned to `0x41554454` (`'AUDT'`), while `RegionId(4)` is `STRENGTH`. Consequently, `spector-inspect bundle` displays `Region ID: STRENGTH` alongside `Layout ID: 0x41554454 ("TDUA" / 'AUDT')`.
 
 #### Architectural Design of Unified Strength Space:
+
 1. **Memory Type Ordinal Embedded**: The `StrengthLayout` embeds the `memoryType` ordinal (2 bits in `audit_flags`), matching the memory type bits in `SynapticHeaderConstants.FLAG_TYPE_MASK`.
 2. **Cumulative Slot Indexing**: The total capacity of the strength region equals $C_{\text{total}} = C_{\text{semantic}} + C_{\text{episodic}} + C_{\text{procedural}}$. Addressing is computed by cumulative tier base offsets:
    $$\text{strengthOffset}(\text{tier}, \text{slot}) = (\text{tierBaseSlot}(\text{tier}) + \text{slot}) \times \text{recordStride}$$
+
 3. **Parity with Text Region**: Just as `RegionId.TEXT` in `PartitionBundle` serves all tiers as a single shared text blob store, `RegionId.STRENGTH` serves all tiers as a single shared strength store.
 
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                    PARTITION BUNDLE FILE (partition.bundle)                  │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ 64B SMKM MemoryHeader                                                        │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ 64B SPTB BundleSubHeader                                                     │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ Bundle Directory Entries (SEMANTIC, EPISODIC, PROCEDURAL, TEXT, STRENGTH)    │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ Region 0: SEMANTIC (64B V2 Header + INT8 Vector)  ──► Pure Read-Only Pages   │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ Region 1: EPISODIC (Episodic Log Structure)                                  │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ Region 2: PROCEDURAL (64B V2 Header + INT8 Vector)──► Pure Read-Only Pages   │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ Region 3: TEXT (Shared variable length text blobs)                           │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ Region 4: STRENGTH (Single Unified Recall Strength Region)──► Write-Heavy    │
-│   ├── [0 .. N_sem - 1]     : Semantic Strength Records                       │
-│   ├── [N_sem .. N_sem+epi] : Episodic Strength Records                       │
-│   └── [N_sem+epi .. Total] : Procedural Strength Records                     │
-└──────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph bundle ["PARTITION BUNDLE FILE (partition.bundle)"]
+        direction TB
+        header["64B SMKM MemoryHeader"]
+        subHeader["64B SPTB BundleSubHeader"]
+        dirEntries["Bundle Directory Entries (SEMANTIC, EPISODIC, PROCEDURAL, TEXT, STRENGTH)"]
+        
+        region0["Region 0: SEMANTIC (64B V2 Header + INT8 Vector) ──► Pure Read-Only Pages"]
+        region1["Region 1: EPISODIC (Episodic Log Structure)"]
+        region2["Region 2: PROCEDURAL (64B V2 Header + INT8 Vector) ──► Pure Read-Only Pages"]
+        region3["Region 3: TEXT (Shared variable length text blobs)"]
+        
+        subgraph region4 ["Region 4: STRENGTH (Single Unified Recall Strength Region) ──► Write-Heavy"]
+            direction TB
+            semStr["[0 .. N_sem - 1] : Semantic Strength Records"]
+            epiStr["[N_sem .. N_sem+epi] : Episodic Strength Records"]
+            proStr["[N_sem+epi .. Total] : Procedural Strength Records"]
+            semStr ~~~ epiStr ~~~ proStr
+        end
+        
+        header ~~~ subHeader ~~~ dirEntries ~~~ region0 ~~~ region1 ~~~ region2 ~~~ region3 ~~~ region4
+    end
 ```
 
 #### Complete `AuditRecordLayout` Byte Map (96 Bytes, 32-Byte Aligned)
@@ -183,6 +170,7 @@ To fulfill **MF-001 (Memory Model Algebra & Conformance Rules)** and **Issue #17
 2. **Binary Provenance Record (`ProvenanceEntry`)**:
    - `timestamp_ms` (8B), `target_memory_id` (16B TSID), `operation_code` (1B: `INGEST`, `CONSOLIDATE`, `RECONSOLIDATE`, `REINFORCE`, `FORGET`, `RETRACT`, `SIMULATE_COMMIT`).
    - `source_uri_hash` (8B), `parent_trace_count` (2B), `parent_trace_ids` (variable array of parent TSIDs collapsed during semantic reflection), `lineage_diff` (text/binary delta).
+
 3. **Difference from `MemoryWal`**: While `MemoryWal` is a short-lived, rolling recovery log compacted during checkpoints, the `PROVENANCE_LOG` is an **immutable longitudinal audit chronicle** that guarantees full explainability: *"Why does the agent know this fact, which raw episodes were synthesized to form it, and when was it modified?"*
 
 ---

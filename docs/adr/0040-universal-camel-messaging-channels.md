@@ -45,6 +45,7 @@ Prior channel implementations in `spector-synapse` relied on ad-hoc HTTP client 
 **Chosen Option**: Option 2 (Universal Apache Camel Connector Engine).
 
 ### Architectural Implementation:
+
 1. **Typed Domain Models**: Define `ChannelType` enum and typed payload models in `com.spectrayan.spector.synapse.channel.model`.
 2. **Camel Channel Adapter**: Implement `CamelChannelAdapter` bridging channel I/O with Camel `direct:channel-inbound` and `direct:channel-outbound-${channel}`.
 3. **Channel Router**: Refactor `ChannelRouter` to orchestrate dispatch to `ChatService` and handle outbound response delivery.

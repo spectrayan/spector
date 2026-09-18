@@ -19,6 +19,7 @@ In biological cognitive systems, memory consolidation occurs during rest and sle
 ## 2. Problem Statement
 
 Without a background consolidation mechanism, cognitive memory systems encounter fundamental trade-offs:
+
 1. **Episodic saturation**: Raw episodic logs grow indefinitely, increasing search space and memory consumption.
 2. **Lack of abstraction**: The system remembers exact words spoken, but fails to extract generalized semantic knowledge, recurring patterns, and user preferences.
 3. **Query latency degradation**: Performing semantic extraction and graph clustering synchronously on write paths introduces unacceptable ingestion latencies.

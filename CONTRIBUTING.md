@@ -32,9 +32,7 @@ Spector is an open-source, community-driven project governed under Linux Foundat
 
 ## Developer Certificate of Origin (DCO 1.1) & Licensing
 
-Spector uses the standard **Developer Certificate of Origin (DCO 1.1)** alongside our repository licenses:
-- All core engine and infrastructure modules except `spector-memory`, `spector-synapse`, and `spector-cortex` are licensed under the **Apache License 2.0**.
-- `spector-memory`, `spector-synapse`, and `spector-cortex` are licensed under the **Business Source License 1.1** (BSL 1.1), converting to Apache 2.0 on their respective Change Dates.
+Spector uses the standard **Developer Certificate of Origin (DCO 1.1)**. All modules, client SDKs, tooling, and connectors across the repository are licensed under the **Apache License 2.0**.
 
 ### DCO 1.1 Sign-Off Requirement
 
@@ -296,10 +294,7 @@ All source files (`.java`, `.ts`, `.js`, `.py`) must include a license header. T
 
 ### Which license applies?
 
-| Module | License | Header |
-|--------|---------|--------|
-| `spector-memory`, `spector-synapse`, `spector-cortex` | Business Source License 1.1 | BSL header (see module's `src/license/bsl-header.txt`) |
-| All other modules | Apache License 2.0 | Apache header (see `src/license/apache2-header.txt`) |
+All modules in the repository are licensed under the **Apache License 2.0**. All source files use the standard Apache 2.0 header template (`src/license/apache2-header.txt`).
 
 ### Auto-fix missing headers
 

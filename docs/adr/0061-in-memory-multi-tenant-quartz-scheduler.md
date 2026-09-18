@@ -29,6 +29,7 @@ Historically, these routines were triggered via unmanaged threads or isolated `S
 ## 2. Problem Statement
 
 Configuring scheduler infrastructure in a multi-tenant embedded and server memory platform presents key trade-offs:
+
 1. **Heavy Database Dependencies**: Traditional enterprise Quartz deployments require external relational databases (`JobStoreTX` / `JobStoreCMT`) and table schemas, creating massive deployment friction for embedded library use.
 2. **Thread Contention & Leaks**: Spawning independent scheduler instances or raw Java `ScheduledExecutorService` instances per tenant causes thread proliferation, memory leaks, and uncoordinated background sweeps.
 3. **Cross-Tenant Teardown Safety**: When a tenant is deactivated or evicted from hot memory, all associated cron triggers must be cleanly unscheduled without disrupting active adjacent tenants.
@@ -63,13 +64,16 @@ We adopt **Quartz Scheduler** configured with **`RAMJobStore`** (zero database r
 
 1. **`nucleus/spector-commons` Concurrency SPI**:
    - `VirtualThreadPool implements org.quartz.spi.ThreadPool`: Spawns/delegates job execution to the supplied `java.util.concurrent.Executor` (defaulting to `ConcurrentTasks.virtualExecutor()`).
+
 2. **`memory/spector-memory` Core Quartz Engine**:
    - `QuartzMemoryScheduler implements MemoryScheduler`: Initialized per `SpectorMemory` instance using `DirectSchedulerFactory.createScheduler(instanceName, ...)` with `RAMJobStore` and `VirtualThreadPool`.
    - Core Jobs: `SleepConsolidationJob`, `RemDreamJob`, `DmnWanderingJob`, `HomeostaticDecayJob`, `CheckpointJob`, `GraphEnrichmentJob`.
    - `MemoryJobAuditListener implements org.quartz.JobListener`: Intercepts execution lifecycle and captures duration, status (`SUCCESS`/`FAILED`), and returned `TaskReport` (`DreamReport`, `ReflectionReport`, `CheckpointReport`) into a bounded in-memory ring-buffer (`TaskRunAuditRecord`).
+
 3. **Multi-Tenant Per-Namespace Isolation**:
    - Each `SpectorMemory` instance owns its isolated `QuartzMemoryScheduler` and audit history (`instanceName = "spector-" + namespaceId`).
    - Standalone execution works out-of-the-box in pure Java without Spring Boot.
+
 4. **`synapse/spector-synapse` Spring Boot Bridge**:
    - `@RestController @RequestMapping("/api/v1/tasks")` delegates REST calls directly to the active caller's `SpectorMemory.scheduler()` resolved through `UserMemoryRegistry.resolveForCurrentRequest()`.
 

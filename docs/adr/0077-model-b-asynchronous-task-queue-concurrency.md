@@ -21,6 +21,7 @@ Spector coordinates diverse background workloads:
 - Telemetry trace flushes and cluster heartbeat broadcasts
 
 In earlier designs, background work spawned unmanaged virtual threads (`Thread.ofVirtual().start()`) or relied on global static thread pools. This caused severe operational defects:
+
 1. **Thread Lifecycle Hijacking**: Embedded host environments (such as Spring Boot 4 in `spector-synapse`) manage their own virtual thread executors and shutdown lifecycle. Library-owned unmanaged threads resisted coordinated graceful shutdown.
 2. **Context Bleed and Loss**: Tenant identifiers, session IDs, and authorization tokens stored in thread-local storage were lost when tasks hopped across virtual worker boundaries.
 3. **Queue Starvation & Livelock**: Standard unbounded `PriorityBlockingQueue` buffers lacked true backpressure, leading to out-of-memory crashes under sustained ingestion bursts.
@@ -28,6 +29,7 @@ In earlier designs, background work spawned unmanaged virtual threads (`Thread.o
 ## 2. Problem Statement
 
 Spector requires an enterprise-grade concurrency and task execution model that satisfies four architectural imperatives:
+
 1. **Model B Concurrency (Submit-Only)**: The library must never create or manage raw operating system or virtual threads. It must submit worker loops onto host-injected or SPI-resolved `java.util.concurrent.Executor` instances.
 2. **Strict Queue Bounding & Predictable Backpressure**: Enforce finite capacities with deterministic policies (`BLOCK` for durable writes, `DROP_OLDEST` with monotonic sequence preservation for ephemeral telemetry).
 3. **Java 25 Scoped Value Context Propagation**: Seamlessly carry `MemoryScope.SESSION_ID` and `MemoryScope.NAMESPACE_ID` from submission call sites into executing worker tasks without vulnerable `ThreadLocal` inheritance.
@@ -91,14 +93,18 @@ flowchart TD
 
 1. **Model B Executor Integration**:
    - The queue never invokes `new Thread()`. On startup, it submits its processing loop onto the configured `Executor`.
+
 2. **Dual Ordering (Priority + Monotonic FIFO)**:
    - Tasks are prioritized by `TaskPriority` (`CRITICAL`, `HIGH`, `NORMAL`, `LOW`).
    - Monotonic 64-bit sequence counters ensure strict FIFO tiebreaking within the same priority level, eliminating thread starvation.
+
 3. **Scoped Context Propagation (`ScopedTask<T>`)**:
    - When a task is queued, `MemoryScope.snapshot()` captures current `ScopedValue` bindings (tenant, namespace, authorization).
    - The worker executes inside `MemoryScope.runWithSnapshot()`, guaranteeing complete isolation and restoration.
+
 4. **Batch Drain Lock Amortization**:
    - Instead of locking per task, workers drain up to `batchDrainSize` (default: 32) tasks in a single operation, drastically reducing synchronization contention on shared memory segments.
+
 5. **Transient Retries & Graceful Drain**:
    - Configurable exponential backoff retries for transient IO failures.
    - `close()` pauses new submissions and drains remaining tasks up to `drainTimeoutMs`.

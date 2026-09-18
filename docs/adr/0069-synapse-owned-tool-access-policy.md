@@ -28,6 +28,7 @@ Mixing access control into the soul record would:
 ## 2. Problem Statement
 
 Exposing cognitive memory tools (e.g. `remember`, `recall`, `forget`, `consolidate`, `search_graph`) through Model Context Protocol (MCP) servers and REST APIs requires strict authorization control:
+
 1. **Privilege Escalation Hazards**: Untrusted external agent sessions must not be allowed to execute destructive administrative actions (e.g. purging historical partitions or modifying tenant identity schemas).
 2. **Client-Side Enforcement Fallacy**: Delegating tool filtering to client agent runtimes is unsafe, as compromised or hallucinating agents can invoke raw server endpoints directly.
 3. **Tenant Boundary Leaks**: Tool execution must be strictly scoped to the caller's authorized tenant and persona contexts.
@@ -59,6 +60,7 @@ Implement #222 entirely inside **Synapse**:
 2. **Enforcement points** — Synapse only:
    - **List**: filter tool specs offered to the LLM (`ToolRegistry` / graph resolve path) via the policy, not by mutating `AgentSoul`.
    - **Execute**: deny-on-execute in `ToolExecutionNode` / `ToolRegistry.execute` when the tool is not permitted; clear permission error; never silent success.
+
 3. **`AgentSoul` immutability for access** — Do **not** add `allowedTools` / `deniedTools` (or equivalent) to `AgentSoul`. Do **not** move access fields into the memory module. Soul stays identity; access stays Synapse.
 4. **Intersection semantics (if soul.tools is non-empty)** — Effective tools = Synapse policy ∩ soul.tools (when soul declares a hint list). If soul.tools is empty, Synapse policy alone applies. If no Synapse policy entry exists for the agent, default is configurable: recommend **deny-all in STRICT / production**, **allow-all only for local/dev** — default must be explicit in config.
 5. **Public API** — No new OpenAPI fields on AgentSoul. Optional Synapse admin/config endpoints later are out of scope for #222 unless needed for ops; v1 is config-file driven.

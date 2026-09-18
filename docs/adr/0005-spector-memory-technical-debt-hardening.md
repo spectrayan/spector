@@ -19,6 +19,7 @@ As Spector's cognitive memory engine evolved, rapid feature delivery across epis
 ## 2. Problem Statement
 
 Key technical debt issues compromised system stability and maintainability:
+
 1. **Locking inconsistency**: Mixed usage of `synchronized` blocks and `ReentrantLock`, risking virtual thread pinning under Project Loom.
 2. **Exception opacity**: Catch-and-swallow patterns and generic runtime exceptions masking off-heap memory corruption or I/O failures.
 3. **Lifecycle ambiguity**: Undefined cleanup order for memory-mapped buffers during abnormal namespace termination.

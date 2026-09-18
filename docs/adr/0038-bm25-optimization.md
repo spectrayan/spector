@@ -19,6 +19,7 @@ Spector utilizes hybrid lexical-vector retrieval to combine semantic dense embed
 ## 2. Problem Statement
 
 Detailed code analysis of `BM25Index` and `StandardAnalyzer` surfaced five primary performance detractors:
+
 1. **Garbage Generation & Array Zeroing**: Allocating `new float[N]` on every single search call (plus per-virtual-thread allocations during parallel scoring) triggered memory zero-fill cycles, TLB misses, and L1/L2 cache eviction.
 2. **Inner Loop Division & Recalculation**: Calculating `b * docLen / avgDLf` and floating-point division on every posting iteration cost 11–15 CPU cycles per posting.
 3. **Regex Pattern Matching**: POSIX/Unicode regex compilation and matcher traversal in `StandardAnalyzer` allocated multiple intermediate `String` objects and incurred regex engine overhead.

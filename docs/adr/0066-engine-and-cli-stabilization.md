@@ -29,6 +29,7 @@ We require an architectural stabilization of the core engine and CLI to enable a
 ## 2. Problem Statement
 
 Initial developer feedback highlighted critical friction points when running the CLI (`spectorctl`) or bootstrapping a local memory environment:
+
 1. **Missing External Service Dependencies**: Requiring an external OpenAI/Ollama embedding endpoint meant simple CLI exploration failed immediately on clean installs.
 2. **Spring Context Startup Latency**: Running routine commands (`spectorctl --version`, `spectorctl status`) suffered from 2–3s Spring Boot web context startup delays.
 3. **Fragile Uninitialized Directories**: Commands failed ungracefully if local storage directories (`data/`, `namespaces/`) had not been pre-created.
@@ -55,39 +56,36 @@ Initial developer feedback highlighted critical friction points when running the
 
 ## 2. Architectural Decisions
 
-```
-┌──────────────────────────────────────────────────────────────────────────────────┐
-│                         Spector CLI & Runtime Architecture                       │
-├──────────────────────────────────────────────────────────────────────────────────┤
-│                                 spector CLI Entry                                │
-│                   (picocli + Spring Boot ApplicationContext)                     │
-│                                                                                  │
-│   ┌──────────────┐   ┌──────────────┐   ┌──────────────┐   ┌──────────────┐      │
-│   │ spector init │   │spector doctor│   │ spector mcp  │   │spector serve │      │
-│   └──────┬───────┘   └──────┬───────┘   └──────┬───────┘   └──────┬───────┘      │
-│          │                  │                  │                  │              │
-│          ▼                  ▼                  ▼                  ▼              │
-│     Scaffolding        Diagnostics         STDIO JSON-RPC     HTTP / SSE         │
-│     ~/.spector/        JVM, SIMD,          Agent Protocol     Port :7070         │
-│     spector.yml        Ollama, Path          (31 tools)     REST + Events        │
-├──────────────────────────────────────────────────────────────────────────────────┤
-│                         SpectorAutoConfiguration Engine                          │
-│                                                                                  │
-│   ┌──────────────────────────────────────────────────────────────────────────┐   │
-│   │                     Embedding Provider Resolution                        │   │
-│   │                                                                          │   │
-│   │   [External Provider Configured?]                                        │   │
-│   │          ├── YES ──► Ollama / OpenAI / Anthropic / Google / Mistral      │   │
-│   │          └── NO  ──► In-Process Native ONNX Embedding Provider           │   │
-│   │                      (AllMiniLmL6V2QuantizedEmbeddingModel - 384 dims)   │   │
-│   └──────────────────────────────────────────────────────────────────────────┘   │
-│                                                                                  │
-│   ┌──────────────────────────────────────────────────────────────────────────┐   │
-│   │                    Spector Cognitive Memory Backbone                     │   │
-│   │   Working Memory ──► Episodic Memory ──► Semantic Store ──► Procedural   │   │
-│   │   Zero-GC Panama FFM Off-Heap Storage | SIMD Dot-Product Cosine Scoring   │   │
-│   └──────────────────────────────────────────────────────────────────────────┘   │
-└──────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    CLI_Entry["spector CLI Entry<br>(picocli + Spring Boot ApplicationContext)"]
+    
+    CLI_Entry --- CLI_Init["spector init"]
+    CLI_Entry --- CLI_Doc["spector doctor"]
+    CLI_Entry --- CLI_MCP["spector mcp"]
+    CLI_Entry --- CLI_Serve["spector serve"]
+    
+    CLI_Init --> CLI_Init_D["Scaffolding<br>~/.spector/<br>spector.yml"]
+    CLI_Doc --> CLI_Doc_D["Diagnostics<br>JVM, SIMD,<br>Ollama, Path"]
+    CLI_MCP --> CLI_MCP_D["STDIO JSON-RPC<br>Agent Protocol<br>(31 tools)"]
+    CLI_Serve --> CLI_Serve_D["HTTP / SSE<br>Port :7070<br>REST + Events"]
+    
+    subgraph Engine ["SpectorAutoConfiguration Engine"]
+        direction TB
+        Q{"[External Provider Configured?]"}
+        Q -->|YES| Y["Ollama / OpenAI / Anthropic / Google / Mistral"]
+        Q -->|NO| N["In-Process Native ONNX Embedding Provider<br>(AllMiniLmL6V2QuantizedEmbeddingModel - 384 dims)"]
+        
+        Flow["Working Memory ──► Episodic Memory ──► Semantic Store ──► Procedural<br>Zero-GC Panama FFM Off-Heap Storage | SIMD Dot-Product Cosine Scoring"]
+        
+        Y -.-> Flow
+        N -.-> Flow
+    end
+    
+    CLI_Init_D -.-> Q
+    CLI_Doc_D -.-> Q
+    CLI_MCP_D -.-> Q
+    CLI_Serve_D -.-> Q
 ```
 
 ### Decision 1: In-Process Native ONNX Embedder as Zero-Config Fallback
@@ -192,8 +190,10 @@ public class SpectorCtl implements Runnable { ... }
    - Add `langchain4j-embeddings-all-minilm-l6-v2-q` to `pom.xml` dependencyManagement and `spector-synapse`/`spector-cli`.
    - Update `SpectorAutoConfiguration.java` to auto-wire the fallback ONNX embedder.
    - Implement `ServeCommand.java`, `DoctorCommand.java`, and `InitCommand.java` in `synapse/spector-cli`.
+
 2. **Maintainer (Quality Assurance)**:
    - Integration tests verifying zero-config boot, offline `remember`/`recall` cycle, and CLI commands.
+
 3. **Maintainer (Infrastructure & Platform)**:
    - Verify fat JAR shade configuration and update `scripts/start-mcp.bat` and shell wrappers.
 

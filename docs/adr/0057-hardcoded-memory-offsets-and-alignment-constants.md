@@ -39,6 +39,7 @@ While previous initiatives (e.g. Issue #435 / Epic #431) migrated entity and CSR
 ## 2. Problem Statement
 
 Prior to this architectural remediation, several memory-mapped stores (notably `CoActivationLayout` and metadata stores) contained hardcoded literal byte offsets:
+
 1. **Magic Number Fragility**: Scatterings of literal integers (e.g., `+ 8`, `+ 24`, `stride = 40`) made schema changes error-prone and obscured data alignment constraints.
 2. **Alignment Fault Risks**: Hardware architectures (e.g. ARM64 / AArch64) enforce strict alignment rules for 64-bit longs and floats. Unaligned byte offsets trigger bus faults or significant CPU penalties.
 3. **Decoupled Metadata**: Metadata fields were defined separately from record payloads, preventing unified integrity checks.

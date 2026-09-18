@@ -125,6 +125,7 @@ Phase 0.1 (Namespace Path Unification, issue #819) completed all KI-5 exit crite
    `NamespacePathResolver.resolve(persistencePath, tenantId, namespaceId)` (`Layout.TENANT_SHA256`) when a tenant is present;  
    falls back to **A** (`Layout.FLAT_SHA256`) when `tenantId == null` (solo default NS).  
    *Note on R2 finding*: `Account.tenantId` was previously structurally unreachable (SELECT omitted column, SQLException swallowed, both catalogs hard-nulled it). Phase 0.1 made `tenantId` fully operational across JDBC, SQL queries, and file catalogs.
+
 2. `TenantNamespaceMigrator` walks catalog-accessible namespaces and relocates into **B** when `Account.tenantId` is set, guarded by active leases and crash-safe `.migrating-*` staging. Dual-read fallback with `spector.namespace.layout.fallback` counter; no dual-write.
 3. `namespace.json` sidecar and snapshot manifest record `layout`, `pathHelper`, `tenantId`, and `namespaceId` so a replica never has to guess the shard alphabet.
 4. Identity bundles stay on plane **C**. They are not packed into the rememberer snapshot. Failover rebinds soul via `IdentityPlane`.
@@ -161,6 +162,7 @@ Chosen: **cells + consistent hash + override leases + Redis cache + bundle snaps
 ## 5. Decision Outcome
 
 ## 3. Decision summary
+
 1. Deploy Spector as **regional cells**. An organization is pinned to exactly one cell for data-plane traffic (sovereignty + blast radius).
 2. Inside a cell, every namespace has **exactly one primary owner node** at a time. All `remember` / `reinforce` / consolidate / checkpoint writes go to that owner. Recall goes to the owner by default; a replica may serve recall only when the namespace is locally mapped and lag is within SLA.
 3. Owner assignment is **consistent hashing of `tenantId/namespaceId` over the live owner-member set**, plus explicit **override leases** for failover and rebalance. Redis caches the resolved `{cell, owner, epoch, hwm}` tuple and publishes invalidations. Redis is not the source of truth for membership.
@@ -540,17 +542,12 @@ A namespace directory never contains `identity.bundle`. An account directory nev
 
 ### 9.4 Bundle internals (replication-relevant)
 
-```
-partition.bundle
-┌─────────────────────────────────────┐
-│ 64B RegionPreamble  shape=BUNDLE    │
-│ 64B BundleSubHeader magic=SPTB      │
-│ RegionEntry[SEMANTIC, EPISODIC,     │
-│            PROCEDURAL, TEXT,        │
-│            STRENGTH]                │
-│ page-aligned regions                │
-└─────────────────────────────────────┘
-```
+| `partition.bundle` |
+|:---|
+| 64B `RegionPreamble` shape=BUNDLE |
+| 64B `BundleSubHeader` magic=SPTB |
+| `RegionEntry` [SEMANTIC, EPISODIC, PROCEDURAL, TEXT, STRENGTH] |
+| page-aligned regions |
 
 - One `Arena.ofShared()`, one FD (`PartitionBundle`, ADR-0004).
 - Regions do not grow. Roll → new partition directory → old bundle becomes immutable.

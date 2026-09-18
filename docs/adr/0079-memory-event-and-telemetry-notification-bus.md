@@ -15,6 +15,7 @@
 ## 1. Context
 
 In an autonomous cognitive memory engine, memory operations generate continuous state transitions, telemetry signals, and diagnostic events:
+
 1. **Lifecycle & Topology Events**: Node startup, cell failover, snapshot persistence, and cluster topology rebalancing.
 2. **Cognitive Operations**: Memory consolidation checkpoints, engram pruning, episodic session boundaries, and graph pulse activations.
 3. **Execution Telemetry**: Vector SIMD acceleration metrics, GPU offload timings, embedding projection latencies, and query trace trees.
@@ -24,11 +25,13 @@ External consumers—ranging from Server-Sent Events (SSE) web UI clients, Prome
 ## 2. Problem Statement
 
 Designing an event notification bus for Spector presents several hard constraints:
+
 1. **Zero Impact on Hot Path**: Memory operations (remember, recall, reflect) execute on high-frequency threads. Event dispatch must never stall the engine, block on slow HTTP/SSE subscribers, or propagate unhandled consumer exceptions back into the memory pipeline.
 2. **Multi-Tenant Scope Isolation**: Spector operates in multi-tenant enterprise environments. Events contain sensitive metadata (e.g., query traces, memory keys, session transcripts). Delivery must enforce strict scope-based authorization (`NotificationScope` vs. `SubscriberIdentity`) to prevent data leakage across tenant or user boundaries.
 3. **Topology Agnosticism**: Spector deploys in two distinct operational topologies:
    - **Single-pod / Embedded**: Running inside an agent microservice where in-memory dispatch is sufficient.
    - **Distributed Clustered**: Running across multiple pods where events published on Pod A must reach subscribers connected to Pod B via distributed brokers (Redis Streams, NATS, Kafka).
+
 4. **Deprecation of Fragmented Legacy Busses**: Prior releases maintained separate static or singleton busses (such as `TelemetryBus`), which lacked generic type safety, scope filtering, and multi-transport capabilities.
 
 ## 3. Decision Drivers

@@ -792,18 +792,23 @@ Test fakes may implement `AccountCatalog` in-memory. A file-backed catalog is no
 ### 6.1 Chain
 
 ```text
+
 1. Authenticate
      token.sub  → accountId
      token.tid? → tenantId
      token.org? → orgUnitIds
      token.ns / token.nsid → allow-set (optional lock)
+
 2. Select (only inside the allow-set)
      HTTP:  X-Spector-Namespace  >  ?namespace=  >  account.defaultNamespaceId
      MCP:   tool.namespace       >  connection default  >  account.defaultNamespaceId
+
 3. Authorize TRACE
      catalog.authorize(accountId, namespaceId, minimumRole)
+
 4. Assemble soul stack
      identityPlane.soulsFor(tenant, orgs, account)   # PEP + cached PDP
+
 5. Bind
      NamespaceRegistry.getOrOpen(namespaceId, () -> build(dir, soulStack))
 ```

@@ -58,6 +58,7 @@ Spector’s existing strengths (off-heap SIMD engrams, ACT-R-ish activation/deca
 ## 2. Problem Statement
 
 During exploratory design sprints, theoretical proposals suggested extending Spector's episodic memory substrate to directly ingest decoded neurological mind streams (fMRI/EEG/neural telemetry):
+
 1. **Premature Speculation**: Neural decoding technology remains highly experimental, noisy, and non-standardized.
 2. **Architectural Scope Creep**: Implementing bespoke BCI ingestion protocols risks diverting engineering resources away from core agentic memory, active inference, and multimodal conversation.
 3. **Ethical & Data Privacy Unknowns**: Ingesting unconstrained continuous neural signals presents severe unresolved governance and user consent challenges.
@@ -82,25 +83,14 @@ During exploratory design sprints, theoretical proposals suggested extending Spe
 
 ## 2. Conceptual Pipeline
 
-```
-brain
-  │
-  ▼
-BCI read (sparse neural sampling)
-  │
-  ▼
-decoder  ──►  intent / text / speech hyp. / latent z_t
-  │
-  ▼
-┌─────────────────────────────────────────┐
-│  Spector Cognitive Continuity Layer     │
-│  episodes · latents · graph · decay     │
-│  activation · export / import           │
-└─────────────────────────────────────────┘
-  │
-  ├──► software agent / co-pilot / other Spector store   ✅ near-term
-  │
-  └──► decoder⁻¹ / stim policy → brain                   ❓ far-horizon
+```mermaid
+flowchart LR
+    B["brain"] --> R["BCI read (sparse neural sampling)"]
+    R --> D["decoder"]
+    D --> I["intent / text / speech hyp. / latent z_t"]
+    D --> S["Spector Cognitive Continuity Layer<br>episodes · latents · graph · decay<br>activation · export / import"]
+    S --> A["software agent / co-pilot / other Spector store ✅ near-term"]
+    S --> F["decoder⁻¹ / stim policy → brain ❓ far-horizon"]
 ```
 
 | Hop | Status |
@@ -111,6 +101,7 @@ decoder  ──►  intent / text / speech hyp. / latent z_t
 | Spector → brain (memory write-back) | **Unsolved**; requires stimulation of memory circuits + safety + ethics + regulation |
 
 **Transfer** therefore splits into two meanings:
+
 1. **Software transfer** — export/import a continuity store between devices/agents. Feasible.
 2. **Biological transfer** — induce the same memory in neural tissue. Not available; do not market.
 
@@ -146,6 +137,7 @@ Reuse, don’t reinvent:
 - **Synapse** — on-device or user-sovereign deployment profile
 
 **New thin pieces (if we prototype):**
+
 1. `DecodedMindEvent` schema (JSON/Avro) — no medical device types  
 2. Adapter: intent/HID/text stream → remember pipeline  
 3. Continuity export bundle (encrypted, user-keyed)  
