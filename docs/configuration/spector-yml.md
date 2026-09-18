@@ -316,7 +316,36 @@ Configurations for image, audio, and video sensory ingestion under `spector.mult
 
 ---
 
-## 16. Complete Production `spector.yml` Template
+## 16. Memory Analytics & Stats (ADR-0083)
+
+Namespace-scoped telemetry history and stats cache tuning under `spector.memory.*`:
+
+| Property | Type | Default | Range | Description |
+|:---|:---|:---|:---|:---|
+| `analytics.history.enabled` | Boolean | `true` | `true`, `false` | Enables the background `MemoryAnalyticsScheduler` that captures per-namespace census and activity snapshots to the database. When `false`, the scheduler bean is not created; Prometheus scraping of live Micrometer metrics is unaffected. |
+| `analytics.history.interval` | Integer | `10000` | $\ge 1000$ (ms) | Flush interval in milliseconds between analytics snapshot captures. Each tick iterates all cached namespaces and writes one row per namespace. |
+| `analytics.instance-id` | String | `local` | Non-empty | Instance identifier written to the `instance_id` column of snapshot rows. Set to the pod hostname in Kubernetes (`$HOSTNAME`) for multi-replica disambiguation. |
+| `stats.cache-ttl` | Duration | `5s` | Standard Spring duration | TTL for the namespace-scoped `getStats()` and `getScoringStats()` cache. Lower values increase engine scan frequency; higher values serve slightly staler data with lower CPU overhead. |
+
+```yaml
+# ── Memory Analytics (ADR-0083) ────────────────────────
+spector:
+  memory:
+    analytics:
+      history:
+        enabled: true          # set false to disable H2 snapshot writes
+        interval: 10000        # ms between snapshot flushes
+      instance-id: local       # pod identity for composite PK
+    stats:
+      cache-ttl: 5s            # namespace stats cache TTL
+```
+
+> [!NOTE]
+> Disabling `analytics.history.enabled` only stops the database snapshot writes. All Micrometer Observation timers, gauges, and distribution summaries remain active and scrapeable via `/actuator/prometheus`. The Cortex dashboard falls back to live `MeterRegistry` data when history is disabled.
+
+---
+
+## 17. Complete Production `spector.yml` Template
 
 Here is a full, production-ready `spector.yml` template configured for an enterprise deployment with Ollama, Panama FFM zero-GC persistence, and hybrid cognitive search:
 

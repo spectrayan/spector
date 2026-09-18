@@ -533,6 +533,32 @@ Disaster recovery provides cross-cell resilience and snapshot exports to S3-comp
 
 ---
 
+## 📊 Memory Analytics (`spector.memory.analytics.*`, `spector.memory.stats.*`)
+
+Spector Synapse supports namespace-isolated memory analytics snapshots, periodic telemetry persistence, and stats caching (ADR-0083).
+
+| Property | Env Var | Default | Constraints | Description |
+|---|---|---|---|---|
+| `spector.memory.analytics.history.enabled` | `SPECTOR_MEMORY_ANALYTICS_HISTORY_ENABLED` | `true` | Boolean | Enables the background scheduler that periodically captures per-namespace memory analytics snapshots to the H2 database. When disabled, the `MemoryAnalyticsScheduler` bean is not created and no snapshot rows are written. Prometheus scraping of live Micrometer metrics is unaffected. (ADR-0083) |
+| `spector.memory.analytics.history.interval` | `SPECTOR_MEMORY_ANALYTICS_HISTORY_INTERVAL` | `10000` | Integer $\ge 1000$ | Flush interval in milliseconds for the analytics snapshot scheduler. Controls how often per-namespace census and activity deltas are persisted. (ADR-0083) |
+| `spector.memory.analytics.instance-id` | `SPECTOR_MEMORY_ANALYTICS_INSTANCE_ID` | `local` | Non-empty string | Instance identifier written to the `instance_id` column in snapshot rows. Used for multi-pod disambiguation in Kubernetes deployments. (ADR-0083) |
+| `spector.memory.stats.cache-ttl` | `SPECTOR_MEMORY_STATS_CACHE_TTL` | `5s` | Duration (Spring format) | TTL for the namespace-scoped `getStats()` and `getScoringStats()` cache. Lower values increase engine scan frequency; higher values reduce load but serve staler data. (ADR-0083) |
+
+```yaml
+# ── Memory Analytics (ADR-0083) ────────────────────────
+spector:
+  memory:
+    analytics:
+      history:
+        enabled: true          # set false to disable H2 snapshot writes
+        interval: 10000        # ms between snapshot flushes
+      instance-id: local       # pod identity for composite PK
+    stats:
+      cache-ttl: 5s            # namespace stats cache TTL
+```
+
+---
+
 ## 🔗 See Also
 
 - [Disaster Recovery Runbook](../operations/disaster-recovery.md) — Step-by-step failover, rehydration, and verification playbook
