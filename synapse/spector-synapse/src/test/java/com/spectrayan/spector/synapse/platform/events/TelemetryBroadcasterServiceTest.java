@@ -1,22 +1,22 @@
 /*
  * Copyright 2026 Spectrayan
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Business Source License 1.1 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *     https://github.com/spectrayan/spector/blob/main/spector-synapse/LICENSE
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Change Date: July 6, 2030
+ * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.synapse.platform.events;
 
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.kernel.api.MemoryType;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,17 +34,22 @@ class TelemetryBroadcasterServiceTest {
     private TelemetryBroadcasterService service;
     private EventPublisher mockPublisher;
     private SpectorMemory mockMemory;
+    private MeterRegistry meterRegistry;
 
     @BeforeEach
     @SuppressWarnings("unchecked")
     void setUp() {
         mockPublisher = mock(EventPublisher.class);
         mockMemory = mock(SpectorMemory.class);
+        meterRegistry = new SimpleMeterRegistry();
 
         ObjectProvider<SpectorMemory> memProvider = mock(ObjectProvider.class);
         when(memProvider.getIfAvailable()).thenReturn(mockMemory);
 
-        service = new TelemetryBroadcasterService(mockPublisher, mock(ObjectProvider.class), memProvider);
+        ObjectProvider<MeterRegistry> registryProvider = mock(ObjectProvider.class);
+        when(registryProvider.getIfAvailable()).thenReturn(meterRegistry);
+
+        service = new TelemetryBroadcasterService(mockPublisher, mock(ObjectProvider.class), memProvider, registryProvider);
     }
 
     @Test
@@ -94,11 +99,13 @@ class TelemetryBroadcasterServiceTest {
     }
 
     @Test
-    @DisplayName("broadcastHeartbeat — calculates delta rates and emits events")
+    @DisplayName("broadcastHeartbeat — reads ops/sec from MeterRegistry timers (ADR-0083)")
     void broadcastHeartbeat() {
-        service.recordRecall();
-        service.recordRecall();
-        service.recordRemember();
+        // Simulate Micrometer recording some recall/remember observations
+        Timer.builder("spector.memory.recall").register(meterRegistry).record(java.time.Duration.ofMillis(5));
+        Timer.builder("spector.memory.recall").register(meterRegistry).record(java.time.Duration.ofMillis(3));
+        Timer.builder("spector.memory.remember").register(meterRegistry).record(java.time.Duration.ofMillis(10));
+
         service.broadcastHeartbeat();
 
         verify(mockPublisher, atLeastOnce()).cortexEvent(eq("cortex.memory.diagnostic"), any());
