@@ -5,13 +5,13 @@
 
 ---
 
-## 🎯 Vision & AAIF Alignment
+## 🎯 Vision & Ecosystem Alignment
 
-Spector is the zero-overhead, open-source cognitive memory backbone for autonomous AI agents. As part of our alignment with the **Agentic AI Foundation (AAIF)** under the Linux Foundation, Spector is engineered to provide a vendor-neutral, hardware-accelerated memory substrate that interoperates seamlessly with agent runtimes (Goose, OpenClaw, LangChain4j, Claude Code, Cursor) via open standards like Model Context Protocol (MCP) and Agent-to-Agent (A2A) protocols.
+Spector is the zero-overhead, open-source cognitive memory backbone for autonomous AI agents. Engineered to provide a vendor-neutral, hardware-accelerated memory substrate, Spector interoperates seamlessly with agent runtimes (Goose, OpenClaw, LangChain4j, Claude Code, Cursor) via open standards like Model Context Protocol (MCP) and Agent-to-Agent (A2A) protocols.
 
 ```mermaid
 flowchart LR
-    subgraph AgenticEcosystem ["Agentic Ecosystem (AAIF)"]
+    subgraph AgenticEcosystem ["Agentic Ecosystem"]
         Goose["Goose / Block"]
         OpenClaw["OpenClaw"]
         ClaudeCode["Claude Code / IDEs"]
@@ -39,15 +39,15 @@ flowchart LR
 ## 📅 Milestones (6–12 Month Horizon)
 
 ### Q4 2026: Foundation Harmonization & v1.0 GA Preparation
-- [x] **100% Apache 2.0 Licensing**: Harmonize all core modules (`spector-memory`, `spector-synapse`, `spector-cortex`) to Apache 2.0 for AAIF compliance.
-- [x] **Open Community Governance**: Adopt Linux Foundation / AAIF meritocratic governance, 4-tier contributor ladder, and DCO 1.1 sign-off (`GOVERNANCE.md`).
+- [x] **100% Apache 2.0 Licensing**: Harmonize all core modules (`spector-memory`, `spector-synapse`, `spector-cortex`) to Apache 2.0 for open-source foundation compliance.
+- [x] **Open Community Governance**: Adopt meritocratic open governance, 4-tier contributor ladder, and DCO 1.1 sign-off (`GOVERNANCE.md`).
 - [x] **Living ADR Framework**: Codify 80+ standardized Architectural Decision Records covering all cognitive pathways, memory layouts, and provider SPIs (`docs/adr/`).
 - [ ] **Automated Supply Chain Security**: Integrate automated CycloneDX 1.6 aggregate SBOM generation and OpenSSF Best Practices badging.
 - [ ] **Maven Central Distribution**: Migrate artifact deployment from GitHub Packages to Sonatype Central / Maven Central repository.
 
-### Q1 2027: Agent Runtimes & AAIF Protocol Interoperability
+### Q1 2027: Agent Runtimes & Protocol Interoperability
 - [x] **OpenClaw Integration**: First-class long-term memory provider for OpenClaw autonomous agents via MCP stdio/HTTP transport (`plugins/openclaw`).
-- [ ] **Native Goose Extension**: Dedicated AAIF Goose toolkit extension enabling instant context hydration, working memory, and sleep consolidation in Goose sessions.
+- [ ] **Native Goose Extension**: Dedicated Goose toolkit extension enabling instant context hydration, working memory, and sleep consolidation in Goose sessions.
 - [ ] **Streamable HTTP MCP Transport**: Upgrade MCP server implementation (`spector-mcp`) from legacy stdio/SSE to modern streamable HTTP and WebSocket transports.
 - [ ] **A2A Memory Sharing Fabric**: Implement federated engram sharing and selective epistemic boundary filtering between cooperating agents.
 

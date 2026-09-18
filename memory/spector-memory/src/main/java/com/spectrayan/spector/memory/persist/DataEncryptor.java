@@ -116,6 +116,16 @@ public interface DataEncryptor extends com.spectrayan.spector.kernel.storage.Pay
     long encodeTag(String tag);
 
     /**
+     * Encodes a tag string into a 128-bit Bloom filter using keyed hashing.
+     *
+     * @param tag the tag string to encode
+     * @return 128-bit Bloom filter carrier
+     */
+    default com.spectrayan.spector.core.cognitive.SynapticTag128 encodeTag128(String tag) {
+        return new com.spectrayan.spector.core.cognitive.SynapticTag128(encodeTag(tag), 0L);
+    }
+
+    /**
      * Returns {@code true} if this encryptor actually performs encryption.
      *
      * <p>The {@link NoopDataEncryptor} returns {@code false}, allowing callers

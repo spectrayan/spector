@@ -68,6 +68,7 @@ import org.slf4j.LoggerFactory;
 public record RecallOptions(
         int topK,
         long synapticTagMask,
+        long synapticTagMaskHi,
         float minImportance,
         MemoryType[] memoryTypes,
         byte minValence,
@@ -78,6 +79,7 @@ public record RecallOptions(
         int semanticCandidateMultiplier,
         //  Neurodivergent: Hyperfocus 
         long hyperfocusMask,
+        long hyperfocusMaskHi,
         float hyperfocusBoost,
         //  Neurodivergent: Lateral Retrieval 
         boolean lateralMode,
@@ -220,7 +222,7 @@ public record RecallOptions(
 
     /** Returns filter parameters as a composed {@link FilterOptions}. */
     public FilterOptions filter() {
-        return new FilterOptions(synapticTagMask, minImportance, memoryTypes, minValence, maxValence);
+        return new FilterOptions(synapticTagMask, synapticTagMaskHi, minImportance, memoryTypes, minValence, maxValence);
     }
 
     /** Returns scoring parameters as a composed {@link ScoringOptions}. */
@@ -238,7 +240,7 @@ public record RecallOptions(
 
     /** Returns neurodivergent parameters as a composed {@link NeurodivergentOptions}. */
     public NeurodivergentOptions nd() {
-        return new NeurodivergentOptions(hyperfocusMask, hyperfocusBoost,
+        return new NeurodivergentOptions(hyperfocusMask, hyperfocusMaskHi, hyperfocusBoost,
                 lateralMode, lateralDistanceThreshold, lateralMaxResults, lateralMinTagOverlap);
     }
 
@@ -275,6 +277,7 @@ public record RecallOptions(
 
         private int topK = 10;
         private long synapticTagMask = 0L;
+        private long synapticTagMaskHi = 0L;
         private float minImportance = 0.0f;
         private MemoryType[] memoryTypes = null; // null = all types
         private byte minValence = Byte.MIN_VALUE;
@@ -334,6 +337,7 @@ public record RecallOptions(
 
         // ─── Neurodivergent: Hyperfocus ───
         private long hyperfocusMask = 0L;       // 0 = disabled
+        private long hyperfocusMaskHi = 0L;
         private float hyperfocusBoost = 1.0f;   // post-score multiplier
 
         // ─── Neurodivergent: Lateral Retrieval ───
@@ -533,15 +537,49 @@ public record RecallOptions(
          * Only memories whose tags match ALL specified tags will be considered.
          */
         public Builder synapticFilter(String... tags) {
-            this.synapticTagMask = SynapticTagEncoder.encode(tags);
+            com.spectrayan.spector.core.cognitive.SynapticTag128 tag128 = SynapticTagEncoder.encode128(tags);
+            this.synapticTagMask = tag128.lo();
+            this.synapticTagMaskHi = tag128.hi();
             return this;
         }
 
         /**
-         * Sets the synaptic tag filter mask directly.
+         * Sets the synaptic tag filter mask directly (low 64 bits, zeroes high 64 bits).
          */
         public Builder synapticTagMask(long mask) {
             this.synapticTagMask = mask;
+            this.synapticTagMaskHi = 0L;
+            return this;
+        }
+
+        /**
+         * Sets the 128-bit synaptic tag filter mask directly.
+         */
+        public Builder synapticTagMask(long lo, long hi) {
+            this.synapticTagMask = lo;
+            this.synapticTagMaskHi = hi;
+            return this;
+        }
+
+        /**
+         * Sets the upper 64 bits of the synaptic tag filter mask directly.
+         */
+        public Builder synapticTagMaskHi(long hi) {
+            this.synapticTagMaskHi = hi;
+            return this;
+        }
+
+        /**
+         * Sets the 128-bit synaptic tag filter mask from a {@link com.spectrayan.spector.core.cognitive.SynapticTag128} carrier.
+         */
+        public Builder synapticTagMask(com.spectrayan.spector.core.cognitive.SynapticTag128 tag128) {
+            if (tag128 == null) {
+                this.synapticTagMask = 0L;
+                this.synapticTagMaskHi = 0L;
+            } else {
+                this.synapticTagMask = tag128.lo();
+                this.synapticTagMaskHi = tag128.hi();
+            }
             return this;
         }
 
@@ -616,21 +654,55 @@ public record RecallOptions(
         //  Neurodivergent: Hyperfocus 
 
         /**
-         * Sets the hyperfocus Bloom filter mask from raw long value.
+         * Sets the hyperfocus Bloom filter mask from raw long value (zeroes high 64 bits).
          * Memories that don't match ALL bits in this mask are excluded (strict equality gate).
          * Set to 0L to disable hyperfocus (default).
          */
         public Builder hyperfocusMask(long mask) {
             this.hyperfocusMask = mask;
+            this.hyperfocusMaskHi = 0L;
             return this;
         }
 
         /**
-         * Sets the hyperfocus mask from synaptic tag strings.
+         * Sets the 128-bit hyperfocus Bloom filter mask.
+         */
+        public Builder hyperfocusMask(long lo, long hi) {
+            this.hyperfocusMask = lo;
+            this.hyperfocusMaskHi = hi;
+            return this;
+        }
+
+        /**
+         * Sets the upper 64 bits of the hyperfocus Bloom filter mask.
+         */
+        public Builder hyperfocusMaskHi(long hi) {
+            this.hyperfocusMaskHi = hi;
+            return this;
+        }
+
+        /**
+         * Sets the hyperfocus mask from synaptic tag strings (128-bit).
          * Encodes tags into a Bloom filter mask for strict equality gating.
          */
         public Builder hyperfocusMask(String... tags) {
-            this.hyperfocusMask = SynapticTagEncoder.encode(tags);
+            com.spectrayan.spector.core.cognitive.SynapticTag128 tag128 = SynapticTagEncoder.encode128(tags);
+            this.hyperfocusMask = tag128.lo();
+            this.hyperfocusMaskHi = tag128.hi();
+            return this;
+        }
+
+        /**
+         * Sets the 128-bit hyperfocus Bloom filter mask from a {@link com.spectrayan.spector.core.cognitive.SynapticTag128} carrier.
+         */
+        public Builder hyperfocusMask(com.spectrayan.spector.core.cognitive.SynapticTag128 tag128) {
+            if (tag128 == null) {
+                this.hyperfocusMask = 0L;
+                this.hyperfocusMaskHi = 0L;
+            } else {
+                this.hyperfocusMask = tag128.lo();
+                this.hyperfocusMaskHi = tag128.hi();
+            }
             return this;
         }
 
@@ -1138,10 +1210,10 @@ public record RecallOptions(
             int effectiveLateralMax = lateralMaxResults >= 0
                     ? lateralMaxResults
                     : Math.max(1, topK / 3);
-            var options = new RecallOptions(topK, synapticTagMask, minImportance,
+            var options = new RecallOptions(topK, synapticTagMask, synapticTagMaskHi, minImportance,
                     memoryTypes, minValence, maxValence, alpha, beta,
                     tagRelevanceBoost, semanticCandidateMultiplier,
-                    hyperfocusMask, hyperfocusBoost,
+                    hyperfocusMask, hyperfocusMaskHi, hyperfocusBoost,
                     lateralMode, lateralDistanceThreshold,
                     effectiveLateralMax, lateralMinTagOverlap,
                     strictnessCoefficient, queryValence, enableValenceAlignment,
@@ -1225,7 +1297,7 @@ public record RecallOptions(
         }
 
         // 2. hyperfocusMask + lateralMode are contradictory
-        if (hyperfocusMask != 0 && lateralMode) {
+        if ((hyperfocusMask != 0 || hyperfocusMaskHi != 0) && lateralMode) {
             String msg = "hyperfocusMask is set + lateralMode=true  --  hyperfocus narrows attention "
                     + "to a specific topic, lateral mode broadens it. Consider using one or the other.";
             warnings.add(msg);
@@ -1318,6 +1390,7 @@ public record RecallOptions(
         Builder b = new Builder();
         b.topK = this.topK;
         b.synapticTagMask = this.synapticTagMask;
+        b.synapticTagMaskHi = this.synapticTagMaskHi;
         b.minImportance = this.minImportance;
         b.memoryTypes = this.memoryTypes;
         b.minValence = this.minValence;
@@ -1327,6 +1400,7 @@ public record RecallOptions(
         b.tagRelevanceBoost = this.tagRelevanceBoost;
         b.semanticCandidateMultiplier = this.semanticCandidateMultiplier;
         b.hyperfocusMask = this.hyperfocusMask;
+        b.hyperfocusMaskHi = this.hyperfocusMaskHi;
         b.hyperfocusBoost = this.hyperfocusBoost;
         b.lateralMode = this.lateralMode;
         b.lateralDistanceThreshold = this.lateralDistanceThreshold;

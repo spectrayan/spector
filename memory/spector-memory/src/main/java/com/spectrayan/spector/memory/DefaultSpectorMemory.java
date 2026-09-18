@@ -1013,7 +1013,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                     log.debug("Auto-profile resolved to {} for query '{}'", suggested, queryText);
                     optBuilder.profile(suggested);
                 }
-                if (tags.length > 0 && options.synapticTagMask() == 0L) {
+                if (tags.length > 0 && options.synapticTagMask() == 0L && options.synapticTagMaskHi() == 0L) {
                     optBuilder.synapticFilter(tags);
                 }
                 options = optBuilder.build();

@@ -50,7 +50,9 @@ public final class CognitiveScoreVisitor implements SlotVisitor {
     private final RecallOptions options;
     private final long nowMs;
     private final long queryTagMask;
+    private final long queryTagMaskHi;
     private final long hyperfocusMask;
+    private final long hyperfocusMaskHi;
     private final float alpha;
     private final float beta;
     private final float tagRelevanceBoost;
@@ -85,7 +87,9 @@ public final class CognitiveScoreVisitor implements SlotVisitor {
         this.lateralHeap = lateralMode ? new PriorityQueue<>(lateralMaxResults + 1) : null;
 
         this.queryTagMask = options.synapticTagMask();
+        this.queryTagMaskHi = options.synapticTagMaskHi();
         this.hyperfocusMask = options.hyperfocusMask();
+        this.hyperfocusMaskHi = options.hyperfocusMaskHi();
         this.alpha = options.alpha();
         this.beta = options.beta();
         this.tagRelevanceBoost = options.tagRelevanceBoost();
@@ -103,11 +107,16 @@ public final class CognitiveScoreVisitor implements SlotVisitor {
 
     @Override
     public void accept(int slot, int partition, long offset, long headerBits, float rawScore) {
-        accept(slot, partition, offset, headerBits, rawScore, nowMs, 0L);
+        accept(slot, partition, offset, headerBits, rawScore, nowMs, 0L, 0L);
     }
 
     @Override
     public void accept(int slot, int partition, long offset, long headerBits, float rawScore, long timestampMs, long tagsLo) {
+        accept(slot, partition, offset, headerBits, rawScore, timestampMs, tagsLo, 0L);
+    }
+
+    @Override
+    public void accept(int slot, int partition, long offset, long headerBits, float rawScore, long timestampMs, long tagsLo, long tagsHi) {
         final byte flags = HeaderBits.flags(headerBits);
         final byte valence = HeaderBits.valence(headerBits);
         final byte arousal = HeaderBits.arousal(headerBits);
@@ -116,18 +125,22 @@ public final class CognitiveScoreVisitor implements SlotVisitor {
         final float storageStrength = HeaderBits.storageStrength(headerBits);
 
         final float cognitiveMass = CognitiveMass.computeCognitiveMass(importance, arousal, storageStrength);
-        final float tagOverlap = queryTagMask != 0L ? SynapticTagEncoder.overlapRatio(tagsLo, queryTagMask) : 0.0f;
+        final float tagOverlap = (queryTagMask != 0L || queryTagMaskHi != 0L)
+                ? SynapticTagEncoder.overlapRatio128(tagsLo, tagsHi, queryTagMask, queryTagMaskHi)
+                : 0.0f;
 
         final int rawBucket = DecayStrategy.ageToBucket(timestampMs, nowMs);
         final int adjustedBucket = DecayStrategy.adjustForReconsolidation(rawBucket, agentRecallCount);
 
         if (lateralMode && rawScore > lateralDistanceThreshold && tagOverlap >= lateralMinTagOverlap) {
             scoreLateral(offset, rawScore, tagOverlap, importance, adjustedBucket, arousal,
-                    timestampMs, tagsLo, valence, flags, agentRecallCount, slot, storageStrength);
+                    timestampMs, tagsLo, tagsHi, valence, flags, agentRecallCount, slot, storageStrength);
             return;
         }
 
-        final boolean focusMatch = hyperfocusMask != 0 && (tagsLo & hyperfocusMask) == hyperfocusMask;
+        final boolean focusMatch = (hyperfocusMask != 0 || hyperfocusMaskHi != 0)
+                && (tagsLo & hyperfocusMask) == hyperfocusMask
+                && (tagsHi & hyperfocusMaskHi) == hyperfocusMaskHi;
         final boolean zeroTimeDecay = focusMatch || (!isResolved(flags) && !isPinned(flags));
 
         final float finalScore = CognitiveScoreFusion.computeFusedScore(
@@ -139,8 +152,10 @@ public final class CognitiveScoreVisitor implements SlotVisitor {
                 priorProvider, offset, tagsLo, priorContext, associativePriorDelta);
 
         if (heap.shouldInsert(finalScore)) {
-            final long synapticTags = queryTagMask != 0 || hyperfocusMask != 0 ? tagsLo : 0L;
-            heap.insert(finalScore, offset, slot, timestampMs, synapticTags,
+            final boolean retainTags = (queryTagMask != 0 || queryTagMaskHi != 0 || hyperfocusMask != 0 || hyperfocusMaskHi != 0);
+            final long recLo = retainTags ? tagsLo : 0L;
+            final long recHi = retainTags ? tagsHi : 0L;
+            heap.insert(finalScore, offset, slot, timestampMs, recLo, recHi,
                     1.0f, importance, agentRecallCount, (short) 0, valence, flags);
         }
     }
@@ -148,7 +163,7 @@ public final class CognitiveScoreVisitor implements SlotVisitor {
     private void scoreLateral(
             final long offset, final float l2dist, final float tagOverlap, final float importance,
             final int adjustedBucket, final byte arousal,
-            final long timestamp, final long recordTags, final byte valence, final byte flags,
+            final long timestamp, final long recordTagsLo, final long recordTagsHi, final byte valence, final byte flags,
             final int agentRecallCount, final int recordIndex, final float storageStrength) {
 
         final float l2sq = l2dist * l2dist;
@@ -160,7 +175,7 @@ public final class CognitiveScoreVisitor implements SlotVisitor {
         final float lateralScore = lateralSimilarity * tagOverlap * (1.0f + importanceNorm * decay);
 
         final EncodingHeader header = new EncodingHeader(
-                timestamp, recordTags, 1.0f, importance,
+                timestamp, recordTagsLo, recordTagsHi, 1.0f, importance,
                 agentRecallCount, (short) 0, valence, flags,
                 arousal, storageStrength);
 

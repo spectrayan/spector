@@ -40,6 +40,7 @@ public final class FlatMinHeap {
     // Header fields (stored flat, assembled into EncodingHeader on drain)
     private final long[] timestamps;
     private final long[] synapticTags;
+    private final long[] synapticTagsHi;
     private final float[] exactNorms;
     private final float[] importances;
     private final int[] agentRecallCounts;
@@ -61,6 +62,7 @@ public final class FlatMinHeap {
         this.indices = new int[len];
         this.timestamps = new long[len];
         this.synapticTags = new long[len];
+        this.synapticTagsHi = new long[len];
         this.exactNorms = new float[len];
         this.importances = new float[len];
         this.agentRecallCounts = new int[len];
@@ -80,24 +82,34 @@ public final class FlatMinHeap {
     }
 
     /**
-     * Inserts or replaces the minimum entry. Caller must check {@link #shouldInsert(float)} first.
+     * Inserts or replaces the minimum entry with 128-bit tags. Caller must check {@link #shouldInsert(float)} first.
      */
     public void insert(
             final float score, final long offset, final int index,
-            final long timestamp, final long tags, final float exactNorm, final float importance,
+            final long timestamp, final long tagsLo, final long tagsHi, final float exactNorm, final float importance,
             final int agentRecallCount, final short centroidId, final byte valence, final byte flag) {
         if (size < capacity) {
             final int idx = size;
-            set(idx, score, offset, index, timestamp, tags, exactNorm,
+            set(idx, score, offset, index, timestamp, tagsLo, tagsHi, exactNorm,
                     importance, agentRecallCount, centroidId, valence, flag);
             size++;
             siftUp(idx);
         } else {
             // Replace root (minimum)
-            set(0, score, offset, index, timestamp, tags, exactNorm,
+            set(0, score, offset, index, timestamp, tagsLo, tagsHi, exactNorm,
                     importance, agentRecallCount, centroidId, valence, flag);
             siftDown(0);
         }
+    }
+
+    /**
+     * Backward-compatible 64-bit insert. Caller must check {@link #shouldInsert(float)} first.
+     */
+    public void insert(
+            final float score, final long offset, final int index,
+            final long timestamp, final long tags, final float exactNorm, final float importance,
+            final int agentRecallCount, final short centroidId, final byte valence, final byte flag) {
+        insert(score, offset, index, timestamp, tags, 0L, exactNorm, importance, agentRecallCount, centroidId, valence, flag);
     }
 
     /**
@@ -109,7 +121,7 @@ public final class FlatMinHeap {
         final List<ScoredRecord> results = new ArrayList<>(size);
         for (int h = 0; h < size; h++) {
             final EncodingHeader header = new EncodingHeader(
-                    timestamps[h], synapticTags[h], exactNorms[h], importances[h],
+                    timestamps[h], synapticTags[h], synapticTagsHi[h], exactNorms[h], importances[h],
                     agentRecallCounts[h], centroidIds[h], valences[h], flags[h]);
             results.add(new ScoredRecord(offsets[h], scores[h], indices[h], header));
         }
@@ -118,13 +130,14 @@ public final class FlatMinHeap {
 
     private void set(
             final int idx, final float score, final long offset, final int index,
-            final long timestamp, final long tags, final float exactNorm, final float importance,
+            final long timestamp, final long tagsLo, final long tagsHi, final float exactNorm, final float importance,
             final int agentRecallCount, final short centroidId, final byte valence, final byte flag) {
         scores[idx] = score;
         offsets[idx] = offset;
         indices[idx] = index;
         timestamps[idx] = timestamp;
-        synapticTags[idx] = tags;
+        synapticTags[idx] = tagsLo;
+        synapticTagsHi[idx] = tagsHi;
         exactNorms[idx] = exactNorm;
         importances[idx] = importance;
         agentRecallCounts[idx] = agentRecallCount;
@@ -169,6 +182,7 @@ public final class FlatMinHeap {
         final int ti = indices[a]; indices[a] = indices[b]; indices[b] = ti;
         final long tt = timestamps[a]; timestamps[a] = timestamps[b]; timestamps[b] = tt;
         final long tg = synapticTags[a]; synapticTags[a] = synapticTags[b]; synapticTags[b] = tg;
+        final long tgh = synapticTagsHi[a]; synapticTagsHi[a] = synapticTagsHi[b]; synapticTagsHi[b] = tgh;
         final float tn = exactNorms[a]; exactNorms[a] = exactNorms[b]; exactNorms[b] = tn;
         final float tp = importances[a]; importances[a] = importances[b]; importances[b] = tp;
         final int tr = agentRecallCounts[a]; agentRecallCounts[a] = agentRecallCounts[b]; agentRecallCounts[b] = tr;

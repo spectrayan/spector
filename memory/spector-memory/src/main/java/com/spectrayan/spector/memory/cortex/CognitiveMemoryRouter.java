@@ -466,7 +466,8 @@ public final class CognitiveMemoryRouter implements com.spectrayan.spector.kerne
             int slotIndex = (int) ((offset - store.dataOffset()) / layout.stride());
             header = new EncodingHeader(
                     header.timestampMs(),
-                    header.synapticTags(),
+                    header.synapticTagsLo(),
+                    header.synapticTagsHi(),
                     header.exactNorm(),
                     strengthMemory.readEffectiveImportance(loc.type(), slotIndex),
                     strengthMemory.readAgentRecallCount(loc.type(), slotIndex),

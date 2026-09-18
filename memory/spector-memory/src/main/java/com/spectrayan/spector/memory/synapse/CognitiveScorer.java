@@ -117,8 +117,8 @@ public final class CognitiveScorer {
         final long minTimestamp = options.minTimestamp() != null ? options.minTimestamp() : 0L;
         final long maxTimestamp = options.maxTimestamp() != null ? options.maxTimestamp() : Long.MAX_VALUE;
         return new com.spectrayan.spector.kernel.scan.ScanFilter(
-                options.synapticTagMask(), 0L,
-                options.hyperfocusMask(), 0L,
+                options.synapticTagMask(), options.synapticTagMaskHi(),
+                options.hyperfocusMask(), options.hyperfocusMaskHi(),
                 minTimestamp, maxTimestamp,
                 nowMs,
                 options.allowFuture(),

@@ -1,7 +1,7 @@
-# AGENTS.md — Agentic AI Foundation Developer & Agent Guide
+# AGENTS.md — Autonomous Agent & Developer Guide
 
 > **Agent-to-Agent (A2A) & Developer Agent Manifest for Spector**  
-> Compliant with the [AAIF AGENTS.md Specification](https://github.com/agent-infra/agents.md).  
+> Compliant with the [AGENTS.md Specification](https://github.com/agent-infra/agents.md).  
 > Designed for autonomous coding agents (Goose, Claude Code, Cursor, Copilot, Codex, OpenClaw).
 
 ---
@@ -14,7 +14,7 @@ Spector is the high-performance, zero-overhead cognitive memory backbone for aut
 - **Frontend / Inspection UI**: Angular 22 + Three.js (`cortex/spector-cortex`).
 - **SDKs**: Python (`sdks/python`), TypeScript/Node.js (`sdks/typescript`), Java client (`sdks/java`).
 - **Licensing**: 100% [Apache License 2.0](LICENSE).
-- **Governance**: Linux Foundation / AAIF meritocracy with DCO 1.1 sign-off ([GOVERNANCE.md](GOVERNANCE.md)).
+- **Governance**: Meritocratic open governance with DCO 1.1 sign-off ([GOVERNANCE.md](GOVERNANCE.md)).
 
 ---
 

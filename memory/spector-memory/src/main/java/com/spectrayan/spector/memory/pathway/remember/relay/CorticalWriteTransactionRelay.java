@@ -116,7 +116,9 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
         final EncodingHeader preserved = signal.header();
         final EncodingHeader header;
         if (preserved != null) {
-            long synapticTags = signal.synapticTags() != 0 ? signal.synapticTags() : preserved.synapticTags();
+            long synapticTags = signal.synapticTags() != 0 ? signal.synapticTags() : preserved.synapticTagsLo();
+            long synapticTagsHi = (signal.synapticTags() != 0 || signal.synapticTagsHi() != 0)
+                    ? signal.synapticTagsHi() : preserved.synapticTagsHi();
             final com.spectrayan.spector.kernel.api.EngramSource engramSource;
             if (signal.source() == com.spectrayan.spector.kernel.api.MemorySource.DREAMED
                     || signal.source() == com.spectrayan.spector.kernel.api.MemorySource.THOUGHT_EXPERIMENT
@@ -135,6 +137,7 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
             header = new EncodingHeader(
                     preserved.timestampMs(),
                     synapticTags,
+                    synapticTagsHi,
                     l2Norm,
                     preserved.importance(),
                     preserved.agentRecallCount(),
@@ -179,6 +182,7 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
             header = new EncodingHeader(
                     signal.timestampMs(),
                     signal.synapticTags(),
+                    signal.synapticTagsHi(),
                     l2Norm,
                     signal.importance(),
                     0,
