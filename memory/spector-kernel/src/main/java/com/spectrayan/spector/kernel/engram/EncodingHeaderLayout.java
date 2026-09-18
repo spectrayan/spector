@@ -379,7 +379,8 @@ public class EncodingHeaderLayout {
     public EncodingHeader readHeader(MemorySegment seg, long off) {
         return new EncodingHeader(
                 readTimestamp(seg, off),
-                readSynapticTags(seg, off),
+                readSynapticTagsLo(seg, off),
+                readSynapticTagsHi(seg, off),
                 readExactNorm(seg, off),
                 readImportance(seg, off),
                 0, // agentRecallCount lives in strength region
@@ -408,8 +409,8 @@ public class EncodingHeaderLayout {
         seg.set(ValueLayout.JAVA_FLOAT_UNALIGNED,    off + OFFSET_V2_EXACT_NORM,  header.exactNorm());
         seg.set(ValueLayout.JAVA_SHORT_UNALIGNED,   off + OFFSET_V2_CENTROID_ID, header.centroidId());
         seg.set(ValueLayout.JAVA_SHORT_UNALIGNED, off + OFFSET_V2_PAD0,     (short) 0);
-        seg.set(ValueLayout.JAVA_LONG_UNALIGNED, off + OFFSET_V2_SYNAPTIC_TAGS_LO, header.synapticTags());
-        seg.set(ValueLayout.JAVA_LONG_UNALIGNED, off + OFFSET_V2_SYNAPTIC_TAGS_HI, 0L);
+        seg.set(ValueLayout.JAVA_LONG_UNALIGNED, off + OFFSET_V2_SYNAPTIC_TAGS_LO, header.synapticTagsLo());
+        seg.set(ValueLayout.JAVA_LONG_UNALIGNED, off + OFFSET_V2_SYNAPTIC_TAGS_HI, header.synapticTagsHi());
         seg.set(LAYOUT_CONSOLIDATION_FLAGS, off + OFFSET_V2_CONSOLIDATION_FLAGS, header.consolidationFlags());
         seg.set(LAYOUT_ENCODING_PROFILE, off + OFFSET_V2_ENCODING_PROFILE, header.encodingProfile());
         seg.set(LAYOUT_ENCODING_ALPHA, off + OFFSET_V2_ENCODING_ALPHA, header.encodingAlpha());

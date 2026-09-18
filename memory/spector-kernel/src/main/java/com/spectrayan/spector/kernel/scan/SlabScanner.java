@@ -176,7 +176,7 @@ public final class SlabScanner {
                     importance, storageStrength,
                     tierOrdinal);
 
-            visitor.accept(i, partitionSeq, offset, headerBits, l2dist, timestamp, recordTagsLo);
+            visitor.accept(i, partitionSeq, offset, headerBits, l2dist, timestamp, recordTagsLo, recordTagsHi);
         }
         return distanceComputations;
     }

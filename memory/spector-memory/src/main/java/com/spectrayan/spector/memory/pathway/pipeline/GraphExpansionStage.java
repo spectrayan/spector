@@ -841,13 +841,15 @@ public final class GraphExpansionStage {
 
         // 2. Synaptic Tag Gating
         String[] tags = index.tags(neighborId);
-        long recordTags = SynapticTagEncoder.encode(tags);
-        if (options.hyperfocusMask() != 0L) {
-            if ((recordTags & options.hyperfocusMask()) != options.hyperfocusMask()) {
+        var recordTags = SynapticTagEncoder.encode128(tags);
+        if (options.hyperfocusMask() != 0L || options.hyperfocusMaskHi() != 0L) {
+            var hf = com.spectrayan.spector.core.cognitive.SynapticTag128.of(options.hyperfocusMask(), options.hyperfocusMaskHi());
+            if (!recordTags.matches(hf)) {
                 return false;
             }
-        } else if (options.synapticTagMask() != 0L) {
-            if ((recordTags & options.synapticTagMask()) == 0L) {
+        } else if (options.synapticTagMask() != 0L || options.synapticTagMaskHi() != 0L) {
+            var qm = com.spectrayan.spector.core.cognitive.SynapticTag128.of(options.synapticTagMask(), options.synapticTagMaskHi());
+            if (!recordTags.sharesAnyBit(qm)) {
                 return false;
             }
         }

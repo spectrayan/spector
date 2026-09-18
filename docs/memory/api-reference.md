@@ -53,14 +53,16 @@ Builder for recall query configuration.
 
 ```java
 RecallOptions options = RecallOptions.builder()
-    .topK(int)                              // Max results (default: 10)
-    .synapticFilter(String... tags)         // Bloom filter pre-screen
-    .minImportance(float)                   // Minimum importance [0.0-1.0] (default: 0.0)
-    .memoryTypes(MemoryType... types)       // Tier filter (default: all)
-    .minValence(byte)                       // Min emotional valence (default: -128)
-    .maxValence(byte)                       // Max emotional valence (default: +127)
-    .alpha(float)                           // Similarity weight (default: 0.6)
-    .beta(float)                            // Importance × decay weight (default: 0.4)
+    .topK(int)                                          // Max results (default: 10)
+    .synapticFilter(String... tags)                     // Bloom filter pre-screen by tag labels
+    .synapticTagMask(long maskLo, long maskHi)          // 128-bit explicit Bloom filter mask
+    .hyperfocusMask(long hyperfocusLo, long hyperfocusHi) // 128-bit hyperfocus tag requirement
+    .minImportance(float)                               // Minimum importance [0.0-1.0] (default: 0.0)
+    .memoryTypes(MemoryType... types)                   // Tier filter (default: all)
+    .minValence(byte)                                   // Min emotional valence (default: -128)
+    .maxValence(byte)                                   // Max emotional valence (default: +127)
+    .alpha(float)                                       // Similarity weight (default: 0.6)
+    .beta(float)                                        // Importance × decay weight (default: 0.4)
     .build();
 ```
 
@@ -136,19 +138,21 @@ public enum MemorySource {
 
 ---
 
-## SynapticTagEncoder
-
-128-bit inline Bloom filter encoder (`synaptic_tags_lo` and `synaptic_tags_hi`):
-
+## SynapticTagEncoder & SynapticTag128
+ 
+128-bit inline Bloom filter encoder and zero-allocation bitwise container (`synaptic_tags_lo` and `synaptic_tags_hi`):
+ 
 ```java
-// Encode tags into a 128-bit Bloom filter mask
-long[] mask = SynapticTagEncoder.encode128("java", "debugging", "performance");
+// Encode tags into a zero-allocation 128-bit SynapticTag128 record (lo, hi)
+SynapticTag128 mask = SynapticTagMath.encode128("java", "debugging", "performance");
 
-// Check if a candidate record matches (bitwise AND containment check)
-boolean matches = SynapticTagEncoder.matches(recordTagsLo, recordTagsHi, mask);
+// Check if a candidate record matches (bitwise AND containment check across 128 bits)
+boolean matches = mask.matches(recordTagsLo, recordTagsHi);
 
-// Test individual tag membership
-boolean hasJava = SynapticTagEncoder.contains(recordTagsLo, recordTagsHi, "java");
+// Test bitwise overlap and active bit density
+boolean sharesAny = mask.sharesAnyBit(otherTag128);
+float overlap = mask.overlapRatio(otherTag128);
+int activeBits = mask.popcount();
 ```
 
 ---

@@ -44,6 +44,7 @@ public final class RememberSignal extends com.spectrayan.spector.commons.pathway
     private String sanitizedText;
     private String[] tags;
     private long synapticTags;
+    private long synapticTagsHi;
     private float[] normalizedVector;
     private float[] privacyPerturbedVector;
     private byte[] quantizedVector;
@@ -165,6 +166,9 @@ public final class RememberSignal extends com.spectrayan.spector.commons.pathway
 
     public long synapticTags() { return synapticTags; }
     public void synapticTags(final long synapticTags) { this.synapticTags = synapticTags; }
+
+    public long synapticTagsHi() { return synapticTagsHi; }
+    public void synapticTagsHi(final long synapticTagsHi) { this.synapticTagsHi = synapticTagsHi; }
 
     public float[] normalizedVector() { return normalizedVector; }
     public void normalizedVector(final float[] normalizedVector) { this.normalizedVector = normalizedVector; }

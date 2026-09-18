@@ -202,10 +202,11 @@ public final class WorkingMemory extends AbstractEngramMemory<WorkingLayout> {
      * <p>This is a linear scan over at most {@code capacity} records.
      * Since Working Memory is small (≤100 records), this is fast (~2-5µs).</p>
      *
-     * @param queryTagMask synaptic tag filter (0 = match all)
+     * @param queryTagMaskLo synaptic tag filter low 64 bits (0 = match all)
+     * @param queryTagMaskHi synaptic tag filter high 64 bits (0 = match all)
      * @return array of offsets that passed the filter, for scoring
      */
-    public long[] scan(long queryTagMask) {
+    public long[] scan(long queryTagMaskLo, long queryTagMaskHi) {
         int currentCount = getCount();
         long[] matches = new long[currentCount];
         int matchCount = 0;
@@ -218,9 +219,11 @@ public final class WorkingMemory extends AbstractEngramMemory<WorkingLayout> {
             if (EncodingHeaderFields.isTombstoned(flags)) continue;
 
             // Phase 2: Synaptic tag gating
-            if (queryTagMask != 0) {
-                long recordTags = layout.readSynapticTags(segment, offset);
-                if ((recordTags & queryTagMask) != queryTagMask) continue;
+            if (queryTagMaskLo != 0L || queryTagMaskHi != 0L) {
+                long recordTagsLo = layout.readSynapticTagsLo(segment, offset);
+                long recordTagsHi = layout.readSynapticTagsHi(segment, offset);
+                if ((recordTagsLo & queryTagMaskLo) != queryTagMaskLo
+                        || (recordTagsHi & queryTagMaskHi) != queryTagMaskHi) continue;
             }
 
             matches[matchCount++] = offset;
@@ -230,6 +233,16 @@ public final class WorkingMemory extends AbstractEngramMemory<WorkingLayout> {
         long[] result = new long[matchCount];
         System.arraycopy(matches, 0, result, 0, matchCount);
         return result;
+    }
+
+    /**
+     * Backward-compatible 64-bit scan method.
+     *
+     * @param queryTagMask synaptic tag filter (0 = match all)
+     * @return array of offsets that passed the filter, for scoring
+     */
+    public long[] scan(long queryTagMask) {
+        return scan(queryTagMask, 0L);
     }
 
     /**

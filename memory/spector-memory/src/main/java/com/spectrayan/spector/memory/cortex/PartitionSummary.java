@@ -46,6 +46,7 @@ public record PartitionSummary(
         long minTimestampMs,
         long maxTimestampMs,
         long synapticTagMask,
+        long synapticTagMaskHi,
         int semanticCount,
         int episodicCount,
         int proceduralCount,
@@ -54,7 +55,21 @@ public record PartitionSummary(
 
     /** Default empty / unbound summary for uninitialized or in-memory stores. */
     public static final PartitionSummary UNBOUNDED =
-            new PartitionSummary(0, 0L, Long.MAX_VALUE, 0L, 0, 0, 0, true);
+            new PartitionSummary(0, 0L, Long.MAX_VALUE, 0L, 0L, 0, 0, 0, true);
+
+    /** Backward-compatible constructor for 64-bit mask callers. */
+    public PartitionSummary(
+            int seq,
+            long minTimestampMs,
+            long maxTimestampMs,
+            long synapticTagMask,
+            int semanticCount,
+            int episodicCount,
+            int proceduralCount,
+            boolean writable
+    ) {
+        this(seq, minTimestampMs, maxTimestampMs, synapticTagMask, 0L, semanticCount, episodicCount, proceduralCount, writable);
+    }
 
     /**
      * Total visible records across all three partition-scoped tiers.
@@ -126,7 +141,8 @@ public record PartitionSummary(
 
         long minTs = Long.MAX_VALUE;
         long maxTs = Long.MIN_VALUE;
-        long tagMask = 0L;
+        long tagMaskLo = 0L;
+        long tagMaskHi = 0L;
         int semCount = 0;
         int epiCount = 0;
         int procCount = 0;
@@ -141,7 +157,8 @@ public record PartitionSummary(
             if (stats.maxTimestampMs() > 0) {
                 maxTs = Math.max(maxTs, stats.maxTimestampMs());
             }
-            tagMask |= stats.synapticTagMask();
+            tagMaskLo |= stats.synapticTagMask();
+            tagMaskHi |= stats.synapticTagMaskHi();
         }
 
         // 2. Episodic store
@@ -166,7 +183,8 @@ public record PartitionSummary(
             if (stats.maxTimestampMs() > 0) {
                 maxTs = Math.max(maxTs, stats.maxTimestampMs());
             }
-            tagMask |= stats.synapticTagMask();
+            tagMaskLo |= stats.synapticTagMask();
+            tagMaskHi |= stats.synapticTagMaskHi();
         }
 
         // Extract directory epoch bounds for fallback and consistency
@@ -205,6 +223,6 @@ public record PartitionSummary(
             }
         }
 
-        return new PartitionSummary(seq, minTs, maxTs, tagMask, semCount, epiCount, procCount, writable);
+        return new PartitionSummary(seq, minTs, maxTs, tagMaskLo, tagMaskHi, semCount, epiCount, procCount, writable);
     }
 }

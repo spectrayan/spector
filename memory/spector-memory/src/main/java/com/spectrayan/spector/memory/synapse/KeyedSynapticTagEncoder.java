@@ -17,6 +17,8 @@ package com.spectrayan.spector.memory.synapse;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
+import com.spectrayan.spector.core.cognitive.SynapticTag128;
+import com.spectrayan.spector.core.cognitive.SynapticTagMath;
 import com.spectrayan.spector.kernel.score.SynapticTagEncoder;
 
 import javax.crypto.Mac;
@@ -136,6 +138,50 @@ public final class KeyedSynapticTagEncoder {
             filter |= (1L << bitIndex);
         }
         return filter;
+    }
+
+    /**
+     * Encodes one or more tag strings into a 128-bit Bloom filter using HMAC-SHA256.
+     *
+     * @param tags tag strings to encode
+     * @return 128-bit Bloom filter with k=4 bits set per tag
+     */
+    public SynapticTag128 encode128(String... tags) {
+        long lo = 0L;
+        long hi = 0L;
+        for (String tag : tags) {
+            SynapticTag128 t = encodeTag128(tag);
+            lo |= t.lo();
+            hi |= t.hi();
+        }
+        return new SynapticTag128(lo, hi);
+    }
+
+    /**
+     * Encodes a single tag string into a 128-bit Bloom filter using HMAC-SHA256.
+     *
+     * @param tag tag string to encode
+     * @return 128-bit Bloom filter carrier
+     */
+    public SynapticTag128 encodeTag128(String tag) {
+        Mac mac = macPool.get();
+        byte[] hmac = mac.doFinal(tag.getBytes(StandardCharsets.UTF_8));
+
+        long h1 = ByteBuffer.wrap(hmac, 0, 8).getLong();
+        long h2 = ByteBuffer.wrap(hmac, 8, 8).getLong();
+        h2 |= 1L; // Ensure step size is odd for power-of-two M
+
+        long lo = 0L;
+        long hi = 0L;
+        for (int i = 0; i < SynapticTagMath.DEFAULT_K_128; i++) {
+            int bitIndex = (int) ((h1 + (long) i * h2) & (SynapticTagMath.DEFAULT_M_128 - 1));
+            if (bitIndex < 64) {
+                lo |= (1L << bitIndex);
+            } else {
+                hi |= (1L << (bitIndex - 64));
+            }
+        }
+        return new SynapticTag128(lo, hi);
     }
 
     /**

@@ -198,12 +198,16 @@ public class RecallCandidateGatherer {
                 // Check tag filters (bypass in pure text search)
                 String[] tags = index.tags(id);
                 if (!isPureTextSearch) {
-                    if (options.hyperfocusMask() != 0L) {
-                        long recTags = SynapticTagEncoder.encode(tags);
-                        if ((recTags & options.hyperfocusMask()) != options.hyperfocusMask()) continue;
-                    } else if (options.synapticTagMask() != 0L) {
-                        long recTags = SynapticTagEncoder.encode(tags);
-                        if ((recTags & options.synapticTagMask()) == 0L) continue;
+                    boolean hasHyperfocus = options.hyperfocusMask() != 0L || options.hyperfocusMaskHi() != 0L;
+                    boolean hasTagMask = options.synapticTagMask() != 0L || options.synapticTagMaskHi() != 0L;
+                    if (hasHyperfocus) {
+                        var recTags = SynapticTagEncoder.encode128(tags);
+                        var hf = com.spectrayan.spector.core.cognitive.SynapticTag128.of(options.hyperfocusMask(), options.hyperfocusMaskHi());
+                        if (!recTags.matches(hf)) continue;
+                    } else if (hasTagMask) {
+                        var recTags = SynapticTagEncoder.encode128(tags);
+                        var qm = com.spectrayan.spector.core.cognitive.SynapticTag128.of(options.synapticTagMask(), options.synapticTagMaskHi());
+                        if (!recTags.sharesAnyBit(qm)) continue;
                     }
                 }
 

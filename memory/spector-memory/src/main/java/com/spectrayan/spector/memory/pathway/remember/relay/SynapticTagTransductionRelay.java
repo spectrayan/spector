@@ -57,8 +57,9 @@ public final class SynapticTagTransductionRelay implements SynapticRelay<Remembe
             signal.tags(tags);
         }
 
-        final long synapticTags = encodeTags(tags != null ? tags : new String[0]);
-        signal.synapticTags(synapticTags);
+        final com.spectrayan.spector.core.cognitive.SynapticTag128 synapticTags = encodeTags128(tags != null ? tags : new String[0]);
+        signal.synapticTags(synapticTags.lo());
+        signal.synapticTagsHi(synapticTags.hi());
         return true;
     }
 
@@ -79,14 +80,17 @@ public final class SynapticTagTransductionRelay implements SynapticRelay<Remembe
         return RelayNames.TAG_TRANSDUCTION;
     }
 
-    private long encodeTags(final String[] tags) {
+    private com.spectrayan.spector.core.cognitive.SynapticTag128 encodeTags128(final String[] tags) {
         if (encryptor.isEnabled()) {
-            long filter = 0L;
+            long lo = 0L;
+            long hi = 0L;
             for (final String tag : tags) {
-                filter |= encryptor.encodeTag(tag);
+                var t = encryptor.encodeTag128(tag);
+                lo |= t.lo();
+                hi |= t.hi();
             }
-            return filter;
+            return new com.spectrayan.spector.core.cognitive.SynapticTag128(lo, hi);
         }
-        return SynapticTagEncoder.encode(tags);
+        return SynapticTagEncoder.encode128(tags);
     }
 }

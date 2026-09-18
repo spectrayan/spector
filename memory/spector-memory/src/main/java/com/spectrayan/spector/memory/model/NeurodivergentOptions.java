@@ -30,6 +30,7 @@ package com.spectrayan.spector.memory.model;
  */
 public record NeurodivergentOptions(
         long hyperfocusMask,
+        long hyperfocusMaskHi,
         float hyperfocusBoost,
         boolean lateralMode,
         float lateralDistanceThreshold,
@@ -38,10 +39,21 @@ public record NeurodivergentOptions(
 ) {
     /** Default: no neurodivergent modulation. */
     public static final NeurodivergentOptions DEFAULT = new NeurodivergentOptions(
-            0L, 1.0f, false, 1.2f, -1, 0.5f);
+            0L, 0L, 1.0f, false, 1.2f, -1, 0.5f);
+
+    /** Backward-compatible constructor for 64-bit low mask callers. */
+    public NeurodivergentOptions(
+            long hyperfocusMask,
+            float hyperfocusBoost,
+            boolean lateralMode,
+            float lateralDistanceThreshold,
+            int lateralMaxResults,
+            float lateralMinTagOverlap) {
+        this(hyperfocusMask, 0L, hyperfocusBoost, lateralMode, lateralDistanceThreshold, lateralMaxResults, lateralMinTagOverlap);
+    }
 
     /** Returns true if hyperfocus is active. */
     public boolean hasHyperfocus() {
-        return hyperfocusMask != 0L;
+        return hyperfocusMask != 0L || hyperfocusMaskHi != 0L;
     }
 }

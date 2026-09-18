@@ -809,4 +809,9 @@ Every tier is symmetric. Every tier is an engram. Physical shape (fixed vs varia
 - **Primary Module(s)**: `memory/spector-kernel`, `memory/spector-memory`
 - **Key Packages**: `com.spectrayan.spector.kernel.engram`, `com.spectrayan.spector.kernel.engram.field`
 - **Classes**: `EncodingHeaderLayout.java`, `EncodingHeader.java`, `EncodingHeaderFields.java`, `LegacyEncodingHeaderReader.java`
-- **Verification Tests**: `EncodingHeaderLayoutTest.java`, `EncodingHeaderProvenanceRoundTripTest.java`, `EncodingHeaderFieldsTest.java`
+- **Verification Tests**: `EncodingHeaderLayoutTest.java`, `EncodingHeaderProvenanceRoundTripTest.java`, `EncodingHeaderFieldsTest.java`, `SynapticTagGating128Test.java`
+
+### Amendment (Issue #795 — 128-Bit Synaptic Tag Gating & Storage)
+- **Status**: Implemented & Verified
+- **Date**: 2026-09-17
+- **Resolution**: Resolved the 64-of-128-bit synaptic tag gating gap where `readSynapticTags()` previously discarded the high 64 bits (`synaptic_tags_hi` at offset 24..31). Added zero-allocation bitwise container `SynapticTag128`, 128-bit filter evaluation across `RecordGates.isTagGated128`, `SlabScanner`, `SlotVisitor`, and dual-mask support (`synapticTagMask(lo, hi)` and `hyperfocusMask(lo, hi)`) throughout `RecallOptions`, `RecallPathway`, `CognitiveScorer`, and `CognitiveScoreVisitor`.

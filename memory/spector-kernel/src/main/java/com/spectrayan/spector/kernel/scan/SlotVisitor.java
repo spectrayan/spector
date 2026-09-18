@@ -40,4 +40,11 @@ public interface SlotVisitor {
     default void accept(int slot, int partition, long offset, long headerBits, float rawScore, long timestampMs, long tagsLo) {
         accept(slot, partition, offset, headerBits, rawScore);
     }
+
+    /**
+     * Extended accept method passing timestamp and 128-bit synaptic tags without heap allocation (#795).
+     */
+    default void accept(int slot, int partition, long offset, long headerBits, float rawScore, long timestampMs, long tagsLo, long tagsHi) {
+        accept(slot, partition, offset, headerBits, rawScore, timestampMs, tagsLo);
+    }
 }

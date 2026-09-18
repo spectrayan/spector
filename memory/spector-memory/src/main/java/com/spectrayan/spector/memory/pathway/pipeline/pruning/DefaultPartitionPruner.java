@@ -117,19 +117,23 @@ public final class DefaultPartitionPruner implements PartitionPruner {
 
         // 3. Synaptic tag gating (applied to immutable frozen partitions)
         if (!summary.writable()) {
-            long queryTagMask = options.synapticTagMask();
-            long hyperfocusMask = options.hyperfocusMask();
+            long queryTagMaskLo = options.synapticTagMask();
+            long queryTagMaskHi = options.synapticTagMaskHi();
+            long hyperfocusMaskLo = options.hyperfocusMask();
+            long hyperfocusMaskHi = options.hyperfocusMaskHi();
 
-            if (hyperfocusMask != 0L) {
+            if (hyperfocusMaskLo != 0L || hyperfocusMaskHi != 0L) {
                 // Hyperfocus requires ALL mask bits to match.
                 // If the partition's aggregate tag mask is missing any of the hyperfocus bits,
                 // no single record in this partition can possibly have all of them.
-                if ((summary.synapticTagMask() & hyperfocusMask) != hyperfocusMask) {
+                if ((summary.synapticTagMask() & hyperfocusMaskLo) != hyperfocusMaskLo
+                        || (summary.synapticTagMaskHi() & hyperfocusMaskHi) != hyperfocusMaskHi) {
                     return true;
                 }
-            } else if (queryTagMask != 0L) {
+            } else if (queryTagMaskLo != 0L || queryTagMaskHi != 0L) {
                 // Standard tag filter: requires at least one overlapping bit.
-                if ((summary.synapticTagMask() & queryTagMask) == 0L) {
+                if ((summary.synapticTagMask() & queryTagMaskLo) == 0L
+                        && (summary.synapticTagMaskHi() & queryTagMaskHi) == 0L) {
                     return true;
                 }
             }

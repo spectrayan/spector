@@ -108,8 +108,10 @@ public final class SemanticRecallStrategy {
         }
 
         // Extract filter parameters
-        long queryTagMask = options.synapticTagMask();
-        long hyperfocusMask = options.hyperfocusMask();
+        long queryTagMaskLo = options.synapticTagMask();
+        long queryTagMaskHi = options.synapticTagMaskHi();
+        long hyperfocusMaskLo = options.hyperfocusMask();
+        long hyperfocusMaskHi = options.hyperfocusMaskHi();
         byte minValence = options.minValence();
         byte maxValence = options.maxValence();
         float minImportance = options.minImportance();
@@ -168,11 +170,14 @@ public final class SemanticRecallStrategy {
             }
 
             // Phase 2: Synaptic tag gating
-            long recordTags = header.synapticTags();
-            if (hyperfocusMask != 0L) {
-                if ((recordTags & hyperfocusMask) != hyperfocusMask) continue;
-            } else if (queryTagMask != 0L) {
-                if ((recordTags & queryTagMask) == 0L) continue;
+            long recordTagsLo = header.synapticTagsLo();
+            long recordTagsHi = header.synapticTagsHi();
+            if (hyperfocusMaskLo != 0L || hyperfocusMaskHi != 0L) {
+                if ((recordTagsLo & hyperfocusMaskLo) != hyperfocusMaskLo
+                        || (recordTagsHi & hyperfocusMaskHi) != hyperfocusMaskHi) continue;
+            } else if (queryTagMaskLo != 0L || queryTagMaskHi != 0L) {
+                if ((recordTagsLo & queryTagMaskLo) == 0L
+                        && (recordTagsHi & queryTagMaskHi) == 0L) continue;
             }
 
             // Phase 3: Valence filter
@@ -215,7 +220,7 @@ public final class SemanticRecallStrategy {
             }
 
             candidates.add(new CandidateMatch(
-                    id, timestamp, recordTags, valence, importance,
+                    id, timestamp, recordTagsLo, recordTagsHi, valence, importance,
                     agentRecallCount, similarity, arousal, storage));
         }
 
@@ -276,7 +281,9 @@ public final class SemanticRecallStrategy {
             } else {
                 decay = decays[i];
                 rawDecay = rawDecays[i];
-                tagOverlap = SynapticTagEncoder.overlapRatio(c.recordTags, queryTagMask);
+                tagOverlap = (queryTagMaskLo != 0L || queryTagMaskHi != 0L)
+                        ? SynapticTagEncoder.overlapRatio128(c.recordTagsLo, c.recordTagsHi, queryTagMaskLo, queryTagMaskHi)
+                        : 0.0f;
                 finalScore = CognitiveScoreFusionKernel.computeLinearBlendScore(
                         c.similarity, c.importance, decay, tagOverlap, alpha, beta, tagRelevanceBoost);
             }
@@ -327,7 +334,8 @@ public final class SemanticRecallStrategy {
     private record CandidateMatch(
             String id,
             long timestamp,
-            long recordTags,
+            long recordTagsLo,
+            long recordTagsHi,
             byte valence,
             float importance,
             int agentRecallCount,
