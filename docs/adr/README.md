@@ -2,7 +2,7 @@
 
 Welcome to the **Spector Architecture Decision Record (ADR)** repository. This catalog records all architecturally significant decisions made throughout the evolution of Spector — capturing the context, options evaluated, trade-offs weighed, and ultimate rationale for each architectural choice.
 
-Spector operates a **Living ADR Framework** governed under Linux Foundation / AAIF open governance standards. Architectural decisions are not static write-once documents; they reflect the current code reality of the engine and are maintained in sync with the codebase.
+Spector operates a **Living ADR Framework** governed under transparent, open-source governance standards. Architectural decisions are not static write-once documents; they reflect the current code reality of the engine and are maintained in sync with the codebase.
 
 ---
 
@@ -112,5 +112,5 @@ Per GOVERNANCE.md (`governance.md`), approving an Architecture Decision Record r
 
 - **Project Governance Charter (`governance.md`)**: Open-source 4-tier contributor ladder, voting mechanics, and TSC stewardship.
 - **Contributing Guide (`contributing.md`)**: Development setup, DCO sign-off (`git commit -s`), and code standards.
-- **[Official ADR Template](0000-template.md)**: The standard AAIF-compliant proposal template.
+- **[Official ADR Template](0000-template.md)**: The standard open-source proposal template.
 - **[ADR Catalog Index](catalog.md)**: Master index of all canonical ADRs in Spector.

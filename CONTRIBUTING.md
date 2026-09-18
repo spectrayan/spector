@@ -24,7 +24,7 @@ This project adheres to the [Contributor Covenant Code of Conduct](CODE_OF_CONDU
 
 ## Project Governance
 
-Spector is an open-source, community-driven project governed under Linux Foundation / AAIF open governance standards. We operate with transparent, vendor-neutral meritocracy:
+Spector is an open-source, community-driven project governed under transparent, vendor-neutral open governance standards:
 - Community roles: **Project Lead**, **Technical Lead**, **Architecture Working Group (AWG)**, **Technical Steering Committee (TSC)**, **Maintainers**, **Committers / Reviewers**, and **Contributors**.
 - We maintain a **4-tier Contributor Ladder** providing clear advancement paths from first-time contributor to committer, maintainer, and TSC member.
 - Decision mechanics follow lazy consensus (72h default), simple majority for operational appointments/deprecations, and 2/3 TSC supermajority for architectural changes.
