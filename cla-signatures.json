@@ -63,6 +63,14 @@
       "created_at": "2026-09-13T03:33:33Z",
       "repoId": 1237969201,
       "pullRequestNo": 878
+    },
+    {
+      "name": "israzurdev",
+      "id": 161035393,
+      "comment_id": 5734289640,
+      "created_at": "2026-09-18T18:16:44Z",
+      "repoId": 1237969201,
+      "pullRequestNo": 952
     }
   ]
 }
