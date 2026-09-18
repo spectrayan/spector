@@ -29,6 +29,7 @@ We require an architectural stabilization of the core engine and CLI to enable a
 ## 2. Problem Statement
 
 Initial developer feedback highlighted critical friction points when running the CLI (`spectorctl`) or bootstrapping a local memory environment:
+
 1. **Missing External Service Dependencies**: Requiring an external OpenAI/Ollama embedding endpoint meant simple CLI exploration failed immediately on clean installs.
 2. **Spring Context Startup Latency**: Running routine commands (`spectorctl --version`, `spectorctl status`) suffered from 2–3s Spring Boot web context startup delays.
 3. **Fragile Uninitialized Directories**: Commands failed ungracefully if local storage directories (`data/`, `namespaces/`) had not been pre-created.
@@ -192,8 +193,10 @@ public class SpectorCtl implements Runnable { ... }
    - Add `langchain4j-embeddings-all-minilm-l6-v2-q` to `pom.xml` dependencyManagement and `spector-synapse`/`spector-cli`.
    - Update `SpectorAutoConfiguration.java` to auto-wire the fallback ONNX embedder.
    - Implement `ServeCommand.java`, `DoctorCommand.java`, and `InitCommand.java` in `synapse/spector-cli`.
+
 2. **Maintainer (Quality Assurance)**:
    - Integration tests verifying zero-config boot, offline `remember`/`recall` cycle, and CLI commands.
+
 3. **Maintainer (Infrastructure & Platform)**:
    - Verify fat JAR shade configuration and update `scripts/start-mcp.bat` and shell wrappers.
 

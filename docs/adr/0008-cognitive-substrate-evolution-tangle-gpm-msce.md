@@ -19,6 +19,7 @@ As Spector evolved from a vector memory store into a comprehensive cognitive arc
 ## 2. Problem Statement
 
 Previous cognitive retrieval presented critical structural gaps:
+
 1. **Static prompt formatting**: Client applications had to manually fetch and stitch working memory, semantic facts, and episodic context, resulting in fragmented, redundant LLM prompts.
 2. **Procedural amnesia**: The system had no representation for behavioral heuristics, interaction cadences, or tool invocation policies.
 3. **Temporal blind spots**: Pure semantic search retrieved disjoint facts without awareness of chronological order or causal transitions.

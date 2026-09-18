@@ -107,6 +107,7 @@ Adopt **revised Option 3**.
    - Scheduling → `QuartzMemoryScheduler` + `SpectorQuartzThreadPool`
    - Task observability → `QueueMetrics` / `DaemonStatus` (library)
    - Pool observability → Micrometer / `ThreadMonitor` (host)
+
 5. **One close budget. One happens-before list. Arenas close last.**
 6. **Backpressure lives on one layer per path**, not on both the queue and the executor.
 

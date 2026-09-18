@@ -44,16 +44,19 @@ Operating active inference in an open loop prevents dynamic learning. When incom
 **Chosen Option**: Option 2 (Synchronous Epistemic Learning Relay).
 
 ### Architectural Additions:
+
 1. **Epistemic Learning Relay (`EpistemicLearningRelay`)**:
    - Integrated as Stage 16 in `RecallPathway`.
    - Extracts the fused observation vector from retrieved candidate memories and query vectors.
    - Updates the live variational belief state $q(s)$ via `MentalStateTracker.updateWithObservation(observation, timestamp)`.
    - Applies exponential temporal belief decay $\boldsymbol{\mu}_t \to \boldsymbol{\mu}_0$ when idle time exceeds threshold.
    - Numerically advances `HomeostaticCore.step(stimulus, reward, dt)` to couple sensory stimuli and memory retrieval with affective state.
+
 2. **Hebbian Co-Activation Supplier in Sleep Reflection**:
    - Wired a dynamic supplier in `ReflectPathway.Builder` providing top co-activated Hebbian memory edge vector differences:
      `() -> hebbianGraph.findTopCoActivatedPairs(50, 0.4f).stream().map(edge -> vectorDifference(edge)).toList()`
    - Enables `ManifoldConsolidationRelay` to adapt the Riemannian metric tensor $G(s)$ on each circadian sleep consolidation cycle.
+
 3. **System-Wide `AismeProperties` Integration**:
    - Added first-class `AismeProperties` to `spector-config`, `spector-spring`, and `spector-synapse` for system-level YAML and environment variable configuration.
 

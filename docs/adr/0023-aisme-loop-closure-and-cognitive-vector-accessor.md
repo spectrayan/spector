@@ -15,6 +15,7 @@
 ## 1. Context
 
 Following the implementation of AISME Phases 1–12, an architectural verification audit identified three technical areas in the self-model loop requiring structural refinement:
+
 1. Low-level off-heap byte offset arithmetic and scalar dequantization logic had leaked into `SpectorMemoryFactory`.
 2. High-alignment constructive simulations generated in `ConstructiveSimulationRelay` failed to persist into long-term autobiographical storage because `ConstructiveMemoryPersistenceRelay` received a null ingestion target in `AismeBuilder`.
 3. Ad-hoc string prefix matching (`"sim-"`) was being used for memory identification, violating uniform Crockford Base32 ID generation standards (`IdStrategy` / `TsidGenerator`) and bypassing native off-heap binary header flags (`SynapticHeaderConstants.FLAG_SIMULATED = 0x20`).

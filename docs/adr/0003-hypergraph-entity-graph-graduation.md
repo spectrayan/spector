@@ -19,6 +19,7 @@ Spector's cognitive engine models associative relationships between extracted en
 ## 2. Problem Statement
 
 A naive replacement of `EntityGraphMemory` with `HyperEntityGraphMemory` created critical data loss and architectural failure points:
+
 1. **Identity ownership**: `HyperEntityGraphMemory` stored hyperedges and incidence lists, but lacked entity identity allocation (`addEntity`), name-to-ID indices (`entity-names.idx`), and entity type registries (`.treg`).
 2. **Single-entity edge truncation**: Hyperedge construction required $\ge 2$ vertices. Memories mentioning only one entity were linked in `EntityGraphMemory`, but were rejected by hyperedge creation, causing single-entity associations to be silently dropped.
 3. **Write-Ahead Log (WAL) desynchronization**: While `EntityGraphMemory` was bound to the WAL, `HyperEntityGraphMemory` was never bound, leaving hyperedges vulnerable to process crashes prior to periodic checkpoints.

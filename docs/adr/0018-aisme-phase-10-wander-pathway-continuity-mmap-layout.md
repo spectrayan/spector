@@ -52,6 +52,7 @@ Biological intelligence maintains continuous spontaneous activity during quiet r
 
 #### 1. 4th Canonical Cognitive Pathway (`WanderPathway`)
 Structured as a sequential 6-relay pipeline over `WanderSignal`:
+
 1. `IdleGateRelay` (`WanderGates.IS_IDLE`): Asserts system quiescence ($\Delta t \ge \tau_{\text{idle}}$).
 2. `AutobiographicalSamplingRelay` (`WanderGates.DMN_ENABLED`): Samples seed memory vectors from active partitions.
 3. `HopfieldMindWanderingRelay` (`WanderGates.DMN_ENABLED`): Executes continuous Hopfield energy relaxation to discover novel associative attractors (Buckner & DiNicola 2019).

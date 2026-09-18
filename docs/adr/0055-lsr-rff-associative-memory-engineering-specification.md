@@ -141,10 +141,13 @@ Given a continuous stream of stored memories $\{\boldsymbol{\xi}^1, \dots, \bold
 $$\mathbf{T} \triangleq \sum_{\mu=1}^K \mathbf{\Phi}(\boldsymbol{\xi}^\mu)$$
 
 #### Properties of the Hologram $\mathbf{T}$:
+
 1. **Incremental Ingestion**: When ingesting new memory $\boldsymbol{\xi}_{\text{new}}$:
    $$\mathbf{T} \leftarrow \mathbf{T} + \mathbf{\Phi}(\boldsymbol{\xi}_{\text{new}}) \quad (\mathcal{O}(Y \cdot D) \text{ one-time cost})$$
+
 2. **Exact Forgetting / Eviction**: When deleting memory $\boldsymbol{\xi}_{\text{del}}$:
    $$\mathbf{T} \leftarrow \mathbf{T} - \mathbf{\Phi}(\boldsymbol{\xi}_{\text{del}})$$
+
 3. **Decay Scaling**: During biological sleep consolidation:
    $$\mathbf{T} \leftarrow \gamma \cdot \mathbf{T}$$
 
@@ -298,10 +301,13 @@ DEFAULT_MODE_NETWORK   0.25      2.828                        Panoramic: global 
 ### Validation & Quality Gates
 
 ### 6.1 Mathematical & Unit Test Gates
+
 1. **$T=1$ Single-Step Settlement Verification**:
    - Given an isolated memory vector $\boldsymbol{\xi}$ and a corrupted query $\mathbf{v} = \boldsymbol{\xi} + \boldsymbol{\epsilon}$ (where $\|\boldsymbol{\epsilon}\| < \sqrt{2/\beta}$), verify that `LsrAttractorEngine.settle()` returns $\boldsymbol{\xi}$ with L2 error $< 10^{-6}$ in exactly 1 iteration.
+
 2. **Compact Support Strictness**:
    - For any vector with $\|\mathbf{v} - \boldsymbol{\xi}\|^2 \ge 2/\beta$, assert that `attentionWeight == 0.0f` exactly.
+
 3. **RFF Unbiased Density Estimation**:
    - Verify that $|\langle \mathbf{\Phi}(\mathbf{x}), \mathbf{\Phi}(\mathbf{y})\rangle - \exp(-\beta/2 \|\mathbf{x}-\mathbf{y}\|^2)| < 0.05$ across 10,000 random vectors with $Y=2048$.
 

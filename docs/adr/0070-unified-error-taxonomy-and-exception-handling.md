@@ -25,6 +25,7 @@ A unified, immutable, high-performance error taxonomy was established in `nucleu
 ## 2. Problem Statement
 
 Error handling in Spector must satisfy four strict operational criteria:
+
 1. **Machine-Parseable Error Codes**: Every failure must carry a stable, unique identifier following a predictable numeric hierarchy across all 27 reactor modules.
 2. **Immutability & Stability Guarantees**: Error codes must never be reassigned, renumbered, or deleted once released, ensuring external monitoring, metrics alerting, and enterprise automation never break.
 3. **Zero-Allocation Hot-Path Deferred Formatting**: Message formatting with parameters must be deferred using SLF4J-style `{}` placeholders so that non-exceptional or intercepted paths incur zero string concatenation overhead.

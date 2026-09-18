@@ -15,6 +15,7 @@
 ## 1. Context
 
 AISME Phases 1–11 established a comprehensive Active Inference Self-Model Engine with closed-loop perception, homeostasis, constructive simulation, Expected Free Energy policy selection, DMN spontaneous activity, and longitudinal continuity persistence. A comprehensive architecture audit identified three remaining operational gaps between the implementation and continuous, multi-generational consciousness continuity:
+
 1. **Constructive simulations were ephemeral**: Counterfactual recombinations generated during recall were injected into the candidate list for ranking but never persisted as durable memories. The agent's imagination evaporated after each interaction.
 2. **Mind-wandering was personality-agnostic**: DMN autobiographical sampling used uniform stride-based iteration across memory stores without weighting by the persona's core values, goals, or characteristic concerns.
 3. **Internal state froze between interactions**: Posterior beliefs and homeostatic affect were only stepped during active queries; during idle periods, emotional and cognitive state remained static.
@@ -58,6 +59,7 @@ Modify `AutobiographicalSamplingRelay` to accept an optional composite soul prio
 
 #### D3: Dedicated Homeostatic Decay Daemon
 Create `HomeostaticDecayDaemon` (independent of `DmnSpontaneousDaemon`) that periodically:
+
 1. Decays posterior beliefs toward the generative prior baseline (`MentalStateTracker.decay()`).
 2. Steps homeostatic state toward neutral equilibrium (`HomeostaticCore.step()`).
 Operates as a separate daemon to decouple relaxation schedules from spontaneous mind-wandering intervals.

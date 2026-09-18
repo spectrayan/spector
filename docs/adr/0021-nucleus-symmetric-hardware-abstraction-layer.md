@@ -19,6 +19,7 @@ Spector is a high-performance cognitive memory and vector search architecture wr
 ## 2. Problem Statement
 
 Prior to this architectural change, Spector suffered from severe hardware coupling and architectural asymmetry:
+
 1. **Asymmetric Hardware Coupling in `spector-core`**: `nucleus/spector-core` contained both domain abstractions and low-level CPU SIMD vector implementations using the Panama Vector API (`jdk.incubator.vector`). This forced all downstream modules depending on `spector-core` to inherit incubator module requirements, violating the principle of a stable, portable foundation core.
 2. **Orphan GPU Acceleration Kernels**: `nucleus/spector-gpu` contained specialized kernels (`CudaHnswKernel`, `CudaSvasqKernel`, `CudaMaxSimKernel`) that were disconnected from indexing classes (`AbstractHnswIndex`, `QuantizedHnswIndex`) and cognitive rerankers (`ColBERTReranker`).
 3. **Scalar Candidate Evaluation in HNSW Traversal**: `AbstractHnswIndex.searchLayer()` evaluated unvisited neighbor candidates one-by-one in a scalar loop rather than dispatching batched candidate sets to SIMD or GPU.

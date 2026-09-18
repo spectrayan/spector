@@ -22,6 +22,7 @@ Continuous cognitive perception captures multi-modal sensory observations compri
 ## 2. Problem Statement
 
 Cognitive memory platforms store extensive autobiographical episodes, identity markers, behavioral telemetry, and relational knowledge graphs. Transmitting or consolidating memories across untrusted edge devices, federated nodes, or cloud analytics introduces major privacy hazards:
+
 1. **Embedding Inversion Attacks**: High-dimensional vector embeddings can be inverted via reconstruction models to recover raw conversational text.
 2. **PII and Identifier Leakage**: Graph nodes and edge attributes containing real-world identities can deanonymize users across conversational episodes.
 3. **Traceability in Scalar Telemetry**: Unperturbed affective signals (valence, arousal, salience) leak cognitive behavioral signatures across sessions.

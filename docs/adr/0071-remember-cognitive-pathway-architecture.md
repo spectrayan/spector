@@ -15,6 +15,7 @@
 ## 1. Context
 
 In cognitive architectures and biological neuroscience, memory encoding (the hippocampal formation converting sensory perceptions into stable engrams) requires strict sequencing:
+
 1. Novelty and surprise detection must precede synaptic consolidation.
 2. Direct cortical storage into persistent media (off-heap memory and write-ahead logs) must be atomic and non-interruptible.
 3. Auxiliary associative indexing (Hebbian co-activation graphs and knowledge graph extraction) must be decoupled so that high-latency operations or external model outages cannot cause data loss.
@@ -24,6 +25,7 @@ Earlier iterations of Spector embedded memory ingestion directly inside ad-hoc s
 ## 2. Problem Statement
 
 The Remember pipeline must satisfy three core architectural requirements:
+
 1. **Deterministic Execution Sequence**: Encode incoming sensory perceptions through a normative sequence of synaptic relays (`DEDUP_GUARD` &rarr; `TAG_TRANSDUCTION` &rarr; `DOPAMINERGIC_SURPRISE` &rarr; `CORTICAL_WRITE` &rarr; `GRAPH_LINKING` &rarr; `KG_ENRICHMENT`).
 2. **Strict Non-Interruptible Write Guarantee**: Writing to off-heap Panama `MemorySegment` buffers and the disk-backed Write-Ahead Log (`MemoryWal`) cannot observe thread interruptions or arbitrary timeouts. An aborted write thread would leave memory segments corrupted and out-of-sync with the WAL.
 3. **Resilient Asynchronous Enrichment**: Knowledge Graph (KG) enrichment that calls external LLMs for entity extraction must execute within a bounded bulkhead and circuit-breaker envelope with graceful degradation if the provider is unavailable.
@@ -82,20 +84,25 @@ flowchart TD
 1. **`DEDUP_GUARD` (Deduplication Guard Relay)**:
    - Evaluates content hashes and sliding temporal windows to detect redundant inputs.
    - Error Policy: `FAIL_FAST` / `BYPASS`.
+
 2. **`TAG_TRANSDUCTION` (Synaptic Tag Transduction Relay)**:
    - Encodes string tags into 64-bit Bloom filter bitmasks and stores them directly into the 64-byte `EncodingHeader`.
    - Error Policy: `FAIL_FAST`.
+
 3. **`DOPAMINERGIC_SURPRISE` (Dopaminergic Surprise & Novelty Relay)**:
    - Computes temporal difference prediction error $\delta = |r - V(s)|$ and novelty salience.
    - Adjusts initial memory importance and emotional valence before persistence.
    - Error Policy: `FAIL_FAST`.
+
 4. **`CORTICAL_WRITE` (Transactional Cortical Write Relay)**:
    - Allocates memory offsets in the active partition slab, appends to `MemoryWal`, and writes to `MemorySegment`.
    - **Resilience Contract**: Deliberately carries **NO timeout** and **NO retry**. It writes directly to mmap memory and the WAL. Neither can observe an interrupt without risking partial unmapped writes.
    - Error Policy: `FAIL_FAST`.
+
 5. **`GRAPH_LINKING` (Associative Graph & Temporal Chain Linking Relay)**:
    - Updates Hebbian co-activation weights (`CoActivationMemory`) and links preceding episode IDs in temporal chains.
    - Error Policy: `DEGRADE_GRACEFULLY`.
+
 6. **`KG_ENRICHMENT` (Knowledge Graph & Entity Extraction Relay)**:
    - Submits task to virtual worker pool for asynchronous NER (Named Entity Recognition).
    - Enveloped by an **8-second timeout**, the shared `llm-provider` circuit breaker, and a **2-permit bulkhead** to prevent LLM saturation.

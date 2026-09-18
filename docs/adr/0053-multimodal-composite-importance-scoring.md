@@ -22,6 +22,7 @@ In cognitive architectures and autobiographical memory systems, not all experien
 Biological episodic memory consolidation is not a photographic recording of all sensory events; rather, it is a ruthlessly selective filtering process modulated by neuromodulators (dopamine, norepinephrine, acetylcholine) and limbic-prefrontal circuits.
 
 In the human brain:
+
 1. **Amygdala-Basolateral Circuitry** computes emotional arousal \(a(o_t)\) and valence \(v(o_t)\), triggering synaptic tagging and capture (STC) for emotionally charged events (Cahill & McGaugh, 1998; McGaugh, 2004).
 2. **Hippocampal Dentate Gyrus & CA1** compute prediction error surprisal \(S(o_t) = -\ln P(o_t \mid \mu_t)\) and representational novelty against established cognitive maps (Kumaran & Maguire, 2006).
 3. **Dorsolateral & Ventromedial PFC** continuously evaluate prospective goal relevance \(\text{GoalRel}(o_t)\) and intentional congruence (Miller & Cohen, 2001).
@@ -34,6 +35,7 @@ This paper formalizes the unified computational architecture for **Composite Imp
 ## 2. Problem Statement
 
 Standard conversational memory frameworks assign flat or simplistic heuristic importance scores (e.g. word counts, entity counts, or naive turn order):
+
 1. **Monolithic Scoring Bias**: Relying on a single heuristic fails to capture complex interactions between emotional valence, surprise, goal relevance, and social cues.
 2. **Flashbulb Memory Omission**: Highly consequential events (e.g. safety emergencies, user corrections, commitments) must be permanently retained with near-zero decay, whereas routine small talk should fade rapidly.
 3. **Computational Bottlenecks**: Computing five multi-modal cognitive metrics sequentially on the JVM heap degrades real-time conversational latency.
@@ -171,6 +173,7 @@ public static float computeImportance(float[] signals, float[] weights) {
 ### Verification Protocol & Test Suites
 
 The implementation must pass:
+
 1. **Analytical Kernel Tests**: Exact mathematical verification for orthogonal and blended vectors.
 2. **Profile Adaptation Tests**: Proper dynamic weight reassignment across all 5 cognitive profiles.
 3. **Multi-Scenario Ingestion Simulation**: 1,000-signal benchmark simulating high-affect emotional disclosures, technical goal executions, and routine background chatter, validating distinct separation in $I(o_t)$ distribution.

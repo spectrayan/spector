@@ -44,6 +44,7 @@ The draft also described **pre-bundle** on-disk files (`semantic.mem`, `episodic
 ## 2. Problem Statement
 
 Operating Spector Memory at scale across multiple data center regions requires high availability without suffering from distributed locking latencies across write paths:
+
 1. **Cross-Region Latency Hazards**: Running cross-region distributed transactions on every memory write destroys sub-millisecond ingestion throughput.
 2. **Blast Radius Containment**: A failure or data corruption event in one geographic region must not take down global memory services.
 3. **Partition Ownership Ambiguity**: Without clear single-writer tenancy, concurrent writes to the same off-heap memory-mapped bundle trigger fatal data corruption.

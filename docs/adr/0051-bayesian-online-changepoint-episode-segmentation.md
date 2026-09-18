@@ -20,6 +20,7 @@ In cognitive architectures and long-running autonomous agents, human-agent dialo
 ### Neurocognitive Foundations: Event Segmentation Theory (EST)
 
 Under **Event Segmentation Theory** (EST; Kurby & Zacks, 2008; Radvansky & Zacks, 2014), cognitive perception continually constructs mental event models. When the current model fails to predict ongoing sensory observations (indicated by an informational spike in predictive coding surprisal or a sudden distribution shift), the human hippocampus and prefrontal cortex:
+
 1. Fire an **event boundary cut**.
 2. Flush and consolidate the transient event buffer into an autobiographical episodic memory chunk.
 3. Reset working generative predictions for the new narrative context.
@@ -29,6 +30,7 @@ Under **Event Segmentation Theory** (EST; Kurby & Zacks, 2008; Radvansky & Zacks
 ## 2. Problem Statement
 
 Standard approaches to conversational episode boundaries suffer from severe practical limitations:
+
 1. **Arbitrary Fixed Chunking**: Segmenting interactions by fixed turn counts (e.g. every 10 turns) slices coherent discussions in half or merges distinct topics into incoherent single episodes.
 2. **Offline Latency**: Retrospective batch clustering (e.g., agglomerative clustering across a full day's logs) cannot establish real-time episodic boundaries needed during live recall.
 3. **Semantic Drift**: Unbounded episodes degrade vector embedding resolution, as averaging diverse embeddings produces diluted centroid representations.

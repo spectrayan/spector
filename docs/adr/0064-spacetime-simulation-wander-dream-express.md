@@ -67,6 +67,7 @@ Dream needs a **simulation clock** \(t_s\), multi-seed mix across ages, higher \
 ## 2. Problem Statement
 
 A naive approach to forward planning simply queries `RecallPathway` with a future timestamp. However:
+
 1. **Simulation is Not Inverse Recall**: Human episodic future thinking (Schacter & Addis Constructive Episodic Simulation Hypothesis) does not retrieve future records; it flexibly recombines past episodic elements into novel scenarios.
 2. **Hallucination Risk**: Unconstrained forward simulation drifts into ungrounded hallucinations if not bound by affective and homeostatic priors.
 3. **Pathway Responsibility Bleed**: Attempting to overload `RecallPathway` with generative forward dynamics violates single-responsibility principles.

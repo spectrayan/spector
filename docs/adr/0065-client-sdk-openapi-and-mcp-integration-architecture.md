@@ -19,6 +19,7 @@
 In [spectrayan/spector#738](https://github.com/spectrayan/spector/issues/738), Nova proposed creating a lightweight, zero-dependency Java/Kotlin Client SDK housed in `synapse/spector-client` to allow JVM applications to connect to Spector without pulling in the heavy engine dependencies (Lucene, vector incubator flags, Panama off-heap, Spring Boot runtime).
 
 In response, Titan proposed an extensive hand-crafted custom Java SDK featuring:
+
 1. Handwritten Java records for all requests and responses.
 2. A custom `Transport` abstraction (`send(String operation, Object payload, Class<T> responseType)`).
 3. Three distinct transports:
@@ -27,6 +28,7 @@ In response, Titan proposed an extensive hand-crafted custom Java SDK featuring:
    - `ProcessTransport` (launching `spector.jar` as a local child process via `ProcessBuilder`)
 
 Project Lead Project Lead raised two critical strategic questions:
+
 1. **OpenAPI for REST SDKs**: Should we use OpenAPI (OpenAPI Generator) for all REST-based SDKs across languages instead of writing custom bespoke SDKs?
 2. **MCP SDK Viability**: Does it make sense to build a client SDK for MCP at all? Aren't they supposed to be a drop-in / plug-and-play standard for agents?
 
@@ -49,6 +51,7 @@ To eliminate confusion across users and documentation, Spector defines three cle
 ## 2. Problem Statement
 
 Providing polyglot developers (Python, TypeScript, Go) with access to Spector's cognitive services requires clear interface boundaries:
+
 1. **Manual SDK Drift**: Hand-writing HTTP client SDKs in multiple languages leads to documentation drift, missing endpoints, and serialization bugs.
 2. **MCP Architecture Confusion**: Conflating Model Context Protocol (MCP) clients with standard HTTP REST client SDKs is an anti-pattern that violates MCP's client-host-server topology.
 3. **Maintenance Overhead**: Maintaining bespoke client code across multiple languages consumes disproportionate engineering capacity.
@@ -86,6 +89,7 @@ graph TD
 2. **Proprietary MCP Client SDKs Break the Abstraction**: If Spector provides a proprietary `SpectorMcpClient` library, what is it for?
    - If an agent uses it, the agent is abandoning standard MCP discovery in favor of a vendor-locked library.
    - If a normal application (non-agent) uses it, the application is tunneling structured database operations through an untyped JSON-RPC `tools/call` envelope rather than using standard REST endpoints.
+
 3. **Loss of HTTP Semantics**: Tunnelling application calls through MCP strips away HTTP status codes (404, 401, 429), path routing, standard HTTP caching, standard load balancers, rate limiters, and OpenAPI schema validation.
 
 ### 3.2 Verdict on MCP
@@ -180,13 +184,16 @@ graph TD
 1. **Refocus Issue #738**:
    - Scope `synapse/spector-client` as an OpenAPI-driven Java Client SDK (Option 2: Generated Models + Fluent Facade).
    - Remove `McpTransport` and `ProcessTransport` from the issue scope.
+
 2. **Standardize OpenAPI Spec in `spector-synapse`**:
    - Add `springdoc-openapi-starter-webmvc-ui` to `synapse/spector-synapse/pom.xml`.
    - Annotate key controllers with clean `@Operation(operationId = "...")` and `@Tag` descriptors.
    - Configure build plugin or CI step to emit `docs/openapi.yaml`.
+
 3. **Align Python SDK (`sdks/python`)**:
    - Transition `sdks/python` from its legacy stdio `spector.jar` launcher to an OpenAPI-generated REST client targeting Spector Synapse.
    - Document standard MCP configuration for Python agent frameworks (e.g. LangChain, CrewAI) to connect to `spector-mcp` directly without the Python SDK.
+
 4. **Publishing Pipeline**:
    - Create GitHub Actions workflow `.github/workflows/generate-sdks.yml` to trigger client generation whenever `openapi.yaml` changes.
 

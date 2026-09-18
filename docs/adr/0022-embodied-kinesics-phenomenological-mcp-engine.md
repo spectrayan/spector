@@ -19,6 +19,7 @@ Spector's digital persona architecture aims to support digital twin continuity (
 ## 2. Problem Statement
 
 Prior to this decision, persona expression was limited to text and SSML acoustic modulation. The system lacked:
+
 1. **Embodied Kinesics & Avatar Dynamics**: Real-time computation of standard facial blendshapes, gaze aversion vectors, and head pose deltas driven by AISME interoceptive state $(V, A, D)$ and cognitive recall load.
 2. **Phenomenological Stream & MCP Exporters**: A unified multi-modal payload compiling pre-verbal introspective monologues, prompt directives, prosody parameters, and facial blendshapes exposed to external runtimes via standard Model Context Protocol (MCP) tools in `synapse/spector-mcp`.
 
@@ -59,6 +60,7 @@ Standardize kinesic output on the 52 Apple ARKit / FACS Action Unit blendshape s
 
 #### D2: Complete 4-Relay Execution Pipeline in `ExpressPathway`
 Structure `ExpressPathway` with 4 sequential gated relays:
+
 1. `IdiolectStylometryRelay`: Injects signature idioms, catchphrases, and prompt rules.
 2. `VocalProsodyRelay`: Computes affective acoustic modulations and SSML tags via `VocalProsodyKernel`.
 3. `EmbodiedKinesicsRelay`: Computes 52 ARKit blendshapes and gaze coordinates via `KinesicBlendshapeKernel`.

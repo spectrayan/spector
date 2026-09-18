@@ -15,6 +15,7 @@
 ## 1. Context
 
 In mammalian cognitive neurobiology, the brain does not allocate equal computational resources to all incoming stimuli:
+
 1. **The Salience Network** (anchored in the anterior insula and dorsal anterior cingulate cortex) acts as an executive sensory filter, continuously evaluating perceptions against internal goals and emotional drives. A firefighter instantly flags the faint smell of smoke as critical while ignoring background conversations.
 2. **Thalamic Gating**: The thalamus modulates which signals reach the cerebral cortex based on current cognitive state. During focused bug fixing, error signals are amplified while unrelated memories are suppressed; during creative brainstorming, filters broaden to allow distant associative analogies.
 
@@ -23,6 +24,7 @@ Earlier memory systems lacked structured attention modeling, forcing AI agents t
 ## 2. Problem Statement
 
 Modeling cognitive attention in AI agents introduces three concrete engineering problems:
+
 1. **Multi-Tier Scope Governance**: An enterprise deployment must enforce organizational memory guidelines (`Tenant`), while allowing specialized agents (`Agent`, e.g., Senior Architect vs. Support Bot) and individual human users (`User`) to customize attention priorities.
 2. **Natural Language Interest Matching**: Users express interests in natural language (e.g., *"Kubernetes network policies"*), not rigid database tags. Matching must be semantic, vector-based, and pre-computed to avoid runtime latency.
 3. **Neurodivergent & Task-Specific Cognitive Profiles**: Different cognitive tasks require radically different retrieval regimes (e.g., debugging needs recent errors, deep research needs zero time decay, creative exploration needs lateral jumps).

@@ -254,6 +254,7 @@ Maven module added to the reactor POM.
    - extract `RoutingKey` via `RoutingKeyExtractor`
    - subscribe the request body as a stream into `GatewayForwarder`
    - copy status + allowed headers + body to the client with backpressure
+
 3. Bind `WaterfallRoutingResolver` the same way `ClusterRoutingConfiguration` does: `OwnershipResolver` ring supplier, optional `LettuceRedisRoutingCache`, `RoutingInvalidationSubscriber`.
 4. Node URL resolver: existing `GatewayForwarder.defaultNodeUrlResolver(7070)` plus Helm headless DNS members already injected as `SPECTOR_CELL_RING_MEMBERS`.
 5. Structured errors use ADR-0070 codes already emitted by the filter: `PAYLOAD_TOO_LARGE`, `GATEWAY_ROUTING_FAILURE`.

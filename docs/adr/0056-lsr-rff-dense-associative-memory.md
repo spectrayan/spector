@@ -29,6 +29,7 @@ ADR-0011 (AISME Phase 3) successfully introduced the **Continuous Modern Hopfiel
 ## 2. Problem Statement
 
 Standard associative recall mechanisms face severe limitations in production cognitive architectures:
+
 1. **Iterative Convergence Latency**: Classical and modern continuous Hopfield networks require multiple numerical settlement loops, making latency non-deterministic.
 2. **Exponential Tail Interference**: Softmax attention functions evaluate over all stored memory tokens, allowing distant, irrelevant memories to leak noise into recalled patterns.
 3. **Linear Scan Overhead in Dreaming**: Simulating spontaneous mind-wandering and dreaming requires evaluating global free-energy landscapes, which scales poorly when computed against millions of individual memory vectors.

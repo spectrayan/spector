@@ -15,6 +15,7 @@
 ## 1. Context
 
 In cognitive memory retrieval, biological memory access is neither a pure vector distance calculation nor a simple keyword match. Human recall is an active inference process:
+
 1. Retrieval is modulated by current emotional state and homeostatic balance (hypothalamic/amygdala bias).
 2. Semantic concepts trigger associative spreading activation across associative neural networks (Hebbian graphs).
 3. Prospective reminders and temporal event boundaries shape candidate filtering.
@@ -25,6 +26,7 @@ Earlier versions of Spector used fragmented recall pipelines where HNSW search, 
 ## 2. Problem Statement
 
 Cognitive recall requires solving several interdependent challenges:
+
 1. **Remote Dependency Isolation**: The only stage leaving the local JVM process on the retrieval hot path is query transduction (generating an embedding vector from the search text). It must be protected with strict timeouts, transient retries, and circuit-breaker trip states.
 2. **Hybrid Multi-Modal Fusion**: Merging dense vector search (HNSW / Panama SIMD scan), exact lexical search (SIMD BM25), associative graph traversal, and spacetime vector projections into a normalized ranking.
 3. **Adaptive Cognitive Modulation**: Dynamically activating Active Inference Self-Model Engine (AISME) stages (homeostatic bias, free-energy guidance, manifold reranking) without degrading performance for non-AISME queries.

@@ -109,6 +109,7 @@ These are currently split between the prefix (`WalkPrefix` holds sequence) and p
 ## 5. Decision Outcome
 
 ### Core Principles
+
 1. **All four memory types — Episodic, Semantic, Procedural, Working — are engrams.** The engram is the fundamental unit of the memory model (MF-001 §4.2). Physical storage shape (fixed-stride vs append-only) does not determine cognitive identity.
 2. **Expand the `EngramMemory` interface** so that all four tier stores implement it, regardless of their physical layout inheritance (`AbstractRecordMemory` vs `AbstractAppendMemory`). The name follows the existing `*Memory` naming convention (`SemanticMemory`, `ProceduralMemory`, `WorkingMemory`, `EpisodicMemory`).
 3. **Share a common cognitive substrate** (18 bytes) within the existing 64-byte `EncodingHeader` across all four tiers. These fields have identical meaning and byte layout everywhere.

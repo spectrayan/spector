@@ -26,6 +26,7 @@ Directly coupling the memory kernel to specific cloud vendor SDKs (such as OpenA
 ## 2. Problem Statement
 
 The provider integration layer must fulfill several strict architectural criteria:
+
 1. **Complete Vendor Decoupling**: Core modules (`spector-core`, `spector-kernel`, `spector-memory`) must depend exclusively on a clean, minimal SPI with zero external HTTP client or vendor library dependencies.
 2. **Multimodal Content Representation**: Seamless support for structured multimodal content blocks (`TextContent`, `ImageContent`, `AudioContent`, `DocumentContent`) across chat and completion requests.
 3. **High-Throughput Parallel Batch Pipelines**: Batch embedding generation must support non-blocking asynchronous pipelining (`ParallelEmbeddingPipeline`) and client-side LRU caching (`CachingEmbeddingProvider`) to saturate GPU/accelerator inference throughput.
@@ -96,9 +97,11 @@ graph TD
    - `TokenEmbeddingProvider`: Produces multi-vector token embeddings for ColBERT late-interaction reranking.
    - `ParallelEmbeddingPipeline`: Manages asynchronous queue dispatch, batching inputs up to `batchSize` before issuing vectorized network/SIMD calls.
    - `CachingEmbeddingProvider`: Thread-safe caching wrapper eliminating redundant embedding calls for identical text gists.
+
 2. **`LlmProvider` Hierarchy**:
    - `LlmProvider`: Handles synchronous and streaming completions with `LlmRequest` containing structured `ChatMessage` records.
    - `GenerationOptions`: Parameterizes temperature, top-P, frequency penalty, presence penalty, and max output tokens.
+
 3. **Multimodal Data Model**:
    - Content blocks encapsulate polymorphic modalities: `TextContent`, `ImageContent` (MIME type + base64/URL), `AudioContent`, and `DocumentContent`.
 

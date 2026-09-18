@@ -52,6 +52,7 @@ Review against the live codebase (`HeaderLayout64` / V2 64-byte cache-line heade
 ## 2. Problem Statement
 
 Standard approaches to conversational memory search treat space and time as independent, orthogonal metadata filters:
+
 1. **The Orthogonality Trap**: Filtering first by vector similarity and then applying hard timestamp or location cutoffs causes relevant contextual memories to be dropped prematurely.
 2. **Arbitrary Bounding Boxes**: Hard spatial radius thresholds (e.g. within 5 km) or temporal windows (e.g. past 7 days) create cliff effects where relevant memories just outside the boundary are completely missed.
 3. **High Latency in Hybrid Scoring**: Calculating custom non-Euclidean spacetime distance metrics on the JVM heap degrades recall query latency.

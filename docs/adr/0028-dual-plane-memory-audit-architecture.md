@@ -78,6 +78,7 @@ The 64-byte header was designed to match a single CPU cache line (64 bytes). How
 The Synaptic Header is bumped to `header_version = 2`. All mutable runtime counters are excised from the header cache line.
 
 The freed space is leveraged to:
+
 1. **Upgrade Synaptic Tags Bloom Filter to 128-Bit (16 Bytes)**: Offsets 24–39 now hold a 128-bit double-hash Bloom filter, reducing false-positive rates during pre-filtering from ~3.2% down to <0.05% across 100K concepts.
 2. **Establish 16-Byte Reserved Gating Block**: Offsets 48–63 provide future-proof reserved capacity for holographic manifold representations, Riemannian curvature invariants, and multi-modal sensory routing without requiring further header size shifts.
 
@@ -113,9 +114,11 @@ Instead of creating separate strength/audit regions per tier (`AUDIT_SEMANTIC`, 
 > **Diagnostic CLI (`spector-inspect`) Drift**: For on-disk backward compatibility, `StrengthLayout.LAYOUT_ID` remains pinned to `0x41554454` (`'AUDT'`), while `RegionId(4)` is `STRENGTH`. Consequently, `spector-inspect bundle` displays `Region ID: STRENGTH` alongside `Layout ID: 0x41554454 ("TDUA" / 'AUDT')`.
 
 #### Architectural Design of Unified Strength Space:
+
 1. **Memory Type Ordinal Embedded**: The `StrengthLayout` embeds the `memoryType` ordinal (2 bits in `audit_flags`), matching the memory type bits in `SynapticHeaderConstants.FLAG_TYPE_MASK`.
 2. **Cumulative Slot Indexing**: The total capacity of the strength region equals $C_{\text{total}} = C_{\text{semantic}} + C_{\text{episodic}} + C_{\text{procedural}}$. Addressing is computed by cumulative tier base offsets:
    $$\text{strengthOffset}(\text{tier}, \text{slot}) = (\text{tierBaseSlot}(\text{tier}) + \text{slot}) \times \text{recordStride}$$
+
 3. **Parity with Text Region**: Just as `RegionId.TEXT` in `PartitionBundle` serves all tiers as a single shared text blob store, `RegionId.STRENGTH` serves all tiers as a single shared strength store.
 
 ```
@@ -183,6 +186,7 @@ To fulfill **MF-001 (Memory Model Algebra & Conformance Rules)** and **Issue #17
 2. **Binary Provenance Record (`ProvenanceEntry`)**:
    - `timestamp_ms` (8B), `target_memory_id` (16B TSID), `operation_code` (1B: `INGEST`, `CONSOLIDATE`, `RECONSOLIDATE`, `REINFORCE`, `FORGET`, `RETRACT`, `SIMULATE_COMMIT`).
    - `source_uri_hash` (8B), `parent_trace_count` (2B), `parent_trace_ids` (variable array of parent TSIDs collapsed during semantic reflection), `lineage_diff` (text/binary delta).
+
 3. **Difference from `MemoryWal`**: While `MemoryWal` is a short-lived, rolling recovery log compacted during checkpoints, the `PROVENANCE_LOG` is an **immutable longitudinal audit chronicle** that guarantees full explainability: *"Why does the agent know this fact, which raw episodes were synthesized to form it, and when was it modified?"*
 
 ---

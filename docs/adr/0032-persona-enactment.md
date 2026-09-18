@@ -227,6 +227,7 @@ The incoming problem is fed into the persona's `ContinuousHopfieldNetwork`. The 
 
 #### C. Active Policy Inference (Expected Free Energy)
 `PolicyInferenceEngine` evaluates candidate policies from `PolicyType`:
+
 1. `PRAGMATIC_EXPLOITATION`: Direct problem-solving and immediate task execution.
 2. `EPISTEMIC_EXPLORATION`: Deep investigation and associative search across sparse memory clusters.
 3. `CLARIFYING_INTERACTION`: Active dialogue to reduce ambiguity when query entropy is high.
@@ -257,6 +258,7 @@ This deliberation:
 ### D4. Conflict Resolution Order (Normative Precedence)
 
 When internal signals disagree, resolution proceeds in strict order:
+
 1. **PEP / Legal Hold / Tenant Floor** (ADR-0029) — Hard non-negotiable security boundary.
 2. **Hard Guardrails** (`AgentSoul.ethicalGuardrails` and ancestor soul constraints) — Absolute vetoes.
 3. **Hopfield Attractor Basins & High-Confidence Procedural Playbooks ($N \ge 3$)** — Deeply ingrained mental models and habits.
@@ -293,8 +295,10 @@ Tone modulation affects style only; it cannot alter facts or bypass stance invar
 
 #### Turn-by-Turn Lived Writes (Hot Path)
 After a waking `react` or `decide` turn that executed:
+
 1. `EnactmentLearner` writes an Episodic trace tagged `lived`, `reaction`, `enactment`:
    $$\text{Trace} = \{\text{problem}, \text{appraisal}, \text{attractor}, \text{deliberation}, \text{act}, \text{outcome}\}$$
+
 2. `HomeostaticCore` steps its SDE, recording residual interoceptive state into Working memory.
 3. `MentalStateTracker` updates its continuous posterior $q(s_t)$.
 

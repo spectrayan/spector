@@ -25,6 +25,7 @@ To solve this, Spector integrates all retrieval signals directly into the off-he
 ## 2. Problem Statement
 
 Cognitive recall requires evaluating five distinct signal dimensions simultaneously across millions of candidate records:
+
 1. **Semantic Similarity**: Dense vector proximity (L2, Cosine, Dot Product) computed via SIMD instructions.
 2. **Temporal Decay**: Ebbinghaus power-law or exponential forgetting curves attenuating older, non-reinforced memories.
 3. **Emotional Valence & Somatic Markers**: Filtering by emotional polarity (positive, neutral, negative) and arousal levels.
@@ -90,16 +91,21 @@ flowchart TD
 
 1. **Phase 1: Tombstone Bit-Test (~1 CPU cycle)**:
    - Reads the record allocation flags. If the tombstone bit is set, the slot is immediately skipped.
+
 2. **Phase 2: Synaptic Tag Bloom Filter AND-Mask (~1 CPU cycle)**:
    - Performs a 64-bit bitwise AND between the query tag mask and the candidate engram tag mask. If required tags are absent, the candidate is discarded.
+
 3. **Phase 3: Emotional Valence Range Check (~2 CPU cycles)**:
    - Verifies whether the candidate valence byte falls within $[V_{\\min}, V_{\\max}]$ (e.g., filtering for negative memories during debugging modes).
+
 4. **Phase 4: Importance & Temporal Decay Threshold (~5 CPU cycles)**:
    - Computes temporal decay factor:
      $$\\text{DecayFactor} = (1.0 + \\lambda \\cdot \\Delta t)^{-\\gamma}$$
    - If $\\text{Importance} \\cdot \\text{DecayFactor} < \\text{Threshold}$, the memory is too decayed to compete and is pruned before SIMD execution.
+
 5. **Phase 5: SIMD Quantized Vector Distance (~200 CPU cycles)**:
    - Executes SIMD-accelerated distance computation (dot product, cosine similarity, or Euclidean distance) using Java Panama Vector API or native kernels.
+
 6. **Phase 6: Fused Cognitive Score Formulation (~7 CPU cycles)**:
    - Computes the final composite ranking score incorporating semantic similarity, decay, valence modulation, and Hebbian graph priors.
 

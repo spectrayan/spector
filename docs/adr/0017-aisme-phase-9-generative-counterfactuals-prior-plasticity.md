@@ -49,9 +49,11 @@ Treating episodic memory solely as a passive recording prevents the agent from s
 **Chosen Option**: Option 3 (Sleep-Consolidated Prior Plasticity & Constructive Simulation Relay).
 
 ### Key Architectural Mechanisms:
+
 1. **Constructive Episodic Simulation & Counterfactual Recombination**:
    - Enhanced `ConstructiveSimulationRelay` to detect complementary, high-salience memories aligned with the persona's autobiographical narrative prior.
    - Recombines complementary episodes into synthesized counterfactual scenario representations tagged `[simulated, counterfactual, constructive]` (`MemoryType.EPISODIC`, `MemorySource.REFLECTED`).
+
 2. **Generative Prior Mean Plasticity During Sleep Consolidation**:
    - Added `withAdaptedPriorMean` in `GenerativeSelfModel` and thread-safe `adaptPriorMean` in `MentalStateTracker`.
    - During REM sleep reflection (`SoulDriftRefusionRelay` / `ReflectPathway`), computes the moving centroid of autobiographical memories $\mathbf{c}_{\text{autobio}}$ and adapts the generative prior mean:

@@ -24,6 +24,7 @@ In the biological brain, wakefulness increases synaptic strength across cortical
 
 ### 1.2 Autobiographical Memory Stratification
 Human long-term memory organizes experiences into hierarchical tiers (Conway & Pleydell-Pearce, 2000):
+
 1. **Lifetime Periods & Milestones (Core Tier)**: Invariant anchors representing lifetime milestones and relationships.
 2. **General Events (Flavour Tier)**: Consolidated schema representing recurring routines and task skills.
 3. **Event-Specific Knowledge (Ephemeral Tier)**: Fine-grained perceptual details that undergo rapid exponential decay unless integrated into general schemas.
@@ -33,6 +34,7 @@ Human long-term memory organizes experiences into hierarchical tiers (Conway & P
 ## 2. Problem Statement
 
 Long-lived cognitive agents accumulating memories continuously face severe storage and retrieval degradation:
+
 1. **Linear Memory Bloat**: Without active forgetting, memory stores expand indefinitely, degrading search latency and exhausting memory-mapped resources.
 2. **Retrieval Signal Dilution**: Decades-old trivia and ephemeral conversations clutter vector and graph recall indices, drowning out salient facts.
 3. **Naive Time-Based Expiration**: Fixed TTLs (Time-To-Live) arbitrarily destroy valuable historic milestones and learned user preferences simply because they occurred in the past.

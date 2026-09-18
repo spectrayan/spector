@@ -19,6 +19,7 @@ AI agents engaged in continuous interaction require conversational memory that c
 ## 2. Problem Statement
 
 Traditional naive RAG approaches suffer from three severe conversational memory failures:
+
 1. **Loss of temporal continuity**: Retrieving individual dialogue turns via cosine similarity loses conversational context and turn order.
 2. **Speaker attribution collapse**: Inability to differentiate between user inputs, agent responses, tool execution results, and environmental observations.
 3. **Context window saturation**: Storing raw verbatim transcripts rapidly exceeds LLM context windows, requiring intelligent summarization and episodic clustering.

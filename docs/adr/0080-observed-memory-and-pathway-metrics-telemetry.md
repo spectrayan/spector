@@ -15,6 +15,7 @@
 ## 1. Context
 
 Spector's cognitive architecture executes multi-stage, high-concurrency workflows across off-heap Panama FFM storage, vector similarity kernels, and external multimodal LLM/embedding endpoints:
+
 1. **Multi-Stage Cognitive Pathways**: `RememberRecipe`, `RecallRecipe`, and `ReflectRecipe` chain up to 22 sequential and parallel relays (biological encoding, episodic consolidation, active inference retrieval, sleep synthesis).
 2. **Asynchronous Background Processing**: Model B `SpectorTaskQueue` manages background consolidation, engram decay, and reflection sweeps on virtual threads.
 3. **External Model Inference**: Remote LLM and embedding providers introduce variable network latencies, rate limits, and transient failures.
@@ -24,6 +25,7 @@ Operating this cognitive engine in production requires end-to-end observability.
 ## 2. Problem Statement
 
 Instrumenting a cognitive memory engine introduces three major architectural challenges:
+
 1. **Instrumentation Proliferation & Core Pollution**: Injecting telemetry calls directly into domain kernels and math algorithms creates invasive boilerplate, couples engine logic to monitoring vendors, and increases cognitive debt.
 2. **Metrics vs. Tracing Divergence**: Maintaining separate metrics collectors (e.g., Prometheus counters) and distributed tracing instrumentations (e.g., OpenTelemetry spans) causes tag drift, duplicate latency measurements, and code duplication.
 3. **Zero Overhead Hot-Path Requirement**: Observability hooks must execute with negligible overhead when enabled and zero allocation cost when disabled, without stalling off-heap SIMD vector pipelines.

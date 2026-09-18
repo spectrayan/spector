@@ -67,6 +67,7 @@ Working memory remains NF6-exempt.
 ## 2. Problem Statement
 
 Prior to this architectural decision, the transition from fixed-size legacy records to variable-length episodic storage was incomplete:
+
 1. **Dual Write Universes**: Episodic logs and text/vector stores maintained independent write paths, leading to potential inconsistency and split-brain states where index records existed without corresponding durable engrams.
 2. **Scattered Headers**: Memory metadata and flags were partially stored in secondary header slabs and partially on payload records, violating Single Source of Truth principles.
 3. **Facade Bloat**: `DefaultSpectorMemory` grew into an unmaintainable monolithic class attempting to implement dozens of unrelated orchestration and data access responsibilities.
@@ -110,6 +111,7 @@ Prior to this architectural decision, the transition from fixed-size legacy reco
    - `SemanticMemory` — facts
    - `ProceduralMemory` — skills
    - `WorkingMemory` — evictable thoughts
+
 3. Place the **encoding header** on the record itself (episode prefix or fact/skill slot). Do not invent `HEADER_SLAB` as a source of truth. A derived header scan file is allowed later if walks show up in p99.
 4. Keep **strength** (`D`, `S`, use counts) off the episode record. Rename `RegionId.AUDIT` → `RegionId.STRENGTH` (keep numeric id 4) and `AuditRecordMemory` → `StrengthRecordMemory`.
 5. One write verb: `SpectorMemory.remember(..., MemoryType.EPISODIC, ...)`. `rememberEpisodic(...)` becomes a compatibility default that fills `IngestionContext` and calls the same `RememberPathway`.
