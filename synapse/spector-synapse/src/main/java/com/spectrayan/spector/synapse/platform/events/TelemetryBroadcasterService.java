@@ -1,17 +1,14 @@
 /*
  * Copyright 2026 Spectrayan
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Business Source License 1.1 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *     https://github.com/spectrayan/spector/blob/main/spector-synapse/LICENSE
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Change Date: July 6, 2030
+ * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.synapse.platform.events;
 
@@ -27,7 +24,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.atomic.AtomicLong;
+
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 
 /**
  * Background service that streams periodic diagnostic telemetry and live performance metrics
@@ -41,16 +40,12 @@ public class TelemetryBroadcasterService {
     private final EventPublisher eventPublisher;
     private final MemoryRegistry userMemoryRegistry;
     private final ObjectProvider<SpectorMemory> memoryProvider;
+    private final MeterRegistry meterRegistry;
 
     @Value("${spector.memory.decay.baseline-half-life-days:180}")
     private int baselineHalfLifeDays = 180;
 
-    // Rolling ops/sec tracking
-    private final AtomicLong recallCount = new AtomicLong(0);
-    private final AtomicLong rememberCount = new AtomicLong(0);
-    private final AtomicLong reinforceCount = new AtomicLong(0);
-    private final AtomicLong forgetCount = new AtomicLong(0);
-
+    // Rolling ops/sec tracking via MeterRegistry timer count snapshots (ADR-0083)
     private long lastTickTimestamp = System.currentTimeMillis();
     private long lastRecallSnapshot = 0;
     private long lastRememberSnapshot = 0;
@@ -64,16 +59,13 @@ public class TelemetryBroadcasterService {
     public TelemetryBroadcasterService(
             EventPublisher eventPublisher,
             ObjectProvider<MemoryRegistry> userMemoryRegistryProvider,
-            ObjectProvider<SpectorMemory> memoryProvider) {
+            ObjectProvider<SpectorMemory> memoryProvider,
+            ObjectProvider<MeterRegistry> meterRegistryProvider) {
         this.eventPublisher = eventPublisher;
         this.userMemoryRegistry = userMemoryRegistryProvider.getIfAvailable();
         this.memoryProvider = memoryProvider;
+        this.meterRegistry = meterRegistryProvider != null ? meterRegistryProvider.getIfAvailable() : null;
     }
-
-    public void recordRecall() { recallCount.incrementAndGet(); }
-    public void recordRemember() { rememberCount.incrementAndGet(); }
-    public void recordReinforce() { reinforceCount.incrementAndGet(); }
-    public void recordForget() { forgetCount.incrementAndGet(); }
 
     /**
      * Heartbeat task running every 2 seconds:
@@ -90,14 +82,14 @@ public class TelemetryBroadcasterService {
             Map<String, Object> diag = buildDiagnosticsMap(memory);
             eventPublisher.cortexEvent("cortex.memory.diagnostic", diag);
 
-            // 2. Rolling ops/sec metrics tick
+            // 2. Rolling ops/sec metrics tick — read counts from MeterRegistry (ADR-0083)
             long now = System.currentTimeMillis();
             double dtSec = Math.max(0.5, (now - lastTickTimestamp) / 1000.0);
 
-            long curRecall = recallCount.get();
-            long curRemember = rememberCount.get();
-            long curReinforce = reinforceCount.get();
-            long curForget = forgetCount.get();
+            long curRecall = timerCount("spector.memory.recall");
+            long curRemember = timerCount("spector.memory.remember");
+            long curReinforce = timerCount("spector.memory.reinforce");
+            long curForget = timerCount("spector.memory.forget");
 
             double recallRate = Math.max(0.0, (curRecall - lastRecallSnapshot) / dtSec);
             double rememberRate = Math.max(0.0, (curRemember - lastRememberSnapshot) / dtSec);
@@ -339,5 +331,15 @@ public class TelemetryBroadcasterService {
             } catch (Exception ignored) {}
         }
         return memoryProvider != null ? memoryProvider.getIfAvailable() : null;
+    }
+
+    /**
+     * Reads the cumulative timer count for the given metric name from the MeterRegistry.
+     * Returns 0 if the registry is null or the timer has not been created yet (cold start).
+     */
+    private long timerCount(String metricName) {
+        if (meterRegistry == null) return 0;
+        Timer timer = meterRegistry.find(metricName).timer();
+        return timer != null ? timer.count() : 0;
     }
 }

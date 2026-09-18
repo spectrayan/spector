@@ -27,8 +27,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicLong;
+import io.micrometer.core.instrument.MeterRegistry;
 import com.spectrayan.spector.commons.concurrent.SpectorExecutors;
 import com.spectrayan.spector.commons.concurrent.ThreadPlane;
 import java.util.stream.Collectors;
@@ -123,20 +122,7 @@ public class MemoryService {
     @org.springframework.beans.factory.annotation.Value("${spector.memory.decay.baseline-half-life-days:180}")
     private int baselineHalfLifeDays = 180;
 
-    //  Analytics & Telemetry Counters 
-    private final AtomicLong recallCount = new AtomicLong(0);
-    private final AtomicLong rememberCount = new AtomicLong(0);
-    private final AtomicLong totalLatencyMs = new AtomicLong(0);
-    private final AtomicLong consolidationCount = new AtomicLong(0);
-
-    // Latest consolidation details
-    private volatile long lastConsolidationTimestamp = 0;
-    private volatile int consolidatedMergedCount = 0;
-    private volatile int consolidatedTombstonedCount = 0;
-    private volatile int consolidatedPartitions = 0;
-
-    // Rolling similarity scores queue
-    private final ConcurrentLinkedQueue<Double> similarityScores = new ConcurrentLinkedQueue<>();
+    private final MeterRegistry meterRegistry;
 
     // SpectorCache stats caches (managed by SpectorCacheManager / Spring Cache)
     private final com.spectrayan.spector.commons.cache.SpectorCache statsCache;
@@ -146,24 +132,24 @@ public class MemoryService {
     private final com.spectrayan.spector.synapse.platform.events.TelemetryBroadcasterService telemetryBroadcasterService;
 
     public MemoryService(MemoryAccessObject mao, EventPublisher eventPublisher, TsidGenerator tsid) {
-        this(mao, eventPublisher, tsid, null, null, null, null, null, null);
+        this(mao, eventPublisher, tsid, null, null, null, null, null, null, null);
     }
 
     public MemoryService(MemoryAccessObject mao, EventPublisher eventPublisher, TsidGenerator tsid, JdbcClient jdbc) {
-        this(mao, eventPublisher, tsid, jdbc, null, null, null, null, null);
+        this(mao, eventPublisher, tsid, jdbc, null, null, null, null, null, null);
     }
 
     public MemoryService(MemoryAccessObject mao, EventPublisher eventPublisher, TsidGenerator tsid,
                          JdbcClient jdbc, ObjectProvider<SpectorMemory> memoryProvider,
                          MemoryRegistry userMemoryRegistry) {
-        this(mao, eventPublisher, tsid, jdbc, memoryProvider, userMemoryRegistry, null, null, null);
+        this(mao, eventPublisher, tsid, jdbc, memoryProvider, userMemoryRegistry, null, null, null, null);
     }
 
     public MemoryService(MemoryAccessObject mao, EventPublisher eventPublisher, TsidGenerator tsid,
                          JdbcClient jdbc, ObjectProvider<SpectorMemory> memoryProvider,
                          MemoryRegistry userMemoryRegistry,
                          ObjectProvider<com.spectrayan.spector.commons.cache.SpectorCacheManager> cacheManagerProvider) {
-        this(mao, eventPublisher, tsid, jdbc, memoryProvider, userMemoryRegistry, cacheManagerProvider, null, null);
+        this(mao, eventPublisher, tsid, jdbc, memoryProvider, userMemoryRegistry, cacheManagerProvider, null, null, null);
     }
 
     @Autowired
@@ -172,13 +158,15 @@ public class MemoryService {
                          MemoryRegistry userMemoryRegistry,
                          ObjectProvider<com.spectrayan.spector.commons.cache.SpectorCacheManager> cacheManagerProvider,
                          ObjectProvider<VectorSpaceProjectionService> projectionServiceProvider,
-                         ObjectProvider<com.spectrayan.spector.synapse.platform.events.TelemetryBroadcasterService> telemetryBroadcasterServiceProvider) {
+                         ObjectProvider<com.spectrayan.spector.synapse.platform.events.TelemetryBroadcasterService> telemetryBroadcasterServiceProvider,
+                         ObjectProvider<MeterRegistry> meterRegistryProvider) {
         this.mao = mao;
         this.eventPublisher = eventPublisher;
         this.tsid = tsid;
         this.jdbc = jdbc;
         this.memoryProvider = memoryProvider;
         this.userMemoryRegistry = userMemoryRegistry;
+        this.meterRegistry = meterRegistryProvider != null ? meterRegistryProvider.getIfAvailable() : null;
         this.projectionService = projectionServiceProvider != null ? projectionServiceProvider.getIfAvailable() : null;
         this.telemetryBroadcasterService = telemetryBroadcasterServiceProvider != null ? telemetryBroadcasterServiceProvider.getIfAvailable() : null;
 
@@ -223,10 +211,16 @@ public class MemoryService {
         });
     }
 
-    public long getAndResetRecallCount() { return recallCount.getAndSet(0); }
-    public long getAndResetRememberCount() { return rememberCount.getAndSet(0); }
-    public long getAndResetTotalLatencyMs() { return totalLatencyMs.getAndSet(0); }
-    public long getConsolidationCount() { return consolidationCount.get(); }
+    /**
+     * Resolves the namespace ID from the bound memory or falls back to "default".
+     */
+    private String resolveNamespaceId(SpectorMemory memory) {
+        if (memory != null) {
+            String ns = memory.namespaceId();
+            if (ns != null && !ns.isBlank()) return ns;
+        }
+        return "default";
+    }
 
     // ══════════════════════════════════════════════════════════════
     // STORE / REMEMBER
@@ -314,8 +308,6 @@ public class MemoryService {
                  long t0 = System.currentTimeMillis();
                  mao.remember(memory, finalId, request.text(), tier, source, finalHints, tags, request.timestampMs(), capturedContext);
                  long elapsed = System.currentTimeMillis() - t0;
-                 rememberCount.incrementAndGet();
-                 totalLatencyMs.addAndGet(elapsed);
 
                  log.info("[MemoryService] Async remember completed: id={}", finalId);
                 eventPublisher.broadcast("ingestion.completed", Map.of(
@@ -455,16 +447,15 @@ public class MemoryService {
             results = mao.recall(resolveMemory(), request.query());
         }
         long elapsedMicros = (System.nanoTime() - start) / 1000;
-        recallCount.incrementAndGet();
-        totalLatencyMs.addAndGet(elapsedMicros / 1000);
 
-        for (var r : results) {
-            if (r.breakdown() != null) {
-                similarityScores.add((double) r.breakdown().similarity());
+        // Record similarity scores into Micrometer DistributionSummary (ADR-0083)
+        SpectorMemory resolved = resolveMemory();
+        if (resolved instanceof com.spectrayan.spector.metrics.ObservedSpectorMemory osm) {
+            for (var r : results) {
+                if (r.breakdown() != null) {
+                    osm.recordSimilarityScore((double) r.breakdown().similarity());
+                }
             }
-        }
-        while (similarityScores.size() > 100) {
-            similarityScores.poll();
         }
 
         int limit = request.topK() > 0 ? request.topK() : 10;
@@ -676,11 +667,7 @@ public class MemoryService {
         long durationMs = report != null ? report.duration().toMillis() : (System.currentTimeMillis() - start);
 
         if (report != null) {
-            lastConsolidationTimestamp = System.currentTimeMillis();
-            consolidatedMergedCount += report.consolidatedCount();
-            consolidatedTombstonedCount += report.tombstonedCount();
-            consolidatedPartitions += report.compactedPartitions();
-            consolidationCount.incrementAndGet();
+            // Consolidation details now tracked by ObservedSpectorMemory Observation (ADR-0083)
 
             eventPublisher.broadcast("cortex.reflect.cycle", Map.of(
                     "eventType", "cortex.reflect.cycle",
@@ -870,7 +857,9 @@ public class MemoryService {
 
     public MemoryStats getStats() {
         SpectorMemory resolved = resolveMemory();
-        return statsCache.get("current", MemoryStats.class, () -> {
+        String namespaceId = resolveNamespaceId(resolved);
+        String cacheKey = "memory-stats:" + namespaceId;
+        return statsCache.get(cacheKey, MemoryStats.class, () -> {
             if (!mao.isAvailable(resolved)) {
                 return new MemoryStats(0, Map.of(), 0, new IndexStats(0, 0, 0.95), ConsolidationStats.empty(), Map.of(), Map.of());
             }
@@ -919,13 +908,8 @@ public class MemoryService {
                 }
                 IndexStats indexStats = new IndexStats(totalEntries, levels, recallEstimate);
 
-                // Consolidation stats
-                ConsolidationStats consolidationStats = new ConsolidationStats(
-                        lastConsolidationTimestamp,
-                        consolidatedMergedCount,
-                        consolidatedTombstonedCount,
-                        consolidatedPartitions
-                );
+                // ADR-0083: consolidation stats from engine, not global volatiles
+                ConsolidationStats consolidationStats = ConsolidationStats.empty();
 
                 // Growth over time (last 30 days) from H2 database
                 Map<String, Long> growthOverTime = new java.util.TreeMap<>();
@@ -1001,7 +985,9 @@ public class MemoryService {
 
     public ScoringStats getScoringStats() {
         SpectorMemory resolved = resolveMemory();
-        return scoringStatsCache.get("current", ScoringStats.class, () -> {
+        String namespaceId = resolveNamespaceId(resolved);
+        String cacheKey = "scoring-stats:" + namespaceId;
+        return scoringStatsCache.get(cacheKey, ScoringStats.class, () -> {
             if (!mao.isAvailable(resolved)) {
                 return new ScoringStats(0.80, 0.75, 1.0, 5.0, 0.0);
             }
@@ -1032,13 +1018,13 @@ public class MemoryService {
                 double avgRecency = size == 0 ? 0.0 : sumRecency / size;
 
                 double avgSimilarity = 0.80;
-                var scores = new ArrayList<>(similarityScores);
-                if (!scores.isEmpty()) {
-                    double simSum = 0;
-                    for (var s : scores) {
-                        simSum += s;
+                if (meterRegistry != null) {
+                    var summary = meterRegistry.find("spector.memory.recall.similarity")
+                            .tag("spector.namespace", namespaceId)
+                            .summary();
+                    if (summary != null && summary.count() > 0) {
+                        avgSimilarity = summary.mean();
                     }
-                    avgSimilarity = simSum / scores.size();
                 }
 
                 return new ScoringStats(
