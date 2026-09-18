@@ -318,7 +318,7 @@ public class SpectorAutoConfiguration {
             }
 
             if (obsRegistry != null && obsConfig != null) {
-                return new com.spectrayan.spector.metrics.ObservedSpectorMemory(raw, obsRegistry, obsConfig);
+                return new com.spectrayan.spector.metrics.ObservedSpectorMemory(raw, obsRegistry, obsConfig, registry);
             }
 
             return raw;

@@ -1,14 +1,17 @@
 /*
  * Copyright 2026 Spectrayan
  *
- * Licensed under the Business Source License 1.1 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     https://github.com/spectrayan/spector/blob/main/spector-synapse/LICENSE
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Change Date: July 6, 2030
- * Change License: Apache License, Version 2.0
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package com.spectrayan.spector.synapse.platform.events;
 
@@ -45,12 +48,9 @@ public class TelemetryBroadcasterService {
     @Value("${spector.memory.decay.baseline-half-life-days:180}")
     private int baselineHalfLifeDays = 180;
 
-    // Rolling ops/sec tracking via MeterRegistry timer count snapshots (ADR-0083)
-    private long lastTickTimestamp = System.currentTimeMillis();
-    private long lastRecallSnapshot = 0;
-    private long lastRememberSnapshot = 0;
-    private long lastReinforceSnapshot = 0;
-    private long lastForgetSnapshot = 0;
+    // Rolling ops/sec tracking per namespace via MeterRegistry timer count snapshots (ADR-0083)
+    // [0]=recall, [1]=remember, [2]=reinforce, [3]=forget, [4]=lastTickTimestamp
+    private final java.util.concurrent.ConcurrentHashMap<String, long[]> lastSnapshotsByNamespace = new java.util.concurrent.ConcurrentHashMap<>();
 
     // Rolling history for immediate REST bootstrap
     private final ConcurrentLinkedDeque<Map<String, Object>> metricsHistory = new ConcurrentLinkedDeque<>();
@@ -70,57 +70,75 @@ public class TelemetryBroadcasterService {
     /**
      * Heartbeat task running every 2 seconds:
      * 1. Broadcasts real memory diagnostics (tier counts, graph edges, memory allocations).
-     * 2. Broadcasts real rolling ops/sec metrics.
+     * 2. Broadcasts real rolling ops/sec metrics per namespace (ADR-0083).
      */
     @Scheduled(fixedRate = 2000)
     public void broadcastHeartbeat() {
-        SpectorMemory memory = resolveMemory();
-        if (memory == null) return;
+        Map<String, SpectorMemory> entries;
+        if (userMemoryRegistry != null && userMemoryRegistry.namespaceResolver() != null) {
+            entries = userMemoryRegistry.namespaceResolver().cachedEntries();
+        } else {
+            SpectorMemory fallback = resolveMemory();
+            entries = fallback != null ? Map.of("default", fallback) : Map.of();
+        }
 
-        try {
-            // 1. Diagnostic telemetry
-            Map<String, Object> diag = buildDiagnosticsMap(memory);
-            eventPublisher.cortexEvent("cortex.memory.diagnostic", diag);
+        if (entries.isEmpty()) {
+            return;
+        }
 
-            // 2. Rolling ops/sec metrics tick — read counts from MeterRegistry (ADR-0083)
-            long now = System.currentTimeMillis();
-            double dtSec = Math.max(0.5, (now - lastTickTimestamp) / 1000.0);
+        // Prune state for evicted namespaces
+        lastSnapshotsByNamespace.keySet().removeIf(ns -> !entries.containsKey(ns));
 
-            long curRecall = timerCount("spector.memory.recall");
-            long curRemember = timerCount("spector.memory.remember");
-            long curReinforce = timerCount("spector.memory.reinforce");
-            long curForget = timerCount("spector.memory.forget");
+        long now = System.currentTimeMillis();
 
-            double recallRate = Math.max(0.0, (curRecall - lastRecallSnapshot) / dtSec);
-            double rememberRate = Math.max(0.0, (curRemember - lastRememberSnapshot) / dtSec);
-            double reinforceRate = Math.max(0.0, (curReinforce - lastReinforceSnapshot) / dtSec);
-            double forgetRate = Math.max(0.0, (curForget - lastForgetSnapshot) / dtSec);
+        for (var entry : entries.entrySet()) {
+            String ns = entry.getKey();
+            SpectorMemory memory = entry.getValue();
+            if (memory == null) continue;
 
-            lastRecallSnapshot = curRecall;
-            lastRememberSnapshot = curRemember;
-            lastReinforceSnapshot = curReinforce;
-            lastForgetSnapshot = curForget;
-            lastTickTimestamp = now;
+            try {
+                // 1. Diagnostic telemetry
+                Map<String, Object> diag = buildDiagnosticsMap(memory);
+                diag.put("namespace", ns);
+                eventPublisher.cortexEvent("cortex.memory.diagnostic", diag);
 
-            Map<String, Object> tick = new LinkedHashMap<>();
-            tick.put("eventType", "cortex.metrics.tick");
-            tick.put("timestamp", now);
-            tick.put("nodeId", "spector-node-1");
-            tick.put("recallRate", recallRate);
-            tick.put("rememberRate", rememberRate);
-            tick.put("reinforceRate", reinforceRate);
-            tick.put("forgetRate", forgetRate);
+                // 2. Rolling ops/sec metrics tick per namespace (ADR-0083)
+                long[] prev = lastSnapshotsByNamespace.getOrDefault(ns, new long[]{0, 0, 0, 0, now});
+                double dtSec = Math.max(0.5, (now - prev[4]) / 1000.0);
 
-            eventPublisher.cortexEvent("cortex.metrics.tick", tick);
+                long curRecall = timerCount("spector.memory.recall", ns);
+                long curRemember = timerCount("spector.memory.remember", ns);
+                long curReinforce = timerCount("spector.memory.reinforce", ns);
+                long curForget = timerCount("spector.memory.forget", ns);
 
-            // Buffer recent point
-            metricsHistory.addLast(tick);
-            while (metricsHistory.size() > MAX_HISTORY_POINTS) {
-                metricsHistory.pollFirst();
+                double recallRate = Math.max(0.0, (curRecall - prev[0]) / dtSec);
+                double rememberRate = Math.max(0.0, (curRemember - prev[1]) / dtSec);
+                double reinforceRate = Math.max(0.0, (curReinforce - prev[2]) / dtSec);
+                double forgetRate = Math.max(0.0, (curForget - prev[3]) / dtSec);
+
+                lastSnapshotsByNamespace.put(ns, new long[]{curRecall, curRemember, curReinforce, curForget, now});
+
+                Map<String, Object> tick = new LinkedHashMap<>();
+                tick.put("eventType", "cortex.metrics.tick");
+                tick.put("timestamp", now);
+                tick.put("namespace", ns);
+                tick.put("nodeId", "spector-node-1");
+                tick.put("recallRate", recallRate);
+                tick.put("rememberRate", rememberRate);
+                tick.put("reinforceRate", reinforceRate);
+                tick.put("forgetRate", forgetRate);
+
+                eventPublisher.cortexEvent("cortex.metrics.tick", tick);
+
+                // Buffer recent point
+                metricsHistory.addLast(tick);
+                while (metricsHistory.size() > MAX_HISTORY_POINTS) {
+                    metricsHistory.pollFirst();
+                }
+
+            } catch (Exception e) {
+                log.trace("[TelemetryBroadcaster] Heartbeat emission skipped for ns={}: {}", ns, e.getMessage());
             }
-
-        } catch (Exception e) {
-            log.trace("[TelemetryBroadcaster] Heartbeat emission skipped: {}", e.getMessage());
         }
     }
 
@@ -334,12 +352,19 @@ public class TelemetryBroadcasterService {
     }
 
     /**
-     * Reads the cumulative timer count for the given metric name from the MeterRegistry.
+     * Reads the cumulative timer count for the given metric name from the MeterRegistry,
+     * filtered by namespace. Falls back to untagged timer if no tagged timer is registered.
      * Returns 0 if the registry is null or the timer has not been created yet (cold start).
      */
-    private long timerCount(String metricName) {
+    private long timerCount(String metricName, String namespaceId) {
         if (meterRegistry == null) return 0;
-        Timer timer = meterRegistry.find(metricName).timer();
-        return timer != null ? timer.count() : 0;
+        if (namespaceId != null) {
+            Timer tagged = meterRegistry.find(metricName)
+                    .tag("spector.namespace", namespaceId)
+                    .timer();
+            if (tagged != null) return tagged.count();
+        }
+        Timer fallback = meterRegistry.find(metricName).timer();
+        return fallback != null ? fallback.count() : 0;
     }
 }

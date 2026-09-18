@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import io.micrometer.core.instrument.MeterRegistry;
+import com.spectrayan.spector.commons.concurrent.MemoryScope;
 import com.spectrayan.spector.commons.concurrent.SpectorExecutors;
 import com.spectrayan.spector.commons.concurrent.ThreadPlane;
 import java.util.stream.Collectors;
@@ -127,6 +128,9 @@ public class MemoryService {
     // SpectorCache stats caches (managed by SpectorCacheManager / Spring Cache)
     private final com.spectrayan.spector.commons.cache.SpectorCache statsCache;
     private final com.spectrayan.spector.commons.cache.SpectorCache scoringStatsCache;
+
+    // Latest consolidation details per namespace (ADR-0083)
+    private final java.util.concurrent.ConcurrentHashMap<String, ConsolidationStats> namespaceConsolidationStats = new java.util.concurrent.ConcurrentHashMap<>();
 
     private final VectorSpaceProjectionService projectionService;
     private final com.spectrayan.spector.synapse.platform.events.TelemetryBroadcasterService telemetryBroadcasterService;
@@ -296,31 +300,36 @@ public class MemoryService {
                         .map(MemoryBinding::requestMemoryContext))
                 .orElse(null);
 
-        CompletableFuture.runAsync(() -> {
-            try {
-                eventPublisher.broadcast("ingestion.progress", Map.of(
-                        "taskId", taskId,
-                        "fileName", request.text().substring(0, Math.min(20, request.text().length())),
-                        "status", "INGESTING",
-                        "progress", 50.0,
-                        "timestamp", Instant.now().toEpochMilli()
-                ));
-                 long t0 = System.currentTimeMillis();
-                 mao.remember(memory, finalId, request.text(), tier, source, finalHints, tags, request.timestampMs(), capturedContext);
-                 long elapsed = System.currentTimeMillis() - t0;
+        final String capturedNamespace = resolveNamespaceId(memory);
+        final String capturedSessionId = MemoryScope.sessionId();
 
-                 log.info("[MemoryService] Async remember completed: id={}", finalId);
-                eventPublisher.broadcast("ingestion.completed", Map.of(
-                        "taskId", taskId,
-                        "fileName", request.text().substring(0, Math.min(20, request.text().length())),
-                        "documentId", finalId,
-                        "status", "COMPLETED",
-                        "timestamp", Instant.now().toEpochMilli()
-                ));
-                eventPublisher.memoryEvent("created", finalId, "Memorized " + tier.name());
-            } catch (Exception e) {
-                log.error("[MemoryService] Remember failed for id={}: {}", finalId, e.getMessage(), e);
-            }
+        CompletableFuture.runAsync(() -> {
+            MemoryScope.runWithScope(capturedSessionId, capturedNamespace, () -> {
+                try {
+                    eventPublisher.broadcast("ingestion.progress", Map.of(
+                            "taskId", taskId,
+                            "fileName", request.text().substring(0, Math.min(20, request.text().length())),
+                            "status", "INGESTING",
+                            "progress", 50.0,
+                            "timestamp", Instant.now().toEpochMilli()
+                    ));
+                    long t0 = System.currentTimeMillis();
+                    mao.remember(memory, finalId, request.text(), tier, source, finalHints, tags, request.timestampMs(), capturedContext);
+                    long elapsed = System.currentTimeMillis() - t0;
+
+                    log.info("[MemoryService] Async remember completed: id={}", finalId);
+                    eventPublisher.broadcast("ingestion.completed", Map.of(
+                            "taskId", taskId,
+                            "fileName", request.text().substring(0, Math.min(20, request.text().length())),
+                            "documentId", finalId,
+                            "status", "COMPLETED",
+                            "timestamp", Instant.now().toEpochMilli()
+                    ));
+                    eventPublisher.memoryEvent("created", finalId, "Memorized " + tier.name());
+                } catch (Exception e) {
+                    log.error("[MemoryService] Remember failed for id={}: {}", finalId, e.getMessage(), e);
+                }
+            });
         }, SpectorExecutors.executor(ThreadPlane.VIRTUAL, "synapse-io"));
 
         return AcceptedResponse.forRemember(taskId, effectiveId);
@@ -335,17 +344,22 @@ public class MemoryService {
             log.warn("[MemoryService] Consolidate called but engine is not available");
             return;
         }
+        final String capturedNamespace = resolveNamespaceId(memory);
+        final String capturedSessionId = MemoryScope.sessionId();
+
         SpectorExecutors.executor(ThreadPlane.PLATFORM_WRITER, "synapse-writer").execute(() -> {
-            try {
-                log.info("[MemoryService] Starting manual memory consolidation...");
-                eventPublisher.broadcast("consolidation.start", Map.of("status", "in_progress"));
-                mao.consolidate(memory);
-                eventPublisher.broadcast("consolidation.done", Map.of("status", "success"));
-                log.info("[MemoryService] Manual memory consolidation complete.");
-            } catch (Exception e) {
-                log.error("[MemoryService] Manual memory consolidation failed", e);
-                eventPublisher.broadcast("consolidation.error", Map.of("status", "error", "message", e.getMessage()));
-            }
+            MemoryScope.runWithScope(capturedSessionId, capturedNamespace, () -> {
+                try {
+                    log.info("[MemoryService] Starting manual memory consolidation...");
+                    eventPublisher.broadcast("consolidation.start", Map.of("status", "in_progress"));
+                    mao.consolidate(memory);
+                    eventPublisher.broadcast("consolidation.done", Map.of("status", "success"));
+                    log.info("[MemoryService] Manual memory consolidation complete.");
+                } catch (Exception e) {
+                    log.error("[MemoryService] Manual memory consolidation failed", e);
+                    eventPublisher.broadcast("consolidation.error", Map.of("status", "error", "message", e.getMessage()));
+                }
+            });
         });
     }
 
@@ -415,6 +429,7 @@ public class MemoryService {
                 || request.recallMode() != null
                 || (reqCtx != null && (reqCtx.effectiveSalience() != null || reqCtx.primarySoul() != null));
 
+        SpectorMemory memory = resolveMemory();
         if (hasCustomOptions) {
             var optionsBuilder = RecallOptions.builder().topK(request.topK() > 0 ? request.topK() : 10);
             if (reqCtx != null) {
@@ -442,15 +457,14 @@ public class MemoryService {
                     log.warn("[MemoryService] Unknown recallMode '{}', using LEARN", request.recallMode());
                 }
             }
-            results = mao.recall(resolveMemory(), request.query(), optionsBuilder.build());
+            results = mao.recall(memory, request.query(), optionsBuilder.build());
         } else {
-            results = mao.recall(resolveMemory(), request.query());
+            results = mao.recall(memory, request.query());
         }
         long elapsedMicros = (System.nanoTime() - start) / 1000;
 
         // Record similarity scores into Micrometer DistributionSummary (ADR-0083)
-        SpectorMemory resolved = resolveMemory();
-        if (resolved instanceof com.spectrayan.spector.metrics.ObservedSpectorMemory osm) {
+        if (memory instanceof com.spectrayan.spector.metrics.ObservedSpectorMemory osm) {
             for (var r : results) {
                 if (r.breakdown() != null) {
                     osm.recordSimilarityScore((double) r.breakdown().similarity());
@@ -667,7 +681,13 @@ public class MemoryService {
         long durationMs = report != null ? report.duration().toMillis() : (System.currentTimeMillis() - start);
 
         if (report != null) {
-            // Consolidation details now tracked by ObservedSpectorMemory Observation (ADR-0083)
+            String ns = resolveNamespaceId(memory);
+            namespaceConsolidationStats.put(ns, new ConsolidationStats(
+                    Instant.now().toEpochMilli(),
+                    report.consolidatedCount(),
+                    report.tombstonedCount(),
+                    report.compactedPartitions()
+            ));
 
             eventPublisher.broadcast("cortex.reflect.cycle", Map.of(
                     "eventType", "cortex.reflect.cycle",
@@ -908,18 +928,19 @@ public class MemoryService {
                 }
                 IndexStats indexStats = new IndexStats(totalEntries, levels, recallEstimate);
 
-                // ADR-0083: consolidation stats from engine, not global volatiles
-                ConsolidationStats consolidationStats = ConsolidationStats.empty();
+                // ADR-0083: consolidation stats from per-namespace engine-local tracking
+                ConsolidationStats consolidationStats = namespaceConsolidationStats.getOrDefault(namespaceId, ConsolidationStats.empty());
 
-                // Growth over time (last 30 days) from H2 database
+                // Growth over time (last 30 days) from database, strictly filtered by namespace (ADR-0083)
                 Map<String, Long> growthOverTime = new java.util.TreeMap<>();
                 if (jdbc != null) {
                     try {
                         var entries = jdbc.sql("SELECT CAST(snapshot_time AS DATE) as s_date, MAX(total_count) as max_count " +
                                         "FROM memory_analytics_snapshot " +
-                                        "WHERE snapshot_time >= :since " +
+                                        "WHERE snapshot_time >= :since AND namespace_id = :ns " +
                                         "GROUP BY s_date ORDER BY s_date")
                                 .param("since", Timestamp.from(Instant.now().minus(java.time.Duration.ofDays(30))))
+                                .param("ns", namespaceId)
                                 .query((rs, rowNum) -> Map.entry(rs.getDate("s_date").toString(), rs.getLong("max_count")))
                                 .list();
                         growthOverTime = entries.stream()

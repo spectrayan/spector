@@ -1,25 +1,31 @@
 /*
  * Copyright 2026 Spectrayan
  *
- * Licensed under the Business Source License 1.1 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     https://github.com/spectrayan/spector/blob/main/spector-synapse/LICENSE
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Change Date: July 6, 2030
- * Change License: Apache License, Version 2.0
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package com.spectrayan.spector.synapse.memory;
 
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -35,8 +41,8 @@ import com.spectrayan.spector.kernel.api.MemoryType;
  * and persists it to the database for historical analytics (ADR-0083).
  *
  * <p>Gated by {@code spector.memory.analytics.history.enabled} (default {@code true}).
- * Iterates all cached namespace entries from {@link NamespaceResolver} and writes one
- * snapshot row per namespace per interval. Activity deltas are derived from the
+ * Iterates all cached namespace entries from {@link MemoryRegistry} (via {@link NamespaceResolver})
+ * and writes one snapshot row per namespace per interval. Activity deltas are derived from the
  * {@link MeterRegistry} (via {@code ObservedSpectorMemory} Observations), not from
  * hand-rolled AtomicLong counters.</p>
  */
@@ -48,30 +54,51 @@ public class MemoryAnalyticsScheduler {
 
     private final MemoryAccessObject mao;
     private final JdbcClient jdbc;
-    private final NamespaceResolver namespaceResolver;
-    private final MeterRegistry meterRegistry;
+    private final ObjectProvider<MemoryRegistry> memoryRegistryProvider;
+    private final ObjectProvider<SpectorMemory> fallbackMemoryProvider;
+    private final ObjectProvider<MeterRegistry> meterRegistryProvider;
 
     @Value("${spector.memory.analytics.instance-id:local}")
     private String instanceId;
 
-    // Last-seen timer counts per namespace for interval delta calculation
-    private final java.util.concurrent.ConcurrentHashMap<String, long[]> lastSnapshots = new java.util.concurrent.ConcurrentHashMap<>();
+    // Last-seen timer counts and total durations per namespace for interval delta calculation.
+    // [0] = recalls, [1] = remembers, [2] = consolidations, [3] = recallTotalDurationMs (as double bits)
+    private final ConcurrentHashMap<String, long[]> lastSnapshots = new ConcurrentHashMap<>();
 
     public MemoryAnalyticsScheduler(MemoryAccessObject mao, JdbcClient jdbc,
-                                    NamespaceResolver namespaceResolver,
-                                    MeterRegistry meterRegistry) {
+                                    ObjectProvider<MemoryRegistry> memoryRegistryProvider,
+                                    ObjectProvider<SpectorMemory> fallbackMemoryProvider,
+                                    ObjectProvider<MeterRegistry> meterRegistryProvider) {
         this.mao = mao;
         this.jdbc = jdbc;
-        this.namespaceResolver = namespaceResolver;
-        this.meterRegistry = meterRegistry;
+        this.memoryRegistryProvider = memoryRegistryProvider;
+        this.fallbackMemoryProvider = fallbackMemoryProvider;
+        this.meterRegistryProvider = meterRegistryProvider;
     }
 
     @Scheduled(fixedDelayString = "${spector.memory.analytics.history.interval:10000}", initialDelay = 5000)
     public void captureSnapshot() {
-        Map<String, SpectorMemory> entries = namespaceResolver.cachedEntries();
+        MemoryRegistry memoryRegistry = memoryRegistryProvider != null ? memoryRegistryProvider.getIfAvailable() : null;
+        MeterRegistry meterRegistry = meterRegistryProvider != null ? meterRegistryProvider.getIfAvailable() : null;
+
+        Map<String, SpectorMemory> entries;
+        if (memoryRegistry != null && memoryRegistry.namespaceResolver() != null) {
+            entries = memoryRegistry.namespaceResolver().cachedEntries();
+        } else {
+            SpectorMemory fallback = fallbackMemoryProvider != null ? fallbackMemoryProvider.getIfAvailable() : null;
+            if (fallback != null) {
+                entries = Map.of("default", fallback);
+            } else {
+                entries = Map.of();
+            }
+        }
+
         if (entries.isEmpty()) {
             return;
         }
+
+        // Prune state for any evicted namespaces to avoid memory leak
+        lastSnapshots.keySet().removeIf(ns -> !entries.containsKey(ns));
 
         Instant now = Instant.now();
 
@@ -85,7 +112,7 @@ public class MemoryAnalyticsScheduler {
             }
 
             try {
-                captureNamespaceSnapshot(namespaceId, memory, now);
+                captureNamespaceSnapshot(namespaceId, memory, now, meterRegistry);
             } catch (Exception e) {
                 log.error("[MemoryAnalytics] Failed to persist snapshot for namespace '{}': {}",
                         namespaceId, e.getMessage(), e);
@@ -93,7 +120,7 @@ public class MemoryAnalyticsScheduler {
         }
     }
 
-    private void captureNamespaceSnapshot(String namespaceId, SpectorMemory memory, Instant now) {
+    private void captureNamespaceSnapshot(String namespaceId, SpectorMemory memory, Instant now, MeterRegistry meterRegistry) {
         long totalCount = memory.admin().index().size();
         int workingCount = memory.memoryCount(MemoryType.WORKING);
         int episodicCount = memory.memoryCount(MemoryType.EPISODIC);
@@ -102,21 +129,24 @@ public class MemoryAnalyticsScheduler {
 
         GraphStats graphStats = memory.admin().graph().graphStats();
 
-        // Read cumulative timer counts from MeterRegistry (ADR-0083)
-        long curRecalls = timerCount("spector.memory.recall", namespaceId);
-        long curRemembers = timerCount("spector.memory.remember", namespaceId);
-        long curConsolidations = timerCount("spector.memory.consolidate", namespaceId);
+        // Read cumulative timer counts and total times from MeterRegistry (ADR-0083)
+        long curRecalls = timerCount(meterRegistry, "spector.memory.recall", namespaceId);
+        double curRecallTotalMs = timerTotalTimeMs(meterRegistry, "spector.memory.recall", namespaceId);
+        long curRemembers = timerCount(meterRegistry, "spector.memory.remember", namespaceId);
+        long curConsolidations = timerCount(meterRegistry, "spector.memory.consolidate", namespaceId);
 
         // Compute interval deltas from last snapshot
         long[] prev = lastSnapshots.getOrDefault(namespaceId, new long[]{0, 0, 0, 0});
         long deltaRecalls = Math.max(0, curRecalls - prev[0]);
         long deltaRemembers = Math.max(0, curRemembers - prev[1]);
         long deltaConsolidations = Math.max(0, curConsolidations - prev[2]);
+        double prevRecallTotalMs = Double.longBitsToDouble(prev[3]);
+        double deltaRecallTotalMs = Math.max(0.0, curRecallTotalMs - prevRecallTotalMs);
 
-        // Read average latency from timer mean
-        double avgLatencyMs = timerMeanMs("spector.memory.recall", namespaceId);
+        // True interval average latency: delta total duration / delta count
+        double avgLatencyMs = deltaRecalls > 0 ? (deltaRecallTotalMs / deltaRecalls) : 0.0;
 
-        lastSnapshots.put(namespaceId, new long[]{curRecalls, curRemembers, curConsolidations, 0});
+        lastSnapshots.put(namespaceId, new long[]{curRecalls, curRemembers, curConsolidations, Double.doubleToLongBits(curRecallTotalMs)});
 
         jdbc.sql("INSERT INTO memory_analytics_snapshot " +
                         "(snapshot_time, namespace_id, instance_id, total_count, working_count, episodic_count, " +
@@ -150,21 +180,23 @@ public class MemoryAnalyticsScheduler {
      * Reads cumulative timer count from MeterRegistry, filtered by namespace tag.
      * Returns 0 on cold start (timer not yet created).
      */
-    private long timerCount(String metricName, String namespaceId) {
-        Timer timer = meterRegistry.find(metricName)
+    private long timerCount(MeterRegistry registry, String metricName, String namespaceId) {
+        if (registry == null) return 0;
+        Timer timer = registry.find(metricName)
                 .tag("spector.namespace", namespaceId)
                 .timer();
         return timer != null ? timer.count() : 0;
     }
 
     /**
-     * Reads mean timer duration in milliseconds from MeterRegistry.
+     * Reads cumulative total duration in milliseconds from MeterRegistry, filtered by namespace tag.
      * Returns 0.0 on cold start.
      */
-    private double timerMeanMs(String metricName, String namespaceId) {
-        Timer timer = meterRegistry.find(metricName)
+    private double timerTotalTimeMs(MeterRegistry registry, String metricName, String namespaceId) {
+        if (registry == null) return 0.0;
+        Timer timer = registry.find(metricName)
                 .tag("spector.namespace", namespaceId)
                 .timer();
-        return timer != null ? timer.mean(java.util.concurrent.TimeUnit.MILLISECONDS) : 0.0;
+        return timer != null ? timer.totalTime(TimeUnit.MILLISECONDS) : 0.0;
     }
 }

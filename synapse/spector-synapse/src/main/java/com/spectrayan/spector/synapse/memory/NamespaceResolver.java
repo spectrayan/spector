@@ -212,6 +212,9 @@ public class NamespaceResolver implements AutoCloseable {
         this.observabilityConfigProvider = observabilityConfigProvider;
         this.quartzSchedulerProvider = quartzSchedulerProvider;
         this.meterRegistry = meterRegistryProvider != null ? meterRegistryProvider.getIfAvailable() : null;
+        if (this.meterRegistry != null) {
+            com.spectrayan.spector.metrics.observation.SpectorHostGauges.instance().bindTo(this.meterRegistry);
+        }
         this.maxInstances = Math.max(1, maxInstances);
         // Canonical rememberer root (Req R3.1) — shared with the migrator, detector, and CLI.
         this.basePath = synapseProps.remembererRoot();
@@ -283,11 +286,13 @@ public class NamespaceResolver implements AutoCloseable {
 
     private void unbindNamespaceMeters(String namespaceId) {
         if (meterRegistry != null && namespaceId != null) {
-            meterRegistry.getMeters().removeIf(meter -> {
-                String nsTag = meter.getId().getTag("spector.namespace");
-                return namespaceId.equals(nsTag);
-            });
-            log.debug("[NamespaceResolver] Unbound meters for namespace: ns={}", namespaceId);
+            java.util.List<io.micrometer.core.instrument.Meter> toRemove = meterRegistry.getMeters().stream()
+                    .filter(meter -> namespaceId.equals(meter.getId().getTag("spector.namespace")))
+                    .toList();
+            for (var meter : toRemove) {
+                meterRegistry.remove(meter);
+            }
+            log.debug("[NamespaceResolver] Unbound {} meters for namespace: ns={}", toRemove.size(), namespaceId);
         }
     }
 
@@ -740,7 +745,7 @@ public class NamespaceResolver implements AutoCloseable {
         });
 
         if (obsRegistry != null && obsConfig != null) {
-            built = new com.spectrayan.spector.metrics.ObservedSpectorMemory(built, obsRegistry, obsConfig);
+            built = new com.spectrayan.spector.metrics.ObservedSpectorMemory(built, obsRegistry, obsConfig, meterRegistry);
         }
 
         String tenantLog = (tenantId != null && !tenantId.isBlank()) ? tenantId : "none";
