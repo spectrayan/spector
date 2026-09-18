@@ -1542,5 +1542,23 @@ public final class SpectorPropertyConstants {
 
     public static final String DR_STANDBY_MODE = "spector.dr.standby-mode";
     public static final String DEFAULT_DR_STANDBY_MODE = "COLD";
+
+    // ── Memory Analytics History (ADR-0083) ────────────────────────
+    /** Whether the memory_analytics_snapshot scheduler is active. */
+    public static final String MEMORY_ANALYTICS_HISTORY_ENABLED = "spector.memory.analytics.history.enabled";
+    public static final boolean DEFAULT_MEMORY_ANALYTICS_HISTORY_ENABLED = true;
+
+    /** Flush interval (ms) for the analytics snapshot scheduler. */
+    public static final String MEMORY_ANALYTICS_HISTORY_INTERVAL = "spector.memory.analytics.history.interval";
+    public static final long DEFAULT_MEMORY_ANALYTICS_HISTORY_INTERVAL = 10_000L;
+
+    /** Instance identifier for multi-pod snapshot disambiguation. */
+    public static final String MEMORY_ANALYTICS_INSTANCE_ID = "spector.memory.analytics.instance-id";
+    public static final String DEFAULT_MEMORY_ANALYTICS_INSTANCE_ID = "local";
+
+    // ── Memory Stats Cache (ADR-0083) ──────────────────────────────
+    /** TTL for the getStats() / getScoringStats() namespace-scoped cache. */
+    public static final String MEMORY_STATS_CACHE_TTL = "spector.memory.stats.cache-ttl";
+    public static final String DEFAULT_MEMORY_STATS_CACHE_TTL = "5s";
 }
 

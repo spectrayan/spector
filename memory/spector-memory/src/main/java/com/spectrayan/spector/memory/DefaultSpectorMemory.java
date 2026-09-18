@@ -1060,6 +1060,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         }
     }
 
+    private volatile com.spectrayan.spector.memory.model.ReflectReport lastReflectReport;
+    private volatile long lastReflectTimestamp;
+
     @Override
     public ReflectReport reflect() {
         return reflect(com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec.fullCycle());
@@ -1069,10 +1072,23 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     public ReflectReport reflect(com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec spec) {
         acquireLease();
         try {
-            return this.reflectSweepExecutor.execute(this, spec != null ? spec : com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec.fullCycle());
+            ReflectReport report = this.reflectSweepExecutor.execute(this, spec != null ? spec : com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec.fullCycle());
+            this.lastReflectReport = report;
+            this.lastReflectTimestamp = System.currentTimeMillis();
+            return report;
         } finally {
             releaseLease();
         }
+    }
+
+    @Override
+    public ReflectReport lastReflectReport() {
+        return this.lastReflectReport;
+    }
+
+    @Override
+    public long lastReflectTimestamp() {
+        return this.lastReflectTimestamp;
     }
 
     @Override
@@ -1083,8 +1099,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 // Non-deprecated path: no RememberPathway is threaded through. Soul version
                 // resolves from the context's SoulVersionSource and nested gist writes go
                 // through the PathwayCatalog (ADR-0035 R2.3, §8.1b).
-                return reflectPathway.reflect(null, partitionManager, index, salienceProfile(),
+                ReflectReport report = reflectPathway.reflect(null, partitionManager, index, salienceProfile(),
                         episodicSessionIndex, spec, null);
+                this.lastReflectReport = report;
+                this.lastReflectTimestamp = System.currentTimeMillis();
+                return report;
             }
             return ReflectReport.empty();
         } finally {

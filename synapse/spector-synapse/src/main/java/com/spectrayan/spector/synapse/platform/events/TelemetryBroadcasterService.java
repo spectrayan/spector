@@ -27,7 +27,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.atomic.AtomicLong;
+
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 
 /**
  * Background service that streams periodic diagnostic telemetry and live performance metrics
@@ -41,94 +43,113 @@ public class TelemetryBroadcasterService {
     private final EventPublisher eventPublisher;
     private final MemoryRegistry userMemoryRegistry;
     private final ObjectProvider<SpectorMemory> memoryProvider;
+    private final MeterRegistry meterRegistry;
 
     @Value("${spector.memory.decay.baseline-half-life-days:180}")
     private int baselineHalfLifeDays = 180;
 
-    // Rolling ops/sec tracking
-    private final AtomicLong recallCount = new AtomicLong(0);
-    private final AtomicLong rememberCount = new AtomicLong(0);
-    private final AtomicLong reinforceCount = new AtomicLong(0);
-    private final AtomicLong forgetCount = new AtomicLong(0);
+    // Rolling ops/sec tracking per namespace via MeterRegistry timer count snapshots (ADR-0083)
+    // [0]=recall, [1]=remember, [2]=reinforce, [3]=forget, [4]=lastTickTimestamp
+    private final java.util.concurrent.ConcurrentHashMap<String, long[]> lastSnapshotsByNamespace = new java.util.concurrent.ConcurrentHashMap<>();
 
-    private long lastTickTimestamp = System.currentTimeMillis();
-    private long lastRecallSnapshot = 0;
-    private long lastRememberSnapshot = 0;
-    private long lastReinforceSnapshot = 0;
-    private long lastForgetSnapshot = 0;
-
-    // Rolling history for immediate REST bootstrap
-    private final ConcurrentLinkedDeque<Map<String, Object>> metricsHistory = new ConcurrentLinkedDeque<>();
+    // Rolling history per namespace for immediate REST bootstrap (ADR-0083)
+    private final java.util.concurrent.ConcurrentHashMap<String, ConcurrentLinkedDeque<Map<String, Object>>> metricsHistoryByNamespace = new java.util.concurrent.ConcurrentHashMap<>();
     private static final int MAX_HISTORY_POINTS = 60;
 
     public TelemetryBroadcasterService(
             EventPublisher eventPublisher,
             ObjectProvider<MemoryRegistry> userMemoryRegistryProvider,
-            ObjectProvider<SpectorMemory> memoryProvider) {
+            ObjectProvider<SpectorMemory> memoryProvider,
+            ObjectProvider<MeterRegistry> meterRegistryProvider) {
         this.eventPublisher = eventPublisher;
-        this.userMemoryRegistry = userMemoryRegistryProvider.getIfAvailable();
+        this.userMemoryRegistry = userMemoryRegistryProvider != null ? userMemoryRegistryProvider.getIfAvailable() : null;
         this.memoryProvider = memoryProvider;
+        this.meterRegistry = meterRegistryProvider != null ? meterRegistryProvider.getIfAvailable() : null;
+        if (this.userMemoryRegistry != null && this.userMemoryRegistry.namespaceResolver() != null) {
+            this.userMemoryRegistry.namespaceResolver().addEvictionListener(this::evictNamespace);
+        }
     }
-
-    public void recordRecall() { recallCount.incrementAndGet(); }
-    public void recordRemember() { rememberCount.incrementAndGet(); }
-    public void recordReinforce() { reinforceCount.incrementAndGet(); }
-    public void recordForget() { forgetCount.incrementAndGet(); }
 
     /**
      * Heartbeat task running every 2 seconds:
      * 1. Broadcasts real memory diagnostics (tier counts, graph edges, memory allocations).
-     * 2. Broadcasts real rolling ops/sec metrics.
+     * 2. Broadcasts real rolling ops/sec metrics per namespace (ADR-0083).
      */
     @Scheduled(fixedRate = 2000)
     public void broadcastHeartbeat() {
-        SpectorMemory memory = resolveMemory();
-        if (memory == null) return;
-
-        try {
-            // 1. Diagnostic telemetry
-            Map<String, Object> diag = buildDiagnosticsMap(memory);
-            eventPublisher.cortexEvent("cortex.memory.diagnostic", diag);
-
-            // 2. Rolling ops/sec metrics tick
-            long now = System.currentTimeMillis();
-            double dtSec = Math.max(0.5, (now - lastTickTimestamp) / 1000.0);
-
-            long curRecall = recallCount.get();
-            long curRemember = rememberCount.get();
-            long curReinforce = reinforceCount.get();
-            long curForget = forgetCount.get();
-
-            double recallRate = Math.max(0.0, (curRecall - lastRecallSnapshot) / dtSec);
-            double rememberRate = Math.max(0.0, (curRemember - lastRememberSnapshot) / dtSec);
-            double reinforceRate = Math.max(0.0, (curReinforce - lastReinforceSnapshot) / dtSec);
-            double forgetRate = Math.max(0.0, (curForget - lastForgetSnapshot) / dtSec);
-
-            lastRecallSnapshot = curRecall;
-            lastRememberSnapshot = curRemember;
-            lastReinforceSnapshot = curReinforce;
-            lastForgetSnapshot = curForget;
-            lastTickTimestamp = now;
-
-            Map<String, Object> tick = new LinkedHashMap<>();
-            tick.put("eventType", "cortex.metrics.tick");
-            tick.put("timestamp", now);
-            tick.put("nodeId", "spector-node-1");
-            tick.put("recallRate", recallRate);
-            tick.put("rememberRate", rememberRate);
-            tick.put("reinforceRate", reinforceRate);
-            tick.put("forgetRate", forgetRate);
-
-            eventPublisher.cortexEvent("cortex.metrics.tick", tick);
-
-            // Buffer recent point
-            metricsHistory.addLast(tick);
-            while (metricsHistory.size() > MAX_HISTORY_POINTS) {
-                metricsHistory.pollFirst();
+        Map<String, SpectorMemory> entries;
+        if (userMemoryRegistry != null && userMemoryRegistry.namespaceResolver() != null) {
+            entries = userMemoryRegistry.namespaceResolver().cachedEntries();
+        } else {
+            SpectorMemory fallback = resolveMemory();
+            if (fallback != null) {
+                String fallbackNs = fallback.namespaceId() != null && !fallback.namespaceId().isBlank()
+                        ? fallback.namespaceId()
+                        : "default";
+                entries = Map.of(fallbackNs, fallback);
+            } else {
+                entries = Map.of();
             }
+        }
 
-        } catch (Exception e) {
-            log.trace("[TelemetryBroadcaster] Heartbeat emission skipped: {}", e.getMessage());
+        if (entries.isEmpty()) {
+            return;
+        }
+
+        // Prune state for evicted namespaces
+        lastSnapshotsByNamespace.keySet().removeIf(ns -> !entries.containsKey(ns));
+
+        long now = System.currentTimeMillis();
+
+        for (var entry : entries.entrySet()) {
+            String ns = entry.getKey();
+            SpectorMemory memory = entry.getValue();
+            if (memory == null) continue;
+
+            try {
+                // 1. Diagnostic telemetry
+                Map<String, Object> diag = buildDiagnosticsMap(memory);
+                diag.put("namespace", ns);
+                eventPublisher.cortexEvent("cortex.memory.diagnostic", diag);
+
+                // 2. Rolling ops/sec metrics tick per namespace (ADR-0083)
+                long[] prev = lastSnapshotsByNamespace.getOrDefault(ns, new long[]{0, 0, 0, 0, now});
+                double dtSec = Math.max(0.5, (now - prev[4]) / 1000.0);
+
+                long curRecall = timerCount("spector.memory.recall", ns);
+                long curRemember = timerCount("spector.memory.remember", ns);
+                long curReinforce = timerCount("spector.memory.reinforce", ns);
+                long curForget = timerCount("spector.memory.forget", ns);
+
+                double recallRate = Math.max(0.0, (curRecall - prev[0]) / dtSec);
+                double rememberRate = Math.max(0.0, (curRemember - prev[1]) / dtSec);
+                double reinforceRate = Math.max(0.0, (curReinforce - prev[2]) / dtSec);
+                double forgetRate = Math.max(0.0, (curForget - prev[3]) / dtSec);
+
+                lastSnapshotsByNamespace.put(ns, new long[]{curRecall, curRemember, curReinforce, curForget, now});
+
+                Map<String, Object> tick = new LinkedHashMap<>();
+                tick.put("eventType", "cortex.metrics.tick");
+                tick.put("timestamp", now);
+                tick.put("namespace", ns);
+                tick.put("nodeId", "spector-node-1");
+                tick.put("recallRate", recallRate);
+                tick.put("rememberRate", rememberRate);
+                tick.put("reinforceRate", reinforceRate);
+                tick.put("forgetRate", forgetRate);
+
+                eventPublisher.cortexEvent("cortex.metrics.tick", tick);
+
+                // Buffer recent point per namespace (ADR-0083)
+                var history = metricsHistoryByNamespace.computeIfAbsent(ns, k -> new ConcurrentLinkedDeque<>());
+                history.addLast(tick);
+                while (history.size() > MAX_HISTORY_POINTS) {
+                    history.pollFirst();
+                }
+
+            } catch (Exception e) {
+                log.trace("[TelemetryBroadcaster] Heartbeat emission skipped for ns={}: {}", ns, e.getMessage());
+            }
         }
     }
 
@@ -140,10 +161,35 @@ public class TelemetryBroadcasterService {
     }
 
     /**
-     * Returns recent rolling metrics history.
+     * Returns recent rolling metrics history for a specific namespace.
+     */
+    public List<Map<String, Object>> getLiveMetricsHistory(String namespaceId) {
+        if (namespaceId == null) {
+            return Collections.emptyList();
+        }
+        var history = metricsHistoryByNamespace.get(namespaceId);
+        return history != null ? new ArrayList<>(history) : Collections.emptyList();
+    }
+
+    /**
+     * Returns recent rolling metrics history for the caller's bound namespace.
      */
     public List<Map<String, Object>> getLiveMetricsHistory() {
-        return new ArrayList<>(metricsHistory);
+        SpectorMemory mem = resolveMemory();
+        String ns = mem != null && mem.namespaceId() != null && !mem.namespaceId().isBlank()
+                ? mem.namespaceId()
+                : "default";
+        return getLiveMetricsHistory(ns);
+    }
+
+    /**
+     * Clears cached telemetry and metrics history on namespace eviction.
+     */
+    public void evictNamespace(String namespaceId) {
+        if (namespaceId != null) {
+            lastSnapshotsByNamespace.remove(namespaceId);
+            metricsHistoryByNamespace.remove(namespaceId);
+        }
     }
 
     /**
@@ -335,9 +381,26 @@ public class TelemetryBroadcasterService {
     private SpectorMemory resolveMemory() {
         if (userMemoryRegistry != null) {
             try {
+                SpectorMemory current = userMemoryRegistry.resolveForCurrentRequest();
+                if (current != null) return current;
+            } catch (Exception ignored) {}
+            try {
                 return userMemoryRegistry.resolveFor(null);
             } catch (Exception ignored) {}
         }
         return memoryProvider != null ? memoryProvider.getIfAvailable() : null;
+    }
+
+    /**
+     * Reads the cumulative timer count for the given metric name from the MeterRegistry,
+     * strictly filtered by namespace (ADR-0083). Returns 0 if the registry is null or the tagged
+     * timer has not been created yet (no fallback to untagged timers to prevent cross-tenant leaks).
+     */
+    private long timerCount(String metricName, String namespaceId) {
+        if (meterRegistry == null || namespaceId == null) return 0;
+        Timer tagged = meterRegistry.find(metricName)
+                .tag("spector.namespace", namespaceId)
+                .timer();
+        return tagged != null ? tagged.count() : 0;
     }
 }

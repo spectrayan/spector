@@ -77,6 +77,7 @@ public final class MemoryRegistry implements AutoCloseable {
         return binderProvider != null ? binderProvider.getIfAvailable() : null;
     }
 
+
     /**
      * Test/non-Spring constructor that bypasses the catalog plane. When auth is enabled,
      * instances are built directly by {@code namespaceId == userId}, identical to the

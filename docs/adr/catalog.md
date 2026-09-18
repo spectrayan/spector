@@ -1,11 +1,11 @@
 # Architecture Decision Records (ADRs) — Master Catalog
 
-> **Authoritative registry of all 82 Architecture Decision Records governing Spector.** Every record tracks architectural rationale, options evaluated, trade-offs accepted, and code verification against `main`.
+> **Authoritative registry of all 83 Architecture Decision Records governing Spector.** Every record tracks architectural rationale, options evaluated, trade-offs accepted, and code verification against `main`.
 
 > [!NOTE]
 > The Active Inference Self-Model Engine verification report has graduated to the architecture audit section: [Architecture Verification Report: Active Inference Self-Model Engine (AISME)](../architecture/aisme-completeness-verification-report.md).
 
-## Master Registry (0001–0082)
+## Master Registry (0001–0083)
 
 | ADR | Title | Status | Date | Target File |
 |:---|:---|:---:|:---:|:---|
@@ -91,6 +91,7 @@
 | **ADR-0080** | [Observed Memory and Pathway Metrics Telemetry Architecture](0080-observed-memory-and-pathway-metrics-telemetry.md) | `Accepted (Implemented)` | 2026-08-28 | [`0080-observed-memory-and-pathway-metrics-telemetry.md`](0080-observed-memory-and-pathway-metrics-telemetry.md) |
 | **ADR-0081** | [Dedicated Reactive Cell Ingress Router](0081-dedicated-reactive-cell-ingress-router.md) | `Accepted` | 2026-09-15 | [`0081-dedicated-reactive-cell-ingress-router.md`](0081-dedicated-reactive-cell-ingress-router.md) |
 | **ADR-0082** | [Index Plane Lifecycle, Derived Views, and Reconciliation](0082-index-plane-lifecycle-and-derived-view-reconciliation.md) | `Proposed` | 2026-09-17 | [`0082-index-plane-lifecycle-and-derived-view-reconciliation.md`](0082-index-plane-lifecycle-and-derived-view-reconciliation.md) |
+| **ADR-0083** | [Namespace-Isolated Memory Analytics and Stats Telemetry](0083-namespace-isolated-memory-analytics-telemetry.md) | `Proposed` | 2026-09-18 | [`0083-namespace-isolated-memory-analytics-telemetry.md`](0083-namespace-isolated-memory-analytics-telemetry.md) |
 
 ---
 
@@ -189,3 +190,4 @@ Hardware Abstraction Layer (HAL), actor concurrency, clustering & cell HA, REST/
 - **[ADR-0079: Asynchronous Memory Event and Telemetry Notification Bus](0079-memory-event-and-telemetry-notification-bus.md)** (`Accepted (Implemented)`)
 - **[ADR-0080: Observed Memory and Pathway Metrics Telemetry Architecture](0080-observed-memory-and-pathway-metrics-telemetry.md)** (`Accepted (Implemented)`)
 - **[ADR-0081: Dedicated Reactive Cell Ingress Router](0081-dedicated-reactive-cell-ingress-router.md)** (`Accepted`)
+- **[ADR-0083: Namespace-Isolated Memory Analytics and Stats Telemetry](0083-namespace-isolated-memory-analytics-telemetry.md)** (`Proposed`)

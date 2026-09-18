@@ -183,4 +183,38 @@ class ObservedSpectorMemoryTest {
 
         verify(delegate).applyIdentity(soul, soulStack, salience);
     }
+
+    @Test
+    @DisplayName("Observation falls back to delegate.namespaceId() when MemoryScope is unbound")
+    void testObservationFallbackWhenMemoryScopeUnbound() {
+        when(delegate.namespaceId()).thenReturn("ns-fallback-delegate");
+
+        // Execute outside of MemoryScope.runWithScope
+        memory.remember("mem-fb", "Fallback test", MemoryType.WORKING, MemorySource.USER_STATED);
+
+        TestObservationRegistryAssert.assertThat(registry)
+                .hasObservationWithNameEqualTo("spector.memory.remember")
+                .that()
+                .hasLowCardinalityKeyValue("spector.namespace", "ns-fallback-delegate");
+    }
+
+    @Test
+    @DisplayName("recordSimilarityScore records to injected MeterRegistry with namespace tag")
+    void testRecordSimilarityScoreWithInjectedRegistry() {
+        io.micrometer.core.instrument.simple.SimpleMeterRegistry meterRegistry = new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+        when(delegate.namespaceId()).thenReturn("ns-sim-test");
+
+        ObservedSpectorMemory observed = new ObservedSpectorMemory(delegate, registry, ObservabilityConfig.DEFAULT, meterRegistry);
+
+        observed.recordSimilarityScore(0.88);
+        observed.recordSimilarityScore(0.92);
+
+        var summary = meterRegistry.find("spector.memory.recall.similarity")
+                .tag("spector.namespace", "ns-sim-test")
+                .summary();
+
+        assertThat(summary).isNotNull();
+        assertThat(summary.count()).isEqualTo(2);
+        assertThat(summary.mean()).isEqualTo(0.90, org.assertj.core.data.Offset.offset(0.001));
+    }
 }

@@ -321,6 +321,20 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
     ReflectReport reflect();
 
     /**
+     * Returns the report of the most recent reflection/consolidation cycle, or {@code null} if none yet executed.
+     */
+    default ReflectReport lastReflectReport() {
+        return null;
+    }
+
+    /**
+     * Returns epoch milliseconds when the last reflection/consolidation cycle completed, or 0 if none.
+     */
+    default long lastReflectTimestamp() {
+        return 0L;
+    }
+
+    /**
      * Executes the Express (6th Canonical Cognitive Pathway) for persona-aligned synthesis,
      * vocal prosody modulation, and stylometric validation.
      *

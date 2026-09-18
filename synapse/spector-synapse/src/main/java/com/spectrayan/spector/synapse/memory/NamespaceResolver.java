@@ -212,6 +212,9 @@ public class NamespaceResolver implements AutoCloseable {
         this.observabilityConfigProvider = observabilityConfigProvider;
         this.quartzSchedulerProvider = quartzSchedulerProvider;
         this.meterRegistry = meterRegistryProvider != null ? meterRegistryProvider.getIfAvailable() : null;
+        if (this.meterRegistry != null) {
+            com.spectrayan.spector.metrics.observation.SpectorHostGauges.instance().bindTo(this.meterRegistry);
+        }
         this.maxInstances = Math.max(1, maxInstances);
         // Canonical rememberer root (Req R3.1) — shared with the migrator, detector, and CLI.
         this.basePath = synapseProps.remembererRoot();
@@ -276,7 +279,46 @@ public class NamespaceResolver implements AutoCloseable {
         if (namespaceId == null) return;
         MemoryHandle handle = cache.remove(namespaceId);
         if (handle != null) {
+            unbindNamespaceMeters(namespaceId);
             closeQuietly(handle.memory);
+        }
+    }
+
+    private final java.util.List<java.util.function.Consumer<String>> evictionListeners = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    /**
+     * Registers a listener to be notified when a namespace is evicted from the hot cache.
+     *
+     * @param listener consumer receiving the evicted namespaceId
+     */
+    public void addEvictionListener(java.util.function.Consumer<String> listener) {
+        if (listener != null) {
+            this.evictionListeners.add(listener);
+        }
+    }
+
+    private void notifyEviction(String namespaceId) {
+        for (var listener : evictionListeners) {
+            try {
+                listener.accept(namespaceId);
+            } catch (Exception e) {
+                log.warn("[NamespaceResolver] Eviction listener error for ns={}: {}", namespaceId, e.getMessage());
+            }
+        }
+    }
+
+    private void unbindNamespaceMeters(String namespaceId) {
+        if (namespaceId != null) {
+            notifyEviction(namespaceId);
+            if (meterRegistry != null) {
+                java.util.List<io.micrometer.core.instrument.Meter> toRemove = meterRegistry.getMeters().stream()
+                        .filter(meter -> namespaceId.equals(meter.getId().getTag("spector.namespace")))
+                        .toList();
+                for (var meter : toRemove) {
+                    meterRegistry.remove(meter);
+                }
+                log.debug("[NamespaceResolver] Unbound {} meters for namespace: ns={}", toRemove.size(), namespaceId);
+            }
         }
     }
 
@@ -360,6 +402,10 @@ public class NamespaceResolver implements AutoCloseable {
                 SpectorMemory instance = buildInstance(tenantId, namespaceId, ownerAccountId != null ? ownerAccountId : accountId);
                 handle = new MemoryHandle(namespaceId, ownerAccountId, accountId, instance);
                 cache.put(namespaceId, handle);
+                if (meterRegistry != null) {
+                    new com.spectrayan.spector.metrics.observation.SpectorMemoryGauges(handle.memory, namespaceId)
+                            .bindTo(meterRegistry);
+                }
             } finally {
                 coldPathLock.unlock();
             }
@@ -409,6 +455,13 @@ public class NamespaceResolver implements AutoCloseable {
         return cache.values().stream()
                 .map(h -> h.memory)
                 .toList();
+    }
+
+    /** Returns a snapshot of all cached namespace IDs and their SpectorMemory instances. */
+    public java.util.Map<String, SpectorMemory> cachedEntries() {
+        var snapshot = new java.util.LinkedHashMap<String, SpectorMemory>();
+        cache.forEach((nsId, handle) -> snapshot.put(nsId, handle.memory));
+        return java.util.Collections.unmodifiableMap(snapshot);
     }
 
     /** Returns the underlying AccountCatalog (test/admin). */
@@ -718,7 +771,7 @@ public class NamespaceResolver implements AutoCloseable {
         });
 
         if (obsRegistry != null && obsConfig != null) {
-            built = new com.spectrayan.spector.metrics.ObservedSpectorMemory(built, obsRegistry, obsConfig);
+            built = new com.spectrayan.spector.metrics.ObservedSpectorMemory(built, obsRegistry, obsConfig, meterRegistry);
         }
 
         String tenantLog = (tenantId != null && !tenantId.isBlank()) ? tenantId : "none";
@@ -789,6 +842,7 @@ public class NamespaceResolver implements AutoCloseable {
         if (oldestKey != null) {
             MemoryHandle ev = cache.remove(oldestKey);
             if (ev != null) {
+                unbindNamespaceMeters(oldestKey);
                 log.info("[NamespaceResolver] Evicting unleased hot namespace '{}' for account '{}' (hot cap reached)",
                         oldestKey, accountId);
                 return ev;
@@ -812,6 +866,7 @@ public class NamespaceResolver implements AutoCloseable {
         if (oldestKey != null) {
             MemoryHandle ev = cache.remove(oldestKey);
             if (ev != null) {
+                unbindNamespaceMeters(oldestKey);
                 log.info("[NamespaceResolver] Evicting unleased hot namespace '{}' (process capacity={})",
                         oldestKey, maxInstances);
                 return ev;

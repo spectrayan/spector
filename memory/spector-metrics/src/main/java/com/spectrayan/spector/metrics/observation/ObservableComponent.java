@@ -45,13 +45,17 @@ public abstract class ObservableComponent {
         this.config = config;
     }
 
+    protected String resolveNamespaceId() {
+        return MemoryScope.namespaceId();
+    }
+
     protected <T> T withObservation(SpectorObservationDocumentation doc, Map<String, String> tags, Supplier<T> work) {
         if (!config.isEnabled(doc.getName())) {
             return work.get();
         }
 
         MemoryObservationContext context = new MemoryObservationContext(doc.getName());
-        context.setNamespace(MemoryScope.namespaceId());
+        context.setNamespace(resolveNamespaceId());
         context.setSessionId(MemoryScope.sessionId());
 
         if (tags != null) {

@@ -17,6 +17,9 @@ package com.spectrayan.spector.synapse.platform.events;
 
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.kernel.api.MemoryType;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,17 +37,22 @@ class TelemetryBroadcasterServiceTest {
     private TelemetryBroadcasterService service;
     private EventPublisher mockPublisher;
     private SpectorMemory mockMemory;
+    private MeterRegistry meterRegistry;
 
     @BeforeEach
     @SuppressWarnings("unchecked")
     void setUp() {
         mockPublisher = mock(EventPublisher.class);
         mockMemory = mock(SpectorMemory.class);
+        meterRegistry = new SimpleMeterRegistry();
 
         ObjectProvider<SpectorMemory> memProvider = mock(ObjectProvider.class);
         when(memProvider.getIfAvailable()).thenReturn(mockMemory);
 
-        service = new TelemetryBroadcasterService(mockPublisher, mock(ObjectProvider.class), memProvider);
+        ObjectProvider<MeterRegistry> registryProvider = mock(ObjectProvider.class);
+        when(registryProvider.getIfAvailable()).thenReturn(meterRegistry);
+
+        service = new TelemetryBroadcasterService(mockPublisher, mock(ObjectProvider.class), memProvider, registryProvider);
     }
 
     @Test
@@ -94,14 +102,61 @@ class TelemetryBroadcasterServiceTest {
     }
 
     @Test
-    @DisplayName("broadcastHeartbeat — calculates delta rates and emits events")
+    @DisplayName("broadcastHeartbeat — reads ops/sec from MeterRegistry timers with namespace tag (ADR-0083)")
     void broadcastHeartbeat() {
-        service.recordRecall();
-        service.recordRecall();
-        service.recordRemember();
+        when(mockMemory.namespaceId()).thenReturn("tenant-alpha");
+
+        // Tagged observations for tenant-alpha
+        Timer.builder("spector.memory.recall")
+                .tag("spector.namespace", "tenant-alpha")
+                .register(meterRegistry)
+                .record(java.time.Duration.ofMillis(5));
+        Timer.builder("spector.memory.recall")
+                .tag("spector.namespace", "tenant-alpha")
+                .register(meterRegistry)
+                .record(java.time.Duration.ofMillis(3));
+        Timer.builder("spector.memory.remember")
+                .tag("spector.namespace", "tenant-alpha")
+                .register(meterRegistry)
+                .record(java.time.Duration.ofMillis(10));
+
+        // Untagged timer from another context must NOT be inherited (leak prevention)
+        Timer.builder("spector.memory.recall")
+                .register(meterRegistry)
+                .record(java.time.Duration.ofMillis(100));
+
         service.broadcastHeartbeat();
 
         verify(mockPublisher, atLeastOnce()).cortexEvent(eq("cortex.memory.diagnostic"), any());
-        verify(mockPublisher, atLeastOnce()).cortexEvent(eq("cortex.metrics.tick"), any());
+
+        @SuppressWarnings("unchecked")
+        org.mockito.ArgumentCaptor<Map<String, Object>> tickCaptor = org.mockito.ArgumentCaptor.forClass(Map.class);
+        verify(mockPublisher, atLeastOnce()).cortexEvent(eq("cortex.metrics.tick"), tickCaptor.capture());
+        Map<String, Object> tick = tickCaptor.getValue();
+        assertThat(tick.get("namespace")).isEqualTo("tenant-alpha");
+
+        var history = service.getLiveMetricsHistory("tenant-alpha");
+        assertThat(history).isNotEmpty();
+        assertThat(history.getLast().get("namespace")).isEqualTo("tenant-alpha");
+
+        // Disjoint namespace returns empty history and does not inherit data
+        var otherHistory = service.getLiveMetricsHistory("tenant-beta");
+        assertThat(otherHistory).isEmpty();
+    }
+
+    @Test
+    @DisplayName("evictNamespace — clears rolling history for evicted namespace (ADR-0083)")
+    void evictNamespace_clearsRollingHistory() {
+        when(mockMemory.namespaceId()).thenReturn("tenant-evict");
+        Timer.builder("spector.memory.recall")
+                .tag("spector.namespace", "tenant-evict")
+                .register(meterRegistry)
+                .record(java.time.Duration.ofMillis(5));
+
+        service.broadcastHeartbeat();
+        assertThat(service.getLiveMetricsHistory("tenant-evict")).isNotEmpty();
+
+        service.evictNamespace("tenant-evict");
+        assertThat(service.getLiveMetricsHistory("tenant-evict")).isEmpty();
     }
 }
