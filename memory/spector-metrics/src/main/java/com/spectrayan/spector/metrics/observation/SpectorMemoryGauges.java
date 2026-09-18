@@ -23,9 +23,15 @@ import io.micrometer.core.instrument.binder.MeterBinder;
 public class SpectorMemoryGauges implements MeterBinder {
     
     private final SpectorMemory memory;
+    private final String namespaceId;
     
     public SpectorMemoryGauges(SpectorMemory memory) {
+        this(memory, null);
+    }
+    
+    public SpectorMemoryGauges(SpectorMemory memory, String namespaceId) {
         this.memory = memory;
+        this.namespaceId = namespaceId;
     }
     
     @Override
@@ -36,9 +42,10 @@ public class SpectorMemoryGauges implements MeterBinder {
                 .register(registry);
 
         // Gauges
-        Gauge.builder("spector.memory.count", memory, SpectorMemory::totalMemories)
-                .description("Total number of memories across all tiers")
-                .register(registry);
+        var countBuilder = Gauge.builder("spector.memory.count", memory, SpectorMemory::totalMemories)
+                .description("Total number of memories across all tiers");
+        if (namespaceId != null) countBuilder.tag("spector.namespace", namespaceId);
+        countBuilder.register(registry);
 
         // Soft & Hard Page Fault Gauges (Linux container tracking)
         Gauge.builder("spector.memory.page.faults", () -> readPageFaults()[0])
@@ -55,22 +62,29 @@ public class SpectorMemoryGauges implements MeterBinder {
         if (memory.indexPlaneCoordinator() != null) {
             for (com.spectrayan.spector.memory.index.ManagedIndex idx : memory.indexPlaneCoordinator().registeredIndexes()) {
                 String name = idx.name();
-                Gauge.builder("spector.memory.index.entries", idx, i -> i.stats().entries())
+                var b1 = Gauge.builder("spector.memory.index.entries", idx, i -> i.stats().entries())
                         .tag("index", name)
-                        .description("Total entries in index")
-                        .register(registry);
-                Gauge.builder("spector.memory.index.heap.bytes", idx, i -> i.stats().heapBytes())
+                        .description("Total entries in index");
+                if (namespaceId != null) b1.tag("spector.namespace", namespaceId);
+                b1.register(registry);
+                
+                var b2 = Gauge.builder("spector.memory.index.heap.bytes", idx, i -> i.stats().heapBytes())
                         .tag("index", name)
-                        .description("Estimated heap bytes used by index")
-                        .register(registry);
-                Gauge.builder("spector.memory.index.off_heap.bytes", idx, i -> i.stats().offHeapBytes())
+                        .description("Estimated heap bytes used by index");
+                if (namespaceId != null) b2.tag("spector.namespace", namespaceId);
+                b2.register(registry);
+                
+                var b3 = Gauge.builder("spector.memory.index.off_heap.bytes", idx, i -> i.stats().offHeapBytes())
                         .tag("index", name)
-                        .description("Off-heap bytes used by index")
-                        .register(registry);
-                Gauge.builder("spector.memory.index.generation", idx, com.spectrayan.spector.memory.index.ManagedIndex::generation)
+                        .description("Off-heap bytes used by index");
+                if (namespaceId != null) b3.tag("spector.namespace", namespaceId);
+                b3.register(registry);
+                
+                var b4 = Gauge.builder("spector.memory.index.generation", idx, com.spectrayan.spector.memory.index.ManagedIndex::generation)
                         .tag("index", name)
-                        .description("Index generation number")
-                        .register(registry);
+                        .description("Index generation number");
+                if (namespaceId != null) b4.tag("spector.namespace", namespaceId);
+                b4.register(registry);
             }
         }
     }

@@ -46,6 +46,7 @@ import com.spectrayan.spector.metrics.observation.MemoryObservationContext;
 import com.spectrayan.spector.metrics.observation.ObservableComponent;
 import com.spectrayan.spector.metrics.observation.SpectorObservationConvention;
 import com.spectrayan.spector.metrics.observation.SpectorObservationDocumentation;
+import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
 
@@ -103,6 +104,24 @@ public class ObservedSpectorMemory extends ObservableComponent implements Specto
         return tags;
     }
 
+
+    @Override
+    protected String resolveNamespaceId() {
+        String scoped = MemoryScope.namespaceId();
+        if (scoped != null && !scoped.isBlank()) {
+            return scoped;
+        }
+        return delegate.namespaceId();
+    }
+
+    public void recordSimilarityScore(double score) {
+        String ns = resolveNamespaceId();
+        DistributionSummary.builder("spector.memory.recall.similarity")
+            .tag("spector.namespace", ns != null ? ns : "default")
+            .description("Recall result similarity score distribution")
+            .register(SpectorMetrics.registry())
+            .record(score);
+    }
 
     @Override
     public String namespaceId() {
