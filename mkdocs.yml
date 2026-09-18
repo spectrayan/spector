@@ -316,6 +316,7 @@ nav:
               - "ADR-0077: Model B Asynchronous Task Queue and Concurrency": adr/0077-model-b-asynchronous-task-queue-concurrency.md
               - "ADR-0079: Asynchronous Memory Event and Telemetry Notification Bus": adr/0079-memory-event-and-telemetry-notification-bus.md
               - "ADR-0080: Observed Memory and Pathway Metrics Telemetry Architecture": adr/0080-observed-memory-and-pathway-metrics-telemetry.md
+              - "ADR-0081: Dedicated Reactive Ingress and In-Process Path Router": adr/0081-dedicated-reactive-cell-ingress-router.md
       - "Modules Registry":
           - Overview: modules/index.md
           - "Foundation Layer (/nucleus)":
