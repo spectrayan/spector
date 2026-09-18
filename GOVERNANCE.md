@@ -1,6 +1,6 @@
 # Project Governance
 
-This document establishes the open-source governance model for the **Spector** project, adhering to Linux Foundation and AI & Data / AAIF open governance standards. Spector is an open-source, community-driven project governed through transparent, vendor-neutral meritocracy.
+This document establishes the open-source governance model for the **Spector** project, adhering to open-source foundation and open governance standards. Spector is an open-source, community-driven project governed through transparent, vendor-neutral meritocracy.
 
 ---
 
