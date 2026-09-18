@@ -1,14 +1,17 @@
 /*
  * Copyright 2026 Spectrayan
  *
- * Licensed under the Business Source License 1.1 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     https://github.com/spectrayan/spector/blob/main/spector-memory/LICENSE
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Change Date: May 27, 2030
- * Change License: Apache License, Version 2.0
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package com.spectrayan.spector.memory.api;
 
@@ -29,16 +32,15 @@ import java.util.Set;
  *
  * <h3>Design Philosophy</h3>
  * <p>This is an <b>operational configuration</b>, not a licensing gate.
- * Spector is distributed under the Business Source License (BSL 1.1) —
- * commercial use restrictions are enforced by the license itself, not by
- * code-level feature gates that any user with the source can bypass.</p>
+ * Spector is distributed under the Apache License 2.0 —
+ * profile availability is governed by runtime configuration, not by
+ * code-level feature gates.</p>
  *
- * <h3>Why Configuration, Not Licensing?</h3>
+ * <h3>Why Configuration?</h3>
  * <ul>
- *   <li>BSL handles commercial restriction — code-level gates are security theater</li>
  *   <li>Users may want to disable profiles for safety, compliance, or resource reasons</li>
  *   <li>SaaS/cloud deployments can configure available profiles per-tenant</li>
- *   <li>Self-hosted users get full functionality — the BSL license governs their usage</li>
+ *   <li>Self-hosted users get full functionality — configuration governs their usage</li>
  * </ul>
  *
  * <h3>Usage</h3>
