@@ -14,6 +14,7 @@ package com.spectrayan.spector.memory.index;
 
 import com.spectrayan.spector.kernel.api.MemoryLocation;
 import com.spectrayan.spector.kernel.graph.EntityDirectory;
+import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
 import com.spectrayan.spector.kernel.store.TypeRegistryMemory;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
@@ -26,6 +27,7 @@ import org.quartz.JobDataMap;
 import org.quartz.JobDetail;
 import org.quartz.JobExecutionContext;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -290,5 +292,151 @@ class IndexReconcileEngineTest {
             var tasks = scheduler.listTasks();
             assertThat(tasks).anyMatch(t -> t.id().equals(QuartzMemoryScheduler.TASK_INDEX_RECONCILE));
         }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // Phase 2.1 — Hypergraph Vertex Quarantine Tests (#946)
+    // ══════════════════════════════════════════════════════════════
+
+    @Test
+    @DisplayName("reconcile quarantines hyperedge with dangling entity (entityId >= entityCount)")
+    void reconcile_hypergraphDanglingEntity_quarantinesEdge() {
+        EntityDirectory dir = mock(EntityDirectory.class);
+        when(dir.entityCount()).thenReturn(10);
+        when(dir.memoryRefCount(anyInt())).thenReturn(0);
+
+        HyperEntityGraphMemory graph = new HyperEntityGraphMemory(16, 32);
+        // Add hyperedge with entity 5 (valid) and entity 999 (dangling)
+        graph.addHyperedge(new int[]{5, 999}, new int[]{1, 2}, 0, 1.0f, 0, System.currentTimeMillis());
+
+        MemoryIndex memIndex = mock(MemoryIndex.class);
+        ConcurrentHashMap<String, MemoryLocation> locMap = new ConcurrentHashMap<>();
+        locMap.put("mem-0", new MemoryLocation(com.spectrayan.spector.kernel.api.MemoryType.EPISODIC, 0, 0));
+        when(memIndex.locationMap()).thenReturn(locMap);
+
+        IndexReconcileEngine engine = new IndexReconcileEngine(dir, memIndex, null, null, graph, 1000L, 100);
+        IndexReconcileReport report = engine.reconcile();
+
+        assertThat(report.scannedHypergraph()).isGreaterThan(0);
+        assertThat(report.quarantinedHypergraph()).isEqualTo(1);
+        assertThat(engine.quarantineRegistry().isQuarantined(0)).isTrue();
+        assertThat(engine.quarantineRegistry().snapshot().get(0).reason()).isEqualTo(QuarantineReason.DANGLING_ENTITY);
+
+        graph.close();
+    }
+
+    @Test
+    @DisplayName("reconcile quarantines hyperedge with dangling memory (memoryIdx not in locationMap)")
+    void reconcile_hypergraphDanglingMemory_quarantinesEdge() {
+        EntityDirectory dir = mock(EntityDirectory.class);
+        when(dir.entityCount()).thenReturn(10);
+        when(dir.memoryRefCount(anyInt())).thenReturn(0);
+
+        HyperEntityGraphMemory graph = new HyperEntityGraphMemory(16, 32);
+        // Add hyperedge with valid entities but memoryIdx=99 (not in locationMap)
+        graph.addHyperedge(new int[]{3, 5}, new int[]{1, 2}, 0, 1.0f, 99, System.currentTimeMillis());
+
+        MemoryIndex memIndex = mock(MemoryIndex.class);
+        ConcurrentHashMap<String, MemoryLocation> locMap = new ConcurrentHashMap<>();
+        locMap.put("mem-0", new MemoryLocation(com.spectrayan.spector.kernel.api.MemoryType.EPISODIC, 0, 0));
+        when(memIndex.locationMap()).thenReturn(locMap);
+
+        IndexReconcileEngine engine = new IndexReconcileEngine(dir, memIndex, null, null, graph, 1000L, 100);
+        IndexReconcileReport report = engine.reconcile();
+
+        assertThat(report.quarantinedHypergraph()).isEqualTo(1);
+        assertThat(engine.quarantineRegistry().snapshot().get(0).reason()).isEqualTo(QuarantineReason.DANGLING_MEMORY);
+
+        graph.close();
+    }
+
+    @Test
+    @DisplayName("reconcile quarantines orphaned hyperedge (all vertices dangling)")
+    void reconcile_hypergraphOrphanedEdge_quarantinesEdge() {
+        EntityDirectory dir = mock(EntityDirectory.class);
+        when(dir.entityCount()).thenReturn(5); // Only 5 entities
+        when(dir.memoryRefCount(anyInt())).thenReturn(0);
+
+        HyperEntityGraphMemory graph = new HyperEntityGraphMemory(16, 32);
+        // Add hyperedge with both entities out of bounds (>= 5)
+        graph.addHyperedge(new int[]{100, 200}, new int[]{1, 2}, 0, 1.0f, 0, System.currentTimeMillis());
+
+        MemoryIndex memIndex = mock(MemoryIndex.class);
+        ConcurrentHashMap<String, MemoryLocation> locMap = new ConcurrentHashMap<>();
+        locMap.put("mem-0", new MemoryLocation(com.spectrayan.spector.kernel.api.MemoryType.EPISODIC, 0, 0));
+        when(memIndex.locationMap()).thenReturn(locMap);
+
+        IndexReconcileEngine engine = new IndexReconcileEngine(dir, memIndex, null, null, graph, 1000L, 100);
+        IndexReconcileReport report = engine.reconcile();
+
+        assertThat(report.quarantinedHypergraph()).isEqualTo(1);
+        assertThat(engine.quarantineRegistry().snapshot().get(0).reason()).isEqualTo(QuarantineReason.ORPHANED_HYPEREDGE);
+
+        graph.close();
+    }
+
+    @Test
+    @DisplayName("reconcile does not quarantine clean hyperedge with valid entities and memory")
+    void reconcile_hypergraphCleanEdge_notQuarantined() {
+        EntityDirectory dir = mock(EntityDirectory.class);
+        when(dir.entityCount()).thenReturn(10);
+        when(dir.memoryRefCount(anyInt())).thenReturn(0);
+
+        HyperEntityGraphMemory graph = new HyperEntityGraphMemory(16, 32);
+        // Add clean hyperedge: valid entities (3,5) and valid memoryIdx (0)
+        graph.addHyperedge(new int[]{3, 5}, new int[]{1, 2}, 0, 1.0f, 0, System.currentTimeMillis());
+
+        MemoryIndex memIndex = mock(MemoryIndex.class);
+        ConcurrentHashMap<String, MemoryLocation> locMap = new ConcurrentHashMap<>();
+        locMap.put("mem-0", new MemoryLocation(com.spectrayan.spector.kernel.api.MemoryType.EPISODIC, 0, 0));
+        when(memIndex.locationMap()).thenReturn(locMap);
+
+        IndexReconcileEngine engine = new IndexReconcileEngine(dir, memIndex, null, null, graph, 1000L, 100);
+        IndexReconcileReport report = engine.reconcile();
+
+        assertThat(report.quarantinedHypergraph()).isEqualTo(0);
+        assertThat(engine.quarantineRegistry().quarantinedCount()).isEqualTo(0);
+
+        graph.close();
+    }
+
+    @Test
+    @DisplayName("quarantine filter excludes quarantined edges from findHyperedgesForEntity")
+    void quarantineFilter_excludesQuarantinedFromTraversal() {
+        HyperEntityGraphMemory graph = new HyperEntityGraphMemory(16, 32);
+        // Add two hyperedges for entity 3
+        int edge0 = graph.addHyperedge(new int[]{3, 5}, new int[]{1, 2}, 0, 2.0f, 0, System.currentTimeMillis());
+        int edge1 = graph.addHyperedge(new int[]{3, 7}, new int[]{1, 2}, 0, 1.0f, 1, System.currentTimeMillis());
+
+        // Without filter: both edges visible
+        assertThat(graph.findHyperedgesForEntity(3)).hasSize(2);
+
+        // Set quarantine filter to block edge0
+        graph.setQuarantineFilter(edgeId -> edgeId == edge0);
+
+        // With filter: only edge1 visible
+        List<HyperEntityGraphMemory.HyperEdge> filtered = graph.findHyperedgesForEntity(3);
+        assertThat(filtered).hasSize(1);
+        assertThat(filtered.get(0).edgeId()).isEqualTo(edge1);
+
+        // Remove filter
+        graph.setQuarantineFilter(null);
+        assertThat(graph.findHyperedgesForEntity(3)).hasSize(2);
+
+        graph.close();
+    }
+
+    @Test
+    @DisplayName("admin un-quarantine releases edge from quarantine registry")
+    void quarantineRegistry_adminUnquarantine_releasesEdge() {
+        IndexReconcileEngine engine = new IndexReconcileEngine(null, null, null, null, null, 1000L, 100);
+        QuarantineRegistry registry = engine.quarantineRegistry();
+
+        registry.quarantine(42, QuarantineReason.DANGLING_ENTITY);
+        assertThat(registry.isQuarantined(42)).isTrue();
+
+        boolean released = registry.unquarantine(42);
+        assertThat(released).isTrue();
+        assertThat(registry.isQuarantined(42)).isFalse();
     }
 }
