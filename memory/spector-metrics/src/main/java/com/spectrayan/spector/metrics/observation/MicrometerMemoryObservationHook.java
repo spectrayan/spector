@@ -65,7 +65,11 @@ public final class MicrometerMemoryObservationHook implements MemoryObservationH
         }
 
         MemoryObservationContext context = new MemoryObservationContext(fullName);
-        context.setNamespace(MemoryScope.namespaceId());
+        String ns = MemoryScope.namespaceId();
+        if (ns == null && tags != null) {
+            ns = tags.getOrDefault("namespace", tags.get("spector.namespace"));
+        }
+        context.setNamespace(ns);
         context.setSessionId(MemoryScope.sessionId());
 
         if (tags != null) {

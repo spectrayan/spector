@@ -97,8 +97,55 @@ class SpectorMemoryGaugesTest {
 
         assertThat(gaugeA).isNotNull();
         assertThat(gaugeA.value()).isEqualTo(100.0);
-        
         assertThat(gaugeB).isNotNull();
         assertThat(gaugeB.value()).isEqualTo(200.0);
+    }
+
+    @Test
+    @DisplayName("Host gauges are bound once and not duplicated on multiple namespace openings")
+    void hostGauges_boundOnce_notDuplicated() {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+
+        SpectorHostGauges.instance().resetForTesting();
+        SpectorHostGauges.instance().bindTo(registry);
+        // Second bind attempt should be a no-op
+        SpectorHostGauges.instance().bindTo(registry);
+
+        var pinnedGauges = registry.find("spector.memory.pinned.bytes").gauges();
+        assertThat(pinnedGauges).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("Evicting a namespace removes only its meters via registry.remove")
+    void evictNamespace_removesOnlyTargetMeters() {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+
+        SpectorMemoryGauges gaugesA = new SpectorMemoryGauges(mockMemoryA, "ns-evict-a");
+        SpectorMemoryGauges gaugesB = new SpectorMemoryGauges(mockMemoryB, "ns-evict-b");
+
+        when(mockMemoryA.totalMemories()).thenReturn(10);
+        when(mockMemoryB.totalMemories()).thenReturn(20);
+
+        gaugesA.bindTo(registry);
+        gaugesB.bindTo(registry);
+
+        var gaugeA = registry.find("spector.memory.count").tag("spector.namespace", "ns-evict-a").gauge();
+        var gaugeB = registry.find("spector.memory.count").tag("spector.namespace", "ns-evict-b").gauge();
+        assertThat(gaugeA).isNotNull();
+        assertThat(gaugeB).isNotNull();
+        assertThat(gaugeA.value()).isEqualTo(10.0);
+        assertThat(gaugeB.value()).isEqualTo(20.0);
+
+        // Simulate NamespaceResolver.unbindNamespaceMeters("ns-evict-a")
+        var toRemove = registry.getMeters().stream()
+                .filter(m -> "ns-evict-a".equals(m.getId().getTag("spector.namespace")))
+                .toList();
+        for (var meter : toRemove) {
+            registry.remove(meter);
+        }
+
+        // ns-evict-a should be gone, ns-evict-b remains
+        assertThat(registry.find("spector.memory.count").tag("spector.namespace", "ns-evict-a").gauge()).isNull();
+        assertThat(registry.find("spector.memory.count").tag("spector.namespace", "ns-evict-b").gauge()).isNotNull();
     }
 }

@@ -36,27 +36,16 @@ public class SpectorMemoryGauges implements MeterBinder {
     
     @Override
     public void bindTo(MeterRegistry registry) {
-        // Pinned Bytes Gauge (RAM usage verification)
-        Gauge.builder("spector.memory.pinned.bytes", com.spectrayan.spector.commons.concurrent.MemoryPinning::pinnedBytes)
-                .description("Total off-heap memory bytes pinned in RAM")
-                .register(registry);
+        // Host-level gauges registered once if no namespace specified (legacy/shared mode)
+        if (namespaceId == null) {
+            SpectorHostGauges.instance().bindTo(registry);
+        }
 
         // Gauges
         var countBuilder = Gauge.builder("spector.memory.count", memory, SpectorMemory::totalMemories)
                 .description("Total number of memories across all tiers");
         if (namespaceId != null) countBuilder.tag("spector.namespace", namespaceId);
         countBuilder.register(registry);
-
-        // Soft & Hard Page Fault Gauges (Linux container tracking)
-        Gauge.builder("spector.memory.page.faults", () -> readPageFaults()[0])
-                .tag("type", "soft")
-                .description("Soft page faults (minor faults) on Linux")
-                .register(registry);
-
-        Gauge.builder("spector.memory.page.faults", () -> readPageFaults()[1])
-                .tag("type", "hard")
-                .description("Hard page faults (major faults) on Linux")
-                .register(registry);
 
         // Index Plane Gauges (ADR-0082)
         if (memory.indexPlaneCoordinator() != null) {
@@ -87,27 +76,5 @@ public class SpectorMemoryGauges implements MeterBinder {
                 b4.register(registry);
             }
         }
-    }
-    
-    private static long[] readPageFaults() {
-        try {
-            java.nio.file.Path path = java.nio.file.Path.of("/proc/self/stat");
-            if (java.nio.file.Files.exists(path)) {
-                String content = java.nio.file.Files.readString(path);
-                int lastParen = content.lastIndexOf(')');
-                if (lastParen != -1 && lastParen + 2 < content.length()) {
-                    String rest = content.substring(lastParen + 2);
-                    String[] tokens = rest.split("\\s+");
-                    if (tokens.length > 9) {
-                        long soft = Long.parseLong(tokens[7]);
-                        long hard = Long.parseLong(tokens[9]);
-                        return new long[]{soft, hard};
-                    }
-                }
-            }
-        } catch (Exception e) {
-            // safe fallback
-        }
-        return new long[]{0L, 0L};
     }
 }

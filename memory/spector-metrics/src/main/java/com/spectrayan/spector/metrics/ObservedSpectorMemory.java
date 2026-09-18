@@ -47,6 +47,7 @@ import com.spectrayan.spector.metrics.observation.ObservableComponent;
 import com.spectrayan.spector.metrics.observation.SpectorObservationConvention;
 import com.spectrayan.spector.metrics.observation.SpectorObservationDocumentation;
 import io.micrometer.core.instrument.DistributionSummary;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
 
@@ -70,18 +71,35 @@ public class ObservedSpectorMemory extends ObservableComponent implements Specto
 
     private final SpectorMemory delegate;
     private final ObservationRegistry registry;
+    private final MeterRegistry meterRegistry;
     private final SpectorObservationConvention convention;
 
     public ObservedSpectorMemory(SpectorMemory delegate, ObservationRegistry registry, ObservabilityConfig config) {
-        this(delegate, registry, config, DefaultSpectorObservationConvention.INSTANCE);
+        this(delegate, registry, config, null, DefaultSpectorObservationConvention.INSTANCE);
+    }
+
+    public ObservedSpectorMemory(SpectorMemory delegate, ObservationRegistry registry, ObservabilityConfig config,
+                                 MeterRegistry meterRegistry) {
+        this(delegate, registry, config, meterRegistry, DefaultSpectorObservationConvention.INSTANCE);
     }
 
     public ObservedSpectorMemory(SpectorMemory delegate, ObservationRegistry registry, ObservabilityConfig config,
                                  SpectorObservationConvention convention) {
+        this(delegate, registry, config, null, convention);
+    }
+
+    public ObservedSpectorMemory(SpectorMemory delegate, ObservationRegistry registry, ObservabilityConfig config,
+                                 MeterRegistry meterRegistry,
+                                 SpectorObservationConvention convention) {
         super(registry, config);
         this.delegate = Objects.requireNonNull(delegate, "delegate");
         this.registry = Objects.requireNonNull(registry, "registry");
+        this.meterRegistry = meterRegistry;
         this.convention = convention != null ? convention : DefaultSpectorObservationConvention.INSTANCE;
+    }
+
+    public MeterRegistry meterRegistry() {
+        return meterRegistry;
     }
 
     public SpectorMemory unwrap() {
@@ -116,11 +134,14 @@ public class ObservedSpectorMemory extends ObservableComponent implements Specto
 
     public void recordSimilarityScore(double score) {
         String ns = resolveNamespaceId();
-        DistributionSummary.builder("spector.memory.recall.similarity")
-            .tag("spector.namespace", ns != null ? ns : "default")
-            .description("Recall result similarity score distribution")
-            .register(SpectorMetrics.registry())
-            .record(score);
+        MeterRegistry target = this.meterRegistry != null ? this.meterRegistry : SpectorMetrics.registry();
+        if (target != null) {
+            DistributionSummary.builder("spector.memory.recall.similarity")
+                    .tag("spector.namespace", ns != null ? ns : "default")
+                    .description("Recall result similarity score distribution")
+                    .register(target)
+                    .record(score);
+        }
     }
 
     @Override

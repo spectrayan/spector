@@ -61,7 +61,7 @@ public final class ObservableRelay<S> extends ObservableComponent implements Syn
         }
 
         MemoryObservationContext context = new MemoryObservationContext(relayName);
-        context.setNamespace(MemoryScope.namespaceId());
+        context.setNamespace(resolveNamespaceId());
         context.setSessionId(MemoryScope.sessionId());
 
         Observation observation = Observation.createNotStarted(
