@@ -1099,8 +1099,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 // Non-deprecated path: no RememberPathway is threaded through. Soul version
                 // resolves from the context's SoulVersionSource and nested gist writes go
                 // through the PathwayCatalog (ADR-0035 R2.3, §8.1b).
-                return reflectPathway.reflect(null, partitionManager, index, salienceProfile(),
+                ReflectReport report = reflectPathway.reflect(null, partitionManager, index, salienceProfile(),
                         episodicSessionIndex, spec, null);
+                this.lastReflectReport = report;
+                this.lastReflectTimestamp = System.currentTimeMillis();
+                return report;
             }
             return ReflectReport.empty();
         } finally {

@@ -155,6 +155,17 @@ class ConsolidationIntegrationTest {
         assertThat(recallWithContradictions).anyMatch(r -> "fact-b".equals(r.id()));
     }
 
+    @Test
+    void testReflectStoresLastReflectReportAndTimestamp() {
+        assertThat(memory.lastReflectReport()).isNull();
+        assertThat(memory.lastReflectTimestamp()).isEqualTo(0L);
+
+        var report = memory.reflect();
+        assertThat(report).isNotNull();
+        assertThat(memory.lastReflectReport()).isSameAs(report);
+        assertThat(memory.lastReflectTimestamp()).isGreaterThan(0L);
+    }
+
     static class TestEmbeddingProvider implements EmbeddingProvider {
         private final int dims;
         private final Map<String, float[]> presetVectors = new HashMap<>();

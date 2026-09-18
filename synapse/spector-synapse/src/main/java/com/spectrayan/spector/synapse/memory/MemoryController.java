@@ -396,9 +396,8 @@ public class MemoryController {
      */
     @GetMapping("/metrics/live")
     @Operation(operationId = "getLiveMetrics", summary = "Recent live rolling ops/sec metrics history")
-    public ResponseEntity<List<Map<String, Object>>> getLiveMetrics(
-            @RequestParam(required = false) String namespace) {
-        return ResponseEntity.ok(memoryService.getLiveMetricsHistory(namespace));
+    public ResponseEntity<List<Map<String, Object>>> getLiveMetrics() {
+        return ResponseEntity.ok(memoryService.getLiveMetricsHistory());
     }
 
     // ══════════════════════════════════════════════════════════════

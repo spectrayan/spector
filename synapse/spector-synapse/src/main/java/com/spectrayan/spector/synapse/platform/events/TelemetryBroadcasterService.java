@@ -381,6 +381,10 @@ public class TelemetryBroadcasterService {
     private SpectorMemory resolveMemory() {
         if (userMemoryRegistry != null) {
             try {
+                SpectorMemory current = userMemoryRegistry.resolveForCurrentRequest();
+                if (current != null) return current;
+            } catch (Exception ignored) {}
+            try {
                 return userMemoryRegistry.resolveFor(null);
             } catch (Exception ignored) {}
         }
