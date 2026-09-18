@@ -284,15 +284,41 @@ public class NamespaceResolver implements AutoCloseable {
         }
     }
 
-    private void unbindNamespaceMeters(String namespaceId) {
-        if (meterRegistry != null && namespaceId != null) {
-            java.util.List<io.micrometer.core.instrument.Meter> toRemove = meterRegistry.getMeters().stream()
-                    .filter(meter -> namespaceId.equals(meter.getId().getTag("spector.namespace")))
-                    .toList();
-            for (var meter : toRemove) {
-                meterRegistry.remove(meter);
+    private final java.util.List<java.util.function.Consumer<String>> evictionListeners = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    /**
+     * Registers a listener to be notified when a namespace is evicted from the hot cache.
+     *
+     * @param listener consumer receiving the evicted namespaceId
+     */
+    public void addEvictionListener(java.util.function.Consumer<String> listener) {
+        if (listener != null) {
+            this.evictionListeners.add(listener);
+        }
+    }
+
+    private void notifyEviction(String namespaceId) {
+        for (var listener : evictionListeners) {
+            try {
+                listener.accept(namespaceId);
+            } catch (Exception e) {
+                log.warn("[NamespaceResolver] Eviction listener error for ns={}: {}", namespaceId, e.getMessage());
             }
-            log.debug("[NamespaceResolver] Unbound {} meters for namespace: ns={}", toRemove.size(), namespaceId);
+        }
+    }
+
+    private void unbindNamespaceMeters(String namespaceId) {
+        if (namespaceId != null) {
+            notifyEviction(namespaceId);
+            if (meterRegistry != null) {
+                java.util.List<io.micrometer.core.instrument.Meter> toRemove = meterRegistry.getMeters().stream()
+                        .filter(meter -> namespaceId.equals(meter.getId().getTag("spector.namespace")))
+                        .toList();
+                for (var meter : toRemove) {
+                    meterRegistry.remove(meter);
+                }
+                log.debug("[NamespaceResolver] Unbound {} meters for namespace: ns={}", toRemove.size(), namespaceId);
+            }
         }
     }
 

@@ -52,8 +52,8 @@ public class TelemetryBroadcasterService {
     // [0]=recall, [1]=remember, [2]=reinforce, [3]=forget, [4]=lastTickTimestamp
     private final java.util.concurrent.ConcurrentHashMap<String, long[]> lastSnapshotsByNamespace = new java.util.concurrent.ConcurrentHashMap<>();
 
-    // Rolling history for immediate REST bootstrap
-    private final ConcurrentLinkedDeque<Map<String, Object>> metricsHistory = new ConcurrentLinkedDeque<>();
+    // Rolling history per namespace for immediate REST bootstrap (ADR-0083)
+    private final java.util.concurrent.ConcurrentHashMap<String, ConcurrentLinkedDeque<Map<String, Object>>> metricsHistoryByNamespace = new java.util.concurrent.ConcurrentHashMap<>();
     private static final int MAX_HISTORY_POINTS = 60;
 
     public TelemetryBroadcasterService(
@@ -62,9 +62,12 @@ public class TelemetryBroadcasterService {
             ObjectProvider<SpectorMemory> memoryProvider,
             ObjectProvider<MeterRegistry> meterRegistryProvider) {
         this.eventPublisher = eventPublisher;
-        this.userMemoryRegistry = userMemoryRegistryProvider.getIfAvailable();
+        this.userMemoryRegistry = userMemoryRegistryProvider != null ? userMemoryRegistryProvider.getIfAvailable() : null;
         this.memoryProvider = memoryProvider;
         this.meterRegistry = meterRegistryProvider != null ? meterRegistryProvider.getIfAvailable() : null;
+        if (this.userMemoryRegistry != null) {
+            this.userMemoryRegistry.addEvictionListener(this::evictNamespace);
+        }
     }
 
     /**
@@ -79,7 +82,14 @@ public class TelemetryBroadcasterService {
             entries = userMemoryRegistry.namespaceResolver().cachedEntries();
         } else {
             SpectorMemory fallback = resolveMemory();
-            entries = fallback != null ? Map.of("default", fallback) : Map.of();
+            if (fallback != null) {
+                String fallbackNs = fallback.namespaceId() != null && !fallback.namespaceId().isBlank()
+                        ? fallback.namespaceId()
+                        : "default";
+                entries = Map.of(fallbackNs, fallback);
+            } else {
+                entries = Map.of();
+            }
         }
 
         if (entries.isEmpty()) {
@@ -130,10 +140,11 @@ public class TelemetryBroadcasterService {
 
                 eventPublisher.cortexEvent("cortex.metrics.tick", tick);
 
-                // Buffer recent point
-                metricsHistory.addLast(tick);
-                while (metricsHistory.size() > MAX_HISTORY_POINTS) {
-                    metricsHistory.pollFirst();
+                // Buffer recent point per namespace (ADR-0083)
+                var history = metricsHistoryByNamespace.computeIfAbsent(ns, k -> new ConcurrentLinkedDeque<>());
+                history.addLast(tick);
+                while (history.size() > MAX_HISTORY_POINTS) {
+                    history.pollFirst();
                 }
 
             } catch (Exception e) {
@@ -150,10 +161,35 @@ public class TelemetryBroadcasterService {
     }
 
     /**
-     * Returns recent rolling metrics history.
+     * Returns recent rolling metrics history for a specific namespace.
+     */
+    public List<Map<String, Object>> getLiveMetricsHistory(String namespaceId) {
+        if (namespaceId == null) {
+            return Collections.emptyList();
+        }
+        var history = metricsHistoryByNamespace.get(namespaceId);
+        return history != null ? new ArrayList<>(history) : Collections.emptyList();
+    }
+
+    /**
+     * Returns recent rolling metrics history for the caller's bound namespace.
      */
     public List<Map<String, Object>> getLiveMetricsHistory() {
-        return new ArrayList<>(metricsHistory);
+        SpectorMemory mem = resolveMemory();
+        String ns = mem != null && mem.namespaceId() != null && !mem.namespaceId().isBlank()
+                ? mem.namespaceId()
+                : "default";
+        return getLiveMetricsHistory(ns);
+    }
+
+    /**
+     * Clears cached telemetry and metrics history on namespace eviction.
+     */
+    public void evictNamespace(String namespaceId) {
+        if (namespaceId != null) {
+            lastSnapshotsByNamespace.remove(namespaceId);
+            metricsHistoryByNamespace.remove(namespaceId);
+        }
     }
 
     /**
@@ -353,18 +389,14 @@ public class TelemetryBroadcasterService {
 
     /**
      * Reads the cumulative timer count for the given metric name from the MeterRegistry,
-     * filtered by namespace. Falls back to untagged timer if no tagged timer is registered.
-     * Returns 0 if the registry is null or the timer has not been created yet (cold start).
+     * strictly filtered by namespace (ADR-0083). Returns 0 if the registry is null or the tagged
+     * timer has not been created yet (no fallback to untagged timers to prevent cross-tenant leaks).
      */
     private long timerCount(String metricName, String namespaceId) {
-        if (meterRegistry == null) return 0;
-        if (namespaceId != null) {
-            Timer tagged = meterRegistry.find(metricName)
-                    .tag("spector.namespace", namespaceId)
-                    .timer();
-            if (tagged != null) return tagged.count();
-        }
-        Timer fallback = meterRegistry.find(metricName).timer();
-        return fallback != null ? fallback.count() : 0;
+        if (meterRegistry == null || namespaceId == null) return 0;
+        Timer tagged = meterRegistry.find(metricName)
+                .tag("spector.namespace", namespaceId)
+                .timer();
+        return tagged != null ? tagged.count() : 0;
     }
 }

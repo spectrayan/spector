@@ -86,10 +86,14 @@ public class ObservabilityController {
      * Returns recent rolling ops/sec metrics for live time-series charts.
      */
     @GetMapping("/metrics/live")
-    public ResponseEntity<List<Map<String, Object>>> liveMetrics() {
+    public ResponseEntity<List<Map<String, Object>>> liveMetrics(
+            @RequestParam(required = false) String namespace) {
         var broadcaster = broadcasterProvider.getIfAvailable();
         if (broadcaster == null) {
             return ResponseEntity.ok(Collections.emptyList());
+        }
+        if (namespace != null && !namespace.isBlank()) {
+            return ResponseEntity.ok(broadcaster.getLiveMetricsHistory(namespace));
         }
         return ResponseEntity.ok(broadcaster.getLiveMetricsHistory());
     }

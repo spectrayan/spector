@@ -73,8 +73,8 @@ public class SpectorHostGauges implements MeterBinder {
                 if (lastParen != -1 && lastParen + 2 < content.length()) {
                     String rest = content.substring(lastParen + 2);
                     String[] tokens = rest.split("\\s+");
-                    if (tokens.length > 11) {
-                        return new long[]{Long.parseLong(tokens[9]), Long.parseLong(tokens[11])};
+                    if (tokens.length > 9) {
+                        return new long[]{Long.parseLong(tokens[7]), Long.parseLong(tokens[9])};
                     }
                 }
             }

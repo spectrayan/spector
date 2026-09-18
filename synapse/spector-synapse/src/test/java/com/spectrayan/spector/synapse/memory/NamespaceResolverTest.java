@@ -37,11 +37,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.ObjectProvider;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -124,6 +127,10 @@ class NamespaceResolverTest {
     }
 
     private NamespaceResolver createResolver() {
+        return createResolver(null);
+    }
+
+    private NamespaceResolver createResolver(MeterRegistry meterRegistry) {
         NamespaceResolver resolver = new NamespaceResolver(
                 catalog,
                 synapseProps,
@@ -136,6 +143,7 @@ class NamespaceResolverTest {
                 providerOf(null),
                 providerOf(null),
                 providerOf(null),
+                providerOf(meterRegistry),
                 100
         );
         resolver.setRuntime(runtime);
@@ -511,6 +519,43 @@ class NamespaceResolverTest {
             assertThat(resolver.isNamespaceOpen(ALICE_ID)).isTrue();
             // mockMemory is not a DefaultSpectorMemory with active leases
             assertThat(resolver.isNamespaceLeased(ALICE_ID)).isFalse();
+        }
+    }
+
+    @Test
+    @DisplayName("evict unbinds namespace meters from MeterRegistry and notifies eviction listeners (ADR-0083)")
+    void evict_unbindsNamespaceMetersAndNotifiesListeners() {
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+        Account alice = new Account(ALICE_ID, PrincipalKind.HUMAN, AccountProfile.HUMAN_SOLO,
+                ALICE_ID, AccountQuotas.forProfile(AccountProfile.HUMAN_SOLO),
+                AccountFlags.forProfile(AccountProfile.HUMAN_SOLO),
+                ALICE_ID, Instant.now(), null, false);
+        Account bob = new Account(BOB_ID, PrincipalKind.HUMAN, AccountProfile.HUMAN_SOLO,
+                BOB_ID, AccountQuotas.forProfile(AccountProfile.HUMAN_SOLO),
+                AccountFlags.forProfile(AccountProfile.HUMAN_SOLO),
+                BOB_ID, Instant.now(), null, false);
+        when(catalog.getOrCreateAccount(ALICE_ID)).thenReturn(alice);
+        when(catalog.getOrCreateAccount(BOB_ID)).thenReturn(bob);
+
+        try (NamespaceResolver resolver = createResolver(meterRegistry)) {
+            List<String> evictedNamespaces = new ArrayList<>();
+            resolver.addEvictionListener(evictedNamespaces::add);
+
+            resolver.resolve(ALICE_ID);
+            resolver.resolve(BOB_ID);
+
+            assertThat(meterRegistry.find("spector.memory.count").tag("spector.namespace", ALICE_ID).gauge()).isNotNull();
+            assertThat(meterRegistry.find("spector.memory.count").tag("spector.namespace", BOB_ID).gauge()).isNotNull();
+
+            // Evict ALICE
+            resolver.evict(ALICE_ID);
+
+            // Alice's meters are unbound; Bob's meters remain
+            assertThat(meterRegistry.find("spector.memory.count").tag("spector.namespace", ALICE_ID).gauge()).isNull();
+            assertThat(meterRegistry.find("spector.memory.count").tag("spector.namespace", BOB_ID).gauge()).isNotNull();
+
+            // Listener was notified with Alice's namespace
+            assertThat(evictedNamespaces).containsExactly(ALICE_ID);
         }
     }
 }

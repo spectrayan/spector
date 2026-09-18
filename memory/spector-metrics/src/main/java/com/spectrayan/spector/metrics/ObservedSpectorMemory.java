@@ -247,18 +247,43 @@ public class ObservedSpectorMemory extends ObservableComponent implements Specto
                 () -> delegate.forget(id));
     }
 
+    private volatile ReflectReport lastReflectReport;
+    private volatile long lastReflectTimestamp;
+
     @Override
     public ReflectReport reflect() {
-        return withObservation(SpectorObservationDocumentation.MEMORY_REFLECT,
+        ReflectReport report = withObservation(SpectorObservationDocumentation.MEMORY_REFLECT,
                 createTags(null, null, null),
                 () -> delegate.reflect());
+        this.lastReflectReport = report;
+        this.lastReflectTimestamp = System.currentTimeMillis();
+        return report;
     }
 
     @Override
     public ReflectReport reflect(com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec spec) {
-        return withObservation(SpectorObservationDocumentation.MEMORY_REFLECT,
+        ReflectReport report = withObservation(SpectorObservationDocumentation.MEMORY_REFLECT,
                 createTags(null, null, null),
                 () -> delegate.reflect(spec));
+        this.lastReflectReport = report;
+        this.lastReflectTimestamp = System.currentTimeMillis();
+        return report;
+    }
+
+    @Override
+    public ReflectReport lastReflectReport() {
+        if (lastReflectReport != null) {
+            return lastReflectReport;
+        }
+        return delegate.lastReflectReport();
+    }
+
+    @Override
+    public long lastReflectTimestamp() {
+        if (lastReflectTimestamp > 0) {
+            return lastReflectTimestamp;
+        }
+        return delegate.lastReflectTimestamp();
     }
 
     @Override

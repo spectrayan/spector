@@ -102,16 +102,61 @@ class TelemetryBroadcasterServiceTest {
     }
 
     @Test
-    @DisplayName("broadcastHeartbeat — reads ops/sec from MeterRegistry timers (ADR-0083)")
+    @DisplayName("broadcastHeartbeat — reads ops/sec from MeterRegistry timers with namespace tag (ADR-0083)")
     void broadcastHeartbeat() {
-        // Simulate Micrometer recording some recall/remember observations
-        Timer.builder("spector.memory.recall").register(meterRegistry).record(java.time.Duration.ofMillis(5));
-        Timer.builder("spector.memory.recall").register(meterRegistry).record(java.time.Duration.ofMillis(3));
-        Timer.builder("spector.memory.remember").register(meterRegistry).record(java.time.Duration.ofMillis(10));
+        when(mockMemory.namespaceId()).thenReturn("tenant-alpha");
+
+        // Tagged observations for tenant-alpha
+        Timer.builder("spector.memory.recall")
+                .tag("spector.namespace", "tenant-alpha")
+                .register(meterRegistry)
+                .record(java.time.Duration.ofMillis(5));
+        Timer.builder("spector.memory.recall")
+                .tag("spector.namespace", "tenant-alpha")
+                .register(meterRegistry)
+                .record(java.time.Duration.ofMillis(3));
+        Timer.builder("spector.memory.remember")
+                .tag("spector.namespace", "tenant-alpha")
+                .register(meterRegistry)
+                .record(java.time.Duration.ofMillis(10));
+
+        // Untagged timer from another context must NOT be inherited (leak prevention)
+        Timer.builder("spector.memory.recall")
+                .register(meterRegistry)
+                .record(java.time.Duration.ofMillis(100));
 
         service.broadcastHeartbeat();
 
         verify(mockPublisher, atLeastOnce()).cortexEvent(eq("cortex.memory.diagnostic"), any());
-        verify(mockPublisher, atLeastOnce()).cortexEvent(eq("cortex.metrics.tick"), any());
+
+        @SuppressWarnings("unchecked")
+        org.mockito.ArgumentCaptor<Map<String, Object>> tickCaptor = org.mockito.ArgumentCaptor.forClass(Map.class);
+        verify(mockPublisher, atLeastOnce()).cortexEvent(eq("cortex.metrics.tick"), tickCaptor.capture());
+        Map<String, Object> tick = tickCaptor.getValue();
+        assertThat(tick.get("namespace")).isEqualTo("tenant-alpha");
+
+        var history = service.getLiveMetricsHistory("tenant-alpha");
+        assertThat(history).isNotEmpty();
+        assertThat(history.getLast().get("namespace")).isEqualTo("tenant-alpha");
+
+        // Disjoint namespace returns empty history and does not inherit data
+        var otherHistory = service.getLiveMetricsHistory("tenant-beta");
+        assertThat(otherHistory).isEmpty();
+    }
+
+    @Test
+    @DisplayName("evictNamespace — clears rolling history for evicted namespace (ADR-0083)")
+    void evictNamespace_clearsRollingHistory() {
+        when(mockMemory.namespaceId()).thenReturn("tenant-evict");
+        Timer.builder("spector.memory.recall")
+                .tag("spector.namespace", "tenant-evict")
+                .register(meterRegistry)
+                .record(java.time.Duration.ofMillis(5));
+
+        service.broadcastHeartbeat();
+        assertThat(service.getLiveMetricsHistory("tenant-evict")).isNotEmpty();
+
+        service.evictNamespace("tenant-evict");
+        assertThat(service.getLiveMetricsHistory("tenant-evict")).isEmpty();
     }
 }

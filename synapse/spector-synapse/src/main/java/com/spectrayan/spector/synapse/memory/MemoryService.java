@@ -181,6 +181,10 @@ public class MemoryService {
                 : com.spectrayan.spector.commons.cache.TtlConcurrentMapCacheManager.defaultManager();
         this.statsCache = effectiveManager.getCache(com.spectrayan.spector.memory.cortex.cache.MemoryCacheNames.MEMORY_STATS);
         this.scoringStatsCache = effectiveManager.getCache(com.spectrayan.spector.memory.cortex.cache.MemoryCacheNames.SCORING_STATS);
+
+        if (this.userMemoryRegistry != null) {
+            this.userMemoryRegistry.addEvictionListener(this::evictNamespace);
+        }
     }
 
     /**
@@ -928,8 +932,15 @@ public class MemoryService {
                 }
                 IndexStats indexStats = new IndexStats(totalEntries, levels, recallEstimate);
 
-                // ADR-0083: consolidation stats from per-namespace engine-local tracking
-                ConsolidationStats consolidationStats = namespaceConsolidationStats.getOrDefault(namespaceId, ConsolidationStats.empty());
+                // ADR-0083: consolidation stats from per-namespace engine-local tracking (or fallback map)
+                ConsolidationStats consolidationStats;
+                if (resolved != null && resolved.lastReflectReport() != null) {
+                    var rep = resolved.lastReflectReport();
+                    long ts = resolved.lastReflectTimestamp() > 0 ? resolved.lastReflectTimestamp() : Instant.now().toEpochMilli();
+                    consolidationStats = new ConsolidationStats(ts, rep.consolidatedCount(), rep.tombstonedCount(), rep.compactedPartitions());
+                } else {
+                    consolidationStats = namespaceConsolidationStats.getOrDefault(namespaceId, ConsolidationStats.empty());
+                }
 
                 // Growth over time (last 30 days) from database, strictly filtered by namespace (ADR-0083)
                 Map<String, Long> growthOverTime = new java.util.TreeMap<>();
@@ -1102,11 +1113,34 @@ public class MemoryService {
         return Map.of("simdAccelerationActive", true);
     }
 
-    public List<Map<String, Object>> getLiveMetricsHistory() {
+    public List<Map<String, Object>> getLiveMetricsHistory(String namespaceId) {
         if (telemetryBroadcasterService != null) {
-            return telemetryBroadcasterService.getLiveMetricsHistory();
+            String ns = namespaceId != null && !namespaceId.isBlank()
+                    ? namespaceId
+                    : resolveNamespaceId(resolveMemory());
+            return telemetryBroadcasterService.getLiveMetricsHistory(ns);
         }
         return java.util.Collections.emptyList();
+    }
+
+    public List<Map<String, Object>> getLiveMetricsHistory() {
+        return getLiveMetricsHistory(null);
+    }
+
+    /**
+     * Cleans up cached stats and consolidation tracking for an evicted namespace (ADR-0083).
+     */
+    public void evictNamespace(String namespaceId) {
+        if (namespaceId != null) {
+            namespaceConsolidationStats.remove(namespaceId);
+            if (statsCache != null) {
+                statsCache.evict("memory-stats:" + namespaceId);
+            }
+            if (scoringStatsCache != null) {
+                scoringStatsCache.evict("scoring-stats:" + namespaceId);
+            }
+            log.debug("[MemoryService] Evicted cached stats for namespace={}", namespaceId);
+        }
     }
 
     // ══════════════════════════════════════════════════════════════
