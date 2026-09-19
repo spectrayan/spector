@@ -1,0 +1,31 @@
+event: session
+id: 01J8Y000000000000000000002:1
+data: {"sessionId":"01J8Y000000000000000000000","turnId":"01J8Y000000000000000000002","seq":1,"tsEpochMs":1758265002000,"isNew":false}
+
+event: thinking
+id: 01J8Y000000000000000000002:2
+data: {"sessionId":"01J8Y000000000000000000000","turnId":"01J8Y000000000000000000002","seq":2,"tsEpochMs":1758265002150,"text":"Determining user relocation schedule and recalling previous memory engrams...","elapsedMs":150}
+
+event: tool_call
+id: 01J8Y000000000000000000002:3
+data: {"sessionId":"01J8Y000000000000000000000","turnId":"01J8Y000000000000000000002","seq":3,"tsEpochMs":1758265002300,"callId":"call_recall_001","name":"memory_recall","arguments":{"query":"Austin relocation date and neighborhood","limit":3}}
+
+event: tool_result
+id: 01J8Y000000000000000000002:4
+data: {"sessionId":"01J8Y000000000000000000000","turnId":"01J8Y000000000000000000002","seq":4,"tsEpochMs":1758265002620,"callId":"call_recall_001","name":"memory_recall","status":"success","preview":"{\"results\": [\"Moving to Austin on October 1\", \"Prefers South Congress neighborhood\"]}","truncated":false,"elapsedMs":320}
+
+event: token
+id: 01J8Y000000000000000000002:5
+data: {"sessionId":"01J8Y000000000000000000000","turnId":"01J8Y000000000000000000002","seq":5,"tsEpochMs":1758265002750,"text":"Based on your episodic memory, "}
+
+event: token
+id: 01J8Y000000000000000000002:6
+data: {"sessionId":"01J8Y000000000000000000000","turnId":"01J8Y000000000000000000002","seq":6,"tsEpochMs":1758265002850,"text":"your move to Austin is scheduled for October 1st "}
+
+event: token
+id: 01J8Y000000000000000000002:7
+data: {"sessionId":"01J8Y000000000000000000000","turnId":"01J8Y000000000000000000002","seq":7,"tsEpochMs":1758265002950,"text":"with a preference for the South Congress neighborhood."}
+
+event: done
+id: 01J8Y000000000000000000002:8
+data: {"sessionId":"01J8Y000000000000000000000","turnId":"01J8Y000000000000000000002","seq":8,"tsEpochMs":1758265003150,"primedMemories":2,"latencyMs":1150,"usage":{"inputTokens":340,"outputTokens":62,"totalTokens":402}}

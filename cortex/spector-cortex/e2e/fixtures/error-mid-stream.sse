@@ -1,0 +1,11 @@
+event: session
+id: 01J8Y000000000000000000003:1
+data: {"sessionId":"01J8Y000000000000000000000","turnId":"01J8Y000000000000000000003","seq":1,"tsEpochMs":1758265004000,"isNew":false}
+
+event: thinking
+id: 01J8Y000000000000000000003:2
+data: {"sessionId":"01J8Y000000000000000000000","turnId":"01J8Y000000000000000000003","seq":2,"tsEpochMs":1758265004200,"text":"Initiating multi-hop cognitive memory traversal across synapse nodes...","elapsedMs":200}
+
+event: error
+id: 01J8Y000000000000000000003:3
+data: {"sessionId":"01J8Y000000000000000000000","turnId":"01J8Y000000000000000000003","seq":3,"tsEpochMs":1758265004500,"code":"SPE-700-001","message":"Upstream LLM connection terminated unexpectedly during reasoning pass","retryable":true}

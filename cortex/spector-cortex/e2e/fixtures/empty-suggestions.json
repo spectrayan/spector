@@ -1,0 +1,21 @@
+{
+  "suggestions": [
+    {
+      "icon": "person",
+      "label": "What do you remember about me?",
+      "prompt": "What do you remember about me?"
+    },
+    {
+      "icon": "summarize",
+      "label": "Summarize my recent conversations",
+      "prompt": "Summarize my recent conversations"
+    },
+    {
+      "icon": "lightbulb",
+      "label": "Important things to know",
+      "prompt": "What are the most important things I should know?"
+    }
+  ],
+  "sessions": [],
+  "hasMore": false
+}
