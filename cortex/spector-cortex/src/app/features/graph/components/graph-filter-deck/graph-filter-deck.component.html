@@ -1,0 +1,88 @@
+<aside class="filter-deck" id="filter-command-deck">
+  <div class="deck-header">
+    <div class="deck-corner tl"></div>
+    <div class="deck-corner tr"></div>
+    <mat-icon class="deck-icon">tune</mat-icon>
+    <span class="deck-title">FILTER COMMAND DECK</span>
+  </div>
+
+  <!-- Importance Range -->
+  <div class="filter-group">
+    <div class="filter-label">
+      <span class="filter-name">IMPORTANCE</span>
+      <span class="filter-value cortex-mono">{{ importanceMin().toFixed(1) }} — {{ importanceMax().toFixed(1) }}</span>
+    </div>
+    <div class="slider-row">
+      <mat-slider min="0" max="10" step="0.5" class="filter-slider importance-slider">
+        <input matSliderThumb [ngModel]="importanceMin()" (ngModelChange)="importanceMin.set($event)">
+      </mat-slider>
+      <mat-slider min="0" max="10" step="0.5" class="filter-slider importance-slider">
+        <input matSliderThumb [ngModel]="importanceMax()" (ngModelChange)="importanceMax.set($event)">
+      </mat-slider>
+    </div>
+  </div>
+
+  <!-- Valence Range -->
+  <div class="filter-group">
+    <div class="filter-label">
+      <span class="filter-name">VALENCE</span>
+      <span class="filter-value cortex-mono">{{ valenceMin() }} — {{ valenceMax() }}</span>
+    </div>
+    <div class="slider-row">
+      <mat-slider min="-128" max="127" step="4" class="filter-slider valence-slider">
+        <input matSliderThumb [ngModel]="valenceMin()" (ngModelChange)="valenceMin.set($event)">
+      </mat-slider>
+      <mat-slider min="-128" max="127" step="4" class="filter-slider valence-slider">
+        <input matSliderThumb [ngModel]="valenceMax()" (ngModelChange)="valenceMax.set($event)">
+      </mat-slider>
+    </div>
+  </div>
+
+  <!-- Timestamp Range -->
+  <div class="filter-group">
+    <div class="filter-label">
+      <span class="filter-name">TEMPORAL RANGE</span>
+      <span class="filter-value cortex-mono">
+        {{ formatTimestamp(timestampMin()) }} — {{ formatTimestamp(timestampMax()) }}
+      </span>
+    </div>
+    <div class="date-picker-row">
+      <mat-form-field appearance="outline" class="date-field" subscriptSizing="dynamic">
+        <mat-label>From</mat-label>
+        <input matInput [matDatepicker]="graphFromPicker"
+               [ngModel]="fromDate()" (ngModelChange)="fromDateChange.emit($event)">
+        <mat-datepicker-toggle matSuffix [for]="graphFromPicker"></mat-datepicker-toggle>
+        <mat-datepicker #graphFromPicker></mat-datepicker>
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="date-field" subscriptSizing="dynamic">
+        <mat-label>To</mat-label>
+        <input matInput [matDatepicker]="graphToPicker"
+               [ngModel]="toDate()" (ngModelChange)="toDateChange.emit($event)">
+        <mat-datepicker-toggle matSuffix [for]="graphToPicker"></mat-datepicker-toggle>
+        <mat-datepicker #graphToPicker></mat-datepicker>
+      </mat-form-field>
+    </div>
+    <div class="preset-row">
+      <button mat-stroked-button class="preset-btn" (click)="setTemporalPreset.emit('1h')">1H</button>
+      <button mat-stroked-button class="preset-btn" (click)="setTemporalPreset.emit('24h')">24H</button>
+      <button mat-stroked-button class="preset-btn" (click)="setTemporalPreset.emit('7d')">7D</button>
+      <button mat-stroked-button class="preset-btn" (click)="setTemporalPreset.emit('30d')">30D</button>
+      <button mat-stroked-button class="preset-btn" (click)="setTemporalPreset.emit('all')">ALL</button>
+    </div>
+  </div>
+
+  <!-- Visible Count -->
+  <div class="filter-stat">
+    <span class="stat-value cortex-mono">{{ visibleNodeCount() }}</span>
+    <span class="stat-label">VISIBLE NODES</span>
+  </div>
+
+  <!-- Reset Button -->
+  <button mat-button class="reset-btn" (click)="resetFilters.emit()">
+    <mat-icon>restart_alt</mat-icon>
+    RESET FILTERS
+  </button>
+
+  <div class="deck-corner bl"></div>
+  <div class="deck-corner br"></div>
+</aside>

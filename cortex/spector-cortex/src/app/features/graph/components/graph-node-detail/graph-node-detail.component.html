@@ -1,0 +1,58 @@
+@if (node(); as n) {
+  <aside class="detail-panel" id="node-detail-panel">
+    <mat-card appearance="outlined">
+      <mat-card-header>
+        <mat-icon mat-card-avatar>psychology</mat-icon>
+        <mat-card-title>{{ n.id }}</mat-card-title>
+        <mat-card-subtitle>{{ n.tier }}</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <p class="node-text">{{ n.text }}</p>
+        <div class="node-metric">
+          <span class="metric-label">Importance</span>
+          <span class="metric-value">{{ (n.importance * 100).toFixed(0) }}%</span>
+        </div>
+        <div class="node-metric">
+          <span class="metric-label">Valence</span>
+          <span class="metric-value" [class.positive]="n.valence > 0" [class.negative]="n.valence < 0">
+            {{ n.valence > 0 ? '+' : '' }}{{ n.valence }}
+          </span>
+        </div>
+
+        <!-- Neighborhood Expansion -->
+        <div class="expand-section">
+          <div class="expand-depth-selector">
+            <span class="expand-label">DEPTH</span>
+            @for (d of [1, 2, 3]; track d) {
+              <button class="depth-btn"
+                      [class.depth-active]="expansionDepth() === d"
+                      (click)="expansionDepth.set(d)">{{ d }}</button>
+            }
+          </div>
+          <div class="expand-action-row">
+            <button class="expand-btn" 
+                    (click)="expandNodeNeighbors.emit(n.id)"
+                    [disabled]="isExpanding()">
+              <mat-icon>{{ isExpanding() ? 'hourglass_top' : 'scatter_plot' }}</mat-icon>
+              {{ isExpanding() ? 'EXPANDING...' : 'EXPAND NEIGHBORHOOD' }}
+            </button>
+            @if (!isOverviewMode()) {
+              <button class="collapse-btn" 
+                      (click)="collapseToOverview.emit()"
+                      matTooltip="Reset to overview graph">
+                <mat-icon>restart_alt</mat-icon>
+                RESET
+              </button>
+            }
+          </div>
+          @if (expansionStatus()) {
+            <div class="expansion-status-badge">
+              <mat-icon>hub</mat-icon>
+              <span>{{ expansionStatus() }}</span>
+            </div>
+          }
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </aside>
+}

@@ -1,0 +1,290 @@
+@use '../../graph-theme' as *;
+
+:host {
+  display: block;
+}
+
+.filter-deck {
+  position: absolute;
+  top: 16px;
+  left: 220px;
+  z-index: 12;
+  width: 260px;
+  padding: 14px;
+  background: $panel-bg;
+  backdrop-filter: blur(16px);
+  border: 1px solid $panel-border;
+  border-radius: 2px;
+  animation: deck-slide-in 0.3s ease;
+  overflow: visible; // allow slider thumbs to show at edges
+  box-shadow:
+    0 0 40px rgba(0, 255, 204, 0.04),
+    inset 0 0 30px rgba(0, 255, 204, 0.02);
+
+  // Holographic shimmer overlay
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: conic-gradient(
+      from 0deg,
+      transparent 0%,
+      rgba(0, 255, 204, 0.02) 25%,
+      transparent 50%,
+      rgba(0, 188, 212, 0.02) 75%,
+      transparent 100%
+    );
+    pointer-events: none;
+    animation: shimmer-rotate 12s linear infinite;
+    border-radius: 2px;
+  }
+}
+
+.deck-corner {
+  &.tl { @include corner-bracket(-1px, auto, -1px, auto, top, left); }
+  &.tr { @include corner-bracket(-1px, auto, auto, -1px, top, right); }
+  &.bl { @include corner-bracket(auto, -1px, -1px, auto, bottom, left); }
+  &.br { @include corner-bracket(auto, -1px, auto, -1px, bottom, right); }
+}
+
+@keyframes deck-slide-in {
+  from { opacity: 0; transform: translateX(-16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes shimmer-rotate {
+  0% { background-position: 0 0; }
+  100% { background-position: 200% 200%; }
+}
+
+.deck-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid $panel-border;
+}
+
+.deck-icon {
+  font-size: 14px;
+  width: 14px;
+  height: 14px;
+  color: $cyan-primary;
+  filter: drop-shadow(0 0 4px $cyan-glow);
+}
+
+.deck-title {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: $cyan-primary;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  text-shadow: 0 0 8px $cyan-glow;
+}
+
+.filter-group {
+  margin-bottom: 14px;
+}
+
+.filter-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.filter-name {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: $text-dim;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+}
+
+.filter-value {
+  font-size: 10px;
+  font-weight: 600;
+  color: $cyan-primary;
+  background: $cyan-ultra-dim;
+  padding: 1px 6px;
+  border-radius: 3px;
+  text-shadow: 0 0 4px $cyan-glow;
+}
+
+.slider-row {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  overflow: visible; // let tiny handles show
+  padding: 0 6px; // breathing room for thumbs
+}
+
+.filter-slider {
+  flex: 1;
+  min-width: 0;
+
+  // ── Angular Material slider overrides via ::ng-deep ──
+  ::ng-deep {
+    .mdc-slider__thumb-knob {
+      box-shadow: 0 0 10px var(--mdc-slider-handle-color),
+                  0 0 4px var(--mdc-slider-handle-color) !important;
+    }
+
+    .mat-mdc-slider .mat-ripple,
+    .mdc-slider__thumb .mat-ripple {
+      display: none !important;
+    }
+
+    .mdc-slider__value-indicator-container {
+      display: none !important;
+    }
+  }
+
+  // ── Color tokens ──
+  --mdc-slider-active-track-color: #{$cyan-primary};
+  --mdc-slider-inactive-track-color: #{$cyan-dim};
+  --mdc-slider-handle-color: #{$cyan-primary};
+  --mdc-slider-focus-handle-color: #{$cyan-primary};
+  --mdc-slider-hover-handle-color: #{$cyan-primary};
+  --mat-slider-ripple-color: transparent;
+  --mat-slider-hover-state-layer-opacity: 0;
+  --mat-slider-focus-state-layer-opacity: 0;
+
+  &.importance-slider {
+    --mdc-slider-active-track-color: #42a5f5;
+    --mdc-slider-inactive-track-color: rgba(66, 165, 245, 0.2);
+    --mdc-slider-handle-color: #42a5f5;
+    --mdc-slider-focus-handle-color: #42a5f5;
+    --mdc-slider-hover-handle-color: #42a5f5;
+  }
+
+  &.valence-slider {
+    --mdc-slider-active-track-color: #ef5350;
+    --mdc-slider-inactive-track-color: rgba(239, 83, 80, 0.2);
+    --mdc-slider-handle-color: #ef5350;
+    --mdc-slider-focus-handle-color: #ef5350;
+    --mdc-slider-hover-handle-color: #ef5350;
+  }
+
+  &.timestamp-slider {
+    --mdc-slider-active-track-color: #ab47bc;
+    --mdc-slider-inactive-track-color: rgba(171, 71, 188, 0.2);
+    --mdc-slider-handle-color: #ab47bc;
+    --mdc-slider-focus-handle-color: #ab47bc;
+    --mdc-slider-hover-handle-color: #ab47bc;
+  }
+}
+
+.filter-stat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid $cyan-ultra-dim;
+  margin-top: 4px;
+}
+
+.stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: $cyan-primary;
+  text-shadow: 0 0 10px $cyan-glow;
+}
+
+.stat-label {
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: $text-muted;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+}
+
+.reset-btn {
+  width: 100%;
+  margin-top: 4px;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: $text-dim;
+  border: 1px solid $cyan-ultra-dim;
+  border-radius: 3px;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+
+  mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+  }
+
+  &:hover {
+    border-color: $panel-border;
+    color: $cyan-primary;
+  }
+}
+
+// ── Date picker row in filter deck ──
+.date-picker-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.date-field {
+  flex: 1;
+  min-width: 0;
+
+  ::ng-deep {
+    .mat-mdc-text-field-wrapper {
+      background: rgba(0, 255, 204, 0.03) !important;
+      border-radius: 3px;
+    }
+    .mat-mdc-form-field-flex {
+      height: 36px;
+    }
+    input.mat-mdc-input-element {
+      font-size: 10px;
+      font-family: 'JetBrains Mono', 'Consolas', monospace;
+      color: $text-dim;
+    }
+    .mat-mdc-floating-label {
+      font-size: 10px;
+    }
+    .mat-datepicker-toggle button {
+      width: 28px;
+      height: 28px;
+      padding: 2px;
+    }
+    .mat-datepicker-toggle .mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      color: $cyan-primary;
+    }
+  }
+}
+
+.preset-row {
+  display: flex;
+  gap: 4px;
+}
+
+.preset-btn {
+  flex: 1;
+  min-width: 0;
+  font-size: 9px !important;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 2px 4px !important;
+  line-height: 22px !important;
+  border-color: $cyan-ultra-dim !important;
+  color: $text-dim;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  border-radius: 3px;
+
+  &:hover {
+    border-color: $cyan-primary !important;
+    color: $cyan-primary;
+    background: $cyan-ultra-dim;
+    box-shadow: 0 0 8px $cyan-glow;
+  }
+}

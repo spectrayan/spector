@@ -11,19 +11,11 @@ import {
   PLATFORM_ID,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSliderModule } from '@angular/material/slider';
-import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
-import { FormsModule } from '@angular/forms';
 import { MemoryTableService, GraphNode, GraphEdge, EntityTypeStats, RelationTypeStats } from '@core/services/memory-table.service';
 import { CortexStateService } from '@core/services/cortex-state.service';
 import { LoggerService } from '@core/services/logger.service';
@@ -34,33 +26,19 @@ import * as THREE from 'three';
 import { GraphViewStrategy, ExplorerNode, ExplorerEdge, FiringParticle } from './strategies/view-strategy.interface';
 import { GalaxyViewStrategy } from './strategies/galaxy-view.strategy';
 import { BrainViewStrategy } from './strategies/brain-view.strategy';
+import { CameraState, HoverInfo, DebugLine } from './models/graph-explorer.models';
+import { GraphToolbarComponent } from './components/graph-toolbar/graph-toolbar.component';
+import { GraphHudComponent } from './components/graph-hud/graph-hud.component';
+import { GraphFilterDeckComponent } from './components/graph-filter-deck/graph-filter-deck.component';
+import { GraphStatsDeckComponent } from './components/graph-stats-deck/graph-stats-deck.component';
+import { GraphNodeDetailComponent } from './components/graph-node-detail/graph-node-detail.component';
+import { GraphEdgeDetailComponent } from './components/graph-edge-detail/graph-edge-detail.component';
+import { GraphTimeTravelComponent } from './components/graph-time-travel/graph-time-travel.component';
+import { GraphDebugConsoleComponent } from './components/graph-debug-console/graph-debug-console.component';
 
 const STORAGE_KEY = 'spector.graph.camera';
 const MAX_PARTICLES = 50;
 const NODES_PER_PAGE = 50;
-
-interface CameraState {
-  theta: number;
-  phi: number;
-  radius: number;
-}
-
-interface HoverInfo {
-  x: number;
-  y: number;
-  id: string;
-  tier: string;
-  text: string;
-  importance: number;
-}
-
-/** Debug console line entry */
-interface DebugLine {
-  id: number;
-  time: string;
-  tag: 'SSE' | 'QRY' | 'ERR' | 'SYS';
-  message: string;
-}
 
 let debugLineId = 0;
 
@@ -68,20 +46,20 @@ let debugLineId = 0;
   selector: 'cortex-graph-explorer',
   standalone: true,
   imports: [
-    MatCardModule,
     MatIconModule,
     MatButtonModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatSliderModule,
-    MatChipsModule,
     MatTooltipModule,
     MatProgressSpinnerModule,
     MatProgressBarModule,
-    MatDatepickerModule,
-    MatNativeDateModule,
-    FormsModule,
     QueryInputComponent,
+    GraphToolbarComponent,
+    GraphHudComponent,
+    GraphFilterDeckComponent,
+    GraphStatsDeckComponent,
+    GraphNodeDetailComponent,
+    GraphEdgeDetailComponent,
+    GraphTimeTravelComponent,
+    GraphDebugConsoleComponent,
   ],
   templateUrl: './graph-explorer.component.html',
   styleUrl: './graph-explorer.component.scss',

@@ -1,0 +1,117 @@
+<header class="explorer-toolbar">
+  <div class="toolbar-left">
+    <mat-icon class="page-icon">hub</mat-icon>
+    <div>
+      <h1 class="page-title">GRAPH EXPLORER</h1>
+      <p class="page-subtitle cortex-mono">
+        SCANNING: {{ loadedCount() }} / {{ totalAvailable() || '∞' }} NODES
+      </p>
+    </div>
+  </div>
+
+  <div class="toolbar-controls">
+    <!-- View mode toggle (disabled — Cortex View coming soon) -->
+    <div class="view-toggle" matTooltip="Cortex (Brain) View coming soon">
+      <button mat-icon-button [disabled]="true">
+        <mat-icon>auto_awesome</mat-icon>
+      </button>
+      <span class="view-label cortex-mono">CONSTELLATION</span>
+    </div>
+
+    <!-- Layer toggles -->
+    <mat-chip-set>
+      <mat-chip [highlighted]="showHebbian()" (click)="showHebbian.set(!showHebbian())"
+                class="layer-chip hebbian">
+        <mat-icon matChipAvatar>link</mat-icon>
+        Hebbian
+      </mat-chip>
+      <mat-chip [highlighted]="showTemporal()" (click)="showTemporal.set(!showTemporal())"
+                class="layer-chip temporal">
+        <mat-icon matChipAvatar>timeline</mat-icon>
+        Temporal
+      </mat-chip>
+      <mat-chip [highlighted]="showEntity()" (click)="showEntity.set(!showEntity())"
+                class="layer-chip entity">
+        <mat-icon matChipAvatar>category</mat-icon>
+        Entity
+      </mat-chip>
+    </mat-chip-set>
+
+    <button mat-icon-button [matTooltip]="showLabels() ? 'Hide labels' : 'Show labels'"
+            (click)="showLabels.set(!showLabels())"
+            [class.label-active]="showLabels()">
+      <mat-icon>{{ showLabels() ? 'label' : 'label_off' }}</mat-icon>
+    </button>
+
+    <button mat-icon-button matTooltip="Toggle Filter Command Deck"
+            (click)="showFilters.set(!showFilters())"
+            [class.filter-active]="showFilters()">
+      <mat-icon>tune</mat-icon>
+    </button>
+
+    <button mat-icon-button matTooltip="Expand Scan Range — Load More Nodes"
+            (click)="expandScanRange.emit()"
+            [disabled]="isLoadingMore()">
+      <mat-icon>{{ isLoadingMore() ? 'hourglass_top' : 'radar' }}</mat-icon>
+    </button>
+
+    <button mat-icon-button matTooltip="Toggle Topology Stats Deck"
+            (click)="toggleTopologyStats.emit()"
+            [class.stats-active]="showTopologyStats()">
+      <mat-icon>bar_chart</mat-icon>
+    </button>
+
+    <button mat-icon-button matTooltip="Capture Graph Screenshot"
+            (click)="captureScreenshot.emit()"
+            [disabled]="isCapturing()">
+      <mat-icon>{{ isCapturing() ? 'check' : 'camera_alt' }}</mat-icon>
+    </button>
+
+    <div class="share-button-group">
+      <button mat-icon-button matTooltip="Share Graph"
+              (click)="toggleSharePanel.emit()"
+              [class.share-active]="showSharePanel()">
+        <mat-icon>{{ isSharing() ? 'check' : 'share' }}</mat-icon>
+      </button>
+
+      @if (showSharePanel()) {
+        <div class="share-panel" id="share-panel">
+          <div class="share-panel-header">
+            <mat-icon class="share-panel-icon">share</mat-icon>
+            <span>SHARE GRAPH</span>
+          </div>
+          <button class="share-option" (click)="shareScreenshot.emit()">
+            <mat-icon>send</mat-icon>
+            <span>Share Image</span>
+            <span class="share-hint">Web Share API</span>
+          </button>
+          <button class="share-option" (click)="copyShareLink.emit()">
+            <mat-icon>link</mat-icon>
+            <span>Copy Link</span>
+            <span class="share-hint">Camera + Filters</span>
+          </button>
+          <button class="share-option" (click)="captureScreenshot.emit()">
+            <mat-icon>download</mat-icon>
+            <span>Download PNG</span>
+            <span class="share-hint">Branded</span>
+          </button>
+        </div>
+      }
+    </div>
+
+    <button mat-icon-button matTooltip="Time Travel — Scrub Through History"
+            (click)="toggleTimeTravel.emit()"
+            [class.label-active]="timeTravelMode()">
+      <mat-icon>{{ timeTravelMode() ? 'history_toggle_off' : 'history' }}</mat-icon>
+    </button>
+
+    <button mat-icon-button matTooltip="Replay Query Animation"
+            (click)="replayQueryAnimation.emit()">
+      <mat-icon>slow_motion_video</mat-icon>
+    </button>
+
+    <button mat-icon-button matTooltip="Refresh graph" (click)="refreshGraph.emit()">
+      <mat-icon>refresh</mat-icon>
+    </button>
+  </div>
+</header>

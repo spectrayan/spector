@@ -1,0 +1,114 @@
+@use '../../graph-theme' as *;
+
+:host {
+  display: block;
+}
+
+.time-travel-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  background: $panel-bg;
+  backdrop-filter: blur(16px);
+  border-top: 1px solid rgba(171, 71, 188, 0.2);
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.3);
+  animation: slide-up 0.3s ease;
+}
+
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.tt-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: rgba(171, 71, 188, 0.1);
+  border: 1px solid rgba(171, 71, 188, 0.2);
+  border-radius: 6px;
+  color: #ab47bc;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+
+  &:hover {
+    background: rgba(171, 71, 188, 0.2);
+    box-shadow: 0 0 10px rgba(171, 71, 188, 0.2);
+  }
+
+  &.tt-exit {
+    background: rgba(239, 83, 80, 0.1);
+    border-color: rgba(239, 83, 80, 0.2);
+    color: #ef5350;
+
+    &:hover {
+      background: rgba(239, 83, 80, 0.2);
+    }
+  }
+}
+
+.tt-timestamp {
+  font-size: 11px;
+  font-weight: 600;
+  color: #ab47bc;
+  text-shadow: 0 0 6px rgba(171, 71, 188, 0.3);
+  white-space: nowrap;
+  min-width: 120px;
+}
+
+.tt-slider {
+  flex: 1;
+
+  --mdc-slider-active-track-color: #ab47bc;
+  --mdc-slider-inactive-track-color: rgba(171, 71, 188, 0.15);
+  --mdc-slider-handle-color: #ab47bc;
+  --mdc-slider-focus-handle-color: #ab47bc;
+  --mdc-slider-hover-handle-color: #ab47bc;
+  --mat-slider-ripple-color: transparent;
+  --mat-slider-hover-state-layer-opacity: 0;
+  --mat-slider-focus-state-layer-opacity: 0;
+}
+
+.tt-speed {
+  display: flex;
+  gap: 4px;
+}
+
+.speed-btn {
+  padding: 2px 8px;
+  background: transparent;
+  border: 1px solid rgba(171, 71, 188, 0.1);
+  border-radius: 3px;
+  color: $text-muted;
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  transition: all 0.15s ease;
+
+  &:hover {
+    border-color: rgba(171, 71, 188, 0.3);
+    color: #ab47bc;
+  }
+
+  &.speed-active {
+    background: rgba(171, 71, 188, 0.15);
+    border-color: #ab47bc;
+    color: #ab47bc;
+    box-shadow: 0 0 6px rgba(171, 71, 188, 0.2);
+  }
+}

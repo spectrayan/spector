@@ -1,0 +1,26 @@
+<div class="time-travel-bar" id="time-travel-bar">
+  <button class="tt-btn" (click)="togglePlay.emit()" matTooltip="Play / Pause">
+    <mat-icon>{{ timeTravelPlaying() ? 'pause' : 'play_arrow' }}</mat-icon>
+  </button>
+  <div class="tt-timestamp cortex-mono">
+    {{ formatTimestamp(timeTravelTimestamp()) }}
+  </div>
+  <mat-slider class="tt-slider" 
+              [min]="oldestTimestamp()" 
+              [max]="newestTimestamp()" 
+              [step]="1000">
+    <input matSliderThumb 
+           [ngModel]="timeTravelTimestamp()" 
+           (ngModelChange)="scrub.emit($event)">
+  </mat-slider>
+  <div class="tt-speed">
+    @for (s of [1, 2, 5, 10]; track s) {
+      <button class="speed-btn" 
+              [class.speed-active]="timeTravelSpeed() === s"
+              (click)="timeTravelSpeed.set(s)">{{ s }}x</button>
+    }
+  </div>
+  <button class="tt-btn tt-exit" (click)="exit.emit()" matTooltip="Exit Time Travel">
+    <mat-icon>close</mat-icon>
+  </button>
+</div>

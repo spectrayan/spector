@@ -1,46 +1,45 @@
-import { Component, inject, signal, computed } from '@angular/core';
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Business Source License 1.1 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://github.com/spectrayan/spector/blob/main/spector-cortex/LICENSE
+ *
+ * Change Date: July 6, 2030
+ * Change License: Apache License, Version 2.0
+ */
+
+import { Component, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
-import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
-import { MatButtonModule } from '@angular/material/button';
-import { MatChipsModule } from '@angular/material/chips';
-import { MatSelectModule } from '@angular/material/select';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSliderModule } from '@angular/material/slider';
-import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatDividerModule } from '@angular/material/divider';
 import { QueryInputComponent } from '@shared/components/cognitive/query-input/query-input.component';
 import { QueryHistoryComponent } from '@shared/components/cognitive/query-history/query-history.component';
 import { PipelineFunnelComponent } from '@shared/components/cognitive/pipeline-funnel/pipeline-funnel.component';
 import { CortexStateService } from '@core/services/cortex-state.service';
-import { CognitiveProfile, PROFILE_PARAMS } from '@core/models/memory-types';
+import { QueryResultsMetaComponent } from './components/query-results-meta/query-results-meta.component';
+import { QueryResultCardComponent } from './components/query-result-card/query-result-card.component';
+import { QueryPlaygroundSettingsComponent } from './components/query-playground-settings/query-playground-settings.component';
 
 @Component({
   selector: 'cortex-query',
   standalone: true,
   imports: [
     CommonModule,
-    RouterLink,
-    FormsModule,
     MatCardModule,
     MatIconModule,
-    MatButtonModule,
-    MatChipsModule,
-    MatSelectModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatSliderModule,
-    MatTooltipModule,
-    MatDividerModule,
     QueryInputComponent,
     QueryHistoryComponent,
     PipelineFunnelComponent,
+    QueryResultsMetaComponent,
+    QueryResultCardComponent,
+    QueryPlaygroundSettingsComponent,
   ],
   templateUrl: './query.component.html',
   styleUrl: './query.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class QueryComponent {
   protected readonly state = inject(CortexStateService);
@@ -58,32 +57,4 @@ export class QueryComponent {
       result.memoryType.toLowerCase().includes(search)
     );
   });
-
-  // Expose cognitive profiles and definitions
-  protected readonly CognitiveProfile = CognitiveProfile;
-  protected readonly profileParams = PROFILE_PARAMS;
-  protected readonly profiles = Object.values(CognitiveProfile);
-
-  // Tenant / namespace list
-  protected readonly namespaces = [
-    { value: 'default', label: 'Default Core Namespace' },
-    { value: 'finance', label: 'Finance & Projection' },
-    { value: 'engineering-team-a', label: 'Engineering Team A' },
-    { value: 'compliance-vault', label: 'Compliance & Governance' },
-    { value: 'wealth-management', label: 'Wealth Management Archives' }
-  ];
-
-  protected formatScore(score: number): string {
-    return score < 0.01 ? score.toExponential(2) : score.toFixed(4);
-  }
-
-  protected getActiveProfileDescription(): string {
-    const profile = this.state.activeProfile();
-    return PROFILE_PARAMS[profile]?.description ?? 'Custom recall parameters';
-  }
-
-  protected getActiveProfileParams() {
-    const profile = this.state.activeProfile();
-    return PROFILE_PARAMS[profile];
-  }
 }

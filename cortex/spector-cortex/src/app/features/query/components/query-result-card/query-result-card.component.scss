@@ -1,0 +1,324 @@
+:host {
+  display: block;
+}
+
+// ── Result Container & Cards ──
+.result-container {
+  display: flex;
+  flex-direction: column;
+  background: var(--mat-sys-surface-container-low);
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 16px;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+
+  &:hover {
+    border-color: var(--mat-sys-primary);
+    box-shadow: 0 8px 30px color-mix(in srgb, var(--mat-sys-primary) 12%, transparent);
+    transform: translateY(-2px);
+  }
+}
+
+.result-card {
+  display: flex;
+  gap: 16px;
+  padding: 20px;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  border-bottom: 1px solid color-mix(in srgb, var(--mat-sys-outline-variant) 40%, transparent);
+
+  &:hover {
+    background: color-mix(in srgb, var(--mat-sys-surface-container-high) 30%, transparent);
+  }
+}
+
+.result-rank {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 800;
+  background: var(--mat-sys-primary-container);
+  color: var(--mat-sys-on-primary-container);
+  border: 1px solid color-mix(in srgb, var(--mat-sys-primary) 30%, transparent);
+}
+
+.result-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.result-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.result-id {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--mat-sys-primary);
+  letter-spacing: 0.5px;
+}
+
+// ── Custom Tier Chip classes (Pure M3 Tokens) ──
+.tier-chip {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  height: 22px !important;
+
+  &.working {
+    --mdc-chip-label-text-color: var(--cortex-working);
+    --mdc-chip-elevated-container-color: color-mix(in srgb, var(--cortex-working) 12%, transparent);
+  }
+  &.episodic {
+    --mdc-chip-label-text-color: var(--cortex-episodic);
+    --mdc-chip-elevated-container-color: color-mix(in srgb, var(--cortex-episodic) 12%, transparent);
+  }
+  &.semantic {
+    --mdc-chip-label-text-color: var(--cortex-semantic);
+    --mdc-chip-elevated-container-color: color-mix(in srgb, var(--cortex-semantic) 12%, transparent);
+  }
+  &.procedural {
+    --mdc-chip-label-text-color: var(--cortex-procedural);
+    --mdc-chip-elevated-container-color: color-mix(in srgb, var(--cortex-procedural) 12%, transparent);
+  }
+}
+
+.flag-chip {
+  font-size: 10px !important;
+  padding: 0 8px !important;
+  min-height: 22px !important;
+  font-weight: 600 !important;
+
+  &.lateral {
+    background: color-mix(in srgb, var(--cortex-working) 15%, transparent) !important;
+    color: var(--cortex-working) !important;
+  }
+  &.hyper {
+    background: color-mix(in srgb, var(--cortex-procedural) 15%, transparent) !important;
+    color: var(--cortex-procedural) !important;
+  }
+  &.negative {
+    background: color-mix(in srgb, var(--cortex-error) 15%, transparent) !important;
+    color: var(--cortex-error) !important;
+  }
+}
+
+.result-text {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--mat-sys-on-surface);
+}
+
+.result-scores {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.score {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--mat-sys-on-surface-variant);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  background: var(--mat-sys-surface-container);
+  border-radius: 4px;
+
+  &.primary {
+    background: color-mix(in srgb, var(--mat-sys-primary-container) 50%, transparent);
+    color: var(--mat-sys-primary);
+    font-weight: 700;
+
+    mat-icon {
+      font-size: 13px;
+      width: 13px;
+      height: 13px;
+    }
+  }
+
+  &.boost {
+    color: var(--cortex-success);
+    background: color-mix(in srgb, var(--cortex-success) 8%, transparent);
+  }
+
+  &.penalty {
+    color: var(--cortex-error);
+    background: color-mix(in srgb, var(--cortex-error) 8%, transparent);
+  }
+
+  &.faint {
+    opacity: 0.6;
+  }
+}
+
+.result-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.tag {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: var(--mat-sys-surface-container-high);
+  color: var(--mat-sys-on-surface-variant);
+  border: 1px solid var(--mat-sys-outline-variant);
+}
+
+// ── Score Component Explainer Panel ──
+.score-explainer-panel {
+  padding: 16px 20px;
+  background: color-mix(in srgb, var(--mat-sys-surface-container-high) 20%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.explainer-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--mat-sys-on-surface-variant);
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.explainer-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.explainer-bar-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bar-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.bar-label {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.bar-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  color: var(--mat-sys-on-surface);
+}
+
+.bar-track {
+  height: 6px;
+  background: var(--mat-sys-surface-container-highest);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+
+  &.similarity {
+    background: linear-gradient(90deg, var(--mat-sys-primary), var(--cortex-episodic));
+    box-shadow: 0 0 8px color-mix(in srgb, var(--mat-sys-primary) 40%, transparent);
+  }
+
+  &.importance {
+    background: linear-gradient(90deg, var(--cortex-working), var(--cortex-semantic));
+    box-shadow: 0 0 8px color-mix(in srgb, var(--cortex-working) 40%, transparent);
+  }
+
+  &.valence {
+    background: linear-gradient(90deg, var(--cortex-procedural), var(--cortex-success));
+    box-shadow: 0 0 8px color-mix(in srgb, var(--cortex-success) 40%, transparent);
+  }
+}
+
+.explainer-multipliers {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.mult-pill {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--mat-sys-surface-container-high);
+  color: var(--mat-sys-on-surface-variant);
+  border: 1px solid var(--mat-sys-outline-variant);
+  opacity: 0.5;
+  transition: all 0.3s ease;
+
+  &.active {
+    opacity: 1;
+    border-color: currentColor;
+
+    &.tag-boost {
+      color: var(--cortex-success);
+      background: color-mix(in srgb, var(--cortex-success) 10%, transparent);
+    }
+    &.graph-boost {
+      color: var(--cortex-episodic);
+      background: color-mix(in srgb, var(--cortex-episodic) 10%, transparent);
+    }
+    &.habituation-penalty {
+      color: var(--cortex-error);
+      background: color-mix(in srgb, var(--cortex-error) 10%, transparent);
+    }
+  }
+}
+
+::ng-deep {
+  .tier-chip.mat-mdc-standard-chip,
+  .flag-chip.mat-mdc-standard-chip {
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 12px !important;
+    font-family: 'JetBrains Mono', 'Consolas', monospace !important;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+
+    .mdc-evolution-chip__graphic,
+    .mdc-evolution-chip__checkmark,
+    .mdc-evolution-chip__text-label {
+      border: none !important;
+    }
+    .mdc-evolution-chip__cell {
+      border: none !important;
+    }
+  }
+}
