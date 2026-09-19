@@ -206,13 +206,6 @@ public final class MemoryRegistry implements AutoCloseable {
         return resolver.catalog();
     }
 
-    /**
-     * Registers a listener to be notified when a namespace is instantiated and opened in the hot cache.
-     */
-    public void addOpenListener(NamespaceResolver.NamespaceOpenListener listener) {
-        resolver.addOpenListener(listener);
-    }
-
     // ══════════════════════════════════════════════════════════════
     // Internals
     // ══════════════════════════════════════════════════════════════

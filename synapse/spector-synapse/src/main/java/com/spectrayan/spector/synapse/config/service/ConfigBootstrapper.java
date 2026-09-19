@@ -62,8 +62,8 @@ public class ConfigBootstrapper implements CommandLineRunner {
         }
 
         MemoryRegistry memoryRegistry = memoryRegistryProvider.getIfAvailable();
-        if (memoryRegistry != null) {
-            memoryRegistry.addOpenListener((tenantId, namespaceId, memory) -> {
+        if (memoryRegistry != null && memoryRegistry.namespaceResolver() != null) {
+            memoryRegistry.namespaceResolver().addOpenListener((tenantId, namespaceId, memory) -> {
                 log.debug("[ConfigBootstrapper] Overlaying configurations for opened namespace ns={}, tenant={}",
                         namespaceId, tenantId);
                 for (ConfigCategory category : ConfigCategory.values()) {
