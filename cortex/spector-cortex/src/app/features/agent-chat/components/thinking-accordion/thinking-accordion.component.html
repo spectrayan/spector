@@ -1,0 +1,53 @@
+<div class="accordion-container">
+  <!-- ── Accordion Header Toggle ── -->
+  <button type="button"
+          class="accordion-header"
+          [attr.aria-expanded]="isExpanded()"
+          aria-controls="thinking-content-panel"
+          (click)="onToggle()"
+          (keydown)="onKeydown($event)">
+    <div class="header-left">
+      <div class="icon-ring" [class.active-glow]="isActivelyThinking()">
+        <mat-icon class="brain-icon" [class.pulsing]="isActivelyThinking()">
+          psychology
+        </mat-icon>
+      </div>
+
+      <div class="label-group">
+        <span class="thinking-label">
+          @if (isActivelyThinking()) {
+            Thinking…
+          } @else {
+            Thought for {{ elapsedFormatted() }}
+          }
+        </span>
+
+        @if (isActivelyThinking()) {
+          <span class="live-timer-pill" aria-live="polite">
+            {{ elapsedFormatted() }}
+          </span>
+        }
+      </div>
+    </div>
+
+    <div class="header-right">
+      <mat-icon class="chevron-icon" [class.rotated]="isExpanded()">
+        expand_more
+      </mat-icon>
+    </div>
+  </button>
+
+  <!-- ── Accordion Body (Collapsible Reasoning Trace) ── -->
+  <div id="thinking-content-panel"
+       class="accordion-body"
+       [class.expanded]="isExpanded()"
+       [attr.aria-hidden]="!isExpanded()"
+       role="region"
+       aria-label="Internal chain-of-thought reasoning">
+    <div class="thinking-inner">
+      <div class="reasoning-trace-box">
+        <pre class="reasoning-text">{{ thinking().text }}</pre>
+      </div>
+    </div>
+  </div>
+</div>

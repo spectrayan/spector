@@ -143,6 +143,14 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(status.value(), code.id(), ex.getMessage()));
     }
 
+    @ExceptionHandler(org.springframework.web.server.ResponseStatusException.class)
+    public ResponseEntity<ErrorResponse> handleResponseStatus(org.springframework.web.server.ResponseStatusException ex) {
+        log.warn("[ResponseStatusException] status={} reason={}", ex.getStatusCode().value(), ex.getReason());
+        return ResponseEntity.status(ex.getStatusCode())
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new ErrorResponse(ex.getStatusCode().value(), ex.getStatusCode().toString(), ex.getReason()));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleBadRequest(IllegalArgumentException ex) {
         log.warn("[Error] Bad request: {}", ex.getMessage());

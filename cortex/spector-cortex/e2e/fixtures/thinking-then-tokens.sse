@@ -1,0 +1,33 @@
+event: session
+id: 01J8Y000000000000000000001:1
+data: {"sessionId":"01J8Y000000000000000000000","turnId":"01J8Y000000000000000000001","seq":1,"tsEpochMs":1758265000000,"isNew":true}
+
+event: thinking
+id: 01J8Y000000000000000000001:2
+data: {"sessionId":"01J8Y000000000000000000000","turnId":"01J8Y000000000000000000001","seq":2,"tsEpochMs":1758265000200,"text":"Accessing cognitive memory graph and evaluating memory salience...","elapsedMs":200}
+
+event: thinking
+id: 01J8Y000000000000000000001:3
+data: {"sessionId":"01J8Y000000000000000000000","turnId":"01J8Y000000000000000000001","seq":3,"tsEpochMs":1758265000650,"text":" Synthesizing memory engrams with dual-plane operational context.","elapsedMs":650}
+
+:keepalive
+
+event: token
+id: 01J8Y000000000000000000001:4
+data: {"sessionId":"01J8Y000000000000000000000","turnId":"01J8Y000000000000000000001","seq":4,"tsEpochMs":1758265000750,"text":"Spector "}
+
+event: token
+id: 01J8Y000000000000000000001:5
+data: {"sessionId":"01J8Y000000000000000000000","turnId":"01J8Y000000000000000000001","seq":5,"tsEpochMs":1758265000850,"text":"is an off-heap "}
+
+event: token
+id: 01J8Y000000000000000000001:6
+data: {"sessionId":"01J8Y000000000000000000000","turnId":"01J8Y000000000000000000001","seq":6,"tsEpochMs":1758265000950,"text":"cognitive memory engine "}
+
+event: token
+id: 01J8Y000000000000000000001:7
+data: {"sessionId":"01J8Y000000000000000000000","turnId":"01J8Y000000000000000000001","seq":7,"tsEpochMs":1758265001050,"text":"designed for autonomous agent architectures."}
+
+event: done
+id: 01J8Y000000000000000000001:8
+data: {"sessionId":"01J8Y000000000000000000000","turnId":"01J8Y000000000000000000001","seq":8,"tsEpochMs":1758265001250,"primedMemories":3,"latencyMs":1250,"usage":{"inputTokens":124,"outputTokens":48,"totalTokens":172}}

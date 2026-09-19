@@ -15,42 +15,92 @@
  */
 package com.spectrayan.spector.synapse.agent.graph;
 
+import com.spectrayan.spector.synapse.agent.chat.dto.ChatDto.TokenUsageDto;
+
 import java.util.Map;
 
 /**
- * Listener for real-time streaming events from the agentic chat graph.
+ * Core event bus listener for real-time streaming events from the agentic chat graph
+ * (Issue #263, ADR-0084).
  *
  * <p>Implementations receive callbacks as the graph progresses through
- * LLM calls, tool executions, and final content generation. Used by
- * the chat service for SSE streaming to the Cortex UI.</p>
+ * LLM streaming, reasoning separation, tool executions, and final turn completion.</p>
  */
 public interface AgentChatListener {
 
-    /** Called when the agent is thinking (LLM processing). */
-    void onThinking(String thought);
+    /**
+     * Emitted immediately upon connection accept and ID allocation (TTFT signal).
+     */
+    default void onSession(String sessionId, String turnId) {}
 
-    /** Called when a tool call is requested by the LLM. */
-    void onToolCall(String name, Map<String, Object> arguments);
+    /**
+     * Emitted during Chain-of-Thought reasoning generation.
+     */
+    default void onThinking(String delta, long elapsedMs) {
+        onThinking(delta);
+    }
 
-    /** Called when a tool execution completes. */
-    void onToolResult(String name, String result, boolean success);
+    /**
+     * Canonical event emitted for visible assistant answer deltas.
+     */
+    default void onToken(String delta) {
+        onContent(delta);
+    }
 
-    /** Called when content is generated. */
-    void onContent(String text);
+    /**
+     * Emitted when the LLM requests execution of an agent tool.
+     */
+    default void onToolCall(String callId, String name, Map<String, Object> arguments) {
+        onToolCall(name, arguments);
+    }
 
-    /** Called when the graph execution completes. */
-    void onDone(String summary);
+    /**
+     * Emitted when a tool finishes execution.
+     *
+     * @param callId      correlated tool call ID
+     * @param name        tool name
+     * @param status      "success" or "failure"
+     * @param preview     2 KiB truncated preview for wire serialization
+     * @param fullPayload un-truncated full payload for JDBC persistence
+     * @param elapsedMs   tool execution duration in milliseconds
+     */
+    default void onToolResult(String callId, String name, String status, String preview, String fullPayload, long elapsedMs) {
+        onToolResult(name, preview, "success".equalsIgnoreCase(status));
+    }
 
-    /** Called when an error occurs. */
-    void onError(String error);
+    /**
+     * Emitted when turn execution terminates successfully.
+     */
+    default void onDone(String summary, TokenUsageDto usage) {
+        onDone(summary);
+    }
 
-    /** No-op listener for non-interactive callers. */
-    AgentChatListener NOOP = new AgentChatListener() {
-        @Override public void onThinking(String thought) {}
-        @Override public void onToolCall(String name, Map<String, Object> arguments) {}
-        @Override public void onToolResult(String name, String result, boolean success) {}
-        @Override public void onContent(String text) {}
-        @Override public void onDone(String summary) {}
-        @Override public void onError(String error) {}
-    };
+    /**
+     * Emitted when an error occurs during turn execution.
+     */
+    default void onError(String code, String message, boolean retryable) {
+        onError(message);
+    }
+
+    // ── Backward Compatibility Shims ──────────────────────────────
+
+    default void onThinking(String thought) {}
+
+    default void onContent(String text) {}
+
+    default void onToolCall(String name, Map<String, Object> arguments) {}
+
+    default void onToolResult(String name, String result, boolean success) {}
+
+    default void onToolResult(String callId, String name, String status, String preview, long elapsedMs) {
+        onToolResult(callId, name, status, preview, preview, elapsedMs);
+    }
+
+    default void onDone(String summary) {}
+
+    default void onError(String error) {}
+
+    // ── No-Op Implementation ──────────────────────────────────────
+
+    AgentChatListener NOOP = new AgentChatListener() {};
 }

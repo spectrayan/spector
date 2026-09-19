@@ -34,13 +34,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Registry for all available agent tools — bridges Spector's {@link McpToolHandler}
@@ -54,6 +60,7 @@ public class ToolRegistry {
 
     private final ConcurrentHashMap<String, McpToolHandler> tools = new ConcurrentHashMap<>();
     private final ToolAccessPolicy toolAccessPolicy;
+    private final AtomicReference<String> cachedFingerprint = new AtomicReference<>(null);
 
     /**
      * Helper constructor for testing and manual registry creation.
@@ -122,7 +129,65 @@ public class ToolRegistry {
     /** Register a tool dynamically at runtime. */
     public void register(McpToolHandler tool) {
         tools.put(tool.name(), tool);
+        cachedFingerprint.set(null);
         log.info("[ToolRegistry] Dynamically registered tool: {} [{}]", tool.name(), tool.category());
+    }
+
+    /**
+     * Computes a deterministic SHA-256 fingerprint representing the entire active tool catalog.
+     * Sorted by tool name; incorporates tool name, description, and canonical input schema.
+     * Invalidated automatically whenever new tools are registered.
+     *
+     * @return 64-character hexadecimal SHA-256 fingerprint
+     */
+    public String fingerprint() {
+        String current = cachedFingerprint.get();
+        if (current != null) {
+            return current;
+        }
+
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            List<McpToolHandler> sortedTools = tools.values().stream()
+                    .sorted(Comparator.comparing(McpToolHandler::name))
+                    .toList();
+
+            for (McpToolHandler tool : sortedTools) {
+                digest.update(tool.name().getBytes(StandardCharsets.UTF_8));
+                digest.update((byte) 0x00);
+                if (tool.description() != null) {
+                    digest.update(tool.description().getBytes(StandardCharsets.UTF_8));
+                }
+                digest.update((byte) 0x00);
+                if (tool.inputSchema() != null && !tool.inputSchema().isEmpty()) {
+                    Map<String, Object> canonicalSchema = canonicalizeMap(tool.inputSchema());
+                    String schemaJson = MAPPER.writeValueAsString(canonicalSchema);
+                    digest.update(schemaJson.getBytes(StandardCharsets.UTF_8));
+                }
+                digest.update((byte) 0xFF);
+            }
+
+            String hex = HexFormat.of().formatHex(digest.digest());
+            cachedFingerprint.set(hex);
+            return hex;
+        } catch (Exception e) {
+            log.warn("[ToolRegistry] Failed to compute SHA-256 tool fingerprint, falling back to count hash", e);
+            return "fallback-" + tools.size();
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> canonicalizeMap(Map<String, Object> input) {
+        if (input == null) return Map.of();
+        Map<String, Object> sorted = new TreeMap<>();
+        for (var entry : input.entrySet()) {
+            if (entry.getValue() instanceof Map<?, ?> subMap) {
+                sorted.put(entry.getKey(), canonicalizeMap((Map<String, Object>) subMap));
+            } else {
+                sorted.put(entry.getKey(), entry.getValue());
+            }
+        }
+        return sorted;
     }
 
     /** Check if a tool is registered. */

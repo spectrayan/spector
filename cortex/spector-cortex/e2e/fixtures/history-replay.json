@@ -1,0 +1,51 @@
+{
+  "sessionId": "01J8Y000000000000000000000",
+  "title": "Austin Relocation Planning",
+  "turns": [
+    {
+      "turnId": "01J8Y000000000000000000001",
+      "seq": 1,
+      "status": "DONE",
+      "user": {
+        "text": "What do you remember about my relocation to Austin?"
+      },
+      "thinking": {
+        "text": "Querying cognitive episodic memory plane for Austin relocation timeline and preferences.",
+        "elapsedMs": 1380
+      },
+      "tools": [
+        {
+          "callId": "call_recall_001",
+          "name": "memory_recall",
+          "arguments": {
+            "query": "Austin relocation date and neighborhood",
+            "limit": 5
+          },
+          "status": "success",
+          "preview": "{\"results\": [\"Moving to Austin on October 1\", \"Prefers South Congress neighborhood\"]}",
+          "truncated": false,
+          "elapsedMs": 280
+        }
+      ],
+      "assistant": {
+        "text": "Based on your cognitive memory records:\n\n- **Destination**: Austin, Texas\n- **Target Date**: October 1st\n- **Preferred Area**: South Congress\n\nAll details are stored in your episodic memory plane."
+      },
+      "usage": {
+        "inputTokens": 482,
+        "outputTokens": 96,
+        "totalTokens": 578
+      },
+      "primedMemories": 3
+    }
+  ],
+  "messages": [
+    {
+      "role": "user",
+      "content": "What do you remember about my relocation to Austin?"
+    },
+    {
+      "role": "assistant",
+      "content": "Based on your cognitive memory records:\n\n- **Destination**: Austin, Texas\n- **Target Date**: October 1st\n- **Preferred Area**: South Congress\n\nAll details are stored in your episodic memory plane."
+    }
+  ]
+}
