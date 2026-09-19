@@ -116,6 +116,7 @@ function Invoke-Build {
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
 
     docker build `
+        --target runtime `
         -f $Dockerfile `
         -t "${ImageName}:latest" `
         -t "${ImageName}:${versionTag}" `
@@ -180,6 +181,7 @@ function Invoke-Run {
         -e "SPECTOR_OLLAMA_EMBED_MODEL=qwen3-embedding:0.6b" `
         -e "SPECTOR_OLLAMA_MODEL=llama3.2:latest" `
         -e "SPECTOR_CORS_ORIGINS=http://localhost:4200,http://localhost:7700,http://localhost:3000,*" `
+        -e "SPECTOR_ROUTING_REDIS_ENABLED=false" `
         --add-host=host.docker.internal:host-gateway `
         --restart unless-stopped `
         $ImageName

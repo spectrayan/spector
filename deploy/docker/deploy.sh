@@ -88,6 +88,7 @@ build() {
     local start_time=$SECONDS
 
     docker build \
+        --target runtime \
         -f "$DOCKERFILE" \
         -t "${IMAGE_NAME}:latest" \
         -t "${IMAGE_NAME}:${version_tag}" \
@@ -143,6 +144,7 @@ run() {
         -e "SPECTOR_OLLAMA_EMBED_MODEL=qwen3-embedding:0.6b" \
         -e "SPECTOR_OLLAMA_MODEL=spector-extractor:small" \
         -e "SPECTOR_CORS_ORIGINS=http://localhost:4200,http://localhost:7700,http://localhost:3000,*" \
+        -e "SPECTOR_ROUTING_REDIS_ENABLED=false" \
         --add-host=host.docker.internal:host-gateway \
         --restart unless-stopped \
         "$IMAGE_NAME"
