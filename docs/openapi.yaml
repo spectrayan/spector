@@ -2046,6 +2046,43 @@ paths:
             '*/*':
               schema:
                 type: object
+  /api/v1/chat/sessions/{id}:
+    delete:
+      tags:
+      - chat-controller
+      operationId: deleteSession
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+    patch:
+      tags:
+      - chat-controller
+      operationId: renameSession
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenameSessionRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SessionSummary"
   /api/v1/usage/users/{userId}:
     get:
       tags:
@@ -3065,13 +3102,13 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/SessionsResponse"
-  /api/v1/chat/sessions/{sessionId}/messages:
+  /api/v1/chat/sessions/{id}/messages:
     get:
       tags:
       - chat-controller
-      operationId: loadSessionMessages
+      operationId: loadSessionHistory
       parameters:
-      - name: sessionId
+      - name: id
         in: path
         required: true
         schema:
@@ -3082,7 +3119,7 @@ paths:
           content:
             '*/*':
               schema:
-                $ref: "#/components/schemas/SessionMessagesResponse"
+                $ref: "#/components/schemas/SessionHistoryResponse"
   /api/v1/chat/models:
     get:
       tags:
@@ -5182,6 +5219,27 @@ components:
           additionalProperties: {}
         reason:
           type: string
+    RenameSessionRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 255
+          minLength: 0
+      required:
+      - title
+    SessionSummary:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        preview:
+          type: string
+        lastActivity:
+          type: string
+        messageCount:
+          type: integer
+          format: int32
     TokenUsageStats:
       type: object
       properties:
@@ -5838,18 +5896,6 @@ components:
           items:
             type: object
             additionalProperties: {}
-    SessionSummary:
-      type: object
-      properties:
-        sessionId:
-          type: string
-        preview:
-          type: string
-        lastActivity:
-          type: string
-        messageCount:
-          type: integer
-          format: int32
     SessionsResponse:
       type: object
       properties:
@@ -5859,15 +5905,78 @@ components:
             $ref: "#/components/schemas/SessionSummary"
         hasMore:
           type: boolean
-    SessionMessagesResponse:
+    AssistantMessageView:
       type: object
       properties:
-        messages:
+        text:
+          type: string
+    ChatTurnView:
+      type: object
+      properties:
+        turnId:
+          type: string
+        seq:
+          type: integer
+          format: int32
+        status:
+          type: string
+        user:
+          $ref: "#/components/schemas/UserMessageView"
+        thinking:
+          $ref: "#/components/schemas/ThinkingView"
+        tools:
           type: array
           items:
-            type: object
-            additionalProperties: {}
+            $ref: "#/components/schemas/ToolCardView"
+        assistant:
+          $ref: "#/components/schemas/AssistantMessageView"
+        usage:
+          $ref: "#/components/schemas/TokenUsageDto"
+        primedMemories:
+          type: integer
+          format: int32
+    SessionHistoryResponse:
+      type: object
+      properties:
         sessionId:
+          type: string
+        title:
+          type: string
+        turns:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatTurnView"
+    ThinkingView:
+      type: object
+      properties:
+        text:
+          type: string
+        elapsedMs:
+          type: integer
+          format: int64
+    ToolCardView:
+      type: object
+      properties:
+        callId:
+          type: string
+        name:
+          type: string
+        arguments:
+          type: object
+          additionalProperties: {}
+        status:
+          type: string
+        preview:
+          type: string
+        truncated:
+          type: boolean
+        elapsedMs:
+          type: integer
+          format: int64
+    UserMessageView:
+      type: object
+      properties:
+        text:
           type: string
     ModelsResponse:
       type: object
