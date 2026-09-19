@@ -15,8 +15,11 @@
  */
 package com.spectrayan.spector.synapse.agent.graph;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.synapse.agent.ToolRegistry;
+import com.spectrayan.spector.synapse.agent.chat.cache.GraphCache;
+import com.spectrayan.spector.synapse.agent.chat.stream.TokenSplitter;
 import com.spectrayan.spector.synapse.bridge.LlmBridge;
 import com.spectrayan.spector.synapse.security.injection.InjectionInterceptor;
 import com.spectrayan.spector.synapse.security.injection.PromptInjectionException;
@@ -31,13 +34,22 @@ import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.ToolExecutionResultMessage;
 import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.model.chat.response.PartialThinking;
+import dev.langchain4j.model.chat.response.PartialToolCall;
+import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
 
+import org.bsc.async.AsyncGenerator;
+import org.bsc.langgraph4j.CompileConfig;
 import org.bsc.langgraph4j.CompiledGraph;
+import org.bsc.langgraph4j.NodeOutput;
+import org.bsc.langgraph4j.RunnableConfig;
 import org.bsc.langgraph4j.StateGraph;
 import org.bsc.langgraph4j.action.AsyncEdgeAction;
-import org.bsc.langgraph4j.action.AsyncNodeAction;
-import org.bsc.langgraph4j.action.NodeAction;
+import org.bsc.langgraph4j.action.AsyncNodeActionWithConfig;
+import org.bsc.langgraph4j.action.NodeActionWithConfig;
+import org.bsc.langgraph4j.checkpoint.BaseCheckpointSaver;
 import org.bsc.langgraph4j.langchain4j.serializer.std.LC4jStateSerializer;
 import org.bsc.langgraph4j.state.AgentState;
 import org.bsc.langgraph4j.state.Channel;
@@ -50,34 +62,28 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 
 import static org.bsc.langgraph4j.StateGraph.END;
 import static org.bsc.langgraph4j.StateGraph.START;
 
 /**
- * Agentic chat graph — a LangGraph4j {@link StateGraph} that implements
- * the ReAct (Reasoning + Acting) pattern for tool-augmented conversations.
+ * Agentic chat graph — a LangGraph4j {@link StateGraph} implementing the ReAct
+ * (Reasoning + Acting) pattern with sub-500ms TTFT streaming and tool interleaving
+ * (Issue #263, ADR-0084).
  *
  * <h3>Graph Flow</h3>
  * <pre>
  *   START → agent → shouldUseTool? → tools → agent (loop)
  *                                  → END   (no tools needed)
  * </pre>
- *
- * <h3>Architecture</h3>
- * <ul>
- *   <li><b>Agent Node</b> — sends messages to LLM via {@link LlmBridge}, receives
- *       either a text response or tool call requests.</li>
- *   <li><b>Tool Node</b> — executes tool calls via {@link ToolRegistry} and feeds
- *       results back to the agent node for the next reasoning step.</li>
- *   <li><b>Conditional Edge</b> — routes between tool execution and end based on
- *       whether the LLM response contains tool calls.</li>
- * </ul>
  */
 @Component
 public class AgenticChatGraph {
 
     private static final Logger log = LoggerFactory.getLogger(AgenticChatGraph.class);
+    private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final String MESSAGES_KEY = "messages";
     private static final String AGENT_NODE = "agent";
     private static final String TOOLS_NODE = "tools";
@@ -86,15 +92,24 @@ public class AgenticChatGraph {
     private final ToolRegistry toolRegistry;
     private final InjectionInterceptor injectionInterceptor;
     private final PiiInterceptor piiInterceptor;
+    private final GraphCache graphCache;
+    private final BaseCheckpointSaver checkpointSaver;
 
     public AgenticChatGraph(LlmBridge llmBridge, ToolRegistry toolRegistry) {
-        this(llmBridge, toolRegistry, null, null);
+        this(llmBridge, toolRegistry, null, null, null, null);
     }
 
     public AgenticChatGraph(LlmBridge llmBridge,
                             ToolRegistry toolRegistry,
                             InjectionInterceptor injectionInterceptor) {
-        this(llmBridge, toolRegistry, injectionInterceptor, null);
+        this(llmBridge, toolRegistry, injectionInterceptor, null, null, null);
+    }
+
+    public AgenticChatGraph(LlmBridge llmBridge,
+                            ToolRegistry toolRegistry,
+                            InjectionInterceptor injectionInterceptor,
+                            PiiInterceptor piiInterceptor) {
+        this(llmBridge, toolRegistry, injectionInterceptor, piiInterceptor, null, null);
     }
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -103,22 +118,42 @@ public class AgenticChatGraph {
                             @org.springframework.beans.factory.annotation.Autowired(required = false)
                             InjectionInterceptor injectionInterceptor,
                             @org.springframework.beans.factory.annotation.Autowired(required = false)
-                            PiiInterceptor piiInterceptor) {
-        this.llmBridge = llmBridge;
-        this.toolRegistry = toolRegistry;
+                            PiiInterceptor piiInterceptor,
+                            @org.springframework.beans.factory.annotation.Autowired(required = false)
+                            GraphCache graphCache,
+                            @org.springframework.beans.factory.annotation.Autowired(required = false)
+                            BaseCheckpointSaver checkpointSaver) {
+        this.llmBridge = Objects.requireNonNull(llmBridge, "LlmBridge must not be null");
+        this.toolRegistry = Objects.requireNonNull(toolRegistry, "ToolRegistry must not be null");
         this.injectionInterceptor = injectionInterceptor;
         this.piiInterceptor = piiInterceptor;
+        this.graphCache = graphCache != null ? graphCache : new GraphCache();
+        this.checkpointSaver = checkpointSaver;
     }
 
     /**
-     * Builds and compiles the agentic chat graph for a given agent soul.
+     * Builds and compiles the agentic chat graph for a given agent soul, utilizing
+     * {@link GraphCache} to prevent re-compilation overhead.
      *
      * @param soul the agent identity providing system prompt and tool configuration
      * @return a compiled, ready-to-execute graph
      */
     public CompiledGraph<AgentState> compile(AgentSoul soul) {
+        return compile(soul, this.checkpointSaver);
+    }
+
+    /**
+     * Builds and compiles the agentic chat graph with a specific checkpoint saver.
+     */
+    public CompiledGraph<AgentState> compile(AgentSoul soul, BaseCheckpointSaver customCheckpointSaver) {
+        if (graphCache != null) {
+            return graphCache.getOrCompile(soul, toolRegistry, () -> doCompile(soul, customCheckpointSaver));
+        }
+        return doCompile(soul, customCheckpointSaver);
+    }
+
+    private CompiledGraph<AgentState> doCompile(AgentSoul soul, BaseCheckpointSaver saver) {
         try {
-            // Define channels — messages are accumulated via appender channel
             Map<String, Channel<?>> channels = Map.of(
                     MESSAGES_KEY, Channels.<ChatMessage>appender(ArrayList::new)
             );
@@ -128,31 +163,38 @@ public class AgenticChatGraph {
                     ? soul.systemPrompt()
                     : "You are a helpful AI assistant with access to tools.";
 
-            // Build node actions as NodeAction (sync) and wrap to async
             String modelName = soul.model();
             String agentId = soul.id();
             List<String> soulToolsHint = soul.tools() != null ? soul.tools() : List.of();
-            NodeAction<AgentState> agentAction =
-                    state -> agentNode(state, systemPrompt, toolSpecs, modelName);
-            NodeAction<AgentState> toolAction =
-                    state -> toolNode(state, agentId, soulToolsHint);
+
+            NodeActionWithConfig<AgentState> agentAction = (state, config) ->
+                    agentNodeStreaming(state, config, systemPrompt, toolSpecs, modelName);
+
+            NodeActionWithConfig<AgentState> toolAction = (state, config) ->
+                    toolNodeInterleaved(state, config, agentId, soulToolsHint);
 
             var stateSerializer = new LC4jStateSerializer<>(AgentState::new);
             stateSerializer.mapper().register(dev.langchain4j.data.message.ImageContent.class,
                     new com.spectrayan.spector.synapse.agent.graph.serializer.SafeImageContentSerializer());
 
-            StateGraph<AgentState> graph = new StateGraph<>(channels, stateSerializer)
-                    .addNode(AGENT_NODE, AsyncNodeAction.node_async(agentAction))
-                    .addNode(TOOLS_NODE, AsyncNodeAction.node_async(toolAction))
+            CompileConfig.Builder compileConfigBuilder = CompileConfig.builder();
+            if (saver != null) {
+                compileConfigBuilder.checkpointSaver(saver);
+            }
+            CompileConfig compileConfig = compileConfigBuilder.build();
+
+            CompiledGraph<AgentState> compiled = new StateGraph<>(channels, stateSerializer)
+                    .addNode(AGENT_NODE, AsyncNodeActionWithConfig.node_async(agentAction))
+                    .addNode(TOOLS_NODE, AsyncNodeActionWithConfig.node_async(toolAction))
                     .addEdge(START, AGENT_NODE)
                     .addConditionalEdges(AGENT_NODE,
                             AsyncEdgeAction.edge_async(this::shouldUseTool),
                             Map.of("tools", TOOLS_NODE, "end", END))
-                    .addEdge(TOOLS_NODE, AGENT_NODE);
+                    .addEdge(TOOLS_NODE, AGENT_NODE)
+                    .compile(compileConfig);
 
-            CompiledGraph<AgentState> compiled = graph.compile();
-            log.info("[AgenticChatGraph] Compiled graph for soul '{}' with {} tools",
-                    soul.name(), toolSpecs.size());
+            log.info("[AgenticChatGraph] Compiled graph for soul '{}' with {} tools (checkpointSaver={})",
+                    soul.name(), toolSpecs.size(), saver != null ? "active" : "none");
             return compiled;
 
         } catch (Exception e) {
@@ -162,11 +204,52 @@ public class AgenticChatGraph {
     }
 
     /**
+     * Executes a streaming agentic chat turn and returns an interruptible stream generator.
+     */
+    public AsyncGenerator.Cancellable<NodeOutput<AgentState>> chatStream(
+            AgentSoul soul,
+            List<ChatMessage> history,
+            String message,
+            AgentChatListener listener,
+            String sessionId,
+            String turnId) {
+
+        String safeMessage = message;
+        if (injectionInterceptor != null) {
+            try {
+                safeMessage = injectionInterceptor.interceptUserInput(message);
+            } catch (PromptInjectionException pie) {
+                log.warn("[AgenticChatGraph] Blocked prompt injection: {}", pie.getMessage());
+                listener.onError("SPE-400-001", pie.getMessage(), false);
+                throw pie;
+            }
+        }
+
+        if (piiInterceptor != null && piiInterceptor.isActive()) {
+            PiiRedactionResult redacted = piiInterceptor.redact(safeMessage);
+            safeMessage = redacted.redactedText();
+        }
+
+        List<ChatMessage> initialMessages = new ArrayList<>(history);
+        initialMessages.add(UserMessage.from(safeMessage));
+
+        Map<String, Object> input = Map.of(
+                MESSAGES_KEY, initialMessages
+        );
+
+        CompiledGraph<AgentState> compiled = compile(soul, checkpointSaver);
+        RunnableConfig config = RunnableConfig.builder()
+                .threadId(sessionId)
+                .addMetadata("listener", listener)
+                .addMetadata("sessionId", sessionId)
+                .addMetadata("turnId", turnId)
+                .build();
+
+        return compiled.stream(input, config);
+    }
+
+    /**
      * Executes a single user message through the agentic graph.
-     *
-     * @param soul    the agent identity
-     * @param message the user's message
-     * @return the agent's final response text
      */
     public String chat(AgentSoul soul, String message) {
         return chat(soul, message, AgentChatListener.NOOP);
@@ -174,11 +257,6 @@ public class AgenticChatGraph {
 
     /**
      * Executes a single user message with a streaming listener.
-     *
-     * @param soul     the agent identity
-     * @param message  the user's message
-     * @param listener callback for real-time streaming events
-     * @return the agent's final response text
      */
     public String chat(AgentSoul soul, String message, AgentChatListener listener) {
         return chat(soul, List.of(), message, listener);
@@ -186,11 +264,6 @@ public class AgenticChatGraph {
 
     /**
      * Executes a user message through the agentic graph with conversation history.
-     *
-     * @param soul     the agent identity
-     * @param history  the conversation history messages
-     * @param message  the user's message
-     * @return the agent's final response text
      */
     public String chat(AgentSoul soul, List<ChatMessage> history, String message) {
         return chat(soul, history, message, AgentChatListener.NOOP);
@@ -198,20 +271,14 @@ public class AgenticChatGraph {
 
     /**
      * Executes a user message through the agentic graph with conversation history and streaming.
-     *
-     * @param soul     the agent identity
-     * @param history  the conversation history messages
-     * @param message  the user's message
-     * @param listener callback for real-time streaming events
-     * @return the agent's final response text
      */
     public String chat(AgentSoul soul, List<ChatMessage> history, String message, AgentChatListener listener) {
-        CompiledGraph<AgentState> compiled = compile(soul);
+        CompiledGraph<AgentState> compiled = compile(soul, checkpointSaver);
 
         try {
             listener.onThinking("Processing message...");
 
-            // Prompt-injection shield — user input before graph entry (#204)
+            // Prompt-injection shield
             String safeMessage = message;
             if (injectionInterceptor != null) {
                 try {
@@ -224,7 +291,7 @@ public class AgenticChatGraph {
                 }
             }
 
-            // PII redaction — mask before LLM context, rehydrate after response (#203)
+            // PII redaction
             PiiRedactionSession piiSession = null;
             if (piiInterceptor != null && piiInterceptor.isActive()) {
                 PiiRedactionResult redacted = piiInterceptor.redact(safeMessage);
@@ -234,7 +301,6 @@ public class AgenticChatGraph {
             }
 
             try {
-                // Seed state with the history + user message
                 List<ChatMessage> initialMessages = new ArrayList<>(history);
                 initialMessages.add(UserMessage.from(safeMessage));
 
@@ -242,14 +308,18 @@ public class AgenticChatGraph {
                         MESSAGES_KEY, initialMessages
                 );
 
-                var result = compiled.invoke(input);
+                RunnableConfig config = RunnableConfig.builder()
+                        .threadId("turn-" + System.currentTimeMillis())
+                        .addMetadata("listener", listener)
+                        .build();
+
+                var result = compiled.invoke(input, config);
                 @SuppressWarnings("unchecked")
                 List<ChatMessage> messages = result.map(state ->
                         state.<List<ChatMessage>>value(MESSAGES_KEY)
                                 .orElse(List.of()))
                         .orElse(List.of());
 
-                // Extract the last assistant message
                 String response = messages.reversed().stream()
                         .filter(m -> m instanceof AiMessage)
                         .map(m -> ((AiMessage) m).text())
@@ -261,7 +331,6 @@ public class AgenticChatGraph {
                     response = piiInterceptor.rehydrate(response, piiSession);
                 }
 
-                listener.onContent(response);
                 listener.onDone("Completed");
                 return response;
             } finally {
@@ -272,8 +341,6 @@ public class AgenticChatGraph {
 
         } catch (Exception e) {
             log.error("[AgenticChatGraph] Chat execution failed: {}", e.getMessage(), e);
-
-            // Produce a user-actionable error when possible
             String rootCause = extractRootCause(e);
             String userMessage;
             if (rootCause.contains("not found") || rootCause.contains("ModelNotFound")) {
@@ -296,36 +363,105 @@ public class AgenticChatGraph {
     // ═══════════════════════════════════════════════════════════════
 
     /**
-     * Agent node — sends accumulated messages to the LLM with tool specifications.
-     * Returns the LLM's response (text or tool calls) appended to messages.
+     * Streaming Agent node — streams tokens through TokenSplitter, isolating reasoning
+     * and pausing visible tokens on tool requests.
      */
     @SuppressWarnings("unchecked")
-    private Map<String, Object> agentNode(AgentState state,
-                                          String systemPrompt,
-                                          List<ToolSpecification> toolSpecs,
-                                          String modelName) {
+    private Map<String, Object> agentNodeStreaming(
+            AgentState state,
+            RunnableConfig config,
+            String systemPrompt,
+            List<ToolSpecification> toolSpecs,
+            String modelName) {
+
+        AgentChatListener listener = (AgentChatListener) config.metadata("listener")
+                .orElse(AgentChatListener.NOOP);
+
         List<ChatMessage> messages = state.<List<ChatMessage>>value(MESSAGES_KEY)
                 .orElse(List.of());
 
-        // Build the full message list with system prompt
         List<ChatMessage> fullMessages = new ArrayList<>();
         fullMessages.add(SystemMessage.from(systemPrompt));
         fullMessages.addAll(messages);
 
-        log.debug("[AgenticChatGraph] Agent node — {} messages, {} tool specs, using model {}",
+        log.debug("[AgenticChatGraph] Agent node streaming — {} messages, {} tool specs, model {}",
                 messages.size(), toolSpecs.size(), modelName);
 
-        // Call LLM with tool specifications
+        StreamingChatModel streamingModel = null;
+        try {
+            streamingModel = llmBridge.streamingModel(modelName);
+        } catch (Exception e) {
+            log.debug("[AgenticChatGraph] Could not acquire streamingModel, falling back to chatModel: {}", e.getMessage());
+        }
+
         ChatResponse response;
-        if (!toolSpecs.isEmpty()) {
-            response = llmBridge.chatModel(modelName).chat(
-                    dev.langchain4j.model.chat.request.ChatRequest.builder()
-                            .messages(fullMessages)
-                            .toolSpecifications(toolSpecs)
-                            .build()
-            );
+        if (streamingModel != null) {
+            TokenSplitter splitter = new TokenSplitter(listener);
+            CompletableFuture<ChatResponse> future = new CompletableFuture<>();
+
+            StreamingChatResponseHandler handler = new StreamingChatResponseHandler() {
+                @Override
+                public void onPartialResponse(String partialResponse) {
+                    splitter.onTextChunk(partialResponse);
+                }
+
+                @Override
+                public void onPartialThinking(PartialThinking partialThinking) {
+                    if (partialThinking != null && partialThinking.text() != null) {
+                        splitter.onNativeThinking(partialThinking.text());
+                    }
+                }
+
+                @Override
+                public void onPartialToolCall(PartialToolCall partialToolCall) {
+                    splitter.onToolCall();
+                }
+
+                @Override
+                public void onCompleteResponse(ChatResponse completeResponse) {
+                    splitter.flush();
+                    future.complete(completeResponse);
+                }
+
+                @Override
+                public void onError(Throwable error) {
+                    splitter.flush();
+                    future.completeExceptionally(error);
+                }
+            };
+
+            var chatRequestBuilder = dev.langchain4j.model.chat.request.ChatRequest.builder()
+                    .messages(fullMessages);
+            if (!toolSpecs.isEmpty()) {
+                chatRequestBuilder.toolSpecifications(toolSpecs);
+            }
+
+            streamingModel.chat(chatRequestBuilder.build(), handler);
+
+            try {
+                response = future.join();
+            } catch (Exception e) {
+                String causeMessage = extractRootCause(e);
+                log.error("[AgenticChatGraph] Streaming model failure: {}", causeMessage);
+                listener.onError("SPE-700-001", causeMessage, true);
+                throw new RuntimeException("Model streaming failed: " + causeMessage, e);
+            }
         } else {
-            response = llmBridge.chatModel(modelName).chat(fullMessages);
+            // Non-streaming fallback (e.g. for mock tests)
+            var chatModel = llmBridge.chatModel(modelName);
+            if (!toolSpecs.isEmpty()) {
+                response = chatModel.chat(
+                        dev.langchain4j.model.chat.request.ChatRequest.builder()
+                                .messages(fullMessages)
+                                .toolSpecifications(toolSpecs)
+                                .build()
+                );
+            } else {
+                response = chatModel.chat(fullMessages);
+            }
+            if (response != null && response.aiMessage() != null && response.aiMessage().text() != null) {
+                listener.onToken(response.aiMessage().text());
+            }
         }
 
         AiMessage aiMessage = response.aiMessage();
@@ -337,15 +473,22 @@ public class AgenticChatGraph {
     }
 
     /**
-     * Tool node — executes all pending tool calls from the last AI message
-     * and appends results back to the message history.
+     * Tool node — executes pending tool calls, emits tool_call and tool_result events
+     * (2 KiB preview on wire, full payload in state/JDBC), and pauses visible tokens.
      */
     @SuppressWarnings("unchecked")
-    private Map<String, Object> toolNode(AgentState state, String agentId, List<String> soulToolsHint) {
+    private Map<String, Object> toolNodeInterleaved(
+            AgentState state,
+            RunnableConfig config,
+            String agentId,
+            List<String> soulToolsHint) {
+
+        AgentChatListener listener = (AgentChatListener) config.metadata("listener")
+                .orElse(AgentChatListener.NOOP);
+
         List<ChatMessage> messages = state.<List<ChatMessage>>value(MESSAGES_KEY)
                 .orElse(List.of());
 
-        // Find the last AI message with tool calls
         AiMessage lastAi = messages.reversed().stream()
                 .filter(m -> m instanceof AiMessage ai && ai.hasToolExecutionRequests())
                 .map(m -> (AiMessage) m)
@@ -359,33 +502,61 @@ public class AgenticChatGraph {
 
         List<ChatMessage> toolResults = new ArrayList<>();
         for (ToolExecutionRequest req : lastAi.toolExecutionRequests()) {
-            // Do not log tool arguments — may contain sensitive payloads (CodeQL / #914).
-            log.info("[AgenticChatGraph] Executing tool: {}", req.name());
+            String callId = req.id() != null && !req.id().isBlank()
+                    ? req.id()
+                    : "call_" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 12);
 
-            String result = toolRegistry.executeTool(req, agentId, soulToolsHint);
-            if (injectionInterceptor != null) {
-                result = injectionInterceptor.interceptToolOutput(result);
-            }
-            if (piiInterceptor != null) {
-                result = piiInterceptor.redactUsingActiveSession(result);
+            Map<String, Object> arguments = parseArguments(req.arguments());
+
+            // 1. Fire onToolCall callback (pauses visible tokens in UI)
+            listener.onToolCall(callId, req.name(), arguments);
+
+            long startMs = System.currentTimeMillis();
+            String result;
+            String status = "success";
+
+            try {
+                // 2. Execute via ToolRegistry with security interceptors
+                result = toolRegistry.executeTool(req, agentId, soulToolsHint);
+                if (injectionInterceptor != null) {
+                    result = injectionInterceptor.interceptToolOutput(result);
+                }
+                if (piiInterceptor != null) {
+                    result = piiInterceptor.redactUsingActiveSession(result);
+                }
+            } catch (Exception ex) {
+                log.error("[AgenticChatGraph] Tool '{}' failed", req.name(), ex);
+                status = "failure";
+                result = "Error executing tool '" + req.name() + "': " + ex.getMessage();
             }
 
-            toolResults.add(ToolExecutionResultMessage.from(req, result));
-            log.debug("[AgenticChatGraph] Tool '{}' → {} chars", req.name(), result.length());
+            long elapsedMs = System.currentTimeMillis() - startMs;
+
+            // 3. 2 KiB preview truncation on the wire
+            String safeResult = result != null ? result : "";
+            boolean truncated = safeResult.length() > 2048;
+            String preview = truncated ? safeResult.substring(0, 2048) : safeResult;
+
+            // 4. Fire onToolResult (preview for wire, full payload for JDBC persistence)
+            listener.onToolResult(callId, req.name(), status, preview, safeResult, elapsedMs);
+
+            // 5. Append ToolExecutionResultMessage to graph state
+            toolResults.add(ToolExecutionResultMessage.from(req, safeResult));
+            log.debug("[AgenticChatGraph] Tool '{}' [{}] finished in {}ms ({} chars)",
+                    req.name(), status, elapsedMs, safeResult.length());
         }
 
         return Map.of(MESSAGES_KEY, toolResults);
     }
 
     /**
-     * Conditional edge — determines whether to route to tools or end.
+     * Conditional edge — routes between tools and end based on tool calls.
      */
     @SuppressWarnings("unchecked")
     private String shouldUseTool(AgentState state) {
         List<ChatMessage> messages = state.<List<ChatMessage>>value(MESSAGES_KEY)
                 .orElse(List.of());
 
-        // Check if the last message is an AI message with tool calls
         if (!messages.isEmpty()) {
             ChatMessage last = messages.getLast();
             if (last instanceof AiMessage ai && ai.hasToolExecutionRequests()) {
@@ -395,25 +566,23 @@ public class AgenticChatGraph {
         return "end";
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // Helpers
-    // ═══════════════════════════════════════════════════════════════
-
-    /**
-     * Resolves tool specifications via Synapse {@code ToolAccessPolicy}
-     * intersected with {@code soul.tools} when the hint is non-empty (ADR-0035).
-     */
     private List<ToolSpecification> resolveToolSpecs(AgentSoul soul) {
         return toolRegistry.resolveToolSpecs(soul);
     }
 
-    /**
-     * Extracts the deepest root cause message from a (possibly nested) exception chain.
-     *
-     * <p>LangGraph4j wraps errors in {@code GraphRunnerException} which wraps
-     * {@code ExecutionException} which wraps the actual cause. This method
-     * unwraps to the real error message.</p>
-     */
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> parseArguments(String argumentsJson) {
+        if (argumentsJson == null || argumentsJson.isBlank()) {
+            return Map.of();
+        }
+        try {
+            return MAPPER.readValue(argumentsJson, Map.class);
+        } catch (Exception e) {
+            log.debug("[AgenticChatGraph] Could not parse tool arguments JSON: {}", e.getMessage());
+            return Map.of("raw", argumentsJson);
+        }
+    }
+
     private static String extractRootCause(Throwable t) {
         Throwable cause = t;
         while (cause.getCause() != null && cause.getCause() != cause) {
