@@ -60,6 +60,8 @@ export class ChatStreamNetworkError extends Error {
 export class ChatStreamClient {
   private readonly platformId: Object;
   private activeAbortController: AbortController | null = null;
+  private activeReader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+  private activeObserver: Subscriber<ChatStreamEvent> | null = null;
   private isStreamActive = false;
 
   constructor(@Optional() platformId?: Object) {
@@ -88,6 +90,14 @@ export class ChatStreamClient {
       this.activeAbortController.abort(reason);
       this.activeAbortController = null;
     }
+    if (this.activeReader) {
+      this.activeReader.cancel(reason).catch(() => {});
+      this.activeReader = null;
+    }
+    if (this.activeObserver && !this.activeObserver.closed) {
+      this.activeObserver.complete();
+      this.activeObserver = null;
+    }
     this.isStreamActive = false;
   }
 
@@ -111,7 +121,9 @@ export class ChatStreamClient {
 
       const abortController = new AbortController();
       this.activeAbortController = abortController;
+      this.activeObserver = observer;
       this.isStreamActive = true;
+      let streamCompleted = false;
 
       // 2. Resolve default authorization / API-Key headers
       let apiKey = 'spector-dev-key';
@@ -164,9 +176,20 @@ export class ChatStreamClient {
           }
 
           reader = response.body.getReader();
-          await this.processStream(reader, observer, options.onKeepalive);
+          if (abortController.signal.aborted || this.activeAbortController !== abortController) {
+            reader.cancel('Stream already aborted').catch(() => {});
+            return;
+          }
+          this.activeReader = reader;
+
+          await this.processStream(reader, observer, abortController.signal, options.onKeepalive);
+          streamCompleted = true;
+          if (!abortController.signal.aborted && !observer.closed) {
+            observer.complete();
+          }
         })
         .catch((error: unknown) => {
+          streamCompleted = true;
           // Check for intentional abort
           if (
             (error instanceof DOMException && error.name === 'AbortError') ||
@@ -190,18 +213,24 @@ export class ChatStreamClient {
         .finally(() => {
           if (this.activeAbortController === abortController) {
             this.activeAbortController = null;
+            this.activeReader = null;
+            this.activeObserver = null;
+            this.isStreamActive = false;
           }
-          this.isStreamActive = false;
         });
 
       // 4. Teardown logic: when subscriber unsubscribes, abort the underlying stream
       return () => {
-        if (this.activeAbortController === abortController) {
+        if (!streamCompleted && this.activeAbortController === abortController) {
           abortController.abort('Subscription unsubscribed');
           if (reader) {
-            reader.cancel().catch(() => {});
+            reader.cancel('Subscription unsubscribed').catch(() => {});
+          }
+          if (this.activeReader === reader) {
+            this.activeReader = null;
           }
           this.activeAbortController = null;
+          this.activeObserver = null;
           this.isStreamActive = false;
         }
       };
@@ -215,6 +244,7 @@ export class ChatStreamClient {
   private async processStream(
     reader: ReadableStreamDefaultReader<Uint8Array>,
     observer: Subscriber<ChatStreamEvent>,
+    signal: AbortSignal,
     onKeepalive?: () => void,
   ): Promise<void> {
     // Persistent TextDecoder maintaining multi-byte state across chunks
@@ -270,7 +300,15 @@ export class ChatStreamClient {
     };
 
     while (true) {
+      if (signal.aborted || observer.closed) {
+        break;
+      }
+
       const { done, value } = await reader.read();
+
+      if (signal.aborted || observer.closed) {
+        break;
+      }
 
       if (done) {
         // Flush remaining decoder state
@@ -341,7 +379,7 @@ export class ChatStreamClient {
     }
 
     // Process any trailing line in buffer
-    if (buffer.length > 0) {
+    if (!signal.aborted && !observer.closed && buffer.length > 0) {
       if (buffer.startsWith('data:')) {
         let val = buffer.slice(5);
         if (val.charCodeAt(0) === 32) val = val.slice(1);
@@ -350,9 +388,6 @@ export class ChatStreamClient {
       dispatchCurrentEvent();
     }
 
-    if (!observer.closed) {
-      observer.complete();
-    }
   }
 
   /**

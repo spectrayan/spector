@@ -25,6 +25,7 @@ import {
   DoneStreamEvent,
   ErrorStreamEvent,
   ToolExecutionView,
+  ChatTurnStatus,
 } from '../models/chat-turn.model';
 
 export function createEmptyTurn(turnId = '', sessionId = '', userText = ''): ChatTurnView {
@@ -86,18 +87,28 @@ export function reduceChatEvents(prev: ChatTurnView, event: ChatStreamEvent): Ch
   }
 }
 
+function isTerminalStatus(status: ChatTurnStatus): boolean {
+  return status === 'DONE' || status === 'ERROR' || status === 'INTERRUPTED' || status === 'FAILED';
+}
+
 function handleSessionEvent(prev: ChatTurnView, event: SessionStreamEvent): ChatTurnView {
+  const isTerminal = isTerminalStatus(prev.status);
   return {
     ...prev,
     turnId: event.turnId || prev.turnId,
     sessionId: event.sessionId || prev.sessionId,
     seq: Math.max(prev.seq, event.seq ?? 0),
-    status: 'RUNNING',
-    isStreaming: true,
+    status: isTerminal ? prev.status : 'RUNNING',
+    isStreaming: isTerminal ? false : true,
   };
 }
 
 function handleThinkingEvent(prev: ChatTurnView, event: ThinkingStreamEvent): ChatTurnView {
+  const isTerminal = isTerminalStatus(prev.status);
+  const shouldBeCollapsed = prev.thinking.userToggled
+    ? prev.thinking.isCollapsed
+    : prev.assistant.text.length > 0 || isTerminal;
+
   return {
     ...prev,
     seq: Math.max(prev.seq, event.seq ?? 0),
@@ -105,17 +116,18 @@ function handleThinkingEvent(prev: ChatTurnView, event: ThinkingStreamEvent): Ch
       ...prev.thinking,
       text: prev.thinking.text + (event.text ?? ''),
       elapsedMs: event.elapsedMs ?? prev.thinking.elapsedMs,
-      isCollapsed: prev.thinking.userToggled ? prev.thinking.isCollapsed : false,
+      isCollapsed: shouldBeCollapsed,
     },
   };
 }
 
 function handleTokenEvent(prev: ChatTurnView, event: TokenStreamEvent): ChatTurnView {
+  const isTerminal = isTerminalStatus(prev.status);
   const shouldAutoCollapse = !prev.thinking.userToggled;
   return {
     ...prev,
     seq: Math.max(prev.seq, event.seq ?? 0),
-    isStreaming: true,
+    isStreaming: isTerminal ? false : true,
     assistant: {
       ...prev.assistant,
       text: prev.assistant.text + (event.text ?? ''),
@@ -141,7 +153,28 @@ function handleToolCallEvent(prev: ChatTurnView, event: ToolCallStreamEvent): Ch
 
   let nextTools: readonly ToolExecutionView[];
   if (existingIndex >= 0) {
-    nextTools = prev.tools.map((t, idx) => (idx === existingIndex ? { ...t, ...newTool } : t));
+    nextTools = prev.tools.map((t, idx) => {
+      if (idx !== existingIndex) {
+        return t;
+      }
+      const isCompleted = t.status === 'success' || t.status === 'failure';
+      if (isCompleted) {
+        return {
+          ...t,
+          name: t.name || event.name,
+          arguments:
+            event.arguments && Object.keys(event.arguments).length > 0
+              ? event.arguments
+              : t.arguments,
+        };
+      }
+      return {
+        ...t,
+        name: event.name || t.name,
+        arguments: event.arguments ?? t.arguments,
+        status: 'running',
+      };
+    });
   } else {
     nextTools = [...prev.tools, newTool];
   }
