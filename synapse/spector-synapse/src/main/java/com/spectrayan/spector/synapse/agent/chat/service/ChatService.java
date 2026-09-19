@@ -620,6 +620,11 @@ public class ChatService {
             String model,
             ChatStreamSink sink) {
 
+        if (sink.isAborted()) {
+            log.info("[ChatService] Early disconnect detected before stream execution for turn '{}'", turnId);
+            return;
+        }
+
         long startNanos = System.nanoTime();
         String message = request.message();
         int depth = request.contextDepth() != null && request.contextDepth() > 0
@@ -647,6 +652,10 @@ public class ChatService {
         }
 
         // Step 1: Prime context
+        if (sink.isAborted()) {
+            log.info("[ChatService] Early disconnect detected before context priming for turn '{}'", turnId);
+            return;
+        }
         var primedContext = contextPrimingService.prime(message, sessionId, depth);
 
         // Step 2: Enriched system prompt

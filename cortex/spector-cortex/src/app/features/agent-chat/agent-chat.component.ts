@@ -348,6 +348,11 @@ export class AgentChatComponent {
       next: (streamEvent: ChatStreamEvent) => {
         this.isLoading.set(false);
 
+        // If error event arrives in stream, ensure streaming state is marked false immediately
+        if (streamEvent.type === 'error') {
+          this.isStreaming.set(false);
+        }
+
         // If session event, update active session ID
         if (streamEvent.type === 'session' && streamEvent.sessionId) {
           this.activeSessionId.set(streamEvent.sessionId);

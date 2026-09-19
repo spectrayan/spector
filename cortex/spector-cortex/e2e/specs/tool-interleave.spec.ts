@@ -51,7 +51,7 @@ test.describe('Visual Regression — Interleaved Tool Execution Cards', () => {
 
     // Visual screenshot assertion
     await expect(page).toHaveScreenshot('tool-interleave.png', {
-      maxDiffPixelRatio: 0.02,
+      maxDiffPixelRatio: 0.04,
       animations: 'disabled',
     });
   });

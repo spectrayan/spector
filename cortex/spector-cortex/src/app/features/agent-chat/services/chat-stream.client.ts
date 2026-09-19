@@ -379,13 +379,17 @@ export class ChatStreamClient {
     }
 
     // Process any trailing line in buffer
-    if (!signal.aborted && !observer.closed && buffer.length > 0) {
-      if (buffer.startsWith('data:')) {
-        let val = buffer.slice(5);
-        if (val.charCodeAt(0) === 32) val = val.slice(1);
-        dataLines.push(val);
+    if (!signal.aborted && !observer.closed) {
+      if (buffer.length > 0) {
+        if (buffer.startsWith('data:')) {
+          let val = buffer.slice(5);
+          if (val.charCodeAt(0) === 32) val = val.slice(1);
+          dataLines.push(val);
+        }
       }
-      dispatchCurrentEvent();
+      if (dataLines.length > 0) {
+        dispatchCurrentEvent();
+      }
     }
 
   }

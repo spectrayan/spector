@@ -85,14 +85,14 @@ public class GraphCache {
             return existing;
         }
 
-        misses.incrementAndGet();
-        long startMs = System.currentTimeMillis();
-        CompiledGraph<AgentState> compiled = compiler.get();
-        long durationMs = System.currentTimeMillis() - startMs;
-
-        cache.put(key, compiled);
-        log.info("[GraphCache] Cache MISS for key '{}' — compiled in {}ms", key, durationMs);
-        return compiled;
+        return cache.get(key, k -> {
+            misses.incrementAndGet();
+            long startMs = System.currentTimeMillis();
+            CompiledGraph<AgentState> compiled = compiler.get();
+            long durationMs = System.currentTimeMillis() - startMs;
+            log.info("[GraphCache] Cache MISS for key '{}' — compiled in {}ms", key, durationMs);
+            return compiled;
+        });
     }
 
     /**

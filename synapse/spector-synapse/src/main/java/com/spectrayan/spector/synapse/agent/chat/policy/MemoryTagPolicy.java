@@ -198,14 +198,25 @@ public class MemoryTagPolicy {
         }
 
         // 2. Reject raw tool JSON payloads
-        if ((trimmed.startsWith("{") && trimmed.endsWith("}")) ||
-                (trimmed.startsWith("[") && trimmed.endsWith("]"))) {
-            if (lower.contains("\"toolexecutionrequests\"") ||
-                    lower.contains("\"arguments\":") ||
-                    lower.contains("\"callid\":") ||
-                    lower.contains("\"toolname\":") ||
-                    lower.contains("\"status\":\"success\"") ||
-                    lower.contains("\"status\":\"failure\"")) {
+        String unquoted = trimmed;
+        if (unquoted.startsWith("```") && unquoted.endsWith("```")) {
+            int firstNewline = unquoted.indexOf('\n');
+            if (firstNewline != -1 && firstNewline < unquoted.length() - 3) {
+                unquoted = unquoted.substring(firstNewline + 1, unquoted.length() - 3).trim();
+            } else {
+                unquoted = unquoted.substring(3, unquoted.length() - 3).trim();
+            }
+        }
+        String testLower = unquoted.toLowerCase(Locale.ROOT);
+        if ((unquoted.startsWith("{") && unquoted.endsWith("}")) ||
+                (unquoted.startsWith("[") && unquoted.endsWith("]")) ||
+                unquoted.startsWith("[{")) {
+            if (testLower.contains("\"toolexecutionrequests\"") ||
+                    testLower.contains("\"arguments\":") ||
+                    testLower.contains("\"callid\":") ||
+                    testLower.contains("\"toolname\":") ||
+                    testLower.contains("\"status\":\"success\"") ||
+                    testLower.contains("\"status\":\"failure\"")) {
                 throw new SpectorValidationException(
                         ErrorCode.ARGUMENT_INVALID, "memory_content",
                         "Memory content contains raw tool execution JSON payload");
@@ -264,5 +275,23 @@ public class MemoryTagPolicy {
      */
     public boolean isForbiddenTag(String tag) {
         return !isTagPermitted(tag);
+    }
+
+    /**
+     * Checks whether content contains prohibited operational noise (tool JSON, CoT, transcripts, checkpoints).
+     *
+     * @param content the text content to inspect
+     * @return true if content is prohibited
+     */
+    public boolean isProhibitedContent(String content) {
+        if (content == null || content.isBlank()) {
+            return true;
+        }
+        try {
+            validateContent(content);
+            return false;
+        } catch (SpectorValidationException e) {
+            return true;
+        }
     }
 }

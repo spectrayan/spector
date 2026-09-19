@@ -54,6 +54,7 @@ public final class TokenSplitter {
     private final Consumer<String> tokenConsumer;
 
     private State state = State.IDLE;
+    private State stateBeforeTool = State.IDLE;
     private final StringBuilder tagBuffer = new StringBuilder(16);
     private int thinkingDepth = 0;
     private long thinkingStartNano = 0L;
@@ -135,6 +136,7 @@ public final class TokenSplitter {
             }
             tagBuffer.setLength(0);
         }
+        this.stateBeforeTool = this.state;
         this.state = State.TOOL_PENDING;
     }
 
@@ -142,7 +144,7 @@ public final class TokenSplitter {
      * Resumes token streaming after tool execution has completed.
      */
     public synchronized void onToolResume() {
-        this.state = State.IDLE;
+        this.state = (this.stateBeforeTool != null) ? this.stateBeforeTool : State.IDLE;
     }
 
     /**
