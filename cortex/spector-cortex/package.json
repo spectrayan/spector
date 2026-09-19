@@ -25,7 +25,7 @@
     "dompurify": "^3.4.15",
     "marked": "^18.0.5",
     "rxjs": "~7.8.0",
-    "three": "^0.184.0",
+    "three": "^0.186.0",
     "tslib": "^2.3.0"
   },
   "devDependencies": {
@@ -34,7 +34,7 @@
     "@angular/compiler-cli": "^22.1.6",
     "@playwright/test": "^1.63.0",
     "@types/dompurify": "^3.0.5",
-    "@types/three": "^0.184.1",
+    "@types/three": "^0.186.0",
     "jsdom": "^28.0.0",
     "prettier": "^3.8.1",
     "typescript": "~6.0.2",
