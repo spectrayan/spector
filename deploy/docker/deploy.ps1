@@ -37,8 +37,8 @@ $ImageName     = "spector"
 $ContainerName = "spector"
 $Dockerfile    = "deploy/docker/Dockerfile"
 $DataVolume    = "spector-data"
-$HostPortHttp  = 7700
-$HostPortApi   = 7070
+$HostPortHttp  = if ($env:SPECTOR_HOST_PORT_HTTP) { [int]$env:SPECTOR_HOST_PORT_HTTP } else { 7700 }
+$HostPortApi   = if ($env:SPECTOR_HOST_PORT_API)  { [int]$env:SPECTOR_HOST_PORT_API }  else { 7070 }
 
 # ── Navigate to project root ──────────────────────────────────────
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
