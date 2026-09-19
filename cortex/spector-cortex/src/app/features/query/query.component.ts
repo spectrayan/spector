@@ -12,11 +12,11 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSliderModule } from '@angular/material/slider';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDividerModule } from '@angular/material/divider';
-import { QueryInputComponent } from '../query-input/query-input.component';
-import { QueryHistoryComponent } from '../query-history/query-history.component';
-import { PipelineFunnelComponent } from '../pipeline-funnel/pipeline-funnel.component';
-import { CortexStateService } from '../../core/services/cortex-state.service';
-import { CognitiveProfile, PROFILE_PARAMS } from '../../core/models/memory-types';
+import { QueryInputComponent } from '@shared/components/cognitive/query-input/query-input.component';
+import { QueryHistoryComponent } from '@shared/components/cognitive/query-history/query-history.component';
+import { PipelineFunnelComponent } from '@shared/components/cognitive/pipeline-funnel/pipeline-funnel.component';
+import { CortexStateService } from '@core/services/cortex-state.service';
+import { CognitiveProfile, PROFILE_PARAMS } from '@core/models/memory-types';
 
 @Component({
   selector: 'cortex-query',
