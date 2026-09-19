@@ -18,7 +18,10 @@ package com.spectrayan.spector.synapse.agent.chat.dto;
 import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
@@ -181,6 +184,134 @@ public final class ChatDto {
             List<Map<String, Object>> messages,
             String sessionId
     ) {}
+
+    /**
+     * Request body for renaming an operational chat session.
+     */
+    public record RenameSessionRequest(
+            @NotBlank(message = "Session title must not be blank")
+            @Size(max = 255, message = "Session title must not exceed 255 characters")
+            String title
+    ) {
+        public RenameSessionRequest {
+            if (title != null) {
+                title = title.trim();
+            }
+        }
+    }
+
+    /**
+     * Operational record for a chat session.
+     */
+    public record ChatSessionRecord(
+            String id,
+            String title,
+            String status,
+            boolean archived,
+            Instant createdAt,
+            Instant updatedAt
+    ) {}
+
+    /**
+     * Operational session summary with typed Instant.
+     */
+    public record ChatSessionSummary(
+            String sessionId,
+            String preview,
+            Instant lastActivity,
+            int messageCount
+    ) {}
+
+    /**
+     * Historical replay response containing structured turns for a session.
+     */
+    public record SessionHistoryResponse(
+            String sessionId,
+            String title,
+            List<ChatTurnView> turns
+    ) {
+        public SessionHistoryResponse(String sessionId, List<ChatTurnView> turns) {
+            this(sessionId, null, turns != null ? List.copyOf(turns) : List.of());
+        }
+
+        public SessionHistoryResponse {
+            turns = turns != null ? List.copyOf(turns) : List.of();
+        }
+    }
+
+    /**
+     * Structured view of a single conversation turn matching Cortex UI reducers.
+     */
+    public record ChatTurnView(
+            String turnId,
+            int seq,
+            String status,
+            UserMessageView user,
+            ThinkingView thinking,
+            List<ToolCardView> tools,
+            AssistantMessageView assistant,
+            TokenUsageDto usage,
+            int primedMemories
+    ) {
+        public ChatTurnView {
+            tools = tools != null ? List.copyOf(tools) : List.of();
+        }
+    }
+
+    /**
+     * User prompt view within a turn.
+     */
+    public record UserMessageView(String text) {}
+
+    /**
+     * Chain-of-Thought reasoning trace and live elapsed duration within a turn.
+     */
+    public record ThinkingView(
+            String text,
+            long elapsedMs
+    ) {}
+
+    /**
+     * Real-time tool execution card matching Cortex tool-card.component.ts.
+     */
+    public record ToolCardView(
+            String callId,
+            String name,
+            Map<String, Object> arguments,
+            String status,
+            String preview,
+            boolean truncated,
+            long elapsedMs
+    ) {
+        public ToolCardView(String callId, String name, Map<String, Object> arguments, String status, String preview, long elapsedMs) {
+            this(callId, name, arguments, status, preview, false, elapsedMs);
+        }
+
+        public ToolCardView {
+            arguments = arguments != null ? Map.copyOf(arguments) : Map.of();
+        }
+    }
+
+    /**
+     * Final assistant visible response text within a turn.
+     */
+    public record AssistantMessageView(String text) {}
+
+    /**
+     * Recalled cognitive memory item for context priming.
+     */
+    public record PrimedMemory(
+            String text,
+            String memoryType,
+            String ageDescription,
+            float score,
+            float salienceScore,
+            List<String> tags
+    ) {
+        public PrimedMemory {
+            tags = tags != null ? List.copyOf(tags) : List.of();
+        }
+    }
 
     // ═══════════════════════════════════════════════════════════════
     // Tools
