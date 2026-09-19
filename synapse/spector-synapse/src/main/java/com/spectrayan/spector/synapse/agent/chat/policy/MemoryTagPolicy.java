@@ -49,11 +49,11 @@ public class MemoryTagPolicy {
      * Regex patterns for strictly prohibited tag prefixes and values.
      */
     public static final List<Pattern> DENYLIST_PATTERNS = List.of(
-            Pattern.compile("^session[:_].*", Pattern.CASE_INSENSITIVE),
-            Pattern.compile("^id:.*", Pattern.CASE_INSENSITIVE),
-            Pattern.compile("^type:turn$", Pattern.CASE_INSENSITIVE),
-            Pattern.compile("^role:.*", Pattern.CASE_INSENSITIVE),
-            Pattern.compile("^model:.*", Pattern.CASE_INSENSITIVE)
+            Pattern.compile("^session([:_\\-].*)?$", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("^id([:_\\-].*)?$", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("^type([:_\\-].*)?$", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("^role([:_\\-].*)?$", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("^model([:_\\-].*)?$", Pattern.CASE_INSENSITIVE)
     );
 
     /**
@@ -152,6 +152,11 @@ public class MemoryTagPolicy {
                 throw new SpectorValidationException(
                         ErrorCode.ARGUMENT_INVALID, "memory_tag",
                         "Tag value after namespace must not be blank: " + trimmed);
+            }
+            if (!value.matches("^[a-zA-Z0-9_-]+$")) {
+                throw new SpectorValidationException(
+                        ErrorCode.ARGUMENT_INVALID, "memory_tag",
+                        "Tag value must be a clean alphanumeric token matching ^[a-zA-Z0-9_-]+$: " + trimmed);
             }
         } else {
             // Bare domain tag: must either be an allowed namespace or alphanumeric identifier

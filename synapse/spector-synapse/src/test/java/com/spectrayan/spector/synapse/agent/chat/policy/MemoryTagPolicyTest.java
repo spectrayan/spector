@@ -44,21 +44,39 @@ class MemoryTagPolicyTest {
     @ValueSource(strings = {
             "session:01J98ABCDF12345",
             "session_01J98ABCDF12345",
+            "session-01J98ABCDF12345",
+            "session",
             "session:chat-thread-1",
             "SESSION:uppercase_id",
+            "SESSION",
             "id:01J98ABCDF12345",
+            "id_01J98ABCDF12345",
+            "id-01J98ABCDF12345",
+            "id",
             "id:sess-99",
             "ID:UUID-HERE",
+            "ID",
             "type:turn",
+            "type_turn",
+            "type-turn",
+            "type",
             "TYPE:TURN",
+            "TYPE",
             "role:user",
+            "role_user",
+            "role-assistant",
+            "role",
+            "ROLE",
             "role:assistant",
             "role:system",
             "role:tool",
             "model:qwen3.5:latest",
-            "model:gpt-4o"
+            "model:gpt-4o",
+            "model-gpt4",
+            "model",
+            "MODEL"
     })
-    @DisplayName("Strictly rejects all denylist tag patterns")
+    @DisplayName("Strictly rejects all denylist tag patterns including hyphenated and bare tokens")
     void testDenylistTagRejection(String tag) {
         assertThatThrownBy(() -> policy.validateTags(List.of(tag)))
                 .isInstanceOf(SpectorValidationException.class)
@@ -99,6 +117,23 @@ class MemoryTagPolicyTest {
     })
     @DisplayName("Rejects unapproved namespaces or empty values")
     void testUnapprovedNamespaces(String tag) {
+        assertThatThrownBy(() -> policy.validateTags(List.of(tag)))
+                .isInstanceOf(SpectorValidationException.class)
+                .hasMessageContaining("SPE-100-013");
+        assertThat(policy.isTagPermitted(tag)).isFalse();
+        assertThat(policy.isForbiddenTag(tag)).isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "preference:theme,session:01J98ABC",
+            "concept:{\"foo\":\"bar\"}",
+            "topic:<think>secret</think>",
+            "skill:java python",
+            "domain:finance:subdomain"
+    })
+    @DisplayName("Rejects tag values with commas, colons, spaces, JSON or CoT")
+    void testInvalidTagValueCharacters(String tag) {
         assertThatThrownBy(() -> policy.validateTags(List.of(tag)))
                 .isInstanceOf(SpectorValidationException.class)
                 .hasMessageContaining("SPE-100-013");
