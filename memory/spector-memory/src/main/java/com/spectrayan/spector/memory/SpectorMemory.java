@@ -416,6 +416,15 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
     /** Updates the chunking configuration at runtime. */
     default void updateChunkConfig(com.spectrayan.spector.commons.chunker.ChunkConfig config) {}
 
+    /** Updates the default recall options at runtime (ADR-0085). */
+    default void updateRecallOptions(com.spectrayan.spector.memory.model.RecallOptions options) {}
+
+    /** Applies an immutable snapshot of live-tunable memory parameters at runtime (ADR-0085). */
+    default void applyLiveMemoryPatch(com.spectrayan.spector.config.model.LiveMemoryPatch patch) {}
+
+    /** Updates query-time HNSW efSearch parameter at runtime (ADR-0085). */
+    default void updateHnswEfSearch(int efSearch) {}
+
     // ══════════════════════════════════════════════════════════════
     // IMPORTANCE ESTIMATION — pre-ingestion computation
     // ══════════════════════════════════════════════════════════════
