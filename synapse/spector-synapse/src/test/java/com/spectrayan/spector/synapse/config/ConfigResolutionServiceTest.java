@@ -79,4 +79,34 @@ class ConfigResolutionServiceTest {
         assertThat(resolved.get("temperature"))
                 .isEqualTo(0.7);
     }
+
+    @Test
+    @DisplayName("projects memory defaults directly from SpectorProperties")
+    void testMemoryDefaultsProjection() {
+        ConfigRepository repo = Mockito.mock(ConfigRepository.class);
+        ConfigResolutionService service = new ConfigResolutionService(repo);
+
+        Map<String, Object> resolved = service.resolve(null, null, ConfigCategory.MEMORY);
+        SpectorProperties props = SpectorProperties.load();
+
+        assertThat(resolved.get("capacity")).isEqualTo(props.memory().getCapacity());
+        assertThat(resolved.get("dimensions")).isEqualTo(props.memory().getDimensions());
+        assertThat(resolved.get("surprise-warmup")).isEqualTo(props.memory().getRemember().getSurpriseWarmup());
+    }
+
+    @Test
+    @DisplayName("projects recall and hnsw defaults directly from SpectorProperties")
+    void testRecallAndHnswDefaultsProjection() {
+        ConfigRepository repo = Mockito.mock(ConfigRepository.class);
+        ConfigResolutionService service = new ConfigResolutionService(repo);
+
+        Map<String, Object> recall = service.resolve(null, null, ConfigCategory.RECALL);
+        assertThat(recall.get("scoring-mode")).isEqualTo("COGNITIVE");
+        assertThat(recall.get("score-fusion-mode")).isEqualTo("MULTIPLICATIVE");
+
+        Map<String, Object> hnsw = service.resolve(null, null, ConfigCategory.HNSW);
+        assertThat(hnsw.get("ef-search")).isNotNull();
+        assertThat(hnsw.get("m")).isNotNull();
+        assertThat(hnsw.get("ef-construction")).isNotNull();
+    }
 }

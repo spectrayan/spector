@@ -286,6 +286,34 @@ public class NamespaceResolver implements AutoCloseable {
 
     private final java.util.List<java.util.function.Consumer<String>> evictionListeners = new java.util.concurrent.CopyOnWriteArrayList<>();
 
+    @FunctionalInterface
+    public interface NamespaceOpenListener {
+        void onNamespaceOpened(String tenantId, String namespaceId, SpectorMemory memory);
+    }
+
+    private final java.util.List<NamespaceOpenListener> openListeners = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    /**
+     * Registers a listener to be notified when a namespace is instantiated and added to the hot cache.
+     *
+     * @param listener consumer receiving (tenantId, namespaceId, memory)
+     */
+    public void addOpenListener(NamespaceOpenListener listener) {
+        if (listener != null) {
+            this.openListeners.add(listener);
+        }
+    }
+
+    private void notifyOpen(String tenantId, String namespaceId, SpectorMemory memory) {
+        for (var listener : openListeners) {
+            try {
+                listener.onNamespaceOpened(tenantId, namespaceId, memory);
+            } catch (Exception e) {
+                log.warn("[NamespaceResolver] Open listener error for ns={}: {}", namespaceId, e.getMessage());
+            }
+        }
+    }
+
     /**
      * Registers a listener to be notified when a namespace is evicted from the hot cache.
      *
@@ -402,6 +430,7 @@ public class NamespaceResolver implements AutoCloseable {
                 SpectorMemory instance = buildInstance(tenantId, namespaceId, ownerAccountId != null ? ownerAccountId : accountId);
                 handle = new MemoryHandle(namespaceId, ownerAccountId, accountId, instance);
                 cache.put(namespaceId, handle);
+                notifyOpen(tenantId, namespaceId, instance);
                 if (meterRegistry != null) {
                     new com.spectrayan.spector.metrics.observation.SpectorMemoryGauges(handle.memory, namespaceId)
                             .bindTo(meterRegistry);

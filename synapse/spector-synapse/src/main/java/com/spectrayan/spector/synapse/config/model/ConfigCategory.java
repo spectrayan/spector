@@ -19,11 +19,20 @@ package com.spectrayan.spector.synapse.config.model;
  * Enum defining configuration categories for Spector.
  */
 public enum ConfigCategory {
+    MEMORY,
+    RECALL,
+    HNSW,
+    SPECTRUM,
     LLM_PROVIDER,
+    EMBEDDING_PROVIDER,
     INGESTION,
-    RAG,
+    MULTIMODAL,
+    TELEMETRY,
+    CONCURRENCY,
     SALIENCE,
-    SOUL;
+    SOUL,
+    @Deprecated
+    RAG;
 
     public String key() {
         return name().toLowerCase();
@@ -31,8 +40,9 @@ public enum ConfigCategory {
 
     public static ConfigCategory fromKey(String key) {
         if (key == null) return null;
+        String normalized = key.trim().replace('-', '_');
         for (ConfigCategory cat : values()) {
-            if (cat.key().equalsIgnoreCase(key)) {
+            if (cat.name().equalsIgnoreCase(normalized) || cat.key().equalsIgnoreCase(key)) {
                 return cat;
             }
         }

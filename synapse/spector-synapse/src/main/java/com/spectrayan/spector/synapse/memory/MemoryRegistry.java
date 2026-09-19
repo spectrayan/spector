@@ -171,7 +171,7 @@ public final class MemoryRegistry implements AutoCloseable {
      *         catalog-resolved namespace instance
      */
     public SpectorMemory resolveFor(String userId) {
-        if (userId == null || userId.isBlank() || DEFAULT_USER_ID.equals(userId)) {
+        if (!synapseProps.auth().enabled() || userId == null || userId.isBlank() || DEFAULT_USER_ID.equals(userId)) {
             return sharedMemory();
         }
         return resolver.resolve(userId);
@@ -204,6 +204,13 @@ public final class MemoryRegistry implements AutoCloseable {
     /** Returns the AccountCatalog for authorization checks. */
     public AccountCatalog catalog() {
         return resolver.catalog();
+    }
+
+    /**
+     * Registers a listener to be notified when a namespace is instantiated and opened in the hot cache.
+     */
+    public void addOpenListener(NamespaceResolver.NamespaceOpenListener listener) {
+        resolver.addOpenListener(listener);
     }
 
     // ══════════════════════════════════════════════════════════════
