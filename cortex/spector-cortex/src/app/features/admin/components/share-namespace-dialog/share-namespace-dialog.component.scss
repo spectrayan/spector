@@ -1,0 +1,99 @@
+.dialog-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  margin: 0;
+  padding: 16px 24px;
+}
+.title-icon {
+  color: var(--mat-sys-primary, #6750a4);
+}
+.namespace-slug {
+  font-family: monospace;
+  color: var(--mat-sys-primary, #6750a4);
+  font-weight: 600;
+}
+.dialog-content {
+  min-width: 580px;
+  max-width: 700px;
+  padding: 0 24px 16px;
+}
+.loading-bar {
+  margin-bottom: 12px;
+}
+.add-grant-card {
+  background: var(--mat-sys-surface-variant, #f4eff4);
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+.add-grant-card h3, .grants-section h3 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--mat-sys-on-surface-variant, #49454f);
+}
+.form-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.grantee-field {
+  flex: 2;
+}
+.role-field {
+  flex: 1.5;
+}
+.expiry-field {
+  flex: 1;
+}
+.grant-btn {
+  height: 52px;
+  margin-bottom: 20px;
+}
+.grants-table {
+  width: 100%;
+  background: transparent;
+}
+.account-badge {
+  background: var(--mat-sys-surface-container-high, #ece6f0);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+.role-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.role-chip[data-role="READER"] {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+.role-chip[data-role="WRITER"] {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+.role-chip[data-role="ADMIN"] {
+  background: #fff3e0;
+  color: #e65100;
+}
+.role-chip[data-role="OWNER"] {
+  background: #f3e5f5;
+  color: #7b1fa2;
+}
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px;
+  color: var(--mat-sys-outline, #79747e);
+  gap: 8px;
+}

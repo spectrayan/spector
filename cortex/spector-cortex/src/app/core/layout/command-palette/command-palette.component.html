@@ -1,0 +1,52 @@
+@if (isOpen()) {
+  <div class="palette-backdrop" (click)="close()"></div>
+  <div class="palette-container" (keydown)="onKeyDown($event)">
+    <div class="palette-search-row">
+      <mat-icon class="palette-search-icon">search</mat-icon>
+      <input
+        #searchInput
+        class="palette-search"
+        type="text"
+        placeholder="Type a command..."
+        [ngModel]="query()"
+        (ngModelChange)="query.set($event)"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <span class="palette-hint cortex-mono">ESC</span>
+    </div>
+
+    <div class="palette-results">
+      @for (group of groupedResults(); track group.category) {
+        <div class="palette-group-label">{{ group.category }}</div>
+        @for (item of group.items; track item.id; let i = $index) {
+          <button
+            class="palette-item"
+            [class.palette-item-active]="isActive(item)"
+            [attr.data-category]="item.category"
+            (click)="executeItem(item)"
+            (mouseenter)="activeIndex.set(getGlobalIndex(group.category, i))">
+            <mat-icon class="palette-item-icon" [attr.data-category]="item.category">{{ item.icon }}</mat-icon>
+            <span class="palette-item-label">{{ item.label }}</span>
+            @if (item.shortcut) {
+              <span class="palette-item-shortcut cortex-mono">{{ item.shortcut }}</span>
+            }
+          </button>
+        }
+      } @empty {
+        <div class="palette-empty">
+          <mat-icon>search_off</mat-icon>
+          <span>No matching commands</span>
+        </div>
+      }
+    </div>
+
+    <div class="palette-footer">
+      <span class="palette-footer-hint">
+        <span class="key">↑↓</span> navigate
+        <span class="key">↵</span> select
+        <span class="key">esc</span> close
+      </span>
+    </div>
+  </div>
+}

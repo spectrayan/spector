@@ -1,0 +1,49 @@
+.dialog-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  mat-icon { color: var(--mat-sys-primary); }
+}
+.dialog-content {
+  min-width: 500px;
+  max-width: 700px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.memory-id {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.id-label { opacity: 0.6; font-size: 12px; }
+.id-value { font-family: 'JetBrains Mono', monospace; font-size: 12px; opacity: 0.8; }
+.full-width { width: 100%; }
+.memory-textarea {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.tier-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 6px;
+}
+.tier-label { opacity: 0.6; font-size: 13px; }
+.tier-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--mat-sys-primary);
+  color: var(--mat-sys-on-primary);
+}
+.tier-note { opacity: 0.4; font-size: 11px; font-style: italic; }

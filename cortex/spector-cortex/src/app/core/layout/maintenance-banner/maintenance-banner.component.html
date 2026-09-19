@@ -1,0 +1,41 @@
+@if (isActive()) {
+  <div class="maintenance-banner" [class]="'maintenance-banner--' + mode()">
+    <div class="maintenance-banner__content">
+      <mat-icon class="maintenance-banner__icon">{{ icon() }}</mat-icon>
+      <div class="maintenance-banner__text">
+        <span class="maintenance-banner__title">{{ title() }}</span>
+        <span class="maintenance-banner__message">{{ message() }}</span>
+      </div>
+      <div class="maintenance-banner__progress-info">
+        @if (progressPercent() !== null) {
+          <span class="maintenance-banner__percent">{{ progressPercent() }}%</span>
+        }
+        @if (eta()) {
+          <span class="maintenance-banner__eta">ETA: {{ eta() }}</span>
+        }
+      </div>
+    </div>
+    @if (progressPercent() !== null) {
+      <mat-progress-bar
+        mode="determinate"
+        [value]="progressPercent()"
+        class="maintenance-banner__bar">
+      </mat-progress-bar>
+    } @else {
+      <mat-progress-bar
+        mode="indeterminate"
+        class="maintenance-banner__bar">
+      </mat-progress-bar>
+    }
+    <div class="maintenance-banner__subtitle">
+      Read-only mode: Browse and recall are available
+    </div>
+  </div>
+}
+
+@if (showCompletionToast()) {
+  <div class="maintenance-toast maintenance-toast--success">
+    <mat-icon>check_circle</mat-icon>
+    <span>{{ completionMessage() }}</span>
+  </div>
+}
