@@ -9,7 +9,7 @@
 
     @for (item of navItems(); track item.route) {
     <a class="nav-item" [routerLink]="item.route" routerLinkActive="active" [matTooltip]="collapsed() ? item.label : ''"
-      matTooltipPosition="right">
+      matTooltipPosition="right" [id]="'side-nav-' + item.label.toLowerCase()">
       <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
       @if (!collapsed()) {
       <span class="nav-label">{{ item.label }}</span>

@@ -53,6 +53,8 @@ export class ShellComponent {
     { icon: 'search', label: 'Query', route: '/query' },
     { icon: 'auto_stories', label: 'Memories', route: '/memories' },
     { icon: 'donut_large', label: 'Health', route: '/memory-health' },
+    { icon: 'tune', label: 'Settings', route: '/settings' },
+    { icon: 'admin_panel_settings', label: 'Admin', route: '/admin', adminOnly: true },
   ];
 
   /** Filtered nav items based on user role and feature flags. */

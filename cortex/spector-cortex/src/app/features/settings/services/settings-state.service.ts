@@ -13,15 +13,18 @@
 
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { environment } from '@env/environment';
-import { SynapseApiService } from '@core/services/synapse-api.service';
-import { AuthService } from '@core/services/auth.service';
-import { ApiKeyService, ApiKeyInfo, ApiKeyCreatedResponse } from '@core/services/api-key.service';
-import { CortexSnackbarService } from '@shared/services/cortex-snackbar.service';
-import { ERROR_MESSAGES } from '@shared/constants/error-messages';
+import { environment } from '../../../../environments/environment';
+import { SynapseApiService } from '../../../core/services/synapse-api.service';
+import { AuthService } from '../../../core/services/auth.service';
+import { ApiKeyService, ApiKeyInfo, ApiKeyCreatedResponse } from '../../../core/services/api-key.service';
+import { CortexSnackbarService } from '../../../shared/services/cortex-snackbar.service';
+import { ERROR_MESSAGES } from '../../../shared/constants/error-messages';
 import {
   InterestEntry,
   AiConfigField,
+  ConfigApplyMode,
+  ConfigCategoryMeta,
+  CATEGORY_METADATA,
   INTEREST_LEVELS,
 } from '../models/settings.models';
 
@@ -94,22 +97,55 @@ export class SettingsStateService {
   readonly profileScope = signal('user');
   readonly profileId = signal('default');
 
-  // ── AI Configuration ──
+  // ── AI Configuration & Dynamic Settings ──
   readonly aiConfigLoading = signal(false);
   readonly aiConfigSaving = signal(false);
   readonly aiConfigDirty = signal(false);
   readonly aiConfigFields = signal<Record<string, AiConfigField[]>>({});
+  readonly aiConfigCategories = signal<ConfigCategoryMeta[]>([]);
+  readonly activeAiCategory = signal<string>('memory');
+  readonly aiConfigFilter = signal<string>('');
+  readonly aiAutoSaveEnabled = signal<boolean>(true);
+  readonly aiLastSaveStatus = signal<{ text: string; mode: 'applied' | 'persisted' | 'error' | 'idle'; time: string }>({
+    text: 'All settings in sync with DB & SpectorMemory',
+    mode: 'applied',
+    time: '',
+  });
   readonly aiProviders = signal<{ name: string; displayName: string; supportsEmbedding: boolean; supportsGeneration: boolean }[]>([]);
   private aiConfigOverrides: Record<string, Record<string, any>> = {};
+  private autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly aiSourceLabels: Record<string, string> = {
     system: '🔒 System',
     user: '👤 User',
+    tenant: '🏢 Tenant',
   };
 
   readonly aiSourceColors: Record<string, string> = {
     system: '#7f8c8d',
     user: '#27ae60',
+    tenant: '#3498db',
+  };
+
+  readonly applyModeLabels: Record<ConfigApplyMode, string> = {
+    LIVE: '⚡ LIVE',
+    POLICY: '🛡️ POLICY',
+    REBUILD: '🔄 REBUILD',
+    BOOT: '🔌 BOOT',
+  };
+
+  readonly applyModeTooltips: Record<ConfigApplyMode, string> = {
+    LIVE: 'Live Hot-Swap: Instantly applied in RAM to running SpectorMemory',
+    POLICY: 'Policy Filter: Immediate change to downstream retrieval pipelines',
+    REBUILD: 'Rebuild Required: Active for new engrams; re-indexing required for existing data',
+    BOOT: 'Reboot Required: Persisted to database; applies on JVM process restart',
+  };
+
+  readonly applyModeColors: Record<ConfigApplyMode, string> = {
+    LIVE: '#10b981',
+    POLICY: '#3b82f6',
+    REBUILD: '#f59e0b',
+    BOOT: '#8b5cf6',
   };
 
   // ── Privacy & Security ──
@@ -360,74 +396,123 @@ export class SettingsStateService {
       || this.culturalReligion() !== '' || this.culturalHeritage() !== '';
   }
 
-  // ── AI Configuration ──
+  // ── AI Configuration & Dynamic Settings ──
   loadAiConfig(): void {
     this.aiConfigLoading.set(true);
     this.aiConfigOverrides = {};
     this.aiConfigDirty.set(false);
 
-    const categories = ['llm_provider', 'ingestion', 'rag'];
-    let loaded = 0;
-    const result: Record<string, AiConfigField[]> = {};
-
     this.api.listAvailableProviders().subscribe({
       next: (res) => this.aiProviders.set(res.providers || []),
-      error: () => { },
+      error: () => {},
     });
 
-    for (const cat of categories) {
-      this.api.getConfigSchema(cat).subscribe({
-        next: (schemaRes) => {
-          this.api.getAnnotatedConfig(cat).subscribe({
-            next: (annotatedRes) => {
-              const fields: AiConfigField[] = [];
-              for (const field of schemaRes.fields || []) {
-                const entry = annotatedRes[field.key];
-                fields.push({
-                  key: field.key,
-                  defaultValue: field.defaultValue,
-                  type: field.type || 'string',
-                  description: field.description || '',
-                  editValue: entry?.value ?? field.defaultValue,
-                  source: entry?.source ?? 'system',
-                });
-              }
-              result[cat] = fields;
-              loaded++;
-              if (loaded === categories.length) {
-                this.aiConfigFields.set(result);
-                this.aiConfigLoading.set(false);
-              }
+    this.api.listConfigCategories().subscribe({
+      next: (catRes) => {
+        const rawCats: any[] = catRes.categories || [];
+        // Filter out deprecated 'rag' alias
+        const cats = rawCats.filter((c: any) => c.key !== 'rag');
+
+        const metas: ConfigCategoryMeta[] = cats.map((c: any) => {
+          const key = c.key;
+          const meta = CATEGORY_METADATA[key] || {
+            label: c.label || key,
+            icon: 'tune',
+            description: 'Configuration parameters',
+          };
+          return {
+            key,
+            label: meta.label,
+            icon: meta.icon,
+            description: meta.description,
+          };
+        });
+        this.aiConfigCategories.set(metas);
+
+        if (metas.length > 0 && !metas.some((m) => m.key === this.activeAiCategory())) {
+          this.activeAiCategory.set(metas[0].key);
+        }
+
+        if (cats.length === 0) {
+          this.aiConfigLoading.set(false);
+          return;
+        }
+
+        let loaded = 0;
+        const result: Record<string, AiConfigField[]> = {};
+
+        for (const cat of cats) {
+          const catKey = cat.key;
+          this.api.getConfigSchema(catKey).subscribe({
+            next: (schemaRes) => {
+              this.api.getAnnotatedConfig(catKey).subscribe({
+                next: (annotatedRes) => {
+                  const fields: AiConfigField[] = [];
+                  for (const field of schemaRes.fields || []) {
+                    const entry = annotatedRes ? annotatedRes[field.key] : null;
+                    fields.push({
+                      key: field.key,
+                      defaultValue: field.defaultValue,
+                      type: field.type || 'string',
+                      description: field.description || '',
+                      editValue: entry?.value ?? field.defaultValue,
+                      source: (entry?.source as any) ?? 'system',
+                      applyMode: field.applyMode || 'LIVE',
+                      options: field.options,
+                      min: field.min,
+                      max: field.max,
+                      step: field.step,
+                      secret: field.secret || field.key.includes('key') || field.key.includes('secret') || field.key.includes('password'),
+                    });
+                  }
+                  result[catKey] = fields;
+                  loaded++;
+                  if (loaded === cats.length) {
+                    this.aiConfigFields.set(result);
+                    this.aiConfigLoading.set(false);
+                  }
+                },
+                error: () => {
+                  result[catKey] = (schemaRes.fields || []).map((f: any) => ({
+                    key: f.key,
+                    defaultValue: f.defaultValue,
+                    type: f.type || 'string',
+                    description: f.description || '',
+                    editValue: f.defaultValue,
+                    source: 'system' as const,
+                    applyMode: f.applyMode || 'LIVE',
+                    options: f.options,
+                    min: f.min,
+                    max: f.max,
+                    step: f.step,
+                    secret: f.secret || f.key.includes('key') || f.key.includes('secret') || f.key.includes('password'),
+                  }));
+                  loaded++;
+                  if (loaded === cats.length) {
+                    this.aiConfigFields.set(result);
+                    this.aiConfigLoading.set(false);
+                  }
+                },
+              });
             },
             error: () => {
-              result[cat] = (schemaRes.fields || []).map((f: any) => ({
-                key: f.key,
-                defaultValue: f.defaultValue,
-                type: f.type || 'string',
-                description: f.description || '',
-                editValue: f.defaultValue,
-                source: 'system' as const,
-              }));
               loaded++;
-              if (loaded === categories.length) {
+              if (loaded === cats.length) {
                 this.aiConfigFields.set(result);
                 this.aiConfigLoading.set(false);
               }
             },
           });
-        },
-        error: () => {
-          loaded++;
-          if (loaded === categories.length) {
-            this.aiConfigFields.set(result);
-            this.aiConfigLoading.set(false);
-          }
-        },
-      });
-    }
+        }
+      },
+      error: (err) => {
+        this.aiConfigLoading.set(false);
+        this.toast.error(`Failed to load config categories: ${err.message}`);
+      },
+    });
   }
 
-  onAiFieldChange(category: string, key: string, value: any): void {
+  onAiFieldChange(category: string, key: string, value: any, immediate = false): void {
     if (!this.aiConfigOverrides[category]) {
       this.aiConfigOverrides[category] = {};
     }
@@ -443,49 +528,136 @@ export class SettingsStateService {
       }
       return updated;
     });
+
+    if (this.aiAutoSaveEnabled()) {
+      if (this.autoSaveTimer) {
+        clearTimeout(this.autoSaveTimer);
+      }
+      this.aiLastSaveStatus.set({
+        text: 'Saving changes...',
+        mode: 'idle',
+        time: new Date().toLocaleTimeString(),
+      });
+      if (immediate) {
+        this.saveCategoryConfig(category);
+      } else {
+        this.autoSaveTimer = setTimeout(() => {
+          this.saveCategoryConfig(category);
+        }, 600);
+      }
+    }
+  }
+
+  saveCategoryConfig(category: string): void {
+    const patch = this.aiConfigOverrides[category];
+    if (!patch || Object.keys(patch).length === 0) {
+      return;
+    }
+    this.aiConfigSaving.set(true);
+    this.api.saveConfig(category, 'user', patch).subscribe({
+      next: (res) => {
+        this.aiConfigSaving.set(false);
+        delete this.aiConfigOverrides[category];
+        if (Object.keys(this.aiConfigOverrides).length === 0) {
+          this.aiConfigDirty.set(false);
+        }
+        const status = res?.status || 'applied';
+        let statusText = '✓ Saved to DB & Applied to SpectorMemory';
+        let mode: 'applied' | 'persisted' = 'applied';
+        if (status === 'persisted_rebuild_required') {
+          statusText = '✓ Saved to DB (Index Rebuild Required)';
+          mode = 'persisted';
+        } else if (status === 'persisted_reboot_required') {
+          statusText = '✓ Saved to DB (Restart Required)';
+          mode = 'persisted';
+        }
+        this.aiLastSaveStatus.set({
+          text: statusText,
+          mode,
+          time: new Date().toLocaleTimeString(),
+        });
+      },
+      error: (err) => {
+        this.aiConfigSaving.set(false);
+        this.aiLastSaveStatus.set({
+          text: `Failed: ${err.error?.error || err.message}`,
+          mode: 'error',
+          time: new Date().toLocaleTimeString(),
+        });
+        this.toast.error(`Failed to save ${category}: ${err.error?.error || err.message}`);
+      },
+    });
   }
 
   saveAiConfig(): void {
-    this.aiConfigSaving.set(true);
     const categories = Object.keys(this.aiConfigOverrides);
-    let saved = 0;
-
     if (categories.length === 0) {
-      this.aiConfigSaving.set(false);
+      this.toast.info('No unsaved changes');
       return;
     }
-
     for (const cat of categories) {
-      this.api.saveConfig(cat, 'user', this.aiConfigOverrides[cat]).subscribe({
-        next: () => {
-          saved++;
-          if (saved === categories.length) {
-            this.aiConfigSaving.set(false);
-            this.aiConfigDirty.set(false);
-            this.aiConfigOverrides = {};
-            this.toast.success('AI configuration saved');
-          }
-        },
-        error: (err) => {
-          saved++;
-          if (saved === categories.length) {
-            this.aiConfigSaving.set(false);
-          }
-          this.toast.error(`Failed to save ${cat}: ${err.error?.error || err.message}`);
-        },
-      });
+      this.saveCategoryConfig(cat);
     }
   }
 
+  revertAiField(category: string, field: AiConfigField): void {
+    this.onAiFieldChange(category, field.key, field.defaultValue, true);
+  }
+
+  resetAiCategory(category: string): void {
+    this.api.deleteConfig(category, 'user').subscribe({
+      next: () => {
+        if (this.aiConfigOverrides[category]) {
+          delete this.aiConfigOverrides[category];
+        }
+        this.toast.success(`Reset ${category} to system defaults`);
+        this.reloadCategory(category);
+      },
+      error: (err) => {
+        this.toast.error(`Failed to reset ${category}: ${err.error?.error || err.message}`);
+      },
+    });
+  }
+
+  private reloadCategory(category: string): void {
+    this.api.getConfigSchema(category).subscribe({
+      next: (schemaRes) => {
+        this.api.getAnnotatedConfig(category).subscribe({
+          next: (annotatedRes) => {
+            const fields: AiConfigField[] = [];
+            for (const field of schemaRes.fields || []) {
+              const entry = annotatedRes ? annotatedRes[field.key] : null;
+              fields.push({
+                key: field.key,
+                defaultValue: field.defaultValue,
+                type: field.type || 'string',
+                description: field.description || '',
+                editValue: entry?.value ?? field.defaultValue,
+                source: (entry?.source as any) ?? 'system',
+                applyMode: field.applyMode || 'LIVE',
+                options: field.options,
+                min: field.min,
+                max: field.max,
+                step: field.step,
+                secret: field.secret || field.key.includes('key') || field.key.includes('secret') || field.key.includes('password'),
+              });
+            }
+            this.aiConfigFields.update((f) => ({ ...f, [category]: fields }));
+          },
+        });
+      },
+    });
+  }
+
   resetAiConfig(): void {
-    const categories = ['llm_provider', 'ingestion', 'rag'];
+    const categories = this.aiConfigCategories().map((c) => c.key);
     let done = 0;
     for (const cat of categories) {
       this.api.deleteConfig(cat, 'user').subscribe({
         next: () => {
           done++;
           if (done === categories.length) {
-            this.toast.success('AI settings reset to defaults');
+            this.toast.success('All settings reset to system defaults');
             this.loadAiConfig();
           }
         },

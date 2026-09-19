@@ -16,14 +16,44 @@ export interface InterestEntry {
   level: string;
 }
 
+export type ConfigApplyMode = 'LIVE' | 'POLICY' | 'REBUILD' | 'BOOT';
+
 export interface AiConfigField {
   key: string;
   defaultValue: any;
   type: string;
   description: string;
   editValue: any;
-  source: 'system' | 'user';
+  source: 'system' | 'user' | 'tenant';
+  applyMode?: ConfigApplyMode;
+  options?: string[];
+  min?: number;
+  max?: number;
+  step?: number;
+  secret?: boolean;
 }
+
+export interface ConfigCategoryMeta {
+  key: string;
+  label: string;
+  icon: string;
+  description: string;
+}
+
+export const CATEGORY_METADATA: Record<string, { label: string; icon: string; description: string }> = {
+  llm_provider: { label: 'LLM Provider', icon: 'psychology', description: 'Text generation model, credentials, and parameters' },
+  embedding_provider: { label: 'Embedding Provider', icon: 'hub', description: 'Vector embedding model, dimensions, and batching' },
+  memory: { label: 'Memory Core', icon: 'memory', description: 'Working memory capacity, decay rates, and Hebbian degree' },
+  recall: { label: 'Recall & Search', icon: 'search', description: 'Cognitive retrieval, MMR diversity, lateral search, and BM25' },
+  hnsw: { label: 'HNSW Vector Index', icon: 'scatter_plot', description: 'Hierarchical Navigable Small World graph parameters' },
+  spectrum: { label: 'Spectrum Scoring', icon: 'speed', description: 'Salience calibration, score bounds, and scaling' },
+  ingestion: { label: 'Ingestion & Chunking', icon: 'upload_file', description: 'Document chunking, overlap, and parent-child linking' },
+  multimodal: { label: 'Multimodal', icon: 'perm_media', description: 'Vision and audio perceptual processing limits' },
+  concurrency: { label: 'Concurrency', icon: 'alt_route', description: 'Virtual threads, executor pools, and task queue limits' },
+  telemetry: { label: 'Telemetry & Tracing', icon: 'insights', description: 'OpenTelemetry sampling, export rates, and metrics' },
+  salience: { label: 'Salience & Emotion', icon: 'auto_awesome', description: 'Emotional valence, novelty bonus, and circadian rhythm' },
+  soul: { label: 'Soul & Identity', icon: 'face', description: 'Agent persona baselines, temperament, and empathy' },
+};
 
 export interface StressResponseOption {
   value: string;
