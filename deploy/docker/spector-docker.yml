@@ -71,3 +71,11 @@ spector:
     chunk-size: 2500
     chunk-overlap: 200
     parallelism: 1
+
+  routing:
+    redis:
+      enabled: false
+    caffeine:
+      ttl-seconds: 60
+      max-size: 1000
+

@@ -78,11 +78,10 @@
             <artifactId>micrometer-registry-prometheus</artifactId>
         </dependency>
 
-        <!-- Optional Redis Client for Distributed Routing Cache -->
+        <!-- Redis Client for Distributed Routing Cache (ADR-0081) -->
         <dependency>
             <groupId>io.lettuce</groupId>
             <artifactId>lettuce-core</artifactId>
-            <optional>true</optional>
         </dependency>
 
         <!-- Spring Security & OAuth2 Resource Server for Edge JWT Verification -->

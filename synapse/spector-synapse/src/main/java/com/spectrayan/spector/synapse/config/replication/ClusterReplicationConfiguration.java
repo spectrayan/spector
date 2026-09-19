@@ -30,6 +30,7 @@ import io.lettuce.core.api.sync.RedisCommands;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -87,24 +88,37 @@ public class ClusterReplicationConfiguration {
         return new ReplicationMetrics();
     }
 
+    @Configuration(proxyBeanMethods = false)
+    @Conditional(ClusterControlPlaneConfiguration.ControlPlaneCondition.class)
+    @ConditionalOnClass(name = "io.lettuce.core.RedisClient")
+    @ConditionalOnProperty(name = "spector.routing.redis.enabled", havingValue = "true")
+    public static class RedisReplicationHintWriterConfiguration {
+
+        @Bean
+        @ConditionalOnMissingBean
+        public ReplicationHintWriter replicationHintWriter(ObjectProvider<RedisClient> redisClientProvider) {
+            RedisClient redisClient = redisClientProvider.getIfAvailable();
+            if (redisClient == null) {
+                log.info("[ClusterReplicationConfiguration] RedisClient unavailable; using noop ReplicationHintWriter");
+                return ReplicationHintWriter.noop();
+            }
+            return (key, hwm, ts, epoch) -> {
+                try (StatefulRedisConnection<String, String> conn = redisClient.connect()) {
+                    RedisCommands<String, String> sync = conn.sync();
+                    String hintKey = ReplicationHintWriter.hintKeyOf(key);
+                    String hintValue = String.format("{\"hwm\":%d,\"ts\":%d,\"epoch\":%d}", hwm, ts, epoch);
+                    sync.set(hintKey, hintValue);
+                } catch (Exception e) {
+                    log.warn("[ClusterReplicationConfiguration] Failed to write replication hint to Redis: {}", e.getMessage());
+                }
+            };
+        }
+    }
+
     @Bean
     @ConditionalOnMissingBean
-    public ReplicationHintWriter replicationHintWriter(ObjectProvider<RedisClient> redisClientProvider) {
-        RedisClient redisClient = redisClientProvider.getIfAvailable();
-        if (redisClient == null) {
-            log.info("[ClusterReplicationConfiguration] RedisClient unavailable; using noop ReplicationHintWriter");
-            return ReplicationHintWriter.noop();
-        }
-        return (key, hwm, ts, epoch) -> {
-            try (StatefulRedisConnection<String, String> conn = redisClient.connect()) {
-                RedisCommands<String, String> sync = conn.sync();
-                String hintKey = ReplicationHintWriter.hintKeyOf(key);
-                String hintValue = String.format("{\"hwm\":%d,\"ts\":%d,\"epoch\":%d}", hwm, ts, epoch);
-                sync.set(hintKey, hintValue);
-            } catch (Exception e) {
-                log.warn("[ClusterReplicationConfiguration] Failed to write replication hint to Redis: {}", e.getMessage());
-            }
-        };
+    public ReplicationHintWriter fallbackReplicationHintWriter() {
+        return ReplicationHintWriter.noop();
     }
 
     @Bean

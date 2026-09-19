@@ -34,7 +34,88 @@ RUN --mount=type=cache,target=/root/.m2/repository \
     mvn -B package -pl synapse/spector-synapse -am -DskipTests --no-transfer-progress && \
     cp /build/synapse/spector-synapse/target/spector-synapse-*-exec.jar /build/spector-synapse.jar
 
-# ── Stage 3: Runtime (glibc Debian Bookworm base) ─────────────────────
+# ═══════════════════════════════════════════════════════════════════
+# Gateway Target — Dedicated Reactive Cell Ingress Router (ADR-0081)
+# ═══════════════════════════════════════════════════════════════════
+# Lean image: no Nginx, no Cortex dashboard, no /data volume,
+# no Panama incubator flags. Pure WebFlux + Reactor Netty forwarder.
+# ═══════════════════════════════════════════════════════════════════
+
+# ── Stage 3: Build Gateway JAR ────────────────────────────────────
+FROM --platform=$BUILDPLATFORM maven:3.9-eclipse-temurin-25 AS builder-gateway
+
+WORKDIR /build
+
+# Copy Maven reactor modules (full reactor for module resolution; -pl -am limits compilation)
+COPY pom.xml .
+COPY nucleus/ nucleus/
+COPY memory/ memory/
+COPY cluster/ cluster/
+COPY synapse/ synapse/
+COPY sdks/java/ sdks/java/
+COPY bench/ bench/
+
+# Package Gateway executable fat JAR
+RUN --mount=type=cache,target=/root/.m2/repository \
+    mvn -B package -pl synapse/spector-gateway -am -DskipTests --no-transfer-progress && \
+    cp /build/synapse/spector-gateway/target/spector-gateway-*-exec.jar /build/spector-gateway.jar
+
+# ── Stage 4: Gateway Runtime (lean JRE, no data-plane deps) ──────
+FROM eclipse-temurin:25-jre AS gateway
+
+LABEL maintainer="Spectrayan <team@spectrayan.com>"
+LABEL org.opencontainers.image.title="Spector Gateway"
+LABEL org.opencontainers.image.description="Dedicated Reactive Cell Ingress Router — WebFlux + Reactor Netty streaming forwarder with waterfall routing cache and bounded retries (ADR-0081)."
+LABEL org.opencontainers.image.url="https://github.com/spectrayan/spector"
+LABEL org.opencontainers.image.source="https://github.com/spectrayan/spector"
+LABEL org.opencontainers.image.licenses="Apache-2.0 AND BSL-1.1"
+
+# Install tini and curl (health checks), no Nginx needed
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    tini \
+    curl \
+    ca-certificates \
+    && apt-get --only-upgrade install -y perl-base gpgv \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user spector (UID/GID 1000)
+RUN (userdel -r ubuntu 2>/dev/null || true) && \
+    (groupdel ubuntu 2>/dev/null || true) && \
+    (groupadd -g 1000 spector 2>/dev/null || true) && \
+    (id -u 1000 >/dev/null 2>&1 || useradd -u 1000 -g 1000 -m -s /bin/bash spector) && \
+    rm -f /usr/bin/pebble
+
+WORKDIR /app
+RUN chown -R 1000:1000 /app
+
+# Copy gateway fat JAR only — no Cortex frontend, no /data volume
+COPY --chown=1000:1000 --from=builder-gateway /build/spector-gateway.jar /app/spector-gateway.jar
+
+# Gateway JVM: lightweight heap, no Panama/incubator, no native-access
+ENV JAVA_OPTS="-Xms64m -Xmx256m -XX:+UseG1GC -XX:MaxGCPauseMillis=100"
+
+# Cell identity (overridden at runtime by orchestrator)
+ENV SPECTOR_CELL_ROLE=gateway \
+    SPECTOR_CELL_ID=cell-1
+
+USER 1000:1000
+
+EXPOSE 7070
+
+HEALTHCHECK --interval=10s --timeout=3s --start-period=15s --retries=3 \
+    CMD curl -sf http://127.0.0.1:7070/actuator/health || exit 1
+
+ENTRYPOINT ["/usr/bin/tini", "--", "java"]
+CMD ["-Xms64m", "-Xmx256m", "-XX:+UseG1GC", "-XX:MaxGCPauseMillis=100", "-jar", "/app/spector-gateway.jar"]
+
+# ═══════════════════════════════════════════════════════════════════
+# Primary Runtime Target (Default) — All-in-One Spector Node
+# ═══════════════════════════════════════════════════════════════════
+# Must remain the FINAL stage so un-targeted `docker build` commands
+# default to the full Spector runtime with Nginx, Cortex, and Synapse.
+# ═══════════════════════════════════════════════════════════════════
+
+# ── Stage 5: Runtime (glibc Debian Bookworm base) ─────────────────────
 FROM eclipse-temurin:25-jre AS runtime
 
 LABEL maintainer="Spectrayan <team@spectrayan.com>"
@@ -115,77 +196,3 @@ HEALTHCHECK --interval=10s --timeout=3s --start-period=20s --retries=3 \
     CMD curl -sf http://127.0.0.1:7070/actuator/health || exit 1
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/app/entrypoint.sh"]
-
-# ═══════════════════════════════════════════════════════════════════
-# Gateway Target — Dedicated Reactive Cell Ingress Router (ADR-0081)
-# ═══════════════════════════════════════════════════════════════════
-# Lean image: no Nginx, no Cortex dashboard, no /data volume,
-# no Panama incubator flags. Pure WebFlux + Reactor Netty forwarder.
-# ═══════════════════════════════════════════════════════════════════
-
-# ── Stage 4: Build Gateway JAR ────────────────────────────────────
-FROM --platform=$BUILDPLATFORM maven:3.9-eclipse-temurin-25 AS builder-gateway
-
-WORKDIR /build
-
-# Copy Maven reactor modules (full reactor for module resolution; -pl -am limits compilation)
-COPY pom.xml .
-COPY nucleus/ nucleus/
-COPY memory/ memory/
-COPY cluster/ cluster/
-COPY synapse/ synapse/
-COPY sdks/java/ sdks/java/
-COPY bench/ bench/
-
-# Package Gateway executable fat JAR
-RUN --mount=type=cache,target=/root/.m2/repository \
-    mvn -B package -pl synapse/spector-gateway -am -DskipTests --no-transfer-progress && \
-    cp /build/synapse/spector-gateway/target/spector-gateway-*-exec.jar /build/spector-gateway.jar
-
-# ── Stage 5: Gateway Runtime (lean JRE, no data-plane deps) ──────
-FROM eclipse-temurin:25-jre AS gateway
-
-LABEL maintainer="Spectrayan <team@spectrayan.com>"
-LABEL org.opencontainers.image.title="Spector Gateway"
-LABEL org.opencontainers.image.description="Dedicated Reactive Cell Ingress Router — WebFlux + Reactor Netty streaming forwarder with waterfall routing cache and bounded retries (ADR-0081)."
-LABEL org.opencontainers.image.url="https://github.com/spectrayan/spector"
-LABEL org.opencontainers.image.source="https://github.com/spectrayan/spector"
-LABEL org.opencontainers.image.licenses="Apache-2.0 AND BSL-1.1"
-
-# Install tini and curl (health checks), no Nginx needed
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    tini \
-    curl \
-    ca-certificates \
-    && apt-get --only-upgrade install -y perl-base gpgv \
-    && rm -rf /var/lib/apt/lists/*
-
-# Create non-root user spector (UID/GID 1000)
-RUN (userdel -r ubuntu 2>/dev/null || true) && \
-    (groupdel ubuntu 2>/dev/null || true) && \
-    (groupadd -g 1000 spector 2>/dev/null || true) && \
-    (id -u 1000 >/dev/null 2>&1 || useradd -u 1000 -g 1000 -m -s /bin/bash spector) && \
-    rm -f /usr/bin/pebble
-
-WORKDIR /app
-RUN chown -R 1000:1000 /app
-
-# Copy gateway fat JAR only — no Cortex frontend, no /data volume
-COPY --chown=1000:1000 --from=builder-gateway /build/spector-gateway.jar /app/spector-gateway.jar
-
-# Gateway JVM: lightweight heap, no Panama/incubator, no native-access
-ENV JAVA_OPTS="-Xms64m -Xmx256m -XX:+UseG1GC -XX:MaxGCPauseMillis=100"
-
-# Cell identity (overridden at runtime by orchestrator)
-ENV SPECTOR_CELL_ROLE=gateway \
-    SPECTOR_CELL_ID=cell-1
-
-USER 1000:1000
-
-EXPOSE 7070
-
-HEALTHCHECK --interval=10s --timeout=3s --start-period=15s --retries=3 \
-    CMD curl -sf http://127.0.0.1:7070/actuator/health || exit 1
-
-ENTRYPOINT ["/usr/bin/tini", "--", "java"]
-CMD ["-Xms64m", "-Xmx256m", "-XX:+UseG1GC", "-XX:MaxGCPauseMillis=100", "-jar", "/app/spector-gateway.jar"]

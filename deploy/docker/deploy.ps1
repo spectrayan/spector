@@ -37,8 +37,8 @@ $ImageName     = "spector"
 $ContainerName = "spector"
 $Dockerfile    = "deploy/docker/Dockerfile"
 $DataVolume    = "spector-data"
-$HostPortHttp  = 7700
-$HostPortApi   = 7070
+$HostPortHttp  = if ($env:SPECTOR_HOST_PORT_HTTP) { [int]$env:SPECTOR_HOST_PORT_HTTP } else { 7700 }
+$HostPortApi   = if ($env:SPECTOR_HOST_PORT_API)  { [int]$env:SPECTOR_HOST_PORT_API }  else { 7070 }
 
 # ── Navigate to project root ──────────────────────────────────────
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -116,6 +116,7 @@ function Invoke-Build {
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
 
     docker build `
+        --target runtime `
         -f $Dockerfile `
         -t "${ImageName}:latest" `
         -t "${ImageName}:${versionTag}" `
@@ -180,6 +181,7 @@ function Invoke-Run {
         -e "SPECTOR_OLLAMA_EMBED_MODEL=qwen3-embedding:0.6b" `
         -e "SPECTOR_OLLAMA_MODEL=llama3.2:latest" `
         -e "SPECTOR_CORS_ORIGINS=http://localhost:4200,http://localhost:7700,http://localhost:3000,*" `
+        -e "SPECTOR_ROUTING_REDIS_ENABLED=false" `
         --add-host=host.docker.internal:host-gateway `
         --restart unless-stopped `
         $ImageName
