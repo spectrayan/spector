@@ -154,7 +154,7 @@ public class GatewayProperties {
     }
 
     public static class RedisProperties {
-        private boolean enabled = true;
+        private boolean enabled = false;
         private String uri = "redis://localhost:6379";
         private long ttlSeconds = 30;
         private long timeoutMs = 200;
