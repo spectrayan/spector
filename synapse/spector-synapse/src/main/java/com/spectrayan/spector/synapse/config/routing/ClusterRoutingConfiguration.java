@@ -35,6 +35,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -81,47 +82,6 @@ public class ClusterRoutingConfiguration {
         return source -> registry.counter("spector.route.lookup", "tier", source.name().toLowerCase()).increment();
     }
 
-    @Bean(destroyMethod = "shutdown")
-    @ConditionalOnMissingBean
-    public RedisClient redisClient(SynapseProperties properties) {
-        RoutingProperties routingProps = properties.getRouting();
-        if (routingProps != null && routingProps.getRedis() != null && routingProps.getRedis().isEnabled()) {
-            String redisUri = routingProps.getRedis().getUri();
-            long timeoutMs = Math.max(10L, routingProps.getRedis().getTimeoutMs());
-            RedisURI uri = RedisURI.create(redisUri);
-            uri.setTimeout(Duration.ofMillis(timeoutMs));
-
-            RedisClient client = RedisClient.create(uri);
-            client.setOptions(ClientOptions.builder()
-                    .autoReconnect(true)
-                    .socketOptions(SocketOptions.builder().connectTimeout(Duration.ofMillis(timeoutMs)).build())
-                    .timeoutOptions(TimeoutOptions.enabled(Duration.ofMillis(timeoutMs)))
-                    .build());
-            return client;
-        }
-        return null;
-    }
-
-    @Bean(destroyMethod = "close")
-    @ConditionalOnMissingBean
-    public RedisRoutingCache redisRoutingCache(
-            SynapseProperties properties,
-            ObjectProvider<RedisClient> redisClientProvider,
-            RoutingMetricsListener metricsListener
-    ) {
-        RoutingProperties routingProps = properties.getRouting();
-        RedisClient client = redisClientProvider.getIfAvailable();
-        if (client != null && routingProps != null && routingProps.getRedis() != null && routingProps.getRedis().isEnabled()) {
-            log.info("Initializing Lettuce Redis routing cache at {}", routingProps.getRedis().getUri());
-            return new LettuceRedisRoutingCache(
-                    client,
-                    routingProps.getRedis().getUri(),
-                    routingProps.getRedis().getTimeoutMs(),
-                    metricsListener
-            );
-        }
-        return null;
-    }
 
     @Bean
     @ConditionalOnMissingBean
@@ -168,34 +128,6 @@ public class ClusterRoutingConfiguration {
         return new GatewayForwarder(resolver, retryMax, null, null);
     }
 
-    @Bean(destroyMethod = "close")
-    @ConditionalOnMissingBean
-    public RoutingInvalidationSubscriber routingInvalidationSubscriber(
-            SynapseProperties properties,
-            ObjectProvider<RedisClient> redisClientProvider,
-            WaterfallRoutingResolver resolver,
-            RoutingMetricsListener metricsListener
-    ) {
-        RoutingProperties routingProps = properties.getRouting();
-        RedisClient client = redisClientProvider.getIfAvailable();
-        if (client != null && routingProps != null && routingProps.getRedis() != null && routingProps.getRedis().isEnabled()) {
-            String cellId = properties.getCell() != null ? properties.getCell().getId() : "default";
-            try {
-                RoutingInvalidationSubscriber subscriber = new RoutingInvalidationSubscriber(
-                        cellId,
-                        client,
-                        resolver,
-                        metricsListener
-                );
-                subscriber.start();
-                return subscriber;
-            } catch (Exception e) {
-                log.warn("Failed to create RoutingInvalidationSubscriber: {}", e.getMessage());
-            }
-        }
-        return null;
-    }
-
     @Bean
     @ConditionalOnMissingBean
     @ConditionalOnProperty(name = "spector.cell.role", havingValue = "gateway")
@@ -206,5 +138,86 @@ public class ClusterRoutingConfiguration {
     ) {
         ObjectMapper mapper = objectMapperProvider.getIfAvailable();
         return new GatewayForwardingFilter(properties, forwarder, mapper);
+    }
+
+    /**
+     * Optional Redis routing cache and pub/sub invalidation bus for multi-node deployments.
+     * Guarded by @ConditionalOnClass and @ConditionalOnProperty so that standalone and local
+     * docker deployments have zero Redis overhead, avoid class introspection errors when Lettuce
+     * is omitted, and seamlessly use Caffeine for cache (ADR-0034 §8 Phase 2).
+     */
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(name = "io.lettuce.core.RedisClient")
+    @ConditionalOnProperty(name = "spector.routing.redis.enabled", havingValue = "true")
+    public static class SynapseRedisRoutingConfiguration {
+
+        @Bean(destroyMethod = "shutdown")
+        @ConditionalOnMissingBean
+        public RedisClient redisClient(SynapseProperties properties) {
+            RoutingProperties routingProps = properties.getRouting();
+            if (routingProps != null && routingProps.getRedis() != null) {
+                String redisUri = routingProps.getRedis().getUri();
+                long timeoutMs = Math.max(10L, routingProps.getRedis().getTimeoutMs());
+                RedisURI uri = RedisURI.create(redisUri);
+                uri.setTimeout(Duration.ofMillis(timeoutMs));
+
+                RedisClient client = RedisClient.create(uri);
+                client.setOptions(ClientOptions.builder()
+                        .autoReconnect(true)
+                        .socketOptions(SocketOptions.builder().connectTimeout(Duration.ofMillis(timeoutMs)).build())
+                        .timeoutOptions(TimeoutOptions.enabled(Duration.ofMillis(timeoutMs)))
+                        .build());
+                return client;
+            }
+            return null;
+        }
+
+        @Bean(destroyMethod = "close")
+        @ConditionalOnMissingBean
+        public RedisRoutingCache redisRoutingCache(
+                SynapseProperties properties,
+                ObjectProvider<RedisClient> redisClientProvider,
+                RoutingMetricsListener metricsListener
+        ) {
+            RoutingProperties routingProps = properties.getRouting();
+            RedisClient client = redisClientProvider.getIfAvailable();
+            if (client != null && routingProps != null && routingProps.getRedis() != null) {
+                log.info("Initializing Lettuce Redis routing cache at {}", routingProps.getRedis().getUri());
+                return new LettuceRedisRoutingCache(
+                        client,
+                        routingProps.getRedis().getUri(),
+                        routingProps.getRedis().getTimeoutMs(),
+                        metricsListener
+                );
+            }
+            return null;
+        }
+
+        @Bean(destroyMethod = "close")
+        @ConditionalOnMissingBean
+        public RoutingInvalidationSubscriber routingInvalidationSubscriber(
+                SynapseProperties properties,
+                ObjectProvider<RedisClient> redisClientProvider,
+                WaterfallRoutingResolver resolver,
+                RoutingMetricsListener metricsListener
+        ) {
+            RedisClient client = redisClientProvider.getIfAvailable();
+            if (client != null) {
+                String cellId = properties.getCell() != null ? properties.getCell().getId() : "default";
+                try {
+                    RoutingInvalidationSubscriber subscriber = new RoutingInvalidationSubscriber(
+                            cellId,
+                            client,
+                            resolver,
+                            metricsListener
+                    );
+                    subscriber.start();
+                    return subscriber;
+                } catch (Exception e) {
+                    log.warn("Failed to create RoutingInvalidationSubscriber: {}", e.getMessage());
+                }
+            }
+            return null;
+        }
     }
 }
