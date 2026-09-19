@@ -28,6 +28,7 @@ import org.bsc.langgraph4j.state.AgentState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -142,15 +143,29 @@ public class JdbcCheckpointSaver extends AbstractCheckpointSaver implements Grap
                 .update();
 
         if (updated == 0) {
-            jdbc.sql("""
-                    INSERT INTO GRAPH_CHECKPOINT (thread_id, checkpoint_id, state, written_at)
-                    VALUES (:threadId, :checkpointId, :state, :writtenAt)
-                    """)
-                    .param("threadId", threadId)
-                    .param("checkpointId", checkpointId)
-                    .param("state", stateBytes)
-                    .param("writtenAt", Timestamp.from(now))
-                    .update();
+            try {
+                jdbc.sql("""
+                        INSERT INTO GRAPH_CHECKPOINT (thread_id, checkpoint_id, state, written_at)
+                        VALUES (:threadId, :checkpointId, :state, :writtenAt)
+                        """)
+                        .param("threadId", threadId)
+                        .param("checkpointId", checkpointId)
+                        .param("state", stateBytes)
+                        .param("writtenAt", Timestamp.from(now))
+                        .update();
+            } catch (DataIntegrityViolationException ex) {
+                // Another concurrent thread won the race to insert; update the existing row
+                jdbc.sql("""
+                        UPDATE GRAPH_CHECKPOINT
+                        SET checkpoint_id = :checkpointId, state = :state, written_at = :writtenAt
+                        WHERE thread_id = :threadId
+                        """)
+                        .param("checkpointId", checkpointId)
+                        .param("state", stateBytes)
+                        .param("writtenAt", Timestamp.from(now))
+                        .param("threadId", threadId)
+                        .update();
+            }
         }
 
         log.debug("[JdbcCheckpoint] Saved checkpoint '{}' for thread '{}' ({} bytes)",
