@@ -70,6 +70,23 @@ export async function setupChatMocks(page: Page, options: RouteMockOptions = {})
     },
   } = options;
 
+  // 0. Suppress onboarding tour by pre-seeding localStorage
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('spector.onboarding.completed', 'true');
+      localStorage.setItem('spector.onboarding.dismissed', 'true');
+    } catch {}
+  });
+
+  // Intercept cortex events endpoint so background SSE does not keep network alive
+  await page.route('**/api/v1/events*', async (route: Route) => {
+    await route.fulfill({
+      status: 204,
+      contentType: 'text/plain',
+      body: '',
+    });
+  });
+
   // 1. CRITICAL: Intercept feature flags to enable chat route
   await page.route('**/api/v1/features', async (route: Route) => {
     await route.fulfill({

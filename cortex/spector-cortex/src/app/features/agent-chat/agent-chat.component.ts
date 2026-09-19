@@ -110,7 +110,7 @@ export class AgentChatComponent {
   readonly sessions = signal<SessionSummary[]>([]);
   readonly activeSessionId = signal<string | null>(null);
   readonly turns = signal<ChatTurnView[]>([]);
-  readonly isDrawerOpen = signal<boolean>(true);
+  readonly isDrawerOpen = signal<boolean>(typeof window !== 'undefined' ? window.innerWidth > 768 : true);
   readonly isStreaming = signal<boolean>(false);
   readonly isLoading = signal<boolean>(false);
   readonly hasMoreSessions = signal<boolean>(false);
