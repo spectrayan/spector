@@ -56,6 +56,14 @@ public final class ChatDto {
             @JsonAlias("approved_tool_calls") List<Map<String, Object>> approvedToolCalls,
             @Schema(hidden = true) @JsonProperty(access = JsonProperty.Access.WRITE_ONLY) List<Map<String, Object>> approved_tool_calls
     ) {
+        public AgentChatRequest(String message, String sessionId) {
+            this(message, sessionId, null, null, null, null, null, null, null, null, null);
+        }
+
+        public AgentChatRequest(String message, String sessionId, String model) {
+            this(message, sessionId, null, model, null, null, null, null, null, null, null);
+        }
+
         /** Resolves sessionId from either field (backward compat). */
         public String resolvedSessionId() {
             return sessionId != null ? sessionId : conversationId;

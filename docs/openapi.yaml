@@ -1711,6 +1711,24 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/RouteConfig"
+  /api/v1/chat/stream:
+    post:
+      tags:
+      - chat-controller
+      operationId: streamChat
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentChatRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            text/event-stream:
+              schema:
+                $ref: "#/components/schemas/SseEmitter"
   /api/v1/chat:
     post:
       tags:
@@ -4769,11 +4787,11 @@ components:
         timestampMs:
           type: integer
           format: int64
-        positivelyReinforced:
-          type: boolean
         simulated:
           type: boolean
         dreamed:
+          type: boolean
+        positivelyReinforced:
           type: boolean
         multimodal:
           type: boolean
@@ -5065,6 +5083,12 @@ components:
           items:
             type: object
             additionalProperties: {}
+    SseEmitter:
+      type: object
+      properties:
+        timeout:
+          type: integer
+          format: int64
     AgentChatResponse:
       type: object
       properties:

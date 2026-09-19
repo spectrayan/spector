@@ -39,7 +39,11 @@ import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -133,6 +137,29 @@ public class ChatController {
             log.error("[ChatController] Chat failed: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError().build();
         }
+    }
+
+    /**
+     * Agentic chat with real-time Server-Sent Events (SSE) streaming.
+     *
+     * <p>Returns an {@link SseEmitter} that streams typed {@link com.spectrayan.spector.synapse.agent.chat.dto.ChatStreamEvent} envelopes
+     * over {@code text/event-stream}. Immediately flushes a {@code session} event in &lt;15ms
+     * to guarantee sub-500ms TTFT.</p>
+     *
+     * @param request the incoming chat request
+     * @return the active SSE emitter
+     */
+    @PostMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter streamChat(@Valid @RequestBody AgentChatRequest request) {
+        String message = request.message();
+        if (message == null || message.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Message must not be blank");
+        }
+
+        AgentSoul soul = soulService.getEffectiveSoul(null);
+        SseEmitter emitter = new SseEmitter(180_000L);
+        chatService.streamChat(request, soul, emitter);
+        return emitter;
     }
 
     /**
