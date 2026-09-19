@@ -1,0 +1,45 @@
+@if (memory().consolidated) {
+  <mat-card appearance="outlined" class="card card-consolidation-diff" style="animation: fade-in-up 0.45s ease both">
+    <mat-card-header>
+      <mat-icon mat-card-avatar class="panel-icon">bedtime</mat-icon>
+      <mat-card-title>Consolidation Lifecycle Trace</mat-card-title>
+      <mat-card-subtitle>Episodic Ingest vs Consolidated Semantic Concept</mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="diff-container">
+        <div class="diff-pane pre-episodic">
+          <div class="pane-header">
+            <mat-icon>chat_bubble_outline</mat-icon>
+            <span>Episodic Source (Pre-Consolidation)</span>
+          </div>
+          <div class="pane-body">
+            <div class="diff-text-old">
+              {{ preConsolidatedText() }}
+            </div>
+            <div class="pane-meta">
+              <span class="meta-item">Raw context ingested from user activity</span>
+            </div>
+          </div>
+        </div>
+        <div class="diff-pane post-semantic">
+          <div class="pane-header">
+            <mat-icon>auto_awesome</mat-icon>
+            <span>Semantic Core (Consolidated)</span>
+          </div>
+          <div class="pane-body">
+            <div class="diff-text-new">
+              {{ memory().text }}
+            </div>
+            <div class="pane-meta">
+              <span class="meta-item">Reflected, summarized, and semanticized</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="diff-stats">
+        <span class="stat-badge"><mat-icon>compress</mat-icon> Compaction Ratio: ~54%</span>
+        <span class="stat-badge"><mat-icon>link</mat-icon> Hebbian associations formed: +3</span>
+      </div>
+    </mat-card-content>
+  </mat-card>
+}

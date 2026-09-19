@@ -1,0 +1,53 @@
+@if (edge(); as e) {
+  <aside class="detail-panel" id="edge-detail-panel">
+    <mat-card appearance="outlined">
+      <mat-card-header>
+        <mat-icon mat-card-avatar>{{ edgeIcon(e.type) }}</mat-icon>
+        <mat-card-title>
+          <span class="edge-type-badge" [attr.data-type]="e.type">{{ e.type }}</span>
+        </mat-card-title>
+        <mat-card-subtitle>Edge Connection</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="edge-connection">
+          <div class="edge-endpoint">
+            <span class="endpoint-label">From</span>
+            <span class="endpoint-id">{{ e.from }}</span>
+          </div>
+          <mat-icon class="edge-arrow">arrow_forward</mat-icon>
+          <div class="edge-endpoint">
+            <span class="endpoint-label">To</span>
+            <span class="endpoint-id">{{ e.to }}</span>
+          </div>
+        </div>
+        @if (e.relation) {
+          <div class="node-metric">
+            <span class="metric-label">Relation</span>
+            <span class="metric-value relation-tag">{{ e.relation }}</span>
+          </div>
+        }
+        @if (e.fromEntityType || e.toEntityType) {
+          <div class="node-metric">
+            <span class="metric-label">Entity Types</span>
+            <span class="metric-value">
+              <span class="stats-item-badge entity-badge" style="font-size: 9px; padding: 2px 6px;">{{ e.fromEntityType || 'ENTITY' }}</span>
+              <span style="color: var(--mat-sys-outline); margin: 0 4px;">→</span>
+              <span class="stats-item-badge entity-badge" style="font-size: 9px; padding: 2px 6px;">{{ e.toEntityType || 'ENTITY' }}</span>
+            </span>
+          </div>
+        }
+        <div class="node-metric">
+          <span class="metric-label">Weight</span>
+          <span class="metric-value">{{ e.weight.toFixed(2) }}</span>
+        </div>
+        <p class="edge-description">
+          @switch (e.type) {
+            @case ('HEBBIAN') { Co-recall association — memories frequently retrieved together }
+            @case ('TEMPORAL') { Session sequence — memories created in order }
+            @case ('ENTITY') { Entity relationship — shared knowledge graph connection }
+          }
+        </p>
+      </mat-card-content>
+    </mat-card>
+  </aside>
+}

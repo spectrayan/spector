@@ -1,0 +1,121 @@
+<div class="result-container cortex-card">
+  <a class="result-card" [routerLink]="['/memories', result().id]">
+    <div class="result-rank">{{ rank() }}</div>
+    <div class="result-body">
+      <div class="result-header">
+        <span class="result-id cortex-mono">{{ result().id }}</span>
+        <mat-chip-set>
+          <mat-chip [class]="'tier-chip ' + result().memoryType.toLowerCase()">
+            {{ result().memoryType }}
+          </mat-chip>
+        </mat-chip-set>
+        @if (result().lateral) {
+          <mat-chip class="flag-chip lateral">⚡ lateral</mat-chip>
+        }
+        @if (result().hyperfocused) {
+          <mat-chip class="flag-chip hyper">🎯 hyperfocused</mat-chip>
+        }
+        @if (result().negativeOutcome) {
+          <mat-chip class="flag-chip negative">⚠ negative</mat-chip>
+        }
+      </div>
+      <p class="result-text">{{ result().text }}</p>
+
+      <div class="result-scores">
+        <span class="score primary" matTooltip="Final composite score">
+          <mat-icon>star</mat-icon>
+          {{ formatScore(result().breakdown.finalScore) }}
+        </span>
+        <span class="score" matTooltip="Vector similarity">
+          sim: {{ result().breakdown.similarity.toFixed(4) }}
+        </span>
+        <span class="score" matTooltip="Importance × decay">
+          imp: {{ result().breakdown.importanceDecay.toFixed(2) }}
+        </span>
+        @if (result().breakdown.tagBoostFactor !== 1.0) {
+          <span class="score boost" matTooltip="Synaptic tag boost">
+            tag: ×{{ result().breakdown.tagBoostFactor.toFixed(1) }}
+          </span>
+        }
+        @if (result().breakdown.graphBoost !== 1.0) {
+          <span class="score boost" matTooltip="Graph co-activation boost">
+            graph: ×{{ result().breakdown.graphBoost.toFixed(2) }}
+          </span>
+        }
+        @if (result().breakdown.habituationPenalty !== 1.0) {
+          <span class="score penalty" matTooltip="Habituation penalty">
+            hab: ×{{ result().breakdown.habituationPenalty.toFixed(2) }}
+          </span>
+        }
+        <span class="score faint">
+          valence: {{ result().valence }}
+        </span>
+      </div>
+
+      @if (result().synapticTags && result().synapticTags.length > 0) {
+        <div class="result-tags">
+          @for (tag of result().synapticTags; track tag) {
+            <span class="tag">{{ tag }}</span>
+          }
+        </div>
+      }
+    </div>
+  </a>
+
+  <!-- Stacked Hybrid Search Explainer Bar Panel -->
+  <div class="score-explainer-panel">
+    <div class="explainer-header">
+      <mat-icon>bar_chart</mat-icon>
+      <span>Score Component Explainer</span>
+    </div>
+    <div class="explainer-bars">
+      <!-- Vector Similarity Row -->
+      <div class="explainer-bar-row">
+        <div class="bar-info">
+          <span class="bar-label">Vector Similarity (alpha)</span>
+          <span class="bar-value">{{ (result().breakdown.similarity * 100).toFixed(1) }}%</span>
+        </div>
+        <div class="bar-track">
+          <div class="bar-fill similarity" [style.width.%]="result().breakdown.similarity * 100"></div>
+        </div>
+      </div>
+
+      <!-- Importance & Decay Row -->
+      <div class="explainer-bar-row">
+        <div class="bar-info">
+          <span class="bar-label">Importance & Decay (beta)</span>
+          <span class="bar-value">{{ (result().breakdown.importanceDecay * 10).toFixed(1) }}%</span>
+        </div>
+        <div class="bar-track">
+          <div class="bar-fill importance" [style.width.%]="result().breakdown.importanceDecay * 10"></div>
+        </div>
+      </div>
+
+      <!-- Valence Alignment -->
+      @if (result().breakdown.valenceAlignment) {
+        <div class="explainer-bar-row">
+          <div class="bar-info">
+            <span class="bar-label">Valence Alignment</span>
+            <span class="bar-value">{{ (result().breakdown.valenceAlignment * 100).toFixed(1) }}%</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill valence" [style.width.%]="result().breakdown.valenceAlignment * 100"></div>
+          </div>
+        </div>
+      }
+
+      <!-- Multipliers & Boosts row -->
+      <div class="explainer-multipliers">
+        <span class="mult-pill tag-boost" [class.active]="result().breakdown.tagBoostFactor > 1">
+          Tag Boost: {{ result().breakdown.tagBoostFactor > 1 ? '+' + ((result().breakdown.tagBoostFactor - 1) * 100).toFixed(0) + '%' : '1.0x' }}
+        </span>
+        <span class="mult-pill graph-boost" [class.active]="result().breakdown.graphBoost > 1">
+          Graph Boost: {{ result().breakdown.graphBoost > 1 ? '+' + ((result().breakdown.graphBoost - 1) * 100).toFixed(0) + '%' : '1.0x' }}
+        </span>
+        <span class="mult-pill habituation-penalty" [class.active]="result().breakdown.habituationPenalty < 1">
+          Habituation: {{ result().breakdown.habituationPenalty < 1 ? '-' + ((1 - result().breakdown.habituationPenalty) * 100).toFixed(0) + '%' : '1.0x' }}
+        </span>
+      </div>
+    </div>
+  </div>
+</div>

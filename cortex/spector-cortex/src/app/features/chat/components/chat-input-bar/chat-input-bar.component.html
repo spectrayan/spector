@@ -1,0 +1,61 @@
+<div class="chat-input-area">
+  @if (attachedFile(); as file) {
+    <div class="attachment-preview">
+      <mat-icon>description</mat-icon>
+      <span>{{ file.name }}</span>
+      <button mat-icon-button (click)="removeAttachment()" aria-label="Remove attachment">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+  }
+
+  <!-- Note: class includes chat-input-row to satisfy test locator: .chat-input-row textarea -->
+  <div class="chat-input-row copilot-input-bar" [class.landing-glow]="!hasTurns()">
+    <!-- Tier selector -->
+    <button class="input-action" matTooltip="Memory tier: {{ selectedTier() }}" [matMenuTriggerFor]="tierMenu" aria-label="Select memory tier">
+      <mat-icon class="tier-icon">{{ selectedTier() === 'EPISODIC' ? 'auto_stories' : 'psychology' }}</mat-icon>
+    </button>
+    <mat-menu #tierMenu="matMenu">
+      @for (tier of tiers(); track tier) {
+        <button mat-menu-item (click)="selectedTier.set(tier)">
+          <span>{{ tier }}</span>
+        </button>
+      }
+    </mat-menu>
+
+    <!-- File upload -->
+    <input type="file" #fileInput (change)="onFileSelected($event)" hidden accept=".txt,.md,.json,.csv,.log,.yaml,.yml,.xml,.html" />
+    <button class="input-action" matTooltip="Attach file" (click)="fileInput.click()" aria-label="Attach file">
+      <mat-icon>attach_file</mat-icon>
+    </button>
+
+    <!-- Query input -->
+    <textarea class="copilot-textarea"
+              [ngModel]="query()"
+              (ngModelChange)="query.set($event)"
+              placeholder="Ask Spector anything..."
+              (keydown)="onTextareaKeydown($event)"
+              [disabled]="isStreaming()"
+              rows="1"
+              cdkTextareaAutosize
+              cdkAutosizeMinRows="1"
+              cdkAutosizeMaxRows="5"
+              aria-label="Chat input message">
+    </textarea>
+
+    <!-- Send / Abort Button -->
+    @if (isStreaming()) {
+      <button class="send-btn abort-btn" (click)="cancelStream.emit()" matTooltip="Stop generating" aria-label="Stop generating">
+        <mat-icon>stop</mat-icon>
+      </button>
+    } @else {
+      <button class="send-btn"
+              (click)="onSend()"
+              [disabled]="!query().trim()"
+              matTooltip="Send"
+              aria-label="Send message">
+        <mat-icon>arrow_upward</mat-icon>
+      </button>
+    }
+  </div>
+</div>

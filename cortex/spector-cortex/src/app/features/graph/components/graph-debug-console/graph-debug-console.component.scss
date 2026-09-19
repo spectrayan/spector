@@ -1,0 +1,148 @@
+@use '../../graph-theme' as *;
+
+:host {
+  display: block;
+}
+
+.debug-console {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  z-index: 15;
+  width: 380px;
+  max-width: calc(100vw - 32px);
+  max-height: 200px;
+  background: var(--mat-sys-surface-container-lowest, var(--mat-sys-surface));
+  backdrop-filter: blur(12px);
+  border: 1px solid $panel-border;
+  border-radius: 2px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  box-shadow:
+    0 0 30px rgba(0, 255, 204, 0.04),
+    inset 0 0 20px rgba(0, 255, 204, 0.01);
+}
+
+.debug-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px;
+  background: rgba(0, 255, 204, 0.04);
+  border-bottom: 1px solid $panel-border;
+  flex-shrink: 0;
+}
+
+.debug-title {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: $cyan-primary;
+  text-shadow: 0 0 6px $cyan-glow;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  mat-icon {
+    font-size: 12px;
+    width: 12px;
+    height: 12px;
+  }
+}
+
+.debug-badge {
+  font-size: 8px;
+  color: $text-muted;
+  background: $cyan-ultra-dim;
+  padding: 1px 6px;
+  border-radius: 2px;
+}
+
+.debug-close {
+  background: none;
+  border: none;
+  color: $text-muted;
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+
+  mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+  }
+
+  &:hover {
+    color: $cyan-primary;
+  }
+}
+
+.debug-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 255, 204, 0.15) transparent;
+}
+
+.debug-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 1px 10px;
+  font-size: 9px;
+  line-height: 1.5;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: rgba(0, 255, 204, 0.03);
+  }
+
+  &.event-line {
+    .debug-message { color: $cyan-primary; }
+  }
+
+  &.error-line {
+    .debug-message { color: #ef5350; }
+  }
+}
+
+.debug-timestamp {
+  color: $text-muted;
+  flex-shrink: 0;
+  font-size: 8px;
+  opacity: 0.6;
+}
+
+.debug-tag {
+  flex-shrink: 0;
+  padding: 0 4px;
+  border-radius: 2px;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+
+  &.tag-sse { background: rgba(0, 255, 204, 0.12); color: $cyan-primary; }
+  &.tag-query { background: rgba(66, 165, 245, 0.15); color: #42a5f5; }
+  &.tag-err { background: rgba(239, 83, 80, 0.15); color: #ef5350; }
+  &.tag-sys { background: rgba(171, 71, 188, 0.12); color: #ab47bc; }
+}
+
+.debug-message {
+  color: $text-dim;
+  word-break: break-word;
+  min-width: 0;
+}
+
+@media (max-width: 767px) {
+  .debug-console {
+    bottom: 68px;
+    left: 8px;
+    right: 8px;
+    width: auto;
+    max-height: 150px;
+  }
+}

@@ -39,11 +39,14 @@ public class ConfigController {
 
     private final ConfigResolutionService resolutionService;
     private final ConfigApplicator applicator;
+    private final com.spectrayan.spector.synapse.config.service.ConfigSchemaRegistry schemaRegistry;
 
     public ConfigController(ConfigResolutionService resolutionService,
-                            ConfigApplicator applicator) {
+                            ConfigApplicator applicator,
+                            com.spectrayan.spector.synapse.config.service.ConfigSchemaRegistry schemaRegistry) {
         this.resolutionService = resolutionService;
         this.applicator = applicator;
+        this.schemaRegistry = schemaRegistry;
     }
 
     /**
@@ -135,12 +138,12 @@ public class ConfigController {
 
         // Apply to running system
         Map<String, Object> effective = resolutionService.resolve(tenantId, userId, cat);
-        applicator.apply(tenantId, userId, cat, effective);
+        String applyStatus = applicator.apply(tenantId, userId, cat, effective);
 
-        log.info("Config saved: category={}, scope={}, editor={}", cat.key(), config.scope(), userId);
+        log.info("Config saved: category={}, scope={}, editor={}, status={}", cat.key(), config.scope(), userId, applyStatus);
 
         return Map.of(
-                "status", "saved",
+                "status", applyStatus,
                 "scope", config.scope(),
                 "category", cat.key(),
                 "appliedAt", Instant.now().toString()
@@ -177,22 +180,8 @@ public class ConfigController {
     @GetMapping("/schema/{category}")
     public Map<String, Object> schema(@PathVariable String category) {
         ConfigCategory cat = parseCategory(category);
-        List<Map<String, Object>> fields = switch (cat) {
-            case LLM_PROVIDER -> List.of(
-                    Map.of("key", "provider", "defaultValue", "ollama", "type", "string", "description", "Active LLM provider (ollama, google, etc.)"),
-                    Map.of("key", "model", "defaultValue", "llama3.2", "type", "string", "description", "Model name for chat generation"),
-                    Map.of("key", "temperature", "defaultValue", 0.7, "type", "number", "description", "Temperature for LLM generation"),
-                    Map.of("key", "api-key", "defaultValue", "", "type", "string", "description", "API key (for cloud providers)"),
-                    Map.of("key", "base-url", "defaultValue", "http://localhost:11434", "type", "string", "description", "Base URL (for Ollama)")
-            );
-            case INGESTION -> List.of(
-                    Map.of("key", "chunk-size", "defaultValue", 800, "type", "number", "description", "Maximum chunk size in characters"),
-                    Map.of("key", "chunk-overlap", "defaultValue", 100, "type", "number", "description", "Overlapping character count between chunks"),
-                    Map.of("key", "parent-child-linking", "defaultValue", false, "type", "boolean", "description", "Enable parent-child chunk mapping for documents")
-            );
-            case RAG -> List.of(); // RAG is no longer active in cognitive memory
-            case SALIENCE, SOUL -> List.of();
-        };
+        List<com.spectrayan.spector.synapse.config.model.ConfigFieldDescriptor> fields =
+                schemaRegistry != null ? schemaRegistry.getSchema(cat) : List.of();
 
         return Map.of(
                 "category", cat.key(),

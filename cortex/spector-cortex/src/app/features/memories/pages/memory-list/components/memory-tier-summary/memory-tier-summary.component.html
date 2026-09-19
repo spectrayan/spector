@@ -1,0 +1,19 @@
+<div class="tier-summary">
+  @for (tier of tiers(); track tier) {
+    <div class="tier-card" [style.border-left-color]="tierColors()[tier]">
+      <div class="tier-card-header">
+        <span class="tier-badge" [style.background]="tierColors()[tier]">{{ tier }}</span>
+        @if ((tombstoneRatios()[tier] ?? 0) > 0.1) {
+          <button mat-icon-button
+                  class="vacuum-btn"
+                  (click)="vacuum.emit(tier)"
+                  [matTooltip]="'Vacuum ' + tier">
+            <mat-icon>cleaning_services</mat-icon>
+          </button>
+        }
+      </div>
+      <span class="tier-count cortex-mono">{{ tierCounts()[tier] ?? 0 }}</span>
+      <span class="tier-tombstone">💀 {{ formatRatio(tombstoneRatios()[tier] ?? 0) }}</span>
+    </div>
+  }
+</div>

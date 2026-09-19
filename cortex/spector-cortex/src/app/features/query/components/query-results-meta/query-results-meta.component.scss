@@ -1,0 +1,106 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.results-meta-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.results-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.results-filter-field {
+  width: 300px;
+
+  @media (max-width: 768px) {
+    width: 100%;
+  }
+
+  ::ng-deep .mat-mdc-text-field-wrapper {
+    height: 36px;
+    padding: 0 12px !important;
+    border-radius: 18px !important;
+    background: var(--mat-sys-surface-container-highest);
+  }
+
+  ::ng-deep .mat-mdc-form-field-infix {
+    padding: 6px 0 !important;
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+  }
+
+  ::ng-deep .mat-mdc-form-field-flex {
+    align-items: center;
+  }
+
+  ::ng-deep input.mat-mdc-input-element {
+    font-size: 13px;
+    margin-top: 0;
+  }
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  button.clear-input-btn {
+    width: 28px !important;
+    height: 28px !important;
+    line-height: 28px !important;
+    padding: 0;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+  }
+}
+
+.meta-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--mat-sys-surface-container-high);
+  color: var(--mat-sys-on-surface-variant);
+  border: 1px solid var(--mat-sys-outline-variant);
+
+  mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+  }
+
+  &.profile {
+    background: color-mix(in srgb, var(--mat-sys-primary-container) 40%, transparent);
+    color: var(--mat-sys-on-primary-container);
+    border-color: var(--mat-sys-primary-container);
+  }
+}
+
+.meta-query {
+  font-size: 13px;
+  font-style: italic;
+  color: var(--mat-sys-on-surface-variant);
+  opacity: 0.8;
+}

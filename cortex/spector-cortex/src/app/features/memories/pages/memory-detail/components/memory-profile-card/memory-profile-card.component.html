@@ -1,0 +1,113 @@
+<mat-card appearance="outlined" class="card card-profile" style="animation: fade-in-up 0.35s ease both">
+  <mat-card-header>
+    <mat-icon mat-card-avatar class="panel-icon">{{ showFingerprint() ? 'fingerprint' : 'analytics' }}</mat-icon>
+    <mat-card-title>{{ showFingerprint() ? 'Embedding Fingerprint' : 'Memory Profile' }}</mat-card-title>
+    <button mat-icon-button class="profile-toggle-btn" (click)="toggleFingerprint()"
+            [matTooltip]="showFingerprint() ? 'Show stats' : 'Show fingerprint'">
+      <mat-icon>{{ showFingerprint() ? 'bar_chart' : 'grain' }}</mat-icon>
+    </button>
+  </mat-card-header>
+  <mat-card-content>
+    @if (!showFingerprint()) {
+      <!-- ── Stats View ── -->
+      <div class="profile-stats" style="animation: fade-in 0.2s ease both">
+        <div class="stat-row">
+          <mat-icon class="stat-icon">{{ modalityIcon() }}</mat-icon>
+          <span class="stat-label">Modality</span>
+          <span class="stat-value">{{ memory().sourceModality || 'TEXT' }}</span>
+        </div>
+        @if (originalFileName(); as fileName) {
+          <div class="stat-row">
+            <mat-icon class="stat-icon">attach_file</mat-icon>
+            <span class="stat-label">File</span>
+            <span class="stat-value file-name" [matTooltip]="memory().metadata?.original_path">{{ fileName }}</span>
+          </div>
+        }
+        @if (chunkLabel(); as chunk) {
+          <div class="stat-row">
+            <mat-icon class="stat-icon">view_module</mat-icon>
+            <span class="stat-label">Chunk</span>
+            <span class="stat-value">{{ chunk }}</span>
+          </div>
+        }
+        <div class="stat-row">
+          <mat-icon class="stat-icon">fitness_center</mat-icon>
+          <span class="stat-label">Storage Strength</span>
+          <span class="stat-value cortex-mono">{{ safeFixed(memory().storageStrength, 2, 1.0) }}</span>
+        </div>
+        <div class="stat-row">
+          <mat-icon class="stat-icon">straighten</mat-icon>
+          <span class="stat-label">L2 Norm</span>
+          <span class="stat-value cortex-mono">{{ safeFixed(memory().l2Norm, 4, 0) }}</span>
+        </div>
+        <div class="stat-row">
+          <mat-icon class="stat-icon">push_pin</mat-icon>
+          <span class="stat-label">Pinned</span>
+          <span class="stat-value" [class.positive]="memory().pinned">{{ memory().pinned ? 'Yes' : 'No' }}</span>
+        </div>
+        <div class="stat-row">
+          <mat-icon class="stat-icon">bedtime</mat-icon>
+          <span class="stat-label">Consolidated</span>
+          <span class="stat-value" [class.positive]="memory().consolidated">{{ memory().consolidated ? 'Yes' : 'No' }}</span>
+        </div>
+        <div class="stat-row">
+          <mat-icon class="stat-icon">notes</mat-icon>
+          <span class="stat-label">Words</span>
+          <span class="stat-value cortex-mono">{{ wordCount() }}</span>
+        </div>
+        <div class="stat-row">
+          <mat-icon class="stat-icon">tag</mat-icon>
+          <span class="stat-label">Bloom Filter</span>
+          <span class="stat-value cortex-mono bloom-hex" matTooltip="64-bit synaptic tag Bloom filter">{{ memory().synapticTags || '0x0' }}</span>
+        </div>
+      </div>
+    } @else {
+      <!-- ── Fingerprint View (live heatmap) ── -->
+      <div class="fingerprint-view" style="animation: fade-in 0.2s ease both">
+        @if (vectorLoading()) {
+          <mat-progress-bar mode="indeterminate" class="vec-loader"></mat-progress-bar>
+        } @else if (vectorData(); as vec) {
+          <canvas #fingerprintCanvas class="fingerprint-canvas"
+                  [attr.width]="fingerprintWidth()"
+                  [attr.height]="fingerprintHeight()">
+          </canvas>
+          <div class="fingerprint-meta">
+            <span class="fingerprint-sublabel">INT8 Quantized · {{ vec.dimension }}d · {{ memory().l2Norm ? (memory().l2Norm).toFixed(4) + ' L2' : '' }}</span>
+          </div>
+        } @else {
+          <div class="fingerprint-placeholder">
+            <mat-icon class="fingerprint-icon">grain</mat-icon>
+            <span class="fingerprint-label">{{ vectorError() || 'Click to load embedding' }}</span>
+            <button mat-stroked-button (click)="loadVector.emit()" class="load-vec-btn">
+              <mat-icon>download</mat-icon> Load Vector
+            </button>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- ── Actions (merged into Profile) ── -->
+    <div class="profile-actions">
+      <button mat-flat-button class="action-btn reinforce" (click)="reinforce.emit()"
+              matTooltip="Strengthen this memory's recall weight">
+        <mat-icon>thumb_up</mat-icon>
+        Reinforce
+      </button>
+      <button mat-flat-button class="action-btn suppress" (click)="suppress.emit()"
+              matTooltip="Suppress this memory from recall results">
+        <mat-icon>visibility_off</mat-icon>
+        Suppress
+      </button>
+      <button mat-flat-button class="action-btn resolve" (click)="resolve.emit()"
+              matTooltip="Mark as resolved (Zeigarnik release)">
+        <mat-icon>check_circle</mat-icon>
+        Resolve
+      </button>
+      <button mat-flat-button class="action-btn forget" (click)="forget.emit()"
+              matTooltip="Tombstone this memory (soft delete)">
+        <mat-icon>delete_forever</mat-icon>
+        Forget
+      </button>
+    </div>
+  </mat-card-content>
+</mat-card>

@@ -1,0 +1,65 @@
+<mat-card appearance="outlined" class="card card-identity" style="animation: fade-in-up 0.3s ease both">
+  <mat-card-header>
+    <mat-icon mat-card-avatar class="panel-icon">fingerprint</mat-icon>
+    <mat-card-title>Identity</mat-card-title>
+  </mat-card-header>
+  <mat-card-content>
+    <div class="identity-row">
+      <span class="label">ID</span>
+      <code class="value mono">{{ memory().id }}</code>
+    </div>
+    <div class="identity-row">
+      <span class="label">Tier</span>
+      <span class="tier-badge" [style.background]="tierColor()">{{ memory().tier }}</span>
+    </div>
+    <div class="identity-row">
+      <span class="label">Source</span>
+      <mat-chip-set>
+        <mat-chip>{{ memory().source || 'OBSERVED' }}</mat-chip>
+      </mat-chip-set>
+    </div>
+    @if (memory().metadata?.['fileName']) {
+      <div class="identity-row">
+        <span class="label">Source File</span>
+        <span class="value source-file-value">
+          <mat-icon class="source-file-icon">description</mat-icon>
+          {{ memory().metadata['fileName'] }}
+        </span>
+      </div>
+    }
+    <div class="identity-row">
+      <span class="label">Created</span>
+      <span class="value" [matTooltip]="memory().createdAt || ''">
+        {{ createdDateFormatted() }}
+        @if (ageLabel()) {
+          <span class="created-age">({{ ageLabel() }})</span>
+        }
+      </span>
+    </div>
+    <div class="identity-row">
+      <span class="label">Status</span>
+      <div class="status-flags">
+        @if (memory().tombstoned) {
+          <mat-chip class="status-chip tombstoned">
+            <mat-icon>delete</mat-icon> Tombstoned
+          </mat-chip>
+        }
+        @if (memory().suppressed) {
+          <mat-chip class="status-chip suppressed">
+            <mat-icon>visibility_off</mat-icon> Suppressed
+          </mat-chip>
+        }
+        @if (memory().resolved) {
+          <mat-chip class="status-chip resolved">
+            <mat-icon>check_circle</mat-icon> Resolved
+          </mat-chip>
+        }
+        @if (!memory().tombstoned && !memory().suppressed) {
+          <mat-chip class="status-chip active">
+            <mat-icon>check</mat-icon> Active
+          </mat-chip>
+        }
+      </div>
+    </div>
+  </mat-card-content>
+</mat-card>

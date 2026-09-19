@@ -6,27 +6,27 @@ import {
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { environment } from '../../../environments/environment';
+import { environment } from '@env/environment';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
-import { NeuralGraphComponent } from '../neural-graph/neural-graph.component';
-import { VectorSpaceComponent } from '../vector-space/vector-space.component';
-import { PipelineFunnelComponent } from '../pipeline-funnel/pipeline-funnel.component';
-import { SimdPanelComponent } from '../simd-panel/simd-panel.component';
-import { MemoryHeatmapComponent } from '../memory-heatmap/memory-heatmap.component';
-import { ProfileRadarComponent } from '../profile-radar/profile-radar.component';
-import { QueryInputComponent } from '../query-input/query-input.component';
-import { QueryHistoryComponent } from '../query-history/query-history.component';
-import { MetricsChartComponent } from '../metrics-chart/metrics-chart.component';
-import { DecayCurveComponent } from '../decay-curve/decay-curve.component';
-import { ZeigarnikTrackerComponent } from '../zeigarnik-tracker/zeigarnik-tracker.component';
-import { HabituationMeterComponent } from '../habituation-meter/habituation-meter.component';
-import { MemoryDiffComponent } from '../memory-diff/memory-diff.component';
-import { GpuTimelineComponent } from '../gpu-timeline/gpu-timeline.component';
-import { ClusterViewComponent } from '../cluster-view/cluster-view.component';
-import { CortexStateService } from '../../core/services/cortex-state.service';
-import { LoggerService } from '../../core/services/logger.service';
-import { MemoryTableService } from '../../core/services/memory-table.service';
+import { NeuralGraphComponent } from './components/neural-graph/neural-graph.component';
+import { VectorSpaceComponent } from './components/vector-space/vector-space.component';
+import { PipelineFunnelComponent } from '@shared/components/cognitive/pipeline-funnel/pipeline-funnel.component';
+import { SimdPanelComponent } from './components/simd-panel/simd-panel.component';
+import { MemoryHeatmapComponent } from './components/memory-heatmap/memory-heatmap.component';
+import { ProfileRadarComponent } from './components/profile-radar/profile-radar.component';
+import { QueryInputComponent } from '@shared/components/cognitive/query-input/query-input.component';
+import { QueryHistoryComponent } from '@shared/components/cognitive/query-history/query-history.component';
+import { MetricsChartComponent } from './components/metrics-chart/metrics-chart.component';
+import { DecayCurveComponent } from './components/decay-curve/decay-curve.component';
+import { ZeigarnikTrackerComponent } from './components/zeigarnik-tracker/zeigarnik-tracker.component';
+import { HabituationMeterComponent } from './components/habituation-meter/habituation-meter.component';
+import { MemoryDiffComponent } from './components/memory-diff/memory-diff.component';
+import { GpuTimelineComponent } from './components/gpu-timeline/gpu-timeline.component';
+import { ClusterViewComponent } from './components/cluster-view/cluster-view.component';
+import { CortexStateService } from '@core/services/cortex-state.service';
+import { LoggerService } from '@core/services/logger.service';
+import { MemoryTableService } from '@core/services/memory-table.service';
 
 @Component({
   selector: 'cortex-dashboard',

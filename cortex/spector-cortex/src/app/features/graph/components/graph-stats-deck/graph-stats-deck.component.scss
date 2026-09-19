@@ -1,0 +1,190 @@
+@use '../../graph-theme' as *;
+
+:host {
+  display: block;
+}
+
+.stats-deck {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 12;
+  width: 320px;
+  padding: 14px;
+  background: $panel-bg;
+  backdrop-filter: blur(16px);
+  border: 1px solid $panel-border;
+  border-radius: 2px;
+  animation: slide-in-right 0.3s ease;
+  box-shadow:
+    0 0 40px rgba(0, 255, 204, 0.04),
+    inset 0 0 30px rgba(0, 255, 204, 0.02);
+
+  // Holographic shimmer overlay
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: conic-gradient(
+      from 0deg,
+      transparent 0%,
+      rgba(0, 255, 204, 0.02) 25%,
+      transparent 50%,
+      rgba(0, 188, 212, 0.02) 75%,
+      transparent 100%
+    );
+    pointer-events: none;
+    animation: shimmer-rotate 12s linear infinite;
+    border-radius: 2px;
+  }
+}
+
+.deck-corner {
+  &.tl { @include corner-bracket(-1px, auto, -1px, auto, top, left); }
+  &.tr { @include corner-bracket(-1px, auto, auto, -1px, top, right); }
+  &.bl { @include corner-bracket(auto, -1px, -1px, auto, bottom, left); }
+  &.br { @include corner-bracket(auto, -1px, auto, -1px, bottom, right); }
+}
+
+@keyframes shimmer-rotate {
+  0% { background-position: 0 0; }
+  100% { background-position: 200% 200%; }
+}
+
+.deck-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid $panel-border;
+}
+
+.deck-icon {
+  font-size: 14px;
+  width: 14px;
+  height: 14px;
+  color: $cyan-primary;
+  filter: drop-shadow(0 0 4px $cyan-glow);
+}
+
+.deck-title {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: $cyan-primary;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  text-shadow: 0 0 8px $cyan-glow;
+}
+
+.stats-deck-scroll {
+  max-height: calc(100vh - 240px);
+  overflow-y: auto;
+  padding-right: 4px;
+
+  /* Custom scrollbar for premium feel */
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: $cyan-dim;
+    border-radius: 2px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: $cyan-primary;
+  }
+}
+
+.stats-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: $text-muted;
+  text-transform: uppercase;
+  margin: 16px 0 10px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid $cyan-ultra-dim;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+}
+
+.stats-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stats-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 3px;
+  position: relative;
+  
+  &:hover {
+    background: rgba(0, 255, 204, 0.02);
+    border-color: rgba(0, 255, 204, 0.1);
+  }
+}
+
+.stats-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stats-item-badge {
+  font-size: 10px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  padding: 2px 8px;
+  border-radius: 2px;
+  letter-spacing: 0.05em;
+  
+  &.entity-badge {
+    background: rgba(255, 193, 7, 0.12);
+    color: #ffc107;
+    border: 1px solid rgba(255, 193, 7, 0.2);
+  }
+  
+  &.relation-badge {
+    background: rgba(0, 188, 212, 0.12);
+    color: #00bcd4;
+    border: 1px solid rgba(0, 188, 212, 0.2);
+  }
+}
+
+.stats-item-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.stats-sub-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 4px;
+  border-radius: 2px;
+}
+
+.stats-sub-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: $text-bright;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.stats-sub-label {
+  font-size: 7px;
+  font-weight: 600;
+  color: $text-muted;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}

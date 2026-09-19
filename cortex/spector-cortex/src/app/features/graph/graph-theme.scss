@@ -1,0 +1,40 @@
+// ── Static accent colors (same across themes) ──
+$cyan-primary: #00ffcc;
+$cyan-dim: rgba(0, 255, 204, 0.15);
+$cyan-glow: rgba(0, 255, 204, 0.4);
+$cyan-ultra-dim: rgba(0, 255, 204, 0.06);
+$hebbian-color: #00ffcc;
+$temporal-color: #00bcd4;
+$entity-color: #ffc107;
+
+// ── Theme-aware aliases using Angular Material tokens ──
+$panel-bg: var(--mat-sys-surface-container);
+$panel-border: var(--mat-sys-outline-variant);
+$text-bright: var(--mat-sys-on-surface);
+$text-dim: var(--mat-sys-on-surface-variant);
+$text-muted: var(--mat-sys-outline);
+
+@mixin corner-bracket($top: auto, $bottom: auto, $left: auto, $right: auto, $border-sides...) {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  top: $top;
+  bottom: $bottom;
+  left: $left;
+  right: $right;
+  @each $side in $border-sides {
+    border-#{$side}: 1px solid $cyan-primary;
+  }
+  opacity: 0.5;
+  animation: corner-pulse 3s ease infinite;
+}
+
+@keyframes corner-pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: translateX(0); }
+}

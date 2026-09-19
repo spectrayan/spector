@@ -1,0 +1,220 @@
+<div class="tab-content" (click)="state.apiKeys().length === 0 && !state.apiKeysLoading() ? state.loadApiKeys() : null">
+  <!-- ── API Key Management Card ── -->
+  <mat-card appearance="outlined" class="persona-card">
+    <mat-card-header>
+      <mat-icon mat-card-avatar class="panel-icon" style="color: var(--mat-sys-primary)">vpn_key</mat-icon>
+      <mat-card-title>API Keys</mat-card-title>
+      <mat-card-subtitle>
+        Manage API keys for MCP integrations (Claude Desktop, Cursor, Gemini).
+        Keys use the <code>spk_</code> prefix and work like GitHub personal access tokens.
+      </mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+
+      <div class="api-keys-actions">
+        <button mat-flat-button color="primary" (click)="state.openCreateKeyDialog()">
+          <mat-icon>add</mat-icon>
+          Generate New Key
+        </button>
+        <button mat-stroked-button (click)="state.loadApiKeys()" [disabled]="state.apiKeysLoading()">
+          <mat-icon>refresh</mat-icon>
+          Refresh
+        </button>
+      </div>
+
+      @if (state.apiKeysLoading()) {
+        <mat-progress-bar mode="indeterminate" class="settings-loader"></mat-progress-bar>
+      }
+
+      <!-- Key List -->
+      @if (state.apiKeys().length > 0) {
+        <div class="api-keys-table">
+          @for (key of state.apiKeys(); track key.id) {
+            <div class="api-key-row" [class.expired]="key.expired">
+              <div class="key-info">
+                <div class="key-name">
+                  <mat-icon class="key-icon">{{ key.expired ? 'key_off' : 'key' }}</mat-icon>
+                  <span>{{ key.name }}</span>
+                  @if (key.expired) {
+                    <span class="key-badge expired-badge">Expired</span>
+                  }
+                </div>
+                <div class="key-meta">
+                  <span class="key-prefix">{{ key.keyPrefix }}</span>
+                  <span class="key-sep">·</span>
+                  <span>Created {{ state.formatDate(key.createdAt) }}</span>
+                  <span class="key-sep">·</span>
+                  <span>Expires {{ state.formatDate(key.expiresAt) }}</span>
+                  <span class="key-sep">·</span>
+                  <span>Last used {{ state.formatRelativeDate(key.lastUsedAt) }}</span>
+                </div>
+                <div class="key-scopes">
+                  @for (scope of key.scopes; track scope) {
+                    <span class="scope-chip">{{ scope }}</span>
+                  }
+                </div>
+              </div>
+              <div class="key-actions">
+                <button mat-icon-button color="warn"
+                        matTooltip="Revoke this key"
+                        [disabled]="state.revokingKeyId() === key.id"
+                        (click)="state.revokeApiKey(key.id)">
+                  @if (state.revokingKeyId() === key.id) {
+                    <mat-spinner diameter="20"></mat-spinner>
+                  } @else {
+                    <mat-icon>delete</mat-icon>
+                  }
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+      } @else if (!state.apiKeysLoading()) {
+        <div class="api-keys-empty">
+          <mat-icon class="empty-icon">vpn_key</mat-icon>
+          <p>No API keys yet</p>
+          <p class="empty-hint">Generate an API key to connect your MCP-compatible AI tools to Spector.</p>
+          <button mat-stroked-button (click)="state.loadApiKeys()">
+            <mat-icon>refresh</mat-icon>
+            Load Keys
+          </button>
+        </div>
+      }
+
+    </mat-card-content>
+  </mat-card>
+
+  <!-- ── MCP Configuration Help Card ── -->
+  <mat-card appearance="outlined" class="persona-card">
+    <mat-card-header>
+      <mat-icon mat-card-avatar class="panel-icon" style="color: var(--mat-sys-tertiary)">integration_instructions</mat-icon>
+      <mat-card-title>MCP Integration Guide</mat-card-title>
+      <mat-card-subtitle>How to connect your AI tools to Spector via MCP</mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="mcp-guide">
+        <div class="guide-step">
+          <span class="step-number">1</span>
+          <div class="step-content">
+            <strong>Generate an API key</strong> using the button above
+          </div>
+        </div>
+        <div class="guide-step">
+          <span class="step-number">2</span>
+          <div class="step-content">
+            <strong>Add to your MCP client config</strong> (Claude Desktop, Cursor, etc.):
+            <pre class="config-snippet">{{'{'}}"mcpServers": {{'{'}}"spector": {{'{'}}
+  "url": "http://localhost:7070/mcp",
+  "headers": {{'{'}}"Authorization": "Bearer spk_your_key_here"{{'}'}}
+{{'}'}}{{'}'}}{{'}'}}
+            </pre>
+          </div>
+        </div>
+        <div class="guide-step">
+          <span class="step-number">3</span>
+          <div class="step-content">
+            <strong>Start using Spector</strong> — your AI tool now has access to your cognitive memory
+          </div>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- ═══ Create API Key Dialog (Overlay) ═══ -->
+  @if (state.showCreateKeyDialog()) {
+    <div class="dialog-overlay" (click)="state.closeCreateKeyDialog()">
+      <div class="dialog-panel" (click)="$event.stopPropagation()">
+        <div class="dialog-header">
+          <mat-icon>vpn_key</mat-icon>
+          <h3>Generate New API Key</h3>
+          <button mat-icon-button (click)="state.closeCreateKeyDialog()">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+
+        <div class="dialog-body">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Key Name</mat-label>
+            <input matInput [ngModel]="state.newKeyName()" (ngModelChange)="state.newKeyName.set($event)"
+                   placeholder="e.g. Claude Desktop - Work" maxlength="255">
+            <mat-hint>A descriptive name to identify this key</mat-hint>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Expiration</mat-label>
+            <mat-select [value]="state.newKeyExpiryDays()" (selectionChange)="state.newKeyExpiryDays.set($event.value)">
+              @for (opt of expiryOptions; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <div class="scope-section">
+            <label class="scope-label">Permissions</label>
+            <div class="scope-checkboxes">
+              @for (scope of scopeOptions; track scope.value) {
+                <mat-checkbox [checked]="state.newKeyScopes().includes(scope.value)"
+                              (change)="state.toggleScope(scope.value)">
+                  <mat-icon class="scope-icon">{{ scope.icon }}</mat-icon>
+                  {{ scope.label }}
+                </mat-checkbox>
+              }
+            </div>
+          </div>
+        </div>
+
+        <div class="dialog-actions">
+          <button mat-stroked-button (click)="state.closeCreateKeyDialog()">Cancel</button>
+          <button mat-flat-button color="primary" (click)="state.createApiKey()"
+                  [disabled]="state.creatingKey() || !state.newKeyName().trim()">
+            @if (state.creatingKey()) {
+              <mat-spinner diameter="18"></mat-spinner>
+              Creating...
+            } @else {
+              <mat-icon>key</mat-icon>
+              Generate Key
+            }
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- ═══ Created Key Reveal Dialog (Overlay) ═══ -->
+  @if (state.showCreatedKeyDialog()) {
+    <div class="dialog-overlay">
+      <div class="dialog-panel created-key-panel" (click)="$event.stopPropagation()">
+        <div class="dialog-header success-header">
+          <mat-icon>check_circle</mat-icon>
+          <h3>API Key Created</h3>
+        </div>
+
+        <div class="dialog-body">
+          <div class="key-warning">
+            <mat-icon>warning</mat-icon>
+            <span>Copy your key now — you won't be able to see it again!</span>
+          </div>
+
+          <div class="created-key-display">
+            <code class="key-value">{{ state.createdKey()?.key }}</code>
+            <button mat-icon-button (click)="state.copyKeyToClipboard()" matTooltip="Copy to clipboard">
+              <mat-icon>{{ state.keyCopied() ? 'check' : 'content_copy' }}</mat-icon>
+            </button>
+          </div>
+
+          <div class="created-key-meta">
+            <div><strong>Name:</strong> {{ state.createdKey()?.name }}</div>
+            <div><strong>Expires:</strong> {{ state.formatDate(state.createdKey()?.expiresAt ?? null) }}</div>
+          </div>
+        </div>
+
+        <div class="dialog-actions">
+          <button mat-flat-button color="primary" (click)="state.closeCreatedKeyDialog()">
+            <mat-icon>done</mat-icon>
+            I've copied my key
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

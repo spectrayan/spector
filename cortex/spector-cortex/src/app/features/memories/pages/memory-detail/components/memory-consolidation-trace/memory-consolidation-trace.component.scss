@@ -1,0 +1,129 @@
+:host {
+  display: block;
+  grid-column: 1 / -1;
+}
+
+.card {
+  background: var(--mat-sys-surface-container-low);
+  border-radius: 16px;
+  height: 100%;
+
+  .panel-icon {
+    color: var(--mat-sys-primary);
+  }
+}
+
+.card-consolidation-diff {
+  .diff-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 8px;
+
+    @media (max-width: 768px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .diff-pane {
+    background: var(--mat-sys-surface-container);
+    border-radius: 8px;
+    border: 1px solid var(--mat-sys-outline-variant);
+    overflow: hidden;
+
+    .pane-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: var(--mat-sys-surface-container-high);
+      border-bottom: 1px solid var(--mat-sys-outline-variant);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+
+      mat-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+      }
+    }
+
+    &.pre-episodic {
+      border-left: 3px solid var(--cortex-episodic);
+      .pane-header {
+        color: var(--cortex-episodic);
+      }
+    }
+
+    &.post-semantic {
+      border-left: 3px solid var(--cortex-semantic);
+      .pane-header {
+        color: var(--cortex-semantic);
+      }
+    }
+  }
+
+  .pane-body {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .diff-text-old {
+    color: var(--mat-sys-on-surface-variant);
+    opacity: 0.85;
+    white-space: pre-wrap;
+  }
+
+  .diff-text-new {
+    color: var(--mat-sys-on-surface);
+    white-space: pre-wrap;
+    font-weight: 500;
+  }
+
+  .pane-meta {
+    font-size: 10px;
+    color: var(--mat-sys-on-surface-variant);
+    opacity: 0.6;
+    border-top: 1px solid var(--mat-sys-outline-variant);
+    padding-top: 4px;
+    margin-top: auto;
+  }
+
+  .diff-stats {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+
+    .stat-badge {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--mat-sys-on-surface-variant);
+      background: var(--mat-sys-surface-container-high);
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--mat-sys-outline-variant);
+
+      mat-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+        color: var(--mat-sys-primary);
+      }
+    }
+  }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}

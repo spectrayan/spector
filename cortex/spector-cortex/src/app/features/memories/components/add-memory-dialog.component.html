@@ -1,0 +1,269 @@
+<h2 mat-dialog-title class="dialog-title">
+  <mat-icon class="title-icon">add_circle</mat-icon>
+  Add Memory
+</h2>
+
+<mat-dialog-content class="dialog-content">
+  @if (submitting) {
+    <mat-progress-bar mode="indeterminate" class="submit-progress"></mat-progress-bar>
+  }
+
+  <!-- Mode Toggle -->
+  <mat-button-toggle-group [(ngModel)]="mode" class="mode-toggle" appearance="standard">
+    <mat-button-toggle value="text">
+      <mat-icon>edit_note</mat-icon>
+      Text
+    </mat-button-toggle>
+    <mat-button-toggle value="ingest">
+      <mat-icon>source</mat-icon>
+      Ingest
+    </mat-button-toggle>
+  </mat-button-toggle-group>
+
+  <!-- ═══ TEXT MODE ═══ -->
+  @if (mode === 'text') {
+    <!-- ID -->
+    <mat-form-field appearance="outline" class="field-full">
+      <mat-label>Memory ID</mat-label>
+      <input matInput [(ngModel)]="memoryId" placeholder="Auto-generated if empty" />
+      <button mat-icon-button matSuffix (click)="generateId()" matTooltip="Generate ID">
+        <mat-icon>auto_fix_high</mat-icon>
+      </button>
+    </mat-form-field>
+
+    <!-- Text -->
+    <mat-form-field appearance="outline" class="field-full">
+      <mat-label>Memory Text</mat-label>
+      <textarea
+        matInput
+        [(ngModel)]="text"
+        rows="4"
+        placeholder="The content of this memory..."
+        required
+      ></textarea>
+      <mat-hint>{{ text.length }} characters</mat-hint>
+    </mat-form-field>
+
+    <!-- Tags -->
+    <mat-form-field appearance="outline" class="field-full">
+      <mat-label>Tags</mat-label>
+      <input matInput [(ngModel)]="tags" placeholder="tag1, tag2, tag3" />
+      <mat-hint>Comma-separated synaptic tags (auto-generated if empty)</mat-hint>
+    </mat-form-field>
+  }
+
+  <!-- ═══ INGEST MODE (File + Directory) ═══ -->
+  @if (mode === 'ingest') {
+    <!-- Ingest Method Toggle -->
+    <mat-button-toggle-group
+      [(ngModel)]="ingestMethod"
+      class="ingest-method-toggle"
+      appearance="standard"
+    >
+      <mat-button-toggle value="file">
+        <mat-icon>upload_file</mat-icon>
+        File Upload
+      </mat-button-toggle>
+      <mat-button-toggle value="folder">
+        <mat-icon>folder_open</mat-icon>
+        Folder
+      </mat-button-toggle>
+    </mat-button-toggle-group>
+
+    <!-- ── File Upload Sub-section ── -->
+    @if (ingestMethod === 'file') {
+      <div
+        class="file-upload-zone"
+        [class.drag-over]="isDragOver"
+        (dragover)="onDragOver($event)"
+        (dragleave)="onDragLeave($event)"
+        (drop)="onDrop($event)"
+        (click)="fileInput.click()"
+      >
+        <input
+          #fileInput
+          type="file"
+          hidden
+          (change)="onFileSelected($event)"
+          multiple
+          accept=".txt,.md,.java,.py,.js,.ts,.json,.xml,.yaml,.yml,.csv,.html,.css,.rs,.go,.c,.cpp,.h,.hpp,.kt,.scala,.rb,.sh,.bat,.ps1,.sql,.toml,.ini,.cfg,.log,.properties"
+        />
+        @if (selectedFiles.length > 0) {
+          <mat-icon class="upload-icon uploaded">description</mat-icon>
+          <div class="selected-files-list">
+            @for (file of selectedFiles; track file.name) {
+              <div class="selected-file-row">
+                <mat-icon class="file-row-icon">insert_drive_file</mat-icon>
+                <span class="file-name">{{ file.name }}</span>
+                <span class="file-size">{{ formatFileSize(file.size) }}</span>
+                <button
+                  mat-icon-button
+                  class="remove-file-btn"
+                  (click)="removeFile($event, file)"
+                  matTooltip="Remove"
+                >
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+            }
+          </div>
+          <button
+            mat-stroked-button
+            class="add-more-btn"
+            (click)="fileInput.click(); $event.stopPropagation()"
+          >
+            <mat-icon>add</mat-icon> Add more files
+          </button>
+        } @else {
+          <mat-icon class="upload-icon">cloud_upload</mat-icon>
+          <span class="upload-label">Drop files here or click to browse</span>
+          <span class="upload-hint"
+            >Supports text files: .txt, .md, .java, .py, .js, .ts, .json, etc.</span
+          >
+          <span class="upload-hint">Select multiple files at once</span>
+        }
+      </div>
+    }
+
+    <!-- ── Folder Upload Sub-section ── -->
+    @if (ingestMethod === 'folder') {
+      <div
+        class="file-upload-zone"
+        [class.drag-over]="isDragOver"
+        (click)="folderInput.click()"
+      >
+        <input
+          #folderInput
+          type="file"
+          hidden
+          (change)="onFolderSelected($event)"
+          webkitdirectory
+          directory
+        />
+        @if (selectedFiles.length > 0) {
+          <mat-icon class="upload-icon uploaded">folder</mat-icon>
+          <span class="upload-label">{{ folderName }} — {{ selectedFiles.length }} file(s)</span>
+          <span class="upload-hint">{{ formatTotalSize() }}</span>
+          <button
+            mat-stroked-button
+            class="add-more-btn"
+            (click)="folderInput.click(); $event.stopPropagation()"
+          >
+            <mat-icon>sync</mat-icon> Change folder
+          </button>
+        } @else {
+          <mat-icon class="upload-icon">drive_folder_upload</mat-icon>
+          <span class="upload-label">Click to select a folder</span>
+          <span class="upload-hint">All text files in the folder and subfolders will be ingested</span>
+        }
+      </div>
+    }
+  }
+
+  <!-- ═══ SHARED: Tier + Source ═══ -->
+  <div class="form-row">
+    <mat-form-field appearance="outline" class="field-half">
+      <mat-label>Tier</mat-label>
+      <mat-select [(ngModel)]="tier">
+        @for (t of tiers; track t) {
+          <mat-option [value]="t.value">
+            <span class="tier-dot" [style.background]="t.color"></span>
+            {{ t.value }}
+          </mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="field-half">
+      <mat-label>Source</mat-label>
+      <mat-select [(ngModel)]="source">
+        @for (s of sources; track s) {
+          <mat-option [value]="s">{{ s }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  <!-- ═══ COGNITIVE HINTS (text mode only) ═══ -->
+  @if (mode === 'text') {
+    <div class="slider-section">
+      <h3 class="section-label">
+        <mat-icon class="section-icon">tune</mat-icon>
+        Cognitive Hints (optional)
+      </h3>
+
+      <div class="slider-row">
+        <span class="slider-label">Interest</span>
+        <mat-slider min="0" max="100" step="1" class="slider">
+          <input matSliderThumb [(ngModel)]="interest" />
+        </mat-slider>
+        <span class="slider-value cortex-mono">{{ (interest / 100).toFixed(2) }}</span>
+      </div>
+
+      <div class="slider-row">
+        <span class="slider-label">Challenge</span>
+        <mat-slider min="0" max="100" step="1" class="slider">
+          <input matSliderThumb [(ngModel)]="challenge" />
+        </mat-slider>
+        <span class="slider-value cortex-mono">{{ (challenge / 100).toFixed(2) }}</span>
+      </div>
+
+      <div class="slider-row">
+        <span class="slider-label">Urgency</span>
+        <mat-slider min="0" max="100" step="1" class="slider">
+          <input matSliderThumb [(ngModel)]="urgency" />
+        </mat-slider>
+        <span class="slider-value cortex-mono">{{ (urgency / 100).toFixed(2) }}</span>
+      </div>
+
+      <div class="slider-row">
+        <span class="slider-label">Valence</span>
+        <mat-slider min="-128" max="127" step="1" class="slider">
+          <input matSliderThumb [(ngModel)]="valence" />
+        </mat-slider>
+        <span
+          class="slider-value cortex-mono"
+          [class.positive]="valence > 0"
+          [class.negative]="valence < 0"
+        >
+          {{ valence > 0 ? '+' : '' }}{{ valence }}
+        </span>
+      </div>
+
+      <div class="slider-row">
+        <span class="slider-label">Arousal</span>
+        <mat-slider min="0" max="255" step="1" class="slider">
+          <input matSliderThumb [(ngModel)]="arousal" />
+        </mat-slider>
+        <span class="slider-value cortex-mono">{{ arousal }}</span>
+      </div>
+    </div>
+  }
+
+  <!-- ═══ RESULT FEEDBACK ═══ -->
+  @if (ingestResult) {
+    <div
+      class="ingest-result"
+      [class.success]="ingestResult.success"
+      [class.error]="!ingestResult.success"
+    >
+      <mat-icon>{{ ingestResult.success ? 'check_circle' : 'error' }}</mat-icon>
+      <span>{{ ingestResult.message }}</span>
+    </div>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end" class="dialog-actions">
+  <button mat-button mat-dialog-close>Cancel</button>
+  <button
+    mat-flat-button
+    color="primary"
+    [disabled]="!canSubmit() || submitting"
+    (click)="onSubmit()"
+  >
+    <mat-icon>{{
+      mode === 'text' ? 'memory' : ingestMethod === 'file' ? 'upload' : 'drive_folder_upload'
+    }}</mat-icon>
+    {{ mode === 'text' ? 'Remember' : 'Ingest' }}
+  </button>
+</mat-dialog-actions>

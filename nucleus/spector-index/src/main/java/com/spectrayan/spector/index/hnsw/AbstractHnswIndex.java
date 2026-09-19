@@ -661,6 +661,13 @@ public abstract class AbstractHnswIndex implements VectorIndex {
     /** Returns the HNSW parameters. */
     public HnswProperties params() { return params; }
 
+    /** Sets the query-time efSearch parameter dynamically (ADR-0085). */
+    public void setEfSearch(int efSearch) {
+        if (efSearch > 0) {
+            params.setEfSearch(efSearch);
+        }
+    }
+
     /** Returns the dimensionality. */
     public int dimensions() { return dimensions; }
 

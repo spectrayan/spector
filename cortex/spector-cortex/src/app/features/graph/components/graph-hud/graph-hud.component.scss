@@ -1,0 +1,121 @@
+@use '../../graph-theme' as *;
+
+:host {
+  display: block;
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.hud-panel {
+  pointer-events: auto;
+  position: relative;
+  padding: 14px 18px;
+  background: $panel-bg;
+  backdrop-filter: blur(16px);
+  border: 1px solid $panel-border;
+  border-radius: 2px; // Sharp sci-fi corners
+  min-width: 190px;
+  box-shadow:
+    0 0 30px rgba(0, 255, 204, 0.05),
+    inset 0 0 20px rgba(0, 255, 204, 0.02);
+}
+
+.hud-corner {
+  &.tl { @include corner-bracket(-1px, auto, -1px, auto, top, left); }
+  &.tr { @include corner-bracket(-1px, auto, auto, -1px, top, right); }
+  &.bl { @include corner-bracket(auto, -1px, -1px, auto, bottom, left); }
+  &.br { @include corner-bracket(auto, -1px, auto, -1px, bottom, right); }
+}
+
+.hud-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: $cyan-primary;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid $panel-border;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  text-shadow: 0 0 8px $cyan-glow;
+}
+
+.hud-icon {
+  font-size: 14px;
+  width: 14px;
+  height: 14px;
+  filter: drop-shadow(0 0 4px $cyan-glow);
+}
+
+.hud-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid $cyan-ultra-dim;
+}
+
+.hud-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.hud-stat-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: $text-bright;
+  line-height: 1.2;
+  text-shadow: 0 0 6px rgba(0, 255, 204, 0.2);
+}
+
+.hud-stat-label {
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  color: $text-muted;
+  text-transform: uppercase;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+}
+
+.hud-edge-counts {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hud-edge-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hud-edge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+
+  &.hebbian { background: $hebbian-color; box-shadow: 0 0 6px $cyan-glow; }
+  &.temporal { background: $temporal-color; box-shadow: 0 0 6px rgba(0, 188, 212, 0.3); }
+  &.entity { background: $entity-color; box-shadow: 0 0 6px rgba(255, 193, 7, 0.3); }
+}
+
+.hud-edge-label {
+  flex: 1;
+  font-size: 10px;
+  color: $text-muted;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+}
+
+.hud-edge-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: $text-dim;
+}

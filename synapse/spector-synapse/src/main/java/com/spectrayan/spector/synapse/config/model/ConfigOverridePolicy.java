@@ -39,12 +39,19 @@ public record ConfigOverridePolicy(
                 : EnumSet.noneOf(ConfigCategory.class);
     }
 
-    /** Default: tenants override all, users override LLM/ingestion/RAG. */
+    /** Default: tenants override all, users override LLM/embedding/ingestion/recall/salience/soul/memory. */
     public static final ConfigOverridePolicy DEFAULT = new ConfigOverridePolicy(
             EnumSet.allOf(ConfigCategory.class),
-            EnumSet.of(ConfigCategory.LLM_PROVIDER,
-                    ConfigCategory.INGESTION, ConfigCategory.RAG,
-                    ConfigCategory.SALIENCE, ConfigCategory.SOUL)
+            EnumSet.of(
+                    ConfigCategory.LLM_PROVIDER,
+                    ConfigCategory.EMBEDDING_PROVIDER,
+                    ConfigCategory.INGESTION,
+                    ConfigCategory.RECALL,
+                    ConfigCategory.RAG,
+                    ConfigCategory.SALIENCE,
+                    ConfigCategory.SOUL,
+                    ConfigCategory.MEMORY
+            )
     );
 
     /** Locked — nobody overrides anything. */

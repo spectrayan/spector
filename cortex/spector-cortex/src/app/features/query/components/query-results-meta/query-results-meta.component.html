@@ -1,0 +1,39 @@
+<div class="results-meta-header">
+  <div class="results-meta">
+    <span class="meta-badge">
+      <mat-icon>query_stats</mat-icon>
+      @if (filterText()) {
+        {{ filteredCount() }} of {{ totalCount() }} results
+      } @else {
+        {{ totalCount() }} results
+      }
+    </span>
+    <span class="meta-badge">
+      <mat-icon>timer</mat-icon>
+      {{ queryTimeMs() }}ms
+    </span>
+    <span class="meta-badge">
+      <mat-icon>database</mat-icon>
+      {{ totalMemories() }} memories
+    </span>
+    <span class="meta-badge profile">
+      <mat-icon>settings_suggest</mat-icon>
+      {{ profile() }}
+    </span>
+    @if (lastQueryText()) {
+      <span class="meta-query">"{{ lastQueryText() }}"</span>
+    }
+  </div>
+
+  <!-- Free-text result filter -->
+  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="results-filter-field">
+    <mat-icon matPrefix>filter_list</mat-icon>
+    <mat-label>Filter results...</mat-label>
+    <input matInput [ngModel]="filterText()" (ngModelChange)="filterText.set($event)" placeholder="Search text, ID, tags, tier...">
+    @if (filterText()) {
+      <button matSuffix mat-icon-button aria-label="Clear" (click)="filterText.set('')" class="clear-input-btn">
+        <mat-icon>close</mat-icon>
+      </button>
+    }
+  </mat-form-field>
+</div>

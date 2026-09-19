@@ -1,0 +1,315 @@
+<div class="table-page">
+
+  <!-- ── Toolbar ── -->
+  <cortex-memory-table-toolbar
+    [totalCount]="table.totalCount()"
+    [(searchText)]="searchText"
+    [(showAdvancedFilters)]="showAdvancedFilters"
+    [tierFilter]="table.tierFilter()"
+    (tierFilterChange)="table.setTierFilter($event)"
+    [showTombstoned]="table.showTombstoned()"
+    [tiers]="tiers"
+    [tierColors]="tierColors"
+    (toggleTombstoned)="table.toggleTombstoned()"
+    (reflect)="onReflect()"
+    (addMemory)="openAddDialog()"
+  />
+
+  <!-- ── Advanced Filters Drawer ── -->
+  @if (showAdvancedFilters()) {
+    <cortex-memory-advanced-filters
+      [(searchText)]="searchText"
+      [(selectedTagFilter)]="selectedTagFilter"
+      [availableTags]="availableTags()"
+      [(minImportance)]="minImportance"
+      [(minValence)]="minValence"
+      [(maxValence)]="maxValence"
+      [(filterDateFrom)]="filterDateFrom"
+      [(filterDateTo)]="filterDateTo"
+      (resetFilters)="resetAdvancedFilters()"
+    />
+  }
+
+  <!-- ── Loading Bar ── -->
+  @if (table.loading()) {
+    <mat-progress-bar mode="indeterminate" class="table-loader"></mat-progress-bar>
+  }
+
+  <!-- ── Tier Summary Cards ── -->
+  <cortex-memory-tier-summary
+    [tiers]="tiers"
+    [tierColors]="tierColors"
+    [tierCounts]="table.tierCounts()"
+    [tombstoneRatios]="table.tombstoneRatios()"
+    (vacuum)="table.vacuum($event)"
+  />
+
+  <!-- ── Error State ── -->
+  @if (table.error(); as error) {
+    <div class="error-banner">
+      <mat-icon>error_outline</mat-icon>
+      {{ error }}
+    </div>
+  }
+
+  <!-- ── Data Table (desktop/tablet) ── -->
+  <div class="table-wrapper desktop-only">
+    <table class="memory-table">
+      <thead>
+        <tr>
+          <th class="col-checkbox">
+            <mat-checkbox [checked]="isAllSelected()" (change)="toggleAllRows()"></mat-checkbox>
+          </th>
+          <th class="col-id">ID</th>
+          <th class="col-text">Text</th>
+          <th class="col-tier">Tier</th>
+          @for (col of sortableColumns; track col.key) {
+            <th class="col-sortable"
+                (click)="table.setSort(col.key)"
+                [class.sorted]="table.sortField() === col.key">
+              {{ col.label }}
+              @if (table.sortField() === col.key) {
+                <mat-icon class="sort-icon">
+                  {{ table.sortDirection() === 'asc' ? 'arrow_upward' : 'arrow_downward' }}
+                </mat-icon>
+              }
+            </th>
+          }
+          <th class="col-flags">Flags</th>
+          <th class="col-tags">Tags</th>
+          <th class="col-actions">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of filteredRows(); track trackRow($index, row)) {
+          <tr class="table-row"
+              [class.tombstoned]="row.tombstoned"
+              [class.selected]="isRowSelected(row)"
+              [style.animation-delay]="($index * 20) + 'ms'"
+              (click)="onRowClick(row)">
+            <!-- Checkbox Selection -->
+            <td class="col-checkbox" (click)="$event.stopPropagation()">
+              <mat-checkbox [checked]="isRowSelected(row)" (change)="toggleRowSelection(row, $event)"></mat-checkbox>
+            </td>
+
+            <!-- ID -->
+            <td class="col-id">
+              <span class="id-text cortex-mono"
+                    (click)="copyId(row.id, $event)"
+                    matTooltip="Click to copy">
+                {{ row.id.length > 12 ? row.id.substring(0, 12) + '…' : row.id }}
+              </span>
+            </td>
+
+            <!-- Text -->
+            <td class="col-text">
+              @if (row.metadata?.['fileName']) {
+                <span class="source-file-badge" matTooltip="Ingested from file">
+                  <mat-icon class="source-file-icon">description</mat-icon>
+                  {{ row.metadata['fileName'] }}
+                </span>
+              }
+              <span class="text-preview" [matTooltip]="row.textPreview">
+                {{ row.textPreview }}
+              </span>
+            </td>
+
+            <!-- Tier -->
+            <td class="col-tier">
+              <span class="tier-badge-sm" [style.background]="tierColors[row.tier]">
+                {{ row.tier }}
+              </span>
+            </td>
+
+            <!-- Time -->
+            <td class="col-time cortex-mono">
+              {{ relativeTime(row.timestampMs) }}
+            </td>
+
+            <!-- Importance -->
+            <td class="col-importance">
+              <div class="importance-bar-track">
+                <div class="importance-bar"
+                     [style.width.%]="row.importance * 10"
+                     [style.background]="'linear-gradient(90deg, var(--mat-sys-primary), var(--cortex-semantic))'">
+                </div>
+              </div>
+              <span class="importance-value cortex-mono">{{ (row.importance ?? 0).toFixed(2) }}</span>
+            </td>
+
+            <!-- Valence -->
+            <td class="col-valence">
+              <span class="valence-value cortex-mono"
+                    [class.positive]="row.valence > 0"
+                    [class.negative]="row.valence < 0">
+                {{ row.valence > 0 ? '+' : '' }}{{ row.valence }}
+              </span>
+            </td>
+
+            <!-- Recall Count -->
+            <td class="col-recall cortex-mono">
+              <span class="recall-badge">{{ row.agentRecallCount }}</span>
+            </td>
+
+            <!-- Flags -->
+            <td class="col-flags">
+              @if (row.tombstoned) { <span matTooltip="Tombstoned">💀</span> }
+              @if (row.pinned) { <span matTooltip="Pinned">📌</span> }
+              @if (row.resolved) { <span matTooltip="Resolved">✅</span> }
+              @if (row.consolidated) { <span matTooltip="Consolidated">🧠</span> }
+            </td>
+
+            <!-- Tags -->
+            <td class="col-tags">
+              @for (tag of row.tags.slice(0, 5); track tag) {
+                <span class="tag-chip">{{ tag }}</span>
+              }
+              @if (row.tags.length > 5) {
+                <span class="tag-chip more-tag" [matTooltip]="row.tags.slice(5).join(', ')">+{{ row.tags.length - 5 }} more</span>
+              }
+            </td>
+
+            <!-- Actions -->
+            <td class="col-actions">
+              <div class="action-buttons">
+                <button mat-icon-button
+                        class="action-btn reinforce-btn"
+                        (click)="onReinforce(row, $event)"
+                        matTooltip="Reinforce">
+                  <mat-icon>thumb_up</mat-icon>
+                </button>
+                <button mat-icon-button
+                        class="action-btn suppress-btn"
+                        (click)="onSuppress(row, $event)"
+                        matTooltip="Suppress">
+                  <mat-icon>block</mat-icon>
+                </button>
+                <button mat-icon-button
+                        class="action-btn resolve-btn"
+                        (click)="onResolve(row, $event)"
+                        [matTooltip]="row.resolved ? 'Unresolve' : 'Resolve'">
+                  <mat-icon>{{ row.resolved ? 'undo' : 'check_circle' }}</mat-icon>
+                </button>
+                <button mat-icon-button
+                        class="action-btn forget-btn"
+                        (click)="onForget(row, $event)"
+                        matTooltip="Forget"
+                        [disabled]="row.tombstoned">
+                  <mat-icon>delete_outline</mat-icon>
+                </button>
+              </div>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="11" class="empty-state">
+              <mat-icon>inbox</mat-icon>
+              <span>No memory records found</span>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── Card List (mobile only) ── -->
+  <div class="card-list mobile-only">
+    @for (row of filteredRows(); track trackRow($index, row)) {
+      <div class="memory-card" [class.tombstoned]="row.tombstoned" [class.selected]="isRowSelected(row)"
+           (click)="onRowClick(row)">
+        <div class="card-header">
+          <span class="tier-badge-sm" [style.background]="tierColors[row.tier]">{{ row.tier }}</span>
+          <span class="id-text cortex-mono" (click)="copyId(row.id, $event)">
+            {{ row.id.length > 12 ? row.id.substring(0, 12) + '…' : row.id }}
+          </span>
+          <span class="card-time cortex-mono">{{ relativeTime(row.timestampMs) }}</span>
+        </div>
+
+        @if (row.metadata?.['fileName']) {
+          <span class="source-file-badge" matTooltip="Ingested from file">
+            <mat-icon class="source-file-icon">description</mat-icon>
+            {{ row.metadata['fileName'] }}
+          </span>
+        }
+        <p class="card-text">{{ row.textPreview }}</p>
+
+        <div class="card-importance">
+          <div class="importance-bar-track">
+            <div class="importance-bar"
+                 [style.width.%]="row.importance * 10"
+                 [style.background]="'linear-gradient(90deg, var(--mat-sys-primary), var(--cortex-semantic))'"></div>
+          </div>
+          <span class="importance-value cortex-mono">{{ (row.importance ?? 0).toFixed(2) }}</span>
+        </div>
+
+        <div class="card-meta">
+          <span class="valence-value cortex-mono"
+                [class.positive]="row.valence > 0"
+                [class.negative]="row.valence < 0">
+            ❤️ {{ row.valence > 0 ? '+' : '' }}{{ row.valence }}
+          </span>
+          <span class="recall-badge">♻️ {{ row.agentRecallCount }}</span>
+          @if (row.tombstoned) { <span>💀</span> }
+          @if (row.pinned) { <span>📌</span> }
+          @if (row.resolved) { <span>✅</span> }
+          @if (row.consolidated) { <span>🧠</span> }
+        </div>
+
+        @if (row.tags.length > 0) {
+          <div class="card-tags">
+            @for (tag of row.tags.slice(0, 5); track tag) {
+              <span class="tag-chip">{{ tag }}</span>
+            }
+            @if (row.tags.length > 5) {
+              <span class="tag-chip more-tag" [matTooltip]="row.tags.slice(5).join(', ')">+{{ row.tags.length - 5 }} more</span>
+            }
+          </div>
+        }
+
+        <div class="card-actions">
+          <button mat-icon-button class="action-btn reinforce-btn"
+                  (click)="onReinforce(row, $event)"><mat-icon>thumb_up</mat-icon></button>
+          <button mat-icon-button class="action-btn suppress-btn"
+                  (click)="onSuppress(row, $event)"><mat-icon>block</mat-icon></button>
+          <button mat-icon-button class="action-btn resolve-btn"
+                  (click)="onResolve(row, $event)"><mat-icon>{{ row.resolved ? 'undo' : 'check_circle' }}</mat-icon></button>
+          <button mat-icon-button class="action-btn forget-btn"
+                  (click)="onForget(row, $event)" [disabled]="row.tombstoned"><mat-icon>delete_outline</mat-icon></button>
+        </div>
+      </div>
+    } @empty {
+      <div class="empty-state">
+        <mat-icon>inbox</mat-icon>
+        <span>No memory records found</span>
+      </div>
+    }
+  </div>
+
+  <!-- ── Mat Paginator ── -->
+  <div class="paginator-wrapper">
+    @if (filteredRows().length < table.rows().length) {
+      <div class="filtered-count-indicator">
+        <mat-icon class="filter-indicator-icon">filter_alt</mat-icon>
+        <span class="cortex-mono">{{ filteredRows().length }}</span>
+        <span class="filter-label">of {{ table.rows().length }} shown on this page</span>
+      </div>
+    }
+    <mat-paginator
+      [length]="table.totalCount()"
+      [pageIndex]="table.page()"
+      [pageSize]="table.pageSize()"
+      [pageSizeOptions]="[25, 50, 100]"
+      (page)="onPageChange($event)"
+      showFirstLastButtons>
+    </mat-paginator>
+  </div>
+
+  <!-- ── Floating Batch Actions Bar ── -->
+  <cortex-memory-bulk-actions
+    [selectedCount]="selectedRowIds().size"
+    (bulkReinforce)="bulkReinforce()"
+    (bulkSuppress)="bulkSuppress()"
+    (bulkForget)="bulkForget()"
+    (clearSelection)="clearSelection()"
+  />
+</div>

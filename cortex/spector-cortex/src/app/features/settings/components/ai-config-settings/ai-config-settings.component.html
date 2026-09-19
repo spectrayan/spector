@@ -1,0 +1,255 @@
+<div class="tab-content">
+  <!-- ── Top Info & Live Status Banner ── -->
+  <mat-card appearance="outlined" class="info-card">
+    <mat-card-content>
+      <div class="info-header-row">
+        <div class="info-details">
+          <mat-icon class="info-icon">tune</mat-icon>
+          <div>
+            <strong>Spector Runtime Configuration Hub:</strong>
+            Configure cognitive memory mechanics, vector indexes, scoring profiles, and model providers.
+            Overrides are persisted to the database and dynamically dispatched to active <code>SpectorMemory</code> instances.
+          </div>
+        </div>
+
+        <div class="status-badge-group">
+          <div class="live-status-pill" [class.persisted]="state.aiLastSaveStatus().mode === 'persisted'"
+               [class.error]="state.aiLastSaveStatus().mode === 'error'">
+            <mat-icon class="pill-icon">
+              {{ state.aiConfigSaving() ? 'sync' : (state.aiLastSaveStatus().mode === 'error' ? 'error' : 'check_circle') }}
+            </mat-icon>
+            <span class="pill-text">{{ state.aiLastSaveStatus().text || 'All systems synchronized' }}</span>
+          </div>
+
+          <mat-slide-toggle [ngModel]="state.aiAutoSaveEnabled()"
+                            (ngModelChange)="state.aiAutoSaveEnabled.set($event)"
+                            matTooltip="Automatically persist changes to DB and hot-swap into SpectorMemory">
+            Auto-save
+          </mat-slide-toggle>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  @if (state.aiConfigLoading()) {
+    <div class="loader-container">
+      <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+      <div class="loading-label">Loading dynamic configuration schemas from Synapse...</div>
+    </div>
+  } @else {
+
+    <!-- ── Category Selector Pills ── -->
+    <div class="categories-nav-bar">
+      <mat-chip-set class="category-chips">
+        @for (cat of state.aiConfigCategories(); track cat.key) {
+          <mat-chip [highlighted]="cat.key === state.activeAiCategory()"
+                    (click)="selectCategory(cat.key)"
+                    class="nav-chip">
+            <mat-icon matChipAvatar>{{ cat.icon }}</mat-icon>
+            {{ cat.label }}
+          </mat-chip>
+        }
+      </mat-chip-set>
+    </div>
+
+    <!-- ── Search & Actions Toolbar ── -->
+    <div class="config-toolbar">
+      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="search-field">
+        <mat-icon matPrefix>search</mat-icon>
+        <mat-label>Filter parameters in {{ currentCategoryMeta()?.label || 'current category' }}...</mat-label>
+        <input matInput [ngModel]="state.aiConfigFilter()"
+               (ngModelChange)="state.aiConfigFilter.set($event)"
+               placeholder="e.g. decay, ef-search, chunk, temperature">
+        @if (state.aiConfigFilter()) {
+          <button mat-icon-button matSuffix (click)="state.aiConfigFilter.set('')">
+            <mat-icon>close</mat-icon>
+          </button>
+        }
+      </mat-form-field>
+
+      <div class="toolbar-actions">
+        <button mat-stroked-button color="warn" (click)="state.resetAiCategory(state.activeAiCategory())"
+                matTooltip="Revert this category back to system defaults">
+          <mat-icon>restore</mat-icon>
+          Reset {{ currentCategoryMeta()?.label }}
+        </button>
+
+        @if (!state.aiAutoSaveEnabled()) {
+          <button mat-flat-button color="primary" (click)="state.saveCategoryConfig(state.activeAiCategory())"
+                  [disabled]="state.aiConfigSaving() || !state.aiConfigDirty()">
+            <mat-icon>save</mat-icon>
+            Save Changes
+          </button>
+        }
+      </div>
+    </div>
+
+    <!-- ── Active Category Properties Panel ── -->
+    @if (currentCategoryMeta(); as activeCat) {
+      <mat-card appearance="outlined" class="category-panel-card">
+        <mat-card-header>
+          <mat-icon mat-card-avatar class="panel-avatar-icon">{{ activeCat.icon }}</mat-icon>
+          <mat-card-title>{{ activeCat.label }}</mat-card-title>
+          <mat-card-subtitle>{{ activeCat.description }}</mat-card-subtitle>
+        </mat-card-header>
+
+        <mat-card-content>
+          @if (currentFields().length === 0) {
+            <div class="empty-filter-state">
+              <mat-icon class="empty-icon">filter_alt_off</mat-icon>
+              <div>No properties match "<strong>{{ state.aiConfigFilter() }}</strong>" in {{ activeCat.label }}.</div>
+            </div>
+          } @else {
+            <div class="properties-grid">
+              @for (field of currentFields(); track field.key) {
+                <div class="property-card" [class.user-overridden]="field.source === 'user'">
+                  <div class="property-header">
+                    <div class="property-key-group">
+                      <span class="property-key">{{ field.key }}</span>
+                      @if (field.applyMode) {
+                        <span class="apply-mode-badge"
+                              [style.background-color]="state.applyModeColors[field.applyMode]"
+                              [matTooltip]="state.applyModeTooltips[field.applyMode]">
+                          {{ state.applyModeLabels[field.applyMode] }}
+                        </span>
+                      }
+                    </div>
+
+                    <div class="property-meta-actions">
+                      <span class="source-badge" [style.background-color]="state.aiSourceColors[field.source]">
+                        {{ state.aiSourceLabels[field.source] }}
+                      </span>
+                      @if (field.source === 'user') {
+                        <button mat-icon-button class="revert-btn"
+                                (click)="state.revertAiField(activeCat.key, field)"
+                                matTooltip="Revert to system default ({{ field.defaultValue }})">
+                          <mat-icon>undo</mat-icon>
+                        </button>
+                      }
+                    </div>
+                  </div>
+
+                  @if (field.description) {
+                    <div class="property-desc">{{ field.description }}</div>
+                  }
+
+                  <!-- Field Control Rendering -->
+                  <div class="control-row">
+                    <!-- Dropdown Options -->
+                    @if (field.options && field.options.length > 0) {
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="full-width">
+                        <mat-label>{{ field.key }}</mat-label>
+                        <mat-select [ngModel]="field.editValue"
+                                    (ngModelChange)="onSelectChange(activeCat.key, field.key, $event)">
+                          @for (opt of field.options; track opt) {
+                            <mat-option [value]="opt">{{ opt }}</mat-option>
+                          }
+                        </mat-select>
+                        <mat-hint>Default: {{ field.defaultValue }}</mat-hint>
+                      </mat-form-field>
+
+                    <!-- LLM Provider Select -->
+                    } @else if (activeCat.key === 'llm_provider' && field.key === 'provider') {
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="full-width">
+                        <mat-label>Provider</mat-label>
+                        <mat-select [ngModel]="field.editValue"
+                                    (ngModelChange)="onSelectChange(activeCat.key, field.key, $event)">
+                          @for (p of state.aiProviders(); track p.name) {
+                            @if (p.supportsGeneration) {
+                              <mat-option [value]="p.name">{{ p.displayName || p.name }}</mat-option>
+                            }
+                          }
+                        </mat-select>
+                        <mat-hint>Default: {{ field.defaultValue }}</mat-hint>
+                      </mat-form-field>
+
+                    <!-- Embedding Provider Select -->
+                    } @else if (activeCat.key === 'embedding_provider' && field.key === 'provider') {
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="full-width">
+                        <mat-label>Provider</mat-label>
+                        <mat-select [ngModel]="field.editValue"
+                                    (ngModelChange)="onSelectChange(activeCat.key, field.key, $event)">
+                          @for (p of state.aiProviders(); track p.name) {
+                            @if (p.supportsEmbedding) {
+                              <mat-option [value]="p.name">{{ p.displayName || p.name }}</mat-option>
+                            }
+                          }
+                        </mat-select>
+                        <mat-hint>Default: {{ field.defaultValue }}</mat-hint>
+                      </mat-form-field>
+
+                    <!-- Boolean Toggle -->
+                    } @else if (field.type === 'boolean') {
+                      <div class="toggle-container">
+                        <mat-slide-toggle [checked]="field.editValue === true || field.editValue === 'true'"
+                                          (change)="onToggleChange(activeCat.key, field.key, $event.checked)">
+                          {{ (field.editValue === true || field.editValue === 'true') ? 'Enabled' : 'Disabled' }}
+                        </mat-slide-toggle>
+                        <span class="toggle-hint">Default: {{ field.defaultValue }}</span>
+                      </div>
+
+                    <!-- Number with Slider Bounds -->
+                    } @else if ((field.type === 'number' || field.type === 'integer') && field.min !== undefined && field.max !== undefined) {
+                      <div class="slider-field-container">
+                        <div class="slider-controls">
+                          <mat-slider [min]="field.min" [max]="field.max" [step]="field.step || (field.type === 'integer' ? 1 : 0.05)" class="slider-bar">
+                            <input matSliderThumb [value]="field.editValue"
+                                   (valueChange)="onSliderInput(activeCat.key, field.key, $event)">
+                          </mat-slider>
+                          <span class="slider-val-badge">{{ field.editValue }}</span>
+                        </div>
+                        <span class="slider-bounds">Range: [{{ field.min }} - {{ field.max }}] • Default: {{ field.defaultValue }}</span>
+                      </div>
+
+                    <!-- Number without Slider -->
+                    } @else if (field.type === 'number' || field.type === 'integer') {
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="full-width">
+                        <mat-label>{{ field.key }}</mat-label>
+                        <input matInput type="number"
+                               [step]="field.step || (field.type === 'integer' ? 1 : 'any')"
+                               [value]="field.editValue"
+                               (input)="onNumberInputChange(activeCat.key, field.key, $event)">
+                        <mat-hint>Default: {{ field.defaultValue }}</mat-hint>
+                      </mat-form-field>
+
+                    <!-- Secret / Password -->
+                    } @else if (field.secret) {
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="full-width">
+                        <mat-label>{{ field.key }}</mat-label>
+                        <input matInput [type]="isSecretRevealed(field.key) ? 'text' : 'password'"
+                               [ngModel]="field.editValue"
+                               (ngModelChange)="onInputChange(activeCat.key, field.key, $event)"
+                               placeholder="Enter secret" autocomplete="off">
+                        <button mat-icon-button matSuffix (click)="toggleRevealSecret(field.key)" type="button">
+                          <mat-icon>{{ isSecretRevealed(field.key) ? 'visibility_off' : 'visibility' }}</mat-icon>
+                        </button>
+                        <mat-hint>Encrypted at rest • Default: (hidden)</mat-hint>
+                      </mat-form-field>
+
+                    <!-- Standard Text Input -->
+                    } @else {
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="full-width">
+                        <mat-label>{{ field.key }}</mat-label>
+                        <input matInput [ngModel]="field.editValue"
+                               (ngModelChange)="onInputChange(activeCat.key, field.key, $event)">
+                        <mat-hint>Default: {{ field.defaultValue }}</mat-hint>
+                      </mat-form-field>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        </mat-card-content>
+      </mat-card>
+    }
+
+    <!-- ── Global Reset Action ── -->
+    <div class="global-actions-row">
+      <button mat-stroked-button (click)="state.resetAiConfig()" class="reset-all-btn">
+        <mat-icon>restart_alt</mat-icon>
+        Reset All Spector Properties to Defaults
+      </button>
+    </div>
+  }
+</div>

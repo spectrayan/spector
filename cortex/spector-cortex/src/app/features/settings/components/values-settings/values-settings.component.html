@@ -1,0 +1,91 @@
+<div class="tab-content">
+  <div class="persona-grid">
+
+    <!-- ── Values & Aspirations ── -->
+    <mat-card appearance="outlined" class="persona-card">
+      <mat-card-header>
+        <mat-icon mat-card-avatar class="panel-icon" style="color: #27ae60">diamond</mat-icon>
+        <mat-card-title>Values & Aspirations</mat-card-title>
+        <mat-card-subtitle>Core motivators used for self-relevance matching</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        @for (section of sections; track section.key) {
+          <div class="chip-section">
+            <div class="chip-label">
+              <mat-icon style="font-size: 16px; width: 16px; height: 16px">{{ section.icon }}</mat-icon>
+              {{ section.label }}
+            </div>
+            <div class="chip-list">
+              @for (item of getList(section.key); track $index) {
+                <span class="persona-chip">
+                  {{ item }}
+                  <button mat-icon-button class="chip-remove" (click)="state.removeChip(section.key, $index)">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                </span>
+              }
+            </div>
+            <div class="chip-add">
+              <mat-form-field appearance="outline" class="chip-input" subscriptSizing="dynamic">
+                <input matInput
+                       [ngModel]="getNewValue(section.key)"
+                       (ngModelChange)="setNewValue(section.key, $event)"
+                       [placeholder]="section.placeholder"
+                       (keyup.enter)="state.addChip(section.key)">
+              </mat-form-field>
+              <button mat-icon-button color="primary" (click)="state.addChip(section.key)">
+                <mat-icon>add</mat-icon>
+              </button>
+            </div>
+          </div>
+        }
+      </mat-card-content>
+    </mat-card>
+
+    <!-- ── Cultural Identity ── -->
+    <mat-card appearance="outlined" class="persona-card">
+      <mat-card-header>
+        <mat-icon mat-card-avatar class="panel-icon" style="color: #e67e22">public</mat-icon>
+        <mat-card-title>Cultural Identity</mat-card-title>
+        <mat-card-subtitle>Self-described identity — boost-only scoring (never penalizes)</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="persona-fields">
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Ethnicity</mat-label>
+            <input matInput [ngModel]="state.culturalEthnicity()" (ngModelChange)="state.culturalEthnicity.set($event)"
+                   placeholder="Self-described (free text)">
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Race</mat-label>
+            <input matInput [ngModel]="state.culturalRace()" (ngModelChange)="state.culturalRace.set($event)"
+                   placeholder="Self-described (free text)">
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Religion / Spiritual Practice</mat-label>
+            <input matInput [ngModel]="state.culturalReligion()" (ngModelChange)="state.culturalReligion.set($event)"
+                   placeholder="Self-described (free text)">
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Cultural Heritage</mat-label>
+            <input matInput [ngModel]="state.culturalHeritage()" (ngModelChange)="state.culturalHeritage.set($event)"
+                   placeholder="e.g. South Indian, Irish-American">
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Primary Culture</mat-label>
+            <input matInput [ngModel]="state.culturalPrimaryCulture()" (ngModelChange)="state.culturalPrimaryCulture.set($event)"
+                   placeholder="e.g. Tamil, Yoruba, Japanese">
+          </mat-form-field>
+        </div>
+        <div class="cultural-privacy-note">
+          <mat-icon>shield</mat-icon>
+          <span>
+            Cultural identity uses <strong>boost-only</strong> scoring (L4 guardrail).
+            Similarity to your culture can only <em>increase</em> memory importance — it can never decrease or penalize it.
+            All fields are free-text and self-described.
+          </span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>

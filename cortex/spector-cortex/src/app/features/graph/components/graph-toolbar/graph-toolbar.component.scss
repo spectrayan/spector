@@ -1,0 +1,284 @@
+@use '../../graph-theme' as *;
+
+:host {
+  display: block;
+  flex-shrink: 0;
+  z-index: 20;
+}
+
+.explorer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  background: var(--mat-sys-surface-container);
+  border-bottom: 1px solid $panel-border;
+  flex-shrink: 0;
+  backdrop-filter: blur(12px);
+}
+
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.page-icon {
+  font-size: 28px;
+  width: 32px;
+  height: 32px;
+  color: $cyan-primary;
+  filter: drop-shadow(0 0 6px $cyan-glow);
+}
+
+.page-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: $text-bright;
+  text-shadow: 0 0 10px $cyan-glow;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+}
+
+.page-subtitle {
+  margin: 0;
+  font-size: 10px;
+  color: $text-dim;
+  letter-spacing: 0.08em;
+}
+
+.toolbar-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.view-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border: 1px solid rgba(0, 255, 204, 0.15);
+  border-radius: 8px;
+  background: rgba(0, 255, 204, 0.04);
+  margin-right: 8px;
+  
+  .view-label {
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: rgba(0, 255, 204, 0.5);
+    white-space: nowrap;
+  }
+
+  button {
+    color: rgba(0, 255, 204, 0.6);
+  }
+}
+
+::ng-deep {
+  .mat-mdc-chip-set {
+    display: flex;
+    gap: 6px;
+  }
+
+  .layer-chip.mat-mdc-standard-chip {
+    background-color: rgba(255, 255, 255, 0.03) !important;
+    border: none !important;
+    border-radius: 20px !important;
+    color: $text-dim !important;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+    font-family: 'JetBrains Mono', 'Consolas', monospace !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.05em !important;
+    box-shadow: none !important;
+    padding: 0 12px !important;
+    --mdc-chip-label-text-color: #{$text-dim};
+    --mdc-chip-hover-state-layer-color: transparent;
+    --mdc-chip-focus-state-layer-color: transparent;
+
+    .mat-chip-avatar {
+      color: $text-muted !important;
+      font-size: 16px !important;
+      width: 16px !important;
+      height: 16px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      transition: color 0.3s ease !important;
+      margin-left: 0 !important;
+      margin-right: 6px !important;
+    }
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.06) !important;
+      color: $text-bright !important;
+      --mdc-chip-label-text-color: #{$text-bright};
+      
+      .mat-chip-avatar {
+        color: $text-dim !important;
+      }
+    }
+
+    &.mat-mdc-chip-selected, &.mdc-evolution-chip--selected {
+      background-color: rgba(0, 255, 204, 0.1) !important;
+      color: $cyan-primary !important;
+      --mdc-chip-label-text-color: #{$cyan-primary};
+      box-shadow: 0 0 12px rgba(0, 255, 204, 0.1) !important;
+
+      .mat-chip-avatar {
+        color: $cyan-primary !important;
+        filter: drop-shadow(0 0 3px $cyan-glow) !important;
+      }
+
+      &.hebbian {
+        background-color: rgba(0, 255, 204, 0.1) !important;
+        color: #00ffcc !important;
+        --mdc-chip-label-text-color: #00ffcc;
+        box-shadow: 0 0 12px rgba(0, 255, 204, 0.15) !important;
+        .mat-chip-avatar { color: #00ffcc !important; }
+      }
+      &.temporal {
+        background-color: rgba(0, 188, 212, 0.1) !important;
+        color: #00bcd4 !important;
+        --mdc-chip-label-text-color: #00bcd4;
+        box-shadow: 0 0 12px rgba(0, 188, 212, 0.15) !important;
+        .mat-chip-avatar { color: #00bcd4 !important; }
+      }
+      &.entity {
+        background-color: rgba(255, 193, 7, 0.1) !important;
+        color: #ffc107 !important;
+        --mdc-chip-label-text-color: #ffc107;
+        box-shadow: 0 0 12px rgba(255, 193, 7, 0.15) !important;
+        .mat-chip-avatar { color: #ffc107 !important; }
+      }
+    }
+
+    // Hide default material outline/overlay borders
+    .mdc-evolution-chip__graphic,
+    .mdc-evolution-chip__checkmark,
+    .mdc-evolution-chip__text-label {
+      border: none !important;
+    }
+    
+    .mdc-evolution-chip__cell {
+      border: none !important;
+    }
+  }
+}
+
+.label-active, .filter-active, .stats-active {
+  color: $cyan-primary !important;
+  filter: drop-shadow(0 0 4px $cyan-glow);
+}
+
+// Share panel
+.share-button-group {
+  position: relative;
+}
+
+.share-active {
+  color: $cyan-primary !important;
+  filter: drop-shadow(0 0 4px $cyan-glow);
+}
+
+.share-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 50;
+  min-width: 200px;
+  background: $panel-bg;
+  backdrop-filter: blur(16px);
+  border: 1px solid $panel-border;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.5),
+    0 0 40px rgba(0, 255, 204, 0.04),
+    inset 0 0 20px rgba(0, 255, 204, 0.02);
+  animation: share-panel-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes share-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.share-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-bottom: 1px solid $panel-border;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: $cyan-primary;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  text-shadow: 0 0 8px $cyan-glow;
+}
+
+.share-panel-icon {
+  font-size: 14px;
+  width: 14px;
+  height: 14px;
+  filter: drop-shadow(0 0 4px $cyan-glow);
+}
+
+.share-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  color: $text-dim;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+  text-align: left;
+  transition: all 0.15s ease;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: $text-muted;
+    transition: all 0.15s ease;
+  }
+
+  span:first-of-type {
+    flex: 1;
+    font-weight: 500;
+  }
+
+  &:hover {
+    background: $cyan-ultra-dim;
+    color: $text-bright;
+
+    mat-icon {
+      color: $cyan-primary;
+      filter: drop-shadow(0 0 4px $cyan-glow);
+    }
+  }
+
+  &:not(:last-child) {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  }
+}
+
+.share-hint {
+  font-size: 9px;
+  color: $text-muted;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  flex-shrink: 0;
+}

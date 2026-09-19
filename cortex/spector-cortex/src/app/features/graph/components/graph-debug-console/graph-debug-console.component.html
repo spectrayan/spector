@@ -1,0 +1,25 @@
+<div class="debug-console" id="debug-console">
+  <div class="debug-header">
+    <span class="debug-title">
+      <mat-icon>terminal</mat-icon>
+      EVENT STREAM
+    </span>
+    <span class="debug-badge">{{ debugLines().length }} events</span>
+    <button class="debug-close" (click)="close.emit()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+  <div class="debug-body">
+    @for (line of debugLines(); track line.id) {
+      <div class="debug-line" [class.event-line]="line.tag === 'SSE'" [class.error-line]="line.tag === 'ERR'">
+        <span class="debug-timestamp">{{ line.time }}</span>
+        <span class="debug-tag"
+              [class.tag-sse]="line.tag === 'SSE'"
+              [class.tag-query]="line.tag === 'QRY'"
+              [class.tag-err]="line.tag === 'ERR'"
+              [class.tag-sys]="line.tag === 'SYS'">{{ line.tag }}</span>
+        <span class="debug-message">{{ line.message }}</span>
+      </div>
+    }
+  </div>
+</div>

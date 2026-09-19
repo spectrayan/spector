@@ -1,0 +1,231 @@
+:host {
+  display: block;
+  height: 100%;
+  animation: fade-in-up 0.25s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+// ── Main Page Layout ──
+.chat-page {
+  display: flex;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+// ── Main Chat Canvas ──
+.chat-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  position: relative;
+  background: var(--mat-sys-surface, #0f172a);
+}
+
+// ── Messages Container & Autoscroll ──
+.messages-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  scroll-behavior: smooth;
+}
+
+.message-row {
+  display: flex;
+  gap: 10px;
+
+  &.assistant {
+    flex-direction: row;
+    justify-content: flex-start;
+  }
+}
+
+.message-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(124, 77, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: var(--mat-sys-primary, #a78bfa);
+  }
+}
+
+// ── Empty State ──
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  margin: auto;
+  max-width: 500px;
+
+  .empty-icon-ring {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba(124, 77, 255, 0.2), rgba(0, 188, 212, 0.15));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+
+    mat-icon {
+      font-size: 28px;
+      width: 28px;
+      height: 28px;
+      color: var(--mat-sys-primary, #a78bfa);
+    }
+  }
+
+  h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0 0 8px;
+    background: linear-gradient(135deg, #c4b5fd, #00bcd4);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  p {
+    font-size: 0.82rem;
+    color: var(--mat-sys-on-surface-variant, #9e9e9e);
+    margin: 0 0 20px;
+    line-height: 1.6;
+  }
+}
+
+.suggestion-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.suggestion-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--mat-sys-on-surface, #e0e8ff);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-family: inherit;
+  transition: all 0.2s ease;
+
+  mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    color: var(--mat-sys-primary, #a78bfa);
+    opacity: 0.8;
+  }
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(124, 77, 255, 0.35);
+    transform: translateY(-1px);
+  }
+}
+
+// ── Floating Autoscroll Pill ──
+.resume-scroll-pill {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(124, 77, 255, 0.4);
+  color: var(--mat-sys-on-surface, #e0e8ff);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  font-size: 0.72rem;
+  font-weight: 500;
+  cursor: pointer;
+  z-index: 20;
+  transition: all 0.15s ease;
+
+  mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    color: var(--mat-sys-primary, #a78bfa);
+  }
+
+  &:hover {
+    background: rgba(124, 77, 255, 0.25);
+    border-color: var(--mat-sys-primary, #7c4dff);
+  }
+}
+
+// ── Thinking Indicator (Fallback while graph boots) ──
+.thinking-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+
+  .thinking-dots {
+    display: flex;
+    gap: 4px;
+    span {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--mat-sys-primary, #7c4dff);
+      animation: dot-pulse 1.4s ease-in-out infinite;
+      &:nth-child(2) { animation-delay: 0.2s; }
+      &:nth-child(3) { animation-delay: 0.4s; }
+    }
+  }
+
+  .thinking-text {
+    font-size: 0.75rem;
+    color: var(--mat-sys-on-surface-variant, #9e9e9e);
+    opacity: 0.6;
+  }
+}
+
+@keyframes dot-pulse {
+  0%, 60%, 100% { opacity: 0.2; transform: scale(0.8); }
+  30% { opacity: 1; transform: scale(1); }
+}
+
+// ── Responsive Adaptations ──
+@media (max-width: 768px) {
+  :host cortex-conversation-drawer.drawer-open {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.6);
+  }
+}

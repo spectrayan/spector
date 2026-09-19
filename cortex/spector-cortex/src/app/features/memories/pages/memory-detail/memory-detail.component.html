@@ -1,0 +1,76 @@
+<div class="memory-detail-page">
+  <!-- Breadcrumb -->
+  <nav class="breadcrumb">
+    <a routerLink="/memories" class="breadcrumb-link">
+      <mat-icon>arrow_back</mat-icon>
+      <span>Memories</span>
+    </a>
+    <mat-icon class="breadcrumb-sep">chevron_right</mat-icon>
+    <span class="breadcrumb-current">{{ memoryId() }}</span>
+  </nav>
+
+  @if (loading()) {
+    <div class="loading-state">
+      <mat-progress-bar mode="indeterminate" />
+    </div>
+  } @else if (error()) {
+    <mat-card appearance="outlined" class="error-card">
+      <mat-card-content>
+        <mat-icon class="error-icon">error_outline</mat-icon>
+        <p>{{ error() }}</p>
+        <button mat-stroked-button (click)="goBack()">Back to Memories</button>
+      </mat-card-content>
+    </mat-card>
+  } @else if (memory(); as mem) {
+    <div class="detail-grid">
+
+      <!-- ═══ Identity Card ═══ -->
+      <cortex-memory-identity-card
+        [memory]="mem"
+        [tierColor]="tierColor()"
+        [createdDateFormatted]="createdDateFormatted()"
+        [ageLabel]="ageLabel()"
+      />
+
+      <!-- ═══ Memory Profile Card ═══ -->
+      <cortex-memory-profile-card
+        [memory]="mem"
+        [memoryId]="memoryId()"
+        [vectorData]="vectorData()"
+        [vectorLoading]="vectorLoading()"
+        [vectorError]="vectorError()"
+        (loadVector)="loadVector()"
+        (reinforce)="onReinforce()"
+        (suppress)="onSuppress()"
+        (resolve)="onResolve()"
+        (forget)="onForget()"
+      />
+
+      <!-- ═══ Content Card (Reconsolidation Editor) ═══ -->
+      <cortex-memory-content-editor
+        [memory]="mem"
+        [(isEditing)]="isEditing"
+        (reconsolidate)="onReconsolidate($event)"
+      />
+
+      <!-- ═══ Consolidation Diff Card ═══ -->
+      <cortex-memory-consolidation-trace
+        [memory]="mem"
+      />
+
+      <!-- ═══ Cognitive State & Synaptic Tags Cards ═══ -->
+      <cortex-memory-cognitive-card
+        [memory]="mem"
+      />
+
+      <!-- ═══ Relationships Card ═══ -->
+      <cortex-memory-relationships-card
+        [memoryId]="memoryId()"
+        [graphData]="graphData()"
+        [graphLoading]="graphLoading()"
+        [graphError]="graphError()"
+      />
+
+    </div>
+  }
+</div>

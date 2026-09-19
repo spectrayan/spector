@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { ShellComponent } from './features/shell/shell.component';
+import { ShellComponent } from './core/layout/shell/shell.component';
 import { featureGuard } from './core/guards/feature.guard';
 
 export const routes: Routes = [
@@ -19,7 +19,7 @@ export const routes: Routes = [
       },
       {
         path: 'chat',
-        loadComponent: () => import('./features/agent-chat/agent-chat.component').then(m => m.AgentChatComponent),
+        loadComponent: () => import('./features/chat/agent-chat.component').then(m => m.AgentChatComponent),
         canActivate: [featureGuard('chatEnabled')],
         title: 'Chat — Spector Cortex'
       },
@@ -30,18 +30,11 @@ export const routes: Routes = [
       },
       {
         path: 'memories',
-        loadComponent: () => import('./features/memory-table/memory-table.component').then(m => m.MemoryTableComponent),
-        title: 'Memories — Spector Cortex'
+        loadChildren: () => import('./features/memories/memories.routes').then(m => m.MEMORIES_ROUTES),
       },
-      {
-        path: 'memories/:id',
-        loadComponent: () => import('./features/memory-detail/memory-detail.component').then(m => m.MemoryDetailComponent),
-        title: 'Memory Detail — Spector Cortex'
-      },
-
       {
         path: 'graph',
-        loadComponent: () => import('./features/graph-explorer/graph-explorer.component').then(m => m.GraphExplorerComponent),
+        loadComponent: () => import('./features/graph/graph-explorer.component').then(m => m.GraphExplorerComponent),
         title: 'Graph — Spector Cortex'
       },
       {
@@ -53,6 +46,15 @@ export const routes: Routes = [
         path: 'memory-health',
         loadComponent: () => import('./features/health/health.component').then(m => m.HealthComponent),
         title: 'Health — Spector Cortex'
+      },
+      {
+        path: 'admin',
+        loadChildren: () => import('./features/admin/admin.routes').then(m => m.ADMIN_ROUTES),
+      },
+      {
+        path: 'control-center',
+        redirectTo: 'admin',
+        pathMatch: 'full'
       },
       {
         path: '**',

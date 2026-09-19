@@ -1,0 +1,104 @@
+<div class="chat-page">
+  <!-- ── Operational Conversation Drawer ── -->
+  <cortex-conversation-drawer
+    [sessions]="sessions()"
+    [activeSessionId]="activeSessionId()"
+    [isOpen]="isDrawerOpen()"
+    [isLoading]="loadingHistory()"
+    [hasMore]="hasMoreSessions()"
+    (selectSession)="selectSession($event)"
+    (newChat)="startNewChat()"
+    (renameSession)="renameSession($event)"
+    (deleteSession)="deleteSession($event)"
+    (loadMore)="loadSessions()"
+    (toggleOpen)="toggleDrawer($event)">
+  </cortex-conversation-drawer>
+
+  <!-- ── Main Chat Canvas ── -->
+  <div class="chat-main" [class.drawer-collapsed]="!isDrawerOpen()">
+    <!-- Top Bar -->
+    <cortex-chat-header
+      [isDrawerOpen]="isDrawerOpen()"
+      [modelsLoading]="modelsLoading()"
+      [models]="models()"
+      [(selectedModel)]="selectedModel"
+      [selectedModelName]="selectedModelName()"
+      [(showSoulPanel)]="showSoulPanel"
+      [(showConfig)]="showConfig"
+      (toggleDrawer)="toggleDrawer($event)"
+      (clearChat)="clearChat()"
+    />
+
+    <!-- Messages Container with Autoscroll Sentinel -->
+    <div #scrollContainer class="messages-container" (scroll)="onScroll()">
+      <!-- Empty State with Suggestion Chips -->
+      @if (!hasTurns()) {
+        <div class="empty-state">
+          <div class="empty-icon-ring">
+            <mat-icon>psychology</mat-icon>
+          </div>
+          <h3>Spector Chat</h3>
+          <p>Ask anything — Spector will recall relevant memories and reason step by step.</p>
+
+          <div class="suggestion-chips">
+            <button class="suggestion-chip" (click)="useSuggestion('What do you remember about me?')">
+              <mat-icon>person</mat-icon> What do you remember about me?
+            </button>
+            <button class="suggestion-chip" (click)="useSuggestion('Summarize my recent conversations')">
+              <mat-icon>summarize</mat-icon> Summarize recent conversations
+            </button>
+            <button class="suggestion-chip" (click)="useSuggestion('What are the most important things I should know?')">
+              <mat-icon>lightbulb</mat-icon> Important things to know
+            </button>
+          </div>
+        </div>
+      }
+
+      <!-- Conversation Turns -->
+      @for (turn of turns(); track turn.turnId) {
+        <cortex-chat-turn-item
+          [turn]="turn"
+          (thinkingToggle)="onThinkingToggle($event.turnId, $event.expanded)"
+        />
+      }
+
+      <!-- Fallback Loading Indicator during Graph Initialization -->
+      @if (isLoading() && isStreaming() && turns().length > 0 && !turns()[turns().length - 1].thinking.text && !turns()[turns().length - 1].assistant.text) {
+        <div class="message-row assistant">
+          <div class="message-avatar">
+            <mat-icon>psychology</mat-icon>
+          </div>
+          <div class="thinking-indicator">
+            <div class="thinking-dots">
+              <span></span><span></span><span></span>
+            </div>
+            <span class="thinking-text">Initializing cognitive graph…</span>
+          </div>
+        </div>
+      }
+
+      <!-- Autoscroll Anchor -->
+      <div #messagesEnd></div>
+    </div>
+
+    <!-- Floating Autoscroll Resume Button -->
+    @if (userScrolledUp() && isStreaming()) {
+      <button class="resume-scroll-pill" (click)="scrollToBottom(); userScrolledUp.set(false)">
+        <mat-icon>arrow_downward</mat-icon>
+        <span>Resume autoscroll</span>
+      </button>
+    }
+
+    <!-- ── Unified Input Area ── -->
+    <cortex-chat-input-bar
+      [(query)]="query"
+      [(attachedFile)]="attachedFile"
+      [(selectedTier)]="selectedTier"
+      [tiers]="tiers"
+      [isStreaming]="isStreaming()"
+      [hasTurns]="hasTurns()"
+      (sendQuery)="sendQuery()"
+      (cancelStream)="cancelStream()"
+    />
+  </div>
+</div>

@@ -1,0 +1,194 @@
+:host {
+  display: block;
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+// ── Breadcrumb Bar ──
+.breadcrumb-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  margin-bottom: 24px;
+}
+
+.breadcrumb-link {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--mat-sys-primary);
+  text-decoration: none;
+  font-weight: 500;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.breadcrumb-sep {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.breadcrumb-current {
+  color: var(--mat-sys-on-surface-variant);
+  font-family: 'Roboto Mono', monospace;
+  font-size: 12px;
+}
+
+// ── Loading / Error ──
+.loading-state {
+  padding: 48px 0;
+}
+
+.error-card {
+  text-align: center;
+  padding: 48px;
+
+  .error-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+    color: var(--mat-sys-error);
+    margin-bottom: 16px;
+  }
+}
+
+// ── Detail Grid ──
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+// ── Responsive ──
+@media (max-width: 1024px) {
+  :host {
+    padding: 16px 12px;
+  }
+
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  :host {
+    padding: 12px 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .breadcrumb {
+    font-size: 11px;
+  }
+}
+
+::ng-deep {
+  .mat-mdc-chip-set {
+    display: flex;
+    gap: 6px;
+  }
+
+  /* Unified styling for standard chips in memory-detail */
+  .mat-mdc-standard-chip {
+    border: none !important;
+    border-radius: 12px !important;
+    font-family: 'JetBrains Mono', 'Consolas', monospace !important;
+    font-weight: 600 !important;
+    box-shadow: none !important;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    letter-spacing: 0.04em !important;
+    padding: 0 10px !important;
+    min-height: 24px !important;
+    background-color: rgba(255, 255, 255, 0.03) !important;
+    color: var(--mat-sys-on-surface-variant) !important;
+
+    .mdc-evolution-chip__graphic,
+    .mdc-evolution-chip__checkmark,
+    .mdc-evolution-chip__text-label {
+      border: none !important;
+    }
+    
+    .mdc-evolution-chip__cell {
+      border: none !important;
+    }
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.06) !important;
+      color: var(--mat-sys-on-surface) !important;
+    }
+    
+    /* Status chips */
+    &.status-chip {
+      color: #fff !important;
+      
+      &.tombstoned {
+        background-color: rgba(239, 83, 80, 0.15) !important;
+        color: #ef5350 !important;
+        border: 1px solid rgba(239, 83, 80, 0.25) !important;
+      }
+      &.suppressed {
+        background-color: rgba(255, 183, 77, 0.15) !important;
+        color: #ffb74d !important;
+        border: 1px solid rgba(255, 183, 77, 0.25) !important;
+      }
+      &.resolved {
+        background-color: rgba(102, 187, 106, 0.15) !important;
+        color: #66bb6a !important;
+        border: 1px solid rgba(102, 187, 106, 0.25) !important;
+      }
+      &.active {
+        background-color: rgba(171, 71, 188, 0.15) !important;
+        color: #ab47bc !important;
+        border: 1px solid rgba(171, 71, 188, 0.25) !important;
+      }
+    }
+
+    /* Tag chips */
+    &.tag-chip, &.edit-tag-chip {
+      background-color: rgba(0, 255, 204, 0.06) !important;
+      color: #00ffcc !important;
+      font-size: 11px !important;
+      border: 1px solid rgba(0, 255, 204, 0.12) !important;
+
+      &:hover {
+        background-color: rgba(0, 255, 204, 0.12) !important;
+        box-shadow: 0 0 8px rgba(0, 255, 204, 0.15) !important;
+      }
+    }
+
+    /* Entity label chip under relationships */
+    &.entity-label {
+      background-color: rgba(255, 193, 7, 0.08) !important;
+      color: #ffc107 !important;
+      font-size: 10px !important;
+      border: 1px solid rgba(255, 193, 7, 0.15) !important;
+      border-radius: 4px !important;
+      padding: 0 8px !important;
+      min-height: 20px !important;
+
+      &:hover {
+        background-color: rgba(255, 193, 7, 0.15) !important;
+        box-shadow: 0 0 8px rgba(255, 193, 7, 0.15) !important;
+      }
+    }
+  }
+}

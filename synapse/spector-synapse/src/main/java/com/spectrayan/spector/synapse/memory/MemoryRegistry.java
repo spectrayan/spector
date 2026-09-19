@@ -171,7 +171,7 @@ public final class MemoryRegistry implements AutoCloseable {
      *         catalog-resolved namespace instance
      */
     public SpectorMemory resolveFor(String userId) {
-        if (userId == null || userId.isBlank() || DEFAULT_USER_ID.equals(userId)) {
+        if (!synapseProps.auth().enabled() || userId == null || userId.isBlank() || DEFAULT_USER_ID.equals(userId)) {
             return sharedMemory();
         }
         return resolver.resolve(userId);

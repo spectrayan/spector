@@ -1,0 +1,319 @@
+.tab-content {
+  padding: 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.persona-card {
+  .panel-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+}
+
+.settings-loader {
+  border-radius: 4px;
+}
+
+.api-keys-actions {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.api-keys-table {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.api-key-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: var(--mat-sys-surface-container-low);
+  border: 1px solid var(--mat-sys-outline-variant);
+
+  &.expired {
+    opacity: 0.6;
+  }
+
+  .key-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    .key-name {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      font-size: 14px;
+
+      .key-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        color: var(--mat-sys-primary);
+      }
+
+      .key-badge.expired-badge {
+        font-size: 10px;
+        padding: 1px 6px;
+        border-radius: 4px;
+        background: var(--cortex-error, #e74c3c);
+        color: #fff;
+        font-weight: 500;
+      }
+    }
+
+    .key-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--mat-sys-on-surface-variant);
+
+      .key-prefix {
+        font-family: var(--cortex-font-mono, monospace);
+        font-weight: 600;
+      }
+
+      .key-sep {
+        opacity: 0.4;
+      }
+    }
+
+    .key-scopes {
+      display: flex;
+      gap: 4px;
+      margin-top: 4px;
+
+      .scope-chip {
+        font-size: 10px;
+        padding: 1px 6px;
+        border-radius: 10px;
+        background: var(--mat-sys-surface-container-high);
+        color: var(--mat-sys-on-surface-variant);
+      }
+    }
+  }
+
+  .key-actions {
+    display: flex;
+    align-items: center;
+  }
+}
+
+.api-keys-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 16px;
+  color: var(--mat-sys-outline);
+  text-align: center;
+
+  .empty-icon {
+    font-size: 40px;
+    width: 40px;
+    height: 40px;
+    margin-bottom: 8px;
+  }
+
+  p {
+    margin: 0;
+  }
+
+  .empty-hint {
+    font-size: 12px;
+    margin-top: 4px;
+    margin-bottom: 16px;
+  }
+}
+
+.mcp-guide {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 8px 0;
+
+  .guide-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+
+    .step-number {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--mat-sys-primary);
+      color: var(--mat-sys-on-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .step-content {
+      font-size: 13px;
+      line-height: 1.5;
+
+      .config-snippet {
+        margin: 8px 0 0;
+        padding: 12px;
+        border-radius: 8px;
+        background: var(--mat-sys-surface-container-highest);
+        font-family: var(--cortex-font-mono, monospace);
+        font-size: 12px;
+        line-height: 1.4;
+        overflow-x: auto;
+      }
+    }
+  }
+}
+
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.dialog-panel {
+  background: var(--mat-sys-surface-container);
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+
+  .dialog-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--mat-sys-outline-variant);
+
+    mat-icon {
+      color: var(--mat-sys-primary);
+    }
+
+    h3 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      flex: 1;
+    }
+  }
+
+  .dialog-body {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+
+    .full-width {
+      width: 100%;
+    }
+
+    .scope-section {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+
+      .scope-label {
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--mat-sys-on-surface-variant);
+      }
+
+      .scope-checkboxes {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+
+        .scope-icon {
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
+          margin-right: 4px;
+          vertical-align: middle;
+        }
+      }
+    }
+  }
+
+  .dialog-actions {
+    padding: 12px 20px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    border-top: 1px solid var(--mat-sys-outline-variant);
+  }
+
+  &.created-key-panel {
+    .dialog-header.success-header {
+      mat-icon {
+        color: var(--cortex-success, #27ae60);
+      }
+    }
+
+    .key-warning {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: rgba(243, 156, 18, 0.15);
+      color: #f39c12;
+      font-size: 12px;
+      font-weight: 500;
+
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
+    }
+
+    .created-key-display {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-radius: 8px;
+      background: var(--mat-sys-surface-container-high);
+      border: 1px solid var(--mat-sys-outline-variant);
+
+      .key-value {
+        font-family: var(--cortex-font-mono, monospace);
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--mat-sys-primary);
+        word-break: break-all;
+      }
+    }
+
+    .created-key-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 12px;
+      color: var(--mat-sys-on-surface-variant);
+    }
+  }
+}

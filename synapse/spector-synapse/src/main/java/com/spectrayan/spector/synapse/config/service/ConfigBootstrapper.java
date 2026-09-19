@@ -16,9 +16,11 @@
 package com.spectrayan.spector.synapse.config.service;
 
 import com.spectrayan.spector.synapse.config.model.ConfigCategory;
+import com.spectrayan.spector.synapse.memory.MemoryRegistry;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
@@ -26,6 +28,8 @@ import java.util.Map;
 
 /**
  * Loads and applies saved configuration overrides from database on startup.
+ * Registers a {@code NamespaceOpenListener} on {@link MemoryRegistry} to apply
+ * dynamic scoped configuration overlays whenever a namespace is opened (ADR-0085).
  */
 @Component
 public class ConfigBootstrapper implements CommandLineRunner {
@@ -34,24 +38,45 @@ public class ConfigBootstrapper implements CommandLineRunner {
 
     private final ConfigResolutionService resolutionService;
     private final ConfigApplicator applicator;
+    private final ObjectProvider<MemoryRegistry> memoryRegistryProvider;
 
     public ConfigBootstrapper(ConfigResolutionService resolutionService,
-                              ConfigApplicator applicator) {
+                              ConfigApplicator applicator,
+                              ObjectProvider<MemoryRegistry> memoryRegistryProvider) {
         this.resolutionService = resolutionService;
         this.applicator = applicator;
+        this.memoryRegistryProvider = memoryRegistryProvider;
     }
 
     @Override
     public void run(String... args) throws Exception {
-        log.info("Loading dynamic configurations from database...");
+        log.info("Bootstrapping configurations: applying defaults/overrides to shared/default namespace...");
         for (ConfigCategory category : ConfigCategory.values()) {
             try {
                 Map<String, Object> effective = resolutionService.resolve("default", "default", category);
                 applicator.apply("default", "default", category, effective);
-                log.info("Successfully applied configuration for category: {}", category.key());
+                log.debug("Successfully bootstrapped configuration for category: {}", category.key());
             } catch (Exception e) {
-                log.error("Failed to apply configuration for category: {}", category.key(), e);
+                log.error("Failed to bootstrap configuration for category: {}", category.key(), e);
             }
+        }
+
+        MemoryRegistry memoryRegistry = memoryRegistryProvider.getIfAvailable();
+        if (memoryRegistry != null && memoryRegistry.namespaceResolver() != null) {
+            memoryRegistry.namespaceResolver().addOpenListener((tenantId, namespaceId, memory) -> {
+                log.debug("[ConfigBootstrapper] Overlaying configurations for opened namespace ns={}, tenant={}",
+                        namespaceId, tenantId);
+                for (ConfigCategory category : ConfigCategory.values()) {
+                    try {
+                        Map<String, Object> effective = resolutionService.resolve(tenantId, namespaceId, category);
+                        applicator.applyToMemory(memory, category, effective);
+                    } catch (Exception e) {
+                        log.warn("[ConfigBootstrapper] Failed to apply config for category {} on opened namespace {}: {}",
+                                category.key(), namespaceId, e.getMessage());
+                    }
+                }
+            });
+            log.info("[ConfigBootstrapper] Registered NamespaceOpenListener with MemoryRegistry");
         }
     }
 }

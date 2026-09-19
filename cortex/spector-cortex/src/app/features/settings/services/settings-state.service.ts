@@ -1,0 +1,858 @@
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Business Source License 1.1 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://github.com/spectrayan/spector/blob/main/spector-cortex/LICENSE
+ *
+ * Change Date: July 6, 2030
+ * Change License: Apache License, Version 2.0
+ */
+
+import { Injectable, inject, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../../../environments/environment';
+import { SynapseApiService } from '../../../core/services/synapse-api.service';
+import { AuthService } from '../../../core/services/auth.service';
+import { ApiKeyService, ApiKeyInfo, ApiKeyCreatedResponse } from '../../../core/services/api-key.service';
+import { CortexSnackbarService } from '../../../shared/services/cortex-snackbar.service';
+import { ERROR_MESSAGES } from '../../../shared/constants/error-messages';
+import {
+  InterestEntry,
+  AiConfigField,
+  ConfigApplyMode,
+  ConfigCategoryMeta,
+  CATEGORY_METADATA,
+  INTEREST_LEVELS,
+} from '../models/settings.models';
+
+@Injectable()
+export class SettingsStateService {
+  private readonly api = inject(SynapseApiService);
+  private readonly toast = inject(CortexSnackbarService);
+  private readonly auth = inject(AuthService);
+  private readonly http = inject(HttpClient);
+  private readonly apiKeyService = inject(ApiKeyService);
+
+  readonly loading = signal(false);
+  readonly saving = signal(false);
+  readonly rescoring = signal(false);
+
+  // ── Salience Profile ──
+  readonly interests = signal<InterestEntry[]>([]);
+  readonly disinterests = signal<InterestEntry[]>([]);
+  readonly newInterestTopic = signal('');
+  readonly newInterestLevel = signal('HIGH');
+  readonly newDisinterestTopic = signal('');
+  readonly newDisinterestLevel = signal('LOW');
+
+  // ── ICNU Weights ──
+  readonly icnuI = signal(0.25);
+  readonly icnuC = signal(0.25);
+  readonly icnuN = signal(0.25);
+  readonly icnuU = signal(0.25);
+
+  // ── Scoring ──
+  readonly alpha = signal(0.6);
+  readonly beta = signal(0.4);
+  readonly flashbulbThreshold = signal(3.0);
+
+  // ── Persona: Identity ──
+  readonly about = signal('');
+  readonly occupation = signal('');
+  readonly nationality = signal('');
+  readonly personaLanguages = signal<string[]>([]);
+  readonly newLanguage = signal('');
+
+  // ── Persona: Personality Traits ──
+  readonly bigFiveO = signal(50);
+  readonly bigFiveC = signal(50);
+  readonly bigFiveE = signal(50);
+  readonly bigFiveA = signal(50);
+  readonly bigFiveN = signal(50);
+  readonly eqSelfAwareness = signal(50);
+  readonly eqSelfRegulation = signal(50);
+  readonly eqMotivation = signal(50);
+  readonly eqEmpathy = signal(50);
+  readonly eqSocialSkills = signal(50);
+  readonly stressResponse = signal('ADAPTIVE');
+  readonly communicationStyle = signal('');
+
+  // ── Persona: Values & Culture ──
+  readonly personaValues = signal<string[]>([]);
+  readonly personaFears = signal<string[]>([]);
+  readonly personaAspirations = signal<string[]>([]);
+  readonly newValue = signal('');
+  readonly newFear = signal('');
+  readonly newAspiration = signal('');
+  readonly culturalEthnicity = signal('');
+  readonly culturalRace = signal('');
+  readonly culturalReligion = signal('');
+  readonly culturalHeritage = signal('');
+  readonly culturalPrimaryCulture = signal('');
+
+  // ── Profile Scope & ID ──
+  readonly profileScope = signal('user');
+  readonly profileId = signal('default');
+
+  // ── AI Configuration & Dynamic Settings ──
+  readonly aiConfigLoading = signal(false);
+  readonly aiConfigSaving = signal(false);
+  readonly aiConfigDirty = signal(false);
+  readonly aiConfigFields = signal<Record<string, AiConfigField[]>>({});
+  readonly aiConfigCategories = signal<ConfigCategoryMeta[]>([]);
+  readonly activeAiCategory = signal<string>('memory');
+  readonly aiConfigFilter = signal<string>('');
+  readonly aiAutoSaveEnabled = signal<boolean>(true);
+  readonly aiLastSaveStatus = signal<{ text: string; mode: 'applied' | 'persisted' | 'error' | 'idle'; time: string }>({
+    text: 'All settings in sync with DB & SpectorMemory',
+    mode: 'applied',
+    time: '',
+  });
+  readonly aiProviders = signal<{ name: string; displayName: string; supportsEmbedding: boolean; supportsGeneration: boolean }[]>([]);
+  private aiConfigOverrides: Record<string, Record<string, any>> = {};
+  private autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
+
+  readonly aiSourceLabels: Record<string, string> = {
+    system: '🔒 System',
+    user: '👤 User',
+    tenant: '🏢 Tenant',
+  };
+
+  readonly aiSourceColors: Record<string, string> = {
+    system: '#7f8c8d',
+    user: '#27ae60',
+    tenant: '#3498db',
+  };
+
+  readonly applyModeLabels: Record<ConfigApplyMode, string> = {
+    LIVE: '⚡ LIVE',
+    POLICY: '🛡️ POLICY',
+    REBUILD: '🔄 REBUILD',
+    BOOT: '🔌 BOOT',
+  };
+
+  readonly applyModeTooltips: Record<ConfigApplyMode, string> = {
+    LIVE: 'Live Hot-Swap: Instantly applied in RAM to running SpectorMemory',
+    POLICY: 'Policy Filter: Immediate change to downstream retrieval pipelines',
+    REBUILD: 'Rebuild Required: Active for new engrams; re-indexing required for existing data',
+    BOOT: 'Reboot Required: Persisted to database; applies on JVM process restart',
+  };
+
+  readonly applyModeColors: Record<ConfigApplyMode, string> = {
+    LIVE: '#10b981',
+    POLICY: '#3b82f6',
+    REBUILD: '#f59e0b',
+    BOOT: '#8b5cf6',
+  };
+
+  // ── Privacy & Security ──
+  readonly wipeMemories = signal(false);
+  readonly wipeEntityGraph = signal(false);
+  readonly wipeHebbian = signal(false);
+  readonly wipeTemporal = signal(false);
+  readonly wipePersona = signal(false);
+  readonly wipeQueryHistory = signal(false);
+  readonly wiping = signal(false);
+  readonly wipeResult = signal<{ status: string; memoriesDeleted: number; categories: string[] } | null>(null);
+  readonly deleteAllDataOnAccountDelete = signal(true);
+  readonly deleteConfirmText = signal('');
+  readonly deletingAccount = signal(false);
+
+  // ── API Key Management ──
+  readonly apiKeys = signal<ApiKeyInfo[]>([]);
+  readonly apiKeysLoading = signal(false);
+  readonly showCreateKeyDialog = signal(false);
+  readonly newKeyName = signal('');
+  readonly newKeyExpiryDays = signal<number | null>(90);
+  readonly newKeyScopes = signal<string[]>(['memory:read', 'memory:write']);
+  readonly creatingKey = signal(false);
+  readonly createdKey = signal<ApiKeyCreatedResponse | null>(null);
+  readonly showCreatedKeyDialog = signal(false);
+  readonly keyCopied = signal(false);
+  readonly revokingKeyId = signal<string | null>(null);
+
+  init(): void {
+    this.profileId.set(this.auth.currentUser()?.userId || 'default');
+    this.loadProfile();
+    this.loadAiConfig();
+  }
+
+  loadProfile(): void {
+    this.loading.set(true);
+    this.api.getSalienceProfile(this.profileScope(), this.profileId()).subscribe({
+      next: (profile) => {
+        if (profile.interestsList) this.interests.set(profile.interestsList);
+        if (profile.disinterestsList) this.disinterests.set(profile.disinterestsList);
+        if (profile.icnuWeights) {
+          this.icnuI.set(profile.icnuWeights.interest ?? 0.25);
+          this.icnuC.set(profile.icnuWeights.challenge ?? 0.25);
+          this.icnuN.set(profile.icnuWeights.novelty ?? 0.25);
+          this.icnuU.set(profile.icnuWeights.urgency ?? 0.25);
+        }
+        if (profile.alpha != null) this.alpha.set(profile.alpha);
+        if (profile.beta != null) this.beta.set(profile.beta);
+        if (profile.flashbulbThreshold != null) this.flashbulbThreshold.set(profile.flashbulbThreshold);
+
+        if (profile.persona) {
+          const p = profile.persona;
+          this.about.set(p.about ?? '');
+          this.occupation.set(p.occupation ?? '');
+          this.nationality.set(p.nationality ?? '');
+          if (p.bigFive) {
+            this.bigFiveO.set(p.bigFive.openness ?? 50);
+            this.bigFiveC.set(p.bigFive.conscientiousness ?? 50);
+            this.bigFiveE.set(p.bigFive.extraversion ?? 50);
+            this.bigFiveA.set(p.bigFive.agreeableness ?? 50);
+            this.bigFiveN.set(p.bigFive.neuroticism ?? 50);
+          }
+          if (p.emotionalIntelligence) {
+            this.eqSelfAwareness.set(p.emotionalIntelligence.selfAwareness ?? 50);
+            this.eqSelfRegulation.set(p.emotionalIntelligence.selfRegulation ?? 50);
+            this.eqMotivation.set(p.emotionalIntelligence.motivation ?? 50);
+            this.eqEmpathy.set(p.emotionalIntelligence.empathy ?? 50);
+            this.eqSocialSkills.set(p.emotionalIntelligence.socialSkills ?? 50);
+          }
+          this.stressResponse.set(p.stressResponse ?? 'ADAPTIVE');
+          this.communicationStyle.set(p.communicationStyle ?? '');
+          this.personaValues.set(p.values ?? []);
+          this.personaFears.set(p.fears ?? []);
+          this.personaAspirations.set(p.aspirations ?? []);
+          this.personaLanguages.set(p.languages ?? []);
+          if (p.culturalIdentity) {
+            this.culturalEthnicity.set(p.culturalIdentity.ethnicity ?? '');
+            this.culturalRace.set(p.culturalIdentity.race ?? '');
+            this.culturalReligion.set(p.culturalIdentity.religion ?? '');
+            this.culturalHeritage.set(p.culturalIdentity.culturalHeritage ?? '');
+            this.culturalPrimaryCulture.set(p.culturalIdentity.primaryCulture ?? '');
+          }
+        }
+        this.loading.set(false);
+      },
+      error: () => {
+        this.loading.set(false);
+      },
+    });
+  }
+
+  addInterest(): void {
+    const topic = this.newInterestTopic().trim();
+    if (!topic) return;
+    this.interests.update(list => [...list, { topic, level: this.newInterestLevel() }]);
+    this.newInterestTopic.set('');
+  }
+
+  removeInterest(index: number): void {
+    this.interests.update(list => list.filter((_, i) => i !== index));
+  }
+
+  addDisinterest(): void {
+    const topic = this.newDisinterestTopic().trim();
+    if (!topic) return;
+    this.disinterests.update(list => [...list, { topic, level: this.newDisinterestLevel() }]);
+    this.newDisinterestTopic.set('');
+  }
+
+  removeDisinterest(index: number): void {
+    this.disinterests.update(list => list.filter((_, i) => i !== index));
+  }
+
+  getLevelColor(level: string): string {
+    return INTEREST_LEVELS.find(l => l.value === level)?.color ?? '#999';
+  }
+
+  getLevelLabel(level: string): string {
+    return INTEREST_LEVELS.find(l => l.value === level)?.label ?? level;
+  }
+
+  icnuSum(): number {
+    return +(this.icnuI() + this.icnuC() + this.icnuN() + this.icnuU()).toFixed(2);
+  }
+
+  saveProfile(): void {
+    this.saving.set(true);
+    const profile: any = {
+      interests: this.interests().reduce((acc, entry) => {
+        acc[entry.topic] = entry.level;
+        return acc;
+      }, {} as Record<string, string>),
+      disinterests: this.disinterests().reduce((acc, entry) => {
+        acc[entry.topic] = entry.level;
+        return acc;
+      }, {} as Record<string, string>),
+      icnuWeights: {
+        interest: this.icnuI(),
+        challenge: this.icnuC(),
+        novelty: this.icnuN(),
+        urgency: this.icnuU(),
+      },
+      alpha: this.alpha(),
+      beta: this.beta(),
+      flashbulbThreshold: this.flashbulbThreshold(),
+    };
+
+    if (this.about() || this.occupation() || this.nationality() || this.hasPersonaTraits()) {
+      const persona: any = {};
+      if (this.about()) persona.about = this.about();
+      if (this.occupation()) persona.occupation = this.occupation();
+      if (this.nationality()) persona.nationality = this.nationality();
+      if (this.personaLanguages().length > 0) persona.languages = this.personaLanguages();
+      if (this.personaValues().length > 0) persona.values = this.personaValues();
+      if (this.personaFears().length > 0) persona.fears = this.personaFears();
+      if (this.personaAspirations().length > 0) persona.aspirations = this.personaAspirations();
+
+      persona.bigFive = {
+        openness: this.bigFiveO(),
+        conscientiousness: this.bigFiveC(),
+        extraversion: this.bigFiveE(),
+        agreeableness: this.bigFiveA(),
+        neuroticism: this.bigFiveN(),
+      };
+      persona.emotionalIntelligence = {
+        selfAwareness: this.eqSelfAwareness(),
+        selfRegulation: this.eqSelfRegulation(),
+        motivation: this.eqMotivation(),
+        empathy: this.eqEmpathy(),
+        socialSkills: this.eqSocialSkills(),
+      };
+      persona.stressResponse = this.stressResponse();
+      if (this.communicationStyle()) persona.communicationStyle = this.communicationStyle();
+
+      if (this.culturalEthnicity() || this.culturalRace() || this.culturalReligion()
+        || this.culturalHeritage() || this.culturalPrimaryCulture()) {
+        persona.culturalIdentity = {};
+        if (this.culturalEthnicity()) persona.culturalIdentity.ethnicity = this.culturalEthnicity();
+        if (this.culturalRace()) persona.culturalIdentity.race = this.culturalRace();
+        if (this.culturalReligion()) persona.culturalIdentity.religion = this.culturalReligion();
+        if (this.culturalHeritage()) persona.culturalIdentity.culturalHeritage = this.culturalHeritage();
+        if (this.culturalPrimaryCulture()) persona.culturalIdentity.primaryCulture = this.culturalPrimaryCulture();
+      }
+
+      profile.persona = persona;
+    }
+
+    this.api.saveSalienceProfile(this.profileScope(), this.profileId(), profile).subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.toast.success(ERROR_MESSAGES.SETTINGS.SAVE_SUCCESS);
+      },
+      error: () => {
+        this.saving.set(false);
+        this.toast.error(ERROR_MESSAGES.SETTINGS.SAVE_FAILED);
+      },
+    });
+  }
+
+  triggerRescore(): void {
+    this.rescoring.set(true);
+    this.api.triggerRescore('BACKGROUND').subscribe({
+      next: () => {
+        this.rescoring.set(false);
+        this.toast.success(ERROR_MESSAGES.SETTINGS.RESCORE_SUCCESS);
+      },
+      error: () => {
+        this.rescoring.set(false);
+        this.toast.error(ERROR_MESSAGES.SETTINGS.RESCORE_FAILED);
+      },
+    });
+  }
+
+  resetProfile(): void {
+    this.interests.set([]);
+    this.disinterests.set([]);
+    this.icnuI.set(0.25);
+    this.icnuC.set(0.25);
+    this.icnuN.set(0.25);
+    this.icnuU.set(0.25);
+    this.alpha.set(0.6);
+    this.beta.set(0.4);
+    this.flashbulbThreshold.set(3.0);
+    this.about.set('');
+    this.occupation.set('');
+    this.nationality.set('');
+    this.bigFiveO.set(50); this.bigFiveC.set(50); this.bigFiveE.set(50);
+    this.bigFiveA.set(50); this.bigFiveN.set(50);
+    this.eqSelfAwareness.set(50); this.eqSelfRegulation.set(50);
+    this.eqMotivation.set(50); this.eqEmpathy.set(50); this.eqSocialSkills.set(50);
+    this.stressResponse.set('ADAPTIVE');
+    this.communicationStyle.set('');
+    this.personaValues.set([]); this.personaFears.set([]); this.personaAspirations.set([]);
+    this.personaLanguages.set([]);
+    this.culturalEthnicity.set(''); this.culturalRace.set('');
+    this.culturalReligion.set(''); this.culturalHeritage.set('');
+    this.culturalPrimaryCulture.set('');
+  }
+
+  private hasPersonaTraits(): boolean {
+    return this.bigFiveO() !== 50 || this.bigFiveC() !== 50 || this.bigFiveE() !== 50
+      || this.bigFiveA() !== 50 || this.bigFiveN() !== 50
+      || this.eqSelfAwareness() !== 50 || this.eqSelfRegulation() !== 50
+      || this.eqMotivation() !== 50 || this.eqEmpathy() !== 50 || this.eqSocialSkills() !== 50
+      || this.personaValues().length > 0 || this.personaFears().length > 0
+      || this.personaAspirations().length > 0
+      || this.culturalEthnicity() !== '' || this.culturalRace() !== ''
+      || this.culturalReligion() !== '' || this.culturalHeritage() !== '';
+  }
+
+  // ── AI Configuration & Dynamic Settings ──
+  loadAiConfig(): void {
+    this.aiConfigLoading.set(true);
+    this.aiConfigOverrides = {};
+    this.aiConfigDirty.set(false);
+
+    this.api.listAvailableProviders().subscribe({
+      next: (res) => this.aiProviders.set(res.providers || []),
+      error: () => {},
+    });
+
+    this.api.listConfigCategories().subscribe({
+      next: (catRes) => {
+        const rawCats: any[] = catRes.categories || [];
+        // Filter out deprecated 'rag' alias
+        const cats = rawCats.filter((c: any) => c.key !== 'rag');
+
+        const metas: ConfigCategoryMeta[] = cats.map((c: any) => {
+          const key = c.key;
+          const meta = CATEGORY_METADATA[key] || {
+            label: c.label || key,
+            icon: 'tune',
+            description: 'Configuration parameters',
+          };
+          return {
+            key,
+            label: meta.label,
+            icon: meta.icon,
+            description: meta.description,
+          };
+        });
+        this.aiConfigCategories.set(metas);
+
+        if (metas.length > 0 && !metas.some((m) => m.key === this.activeAiCategory())) {
+          this.activeAiCategory.set(metas[0].key);
+        }
+
+        if (cats.length === 0) {
+          this.aiConfigLoading.set(false);
+          return;
+        }
+
+        let loaded = 0;
+        const result: Record<string, AiConfigField[]> = {};
+
+        for (const cat of cats) {
+          const catKey = cat.key;
+          this.api.getConfigSchema(catKey).subscribe({
+            next: (schemaRes) => {
+              this.api.getAnnotatedConfig(catKey).subscribe({
+                next: (annotatedRes) => {
+                  const fields: AiConfigField[] = [];
+                  for (const field of schemaRes.fields || []) {
+                    const entry = annotatedRes ? annotatedRes[field.key] : null;
+                    fields.push({
+                      key: field.key,
+                      defaultValue: field.defaultValue,
+                      type: field.type || 'string',
+                      description: field.description || '',
+                      editValue: entry?.value ?? field.defaultValue,
+                      source: (entry?.source as any) ?? 'system',
+                      applyMode: field.applyMode || 'LIVE',
+                      options: field.options,
+                      min: field.min,
+                      max: field.max,
+                      step: field.step,
+                      secret: field.secret || field.key.includes('key') || field.key.includes('secret') || field.key.includes('password'),
+                    });
+                  }
+                  result[catKey] = fields;
+                  loaded++;
+                  if (loaded === cats.length) {
+                    this.aiConfigFields.set(result);
+                    this.aiConfigLoading.set(false);
+                  }
+                },
+                error: () => {
+                  result[catKey] = (schemaRes.fields || []).map((f: any) => ({
+                    key: f.key,
+                    defaultValue: f.defaultValue,
+                    type: f.type || 'string',
+                    description: f.description || '',
+                    editValue: f.defaultValue,
+                    source: 'system' as const,
+                    applyMode: f.applyMode || 'LIVE',
+                    options: f.options,
+                    min: f.min,
+                    max: f.max,
+                    step: f.step,
+                    secret: f.secret || f.key.includes('key') || f.key.includes('secret') || f.key.includes('password'),
+                  }));
+                  loaded++;
+                  if (loaded === cats.length) {
+                    this.aiConfigFields.set(result);
+                    this.aiConfigLoading.set(false);
+                  }
+                },
+              });
+            },
+            error: () => {
+              loaded++;
+              if (loaded === cats.length) {
+                this.aiConfigFields.set(result);
+                this.aiConfigLoading.set(false);
+              }
+            },
+          });
+        }
+      },
+      error: (err) => {
+        this.aiConfigLoading.set(false);
+        this.toast.error(`Failed to load config categories: ${err.message}`);
+      },
+    });
+  }
+
+  onAiFieldChange(category: string, key: string, value: any, immediate = false): void {
+    if (!this.aiConfigOverrides[category]) {
+      this.aiConfigOverrides[category] = {};
+    }
+    this.aiConfigOverrides[category][key] = value;
+    this.aiConfigDirty.set(true);
+
+    this.aiConfigFields.update((fields) => {
+      const updated = { ...fields };
+      if (updated[category]) {
+        updated[category] = updated[category].map((f) =>
+          f.key === key ? { ...f, editValue: value, source: 'user' as const } : f
+        );
+      }
+      return updated;
+    });
+
+    if (this.aiAutoSaveEnabled()) {
+      if (this.autoSaveTimer) {
+        clearTimeout(this.autoSaveTimer);
+      }
+      this.aiLastSaveStatus.set({
+        text: 'Saving changes...',
+        mode: 'idle',
+        time: new Date().toLocaleTimeString(),
+      });
+      if (immediate) {
+        this.saveCategoryConfig(category);
+      } else {
+        this.autoSaveTimer = setTimeout(() => {
+          this.saveCategoryConfig(category);
+        }, 600);
+      }
+    }
+  }
+
+  saveCategoryConfig(category: string): void {
+    const patch = this.aiConfigOverrides[category];
+    if (!patch || Object.keys(patch).length === 0) {
+      return;
+    }
+    this.aiConfigSaving.set(true);
+    this.api.saveConfig(category, 'user', patch).subscribe({
+      next: (res) => {
+        this.aiConfigSaving.set(false);
+        delete this.aiConfigOverrides[category];
+        if (Object.keys(this.aiConfigOverrides).length === 0) {
+          this.aiConfigDirty.set(false);
+        }
+        const status = res?.status || 'applied';
+        let statusText = '✓ Saved to DB & Applied to SpectorMemory';
+        let mode: 'applied' | 'persisted' = 'applied';
+        if (status === 'persisted_rebuild_required') {
+          statusText = '✓ Saved to DB (Index Rebuild Required)';
+          mode = 'persisted';
+        } else if (status === 'persisted_reboot_required') {
+          statusText = '✓ Saved to DB (Restart Required)';
+          mode = 'persisted';
+        }
+        this.aiLastSaveStatus.set({
+          text: statusText,
+          mode,
+          time: new Date().toLocaleTimeString(),
+        });
+      },
+      error: (err) => {
+        this.aiConfigSaving.set(false);
+        this.aiLastSaveStatus.set({
+          text: `Failed: ${err.error?.error || err.message}`,
+          mode: 'error',
+          time: new Date().toLocaleTimeString(),
+        });
+        this.toast.error(`Failed to save ${category}: ${err.error?.error || err.message}`);
+      },
+    });
+  }
+
+  saveAiConfig(): void {
+    const categories = Object.keys(this.aiConfigOverrides);
+    if (categories.length === 0) {
+      this.toast.info('No unsaved changes');
+      return;
+    }
+    for (const cat of categories) {
+      this.saveCategoryConfig(cat);
+    }
+  }
+
+  revertAiField(category: string, field: AiConfigField): void {
+    this.onAiFieldChange(category, field.key, field.defaultValue, true);
+  }
+
+  resetAiCategory(category: string): void {
+    this.api.deleteConfig(category, 'user').subscribe({
+      next: () => {
+        if (this.aiConfigOverrides[category]) {
+          delete this.aiConfigOverrides[category];
+        }
+        this.toast.success(`Reset ${category} to system defaults`);
+        this.reloadCategory(category);
+      },
+      error: (err) => {
+        this.toast.error(`Failed to reset ${category}: ${err.error?.error || err.message}`);
+      },
+    });
+  }
+
+  private reloadCategory(category: string): void {
+    this.api.getConfigSchema(category).subscribe({
+      next: (schemaRes) => {
+        this.api.getAnnotatedConfig(category).subscribe({
+          next: (annotatedRes) => {
+            const fields: AiConfigField[] = [];
+            for (const field of schemaRes.fields || []) {
+              const entry = annotatedRes ? annotatedRes[field.key] : null;
+              fields.push({
+                key: field.key,
+                defaultValue: field.defaultValue,
+                type: field.type || 'string',
+                description: field.description || '',
+                editValue: entry?.value ?? field.defaultValue,
+                source: (entry?.source as any) ?? 'system',
+                applyMode: field.applyMode || 'LIVE',
+                options: field.options,
+                min: field.min,
+                max: field.max,
+                step: field.step,
+                secret: field.secret || field.key.includes('key') || field.key.includes('secret') || field.key.includes('password'),
+              });
+            }
+            this.aiConfigFields.update((f) => ({ ...f, [category]: fields }));
+          },
+        });
+      },
+    });
+  }
+
+  resetAiConfig(): void {
+    const categories = this.aiConfigCategories().map((c) => c.key);
+    let done = 0;
+    for (const cat of categories) {
+      this.api.deleteConfig(cat, 'user').subscribe({
+        next: () => {
+          done++;
+          if (done === categories.length) {
+            this.toast.success('All settings reset to system defaults');
+            this.loadAiConfig();
+          }
+        },
+        error: () => {
+          done++;
+          if (done === categories.length) {
+            this.loadAiConfig();
+          }
+        },
+      });
+    }
+  }
+
+  addChip(target: 'values' | 'fears' | 'aspirations' | 'languages'): void {
+    const signalMap = { values: this.newValue, fears: this.newFear, aspirations: this.newAspiration, languages: this.newLanguage };
+    const listMap = { values: this.personaValues, fears: this.personaFears, aspirations: this.personaAspirations, languages: this.personaLanguages };
+    const val = signalMap[target]().trim();
+    if (!val) return;
+    listMap[target].update(l => [...l, val]);
+    signalMap[target].set('');
+  }
+
+  removeChip(target: 'values' | 'fears' | 'aspirations' | 'languages', idx: number): void {
+    const listMap = { values: this.personaValues, fears: this.personaFears, aspirations: this.personaAspirations, languages: this.personaLanguages };
+    listMap[target].update(l => l.filter((_, i) => i !== idx));
+  }
+
+  // ── Privacy & Security ──
+  get hasWipeSelection(): boolean {
+    return this.wipeMemories() || this.wipeEntityGraph() || this.wipeHebbian()
+      || this.wipeTemporal() || this.wipePersona() || this.wipeQueryHistory();
+  }
+
+  performWipe(): void {
+    if (!this.hasWipeSelection) return;
+    this.wiping.set(true);
+    this.wipeResult.set(null);
+
+    const body = {
+      memories: this.wipeMemories(),
+      entityGraph: this.wipeEntityGraph(),
+      hebbianGraph: this.wipeHebbian(),
+      temporalChain: this.wipeTemporal(),
+      persona: this.wipePersona(),
+      queryHistory: this.wipeQueryHistory(),
+    };
+
+    this.http.post<any>(`${environment.apiUrl}/privacy/wipe`, body).subscribe({
+      next: (res) => {
+        this.wiping.set(false);
+        this.wipeResult.set(res);
+        this.toast.success(`Data wiped: ${res.categories?.join(', ')}`);
+        this.wipeMemories.set(false);
+        this.wipeEntityGraph.set(false);
+        this.wipeHebbian.set(false);
+        this.wipeTemporal.set(false);
+        this.wipePersona.set(false);
+        this.wipeQueryHistory.set(false);
+      },
+      error: (err) => {
+        this.wiping.set(false);
+        this.toast.error(`Wipe failed: ${err.error?.error || err.message}`);
+      }
+    });
+  }
+
+  deleteAccount(): void {
+    if (this.deleteConfirmText() !== 'DELETE') return;
+    this.deletingAccount.set(true);
+
+    this.http.delete<any>(`${environment.apiUrl}/privacy/account`, {
+      body: { deleteAllData: this.deleteAllDataOnAccountDelete() }
+    }).subscribe({
+      next: () => {
+        this.deletingAccount.set(false);
+        this.toast.success('Account deleted. Logging out...');
+        setTimeout(() => this.auth.logout(), 2000);
+      },
+      error: (err) => {
+        this.deletingAccount.set(false);
+        this.toast.error(`Account deletion failed: ${err.error?.error || err.message}`);
+      }
+    });
+  }
+
+  // ── API Key Management ──
+  loadApiKeys(): void {
+    this.apiKeysLoading.set(true);
+    this.apiKeyService.listApiKeys().subscribe({
+      next: (keys) => {
+        this.apiKeys.set(keys);
+        this.apiKeysLoading.set(false);
+      },
+      error: (err) => {
+        this.apiKeysLoading.set(false);
+        this.toast.error(`Failed to load API keys: ${err.error?.error || err.message}`);
+      }
+    });
+  }
+
+  openCreateKeyDialog(): void {
+    this.newKeyName.set('');
+    this.newKeyExpiryDays.set(90);
+    this.newKeyScopes.set(['memory:read', 'memory:write']);
+    this.showCreateKeyDialog.set(true);
+  }
+
+  closeCreateKeyDialog(): void {
+    this.showCreateKeyDialog.set(false);
+  }
+
+  createApiKey(): void {
+    const name = this.newKeyName().trim();
+    if (!name) {
+      this.toast.error('Key name is required');
+      return;
+    }
+
+    this.creatingKey.set(true);
+    this.apiKeyService.createApiKey({
+      name,
+      expiresInDays: this.newKeyExpiryDays(),
+      scopes: this.newKeyScopes(),
+    }).subscribe({
+      next: (created) => {
+        this.creatingKey.set(false);
+        this.showCreateKeyDialog.set(false);
+        this.createdKey.set(created);
+        this.showCreatedKeyDialog.set(true);
+        this.keyCopied.set(false);
+        this.loadApiKeys();
+        this.toast.success('API key created successfully');
+      },
+      error: (err) => {
+        this.creatingKey.set(false);
+        this.toast.error(`Failed to create API key: ${err.error?.error || err.message}`);
+      }
+    });
+  }
+
+  copyKeyToClipboard(): void {
+    const key = this.createdKey()?.key;
+    if (key) {
+      navigator.clipboard.writeText(key).then(() => {
+        this.keyCopied.set(true);
+        this.toast.success('API key copied to clipboard');
+      });
+    }
+  }
+
+  closeCreatedKeyDialog(): void {
+    this.showCreatedKeyDialog.set(false);
+    this.createdKey.set(null);
+  }
+
+  revokeApiKey(keyId: string): void {
+    this.revokingKeyId.set(keyId);
+    this.apiKeyService.revokeApiKey(keyId).subscribe({
+      next: () => {
+        this.revokingKeyId.set(null);
+        this.loadApiKeys();
+        this.toast.success('API key revoked');
+      },
+      error: (err) => {
+        this.revokingKeyId.set(null);
+        this.toast.error(`Failed to revoke key: ${err.error?.error || err.message}`);
+      }
+    });
+  }
+
+  toggleScope(scope: string): void {
+    const current = this.newKeyScopes();
+    if (current.includes(scope)) {
+      this.newKeyScopes.set(current.filter(s => s !== scope));
+    } else {
+      this.newKeyScopes.set([...current, scope]);
+    }
+  }
+
+  formatDate(dateStr: string | null): string {
+    if (!dateStr) return 'Never';
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      year: 'numeric', month: 'short', day: 'numeric'
+    });
+  }
+
+  formatRelativeDate(dateStr: string | null): string {
+    if (!dateStr) return 'Never used';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 30) return `${diffDays} days ago`;
+    return this.formatDate(dateStr);
+  }
+}

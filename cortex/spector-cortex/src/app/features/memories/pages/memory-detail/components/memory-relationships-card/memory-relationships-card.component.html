@@ -1,0 +1,130 @@
+<mat-card appearance="outlined" class="card card-relationships" style="animation: fade-in-up 0.6s ease both">
+  <mat-card-header>
+    <mat-icon mat-card-avatar class="panel-icon">hub</mat-icon>
+    <mat-card-title>Relationships</mat-card-title>
+    <mat-card-subtitle>Hebbian · Temporal · Entity</mat-card-subtitle>
+  </mat-card-header>
+  <mat-card-content>
+    @if (graphLoading()) {
+      <mat-progress-bar mode="indeterminate" class="graph-loader"></mat-progress-bar>
+    } @else if (graphError()) {
+      <div class="graph-error">
+        <mat-icon>cloud_off</mat-icon>
+        <span>{{ graphError() }}</span>
+      </div>
+    } @else if (graphData(); as graph) {
+      <!-- Hebbian Associations -->
+      @if (hebbianEdges().length > 0) {
+        <div class="edge-section">
+          <div class="edge-section-header">
+            <mat-icon class="edge-icon hebbian">link</mat-icon>
+            <span class="edge-type-label">Hebbian Associations</span>
+            <span class="edge-count">{{ hebbianEdges().length }}</span>
+          </div>
+          @for (edge of paginatedHebbianEdges(); track edge.toId) {
+            @if (graphNodeById(neighborId(edge)); as neighbor) {
+              <div class="neighbor-row" [routerLink]="['/memories', neighbor.id]">
+                <span class="neighbor-tier" [style.background]="nodeTierColor(neighbor)">{{ neighbor.tier }}</span>
+                <span class="neighbor-text">{{ neighbor.textPreview }}</span>
+                <span class="neighbor-weight cortex-mono" matTooltip="Association strength">
+                  {{ edge.weight.toFixed(2) }}
+                </span>
+              </div>
+            }
+          }
+          @if (hebbianTotalPages() > 1) {
+            <div class="edge-pagination">
+              <button mat-icon-button [disabled]="hebbianPage() === 0" (click)="hebbianPage.set(hebbianPage() - 1)">
+                <mat-icon>chevron_left</mat-icon>
+              </button>
+              <span class="page-info cortex-mono">{{ hebbianPage() + 1 }} / {{ hebbianTotalPages() }}</span>
+              <button mat-icon-button [disabled]="hebbianPage() >= hebbianTotalPages() - 1" (click)="hebbianPage.set(hebbianPage() + 1)">
+                <mat-icon>chevron_right</mat-icon>
+              </button>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- Temporal Chain -->
+      @if (temporalEdges().length > 0) {
+        <div class="edge-section">
+          <div class="edge-section-header">
+            <mat-icon class="edge-icon temporal">timeline</mat-icon>
+            <span class="edge-type-label">Temporal Chain</span>
+            <span class="edge-count">{{ temporalEdges().length }}</span>
+          </div>
+          @for (edge of paginatedTemporalEdges(); track edge.toId) {
+            @if (graphNodeById(neighborId(edge)); as neighbor) {
+              <div class="neighbor-row" [routerLink]="['/memories', neighbor.id]">
+                <span class="neighbor-tier" [style.background]="nodeTierColor(neighbor)">{{ neighbor.tier }}</span>
+                <span class="neighbor-text">{{ neighbor.textPreview }}</span>
+                <mat-icon class="temporal-arrow" [matTooltip]="edge.fromId === memoryId() ? 'Next' : 'Previous'">
+                  {{ edge.fromId === memoryId() ? 'arrow_forward' : 'arrow_back' }}
+                </mat-icon>
+              </div>
+            }
+          }
+          @if (temporalTotalPages() > 1) {
+            <div class="edge-pagination">
+              <button mat-icon-button [disabled]="temporalPage() === 0" (click)="temporalPage.set(temporalPage() - 1)">
+                <mat-icon>chevron_left</mat-icon>
+              </button>
+              <span class="page-info cortex-mono">{{ temporalPage() + 1 }} / {{ temporalTotalPages() }}</span>
+              <button mat-icon-button [disabled]="temporalPage() >= temporalTotalPages() - 1" (click)="temporalPage.set(temporalPage() + 1)">
+                <mat-icon>chevron_right</mat-icon>
+              </button>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- Entity Relationships -->
+      @if (entityEdges().length > 0) {
+        <div class="edge-section">
+          <div class="edge-section-header">
+            <mat-icon class="edge-icon entity">category</mat-icon>
+            <span class="edge-type-label">Entity Relationships</span>
+            <span class="edge-count">{{ entityEdges().length }}</span>
+          </div>
+          @for (edge of paginatedEntityEdges(); track edge.toId) {
+            @if (graphNodeById(neighborId(edge)); as neighbor) {
+              <div class="neighbor-row" [routerLink]="['/memories', neighbor.id]">
+                <span class="neighbor-tier" [style.background]="nodeTierColor(neighbor)">{{ neighbor.tier }}</span>
+                <span class="neighbor-text">{{ neighbor.textPreview }}</span>
+                <mat-chip class="entity-label" matTooltip="Entity relation">{{ edge.relation }}</mat-chip>
+              </div>
+            }
+          }
+          @if (entityTotalPages() > 1) {
+            <div class="edge-pagination">
+              <button mat-icon-button [disabled]="entityPage() === 0" (click)="entityPage.set(entityPage() - 1)">
+                <mat-icon>chevron_left</mat-icon>
+              </button>
+              <span class="page-info cortex-mono">{{ entityPage() + 1 }} / {{ entityTotalPages() }}</span>
+              <button mat-icon-button [disabled]="entityPage() >= entityTotalPages() - 1" (click)="entityPage.set(entityPage() + 1)">
+                <mat-icon>chevron_right</mat-icon>
+              </button>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- No relationships -->
+      @if (hebbianEdges().length === 0 && temporalEdges().length === 0 && entityEdges().length === 0) {
+        <div class="graph-empty">
+          <mat-icon>device_hub</mat-icon>
+          <span>No relationships found for this memory</span>
+        </div>
+      }
+
+      <!-- Graph Explorer link -->
+      <div class="graph-explore-link">
+        <a mat-stroked-button routerLink="/graph" class="explore-link">
+          <mat-icon>explore</mat-icon>
+          Open in Graph Explorer
+        </a>
+      </div>
+    }
+  </mat-card-content>
+</mat-card>

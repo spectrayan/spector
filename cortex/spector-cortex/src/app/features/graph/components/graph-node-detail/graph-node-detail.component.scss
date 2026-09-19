@@ -1,0 +1,221 @@
+@use '../../graph-theme' as *;
+
+:host {
+  display: block;
+}
+
+.detail-panel {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 300px;
+  max-width: calc(100vw - 32px);
+  animation: slide-in-right 0.3s ease;
+  z-index: 10;
+  overflow: hidden;
+
+  mat-card {
+    background: $panel-bg !important;
+    backdrop-filter: blur(16px);
+    border: 1px solid $panel-border !important;
+    border-radius: 2px !important;
+    overflow: hidden;
+  }
+
+  mat-card-title {
+    font-size: 12px !important;
+    word-break: break-all;
+    overflow-wrap: anywhere;
+    line-height: 1.4;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    max-width: 100%;
+  }
+
+  mat-card-subtitle {
+    font-size: 11px !important;
+  }
+}
+
+.node-text {
+  font-size: 13px;
+  line-height: 1.5;
+  color: $text-bright;
+  margin: 8px 0;
+}
+
+.node-metric {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  padding: 4px 0;
+}
+
+.metric-label {
+  color: $text-muted;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+}
+
+.metric-value {
+  color: $cyan-primary;
+  font-weight: 600;
+  text-shadow: 0 0 4px $cyan-glow;
+
+  &.positive { color: #66bb6a; text-shadow: 0 0 4px rgba(102, 187, 106, 0.4); }
+  &.negative { color: #ef5350; text-shadow: 0 0 4px rgba(239, 83, 80, 0.4); }
+}
+
+// ── Neighborhood Expansion Controls ──
+.expand-section {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid $panel-border;
+}
+
+.expand-depth-selector {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.expand-label {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: $text-muted;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  margin-right: 4px;
+}
+
+.depth-btn {
+  width: 28px;
+  height: 24px;
+  background: rgba(0, 255, 204, 0.04);
+  border: 1px solid $panel-border;
+  border-radius: 3px;
+  color: $text-dim;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  transition: all 0.15s ease;
+
+  &:hover {
+    border-color: $cyan-primary;
+    color: $cyan-primary;
+  }
+
+  &.depth-active {
+    background: rgba(0, 255, 204, 0.15);
+    border-color: $cyan-primary;
+    color: $cyan-primary;
+    box-shadow: 0 0 8px rgba(0, 255, 204, 0.2);
+  }
+}
+
+.expand-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 12px;
+  background: rgba(0, 255, 204, 0.06);
+  border: 1px solid rgba(0, 255, 204, 0.15);
+  border-radius: 4px;
+  color: $cyan-primary;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  transition: all 0.2s ease;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+
+  &:hover:not(:disabled) {
+    background: rgba(0, 255, 204, 0.12);
+    border-color: $cyan-primary;
+    box-shadow: 0 0 12px rgba(0, 255, 204, 0.15);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: wait;
+  }
+}
+
+.expand-action-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+
+  .expand-btn {
+    flex: 1;
+  }
+}
+
+.collapse-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 10px;
+  background: rgba(255, 170, 0, 0.08);
+  border: 1px solid rgba(255, 170, 0, 0.25);
+  border-radius: 4px;
+  color: #ffaa00;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+
+  mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+  }
+
+  &:hover {
+    background: rgba(255, 170, 0, 0.16);
+    border-color: #ffaa00;
+    box-shadow: 0 0 10px rgba(255, 170, 0, 0.2);
+  }
+}
+
+.expansion-status-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: rgba(0, 255, 204, 0.08);
+  border: 1px solid rgba(0, 255, 204, 0.2);
+  border-radius: 4px;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  color: $cyan-primary;
+  animation: fadeIn 0.2s ease-out;
+
+  mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

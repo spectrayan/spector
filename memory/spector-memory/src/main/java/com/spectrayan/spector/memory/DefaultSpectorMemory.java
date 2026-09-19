@@ -161,7 +161,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final CircadianProperties circadianPolicy;
     private final com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutor reflectSweepExecutor;
     private final CognitiveProfileConfig profileConfig;
-    private final RecallOptions defaultRecallOptions;
+    private volatile RecallOptions defaultRecallOptions;
+    private volatile com.spectrayan.spector.config.model.LiveMemoryPatch liveMemoryPatch;
 
     //  Multi-Tenant Namespace 
     private final SpectorNamespaceManager namespaceManager;
@@ -299,6 +300,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 : com.spectrayan.spector.memory.pathway.reflect.spi.ReflectSweepExecutors.getExecutor(orchestratorName);
         this.profileConfig = builder.profileConfig();
         this.defaultRecallOptions = builder.defaultRecallOptions() != null ? builder.defaultRecallOptions() : RecallOptions.DEFAULT;
+        this.liveMemoryPatch = com.spectrayan.spector.config.model.LiveMemoryPatch.from(memProps);
         this.namespaceManager = bundle.namespaceManager();
         this.namespaceId = builder.namespaceId();
         this.idGenerator = bundle.idGenerator();
@@ -1265,6 +1267,37 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             log.info("Updated chunking configuration dynamically: maxChunkSize={}, overlap={}, parentChildLinking={}",
                     config.maxChunkSize(), config.overlap(), config.parentChildLinking());
         }
+    }
+
+    @Override
+    public void updateRecallOptions(RecallOptions options) {
+        if (options != null) {
+            this.defaultRecallOptions = options;
+            log.info("Updated default RecallOptions dynamically: textSearchMode={}, scoringMode={}, profile={}",
+                    options.textSearchMode(), options.scoringMode(), options.profile());
+        }
+    }
+
+    @Override
+    public void applyLiveMemoryPatch(com.spectrayan.spector.config.model.LiveMemoryPatch patch) {
+        if (patch != null) {
+            this.liveMemoryPatch = patch;
+            log.info("Applied LiveMemoryPatch dynamically: flashbulbThreshold={}, decayEnabled={}, vacuumThreshold={}, hebbianMaxDegree={}",
+                    patch.flashbulbThreshold(), patch.decayEnabled(), patch.vacuumThreshold(), patch.hebbianMaxDegree());
+        }
+    }
+
+    @Override
+    public void updateHnswEfSearch(int efSearch) {
+        if (efSearch > 0 && semanticIndex instanceof com.spectrayan.spector.index.hnsw.AbstractHnswIndex hnsw) {
+            hnsw.setEfSearch(efSearch);
+            log.info("Updated HNSW efSearch dynamically: efSearch={}", efSearch);
+        }
+    }
+
+    /** Returns the current live memory patch snapshot (ADR-0085). */
+    public com.spectrayan.spector.config.model.LiveMemoryPatch liveMemoryPatch() {
+        return this.liveMemoryPatch;
     }
 
     // ==============================================================

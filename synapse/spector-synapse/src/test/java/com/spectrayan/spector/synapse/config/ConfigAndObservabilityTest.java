@@ -52,6 +52,7 @@ class ConfigAndObservabilityTest {
 
     @Autowired WebApplicationContext wac;
     @Autowired ObjectMapper mapper;
+    @Autowired org.springframework.jdbc.core.simple.JdbcClient jdbc;
 
     @MockitoBean SpectorMemory memory;
     @MockitoBean SpectorMemoryAdmin memoryAdmin;
@@ -61,6 +62,7 @@ class ConfigAndObservabilityTest {
 
     @BeforeEach
     void setup() {
+        jdbc.sql("DELETE FROM scoped_config").update();
         mvc = MockMvcBuilders.webAppContextSetup(wac)
                 .apply(org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity())
                 .build();
@@ -87,12 +89,15 @@ class ConfigAndObservabilityTest {
     void getCategories_returns200() throws Exception {
         mvc.perform(get("/api/v1/config/categories"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.categories", hasSize(5)))
-                .andExpect(jsonPath("$.categories[0].key", is("llm_provider")))
-                .andExpect(jsonPath("$.categories[1].key", is("ingestion")))
-                .andExpect(jsonPath("$.categories[2].key", is("rag")))
-                .andExpect(jsonPath("$.categories[3].key", is("salience")))
-                .andExpect(jsonPath("$.categories[4].key", is("soul")));
+                .andExpect(jsonPath("$.categories", hasSize(13)))
+                .andExpect(jsonPath("$.categories[?(@.key == 'memory')]", not(empty())))
+                .andExpect(jsonPath("$.categories[?(@.key == 'recall')]", not(empty())))
+                .andExpect(jsonPath("$.categories[?(@.key == 'hnsw')]", not(empty())))
+                .andExpect(jsonPath("$.categories[?(@.key == 'llm_provider')]", not(empty())))
+                .andExpect(jsonPath("$.categories[?(@.key == 'ingestion')]", not(empty())))
+                .andExpect(jsonPath("$.categories[?(@.key == 'rag')]", not(empty())))
+                .andExpect(jsonPath("$.categories[?(@.key == 'salience')]", not(empty())))
+                .andExpect(jsonPath("$.categories[?(@.key == 'soul')]", not(empty())));
     }
 
     @Test
@@ -120,7 +125,7 @@ class ConfigAndObservabilityTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(override)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status", is("saved")))
+                .andExpect(jsonPath("$.status", is("applied")))
                 .andExpect(jsonPath("$.category", is("llm_provider")));
 
         // Verify save changed the effective values

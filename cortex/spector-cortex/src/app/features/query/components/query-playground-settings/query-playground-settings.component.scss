@@ -1,0 +1,122 @@
+:host {
+  display: block;
+}
+
+.sidebar-card {
+  border-radius: 16px;
+  border: 1px solid var(--mat-sys-outline-variant);
+
+  mat-card-header {
+    margin-bottom: 16px;
+  }
+}
+
+.panel-icon {
+  color: var(--mat-sys-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-shadow: 0 0 10px color-mix(in srgb, var(--mat-sys-primary) 30%, transparent);
+}
+
+.settings-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.setting-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.setting-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.density-tight-field {
+  width: 100%;
+
+  ::ng-deep .mat-mdc-form-field-subscript-wrapper {
+    display: none; // Remove padding space for errors
+  }
+}
+
+.profile-info-text {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: var(--mat-sys-on-surface-variant);
+  opacity: 0.8;
+  line-height: 1.4;
+}
+
+.setting-divider {
+  border-color: color-mix(in srgb, var(--mat-sys-outline-variant) 50%, transparent);
+  margin: 4px 0;
+}
+
+.slider-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.slider-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--mat-sys-primary-container);
+  color: var(--mat-sys-on-primary-container);
+
+  &.neutral {
+    background: var(--mat-sys-surface-container-high);
+    color: var(--mat-sys-on-surface-variant);
+  }
+}
+
+.slider-row-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  mat-slider {
+    flex: 1;
+  }
+}
+
+// ── Active parameters grid ──
+.active-params-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.param-cell {
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  background: var(--mat-sys-surface-container-low);
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 8px;
+
+  .param-name {
+    font-size: 10px;
+    color: var(--mat-sys-on-surface-variant);
+    opacity: 0.7;
+    margin-bottom: 2px;
+  }
+
+  .param-value {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--mat-sys-on-surface);
+  }
+}

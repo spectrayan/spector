@@ -1,0 +1,88 @@
+<mat-card appearance="outlined" class="sidebar-card playground-settings cortex-glass">
+  <mat-card-header>
+    <mat-icon mat-card-avatar class="panel-icon">tune</mat-icon>
+    <mat-card-title>Recall Playground</mat-card-title>
+    <mat-card-subtitle>Configure Search Gating</mat-card-subtitle>
+  </mat-card-header>
+
+  <mat-card-content class="settings-content">
+    <!-- Target Tenant Switcher -->
+    <div class="setting-row">
+      <label class="setting-label">Target Tenant Namespace</label>
+      <mat-form-field appearance="outline" class="density-tight-field">
+        <mat-select [value]="state.playgroundTenant()" (selectionChange)="state.playgroundTenant.set($event.value)">
+          @for (ns of namespaces; track ns.value) {
+            <mat-option [value]="ns.value">{{ ns.label }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+    </div>
+
+    <!-- Cognitive Profile Selector -->
+    <div class="setting-row">
+      <label class="setting-label">Cognitive Profile Preset</label>
+      <mat-form-field appearance="outline" class="density-tight-field">
+        <mat-select [value]="state.activeProfile()" (selectionChange)="state.activeProfile.set($event.value)">
+          @for (profile of profiles; track profile) {
+            <mat-option [value]="profile">{{ profileParams[profile].label }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+      <p class="profile-info-text">{{ getActiveProfileDescription() }}</p>
+    </div>
+
+    <mat-divider class="setting-divider"></mat-divider>
+
+    <!-- Top K Results Slider -->
+    <div class="setting-row">
+      <div class="slider-header">
+        <span class="setting-label">Limit Results (Top K)</span>
+        <span class="slider-badge cortex-mono">{{ state.playgroundTopK() }}</span>
+      </div>
+      <mat-slider min="1" max="50" step="1" showTickMarks discrete>
+        <input matSliderThumb [value]="state.playgroundTopK()" (valueChange)="state.playgroundTopK.set($event)">
+      </mat-slider>
+    </div>
+
+    <!-- Emotional Valence Bias Alignment Slider -->
+    <div class="setting-row">
+      <div class="slider-header">
+        <span class="setting-label">Valence Alignment Bias</span>
+        <span class="slider-badge cortex-mono" [class.neutral]="state.playgroundValence() === null">
+          {{ state.playgroundValence() === null ? 'DISABLED' : state.playgroundValence() }}
+        </span>
+      </div>
+      <div class="slider-row-controls">
+        <mat-slider min="-100" max="100" step="5" [disabled]="state.playgroundValence() === null" discrete>
+          <input matSliderThumb [value]="state.playgroundValence() || 0" (valueChange)="state.playgroundValence.set($event)">
+        </mat-slider>
+        <button mat-icon-button 
+                [color]="state.playgroundValence() !== null ? 'primary' : ''"
+                (click)="state.playgroundValence.set(state.playgroundValence() === null ? 0 : null)"
+                matTooltip="Toggle Valence Alignment Gating">
+          <mat-icon>{{ state.playgroundValence() !== null ? 'favorite' : 'favorite_border' }}</mat-icon>
+        </button>
+      </div>
+    </div>
+
+    <!-- Diagnostic profile metrics overview -->
+    <div class="active-params-grid">
+      <div class="param-cell">
+        <span class="param-name">Similarity (α)</span>
+        <span class="param-value cortex-mono">{{ getActiveProfileParams().alpha }}</span>
+      </div>
+      <div class="param-cell">
+        <span class="param-name">Decay (β)</span>
+        <span class="param-value cortex-mono">{{ getActiveProfileParams().beta }}</span>
+      </div>
+      <div class="param-cell">
+        <span class="param-name">Strictness</span>
+        <span class="param-value cortex-mono">{{ getActiveProfileParams().strictness }}</span>
+      </div>
+      <div class="param-cell">
+        <span class="param-name">Lateral mode</span>
+        <span class="param-value cortex-mono">{{ getActiveProfileParams().lateralMode ? 'ON' : 'OFF' }}</span>
+      </div>
+    </div>
+  </mat-card-content>
+</mat-card>

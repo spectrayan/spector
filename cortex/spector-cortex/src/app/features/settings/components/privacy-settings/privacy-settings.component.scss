@@ -1,0 +1,117 @@
+.tab-content {
+  padding: 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.settings-grid {
+  display: grid;
+  gap: 16px;
+
+  &.single-column {
+    grid-template-columns: 1fr;
+  }
+}
+
+.danger-card {
+  border-color: rgba(231, 76, 60, 0.3);
+
+  .panel-icon.danger-icon {
+    color: var(--cortex-error, #e74c3c);
+  }
+}
+
+.wipe-categories {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.wipe-category {
+  mat-checkbox {
+    display: flex;
+    align-items: flex-start;
+
+    ::ng-deep .mdc-label {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+    }
+  }
+
+  .category-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: var(--mat-sys-on-surface-variant);
+    vertical-align: middle;
+  }
+
+  .category-label {
+    font-weight: 500;
+    font-size: 13px;
+  }
+
+  .category-desc {
+    display: block;
+    width: 100%;
+    font-size: 11px;
+    color: var(--mat-sys-outline);
+    margin-top: 2px;
+    margin-left: 24px;
+  }
+}
+
+.wipe-result {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--mat-sys-surface-container-high);
+  color: var(--cortex-success, #27ae60);
+  font-size: 13px;
+  margin: 12px 0;
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+}
+
+.wipe-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.wipe-btn,
+.delete-account-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.account-delete-card {
+  border-color: rgba(231, 76, 60, 0.5);
+  background: color-mix(in srgb, var(--cortex-error, #e74c3c) 3%, transparent);
+}
+
+.delete-account-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+.confirm-input-row {
+  max-width: 320px;
+
+  .confirm-field {
+    width: 100%;
+  }
+}

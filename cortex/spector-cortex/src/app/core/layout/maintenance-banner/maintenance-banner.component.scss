@@ -1,0 +1,120 @@
+.maintenance-banner {
+  position: sticky;
+  top: 0;
+  z-index: 1100;
+  padding: 12px 24px 4px;
+  background: linear-gradient(135deg, #1a237e 0%, #0d47a1 100%);
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.maintenance-banner--MIGRATION {
+  background: linear-gradient(135deg, #1a237e 0%, #0d47a1 100%);
+}
+.maintenance-banner--MAINTENANCE {
+  background: linear-gradient(135deg, #e65100 0%, #ff6d00 100%);
+}
+.maintenance-banner--UPGRADE {
+  background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%);
+}
+
+.maintenance-banner__content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.maintenance-banner__icon {
+  font-size: 28px;
+  width: 28px;
+  height: 28px;
+  opacity: 0.9;
+  animation: pulse-icon 2s ease-in-out infinite;
+}
+
+@keyframes pulse-icon {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+.maintenance-banner__text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.maintenance-banner__title {
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.5px;
+}
+
+.maintenance-banner__message {
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.maintenance-banner__progress-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.maintenance-banner__percent {
+  font-size: 20px;
+  font-weight: 700;
+  min-width: 48px;
+  text-align: right;
+}
+
+.maintenance-banner__eta {
+  font-size: 11px;
+  opacity: 0.7;
+  white-space: nowrap;
+}
+
+.maintenance-banner__bar {
+  margin: 0 -24px;
+  --mdc-linear-progress-active-indicator-color: rgba(255, 255, 255, 0.9);
+  --mdc-linear-progress-track-color: rgba(255, 255, 255, 0.15);
+}
+
+.maintenance-banner__subtitle {
+  font-size: 11px;
+  opacity: 0.6;
+  padding: 4px 0;
+  text-align: center;
+}
+
+/* Success toast */
+.maintenance-toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  animation: toast-in 0.3s ease-out;
+}
+
+.maintenance-toast--success {
+  background: linear-gradient(135deg, #1b5e20, #2e7d32);
+  color: #fff;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}

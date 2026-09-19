@@ -1,0 +1,45 @@
+<div class="hud-panel">
+  <div class="hud-corner tl"></div>
+  <div class="hud-corner tr"></div>
+  <div class="hud-title">
+    <mat-icon class="hud-icon">analytics</mat-icon>
+    NEURAL TOPOLOGY
+  </div>
+  <div class="hud-grid">
+    <div class="hud-stat">
+      <span class="hud-stat-value cortex-mono">{{ nodeCount() }}</span>
+      <span class="hud-stat-label">NODES</span>
+    </div>
+    <div class="hud-stat">
+      <span class="hud-stat-value cortex-mono">{{ edgeCount() }}</span>
+      <span class="hud-stat-label">SYNAPSES</span>
+    </div>
+    <div class="hud-stat">
+      <span class="hud-stat-value cortex-mono">{{ (avgImportance() * 100).toFixed(0) }}%</span>
+      <span class="hud-stat-label">AVG IMP</span>
+    </div>
+    <div class="hud-stat">
+      <span class="hud-stat-value cortex-mono">{{ (densityRatio() * 100).toFixed(1) }}%</span>
+      <span class="hud-stat-label">DENSITY</span>
+    </div>
+  </div>
+  <div class="hud-edge-counts">
+    <div class="hud-edge-row">
+      <span class="hud-edge-dot hebbian"></span>
+      <span class="hud-edge-label">Hebbian</span>
+      <span class="hud-edge-count cortex-mono">{{ hebbianCount() }}</span>
+    </div>
+    <div class="hud-edge-row">
+      <span class="hud-edge-dot temporal"></span>
+      <span class="hud-edge-label">Temporal</span>
+      <span class="hud-edge-count cortex-mono">{{ temporalCount() }}</span>
+    </div>
+    <div class="hud-edge-row">
+      <span class="hud-edge-dot entity"></span>
+      <span class="hud-edge-label">Entity</span>
+      <span class="hud-edge-count cortex-mono">{{ entityCount() }}</span>
+    </div>
+  </div>
+  <div class="hud-corner bl"></div>
+  <div class="hud-corner br"></div>
+</div>

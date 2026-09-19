@@ -1,0 +1,129 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.cortex-mono {
+  font-family: 'Roboto Mono', monospace;
+}
+
+.advanced-filters-panel {
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--mat-sys-surface-container);
+  border: 1px solid var(--mat-sys-outline-variant);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: fade-in-row 0.25s ease both;
+
+  .filters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    align-items: center;
+  }
+
+  .filter-field {
+    width: 100%;
+
+    ::ng-deep .mat-mdc-text-field-wrapper {
+      height: 48px;
+    }
+    ::ng-deep .mat-mdc-form-field-infix {
+      padding: 12px 0 !important;
+      min-height: 48px;
+    }
+  }
+
+  .clear-input-btn {
+    width: 24px !important;
+    height: 24px !important;
+    line-height: 24px !important;
+    mat-icon {
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
+    }
+  }
+
+  .filter-slider-container {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    .slider-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--mat-sys-on-surface-variant);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+
+      .value-text {
+        font-weight: 600;
+        color: var(--mat-sys-primary);
+        background: var(--mat-sys-primary-container);
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-size: 10px;
+      }
+    }
+
+    mat-slider {
+      width: 100%;
+      height: 32px;
+    }
+
+    &.valence-sliders {
+      .sliders-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        mat-slider {
+          flex: 1;
+        }
+      }
+    }
+  }
+
+  .filters-actions {
+    display: flex;
+    justify-content: flex-end;
+    border-top: 1px solid var(--mat-sys-outline-variant);
+    padding-top: 8px;
+    margin-top: 4px;
+
+    button {
+      font-size: 11px;
+      color: var(--mat-sys-on-surface-variant);
+    }
+  }
+
+  .filter-date-container {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    .slider-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--mat-sys-on-surface-variant);
+    }
+  }
+
+  .date-range-row {
+    display: flex;
+    gap: 8px;
+
+    .date-filter {
+      flex: 1;
+      min-width: 0;
+    }
+  }
+}
+
+@keyframes fade-in-row {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}

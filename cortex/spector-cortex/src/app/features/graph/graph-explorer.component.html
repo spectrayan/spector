@@ -1,0 +1,256 @@
+<div class="graph-explorer-page">
+  <!-- Scan-line overlay — pure CSS, zero cost -->
+  <div class="scanline-overlay"></div>
+
+  <!-- Screenshot flash effect -->
+  @if (isCapturing()) {
+    <div class="screenshot-flash"></div>
+  }
+
+  <!-- Share toast notification -->
+  @if (shareToast(); as toast) {
+    <div class="share-toast" id="share-toast">
+      <mat-icon>check_circle</mat-icon>
+      <span>{{ toast }}</span>
+    </div>
+  }
+
+  <!-- Toolbar -->
+  <cortex-graph-toolbar
+    [loadedCount]="loadedCount()"
+    [totalAvailable]="totalAvailable() || '∞'"
+    [isLoadingMore]="isLoadingMore()"
+    [showTopologyStats]="showTopologyStats()"
+    [isCapturing]="isCapturing()"
+    [isSharing]="isSharing()"
+    [timeTravelMode]="timeTravelMode()"
+    [(showHebbian)]="showHebbian"
+    [(showTemporal)]="showTemporal"
+    [(showEntity)]="showEntity"
+    [(showLabels)]="showLabels"
+    [(showFilters)]="showFilters"
+    [(showSharePanel)]="showSharePanel"
+    (expandScanRange)="expandScanRange()"
+    (toggleTopologyStats)="toggleTopologyStats()"
+    (captureScreenshot)="captureScreenshot()"
+    (shareScreenshot)="shareScreenshot()"
+    (copyShareLink)="copyShareLink()"
+    (toggleSharePanel)="toggleSharePanel()"
+    (toggleTimeTravel)="timeTravelMode() ? exitTimeTravel() : enterTimeTravel()"
+    (replayQueryAnimation)="replayQueryAnimation()"
+    (refreshGraph)="refreshGraph()"
+  />
+
+  <!-- Query bar — recall queries trigger neuron firing particles -->
+  <div class="graph-query-bar">
+    <cortex-query-input></cortex-query-input>
+  </div>
+
+  <div class="explorer-layout">
+    <!-- Loading indicator -->
+    @if (graphLoading()) {
+      <div class="graph-loading">
+        <mat-spinner diameter="48"></mat-spinner>
+        <span class="loading-text cortex-mono">INITIALIZING NEURAL TOPOLOGY...</span>
+      </div>
+    }
+
+    <!-- Error state -->
+    @if (graphError(); as error) {
+      <div class="graph-error">
+        <mat-icon>memory</mat-icon>
+        <span>{{ error }}</span>
+      </div>
+    }
+
+    <!-- Loading More indicator (bottom bar) -->
+    @if (isLoadingMore()) {
+      <div class="loading-more-bar">
+        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+        <span class="cortex-mono">EXPANDING SCAN RANGE...</span>
+      </div>
+    }
+
+    <!-- Graph Canvas -->
+    <div class="graph-canvas-container"
+         #graphCanvas
+         (mousemove)="onMouseMove($event)"
+         (mousedown)="onMouseDown($event)"
+         (mouseup)="onMouseUp($event)"
+         (mouseleave)="onMouseUp($event)"
+         (wheel)="onWheel($event)"
+         (click)="onClick($event)"
+         (dblclick)="onDoubleClick()">
+    </div>
+
+    <!-- Hover Tooltip -->
+    @if (hoverInfo(); as h) {
+      <div class="hover-tooltip"
+           [style.left.px]="h.x + 16"
+           [style.top.px]="h.y - 8">
+        <div class="hover-header">
+          <span class="hover-id">{{ h.id }}</span>
+          <span class="hover-tier" [attr.data-tier]="h.tier">{{ h.tier }}</span>
+        </div>
+        <p class="hover-text">{{ h.text }}</p>
+        <div class="hover-bar-row">
+          <span class="hover-bar-label">IMP</span>
+          <div class="hover-bar-track">
+            <div class="hover-bar-fill" [style.width.%]="h.importance * 100"
+                 [attr.data-tier]="h.tier"></div>
+          </div>
+          <span class="hover-bar-value">{{ (h.importance * 100).toFixed(0) }}%</span>
+        </div>
+      </div>
+    }
+
+    <!-- Filter Command Deck -->
+    @if (showFilters()) {
+      <cortex-graph-filter-deck
+        [(importanceMin)]="importanceMin"
+        [(importanceMax)]="importanceMax"
+        [(valenceMin)]="valenceMin"
+        [(valenceMax)]="valenceMax"
+        [timestampMin]="timestampMin()"
+        [timestampMax]="timestampMax()"
+        [fromDate]="fromDate()"
+        [toDate]="toDate()"
+        [visibleNodeCount]="visibleNodeCount()"
+        (fromDateChange)="onFromDateChange($event)"
+        (toDateChange)="onToDateChange($event)"
+        (setTemporalPreset)="setTemporalPreset($event)"
+        (resetFilters)="resetFilters()"
+      />
+    }
+
+    <!-- Scientific HUD Panel (top-left) -->
+    <cortex-graph-hud
+      [nodeCount]="nodeCount()"
+      [edgeCount]="edgeCount()"
+      [avgImportance]="avgImportance()"
+      [densityRatio]="densityRatio()"
+      [hebbianCount]="hebbianCount()"
+      [temporalCount]="temporalCount()"
+      [entityCount]="entityCount()"
+    />
+
+    <!-- Topology Stats Deck (Right Panel) -->
+    @if (showTopologyStats()) {
+      <cortex-graph-stats-deck
+        [loading]="topologyStatsLoading()"
+        [error]="topologyStatsError()"
+        [entityTypesStats]="entityTypesStats()"
+        [relationTypesStats]="relationTypesStats()"
+        (close)="showTopologyStats.set(false)"
+      />
+    }
+
+    <!-- Node Detail Panel -->
+    @if (selectedNode(); as node) {
+      <cortex-graph-node-detail
+        [node]="node"
+        [(expansionDepth)]="expansionDepth"
+        [isExpanding]="isExpanding()"
+        [isOverviewMode]="isOverviewMode()"
+        [expansionStatus]="expansionStatus()"
+        (expandNodeNeighbors)="expandNodeNeighbors($event)"
+        (collapseToOverview)="collapseToOverview()"
+      />
+    }
+
+    <!-- Edge Detail Panel -->
+    @if (selectedEdge(); as edge) {
+      <cortex-graph-edge-detail
+        [edge]="edge"
+      />
+    }
+
+    <!-- Debug Console Overlay (non-prod only) -->
+    @if (showDebugConsole()) {
+      <cortex-graph-debug-console
+        [debugLines]="debugLines()"
+        (close)="showDebugConsole.set(false)"
+      />
+    }
+
+    <!-- Legend (bottom-right) -->
+    <div class="graph-legend">
+      <div class="legend-item"><span class="legend-dot working"></span> Working</div>
+      <div class="legend-item"><span class="legend-dot episodic"></span> Episodic</div>
+      <div class="legend-item"><span class="legend-dot semantic"></span> Semantic</div>
+      <div class="legend-item"><span class="legend-dot procedural"></span> Procedural</div>
+      <div class="legend-separator"></div>
+      <div class="legend-item"><span class="legend-line hebbian"></span> Hebbian</div>
+      <div class="legend-item"><span class="legend-line temporal"></span> Temporal</div>
+      <div class="legend-item"><span class="legend-line entity"></span> Entity</div>
+    </div>
+
+    <!-- Recall Results Panel (Right HUD) -->
+    @if (recallMode()) {
+      <aside class="recall-panel" id="recall-results-panel">
+        <div class="recall-header">
+          <div class="recall-header-left">
+            <mat-icon class="recall-icon">psychology_alt</mat-icon>
+            <span class="recall-title">RECALL RESULTS</span>
+            <span class="recall-count cortex-mono">{{ recallResults().length }}</span>
+          </div>
+          <button class="recall-exit-btn" (click)="exitRecallMode()" matTooltip="Exit Recall Mode">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+        <div class="recall-list">
+          @for (item of recallResults(); track item.id; let i = $index) {
+            <button class="recall-item" (click)="flyToRecallResult(item.id)">
+              <span class="recall-rank">{{ i + 1 }}</span>
+              <div class="recall-item-content">
+                <div class="recall-item-header">
+                  <span class="recall-tier-badge" [attr.data-tier]="item.tier">{{ item.tier }}</span>
+                  <span class="recall-score cortex-mono">{{ item.score.toFixed(3) }}</span>
+                </div>
+                <span class="recall-text">{{ item.text }}</span>
+              </div>
+              <mat-icon class="recall-fly-icon">flight</mat-icon>
+            </button>
+          }
+        </div>
+      </aside>
+
+      <!-- Recall Mode Badge -->
+      <div class="recall-mode-badge">
+        <mat-icon>psychology_alt</mat-icon>
+        <span class="cortex-mono">RECALL MODE</span>
+        <div class="recall-pulse-ring"></div>
+      </div>
+    }
+
+    <!-- Query Animation Timeline Bar -->
+    @if (queryAnimationMode()) {
+      <div class="animation-timeline" id="animation-timeline">
+        <div class="animation-stage-badge cortex-mono">
+          <mat-icon>auto_awesome</mat-icon>
+          {{ queryAnimationStage() }}
+        </div>
+        <div class="animation-track">
+          <div class="animation-fill" [style.width.%]="queryAnimationProgress() * 100"></div>
+        </div>
+        <button class="animation-replay-btn" (click)="replayQueryAnimation()" matTooltip="Replay Animation">
+          <mat-icon>replay</mat-icon>
+        </button>
+      </div>
+    }
+
+    <!-- Time-Travel Toolbar -->
+    @if (timeTravelMode()) {
+      <cortex-graph-time-travel
+        [timeTravelPlaying]="timeTravelPlaying()"
+        [timeTravelTimestamp]="timeTravelTimestamp()"
+        [oldestTimestamp]="oldestTimestamp()"
+        [newestTimestamp]="newestTimestamp()"
+        [(timeTravelSpeed)]="timeTravelSpeed"
+        (togglePlay)="toggleTimeTravelPlay()"
+        (scrub)="onTimeTravelScrub($event)"
+        (exit)="exitTimeTravel()"
+      />
+    }
+  </div>
+</div>
