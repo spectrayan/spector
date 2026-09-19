@@ -20,6 +20,7 @@ import com.spectrayan.spector.config.SpectorPropertyConstants;
 import com.spectrayan.spector.synapse.config.model.ConfigCategory;
 import com.spectrayan.spector.synapse.config.model.ConfigFieldDescriptor;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -35,12 +36,17 @@ public class ConfigSchemaRegistry {
 
     private final SpectorProperties configSnapshot;
 
-    public ConfigSchemaRegistry() {
-        this(SpectorProperties.load());
+    @Autowired
+    public ConfigSchemaRegistry(ConfigResolutionService resolutionService) {
+        this(resolutionService != null ? resolutionService.configSnapshot() : null);
     }
 
     public ConfigSchemaRegistry(SpectorProperties configSnapshot) {
-        this.configSnapshot = configSnapshot != null ? configSnapshot : SpectorProperties.load();
+        this.configSnapshot = configSnapshot != null ? configSnapshot : SpectorProperties.builder().build();
+    }
+
+    public ConfigSchemaRegistry() {
+        this((SpectorProperties) null);
     }
 
     /**

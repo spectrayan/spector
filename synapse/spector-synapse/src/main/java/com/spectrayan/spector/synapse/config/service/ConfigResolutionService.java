@@ -55,6 +55,10 @@ public class ConfigResolutionService {
         return policy;
     }
 
+    public com.spectrayan.spector.config.SpectorProperties configSnapshot() {
+        return configSnapshot;
+    }
+
     /**
      * Resolves the effective configuration for a category, merging
      * system → tenant → user overrides.
