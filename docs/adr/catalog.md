@@ -92,6 +92,8 @@
 | **ADR-0081** | [Dedicated Reactive Cell Ingress Router](0081-dedicated-reactive-cell-ingress-router.md) | `Accepted` | 2026-09-15 | [`0081-dedicated-reactive-cell-ingress-router.md`](0081-dedicated-reactive-cell-ingress-router.md) |
 | **ADR-0082** | [Index Plane Lifecycle, Derived Views, and Reconciliation](0082-index-plane-lifecycle-and-derived-view-reconciliation.md) | `Proposed` | 2026-09-17 | [`0082-index-plane-lifecycle-and-derived-view-reconciliation.md`](0082-index-plane-lifecycle-and-derived-view-reconciliation.md) |
 | **ADR-0083** | [Namespace-Isolated Memory Analytics and Stats Telemetry](0083-namespace-isolated-memory-analytics-telemetry.md) | `Proposed` | 2026-09-18 | [`0083-namespace-isolated-memory-analytics-telemetry.md`](0083-namespace-isolated-memory-analytics-telemetry.md) |
+| **ADR-0084** | [Dual-Plane Conversation Persistence](0084-dual-plane-conversation-persistence.md) | `Proposed` | 2026-09-19 | [`0084-dual-plane-conversation-persistence.md`](0084-dual-plane-conversation-persistence.md) |
+| **ADR-0085** | [Dynamic Synapse Configuration Overrides and SpectorMemory Runtime Propagation Architecture](0085-dynamic-synapse-configuration-and-runtime-propagation.md) | `Proposed` | 2026-09-19 | [`0085-dynamic-synapse-configuration-and-runtime-propagation.md`](0085-dynamic-synapse-configuration-and-runtime-propagation.md) |
 
 ---
 
@@ -191,3 +193,5 @@ Hardware Abstraction Layer (HAL), actor concurrency, clustering & cell HA, REST/
 - **[ADR-0080: Observed Memory and Pathway Metrics Telemetry Architecture](0080-observed-memory-and-pathway-metrics-telemetry.md)** (`Accepted (Implemented)`)
 - **[ADR-0081: Dedicated Reactive Cell Ingress Router](0081-dedicated-reactive-cell-ingress-router.md)** (`Accepted`)
 - **[ADR-0083: Namespace-Isolated Memory Analytics and Stats Telemetry](0083-namespace-isolated-memory-analytics-telemetry.md)** (`Proposed`)
+- **[ADR-0084: Dual-Plane Conversation Persistence](0084-dual-plane-conversation-persistence.md)** (`Proposed`)
+- **[ADR-0085: Dynamic Synapse Configuration Overrides and SpectorMemory Runtime Propagation Architecture](0085-dynamic-synapse-configuration-and-runtime-propagation.md)** (`Proposed`)

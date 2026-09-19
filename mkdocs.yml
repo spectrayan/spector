@@ -231,7 +231,7 @@ nav:
       - "Architecture Decision Records (ADRs)":
           - Overview: adr/README.md
           - Template: adr/0000-template.md
-          - "Master Catalog (0001-0083)": adr/catalog.md
+          - "Master Catalog (0001-0085)": adr/catalog.md
           - "Memory Kernel & Storage Formats":
               - "ADR-0001: Graph Compression Strategy for Entity Graph": adr/0001-graph-compression-strategy.md
               - "ADR-0002: Multi-Partition Recall Fan-Out & Frozen Reten...": adr/0002-multi-partition-recall-fanout.md
@@ -318,6 +318,8 @@ nav:
               - "ADR-0080: Observed Memory and Pathway Metrics Telemetry Architecture": adr/0080-observed-memory-and-pathway-metrics-telemetry.md
               - "ADR-0081: Dedicated Reactive Ingress and In-Process Path Router": adr/0081-dedicated-reactive-cell-ingress-router.md
               - "ADR-0083: Namespace-Isolated Memory Analytics & Telemetry": adr/0083-namespace-isolated-memory-analytics-telemetry.md
+              - "ADR-0084: Dual-Plane Conversation Persistence": adr/0084-dual-plane-conversation-persistence.md
+              - "ADR-0085: Dynamic Synapse Configuration Overrides and Runtime Propagation": adr/0085-dynamic-synapse-configuration-and-runtime-propagation.md
       - "Modules Registry":
           - Overview: modules/index.md
           - "Foundation Layer (/nucleus)":
