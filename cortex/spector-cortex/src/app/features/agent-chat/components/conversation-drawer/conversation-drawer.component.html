@@ -1,0 +1,162 @@
+<div class="drawer-container">
+  <!-- ── Drawer Header ── -->
+  <div class="sidebar-header drawer-header">
+    <div class="header-branding">
+      <mat-icon class="history-icon">history</mat-icon>
+      <h3>Chats</h3>
+    </div>
+    <button mat-icon-button
+            class="drawer-toggle sidebar-toggle"
+            matTooltip="Toggle drawer"
+            aria-label="Toggle drawer"
+            (click)="onToggleDrawer()">
+      <mat-icon>chevron_left</mat-icon>
+    </button>
+  </div>
+
+  <!-- ── New Chat Action ── -->
+  <div class="drawer-actions">
+    <button class="new-chat-btn"
+            mat-flat-button
+            aria-label="Start new conversation"
+            (click)="onNewChat()">
+      <mat-icon>add</mat-icon>
+      <span>New Chat</span>
+    </button>
+  </div>
+
+  <!-- ── Session Search / Filter ── -->
+  @if (sessions().length > 5) {
+    <div class="drawer-search">
+      <mat-icon class="search-icon">search</mat-icon>
+      <input type="text"
+             class="search-input"
+             placeholder="Search conversations…"
+             [ngModel]="searchQuery()"
+             (ngModelChange)="searchQuery.set($event)"
+             aria-label="Search conversations" />
+      @if (searchQuery()) {
+        <button class="clear-search-btn" (click)="searchQuery.set('')" aria-label="Clear search">
+          <mat-icon>close</mat-icon>
+        </button>
+      }
+    </div>
+  }
+
+  <!-- ── Session List ── -->
+  <div class="conversation-list" role="list" aria-label="Past conversations">
+    @if (isLoading() && sessions().length === 0) {
+      <div class="sidebar-loading">
+        <mat-progress-spinner diameter="24" mode="indeterminate"></mat-progress-spinner>
+        <span>Loading conversations…</span>
+      </div>
+    } @else if (filteredSessions().length === 0) {
+      <div class="sidebar-empty">
+        <mat-icon>chat_bubble_outline</mat-icon>
+        <p>No conversations found</p>
+      </div>
+    } @else {
+      @for (session of filteredSessions(); track session.sessionId) {
+        <div class="conversation-item"
+             role="listitem"
+             tabindex="0"
+             [class.active]="activeSessionId() === session.sessionId"
+             [class.editing]="editingSessionId() === session.sessionId"
+             (click)="onSessionClick(session.sessionId)"
+             (keydown.enter)="onSessionClick(session.sessionId)">
+
+          <!-- Normal Item State -->
+          @if (editingSessionId() !== session.sessionId && confirmingDeleteSessionId() !== session.sessionId) {
+            <mat-icon class="conv-icon">chat_bubble_outline</mat-icon>
+
+            <div class="conv-info">
+              <div class="conv-title-row">
+                <span class="conv-title" [matTooltip]="session.title || 'Untitled Chat'">
+                  {{ session.title || 'Untitled Chat' }}
+                </span>
+                <span class="conv-time">
+                  {{ formatSessionDate(session.lastActivity) }}
+                </span>
+              </div>
+              @if (session.preview) {
+                <span class="conv-preview">{{ session.preview }}</span>
+              }
+            </div>
+
+            <!-- Action buttons (revealed on hover/focus) -->
+            <div class="conv-actions">
+              <button mat-icon-button
+                      class="conv-action-btn edit"
+                      matTooltip="Rename chat"
+                      aria-label="Rename conversation"
+                      (click)="startEdit(session, $event)">
+                <mat-icon>edit</mat-icon>
+              </button>
+              <button mat-icon-button
+                      class="conv-action-btn delete conv-delete"
+                      matTooltip="Delete chat"
+                      aria-label="Delete conversation"
+                      (click)="promptDelete(session.sessionId, $event)">
+                <mat-icon>delete_outline</mat-icon>
+              </button>
+            </div>
+          }
+
+          <!-- Inline Editing State -->
+          @if (editingSessionId() === session.sessionId) {
+            <div class="inline-edit-wrapper" (click)="$event.stopPropagation()">
+              <input #editInput
+                     type="text"
+                     class="inline-edit-input"
+                     [ngModel]="editTitleValue()"
+                     (ngModelChange)="editTitleValue.set($event)"
+                     (keydown)="onEditKeydown($event, session.sessionId)"
+                     (blur)="saveEdit(session.sessionId)"
+                     aria-label="Edit chat title" />
+              <div class="inline-edit-actions">
+                <button mat-icon-button class="save-edit-btn" (click)="saveEdit(session.sessionId)" aria-label="Save title">
+                  <mat-icon>check</mat-icon>
+                </button>
+                <button mat-icon-button class="cancel-edit-btn" (click)="cancelEdit()" aria-label="Cancel edit">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+            </div>
+          }
+
+          <!-- Delete Confirmation State -->
+          @if (confirmingDeleteSessionId() === session.sessionId) {
+            <div class="delete-confirmation-wrapper" (click)="$event.stopPropagation()">
+              <span class="delete-prompt">Delete chat?</span>
+              <div class="delete-actions">
+                <button class="confirm-delete-btn" (click)="confirmDelete(session.sessionId, $event)">
+                  Delete
+                </button>
+                <button class="cancel-delete-btn" (click)="cancelDelete($event)">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    }
+
+    <!-- ── Load More History Button ── -->
+    @if (hasMore()) {
+      <div class="load-more-wrapper">
+        <button class="load-more-btn"
+                (click)="loadMore.emit()"
+                [disabled]="isLoading()">
+          @if (isLoading()) {
+            <mat-progress-spinner diameter="16" mode="indeterminate"></mat-progress-spinner>
+            <span>Loading…</span>
+          } @else {
+            <mat-icon>history</mat-icon>
+            <span>Load older chats</span>
+          }
+        </button>
+      </div>
+    }
+  </div>
+</div>

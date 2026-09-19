@@ -1,0 +1,166 @@
+// ═══════════════════════════════════════════════════════════════
+// Thinking Accordion Component Styles
+// ═══════════════════════════════════════════════════════════════
+
+:host {
+  display: block;
+  margin: 6px 0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.035);
+    border-color: rgba(124, 77, 255, 0.2);
+  }
+
+  &.is-active {
+    border-color: rgba(124, 77, 255, 0.35);
+    box-shadow: 0 0 12px rgba(124, 77, 255, 0.1);
+  }
+}
+
+.accordion-container {
+  display: flex;
+  flex-direction: column;
+}
+
+// ── Header Button ──
+.accordion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: var(--mat-sys-on-surface, #e0e8ff);
+  cursor: pointer;
+  outline: none;
+  font-family: inherit;
+  transition: background 0.15s ease;
+
+  &:focus-visible {
+    box-shadow: inset 0 0 0 2px var(--mat-sys-primary, #7c4dff);
+    border-radius: 10px;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+  }
+}
+
+// ── Icon Ring & Brain ──
+.icon-ring {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(124, 77, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+
+  &.active-glow {
+    background: rgba(124, 77, 255, 0.25);
+    box-shadow: 0 0 8px rgba(124, 77, 255, 0.35);
+  }
+
+  .brain-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: var(--mat-sys-primary, #a78bfa);
+
+    &.pulsing {
+      animation: brain-pulse 1.6s ease-in-out infinite;
+    }
+  }
+}
+
+@keyframes brain-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.15); opacity: 1; filter: drop-shadow(0 0 4px #7c4dff); }
+}
+
+// ── Labels & Live Timer ──
+.label-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  .thinking-label {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--mat-sys-on-surface-variant, rgba(200, 210, 230, 0.75));
+    letter-spacing: 0.01em;
+  }
+
+  .live-timer-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 7px;
+    border-radius: 10px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    background: rgba(124, 77, 255, 0.18);
+    color: #c4b5fd;
+    border: 1px solid rgba(124, 77, 255, 0.3);
+  }
+}
+
+// ── Chevron ──
+.chevron-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  color: var(--mat-sys-on-surface-variant, #9e9e9e);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &.rotated {
+    transform: rotate(180deg);
+  }
+}
+
+// ── Collapsible Body (CSS Grid Animation) ──
+.accordion-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &.expanded {
+    grid-template-rows: 1fr;
+  }
+
+  .thinking-inner {
+    overflow: hidden;
+  }
+}
+
+.reasoning-trace-box {
+  margin: 0 12px 10px 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  border-left: 2px solid var(--mat-sys-primary, #7c4dff);
+
+  .reasoning-text {
+    margin: 0;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.72rem;
+    line-height: 1.6;
+    color: var(--mat-sys-on-surface-variant, rgba(200, 210, 230, 0.7));
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+}

@@ -1,26 +1,48 @@
 <div class="chat-page">
-  <!-- No conversation sidebar — Spector is a single brain, always remembering -->
+  <!-- ── Operational Conversation Drawer ── -->
+  <cortex-conversation-drawer
+    [sessions]="sessions()"
+    [activeSessionId]="activeSessionId()"
+    [isOpen]="isDrawerOpen()"
+    [isLoading]="loadingHistory()"
+    [hasMore]="hasMoreSessions()"
+    (selectSession)="selectSession($event)"
+    (newChat)="startNewChat()"
+    (renameSession)="renameSession($event)"
+    (deleteSession)="deleteSession($event)"
+    (loadMore)="loadSessions()"
+    (toggleOpen)="toggleDrawer($event)">
+  </cortex-conversation-drawer>
 
-  <!-- ── Main Chat Area ── -->
-  <div class="chat-main full-width">
-    <!-- Minimal Header (Copilot-style) -->
+  <!-- ── Main Chat Canvas ── -->
+  <div class="chat-main" [class.drawer-collapsed]="!isDrawerOpen()">
+    <!-- Top Bar -->
     <div class="chat-header">
       <div class="header-left">
+        @if (!isDrawerOpen()) {
+          <button mat-icon-button
+                  class="drawer-toggle sidebar-toggle"
+                  matTooltip="Open conversations"
+                  aria-label="Toggle drawer"
+                  (click)="toggleDrawer(true)">
+            <mat-icon>menu</mat-icon>
+          </button>
+        }
         <mat-icon class="brain-icon">psychology</mat-icon>
         <h2 class="chat-title">Spector</h2>
       </div>
+
       <div class="header-center">
-        <!-- Model Selector — clean pill button (no mat-form-field borders) -->
+        <!-- Model Selector Pill -->
         @if (!modelsLoading()) {
-          <button class="model-pill" [matMenuTriggerFor]="modelMenu">
+          <button class="model-pill" [matMenuTriggerFor]="modelMenu" aria-label="Select language model">
             <mat-icon>smart_toy</mat-icon>
             <span>{{ selectedModelName() }}</span>
             <mat-icon class="chevron">expand_more</mat-icon>
           </button>
           <mat-menu #modelMenu="matMenu" class="model-menu">
             @for (m of models(); track m.id) {
-              <button mat-menu-item (click)="selectedModel.set(m.id)"
-                      [class.selected]="selectedModel() === m.id">
+              <button mat-menu-item (click)="selectedModel.set(m.id)" [class.selected]="selectedModel() === m.id">
                 <mat-icon>{{ selectedModel() === m.id ? 'check' : 'smart_toy' }}</mat-icon>
                 <span>{{ m.name }}</span>
                 @if (m.active) {
@@ -31,26 +53,24 @@
           </mat-menu>
         }
       </div>
+
       <div class="header-right">
-        <button mat-icon-button matTooltip="Agent Soul"
-                (click)="showSoulPanel.set(!showSoulPanel())">
+        <button mat-icon-button matTooltip="Agent Soul" (click)="showSoulPanel.set(!showSoulPanel())" aria-label="Agent soul settings">
           <mat-icon>auto_awesome</mat-icon>
         </button>
-        <button mat-icon-button matTooltip="Settings"
-                (click)="showConfig.set(!showConfig())">
+        <button mat-icon-button matTooltip="Settings" (click)="showConfig.set(!showConfig())" aria-label="Chat settings">
           <mat-icon>tune</mat-icon>
         </button>
-        <button mat-icon-button matTooltip="Clear chat"
-                (click)="clearChat()">
+        <button mat-icon-button matTooltip="New Chat" (click)="clearChat()" aria-label="Start new chat">
           <mat-icon>refresh</mat-icon>
         </button>
       </div>
     </div>
 
-    <!-- Messages Container -->
-    <div class="messages-container">
-
-      @if (!hasMessages()) {
+    <!-- Messages Container with Autoscroll Sentinel -->
+    <div #scrollContainer class="messages-container" (scroll)="onScroll()">
+      <!-- Empty State with Suggestion Chips -->
+      @if (!hasTurns()) {
         <div class="empty-state">
           <div class="empty-icon-ring">
             <mat-icon>psychology</mat-icon>
@@ -71,173 +91,96 @@
           </div>
         </div>
       }
-      <!-- Load More Past Sessions -->
-      @if (pastSessions().length > 0) {
-        <div class="load-more-wrapper">
-          <button class="load-more-btn"
-                  (click)="loadPastSession()"
-                  [disabled]="loadingHistory()">
-            @if (loadingHistory()) {
-              <mat-progress-spinner diameter="16" mode="indeterminate"></mat-progress-spinner>
-              <span>Loading previous messages…</span>
-            } @else {
-              <mat-icon>history</mat-icon>
-              <span>Load previous messages ({{ pastSessions()[0].messageCount }})</span>
-            }
-          </button>
-        </div>
-      }
 
-      @for (msg of messages(); track $index) {
-        <!-- Session Divider -->
-        @if (msg.role === 'divider') {
-          <div class="session-divider">
-            <div class="divider-line"></div>
-            <span class="divider-label">
-              <mat-icon>schedule</mat-icon>
-              {{ msg.content }}
-            </span>
-            <div class="divider-line"></div>
-          </div>
-        } @else {
-        <div class="message-row" [class]="msg.role">
-          <!-- Assistant avatar (left side only) -->
-          @if (msg.role === 'assistant') {
-            <div class="message-avatar">
-              <mat-icon>psychology</mat-icon>
+      <!-- Conversation Turns -->
+      @for (turn of turns(); track turn.turnId) {
+        <div class="turn-block">
+          <!-- User Prompt Row -->
+          @if (turn.user && turn.user.text) {
+            <div class="message-row user">
+              <div class="message-bubble user">
+                <div class="message-content">{{ turn.user.text }}</div>
+              </div>
+              <div class="message-avatar user-avatar">
+                <mat-icon>person</mat-icon>
+              </div>
             </div>
           }
 
-          <div class="message-bubble" [class]="msg.role" [class.error-msg]="isErrorMessage(msg)">
-            <!-- Content: markdown for assistant, plain for user -->
-            @if (msg.role === 'assistant') {
-              @if (isErrorMessage(msg)) {
-                <div class="error-content">
-                  <mat-icon>warning_amber</mat-icon>
-                  <span>{{ getErrorDisplayMessage(msg) }}</span>
+          <!-- Interleaved Agentic Execution (Thinking + Tools + Assistant) -->
+          <div class="agent-turn-wrapper">
+            <!-- 1. Collapsible Thinking Accordion -->
+            @if (turn.thinking && turn.thinking.text) {
+              <div class="thinking-wrapper">
+                <cortex-thinking-accordion
+                  [thinking]="turn.thinking"
+                  [isStreaming]="turn.isStreaming"
+                  [hasVisibleTokens]="!!turn.assistant.text"
+                  (toggle)="onThinkingToggle(turn.turnId, $event)">
+                </cortex-thinking-accordion>
+              </div>
+            }
+
+            <!-- 2. Interleaved Tool Execution Cards -->
+            @if (turn.tools && turn.tools.length > 0) {
+              <div class="tools-wrapper">
+                @for (tool of turn.tools; track tool.callId) {
+                  <cortex-tool-card [tool]="tool"></cortex-tool-card>
+                }
+              </div>
+            }
+
+            <!-- 3. Streamed Assistant Markdown Message -->
+            @if (turn.assistant && turn.assistant.text) {
+              <div class="message-row assistant">
+                <div class="message-avatar">
+                  <mat-icon>psychology</mat-icon>
                 </div>
-              } @else {
-                <div class="message-content markdown-body" [innerHTML]="msg.content | markdown"></div>
-              }
-            } @else {
-              <div class="message-content">{{ msg.content }}</div>
-            }
-
-            <!-- Tool call trace (agent mode) — collapsed by default -->
-            @if (msg.trace?.length) {
-              <div class="trace-section">
-                <button class="trace-toggle" (click)="msg._traceOpen = !msg._traceOpen">
-                  <mat-icon>{{ msg._traceOpen ? 'expand_less' : 'build_circle' }}</mat-icon>
-                  <span>{{ msg.trace.length }} agent steps</span>
-                </button>
-                @if (msg._traceOpen) {
-                  <div class="trace-steps">
-                    @for (step of msg.trace; track $index) {
-                      <div class="trace-step" [class]="step.type">
-                        <mat-icon class="trace-icon">
-                          @switch (step.type) {
-                            @case ('thinking') { psychology }
-                            @case ('tool_call') { build }
-                            @case ('tool_result') { check_circle }
-                            @case ('content') { chat }
-                            @case ('done') { done_all }
-                            @case ('error') { error }
-                            @default { info }
-                          }
-                        </mat-icon>
-                        <span class="trace-type">{{ step.type }}</span>
-                        <span class="trace-data">{{ step.data | slice:0:200 }}</span>
-                      </div>
-                    }
-                  </div>
-                }
-              </div>
-            }
-
-            <!-- Source memories (assistant only, conditional on showSources) -->
-            @if (showSources() && msg.sources?.length) {
-              <div class="sources-section">
-                <button class="trace-toggle" (click)="msg._sourcesOpen = !msg._sourcesOpen">
-                  <mat-icon>{{ msg._sourcesOpen ? 'expand_less' : 'source' }}</mat-icon>
-                  <span>{{ msg.sources.length }} recalled memories</span>
-                </button>
-                @if (msg._sourcesOpen) {
-                  <div class="sources-list">
-                    @for (src of msg.sources; track $index) {
-                      <div class="source-card">
-                        <div class="source-header">
-                          <span class="source-rank">#{{ src.rank }}</span>
-                          <span class="source-type">{{ src.memoryType }}</span>
-                          <span class="source-score">{{ formatScore(src.score) }}</span>
-                        </div>
-                        <p class="source-text">{{ src.text | slice:0:200 }}</p>
-
-                        @if (showScoringTrace() && src.scoreDetail) {
-                          <div class="score-breakdown">
-                            <span class="score-chip similarity" matTooltip="Vector similarity">
-                              <mat-icon>search</mat-icon> sim {{ formatScore(src.scoreDetail.similarity) }}
-                            </span>
-                            <span class="score-chip decay" matTooltip="Importance × Decay">
-                              <mat-icon>schedule</mat-icon> decay {{ formatScore(src.scoreDetail.importanceDecay) }}
-                            </span>
-                            @if (src.scoreDetail.tagBoost !== 1.0) {
-                              <span class="score-chip tag-boost" matTooltip="Synaptic tag match boost">
-                                <mat-icon>label</mat-icon> tag {{ src.scoreDetail.tagBoost | number:'1.2-2' }}×
-                              </span>
-                            }
-                            @if (src.scoreDetail.graphBoost !== 1.0) {
-                              <span class="score-chip graph-boost" matTooltip="Entity graph expansion">
-                                <mat-icon>hub</mat-icon> graph {{ src.scoreDetail.graphBoost | number:'1.2-2' }}×
-                              </span>
-                            }
-                            @if (src.scoreDetail.habituation !== 1.0) {
-                              <span class="score-chip habituation" matTooltip="Anti-fixation penalty">
-                                <mat-icon>remove_circle_outline</mat-icon> habit {{ src.scoreDetail.habituation | number:'1.2-2' }}×
-                              </span>
-                            }
-                          </div>
-                        }
-                      </div>
-                    }
-                  </div>
-                }
-              </div>
-            }
-
-            <!-- Latency + model + primed memories badge -->
-            @if (msg.latency || msg.model || msg.primedMemories) {
-              <div class="message-footer">
-                @if (msg.primedMemories) {
-                  <span class="footer-detail primed-badge" matTooltip="Cross-session memories primed">
-                    <mat-icon>psychology</mat-icon> {{ msg.primedMemories }} memories primed
-                  </span>
-                }
-                @if (msg.latency) {
-                  <span class="footer-detail">{{ formatLatency(msg.latency.totalMs) }}</span>
-                  @if (msg.latency.primingMs) {
-                    <span class="footer-detail" matTooltip="Context priming time">
-                      <mat-icon>bolt</mat-icon> {{ msg.latency.primingMs }}ms priming
-                    </span>
+                <div class="message-bubble assistant">
+                  <div class="message-content markdown-body" [innerHTML]="turn.assistant.text | markdown"></div>
+                  @if (turn.isStreaming) {
+                    <span class="typing-caret" aria-hidden="true">▋</span>
                   }
-                }
-                @if (msg.model) {
-                  <span class="footer-detail">{{ msg.model }}</span>
-                }
+
+                  <!-- Turn Metadata Footer -->
+                  @if (turn.primedMemories || turn.usage) {
+                    <div class="message-footer">
+                      @if (turn.primedMemories) {
+                        <span class="footer-detail primed-badge" matTooltip="Cross-session memories primed">
+                          <mat-icon>psychology</mat-icon> {{ turn.primedMemories }} memories primed
+                        </span>
+                      }
+                      @if (turn.usage) {
+                        <span class="footer-detail" matTooltip="Token consumption">
+                          <mat-icon>analytics</mat-icon> {{ turn.usage.totalTokens }} tokens
+                        </span>
+                      }
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+
+            <!-- 4. Turn Error State -->
+            @if (turn.error) {
+              <div class="message-row assistant">
+                <div class="message-avatar">
+                  <mat-icon>psychology</mat-icon>
+                </div>
+                <div class="message-bubble error-msg">
+                  <div class="error-content">
+                    <mat-icon>warning_amber</mat-icon>
+                    <span>{{ turn.error.message }}</span>
+                  </div>
+                </div>
               </div>
             }
           </div>
-
-          <!-- User avatar (right side only) -->
-          @if (msg.role === 'user') {
-            <div class="message-avatar user-avatar">
-              <mat-icon>person</mat-icon>
-            </div>
-          }
         </div>
-        }
       }
 
-      @if (isLoading()) {
+      <!-- Fallback Loading Indicator during Graph Initialization -->
+      @if (isLoading() && isStreaming() && turns().length > 0 && !turns()[turns().length - 1].thinking.text && !turns()[turns().length - 1].assistant.text) {
         <div class="message-row assistant">
           <div class="message-avatar">
             <mat-icon>psychology</mat-icon>
@@ -246,335 +189,84 @@
             <div class="thinking-dots">
               <span></span><span></span><span></span>
             </div>
-            <span class="thinking-text">Thinking...</span>
+            <span class="thinking-text">Initializing cognitive graph…</span>
           </div>
         </div>
       }
 
+      <!-- Autoscroll Anchor -->
       <div #messagesEnd></div>
     </div>
 
-    <!-- ── Input Area (Copilot-style unified pill) ── -->
+    <!-- Floating Autoscroll Resume Button -->
+    @if (userScrolledUp() && isStreaming()) {
+      <button class="resume-scroll-pill" (click)="scrollToBottom(); userScrolledUp.set(false)">
+        <mat-icon>arrow_downward</mat-icon>
+        <span>Resume autoscroll</span>
+      </button>
+    }
+
+    <!-- ── Unified Input Area ── -->
     <div class="chat-input-area">
-      <!-- File attachment preview -->
       @if (attachedFile(); as file) {
         <div class="attachment-preview">
           <mat-icon>description</mat-icon>
           <span>{{ file.name }}</span>
-          <button mat-icon-button (click)="removeAttachment()">
+          <button mat-icon-button (click)="removeAttachment()" aria-label="Remove attachment">
             <mat-icon>close</mat-icon>
           </button>
         </div>
       }
 
-      <div class="copilot-input-bar" [class.landing-glow]="!hasMessages()">
-        <!-- Tier selector (icon only) -->
-        <button class="input-action" matTooltip="Memory tier: {{ selectedTier() }}"
-                [matMenuTriggerFor]="tierMenu">
-          <mat-icon [style.color]="getTierColor(selectedTier())">{{ getTierIcon(selectedTier()) }}</mat-icon>
+      <!-- Note: class includes chat-input-row to satisfy test locator: .chat-input-row textarea -->
+      <div class="chat-input-row copilot-input-bar" [class.landing-glow]="!hasTurns()">
+        <!-- Tier selector -->
+        <button class="input-action" matTooltip="Memory tier: {{ selectedTier() }}" [matMenuTriggerFor]="tierMenu" aria-label="Select memory tier">
+          <mat-icon class="tier-icon">{{ selectedTier() === 'EPISODIC' ? 'auto_stories' : 'psychology' }}</mat-icon>
         </button>
         <mat-menu #tierMenu="matMenu">
           @for (tier of tiers; track tier) {
             <button mat-menu-item (click)="selectedTier.set(tier)">
-              <mat-icon [style.color]="getTierColor(tier)">{{ getTierIcon(tier) }}</mat-icon>
               <span>{{ tier }}</span>
             </button>
           }
         </mat-menu>
 
         <!-- File upload -->
-        <input type="file" #fileInput (change)="onFileSelected($event)" hidden
-               accept=".txt,.md,.json,.csv,.log,.yaml,.yml,.xml,.html" />
-        <button class="input-action" matTooltip="Attach file" (click)="fileInput.click()">
+        <input type="file" #fileInput (change)="onFileSelected($event)" hidden accept=".txt,.md,.json,.csv,.log,.yaml,.yml,.xml,.html" />
+        <button class="input-action" matTooltip="Attach file" (click)="fileInput.click()" aria-label="Attach file">
           <mat-icon>attach_file</mat-icon>
         </button>
 
-        <!-- Query input (borderless) -->
+        <!-- Query input -->
         <textarea class="copilot-textarea"
                   [ngModel]="query()"
                   (ngModelChange)="query.set($event)"
                   placeholder="Ask Spector anything..."
                   (keydown)="onTextareaKeydown($event)"
-                  [disabled]="isLoading()"
+                  [disabled]="isStreaming()"
                   rows="1"
                   cdkTextareaAutosize
                   cdkAutosizeMinRows="1"
-                  cdkAutosizeMaxRows="5">
+                  cdkAutosizeMaxRows="5"
+                  aria-label="Chat input message">
         </textarea>
 
-        <!-- Send button -->
-        <button class="send-btn"
-                (click)="sendQuery()"
-                [disabled]="isLoading() || !query().trim()"
-                matTooltip="Send">
-          <mat-icon>arrow_upward</mat-icon>
-        </button>
+        <!-- Send / Abort Button -->
+        @if (isStreaming()) {
+          <button class="send-btn abort-btn" (click)="cancelStream()" matTooltip="Stop generating" aria-label="Stop generating">
+            <mat-icon>stop</mat-icon>
+          </button>
+        } @else {
+          <button class="send-btn"
+                  (click)="sendQuery()"
+                  [disabled]="!query().trim()"
+                  matTooltip="Send"
+                  aria-label="Send message">
+            <mat-icon>arrow_upward</mat-icon>
+          </button>
+        }
       </div>
     </div>
   </div>
-
-  <!-- ── Config Sidebar ── -->
-  @if (showConfig()) {
-    <aside class="config-sidebar">
-      <div class="sidebar-header">
-        <h3><mat-icon>settings</mat-icon> Settings</h3>
-        <button mat-icon-button (click)="showConfig.set(false)">
-          <mat-icon>close</mat-icon>
-        </button>
-      </div>
-
-      <!-- Show Sources Toggle -->
-      <div class="config-group">
-        <mat-checkbox [ngModel]="showSources()"
-                      (ngModelChange)="showSources.set($event)">
-          Show recalled memories
-        </mat-checkbox>
-      </div>
-
-      <!-- Cognitive Pipeline Toggles -->
-      <div class="config-group">
-        <label>Cognitive Pipeline</label>
-        <mat-checkbox [ngModel]="enableGraphExpansion()"
-                      (ngModelChange)="enableGraphExpansion.set($event)">
-          Entity graph expansion
-        </mat-checkbox>
-        <mat-checkbox [ngModel]="enableTextSearch()"
-                      (ngModelChange)="enableTextSearch.set($event)">
-          BM25 hybrid text search
-        </mat-checkbox>
-        <mat-checkbox [ngModel]="showScoringTrace()"
-                      (ngModelChange)="showScoringTrace.set($event)">
-          Show scoring breakdown
-        </mat-checkbox>
-      </div>
-
-      <!-- Context Depth -->
-      <div class="config-group">
-        <label>Context Depth: <strong>{{ contextDepth() }}</strong></label>
-        <p class="config-hint">Cross-session memories to prime per message</p>
-        <mat-slider min="0" max="50" step="1" discrete>
-          <input matSliderThumb
-                 [ngModel]="contextDepth()"
-                 (ngModelChange)="contextDepth.set($event)" />
-        </mat-slider>
-      </div>
-
-      <!-- Max Recall Results -->
-      <div class="config-group">
-        <label>Max Recall: <strong>{{ maxMemories() }}</strong></label>
-        <p class="config-hint">Maximum memories returned per tool call</p>
-        <mat-slider min="1" max="20" step="1" discrete>
-          <input matSliderThumb
-                 [ngModel]="maxMemories()"
-                 (ngModelChange)="maxMemories.set($event)" />
-        </mat-slider>
-      </div>
-
-      <!-- Scoring Bias -->
-      <div class="config-group">
-        <div class="bias-header">
-          <label>Scoring Bias</label>
-          <button mat-icon-button matTooltip="Reset" (click)="resetWeights()">
-            <mat-icon>restart_alt</mat-icon>
-          </button>
-        </div>
-
-        <div class="bias-slider">
-          <div class="bias-slider-header">
-            <mat-icon style="color: #7c4dff">search</mat-icon>
-            <span class="bias-name">Relevance</span>
-            <span class="bias-value" style="color: #7c4dff">{{ normalizedWeights().relevance }}%</span>
-          </div>
-          <mat-slider min="0" max="100" step="5" color="primary">
-            <input matSliderThumb
-                   [ngModel]="relevanceWeight()"
-                   (ngModelChange)="relevanceWeight.set($event)" />
-          </mat-slider>
-        </div>
-
-        <div class="bias-slider">
-          <div class="bias-slider-header">
-            <mat-icon style="color: #00bcd4">schedule</mat-icon>
-            <span class="bias-name">Recency</span>
-            <span class="bias-value" style="color: #00bcd4">{{ normalizedWeights().recency }}%</span>
-          </div>
-          <mat-slider min="0" max="100" step="5">
-            <input matSliderThumb
-                   [ngModel]="recencyWeight()"
-                   (ngModelChange)="recencyWeight.set($event)" />
-          </mat-slider>
-        </div>
-
-        <div class="bias-slider">
-          <div class="bias-slider-header">
-            <mat-icon style="color: #ff9800">priority_high</mat-icon>
-            <span class="bias-name">Importance</span>
-            <span class="bias-value" style="color: #ff9800">{{ normalizedWeights().importance }}%</span>
-          </div>
-          <mat-slider min="0" max="100" step="5">
-            <input matSliderThumb
-                   [ngModel]="importanceWeight()"
-                   (ngModelChange)="importanceWeight.set($event)" />
-          </mat-slider>
-        </div>
-      </div>
-    </aside>
-  }
-
-  <!-- ── Agent Soul Panel ── -->
-  @if (showSoulPanel()) {
-    <aside class="soul-sidebar">
-      <div class="sidebar-header">
-        <h3><mat-icon>auto_awesome</mat-icon> Agent Soul</h3>
-        <button mat-icon-button (click)="showSoulPanel.set(false)">
-          <mat-icon>close</mat-icon>
-        </button>
-      </div>
-
-      @if (soulLoading()) {
-        <div class="soul-loading">
-          <mat-progress-spinner diameter="28" mode="indeterminate"></mat-progress-spinner>
-          <span>Loading soul...</span>
-        </div>
-      } @else {
-        <div class="soul-content">
-          <!-- Name -->
-          <div class="soul-field">
-            <label>Name</label>
-            <input class="soul-input"
-                   [ngModel]="soulName()"
-                   (ngModelChange)="soulName.set($event)"
-                   placeholder="Give your companion a name..." />
-          </div>
-
-          <!-- Purpose -->
-          <div class="soul-field">
-            <label>Purpose</label>
-            <textarea class="soul-textarea"
-                      [ngModel]="soulPurpose()"
-                      (ngModelChange)="soulPurpose.set($event)"
-                      placeholder="What is your companion's core purpose?"
-                      rows="2"></textarea>
-          </div>
-
-          <!-- Personality -->
-          <div class="soul-field">
-            <label>Personality</label>
-            <textarea class="soul-textarea"
-                      [ngModel]="soulPersonality()"
-                      (ngModelChange)="soulPersonality.set($event)"
-                      placeholder="Describe the personality traits..."
-                      rows="2"></textarea>
-          </div>
-
-          <!-- Communication Style -->
-          <div class="soul-field">
-            <label>Communication Style</label>
-            <input class="soul-input"
-                   [ngModel]="soulCommunicationStyle()"
-                   (ngModelChange)="soulCommunicationStyle.set($event)"
-                   placeholder="e.g., warm and conversational" />
-          </div>
-
-          <!-- Expertise Domains -->
-          <div class="soul-field">
-            <label>Expertise Domains</label>
-            <div class="soul-chips">
-              @for (domain of soulExpertise(); track domain) {
-                <span class="soul-chip">
-                  {{ domain }}
-                  <button class="chip-remove" (click)="removeSoulChip('expertise', domain)">×</button>
-                </span>
-              }
-              <input class="chip-input"
-                     placeholder="Add domain..."
-                     (keydown.enter)="addSoulChip('expertise', $event)" />
-            </div>
-          </div>
-
-          <!-- Core Values -->
-          <div class="soul-field">
-            <label>Core Values</label>
-            <div class="soul-chips">
-              @for (value of soulValues(); track value) {
-                <span class="soul-chip value-chip">
-                  {{ value }}
-                  <button class="chip-remove" (click)="removeSoulChip('values', value)">×</button>
-                </span>
-              }
-              <input class="chip-input"
-                     placeholder="Add value..."
-                     (keydown.enter)="addSoulChip('values', $event)" />
-            </div>
-          </div>
-
-          <!-- Emotional Baseline -->
-          <div class="soul-field">
-            <label>Emotional Baseline</label>
-            <mat-select [ngModel]="soulEmotionalBaseline()"
-                        (ngModelChange)="soulEmotionalBaseline.set($event)">
-              <mat-option value="NEUTRAL">Neutral</mat-option>
-              <mat-option value="WARM">Warm</mat-option>
-              <mat-option value="ENERGETIC">Energetic</mat-option>
-              <mat-option value="CALM">Calm</mat-option>
-              <mat-option value="PROFESSIONAL">Professional</mat-option>
-            </mat-select>
-          </div>
-
-          <!-- Agent Tools -->
-          <div class="soul-field">
-            <label>Capabilities (Tools)</label>
-            <div class="tools-toggle-list">
-              @for (tool of availableTools(); track tool.name) {
-                <div class="tool-toggle-item">
-                  <mat-checkbox [checked]="isToolEnabled(tool.name)"
-                                (change)="toggleTool(tool.name, $event.checked)">
-                    <span class="tool-name">{{ tool.name }}</span>
-                    <span class="tool-category-badge" [class]="tool.category.toLowerCase()">{{ tool.category }}</span>
-                  </mat-checkbox>
-                  <p class="tool-desc">{{ tool.description }}</p>
-                </div>
-              }
-              @if (availableTools().length === 0) {
-                <span class="tools-empty">No tools available</span>
-              }
-            </div>
-          </div>
-
-          <!-- Ethical Guardrails (read-only) -->
-          <div class="soul-field">
-            <label>Ethical Guardrails <span class="read-only-badge">read-only</span></label>
-            <div class="guardrails-list">
-              @for (guardrail of soulGuardrails(); track guardrail) {
-                <div class="guardrail-item">
-                  <mat-icon>shield</mat-icon>
-                  <span>{{ guardrail }}</span>
-                </div>
-              }
-              @if (soulGuardrails().length === 0) {
-                <span class="guardrails-empty">Default guardrails applied</span>
-              }
-            </div>
-          </div>
-
-          <!-- Action Buttons -->
-          <div class="soul-actions">
-            <button class="soul-save-btn" (click)="saveSoul()"
-                    [disabled]="soulSaving()">
-              @if (soulSaving()) {
-                <mat-progress-spinner diameter="16" mode="indeterminate"></mat-progress-spinner>
-              } @else {
-                <mat-icon>save</mat-icon>
-              }
-              <span>Save Soul</span>
-            </button>
-            <button class="soul-reset-btn" (click)="resetSoul()">
-              <mat-icon>restart_alt</mat-icon>
-              <span>Reset</span>
-            </button>
-          </div>
-        </div>
-      }
-    </aside>
-  }
 </div>

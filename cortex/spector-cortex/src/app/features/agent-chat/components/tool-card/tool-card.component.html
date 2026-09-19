@@ -1,0 +1,107 @@
+<div class="card-container">
+  <!-- ── Tool Card Header Bar ── -->
+  <div class="card-header"
+       role="button"
+       tabindex="0"
+       [attr.aria-expanded]="isExpanded()"
+       aria-controls="tool-detail-panel"
+       (click)="toggleExpanded()"
+       (keydown.enter)="toggleExpanded()"
+       (keydown.space)="toggleExpanded()">
+
+    <div class="header-left">
+      <div class="tool-icon-wrapper">
+        <mat-icon class="tool-icon">{{ toolIcon() }}</mat-icon>
+      </div>
+
+      <div class="tool-identification">
+        <span class="tool-name">{{ tool().name }}</span>
+        @if (argumentsSummary()) {
+          <span class="tool-args-snippet" [matTooltip]="argumentsSummary()">
+            {{ argumentsSummary() }}
+          </span>
+        }
+      </div>
+    </div>
+
+    <div class="header-right">
+      <!-- Status Chip -->
+      @switch (tool().status) {
+        @case ('running') {
+          <span class="status-chip running">
+            <mat-progress-spinner diameter="12" mode="indeterminate"></mat-progress-spinner>
+            <span>Running…</span>
+          </span>
+        }
+        @case ('success') {
+          <span class="status-chip success">
+            <mat-icon>check_circle</mat-icon>
+            <span>{{ tool().elapsedMs ? tool().elapsedMs + 'ms' : 'Success' }}</span>
+          </span>
+        }
+        @case ('failure') {
+          <span class="status-chip failure">
+            <mat-icon>error</mat-icon>
+            <span>Failed</span>
+          </span>
+        }
+      }
+
+      <button mat-icon-button
+              class="expand-btn"
+              [attr.aria-label]="isExpanded() ? 'Collapse tool output' : 'Expand tool output'"
+              (click)="$event.stopPropagation(); toggleExpanded()">
+        <mat-icon class="chevron-icon" [class.rotated]="isExpanded()">
+          expand_more
+        </mat-icon>
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Expandable Detail / Preview Panel (2 KiB Preview) ── -->
+  @if (isExpanded()) {
+    <div id="tool-detail-panel" class="card-body" role="region" aria-label="Tool execution details">
+      <!-- Tab Controls & Copy Action -->
+      <div class="body-toolbar">
+        <div class="tab-group">
+          <button type="button"
+                  class="tab-btn"
+                  [class.active]="activeTab() === 'result'"
+                  (click)="setTab('result', $event)">
+            Output Preview
+            @if (tool().truncated) {
+              <span class="truncated-tag">2 KiB</span>
+            }
+          </button>
+          <button type="button"
+                  class="tab-btn"
+                  [class.active]="activeTab() === 'arguments'"
+                  (click)="setTab('arguments', $event)">
+            Arguments
+          </button>
+        </div>
+
+        <button type="button"
+                class="copy-action-btn"
+                [attr.aria-label]="copied() ? 'Copied to clipboard' : 'Copy payload'"
+                (click)="copyContent($event)">
+          <mat-icon>{{ copied() ? 'done' : 'content_copy' }}</mat-icon>
+          <span>{{ copied() ? 'Copied' : 'Copy' }}</span>
+        </button>
+      </div>
+
+      <!-- Truncation Notice -->
+      @if (activeTab() === 'result' && tool().truncated) {
+        <div class="truncation-alert">
+          <mat-icon>info</mat-icon>
+          <span>Output stream preview capped at 2 KiB. Full tool execution payload is persisted in the operational plane.</span>
+        </div>
+      }
+
+      <!-- Code Box -->
+      <div class="code-box">
+        <pre class="code-content"><code>{{ activeTab() === 'result' ? formattedPreview() : formattedArguments() }}</code></pre>
+      </div>
+    </div>
+  }
+</div>
