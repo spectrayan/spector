@@ -1,0 +1,134 @@
+<div class="tab-content">
+  <div class="persona-grid">
+
+    <!-- ── Big Five Card ── -->
+    <mat-card appearance="outlined" class="persona-card">
+      <mat-card-header>
+        <mat-icon mat-card-avatar class="panel-icon" style="color: #9b59b6">fingerprint</mat-icon>
+        <mat-card-title>Big Five (OCEAN)</mat-card-title>
+        <mat-card-subtitle>Costa & McCrae personality dimensions — modulates valence/arousal encoding</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="trait-sliders">
+          <div class="trait-slider-row">
+            <span class="trait-label">Openness</span>
+            <mat-slider min="0" max="100" step="1" discrete>
+              <input matSliderThumb [ngModel]="state.bigFiveO()" (ngModelChange)="state.bigFiveO.set($event)">
+            </mat-slider>
+            <span class="trait-value cortex-mono">{{ state.bigFiveO() }}</span>
+          </div>
+          <div class="trait-slider-row">
+            <span class="trait-label">Conscientiousness</span>
+            <mat-slider min="0" max="100" step="1" discrete>
+              <input matSliderThumb [ngModel]="state.bigFiveC()" (ngModelChange)="state.bigFiveC.set($event)">
+            </mat-slider>
+            <span class="trait-value cortex-mono">{{ state.bigFiveC() }}</span>
+          </div>
+          <div class="trait-slider-row">
+            <span class="trait-label">Extraversion</span>
+            <mat-slider min="0" max="100" step="1" discrete>
+              <input matSliderThumb [ngModel]="state.bigFiveE()" (ngModelChange)="state.bigFiveE.set($event)">
+            </mat-slider>
+            <span class="trait-value cortex-mono">{{ state.bigFiveE() }}</span>
+          </div>
+          <div class="trait-slider-row">
+            <span class="trait-label">Agreeableness</span>
+            <mat-slider min="0" max="100" step="1" discrete>
+              <input matSliderThumb [ngModel]="state.bigFiveA()" (ngModelChange)="state.bigFiveA.set($event)">
+            </mat-slider>
+            <span class="trait-value cortex-mono">{{ state.bigFiveA() }}</span>
+          </div>
+          <div class="trait-slider-row">
+            <span class="trait-label">Neuroticism</span>
+            <mat-slider min="0" max="100" step="1" discrete>
+              <input matSliderThumb [ngModel]="state.bigFiveN()" (ngModelChange)="state.bigFiveN.set($event)">
+            </mat-slider>
+            <span class="trait-value cortex-mono">{{ state.bigFiveN() }}</span>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- ── EQ Card ── -->
+    <mat-card appearance="outlined" class="persona-card">
+      <mat-card-header>
+        <mat-icon mat-card-avatar class="panel-icon" style="color: #e74c3c">favorite</mat-icon>
+        <mat-card-title>Emotional Intelligence</mat-card-title>
+        <mat-card-subtitle>Goleman's 5 dimensions — modulates arousal compression</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="trait-sliders">
+          <div class="trait-slider-row">
+            <span class="trait-label">Self-Awareness</span>
+            <mat-slider min="1" max="100" step="1" discrete>
+              <input matSliderThumb [ngModel]="state.eqSelfAwareness()" (ngModelChange)="state.eqSelfAwareness.set($event)">
+            </mat-slider>
+            <span class="trait-value cortex-mono">{{ state.eqSelfAwareness() }}</span>
+          </div>
+          <div class="trait-slider-row">
+            <span class="trait-label">Self-Regulation</span>
+            <mat-slider min="1" max="100" step="1" discrete>
+              <input matSliderThumb [ngModel]="state.eqSelfRegulation()" (ngModelChange)="state.eqSelfRegulation.set($event)">
+            </mat-slider>
+            <span class="trait-value cortex-mono">{{ state.eqSelfRegulation() }}</span>
+          </div>
+          <div class="trait-slider-row">
+            <span class="trait-label">Motivation</span>
+            <mat-slider min="1" max="100" step="1" discrete>
+              <input matSliderThumb [ngModel]="state.eqMotivation()" (ngModelChange)="state.eqMotivation.set($event)">
+            </mat-slider>
+            <span class="trait-value cortex-mono">{{ state.eqMotivation() }}</span>
+          </div>
+          <div class="trait-slider-row">
+            <span class="trait-label">Empathy</span>
+            <mat-slider min="1" max="100" step="1" discrete>
+              <input matSliderThumb [ngModel]="state.eqEmpathy()" (ngModelChange)="state.eqEmpathy.set($event)">
+            </mat-slider>
+            <span class="trait-value cortex-mono">{{ state.eqEmpathy() }}</span>
+          </div>
+          <div class="trait-slider-row">
+            <span class="trait-label">Social Skills</span>
+            <mat-slider min="1" max="100" step="1" discrete>
+              <input matSliderThumb [ngModel]="state.eqSocialSkills()" (ngModelChange)="state.eqSocialSkills.set($event)">
+            </mat-slider>
+            <span class="trait-value cortex-mono">{{ state.eqSocialSkills() }}</span>
+          </div>
+        </div>
+
+        <mat-divider></mat-divider>
+
+        <div class="trait-selects">
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Stress Response</mat-label>
+            <mat-select [value]="state.stressResponse()" (selectionChange)="state.stressResponse.set($event.value)">
+              @for (opt of stressResponseOptions; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Communication Style</mat-label>
+            <mat-select [value]="state.communicationStyle()" (selectionChange)="state.communicationStyle.set($event.value)">
+              @for (opt of communicationStyleOptions; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <mat-card appearance="outlined" class="info-card">
+    <mat-card-content>
+      <div class="info-row">
+        <mat-icon class="info-icon">info</mat-icon>
+        <div>
+          <strong>How Personality Scoring Works:</strong> High neuroticism amplifies valence extremes,
+          while high EQ compresses arousal. Stress response affects encoding quality multiplier.
+          All personality effects are capped at ±15% (guardrail L2).
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</div>

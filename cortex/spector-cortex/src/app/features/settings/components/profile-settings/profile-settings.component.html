@@ -1,0 +1,174 @@
+<div class="tab-content">
+  <!-- ── About / Self-Reflection ── -->
+  <mat-card appearance="outlined" class="persona-card about-card">
+    <mat-card-header>
+      <mat-icon mat-card-avatar class="panel-icon" style="color: var(--mat-sys-primary)">auto_stories</mat-icon>
+      <mat-card-title>About Me</mat-card-title>
+      <mat-card-subtitle>
+        Tell us about yourself — this free-text reflection is embedded for self-relevance scoring
+      </mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <mat-form-field appearance="outline" class="about-field" subscriptSizing="dynamic">
+        <mat-label>Your self-reflection</mat-label>
+        <textarea matInput [ngModel]="state.about()" (ngModelChange)="state.about.set($event)"
+                  placeholder="Write about yourself — your background, what drives you, how you think about the world. This text is semantically matched against incoming memories to boost personally relevant information."
+                  rows="5"
+                  cdkTextareaAutosize
+                  cdkAutosizeMinRows="3"
+                  cdkAutosizeMaxRows="10"></textarea>
+        <mat-hint align="end">{{ state.about().length }} chars</mat-hint>
+      </mat-form-field>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- ── Identity + Interests Grid ── -->
+  <div class="salience-grid">
+
+    <!-- ── Identity Card ── -->
+    <mat-card appearance="outlined" class="persona-card">
+      <mat-card-header>
+        <mat-icon mat-card-avatar class="panel-icon" style="color: var(--mat-sys-primary)">badge</mat-icon>
+        <mat-card-title>Identity</mat-card-title>
+        <mat-card-subtitle>Biographical context for self-relevance scoring</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="persona-fields">
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Occupation</mat-label>
+            <input matInput [ngModel]="state.occupation()" (ngModelChange)="state.occupation.set($event)"
+                   placeholder="e.g. Software Engineer, Doctor, Teacher">
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Nationality</mat-label>
+            <input matInput [ngModel]="state.nationality()" (ngModelChange)="state.nationality.set($event)"
+                   placeholder="e.g. Indian, American">
+          </mat-form-field>
+        </div>
+        <!-- Languages chips -->
+        <div class="chip-section">
+          <div class="chip-label">Languages</div>
+          <div class="chip-list">
+            @for (lang of state.personaLanguages(); track $index) {
+              <span class="persona-chip">
+                {{ lang }}
+                <button mat-icon-button class="chip-remove" (click)="state.removeChip('languages', $index)">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </span>
+            }
+          </div>
+          <div class="chip-add">
+            <mat-form-field appearance="outline" class="chip-input" subscriptSizing="dynamic">
+              <input matInput [ngModel]="state.newLanguage()" (ngModelChange)="state.newLanguage.set($event)"
+                     placeholder="Add language" (keyup.enter)="state.addChip('languages')">
+            </mat-form-field>
+            <button mat-stroked-button (click)="state.addChip('languages')" [disabled]="!state.newLanguage().trim()">
+              <mat-icon>add</mat-icon> Add
+            </button>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- ── Spacer to keep grid balanced ── -->
+    <div></div>
+
+    <!-- ── Interests Card ── -->
+    <mat-card appearance="outlined" class="profile-card">
+      <mat-card-header>
+        <mat-icon mat-card-avatar class="panel-icon interests-icon">thumb_up</mat-icon>
+        <mat-card-title>Interests</mat-card-title>
+        <mat-card-subtitle>Topics you care about — boosted during retrieval</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="entries-list">
+          @for (entry of state.interests(); track $index) {
+            <div class="entry-row">
+              <span class="entry-topic">{{ entry.topic }}</span>
+              <span class="entry-badge" [style.background]="state.getLevelColor(entry.level)">
+                {{ state.getLevelLabel(entry.level) }}
+              </span>
+              <button mat-icon-button (click)="state.removeInterest($index)" matTooltip="Remove">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+          }
+          @if (state.interests().length === 0) {
+            <div class="empty-hint">No interests added yet</div>
+          }
+        </div>
+
+        <!-- Add Interest Row -->
+        <div class="add-row">
+          <mat-form-field appearance="outline" class="topic-input" subscriptSizing="dynamic">
+            <mat-label>Topic</mat-label>
+            <input matInput [ngModel]="state.newInterestTopic()" (ngModelChange)="state.newInterestTopic.set($event)"
+                   placeholder="e.g. quantum-computing" (keyup.enter)="state.addInterest()">
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="level-select" subscriptSizing="dynamic">
+            <mat-label>Weight</mat-label>
+            <mat-select [ngModel]="state.newInterestLevel()" (ngModelChange)="state.newInterestLevel.set($event)">
+              @for (level of interestLevels; track level.value) {
+                <mat-option [value]="level.value">{{ level.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <button mat-stroked-button (click)="state.addInterest()" [disabled]="!state.newInterestTopic().trim()">
+            <mat-icon>add</mat-icon>
+            Add
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- ── Disinterests Card ── -->
+    <mat-card appearance="outlined" class="profile-card">
+      <mat-card-header>
+        <mat-icon mat-card-avatar class="panel-icon disinterests-icon">thumb_down</mat-icon>
+        <mat-card-title>Disinterests</mat-card-title>
+        <mat-card-subtitle>Topics you want to suppress or ignore</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="entries-list">
+          @for (entry of state.disinterests(); track $index) {
+            <div class="entry-row">
+              <span class="entry-topic">{{ entry.topic }}</span>
+              <span class="entry-badge" [style.background]="state.getLevelColor(entry.level)">
+                {{ state.getLevelLabel(entry.level) }}
+              </span>
+              <button mat-icon-button (click)="state.removeDisinterest($index)" matTooltip="Remove">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+          }
+          @if (state.disinterests().length === 0) {
+            <div class="empty-hint">No disinterests added yet</div>
+          }
+        </div>
+
+        <!-- Add Disinterest Row -->
+        <div class="add-row">
+          <mat-form-field appearance="outline" class="topic-input" subscriptSizing="dynamic">
+            <mat-label>Topic</mat-label>
+            <input matInput [ngModel]="state.newDisinterestTopic()" (ngModelChange)="state.newDisinterestTopic.set($event)"
+                   placeholder="e.g. spam-marketing" (keyup.enter)="state.addDisinterest()">
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="level-select" subscriptSizing="dynamic">
+            <mat-label>Weight</mat-label>
+            <mat-select [ngModel]="state.newDisinterestLevel()" (ngModelChange)="state.newDisinterestLevel.set($event)">
+              @for (level of interestLevels; track level.value) {
+                <mat-option [value]="level.value">{{ level.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <button mat-stroked-button (click)="state.addDisinterest()" [disabled]="!state.newDisinterestTopic().trim()">
+            <mat-icon>add</mat-icon>
+            Add
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+  </div>
+</div>

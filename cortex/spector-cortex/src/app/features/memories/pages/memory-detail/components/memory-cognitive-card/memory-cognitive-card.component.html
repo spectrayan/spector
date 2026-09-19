@@ -1,0 +1,62 @@
+<!-- ═══ Cognitive State Card ═══ -->
+<mat-card appearance="outlined" class="card card-cognitive" style="animation: fade-in-up 0.5s ease both">
+  <mat-card-header>
+    <mat-icon mat-card-avatar class="panel-icon">psychology</mat-icon>
+    <mat-card-title>Cognitive State</mat-card-title>
+  </mat-card-header>
+  <mat-card-content>
+    <div class="metric-row">
+      <span class="metric-label">Importance</span>
+      <div class="metric-bar-container">
+        <div class="metric-bar importance" [style.width.%]="importancePct()"></div>
+      </div>
+      <span class="metric-value">{{ importancePct() }}%</span>
+    </div>
+
+    <div class="metric-row">
+      <span class="metric-label">Valence</span>
+      <div class="valence-gauge">
+        <div class="valence-track">
+          <div class="valence-marker"
+               [style.left.%]="((memory().valence + 128) / 256) * 100"
+               [class.positive]="memory().valence > 0"
+               [class.negative]="memory().valence < 0">
+          </div>
+        </div>
+        <span class="valence-label">{{ valenceLabel() }} ({{ memory().valence }})</span>
+      </div>
+    </div>
+
+    <div class="metric-row">
+      <span class="metric-label">Arousal</span>
+      <div class="metric-bar-container">
+        <div class="metric-bar arousal" [style.width.%]="(memory().arousal / 255) * 100"></div>
+      </div>
+      <span class="metric-value">{{ memory().arousal }}</span>
+    </div>
+
+    <div class="metric-row">
+      <span class="metric-label">Recall Count</span>
+      <span class="metric-value count">{{ memory().recallCount ?? 0 }}</span>
+    </div>
+  </mat-card-content>
+</mat-card>
+
+<!-- ═══ Synaptic Tags Card ═══ -->
+<mat-card appearance="outlined" class="card card-tags" style="animation: fade-in-up 0.55s ease both">
+  <mat-card-header>
+    <mat-icon mat-card-avatar class="panel-icon">label</mat-icon>
+    <mat-card-title>Synaptic Tags</mat-card-title>
+  </mat-card-header>
+  <mat-card-content>
+    <div class="tag-cloud">
+      @if (memory().tags && memory().tags.length > 0) {
+        @for (tag of memory().tags; track tag) {
+          <mat-chip class="tag-chip">{{ tag }}</mat-chip>
+        }
+      } @else {
+        <span class="no-tags">No tags encoded</span>
+      }
+    </div>
+  </mat-card-content>
+</mat-card>

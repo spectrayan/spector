@@ -1,0 +1,141 @@
+.tab-content {
+  padding: 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.icnu-card {
+  .panel-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    color: var(--mat-sys-primary);
+  }
+
+  .icnu-sum {
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--mat-sys-surface-container-high);
+
+    &.warn {
+      background: var(--cortex-error, #e74c3c);
+      color: #fff;
+    }
+  }
+}
+
+.icnu-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px 24px;
+  padding: 8px 0;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.icnu-slider-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  .icnu-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .icnu-letter {
+      font-weight: 700;
+      font-size: 16px;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .icnu-name {
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .icnu-value {
+      margin-left: auto;
+      font-size: 13px;
+      font-weight: 600;
+    }
+  }
+
+  .icnu-desc {
+    font-size: 11px;
+    color: var(--mat-sys-outline);
+    margin-top: -4px;
+  }
+}
+
+.scoring-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.scoring-card {
+  .panel-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    color: var(--mat-sys-primary);
+  }
+}
+
+.scoring-slider-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 0;
+
+  .scoring-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .scoring-desc {
+    font-size: 11px;
+    color: var(--mat-sys-outline);
+    margin-top: -4px;
+  }
+}
+
+.rescore-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+
+  .rescore-info {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--mat-sys-on-surface-variant);
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      color: var(--mat-sys-primary);
+      margin-top: 2px;
+      flex-shrink: 0;
+    }
+  }
+}

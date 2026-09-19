@@ -1,0 +1,125 @@
+:host {
+  display: contents;
+}
+
+.card {
+  background: var(--mat-sys-surface-container-low);
+  border-radius: 16px;
+  height: 100%;
+
+  .panel-icon {
+    color: var(--mat-sys-primary);
+  }
+}
+
+// ── Cognitive State Metrics ──
+.metric-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.metric-label {
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--mat-sys-on-surface-variant);
+  min-width: 100px;
+}
+
+.metric-bar-container {
+  flex: 1;
+  height: 8px;
+  background: var(--mat-sys-surface-container-highest);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.metric-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &.importance {
+    background: linear-gradient(90deg, var(--cortex-procedural), var(--cortex-semantic));
+  }
+  &.arousal {
+    background: linear-gradient(90deg, var(--cortex-success), var(--cortex-warning));
+  }
+}
+
+.metric-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mat-sys-on-surface);
+  min-width: 40px;
+  text-align: right;
+
+  &.count {
+    font-size: 18px;
+    color: var(--mat-sys-primary);
+  }
+}
+
+// ── Valence Gauge ──
+.valence-gauge {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.valence-track {
+  height: 8px;
+  background: linear-gradient(90deg, var(--cortex-error), var(--mat-sys-outline-variant) 50%, var(--cortex-success));
+  border-radius: 4px;
+  position: relative;
+}
+
+.valence-marker {
+  position: absolute;
+  top: -3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--mat-sys-on-surface);
+  border: 2px solid var(--mat-sys-surface);
+  transform: translateX(-50%);
+  transition: left 0.5s ease;
+
+  &.positive { background: var(--cortex-success); }
+  &.negative { background: var(--cortex-error); }
+}
+
+.valence-label {
+  font-size: 11px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+// ── Tags ──
+.tag-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.no-tags {
+  font-size: 13px;
+  color: var(--mat-sys-on-surface-variant);
+  font-style: italic;
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 768px) {
+  .metric-label {
+    min-width: 70px;
+    font-size: 10px;
+  }
+}

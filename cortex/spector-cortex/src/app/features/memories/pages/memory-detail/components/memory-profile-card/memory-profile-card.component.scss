@@ -1,0 +1,213 @@
+:host {
+  display: block;
+}
+
+.card {
+  background: var(--mat-sys-surface-container-low);
+  border-radius: 16px;
+  height: 100%;
+
+  .panel-icon {
+    color: var(--mat-sys-primary);
+  }
+}
+
+.card-profile {
+  mat-card-header {
+    position: relative;
+  }
+
+  .profile-toggle-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    opacity: 0.6;
+    transition: opacity 0.2s ease;
+
+    &:hover {
+      opacity: 1;
+    }
+  }
+}
+
+.profile-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stat-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.stat-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  color: var(--mat-sys-on-surface-variant);
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+.stat-label {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--mat-sys-on-surface-variant);
+  flex: 1;
+  min-width: 0;
+}
+
+.stat-value {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mat-sys-on-surface);
+  text-align: right;
+  flex-shrink: 0;
+
+  &.positive {
+    color: var(--cortex-success, #66bb6a);
+  }
+
+  &.file-name {
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--mat-sys-primary);
+    cursor: help;
+  }
+
+  &.bloom-hex {
+    font-size: 10px;
+    opacity: 0.7;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.cortex-mono {
+  font-family: 'Roboto Mono', monospace;
+}
+
+// ── Fingerprint View ──
+.fingerprint-view {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  min-height: 180px;
+}
+
+.fingerprint-placeholder {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px;
+}
+
+.fingerprint-icon {
+  font-size: 48px;
+  width: 48px;
+  height: 48px;
+  color: var(--mat-sys-primary);
+  opacity: 0.2;
+}
+
+.fingerprint-label {
+  font-size: 12px;
+  color: var(--mat-sys-on-surface-variant);
+  opacity: 0.6;
+}
+
+.fingerprint-sublabel {
+  font-size: 10px;
+  font-family: 'Roboto Mono', monospace;
+  color: var(--mat-sys-on-surface-variant);
+  opacity: 0.4;
+}
+
+.fingerprint-canvas {
+  width: 100%;
+  max-width: 400px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  image-rendering: pixelated;
+}
+
+.fingerprint-meta {
+  text-align: center;
+  margin-top: 8px;
+}
+
+.load-vec-btn {
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.vec-loader {
+  margin: 40px 0;
+  width: 100%;
+}
+
+// ── Profile Actions ──
+.profile-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  margin-top: 12px;
+  border-top: 1px solid var(--mat-sys-outline-variant);
+}
+
+.action-btn {
+  font-size: 11px;
+  padding: 0 10px;
+  min-height: 28px;
+  line-height: 28px;
+
+  mat-icon {
+    margin-right: 3px;
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+  }
+
+  &.reinforce { --mat-filled-button-container-color: var(--cortex-reinforce); }
+  &.suppress { --mat-filled-button-container-color: var(--cortex-suppress); }
+  &.resolve { --mat-filled-button-container-color: var(--cortex-resolve); }
+  &.forget { --mat-filled-button-container-color: var(--cortex-forget); }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (max-width: 480px) {
+  .profile-actions {
+    flex-direction: column;
+  }
+
+  .action-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}

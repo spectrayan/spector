@@ -1,0 +1,130 @@
+<div class="tab-content">
+  <div class="settings-grid single-column">
+
+    <!-- Selective Data Wipe Card -->
+    <mat-card appearance="outlined" class="danger-card">
+      <mat-card-header>
+        <mat-icon mat-card-avatar class="panel-icon danger-icon">delete_sweep</mat-icon>
+        <mat-card-title>Selective Data Wipe</mat-card-title>
+        <mat-card-subtitle>Permanently delete selected data categories — this cannot be undone</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="wipe-categories">
+          <div class="wipe-category">
+            <mat-checkbox [ngModel]="state.wipeMemories()" (ngModelChange)="state.wipeMemories.set($event)">
+              <mat-icon class="category-icon">psychology</mat-icon>
+              <span class="category-label">Memories</span>
+              <span class="category-desc">All memory records across all tiers (Working, Episodic, Semantic, Procedural)</span>
+            </mat-checkbox>
+          </div>
+          <div class="wipe-category">
+            <mat-checkbox [ngModel]="state.wipeEntityGraph()" (ngModelChange)="state.wipeEntityGraph.set($event)">
+              <mat-icon class="category-icon">hub</mat-icon>
+              <span class="category-label">Entity Graph</span>
+              <span class="category-desc">Entity nodes and relationship edges extracted from memories</span>
+            </mat-checkbox>
+          </div>
+          <div class="wipe-category">
+            <mat-checkbox [ngModel]="state.wipeHebbian()" (ngModelChange)="state.wipeHebbian.set($event)">
+              <mat-icon class="category-icon">electric_bolt</mat-icon>
+              <span class="category-label">Hebbian Graph</span>
+              <span class="category-desc">Co-activation associations between memories (LTP/LTD links)</span>
+            </mat-checkbox>
+          </div>
+          <div class="wipe-category">
+            <mat-checkbox [ngModel]="state.wipeTemporal()" (ngModelChange)="state.wipeTemporal.set($event)">
+              <mat-icon class="category-icon">timeline</mat-icon>
+              <span class="category-label">Temporal Chain</span>
+              <span class="category-desc">Temporal sequence ordering of memory events</span>
+            </mat-checkbox>
+          </div>
+          <div class="wipe-category">
+            <mat-checkbox [ngModel]="state.wipePersona()" (ngModelChange)="state.wipePersona.set($event)">
+              <mat-icon class="category-icon">person</mat-icon>
+              <span class="category-label">Persona &amp; Salience Profile</span>
+              <span class="category-desc">Your salience profile, interests, personality traits, and cultural context</span>
+            </mat-checkbox>
+          </div>
+          <div class="wipe-category">
+            <mat-checkbox [ngModel]="state.wipeQueryHistory()" (ngModelChange)="state.wipeQueryHistory.set($event)">
+              <mat-icon class="category-icon">history</mat-icon>
+              <span class="category-label">Query History</span>
+              <span class="category-desc">Search and recall query history (session-level)</span>
+            </mat-checkbox>
+          </div>
+        </div>
+
+        @if (state.wipeResult(); as result) {
+          <div class="wipe-result">
+            <mat-icon>check_circle</mat-icon>
+            <span>
+              Wiped: <strong>{{ result.categories.join(', ') }}</strong>
+              @if (result.memoriesDeleted > 0) {
+                — {{ result.memoriesDeleted }} memories deleted
+              }
+            </span>
+          </div>
+        }
+
+        <div class="wipe-actions">
+          <button mat-flat-button color="warn" class="wipe-btn"
+                  [disabled]="!state.hasWipeSelection || state.wiping()"
+                  (click)="state.performWipe()">
+            @if (state.wiping()) {
+              <mat-spinner diameter="18"></mat-spinner>
+              Wiping...
+            } @else {
+              <mat-icon>delete_forever</mat-icon>
+              Wipe Selected Data
+            }
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Delete Account Card -->
+    <mat-card appearance="outlined" class="danger-card account-delete-card">
+      <mat-card-header>
+        <mat-icon mat-card-avatar class="panel-icon danger-icon">no_accounts</mat-icon>
+        <mat-card-title>Delete Account</mat-card-title>
+        <mat-card-subtitle>Permanently delete your account — this action is irreversible</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="delete-account-content">
+          <div class="wipe-category">
+            <mat-checkbox [ngModel]="state.deleteAllDataOnAccountDelete()"
+                          (ngModelChange)="state.deleteAllDataOnAccountDelete.set($event)">
+              <mat-icon class="category-icon">cleaning_services</mat-icon>
+              <span class="category-label">Delete all associated data</span>
+              <span class="category-desc">Also wipe all memories, graphs, and profiles before deactivating the account</span>
+            </mat-checkbox>
+          </div>
+
+          <div class="confirm-input-row">
+            <mat-form-field appearance="outline" class="confirm-field">
+              <mat-label>Type DELETE to confirm</mat-label>
+              <input matInput [ngModel]="state.deleteConfirmText()"
+                     (ngModelChange)="state.deleteConfirmText.set($event)"
+                     placeholder="DELETE" autocomplete="off">
+            </mat-form-field>
+          </div>
+
+          <div class="wipe-actions">
+            <button mat-flat-button color="warn" class="delete-account-btn"
+                    [disabled]="state.deleteConfirmText() !== 'DELETE' || state.deletingAccount()"
+                    (click)="state.deleteAccount()">
+              @if (state.deletingAccount()) {
+                <mat-spinner diameter="18"></mat-spinner>
+                Deleting...
+              } @else {
+                <mat-icon>person_off</mat-icon>
+                Delete My Account
+              }
+            </button>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+  </div>
+</div>

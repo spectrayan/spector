@@ -1,0 +1,147 @@
+<div class="tab-content">
+  <mat-card appearance="outlined" class="info-card" style="margin-bottom: 16px">
+    <mat-card-content>
+      <div class="info-row">
+        <mat-icon class="info-icon">info</mat-icon>
+        <div>
+          <strong>Your AI Configuration:</strong> Override the default LLM provider, embedding model,
+          ingestion chunk sizes, and RAG parameters for your account. Values you don't override
+          inherit from system defaults.
+          Each field shows its current source:
+          <span style="color: #7f8c8d">🔒 System</span> |
+          <span style="color: #27ae60">👤 User</span>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  @if (state.aiConfigLoading()) {
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+  } @else {
+
+    <!-- LLM Provider -->
+    <mat-card appearance="outlined" class="persona-card" style="margin-bottom: 16px">
+      <mat-card-header>
+        <mat-icon mat-card-avatar class="panel-icon" style="color: #6366f1">psychology</mat-icon>
+        <mat-card-title>LLM Provider</mat-card-title>
+        <mat-card-subtitle>Text generation model and parameters</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="persona-fields">
+          @for (field of state.aiConfigFields()['llm_provider'] || []; track field.key) {
+            <div class="ai-config-field">
+              <div class="ai-field-header">
+                <span class="ai-field-key">{{ field.key }}</span>
+                <span class="ai-source-badge" [style.background-color]="state.aiSourceColors[field.source]">
+                  {{ state.aiSourceLabels[field.source] }}
+                </span>
+              </div>
+              @if (field.key === 'api-key') {
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="ai-field-input">
+                  <mat-label>{{ field.key }}</mat-label>
+                  <input matInput type="password" [ngModel]="field.editValue"
+                         (ngModelChange)="state.onAiFieldChange('llm_provider', field.key, $event)"
+                         placeholder="Enter your API key" autocomplete="off">
+                  <mat-hint>Encrypted at rest</mat-hint>
+                </mat-form-field>
+              } @else if (field.key === 'provider') {
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="ai-field-input">
+                  <mat-label>Provider</mat-label>
+                  <mat-select [ngModel]="field.editValue"
+                              (ngModelChange)="state.onAiFieldChange('llm_provider', field.key, $event)">
+                    @for (p of state.aiProviders(); track p.name) {
+                      @if (p.supportsGeneration) {
+                        <mat-option [value]="p.name">{{ p.displayName || p.name }}</mat-option>
+                      }
+                    }
+                  </mat-select>
+                </mat-form-field>
+              } @else {
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="ai-field-input">
+                  <mat-label>{{ field.key }}</mat-label>
+                  <input matInput [ngModel]="field.editValue"
+                         (ngModelChange)="state.onAiFieldChange('llm_provider', field.key, $event)">
+                  <mat-hint>Default: {{ field.defaultValue }}</mat-hint>
+                </mat-form-field>
+              }
+            </div>
+          }
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Ingestion -->
+    <mat-card appearance="outlined" class="persona-card" style="margin-bottom: 16px">
+      <mat-card-header>
+        <mat-icon mat-card-avatar class="panel-icon" style="color: #27ae60">upload_file</mat-icon>
+        <mat-card-title>Ingestion</mat-card-title>
+        <mat-card-subtitle>Document chunking and processing parameters</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="persona-fields">
+          @for (field of state.aiConfigFields()['ingestion'] || []; track field.key) {
+            <div class="ai-config-field">
+              <div class="ai-field-header">
+                <span class="ai-field-key">{{ field.key }}</span>
+                <span class="ai-source-badge" [style.background-color]="state.aiSourceColors[field.source]">
+                  {{ state.aiSourceLabels[field.source] }}
+                </span>
+              </div>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="ai-field-input">
+                <mat-label>{{ field.key }}</mat-label>
+                <input matInput [type]="field.type === 'integer' ? 'number' : 'text'"
+                       [ngModel]="field.editValue"
+                       (ngModelChange)="state.onAiFieldChange('ingestion', field.key, $event)">
+                <mat-hint>Default: {{ field.defaultValue }}</mat-hint>
+              </mat-form-field>
+            </div>
+          }
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- RAG -->
+    <mat-card appearance="outlined" class="persona-card" style="margin-bottom: 16px">
+      <mat-card-header>
+        <mat-icon mat-card-avatar class="panel-icon" style="color: #f39c12">search</mat-icon>
+        <mat-card-title>RAG Settings</mat-card-title>
+        <mat-card-subtitle>Retrieval-Augmented Generation parameters</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="persona-fields">
+          @for (field of state.aiConfigFields()['rag'] || []; track field.key) {
+            <div class="ai-config-field">
+              <div class="ai-field-header">
+                <span class="ai-field-key">{{ field.key }}</span>
+                <span class="ai-source-badge" [style.background-color]="state.aiSourceColors[field.source]">
+                  {{ state.aiSourceLabels[field.source] }}
+                </span>
+              </div>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="ai-field-input">
+                <mat-label>{{ field.key }}</mat-label>
+                <input matInput [type]="field.type === 'number' ? 'number' : 'text'"
+                       [ngModel]="field.editValue"
+                       (ngModelChange)="state.onAiFieldChange('rag', field.key, $event)">
+                <mat-hint>Default: {{ field.defaultValue }}</mat-hint>
+              </mat-form-field>
+            </div>
+          }
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Save / Reset Actions -->
+    <div class="ai-config-actions">
+      <button mat-flat-button color="primary" (click)="state.saveAiConfig()"
+              [disabled]="state.aiConfigSaving() || !state.aiConfigDirty()"
+              id="btn-save-ai-config">
+        <mat-icon>save</mat-icon>
+        {{ state.aiConfigSaving() ? 'Saving...' : 'Save My AI Settings' }}
+      </button>
+      <button mat-stroked-button (click)="state.resetAiConfig()" id="btn-reset-ai-config">
+        <mat-icon>restart_alt</mat-icon>
+        Reset to Defaults
+      </button>
+    </div>
+  }
+</div>

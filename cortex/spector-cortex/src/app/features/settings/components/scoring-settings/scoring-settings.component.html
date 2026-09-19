@@ -1,0 +1,132 @@
+<div class="tab-content">
+  <!-- ── ICNU Weights ── -->
+  <mat-card appearance="outlined" class="icnu-card">
+    <mat-card-header>
+      <mat-icon mat-card-avatar class="panel-icon">tune</mat-icon>
+      <mat-card-title>ICNU Fusion Weights</mat-card-title>
+      <mat-card-subtitle>
+        Controls how the four recall signals are blended.
+        Sum should equal 1.0. Current sum:
+        <span class="icnu-sum" [class.warn]="state.icnuSum() !== 1">{{ state.icnuSum() }}</span>
+      </mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="icnu-grid">
+        <div class="icnu-slider-group">
+          <div class="icnu-label">
+            <span class="icnu-letter" style="color: #e74c3c">I</span>
+            <span class="icnu-name">Interest</span>
+            <span class="icnu-value cortex-mono">{{ state.icnuI().toFixed(2) }}</span>
+          </div>
+          <mat-slider min="0" max="1" step="0.05" discrete>
+            <input matSliderThumb [ngModel]="state.icnuI()" (ngModelChange)="state.icnuI.set($event)">
+          </mat-slider>
+          <span class="icnu-desc">How relevant this memory is to the agent's task</span>
+        </div>
+        <div class="icnu-slider-group">
+          <div class="icnu-label">
+            <span class="icnu-letter" style="color: #f39c12">C</span>
+            <span class="icnu-name">Challenge</span>
+            <span class="icnu-value cortex-mono">{{ state.icnuC().toFixed(2) }}</span>
+          </div>
+          <mat-slider min="0" max="1" step="0.05" discrete>
+            <input matSliderThumb [ngModel]="state.icnuC()" (ngModelChange)="state.icnuC.set($event)">
+          </mat-slider>
+          <span class="icnu-desc">Complexity or difficulty of the problem</span>
+        </div>
+        <div class="icnu-slider-group">
+          <div class="icnu-label">
+            <span class="icnu-letter" style="color: #27ae60">N</span>
+            <span class="icnu-name">Novelty</span>
+            <span class="icnu-value cortex-mono">{{ state.icnuN().toFixed(2) }}</span>
+          </div>
+          <mat-slider min="0" max="1" step="0.05" discrete>
+            <input matSliderThumb [ngModel]="state.icnuN()" (ngModelChange)="state.icnuN.set($event)">
+          </mat-slider>
+          <span class="icnu-desc">Freshness — how recently created (computed by SurpriseDetector)</span>
+        </div>
+        <div class="icnu-slider-group">
+          <div class="icnu-label">
+            <span class="icnu-letter" style="color: #3498db">U</span>
+            <span class="icnu-name">Urgency</span>
+            <span class="icnu-value cortex-mono">{{ state.icnuU().toFixed(2) }}</span>
+          </div>
+          <mat-slider min="0" max="1" step="0.05" discrete>
+            <input matSliderThumb [ngModel]="state.icnuU()" (ngModelChange)="state.icnuU.set($event)">
+          </mat-slider>
+          <span class="icnu-desc">Time-critical priority flags</span>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- ── Scoring Parameters ── -->
+  <div class="scoring-grid">
+    <mat-card appearance="outlined" class="scoring-card">
+      <mat-card-header>
+        <mat-icon mat-card-avatar class="panel-icon">speed</mat-icon>
+        <mat-card-title>Dual Surprise Weights</mat-card-title>
+        <mat-card-subtitle>Balance spatial novelty vs temporal recurrence</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="scoring-slider-group">
+          <div class="scoring-label">
+            <span>α (Spatial)</span>
+            <span class="cortex-mono">{{ state.alpha().toFixed(2) }}</span>
+          </div>
+          <mat-slider min="0" max="1" step="0.05" discrete>
+            <input matSliderThumb [ngModel]="state.alpha()" (ngModelChange)="state.alpha.set($event)">
+          </mat-slider>
+          <span class="scoring-desc">How much weight goes to embedding distance novelty</span>
+        </div>
+        <mat-divider></mat-divider>
+        <div class="scoring-slider-group">
+          <div class="scoring-label">
+            <span>β (Temporal)</span>
+            <span class="cortex-mono">{{ state.beta().toFixed(2) }}</span>
+          </div>
+          <mat-slider min="0" max="1" step="0.05" discrete>
+            <input matSliderThumb [ngModel]="state.beta()" (ngModelChange)="state.beta.set($event)">
+          </mat-slider>
+          <span class="scoring-desc">How much weight goes to recurrence-gap novelty</span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card appearance="outlined" class="scoring-card">
+      <mat-card-header>
+        <mat-icon mat-card-avatar class="panel-icon">flash_on</mat-icon>
+        <mat-card-title>Flashbulb Memory</mat-card-title>
+        <mat-card-subtitle>z-score threshold for pinning extreme outliers</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="scoring-slider-group">
+          <div class="scoring-label">
+            <span>Threshold</span>
+            <span class="cortex-mono">{{ state.flashbulbThreshold().toFixed(1) }}</span>
+          </div>
+          <mat-slider min="1.5" max="5.0" step="0.1" discrete>
+            <input matSliderThumb [ngModel]="state.flashbulbThreshold()" (ngModelChange)="state.flashbulbThreshold.set($event)">
+          </mat-slider>
+          <span class="scoring-desc">
+            Lower = more memories pinned at max importance. Default: 3.0
+          </span>
+        </div>
+        <mat-divider></mat-divider>
+        <div class="rescore-section">
+          <div class="rescore-info">
+            <mat-icon>sync</mat-icon>
+            <span>
+              After changing settings, re-score existing memories to apply the new profile.
+              This runs in the background.
+            </span>
+          </div>
+          <button mat-flat-button color="accent" (click)="state.triggerRescore()" [disabled]="state.rescoring()">
+            <mat-icon>{{ state.rescoring() ? 'hourglass_top' : 'play_arrow' }}</mat-icon>
+            {{ state.rescoring() ? 'Re-scoring...' : 'Re-score All Memories' }}
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>
