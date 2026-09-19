@@ -4,75 +4,9 @@
   background: var(--mat-sys-surface);
 }
 
-.toolbar-middle {
-  flex: 1;
-  max-width: 480px;
-  display: flex;
-  align-items: center;
-  margin: 0 16px;
+.cortex-mono {
+  font-family: 'Roboto Mono', monospace;
 }
-
-.toolbar-search-field {
-  width: 100%;
-
-  // Remove the notched outline (outer border that causes double-border)
-  ::ng-deep .mdc-notched-outline {
-    display: none !important;
-  }
-
-  ::ng-deep .mat-mdc-text-field-wrapper {
-    height: 36px;
-    padding: 0 12px !important;
-    border-radius: 18px !important;
-    background: var(--mat-sys-surface-container-highest);
-  }
-
-  ::ng-deep .mat-mdc-form-field-infix {
-    padding: 0 !important;
-    min-height: 36px;
-    display: flex;
-    align-items: center;
-  }
-
-  ::ng-deep .mat-mdc-form-field-flex {
-    align-items: center;
-    height: 36px;
-  }
-
-  // Hide the floating label — use placeholder only
-  ::ng-deep .mat-mdc-floating-label {
-    top: 50% !important;
-    transform: translateY(-50%) !important;
-  }
-
-  ::ng-deep input.mat-mdc-input-element {
-    font-size: 13px;
-    margin-top: 0;
-  }
-
-  mat-icon {
-    font-size: 18px;
-    width: 18px;
-    height: 18px;
-    color: var(--mat-sys-on-surface-variant);
-  }
-
-  button {
-    width: 28px !important;
-    height: 28px !important;
-    line-height: 28px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-
-    mat-icon {
-      font-size: 16px;
-      width: 16px;
-      height: 16px;
-    }
-  }
-}
-
 
 // ── Page Container ──
 .table-page {
@@ -89,299 +23,9 @@
   }
 }
 
-// ── Toolbar ──
-.table-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 16px;
-  border-radius: 12px;
-  background: var(--mat-sys-surface-container);
-  backdrop-filter: blur(12px);
-  border: 1px solid var(--mat-sys-outline-variant);
-  flex-wrap: wrap;
-  min-height: 48px;
-}
-
-.toolbar-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
-}
-
-.toolbar-icon {
-  color: var(--mat-sys-primary);
-  font-size: 24px;
-  width: 24px;
-  height: 24px;
-}
-
-.toolbar-title {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--mat-sys-on-surface);
-  white-space: nowrap;
-}
-
-.record-count {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 10px;
-  background: var(--mat-sys-primary-container);
-  color: var(--mat-sys-on-primary-container);
-}
-
-.toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
-.tier-select {
-  width: 140px;
-
-  ::ng-deep .mat-mdc-text-field-wrapper {
-    height: 36px;
-    padding: 0 8px;
-  }
-
-  ::ng-deep .mat-mdc-form-field-infix {
-    padding: 6px 0 !important;
-    min-height: 36px;
-  }
-}
-
-.tier-option-dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  margin-right: 8px;
-}
-
-button.active {
-  background: var(--mat-sys-primary-container);
-  color: var(--mat-sys-on-primary-container);
-}
-
-.add-memory-btn {
-  height: 36px;
-  font-size: 13px;
-  border-radius: 18px;
-
-  .add-label {
-    margin-left: 4px;
-
-    @media (max-width: 767px) {
-      display: none;
-    }
-  }
-}
-
-// ── Advanced Filters Panel ──
-.advanced-filters-panel {
-  padding: 16px;
-  border-radius: 12px;
-  background: var(--mat-sys-surface-container);
-  border: 1px solid var(--mat-sys-outline-variant);
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  animation: fade-in-row 0.25s ease both;
-
-  .filters-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 16px;
-    align-items: center;
-  }
-
-  .filter-field {
-    width: 100%;
-    
-    ::ng-deep .mat-mdc-text-field-wrapper {
-      height: 48px;
-    }
-    ::ng-deep .mat-mdc-form-field-infix {
-      padding: 12px 0 !important;
-      min-height: 48px;
-    }
-  }
-
-  .clear-input-btn {
-    width: 24px !important;
-    height: 24px !important;
-    line-height: 24px !important;
-    mat-icon {
-      font-size: 14px;
-      width: 14px;
-      height: 14px;
-    }
-  }
-
-  .filter-slider-container {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-
-    .slider-label {
-      font-size: 11px;
-      font-weight: 500;
-      color: var(--mat-sys-on-surface-variant);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-
-      .value-text {
-        font-weight: 600;
-        color: var(--mat-sys-primary);
-        background: var(--mat-sys-primary-container);
-        padding: 1px 6px;
-        border-radius: 4px;
-        font-size: 10px;
-      }
-    }
-
-    mat-slider {
-      width: 100%;
-      height: 32px;
-    }
-
-    &.valence-sliders {
-      .sliders-row {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        mat-slider {
-          flex: 1;
-        }
-      }
-    }
-  }
-
-  .filters-actions {
-    display: flex;
-    justify-content: flex-end;
-    border-top: 1px solid var(--mat-sys-outline-variant);
-    padding-top: 8px;
-    margin-top: 4px;
-
-    button {
-      font-size: 11px;
-      color: var(--mat-sys-on-surface-variant);
-    }
-  }
-
-  .filter-date-container {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-
-    .slider-label {
-      font-size: 11px;
-      font-weight: 500;
-      color: var(--mat-sys-on-surface-variant);
-    }
-  }
-
-  .date-range-row {
-    display: flex;
-    gap: 8px;
-
-    .date-filter {
-      flex: 1;
-      min-width: 0;
-    }
-  }
-}
-
 // ── Loading ──
 .table-loader {
   border-radius: 4px;
-}
-
-// ── Tier Summary ──
-.tier-summary {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-
-  @media (max-width: 1024px) {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  @media (max-width: 480px) {
-    grid-template-columns: 1fr 1fr;
-    gap: 6px;
-  }
-}
-
-.tier-card {
-  padding: 10px 14px;
-  border-radius: 10px;
-  background: var(--mat-sys-surface-container);
-  border-left: 3px solid;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 16px color-mix(in srgb, var(--cortex-dark-overlay) 15%, transparent);
-  }
-}
-
-.tier-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.tier-badge {
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  padding: 2px 8px;
-  border-radius: 6px;
-  color: var(--cortex-light-overlay);
-}
-
-.tier-count {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--mat-sys-on-surface);
-}
-
-.tier-tombstone {
-  font-size: 10px;
-  color: var(--mat-sys-on-surface-variant);
-}
-
-.vacuum-btn {
-  width: 26px !important;
-  height: 26px !important;
-  padding: 0 !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-
-  mat-icon {
-    font-size: 14px;
-    width: 14px;
-    height: 14px;
-    color: var(--mat-sys-tertiary);
-    margin: 0;
-  }
-
-  ::ng-deep .mat-mdc-button-touch-target {
-    width: 26px !important;
-    height: 26px !important;
-  }
 }
 
 // ── Error ──
@@ -408,7 +52,7 @@ button.active {
 
 .memory-table {
   width: 100%;
-  min-width: 900px; // ensures horizontal scroll on small screens
+  min-width: 900px;
   border-collapse: collapse;
   font-size: 12px;
   table-layout: fixed;
@@ -687,7 +331,6 @@ button.active {
     margin: 0;
   }
 
-  // Shrink the Material touch target and ripple to match button size
   ::ng-deep .mat-mdc-button-touch-target {
     width: 28px !important;
     height: 28px !important;
@@ -698,7 +341,6 @@ button.active {
     border-radius: 50%;
   }
 
-  // Reset the internal icon-button padding that causes off-center
   ::ng-deep .mat-mdc-button-persistent-ripple::before {
     border-radius: 50%;
   }
@@ -880,18 +522,6 @@ mat-paginator {
     padding: 10px 12px;
     gap: 10px;
   }
-
-  .tier-summary {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .toolbar-title {
-    font-size: 14px;
-  }
-
-  .add-label {
-    display: none;  // icon-only on tablet
-  }
 }
 
 // Mobile (< 768px)
@@ -901,43 +531,6 @@ mat-paginator {
     gap: 8px;
   }
 
-  .table-toolbar {
-    padding: 8px 10px;
-    gap: 8px;
-  }
-
-  .toolbar-left {
-    width: 100%;
-    justify-content: flex-start;
-  }
-
-  .toolbar-right {
-    width: 100%;
-    justify-content: flex-end;
-  }
-
-  .tier-summary {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 6px;
-  }
-
-  .tier-card {
-    padding: 8px 10px;
-  }
-
-  .tier-count {
-    font-size: 18px;
-  }
-
-  .tier-select {
-    width: 120px;
-  }
-
-  .add-label {
-    display: none;
-  }
-
-  // Paginator compact
   mat-paginator {
     ::ng-deep .mat-mdc-paginator-container {
       padding: 0 4px;
@@ -951,23 +544,6 @@ mat-paginator {
 
 // Very small (< 480px)
 @media (max-width: 480px) {
-  .tier-summary {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .tier-badge {
-    font-size: 7px;
-    padding: 1px 6px;
-  }
-
-  .table-toolbar {
-    padding: 6px 8px;
-  }
-
-  .toolbar-title {
-    font-size: 13px;
-  }
-
   .memory-card {
     padding: 10px;
     gap: 6px;
@@ -986,76 +562,4 @@ mat-paginator {
 .memory-card.selected {
   border-color: var(--mat-sys-primary) !important;
   background: color-mix(in srgb, var(--mat-sys-primary-container) 20%, transparent) !important;
-}
-
-// ── Floating Batch Actions Bar ──
-.batch-actions-bar {
-  position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%) translateY(100px);
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 12px 24px;
-  border-radius: 40px;
-  background: color-mix(in srgb, var(--mat-sys-surface-container-high) 85%, transparent);
-  border: 1px solid var(--mat-sys-primary);
-  box-shadow: 0 12px 32px color-mix(in srgb, var(--cortex-dark-overlay) 40%, transparent), 0 0 16px color-mix(in srgb, var(--mat-sys-primary) 30%, transparent);
-  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease;
-  pointer-events: none;
-  opacity: 0;
-
-  &.visible {
-    transform: translateX(-50%) translateY(0);
-    pointer-events: auto;
-    opacity: 1;
-  }
-
-  .batch-info {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    white-space: nowrap;
-
-    .selected-count {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      background: var(--mat-sys-primary);
-      color: var(--mat-sys-on-primary);
-      font-size: 13px;
-      font-weight: 700;
-    }
-
-    .selected-label {
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--mat-sys-on-surface);
-    }
-  }
-
-  .batch-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-
-    button {
-      height: 36px;
-      font-size: 12px;
-      border-radius: 18px;
-
-      mat-icon {
-        font-size: 16px;
-        width: 16px;
-        height: 16px;
-        margin-right: 4px;
-      }
-    }
-  }
 }

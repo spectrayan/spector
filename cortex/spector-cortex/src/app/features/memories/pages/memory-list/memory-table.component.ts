@@ -1,55 +1,62 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Business Source License 1.1 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://github.com/spectrayan/spector/blob/main/spector-cortex/LICENSE
+ *
+ * Change Date: July 6, 2030
+ * Change License: Apache License, Version 2.0
+ */
+
+import { Component, inject, OnInit, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatChipsModule } from '@angular/material/chips';
-import { MatSelectModule } from '@angular/material/select';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatSliderModule } from '@angular/material/slider';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatMenuModule } from '@angular/material/menu';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
 import { MemoryTableService, MemoryRow } from '@core/services/memory-table.service';
 import { AddMemoryDialogComponent } from '../../components/add-memory-dialog.component';
 import { CortexSnackbarService } from '@shared/services/cortex-snackbar.service';
 import { ERROR_MESSAGES, formatMessage } from '@shared/constants/error-messages';
+
+import { MemoryTableToolbarComponent } from './components/memory-table-toolbar/memory-table-toolbar.component';
+import { MemoryAdvancedFiltersComponent } from './components/memory-advanced-filters/memory-advanced-filters.component';
+import { MemoryTierSummaryComponent } from './components/memory-tier-summary/memory-tier-summary.component';
+import { MemoryBulkActionsComponent } from './components/memory-bulk-actions/memory-bulk-actions.component';
 
 @Component({
   selector: 'cortex-memory-table',
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule,
     MatCardModule,
     MatIconModule,
     MatButtonModule,
     MatChipsModule,
-    MatSelectModule,
-    MatFormFieldModule,
-    MatInputModule,
     MatCheckboxModule,
-    MatSliderModule,
     MatTooltipModule,
     MatProgressBarModule,
-    MatMenuModule,
     MatPaginatorModule,
     MatSnackBarModule,
     MatDialogModule,
-    MatDatepickerModule,
-    MatNativeDateModule,
+    MemoryTableToolbarComponent,
+    MemoryAdvancedFiltersComponent,
+    MemoryTierSummaryComponent,
+    MemoryBulkActionsComponent,
   ],
   templateUrl: './memory-table.component.html',
   styleUrl: './memory-table.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MemoryTableComponent implements OnInit {
   protected readonly table = inject(MemoryTableService);
@@ -94,31 +101,32 @@ export class MemoryTableComponent implements OnInit {
 
     const search = this.searchText().toLowerCase().trim();
     if (search) {
-      list = list.filter(row =>
-        row.textPreview.toLowerCase().includes(search) ||
-        row.id.toLowerCase().includes(search) ||
-        row.tags.some(t => t.toLowerCase().includes(search))
+      list = list.filter(
+        (row) =>
+          row.textPreview.toLowerCase().includes(search) ||
+          row.id.toLowerCase().includes(search) ||
+          row.tags.some((t) => t.toLowerCase().includes(search)),
       );
     }
 
     const minImp = this.minImportance();
     if (minImp > 0) {
-      list = list.filter(row => row.importance >= minImp);
+      list = list.filter((row) => row.importance >= minImp);
     }
 
     const minVal = this.minValence();
     const maxVal = this.maxValence();
-    list = list.filter(row => row.valence >= minVal && row.valence <= maxVal);
+    list = list.filter((row) => row.valence >= minVal && row.valence <= maxVal);
 
     const tag = this.selectedTagFilter();
     if (tag) {
-      list = list.filter(row => row.tags.includes(tag));
+      list = list.filter((row) => row.tags.includes(tag));
     }
 
     const dateFrom = this.filterDateFrom();
     if (dateFrom) {
       const fromMs = dateFrom.getTime();
-      list = list.filter(row => row.timestampMs >= fromMs);
+      list = list.filter((row) => row.timestampMs >= fromMs);
     }
 
     const dateTo = this.filterDateTo();
@@ -126,7 +134,7 @@ export class MemoryTableComponent implements OnInit {
       const endOfDay = new Date(dateTo);
       endOfDay.setHours(23, 59, 59, 999);
       const toMs = endOfDay.getTime();
-      list = list.filter(row => row.timestampMs <= toMs);
+      list = list.filter((row) => row.timestampMs <= toMs);
     }
 
     return list;
@@ -135,25 +143,36 @@ export class MemoryTableComponent implements OnInit {
   /** Gather all unique tags in current page to populate filter dropdown */
   readonly availableTags = computed(() => {
     const tagsSet = new Set<string>();
-    this.table.rows().forEach(row => {
-      if (row.tags) row.tags.forEach(t => tagsSet.add(t));
+    this.table.rows().forEach((row) => {
+      if (row.tags) row.tags.forEach((t) => tagsSet.add(t));
     });
     return Array.from(tagsSet).sort();
   });
+
+  resetAdvancedFilters(): void {
+    this.searchText.set('');
+    this.minImportance.set(0);
+    this.minValence.set(-128);
+    this.maxValence.set(127);
+    this.selectedTagFilter.set(null);
+    this.filterDateFrom.set(null);
+    this.filterDateTo.set(null);
+  }
 
   // ── Bulk Action Handlers ──
 
   toggleAllRows(): void {
     const activeRows = this.filteredRows();
     const currentSelected = this.selectedRowIds();
-    const allActiveSelected = activeRows.length > 0 && activeRows.every(row => currentSelected.has(row.id));
+    const allActiveSelected =
+      activeRows.length > 0 && activeRows.every((row) => currentSelected.has(row.id));
 
-    this.selectedRowIds.update(set => {
+    this.selectedRowIds.update((set) => {
       const next = new Set(set);
       if (allActiveSelected) {
-        activeRows.forEach(row => next.delete(row.id));
+        activeRows.forEach((row) => next.delete(row.id));
       } else {
-        activeRows.forEach(row => next.add(row.id));
+        activeRows.forEach((row) => next.add(row.id));
       }
       return next;
     });
@@ -163,7 +182,7 @@ export class MemoryTableComponent implements OnInit {
     const activeRows = this.filteredRows();
     if (activeRows.length === 0) return false;
     const currentSelected = this.selectedRowIds();
-    return activeRows.every(row => currentSelected.has(row.id));
+    return activeRows.every((row) => currentSelected.has(row.id));
   }
 
   isRowSelected(row: MemoryRow): boolean {
@@ -176,7 +195,7 @@ export class MemoryTableComponent implements OnInit {
     } else if (event && event.originalEvent && event.originalEvent.stopPropagation) {
       event.originalEvent.stopPropagation();
     }
-    this.selectedRowIds.update(set => {
+    this.selectedRowIds.update((set) => {
       const next = new Set(set);
       if (next.has(row.id)) {
         next.delete(row.id);
@@ -196,12 +215,14 @@ export class MemoryTableComponent implements OnInit {
     if (ids.length === 0) return;
 
     let count = 0;
-    ids.forEach(id => {
+    ids.forEach((id) => {
       this.table.reinforce(id).subscribe({
         next: () => {
           count++;
           if (count === ids.length) {
-            this.toast.success(formatMessage(ERROR_MESSAGES.MEMORY.BULK_REINFORCE_SUCCESS, { count: ids.length }));
+            this.toast.success(
+              formatMessage(ERROR_MESSAGES.MEMORY.BULK_REINFORCE_SUCCESS, { count: ids.length }),
+            );
             this.clearSelection();
             this.table.loadPage();
           }
@@ -212,7 +233,7 @@ export class MemoryTableComponent implements OnInit {
             this.toast.warn(ERROR_MESSAGES.MEMORY.BULK_REINFORCE_PARTIAL);
             this.table.loadPage();
           }
-        }
+        },
       });
     });
   }
@@ -222,12 +243,14 @@ export class MemoryTableComponent implements OnInit {
     if (ids.length === 0) return;
 
     let count = 0;
-    ids.forEach(id => {
+    ids.forEach((id) => {
       this.table.suppress(id, 'Bulk suppression via UI').subscribe({
         next: () => {
           count++;
           if (count === ids.length) {
-            this.toast.success(formatMessage(ERROR_MESSAGES.MEMORY.BULK_SUPPRESS_SUCCESS, { count: ids.length }));
+            this.toast.success(
+              formatMessage(ERROR_MESSAGES.MEMORY.BULK_SUPPRESS_SUCCESS, { count: ids.length }),
+            );
             this.clearSelection();
             this.table.loadPage();
           }
@@ -238,7 +261,7 @@ export class MemoryTableComponent implements OnInit {
             this.toast.warn(ERROR_MESSAGES.MEMORY.BULK_SUPPRESS_PARTIAL);
             this.table.loadPage();
           }
-        }
+        },
       });
     });
   }
@@ -248,12 +271,14 @@ export class MemoryTableComponent implements OnInit {
     if (ids.length === 0) return;
 
     let count = 0;
-    ids.forEach(id => {
+    ids.forEach((id) => {
       this.table.forget(id).subscribe({
         next: () => {
           count++;
           if (count === ids.length) {
-            this.toast.success(formatMessage(ERROR_MESSAGES.MEMORY.BULK_FORGET_SUCCESS, { count: ids.length }));
+            this.toast.success(
+              formatMessage(ERROR_MESSAGES.MEMORY.BULK_FORGET_SUCCESS, { count: ids.length }),
+            );
             this.clearSelection();
             this.table.loadPage();
           }
@@ -264,7 +289,7 @@ export class MemoryTableComponent implements OnInit {
             this.toast.warn(ERROR_MESSAGES.MEMORY.BULK_FORGET_PARTIAL);
             this.table.loadPage();
           }
-        }
+        },
       });
     });
   }
@@ -300,11 +325,6 @@ export class MemoryTableComponent implements OnInit {
   /** Track by for rows */
   trackRow(_: number, row: MemoryRow): string {
     return row.id;
-  }
-
-  /** Format tombstone ratio as percentage */
-  formatRatio(ratio: number): string {
-    return (ratio * 100).toFixed(1) + '%';
   }
 
   /** Navigate to memory detail view */
@@ -358,7 +378,9 @@ export class MemoryTableComponent implements OnInit {
     obs.subscribe({
       next: () => {
         const action = row.resolved ? 'Unresolved' : 'Resolved';
-        this.toast.success(formatMessage(ERROR_MESSAGES.MEMORY.RESOLVE_SUCCESS, { action, id: row.id }));
+        this.toast.success(
+          formatMessage(ERROR_MESSAGES.MEMORY.RESOLVE_SUCCESS, { action, id: row.id }),
+        );
         this.table.loadPage();
       },
       error: () => this.toast.error(ERROR_MESSAGES.MEMORY.RESOLVE_FAILED),

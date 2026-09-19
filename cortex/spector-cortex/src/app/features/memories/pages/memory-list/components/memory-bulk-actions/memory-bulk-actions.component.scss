@@ -1,0 +1,93 @@
+:host {
+  display: block;
+}
+
+.cortex-mono {
+  font-family: 'Roboto Mono', monospace;
+}
+
+.batch-actions-bar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(100px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 12px 24px;
+  border-radius: 40px;
+  background: color-mix(in srgb, var(--mat-sys-surface-container-high) 85%, transparent);
+  border: 1px solid var(--mat-sys-primary);
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--cortex-dark-overlay) 40%, transparent), 0 0 16px color-mix(in srgb, var(--mat-sys-primary) 30%, transparent);
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease;
+  pointer-events: none;
+  opacity: 0;
+
+  &.visible {
+    transform: translateX(-50%) translateY(0);
+    pointer-events: auto;
+    opacity: 1;
+  }
+
+  .batch-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+
+    .selected-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--mat-sys-primary);
+      color: var(--mat-sys-on-primary);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .selected-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--mat-sys-on-surface);
+    }
+  }
+
+  .batch-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    button {
+      height: 36px;
+      font-size: 12px;
+      border-radius: 18px;
+
+      mat-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+        margin-right: 4px;
+      }
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .batch-actions-bar {
+    width: 90vw;
+    padding: 10px 16px;
+    flex-direction: column;
+    gap: 12px;
+    border-radius: 20px;
+
+    .batch-actions {
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+  }
+}

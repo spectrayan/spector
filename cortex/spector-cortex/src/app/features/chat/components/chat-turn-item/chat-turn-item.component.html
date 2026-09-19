@@ -1,0 +1,83 @@
+<div class="turn-block">
+  <!-- User Prompt Row -->
+  @if (turn().user && turn().user.text) {
+    <div class="message-row user">
+      <div class="message-bubble user">
+        <div class="message-content">{{ turn().user.text }}</div>
+      </div>
+      <div class="message-avatar user-avatar">
+        <mat-icon>person</mat-icon>
+      </div>
+    </div>
+  }
+
+  <!-- Interleaved Agentic Execution (Thinking + Tools + Assistant) -->
+  <div class="agent-turn-wrapper">
+    <!-- 1. Collapsible Thinking Accordion -->
+    @if (turn().thinking && turn().thinking.text) {
+      <div class="thinking-wrapper">
+        <cortex-thinking-accordion
+          [thinking]="turn().thinking"
+          [isStreaming]="turn().isStreaming"
+          [hasVisibleTokens]="!!turn().assistant.text"
+          (toggle)="onThinkingToggle($event)">
+        </cortex-thinking-accordion>
+      </div>
+    }
+
+    <!-- 2. Interleaved Tool Execution Cards -->
+    @if (turn().tools && turn().tools.length > 0) {
+      <div class="tools-wrapper">
+        @for (tool of turn().tools; track tool.callId) {
+          <cortex-tool-card [tool]="tool"></cortex-tool-card>
+        }
+      </div>
+    }
+
+    <!-- 3. Streamed Assistant Markdown Message -->
+    @if (turn().assistant && turn().assistant.text) {
+      <div class="message-row assistant">
+        <div class="message-avatar">
+          <mat-icon>psychology</mat-icon>
+        </div>
+        <div class="message-bubble assistant">
+          <div class="message-content markdown-body" [innerHTML]="turn().assistant.text | markdown"></div>
+          @if (turn().isStreaming) {
+            <span class="typing-caret" aria-hidden="true">▋</span>
+          }
+
+          <!-- Turn Metadata Footer -->
+          @if (turn().primedMemories || turn().usage) {
+            <div class="message-footer">
+              @if (turn().primedMemories) {
+                <span class="footer-detail primed-badge" matTooltip="Cross-session memories primed">
+                  <mat-icon>psychology</mat-icon> {{ turn().primedMemories }} memories primed
+                </span>
+              }
+              @if (turn().usage; as usage) {
+                <span class="footer-detail" matTooltip="Token consumption">
+                  <mat-icon>analytics</mat-icon> {{ usage.totalTokens }} tokens
+                </span>
+              }
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- 4. Turn Error State -->
+    @if (turn().error; as err) {
+      <div class="message-row assistant">
+        <div class="message-avatar">
+          <mat-icon>psychology</mat-icon>
+        </div>
+        <div class="message-bubble error-msg">
+          <div class="error-content">
+            <mat-icon>warning_amber</mat-icon>
+            <span>{{ err.message }}</span>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+</div>

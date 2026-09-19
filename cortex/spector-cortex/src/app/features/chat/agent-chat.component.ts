@@ -45,16 +45,15 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { CdkTextareaAutosize } from '@angular/cdk/text-field';
 
 import { SynapseApiService } from '../../core/services/synapse-api.service';
-import { MarkdownPipe } from '../../shared/pipes/markdown.pipe';
 import {
   ConversationDrawerComponent,
   SessionSummary,
 } from './components/conversation-drawer/conversation-drawer.component';
-import { ThinkingAccordionComponent } from './components/thinking-accordion/thinking-accordion.component';
-import { ToolCardComponent } from './components/tool-card/tool-card.component';
+import { ChatHeaderComponent } from './components/chat-header/chat-header.component';
+import { ChatTurnItemComponent } from './components/chat-turn-item/chat-turn-item.component';
+import { ChatInputBarComponent } from './components/chat-input-bar/chat-input-bar.component';
 import {
   ChatTurnView,
   ChatStreamEvent,
@@ -89,11 +88,10 @@ import { ChatService } from './services/chat.service';
     MatSelectModule,
     MatMenuModule,
     MatDividerModule,
-    CdkTextareaAutosize,
-    MarkdownPipe,
     ConversationDrawerComponent,
-    ThinkingAccordionComponent,
-    ToolCardComponent,
+    ChatHeaderComponent,
+    ChatTurnItemComponent,
+    ChatInputBarComponent,
   ],
   templateUrl: './agent-chat.component.html',
   styleUrl: './agent-chat.component.scss',

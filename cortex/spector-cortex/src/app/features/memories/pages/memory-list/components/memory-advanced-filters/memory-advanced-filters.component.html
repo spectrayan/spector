@@ -1,0 +1,72 @@
+<div class="advanced-filters-panel cortex-glass">
+  <div class="filters-grid">
+    <!-- Search In-page -->
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-field search-filter">
+      <mat-label>Search inside page</mat-label>
+      <input matInput [ngModel]="searchText()" (ngModelChange)="searchText.set($event)" placeholder="Search text, tag, ID...">
+      @if (searchText()) {
+        <button matSuffix mat-icon-button aria-label="Clear" (click)="searchText.set('')" class="clear-input-btn">
+          <mat-icon>close</mat-icon>
+        </button>
+      }
+    </mat-form-field>
+
+    <!-- Tag Filter -->
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-field tag-filter">
+      <mat-label>Filter by Tag</mat-label>
+      <mat-select [value]="selectedTagFilter()" (selectionChange)="selectedTagFilter.set($event.value || null)">
+        <mat-option [value]="null">All Tags</mat-option>
+        @for (tag of availableTags(); track tag) {
+          <mat-option [value]="tag">{{ tag }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <!-- Min Importance -->
+    <div class="filter-slider-container">
+      <span class="slider-label">Min Importance: <span class="cortex-mono value-text">{{ minImportance().toFixed(2) }}</span></span>
+      <mat-slider min="0" max="10" step="0.5" showTickMarks discrete>
+        <input matSliderThumb [ngModel]="minImportance()" (ngModelChange)="minImportance.set($event)">
+      </mat-slider>
+    </div>
+
+    <!-- Valence Range -->
+    <div class="filter-slider-container valence-sliders">
+      <span class="slider-label">Valence Range: <span class="cortex-mono value-text">{{ minValence() }} to {{ maxValence() }}</span></span>
+      <div class="sliders-row">
+        <mat-slider min="-128" max="127" step="4">
+          <input matSliderThumb [ngModel]="minValence()" (ngModelChange)="minValence.set($event)" matTooltip="Min Valence">
+        </mat-slider>
+        <mat-slider min="-128" max="127" step="4">
+          <input matSliderThumb [ngModel]="maxValence()" (ngModelChange)="maxValence.set($event)" matTooltip="Max Valence">
+        </mat-slider>
+      </div>
+    </div>
+
+    <!-- Date Range Filter -->
+    <div class="filter-date-container">
+      <span class="slider-label">Date Range:</span>
+      <div class="date-range-row">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-field date-filter">
+          <mat-label>From</mat-label>
+          <input matInput [matDatepicker]="tableFromPicker"
+                 [ngModel]="filterDateFrom()" (ngModelChange)="filterDateFrom.set($event)">
+          <mat-datepicker-toggle matSuffix [for]="tableFromPicker"></mat-datepicker-toggle>
+          <mat-datepicker #tableFromPicker></mat-datepicker>
+        </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-field date-filter">
+          <mat-label>To</mat-label>
+          <input matInput [matDatepicker]="tableToPicker"
+                 [ngModel]="filterDateTo()" (ngModelChange)="filterDateTo.set($event)">
+          <mat-datepicker-toggle matSuffix [for]="tableToPicker"></mat-datepicker-toggle>
+          <mat-datepicker #tableToPicker></mat-datepicker>
+        </mat-form-field>
+      </div>
+    </div>
+  </div>
+  <div class="filters-actions">
+    <button mat-button (click)="resetFilters.emit()">
+      <mat-icon>restart_alt</mat-icon> Reset Filters
+    </button>
+  </div>
+</div>

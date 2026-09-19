@@ -1,0 +1,24 @@
+<div class="batch-actions-bar cortex-glass" [class.visible]="selectedCount() > 0">
+  <div class="batch-info">
+    <span class="selected-count cortex-mono">{{ selectedCount() }}</span>
+    <span class="selected-label">memories selected</span>
+  </div>
+  <div class="batch-actions">
+    <button mat-flat-button color="primary" (click)="bulkReinforce.emit()" matTooltip="Reinforce selected">
+      <mat-icon>thumb_up</mat-icon>
+      Bulk Reinforce
+    </button>
+    <button mat-flat-button color="accent" (click)="bulkSuppress.emit()" matTooltip="Suppress selected">
+      <mat-icon>block</mat-icon>
+      Bulk Suppress
+    </button>
+    <button mat-flat-button color="warn" (click)="bulkForget.emit()" matTooltip="Forget selected">
+      <mat-icon>delete_outline</mat-icon>
+      Bulk Forget
+    </button>
+    <button mat-stroked-button (click)="clearSelection.emit()">
+      <mat-icon>close</mat-icon>
+      Cancel
+    </button>
+  </div>
+</div>

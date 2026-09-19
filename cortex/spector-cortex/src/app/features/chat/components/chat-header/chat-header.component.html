@@ -1,0 +1,49 @@
+<div class="chat-header">
+  <div class="header-left">
+    @if (!isDrawerOpen()) {
+      <button mat-icon-button
+              class="drawer-toggle sidebar-toggle"
+              matTooltip="Open conversations"
+              aria-label="Toggle drawer"
+              (click)="toggleDrawer.emit(true)">
+        <mat-icon>menu</mat-icon>
+      </button>
+    }
+    <mat-icon class="brain-icon">psychology</mat-icon>
+    <h2 class="chat-title">Spector</h2>
+  </div>
+
+  <div class="header-center">
+    <!-- Model Selector Pill -->
+    @if (!modelsLoading()) {
+      <button class="model-pill" [matMenuTriggerFor]="modelMenu" aria-label="Select language model">
+        <mat-icon>smart_toy</mat-icon>
+        <span>{{ selectedModelName() }}</span>
+        <mat-icon class="chevron">expand_more</mat-icon>
+      </button>
+      <mat-menu #modelMenu="matMenu" class="model-menu">
+        @for (m of models(); track m.id) {
+          <button mat-menu-item (click)="selectedModel.set(m.id)" [class.selected]="selectedModel() === m.id">
+            <mat-icon>{{ selectedModel() === m.id ? 'check' : 'smart_toy' }}</mat-icon>
+            <span>{{ m.name }}</span>
+            @if (m.active) {
+              <span class="active-badge">active</span>
+            }
+          </button>
+        }
+      </mat-menu>
+    }
+  </div>
+
+  <div class="header-right">
+    <button mat-icon-button matTooltip="Agent Soul" (click)="showSoulPanel.set(!showSoulPanel())" aria-label="Agent soul settings">
+      <mat-icon>auto_awesome</mat-icon>
+    </button>
+    <button mat-icon-button matTooltip="Settings" (click)="showConfig.set(!showConfig())" aria-label="Chat settings">
+      <mat-icon>tune</mat-icon>
+    </button>
+    <button mat-icon-button matTooltip="New Chat" (click)="clearChat.emit()" aria-label="Start new chat">
+      <mat-icon>refresh</mat-icon>
+    </button>
+  </div>
+</div>

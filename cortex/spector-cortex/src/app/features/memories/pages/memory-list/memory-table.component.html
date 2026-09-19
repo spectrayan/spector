@@ -1,149 +1,33 @@
 <div class="table-page">
 
   <!-- ── Toolbar ── -->
-  <div class="table-toolbar">
-    <div class="toolbar-left">
-      <mat-icon class="toolbar-icon">table_chart</mat-icon>
-      <h2 class="toolbar-title">Memory Table</h2>
-      <span class="record-count cortex-mono">{{ table.totalCount() }}</span>
-    </div>
-
-    <!-- Persistent Toolbar Search -->
-    <div class="toolbar-middle">
-      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="toolbar-search-field">
-        <mat-icon matPrefix>search</mat-icon>
-        <mat-label>Filter memories...</mat-label>
-        <input matInput [ngModel]="searchText()" (ngModelChange)="searchText.set($event)" placeholder="Search ID, content, tags...">
-        @if (searchText()) {
-          <button matSuffix mat-icon-button aria-label="Clear" (click)="searchText.set('')">
-            <mat-icon>close</mat-icon>
-          </button>
-        }
-      </mat-form-field>
-    </div>
-
-    <div class="toolbar-right">
-      <!-- Toggle Advanced Filters -->
-      <button mat-icon-button
-              (click)="showAdvancedFilters.set(!showAdvancedFilters())"
-              [class.active]="showAdvancedFilters()"
-              matTooltip="Toggle Advanced Filters">
-        <mat-icon>filter_alt</mat-icon>
-      </button>
-
-      <!-- Tier Filter -->
-      <mat-form-field appearance="outline" class="tier-select" subscriptSizing="dynamic">
-        <mat-select [value]="table.tierFilter() || 'ALL'"
-                    (selectionChange)="table.setTierFilter($event.value === 'ALL' ? null : $event.value)">
-          <mat-option value="ALL">All Tiers</mat-option>
-          @for (tier of tiers; track tier) {
-            <mat-option [value]="tier">
-              <span class="tier-option-dot" [style.background]="tierColors[tier]"></span>
-              {{ tier }}
-            </mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
-
-      <!-- Tombstone Toggle -->
-      <button mat-icon-button
-              (click)="table.toggleTombstoned()"
-              [class.active]="table.showTombstoned()"
-              matTooltip="Show/hide tombstoned records">
-        <mat-icon>{{ table.showTombstoned() ? 'visibility' : 'visibility_off' }}</mat-icon>
-      </button>
-
-      <!-- Reflect -->
-      <button mat-icon-button
-              (click)="onReflect()"
-              matTooltip="Trigger sleep consolidation cycle">
-        <mat-icon>bedtime</mat-icon>
-      </button>
-
-      <!-- Add Memory -->
-      <button mat-flat-button color="primary"
-              class="add-memory-btn"
-              (click)="openAddDialog()">
-        <mat-icon>add</mat-icon>
-        <span class="add-label">Add Memory</span>
-      </button>
-    </div>
-  </div>
+  <cortex-memory-table-toolbar
+    [totalCount]="table.totalCount()"
+    [(searchText)]="searchText"
+    [(showAdvancedFilters)]="showAdvancedFilters"
+    [tierFilter]="table.tierFilter()"
+    (tierFilterChange)="table.setTierFilter($event)"
+    [showTombstoned]="table.showTombstoned()"
+    [tiers]="tiers"
+    [tierColors]="tierColors"
+    (toggleTombstoned)="table.toggleTombstoned()"
+    (reflect)="onReflect()"
+    (addMemory)="openAddDialog()"
+  />
 
   <!-- ── Advanced Filters Drawer ── -->
   @if (showAdvancedFilters()) {
-    <div class="advanced-filters-panel cortex-glass">
-      <div class="filters-grid">
-        <!-- Search In-page -->
-        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-field search-filter">
-          <mat-label>Search inside page</mat-label>
-          <input matInput [ngModel]="searchText()" (ngModelChange)="searchText.set($event)" placeholder="Search text, tag, ID...">
-          @if (searchText()) {
-            <button matSuffix mat-icon-button aria-label="Clear" (click)="searchText.set('')" class="clear-input-btn">
-              <mat-icon>close</mat-icon>
-            </button>
-          }
-        </mat-form-field>
-
-        <!-- Tag Filter -->
-        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-field tag-filter">
-          <mat-label>Filter by Tag</mat-label>
-          <mat-select [value]="selectedTagFilter()" (selectionChange)="selectedTagFilter.set($event.value || null)">
-            <mat-option [value]="null">All Tags</mat-option>
-            @for (tag of availableTags(); track tag) {
-              <mat-option [value]="tag">{{ tag }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-
-        <!-- Min Importance -->
-        <div class="filter-slider-container">
-          <span class="slider-label">Min Importance: <span class="cortex-mono value-text">{{ minImportance().toFixed(2) }}</span></span>
-          <mat-slider min="0" max="10" step="0.5" showTickMarks discrete>
-            <input matSliderThumb [ngModel]="minImportance()" (ngModelChange)="minImportance.set($event)">
-          </mat-slider>
-        </div>
-
-        <!-- Valence Range -->
-        <div class="filter-slider-container valence-sliders">
-          <span class="slider-label">Valence Range: <span class="cortex-mono value-text">{{ minValence() }} to {{ maxValence() }}</span></span>
-          <div class="sliders-row">
-            <mat-slider min="-128" max="127" step="4">
-              <input matSliderThumb [ngModel]="minValence()" (ngModelChange)="minValence.set($event)" matTooltip="Min Valence">
-            </mat-slider>
-            <mat-slider min="-128" max="127" step="4">
-              <input matSliderThumb [ngModel]="maxValence()" (ngModelChange)="maxValence.set($event)" matTooltip="Max Valence">
-            </mat-slider>
-          </div>
-        </div>
-
-        <!-- Date Range Filter -->
-        <div class="filter-date-container">
-          <span class="slider-label">Date Range:</span>
-          <div class="date-range-row">
-            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-field date-filter">
-              <mat-label>From</mat-label>
-              <input matInput [matDatepicker]="tableFromPicker"
-                     [ngModel]="filterDateFrom()" (ngModelChange)="filterDateFrom.set($event)">
-              <mat-datepicker-toggle matSuffix [for]="tableFromPicker"></mat-datepicker-toggle>
-              <mat-datepicker #tableFromPicker></mat-datepicker>
-            </mat-form-field>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-field date-filter">
-              <mat-label>To</mat-label>
-              <input matInput [matDatepicker]="tableToPicker"
-                     [ngModel]="filterDateTo()" (ngModelChange)="filterDateTo.set($event)">
-              <mat-datepicker-toggle matSuffix [for]="tableToPicker"></mat-datepicker-toggle>
-              <mat-datepicker #tableToPicker></mat-datepicker>
-            </mat-form-field>
-          </div>
-        </div>
-      </div>
-      <div class="filters-actions">
-        <button mat-button (click)="searchText.set(''); minImportance.set(0); minValence.set(-128); maxValence.set(127); selectedTagFilter.set(null); filterDateFrom.set(null); filterDateTo.set(null)">
-          <mat-icon>restart_alt</mat-icon> Reset Filters
-        </button>
-      </div>
-    </div>
+    <cortex-memory-advanced-filters
+      [(searchText)]="searchText"
+      [(selectedTagFilter)]="selectedTagFilter"
+      [availableTags]="availableTags()"
+      [(minImportance)]="minImportance"
+      [(minValence)]="minValence"
+      [(maxValence)]="maxValence"
+      [(filterDateFrom)]="filterDateFrom"
+      [(filterDateTo)]="filterDateTo"
+      (resetFilters)="resetAdvancedFilters()"
+    />
   }
 
   <!-- ── Loading Bar ── -->
@@ -152,25 +36,13 @@
   }
 
   <!-- ── Tier Summary Cards ── -->
-  <div class="tier-summary">
-    @for (tier of tiers; track tier) {
-      <div class="tier-card" [style.border-left-color]="tierColors[tier]">
-        <div class="tier-card-header">
-          <span class="tier-badge" [style.background]="tierColors[tier]">{{ tier }}</span>
-          @if ((table.tombstoneRatios()[tier] ?? 0) > 0.1) {
-            <button mat-icon-button
-                    class="vacuum-btn"
-                    (click)="table.vacuum(tier)"
-                    [matTooltip]="'Vacuum ' + tier">
-              <mat-icon>cleaning_services</mat-icon>
-            </button>
-          }
-        </div>
-        <span class="tier-count cortex-mono">{{ table.tierCounts()[tier] ?? 0 }}</span>
-        <span class="tier-tombstone">💀 {{ formatRatio(table.tombstoneRatios()[tier] ?? 0) }}</span>
-      </div>
-    }
-  </div>
+  <cortex-memory-tier-summary
+    [tiers]="tiers"
+    [tierColors]="tierColors"
+    [tierCounts]="table.tierCounts()"
+    [tombstoneRatios]="table.tombstoneRatios()"
+    (vacuum)="table.vacuum($event)"
+  />
 
   <!-- ── Error State ── -->
   @if (table.error(); as error) {
@@ -433,28 +305,11 @@
   </div>
 
   <!-- ── Floating Batch Actions Bar ── -->
-  <div class="batch-actions-bar cortex-glass" [class.visible]="selectedRowIds().size > 0">
-    <div class="batch-info">
-      <span class="selected-count cortex-mono">{{ selectedRowIds().size }}</span>
-      <span class="selected-label">memories selected</span>
-    </div>
-    <div class="batch-actions">
-      <button mat-flat-button color="primary" (click)="bulkReinforce()" matTooltip="Reinforce selected">
-        <mat-icon>thumb_up</mat-icon>
-        Bulk Reinforce
-      </button>
-      <button mat-flat-button color="accent" (click)="bulkSuppress()" matTooltip="Suppress selected">
-        <mat-icon>block</mat-icon>
-        Bulk Suppress
-      </button>
-      <button mat-flat-button color="warn" (click)="bulkForget()" matTooltip="Forget selected">
-        <mat-icon>delete_outline</mat-icon>
-        Bulk Forget
-      </button>
-      <button mat-stroked-button (click)="clearSelection()">
-        <mat-icon>close</mat-icon>
-        Cancel
-      </button>
-    </div>
-  </div>
+  <cortex-memory-bulk-actions
+    [selectedCount]="selectedRowIds().size"
+    (bulkReinforce)="bulkReinforce()"
+    (bulkSuppress)="bulkSuppress()"
+    (bulkForget)="bulkForget()"
+    (clearSelection)="clearSelection()"
+  />
 </div>

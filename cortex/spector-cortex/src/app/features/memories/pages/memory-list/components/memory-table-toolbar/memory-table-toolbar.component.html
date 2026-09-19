@@ -1,0 +1,68 @@
+<div class="table-toolbar">
+  <div class="toolbar-left">
+    <mat-icon class="toolbar-icon">table_chart</mat-icon>
+    <h2 class="toolbar-title">Memory Table</h2>
+    <span class="record-count cortex-mono">{{ totalCount() }}</span>
+  </div>
+
+  <!-- Persistent Toolbar Search -->
+  <div class="toolbar-middle">
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="toolbar-search-field">
+      <mat-icon matPrefix>search</mat-icon>
+      <mat-label>Filter memories...</mat-label>
+      <input matInput [ngModel]="searchText()" (ngModelChange)="searchText.set($event)" placeholder="Search ID, content, tags...">
+      @if (searchText()) {
+        <button matSuffix mat-icon-button aria-label="Clear" (click)="searchText.set('')">
+          <mat-icon>close</mat-icon>
+        </button>
+      }
+    </mat-form-field>
+  </div>
+
+  <div class="toolbar-right">
+    <!-- Toggle Advanced Filters -->
+    <button mat-icon-button
+            (click)="showAdvancedFilters.set(!showAdvancedFilters())"
+            [class.active]="showAdvancedFilters()"
+            matTooltip="Toggle Advanced Filters">
+      <mat-icon>filter_alt</mat-icon>
+    </button>
+
+    <!-- Tier Filter -->
+    <mat-form-field appearance="outline" class="tier-select" subscriptSizing="dynamic">
+      <mat-select [value]="tierFilter() || 'ALL'"
+                  (selectionChange)="tierFilter.set($event.value === 'ALL' ? null : $event.value)">
+        <mat-option value="ALL">All Tiers</mat-option>
+        @for (tier of tiers(); track tier) {
+          <mat-option [value]="tier">
+            <span class="tier-option-dot" [style.background]="tierColors()[tier]"></span>
+            {{ tier }}
+          </mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <!-- Tombstone Toggle -->
+    <button mat-icon-button
+            (click)="toggleTombstoned.emit()"
+            [class.active]="showTombstoned()"
+            matTooltip="Show/hide tombstoned records">
+      <mat-icon>{{ showTombstoned() ? 'visibility' : 'visibility_off' }}</mat-icon>
+    </button>
+
+    <!-- Reflect -->
+    <button mat-icon-button
+            (click)="reflect.emit()"
+            matTooltip="Trigger sleep consolidation cycle">
+      <mat-icon>bedtime</mat-icon>
+    </button>
+
+    <!-- Add Memory -->
+    <button mat-flat-button color="primary"
+            class="add-memory-btn"
+            (click)="addMemory.emit()">
+      <mat-icon>add</mat-icon>
+      <span class="add-label">Add Memory</span>
+    </button>
+  </div>
+</div>

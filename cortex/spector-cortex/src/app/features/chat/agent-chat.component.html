@@ -17,55 +17,17 @@
   <!-- ── Main Chat Canvas ── -->
   <div class="chat-main" [class.drawer-collapsed]="!isDrawerOpen()">
     <!-- Top Bar -->
-    <div class="chat-header">
-      <div class="header-left">
-        @if (!isDrawerOpen()) {
-          <button mat-icon-button
-                  class="drawer-toggle sidebar-toggle"
-                  matTooltip="Open conversations"
-                  aria-label="Toggle drawer"
-                  (click)="toggleDrawer(true)">
-            <mat-icon>menu</mat-icon>
-          </button>
-        }
-        <mat-icon class="brain-icon">psychology</mat-icon>
-        <h2 class="chat-title">Spector</h2>
-      </div>
-
-      <div class="header-center">
-        <!-- Model Selector Pill -->
-        @if (!modelsLoading()) {
-          <button class="model-pill" [matMenuTriggerFor]="modelMenu" aria-label="Select language model">
-            <mat-icon>smart_toy</mat-icon>
-            <span>{{ selectedModelName() }}</span>
-            <mat-icon class="chevron">expand_more</mat-icon>
-          </button>
-          <mat-menu #modelMenu="matMenu" class="model-menu">
-            @for (m of models(); track m.id) {
-              <button mat-menu-item (click)="selectedModel.set(m.id)" [class.selected]="selectedModel() === m.id">
-                <mat-icon>{{ selectedModel() === m.id ? 'check' : 'smart_toy' }}</mat-icon>
-                <span>{{ m.name }}</span>
-                @if (m.active) {
-                  <span class="active-badge">active</span>
-                }
-              </button>
-            }
-          </mat-menu>
-        }
-      </div>
-
-      <div class="header-right">
-        <button mat-icon-button matTooltip="Agent Soul" (click)="showSoulPanel.set(!showSoulPanel())" aria-label="Agent soul settings">
-          <mat-icon>auto_awesome</mat-icon>
-        </button>
-        <button mat-icon-button matTooltip="Settings" (click)="showConfig.set(!showConfig())" aria-label="Chat settings">
-          <mat-icon>tune</mat-icon>
-        </button>
-        <button mat-icon-button matTooltip="New Chat" (click)="clearChat()" aria-label="Start new chat">
-          <mat-icon>refresh</mat-icon>
-        </button>
-      </div>
-    </div>
+    <cortex-chat-header
+      [isDrawerOpen]="isDrawerOpen()"
+      [modelsLoading]="modelsLoading()"
+      [models]="models()"
+      [(selectedModel)]="selectedModel"
+      [selectedModelName]="selectedModelName()"
+      [(showSoulPanel)]="showSoulPanel"
+      [(showConfig)]="showConfig"
+      (toggleDrawer)="toggleDrawer($event)"
+      (clearChat)="clearChat()"
+    />
 
     <!-- Messages Container with Autoscroll Sentinel -->
     <div #scrollContainer class="messages-container" (scroll)="onScroll()">
@@ -94,89 +56,10 @@
 
       <!-- Conversation Turns -->
       @for (turn of turns(); track turn.turnId) {
-        <div class="turn-block">
-          <!-- User Prompt Row -->
-          @if (turn.user && turn.user.text) {
-            <div class="message-row user">
-              <div class="message-bubble user">
-                <div class="message-content">{{ turn.user.text }}</div>
-              </div>
-              <div class="message-avatar user-avatar">
-                <mat-icon>person</mat-icon>
-              </div>
-            </div>
-          }
-
-          <!-- Interleaved Agentic Execution (Thinking + Tools + Assistant) -->
-          <div class="agent-turn-wrapper">
-            <!-- 1. Collapsible Thinking Accordion -->
-            @if (turn.thinking && turn.thinking.text) {
-              <div class="thinking-wrapper">
-                <cortex-thinking-accordion
-                  [thinking]="turn.thinking"
-                  [isStreaming]="turn.isStreaming"
-                  [hasVisibleTokens]="!!turn.assistant.text"
-                  (toggle)="onThinkingToggle(turn.turnId, $event)">
-                </cortex-thinking-accordion>
-              </div>
-            }
-
-            <!-- 2. Interleaved Tool Execution Cards -->
-            @if (turn.tools && turn.tools.length > 0) {
-              <div class="tools-wrapper">
-                @for (tool of turn.tools; track tool.callId) {
-                  <cortex-tool-card [tool]="tool"></cortex-tool-card>
-                }
-              </div>
-            }
-
-            <!-- 3. Streamed Assistant Markdown Message -->
-            @if (turn.assistant && turn.assistant.text) {
-              <div class="message-row assistant">
-                <div class="message-avatar">
-                  <mat-icon>psychology</mat-icon>
-                </div>
-                <div class="message-bubble assistant">
-                  <div class="message-content markdown-body" [innerHTML]="turn.assistant.text | markdown"></div>
-                  @if (turn.isStreaming) {
-                    <span class="typing-caret" aria-hidden="true">▋</span>
-                  }
-
-                  <!-- Turn Metadata Footer -->
-                  @if (turn.primedMemories || turn.usage) {
-                    <div class="message-footer">
-                      @if (turn.primedMemories) {
-                        <span class="footer-detail primed-badge" matTooltip="Cross-session memories primed">
-                          <mat-icon>psychology</mat-icon> {{ turn.primedMemories }} memories primed
-                        </span>
-                      }
-                      @if (turn.usage) {
-                        <span class="footer-detail" matTooltip="Token consumption">
-                          <mat-icon>analytics</mat-icon> {{ turn.usage.totalTokens }} tokens
-                        </span>
-                      }
-                    </div>
-                  }
-                </div>
-              </div>
-            }
-
-            <!-- 4. Turn Error State -->
-            @if (turn.error) {
-              <div class="message-row assistant">
-                <div class="message-avatar">
-                  <mat-icon>psychology</mat-icon>
-                </div>
-                <div class="message-bubble error-msg">
-                  <div class="error-content">
-                    <mat-icon>warning_amber</mat-icon>
-                    <span>{{ turn.error.message }}</span>
-                  </div>
-                </div>
-              </div>
-            }
-          </div>
-        </div>
+        <cortex-chat-turn-item
+          [turn]="turn"
+          (thinkingToggle)="onThinkingToggle($event.turnId, $event.expanded)"
+        />
       }
 
       <!-- Fallback Loading Indicator during Graph Initialization -->
@@ -207,66 +90,15 @@
     }
 
     <!-- ── Unified Input Area ── -->
-    <div class="chat-input-area">
-      @if (attachedFile(); as file) {
-        <div class="attachment-preview">
-          <mat-icon>description</mat-icon>
-          <span>{{ file.name }}</span>
-          <button mat-icon-button (click)="removeAttachment()" aria-label="Remove attachment">
-            <mat-icon>close</mat-icon>
-          </button>
-        </div>
-      }
-
-      <!-- Note: class includes chat-input-row to satisfy test locator: .chat-input-row textarea -->
-      <div class="chat-input-row copilot-input-bar" [class.landing-glow]="!hasTurns()">
-        <!-- Tier selector -->
-        <button class="input-action" matTooltip="Memory tier: {{ selectedTier() }}" [matMenuTriggerFor]="tierMenu" aria-label="Select memory tier">
-          <mat-icon class="tier-icon">{{ selectedTier() === 'EPISODIC' ? 'auto_stories' : 'psychology' }}</mat-icon>
-        </button>
-        <mat-menu #tierMenu="matMenu">
-          @for (tier of tiers; track tier) {
-            <button mat-menu-item (click)="selectedTier.set(tier)">
-              <span>{{ tier }}</span>
-            </button>
-          }
-        </mat-menu>
-
-        <!-- File upload -->
-        <input type="file" #fileInput (change)="onFileSelected($event)" hidden accept=".txt,.md,.json,.csv,.log,.yaml,.yml,.xml,.html" />
-        <button class="input-action" matTooltip="Attach file" (click)="fileInput.click()" aria-label="Attach file">
-          <mat-icon>attach_file</mat-icon>
-        </button>
-
-        <!-- Query input -->
-        <textarea class="copilot-textarea"
-                  [ngModel]="query()"
-                  (ngModelChange)="query.set($event)"
-                  placeholder="Ask Spector anything..."
-                  (keydown)="onTextareaKeydown($event)"
-                  [disabled]="isStreaming()"
-                  rows="1"
-                  cdkTextareaAutosize
-                  cdkAutosizeMinRows="1"
-                  cdkAutosizeMaxRows="5"
-                  aria-label="Chat input message">
-        </textarea>
-
-        <!-- Send / Abort Button -->
-        @if (isStreaming()) {
-          <button class="send-btn abort-btn" (click)="cancelStream()" matTooltip="Stop generating" aria-label="Stop generating">
-            <mat-icon>stop</mat-icon>
-          </button>
-        } @else {
-          <button class="send-btn"
-                  (click)="sendQuery()"
-                  [disabled]="!query().trim()"
-                  matTooltip="Send"
-                  aria-label="Send message">
-            <mat-icon>arrow_upward</mat-icon>
-          </button>
-        }
-      </div>
-    </div>
+    <cortex-chat-input-bar
+      [(query)]="query"
+      [(attachedFile)]="attachedFile"
+      [(selectedTier)]="selectedTier"
+      [tiers]="tiers"
+      [isStreaming]="isStreaming()"
+      [hasTurns]="hasTurns()"
+      (sendQuery)="sendQuery()"
+      (cancelStream)="cancelStream()"
+    />
   </div>
 </div>
