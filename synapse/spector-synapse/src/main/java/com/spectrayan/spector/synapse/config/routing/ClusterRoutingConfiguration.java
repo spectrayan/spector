@@ -147,6 +147,7 @@ public class ClusterRoutingConfiguration {
      * is omitted, and seamlessly use Caffeine for cache (ADR-0034 §8 Phase 2).
      */
     @Configuration(proxyBeanMethods = false)
+    @Conditional(ClusterRoutingConfiguration.NonStandaloneCondition.class)
     @ConditionalOnClass(name = "io.lettuce.core.RedisClient")
     @ConditionalOnProperty(name = "spector.routing.redis.enabled", havingValue = "true")
     public static class SynapseRedisRoutingConfiguration {
@@ -177,11 +178,12 @@ public class ClusterRoutingConfiguration {
         public RedisRoutingCache redisRoutingCache(
                 SynapseProperties properties,
                 ObjectProvider<RedisClient> redisClientProvider,
-                RoutingMetricsListener metricsListener
+                ObjectProvider<RoutingMetricsListener> metricsListenerProvider
         ) {
             RoutingProperties routingProps = properties.getRouting();
             RedisClient client = redisClientProvider.getIfAvailable();
             if (client != null && routingProps != null && routingProps.getRedis() != null) {
+                RoutingMetricsListener metricsListener = metricsListenerProvider.getIfAvailable(() -> RoutingMetricsListener.NOOP);
                 log.info("Initializing Lettuce Redis routing cache at {}", routingProps.getRedis().getUri());
                 return new LettuceRedisRoutingCache(
                         client,
@@ -198,13 +200,15 @@ public class ClusterRoutingConfiguration {
         public RoutingInvalidationSubscriber routingInvalidationSubscriber(
                 SynapseProperties properties,
                 ObjectProvider<RedisClient> redisClientProvider,
-                WaterfallRoutingResolver resolver,
-                RoutingMetricsListener metricsListener
+                ObjectProvider<WaterfallRoutingResolver> resolverProvider,
+                ObjectProvider<RoutingMetricsListener> metricsListenerProvider
         ) {
             RedisClient client = redisClientProvider.getIfAvailable();
-            if (client != null) {
+            WaterfallRoutingResolver resolver = resolverProvider.getIfAvailable();
+            if (client != null && resolver != null) {
                 String cellId = properties.getCell() != null ? properties.getCell().getId() : "default";
                 try {
+                    RoutingMetricsListener metricsListener = metricsListenerProvider.getIfAvailable(() -> RoutingMetricsListener.NOOP);
                     RoutingInvalidationSubscriber subscriber = new RoutingInvalidationSubscriber(
                             cellId,
                             client,

@@ -95,7 +95,7 @@ spector:
       members: ${SPECTOR_CELL_RING_MEMBERS:}
   routing:
     redis:
-      enabled: ${SPECTOR_ROUTING_REDIS_ENABLED:true}
+      enabled: ${SPECTOR_ROUTING_REDIS_ENABLED:false}
       uri: ${SPECTOR_ROUTING_REDIS_URI:redis://spector-redis:6379}
 
   # ── Spector Spring Auto-Configuration ──

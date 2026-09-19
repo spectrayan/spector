@@ -89,6 +89,7 @@ public class ClusterReplicationConfiguration {
     }
 
     @Configuration(proxyBeanMethods = false)
+    @Conditional(ClusterControlPlaneConfiguration.ControlPlaneCondition.class)
     @ConditionalOnClass(name = "io.lettuce.core.RedisClient")
     @ConditionalOnProperty(name = "spector.routing.redis.enabled", havingValue = "true")
     public static class RedisReplicationHintWriterConfiguration {
