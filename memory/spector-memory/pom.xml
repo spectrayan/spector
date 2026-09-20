@@ -14,10 +14,9 @@
     <artifactId>spector-memory</artifactId>
     <name>Spector Memory</name>
     <description>
-        Biologically-inspired cognitive memory for autonomous AI agents.
-        16 neuroscience mechanisms — from dopamine-driven surprise detection to
-        hippocampal sleep consolidation — running natively on Java Panama with
-        zero-GC, SIMD-accelerated off-heap storage.
+        Four-tier cognitive memory for AI agents: working, episodic, semantic,
+        and procedural stores with decay, consolidation, and graph-backed recall.
+        Off-heap Java Panama kernel, SIMD scoring, no external database.
     </description>
 
     <properties>

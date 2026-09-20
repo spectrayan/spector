@@ -1,13 +1,13 @@
 ---
 title: "Spector — Zero-Overhead AI Memory & Cognitive Graph"
-description: "Spector is a cognitive memory backbone for AI agents — multi-tier retention and associative graphs implementing MF-001 with fused semantic and hybrid retrieval, a built-in MCP server, and sub-millisecond recall."
+description: "Spector is a cognitive memory engine for AI agents — multi-tier retention and associative graphs implementing MF-001 with fused semantic and hybrid retrieval, a built-in MCP server, and sub-millisecond recall."
 ---
 
-# ⚡ Spector — The AI Memory Backbone
+# ⚡ Spector — The AI Memory Engine
 
 > **Agent-ready cognitive memory that forms associations — sub-millisecond recall, zero infrastructure.**
 
-Spector gives AI agents real memory: it **remembers, forgets, consolidates, and forms associations** across working, episodic, semantic, and procedural tiers, linked by Hebbian, temporal, and entity graphs. Retrieval fuses dense semantic search with hybrid lexical signals and 6-phase cognitive scoring for sub-millisecond recall.
+Spector gives AI agents real memory: it **remembers, forgets, consolidates, and forms associations** across working, episodic, semantic, and procedural tiers, linked by co-activation, temporal, and entity graphs. Retrieval fuses dense semantic search with hybrid lexical signals and 6-phase cognitive scoring for sub-millisecond recall.
 
 Connect your agents through the **built-in MCP server** (Claude Desktop, Cursor, custom agents), call it over **REST/gRPC**, use the **Python, TypeScript, or Java Client SDKs**, or embed it directly in the JVM — no external database, no infrastructure to run. Every user, agent, or tenant is physically isolated in its own on-disk namespace. The **Sealed Memory Kernel (`spector-kernel`)** keeps it all off-heap via Java 25 Foreign Function & Memory (FFM) with zero GC pressure.
 
@@ -129,7 +129,7 @@ Connect your agent or application to Spector in seconds:
 | ⚡ **Scoring Loop** | **~200 cycles** | 6-Phase SIMD fused scan eliminating dead candidates early |
 | 🚀 **Peak QPS** | **61,011** | Concurrent queries running lock-free across Virtual Threads |
 | 🤖 **MCP Tools** | **37+ tools** | In-process stdio + Streamable HTTP Model Context Protocol |
-| 🛡️ **Synaptic Tags** | **128-bit Bloom** | Offsets 24–39: 60× lower false-positive rate than 64-bit filters |
+| 🛡️ **Inline Bloom Tags** | **128-bit Bloom** | Offsets 24–39: 60× lower false-positive rate than 64-bit filters |
 | 🗜️ **Compression** | **4×–32×** | SVASQ-8 to IVF-PQ SIMD quantization |
 | 📦 **Storage Engine** | **V4 Bundles** | Single-VMA `runtime.bundle`, `partition.bundle`, `identity.bundle` |
 | ⚙️ **Dependencies** | **Zero** | Pure Java 25 (JDK only) — no external databases, no Docker required |
@@ -184,7 +184,7 @@ Connect your agent or application to Spector in seconds:
 
     ---
 
-    Angular 22 real-time neural visualization dashboard — 3D interactive galaxy visualizer, live SSE telemetry inspector, and namespace administration.
+    Angular 22 real-time Cortex dashboard — 3D interactive galaxy visualizer, live SSE telemetry inspector, and namespace administration.
 
     [:octicons-arrow-right-24: Cortex Dashboard](cortex/index.md)
 

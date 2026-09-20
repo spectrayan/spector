@@ -53,7 +53,7 @@ The governance hierarchy is structured into the following defined roles:
   - Java Panama Foreign Function & Memory (FFM) off-heap layouts.
   - SIMD vector acceleration and hardware kernel kernels (`jdk.incubator.vector`).
   - Off-heap zero-copy memory layouts, bundle kernels, and memory recycling.
-  - Biologically-inspired cognitive memory algorithms and mathematical kernels.
+  - Memory algorithms covering tiered retention, temporal decay, association graphs, offline consolidation, and the mathematical kernels that implement them.
   - Distributed cell clustering, consensus, and disaster recovery.
 - Authors and vets Architecture Decision Records (ADRs) and Requests for Comments (RFCs).
 
@@ -187,7 +187,7 @@ PRs lacking DCO sign-offs cannot be merged into `main`.
 
 ## 7. Security Vulnerability Reporting
 
-Security is paramount in an AI memory backbone handling sensitive agent contexts. Security disclosures must follow the coordinated process outlined in [SECURITY.md](SECURITY.md):
+Security is paramount in an AI memory engine handling sensitive agent contexts. Security disclosures must follow the coordinated process outlined in [SECURITY.md](SECURITY.md):
 - Security issues must **not** be reported on public GitHub issues.
 - Reports should be submitted privately via GitHub Security Advisories or emailed to `security@spectrayan.com`.
 - The TSC Security Taskforce will acknowledge receipt within 24 hours and issue fixes under an embargoed advisory until patches are released.

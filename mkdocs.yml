@@ -1,5 +1,5 @@
 site_name: Spector Documentation
-site_description: "Spector — Zero-Overhead, Agent-Ready AI Cognitive Memory Backbone. Dense vector similarity, BM25 text matching, SPLADE sparse retrieval, Hebbian graph structures, and multi-tier cognitive memory."
+site_description: "Spector — cognitive memory engine for AI agents. Four-tier store, association-graph recall, sub-millisecond scoring, no external database."
 site_url: https://spectrayan.github.io/spector/
 repo_url: https://github.com/spectrayan/spector
 repo_name: spectrayan/spector

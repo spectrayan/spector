@@ -112,7 +112,7 @@ Every tenant gets physically separate files with independent encryption keys:
 | **Fused cognitive scoring** | ✅ 6-Phase SIMD Recall Pathway | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | **Hybrid search** | ✅ HNSW + BM25 + RRF | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
 | **Built-in MCP server** | ✅ 37+ tools | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **Cognitive memory** | ✅ 4-tier, bio-inspired | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Cognitive memory** | ✅ 4-tier with decay & consolidation | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | **Quantization** | SVASQ-8/4, IVF-PQ | ✅ | ✅ BQ | ✅ SQ/PQ | ✅ IVF-PQ/SQ | ❌ | ❌ |
 | **GPU acceleration** | ✅ CUDA via Panama | ✅ | ❌ | ❌ | ✅ | ❌ | ❌ |
 | **License** | Apache 2.0 | Proprietary | BSD-3 | Apache 2.0 | Apache 2.0 | Apache 2.0 | PostgreSQL |

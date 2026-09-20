@@ -14,7 +14,7 @@
     <artifactId>spector-kernel</artifactId>
     <name>Spector Kernel</name>
     <description>
-        Sealed memory-mapped kernel for Spector cognitive architecture.
+        Sealed memory-mapped kernel for Spector agent memory architecture.
         Encapsulates Java Panama Foreign Function &amp; Memory API (FFM), raw off-heap
         memory segments, binary region layouts, and thread-safe bundle I/O.
     </description>

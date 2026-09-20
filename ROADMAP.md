@@ -7,7 +7,7 @@
 
 ## 🎯 Vision & Ecosystem Alignment
 
-Spector is the zero-overhead, open-source cognitive memory backbone for autonomous AI agents. Engineered to provide a vendor-neutral, hardware-accelerated memory substrate, Spector interoperates seamlessly with agent runtimes (Goose, OpenClaw, LangChain4j, Claude Code, Cursor) via open standards like Model Context Protocol (MCP) and Agent-to-Agent (A2A) protocols.
+Spector is a zero-overhead, open-source cognitive memory engine for autonomous AI agents. It is a vendor-neutral, hardware-accelerated memory layer that interoperates with agent runtimes (Goose, OpenClaw, LangChain4j, Claude Code, Cursor) over Model Context Protocol (MCP) and, where relevant, Agent-to-Agent (A2A).
 
 ```mermaid
 flowchart LR

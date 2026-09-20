@@ -1,6 +1,6 @@
 # Spector Project Context
 
-Welcome to the **Spector** repository context guide. This document serves as the high-level onboarding and architectural blueprint for Spector, a state-of-the-art cognitive memory backbone combining dense vector similarity, SIMD-accelerated BM25 text matching, SPLADE sparse retrieval, Hebbian graph structures, and biologically-inspired cognitive memory tiers. It acts as the "bridge" linking the actual source code with our agent rules, skills, and workflows.
+Welcome to the **Spector** repository context guide. This document serves as the high-level onboarding and architectural blueprint for Spector, a state-of-the-art cognitive memory engine that combines dense vector similarity, SIMD-accelerated BM25, SPLADE sparse retrieval, association graphs, and four memory tiers with distinct retention and consolidation policy. It acts as the "bridge" linking the actual source code with our agent rules, skills, and workflows.
 
 ---
 
@@ -8,10 +8,10 @@ Welcome to the **Spector** repository context guide. This document serves as the
 
 Traditional vector databases are simple document-matching engines. They perform static similarity searches on static embeddings with high latency, large GC overhead, and zero contextual awareness.
 
-Spector reimagines search by mimicking biological cognitive structures:
-*   **Volatile & Permanent Tiers**: Working Memory (Prefrontal Cortex) acts as a volatile circular buffer, while Episodic/Semantic layers represent permanent memory storage.
+Spector treats memory as a scored, tiered store rather than a flat index:
+*   **Volatile and durable tiers**: Working memory is a circular buffer; episodic and semantic tiers are durable stores with different promotion and decay policy.
 *   **Fused Scoring**: Instead of plain similarity, Spector evaluates `Similarity × Importance × Temporal Decay` in a single pass.
-*   **Synaptic Gating**: Uses a 64-bit inline Bloom filter (Synaptic Tags) to eliminate 99% of candidate records before doing vector computations.
+*   **Inline Bloom gating**: A 128-bit inline Bloom filter drops obvious non-candidates before vector scoring.
 *   **Zero-GC Performance**: Built on off-heap Panama FFM and SIMD Vector APIs, processing memories with ultra-low sub-millisecond latency.
 
 ---
@@ -112,7 +112,7 @@ graph TD
     *   `spector-test-support`: Test fixtures, mocks, and integration test base classes.
 2.  **Cognitive Memory Layer (`memory/`)**
     *   `spector-kernel`: Off-heap zero-GC Panama FFM storage foundation, Single-VMA Bundle engine (`PartitionBundle`, `RuntimeBundle`), memory shapes, and cache-line aligned binary layouts (ADR-0004, ADR-0028, ADR-0030).
-    *   `spector-memory`: Biologically-grounded 4-tier cognitive memory coordination (Working, Episodic, Semantic, Procedural), 7 domain cognitive pathways (ADR-0035/0036), Hebbian co-activation graph, and multi-stage recall pipeline.
+    *   `spector-memory`: Four-tier coordination (Working, Episodic, Semantic, Procedural), 7 domain cognitive pathways (ADR-0035/0036), Hebbian co-activation graph, and multi-stage recall pipeline.
     *   `spector-provider-api`: Model-agnostic LLM and text-to-vector embedding SPI.
     *   `spector-providers`: Concrete implementations connecting to Ollama, OpenAI, Google, Anthropic, and ONNX.
     *   `spector-ingestion`: Document chunking, multi-modal sensory extractors, and ingestion routing (ADR-0037).
@@ -148,5 +148,5 @@ graph TD
 *   **Architecture Decision Records**: [`docs/adr/`](docs/adr/) (canonical catalog of living and historical ADRs).
 *   **Runtime Config**: `spector-local.yml` (overrides default options).
 *   **On-Disk Storage**: `.spector/` (ignored via `.gitignore` - do not delete or commit).
-*   **Biologically-Inspired Design**: Cognitive math, biological taxonomies, and formulas documented in `docs/adr/` and module documentation.
+*   **Design ancestry and formulas**: Cognitive-science citations, taxonomies, and scoring formulas live in `docs/adr/` and module documentation.
 *   **Documentation Site**: `docs/` (built via MkDocs Material: `python -m mkdocs build --clean`).

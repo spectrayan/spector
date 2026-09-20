@@ -1,8 +1,8 @@
 # Spector
 
-> The Zero-Overhead, Agent-Ready AI Memory Backbone.
+> The Zero-Overhead, Agent-Ready AI Memory Engine.
 
-Spector is an agent-ready AI cognitive memory backbone. It gives AI agents memory that remembers, forgets, consolidates, and forms associations across multi-tier memory structures (MF-001) linked by Hebbian, temporal, and entity graphs, with fused semantic and hybrid retrieval. Connect agents through the built-in MCP server, call it over REST/gRPC, drive it from the Python SDK, or embed it in the JVM. Under the hood, Project Panama (off-heap, zero GC) and the Java Vector API (AVX2/AVX-512/NEON) deliver the performance.
+Spector is an agent-ready cognitive memory engine. It gives AI agents memory that remembers, forgets, consolidates, and forms associations across four tiers (MF-001) linked by co-activation, temporal, and entity graphs, with fused semantic and hybrid retrieval. Connect agents through the built-in MCP server, call it over REST/gRPC, drive it from the Python SDK, or embed it in the JVM. Under the hood, Project Panama (off-heap, zero GC) and the Java Vector API (AVX2/AVX-512/NEON) deliver the performance.
 
 ## Key Features
 
