@@ -23,7 +23,7 @@ graph TD
         R2["Region: Hebbian Graph<br/><i>Adjacency & weight matrices</i>"]
         R3["Region: Temporal Chains<br/><i>Bidirectional causal links</i>"]
         R4["Region: Entity Directory<br/><i>Interned string pool & role indices</i>"]
-        R5["Region: Sidecars (Insula & Provenance)<br/><i>Somatic markers & verification state</i>"]
+        R5["Region: Sidecars (Insula &amp; Provenance)<br/><i>Self-model state &amp; verification state</i>"]
     end
 
     DIR -->|Locates & Bounds| R1
@@ -53,15 +53,17 @@ Spector physically decouples the high-throughput **Cognitive Memory Plane** (whe
 
 ```
 ${SPECTOR_DATA_DIR}/
-├── cognitive/
-│   └── namespaces/{xx}/{yy}/{namespace_id}/
+├── namespaces/
+│   └── {xx}/{yy}/{namespace_id}/
 │       ├── namespace.json              # Tenant parameters, dimension vector size, creation flags
-│       ├── runtime.bundle              # Hot working buffers, live graphs, and InsulaMemory
-│       ├── wal.log                     # Write-Ahead Log for crash durability
+│       ├── runtime/
+│       │   └── runtime.bundle          # Hot working buffers, live graphs, and InsulaMemory
+│       ├── wal/
+│       │   └── wal-000000.bin          # Write-Ahead Log chunks for crash durability
 │       └── partitions/
-│           ├── 00000/
+│           ├── 000_1717430400/
 │           │   └── partition.bundle    # Baseline partition: long-term semantic, procedural, strength
-│           └── 00001/
+│           └── 001_1719849600/
 │               └── partition.bundle    # Rolled partition: time-bounded episodic chunks
 └── identity/
     ├── accounts/{aa}/{bb}/{account_id}/
@@ -75,26 +77,36 @@ ${SPECTOR_DATA_DIR}/
 ### 1. The Runtime Bundle (`runtime.bundle`)
 The Runtime Bundle houses high-velocity, hot memory structures updated during active interaction. Because this state is frequently read and mutated, it is mapped into native memory as a unified segment.
 
-**Hosted Regions**:
-- **Working Memory**: Fixed-capacity circular buffer holding active conversation context.
-- **Co-Activation Matrix**: Hash table storing pairwise engram co-retrieval frequencies.
-- **Hebbian Associative Graph**: Synaptic connection weights between engrams.
-- **Temporal Sequence Chains**: Chronological links tracking session context.
-- **Temporal Facts**: Bi-temporal knowledge timestamps (valid time vs. assertion time).
-- **Entity Directory & Names Pool**: Interned entity names and role registries.
-- **Somatic Insula (`InsulaMemory`)**: Dynamic agent self-state, uncertainty indicators, and urgency levels.
-- **Continuity & Provenance**: Cross-turn session continuity checkpoints.
-- **Lexical Indexes (`BM25` & `SPLADE`)**: Binary snapshots of BM25 and SPLADE sparse lexical indexes (`RegionId.BM25`, `RegionId.SPLADE`) for sub-millisecond cold start without re-indexing (ADR-0082).
-- **Entity Reverse Index (Reserved)**: Reserved region (`RegionId.ENTITY_REVERSE_INDEX`) for cached entity-to-memory projections.
+**Hosted Regions** (19 regions, `RegionId` 10–28):
+- **Working Memory** (`WORKING`, 10): Fixed-capacity circular buffer holding active conversation context.
+- **Co-Activation Matrix** (`COACTIVATION`, 11): Hash table storing pairwise engram co-retrieval frequencies (STDP edges).
+- **Index MIDX** (`INDEX_MIDX`, 12): Multi-dimensional index entries for SpectorIndex centroid routing.
+- **Index IDPL** (`INDEX_IDPL`, 13): ID-to-blob payload lookup for index entry deserialization.
+- **Hebbian Associative Graph** (`HEBBIAN`, 14): Synaptic connection weights between engrams.
+- **Temporal Sequence Chains** (`TEMPORAL_CHAIN`, 15): Chronological links tracking session context.
+- **Temporal Facts** (`TEMPORAL_FACTS`, 16): Bi-temporal knowledge timestamps (valid time vs. assertion time) as an append stream.
+- **Entity Directory** (`ENTITY_DIRECTORY`, 17): Entity node slab with fixed-stride directory entries.
+- **Entity Names Pool** (`ENTITY_NAMES`, 18): Interned entity name strings and role registries.
+- **HyperEntity Graph** (`HYPERGRAPH`, 19): N-ary hyperedges linking entities, roles, and contexts.
+- **Entity Types Registry** (`ENTITY_TYPES`, 20): Interned entity type symbols (person, organization, location).
+- **Relation Types Registry** (`RELATION_TYPES`, 21): Interned relation type symbols (causes, depends_on, works_at).
+- **Lexical Index — BM25** (`BM25`, 22): Binary snapshot of BM25 sparse lexical indexes for sub-millisecond cold start without re-indexing (ADR-0082).
+- **Checkpoint** (`CHECKPOINT`, 23): Namespace recovery checkpoint metadata and high-water marks.
+- **Somatic Insula** (`INSULA`, 24): Dynamic agent self-state, uncertainty indicators, and urgency levels (`InsulaMemory`).
+- **Continuity** (`CONTINUITY`, 25): Cross-turn session continuity checkpoints.
+- **Provenance** (`PROVENANCE`, 26): Episodic→Semantic lineage provenance and verification state.
+- **Lexical Index — SPLADE** (`SPLADE`, 27): Binary snapshot of SPLADE sparse neural indexes for cold start (ADR-0082).
+- **Entity Reverse Index** (`ENTITY_REVERSE_INDEX`, 28): Reserved region for cached entity-to-memory reverse projections.
 
 ### 2. Partition Bundles (`partition.bundle`)
-Partition bundles store long-term, time-partitioned engram traces. As memory grows, old episodic traces remain frozen in sequential partitions (e.g. `00000`, `00001`), while long-term semantic knowledge and learned procedural skills reside in indexed partition blocks.
+Partition bundles store long-term, time-partitioned engram traces. As memory grows, old episodic traces remain frozen in sequential partitions (e.g. `000_1717430400`, `001_1719849600`), while long-term semantic knowledge and learned procedural skills reside in indexed partition blocks.
 
-**Hosted Regions**:
-- **Episodic Memory**: Time-ordered event records and narrative history.
-- **Semantic Memory**: Crystallized factual knowledge and concepts.
-- **Procedural Memory**: Multi-step executable skills and behavioural protocols.
-- **Strength Region**: Dedicated 96-byte mutable recall telemetry and ACT-R history (`RegionId.STRENGTH`).
+**Hosted Regions** (5 regions, `RegionId` 0–4):
+- **Episodic Memory** (`EPISODIC`, 1): Time-ordered event records and narrative history.
+- **Semantic Memory** (`SEMANTIC`, 0): Crystallized factual knowledge and concepts.
+- **Procedural Memory** (`PROCEDURAL`, 2): Multi-step executable skills and behavioural protocols.
+- **Text Blob Store** (`TEXT`, 3): Raw document text payloads stored as append-only variable-length records.
+- **Strength Region** (`STRENGTH`, 4): Dedicated 96-byte mutable recall telemetry and ACT-R history.
 
 ### 3. The Identity Bundle (`identity.bundle`)
 
@@ -114,6 +126,7 @@ The container allocates dedicated, 64-byte aligned off-heap slabs for five struc
 
 | Region | Identifier | Responsibility |
 |:---|:---|:---|
+| **Header Directory** | `HEADER` (`0`) | Bundle magic (`0x53504354`), schema version, and 16-entry region directory with offsets and capacities. |
 | **Soul Context** | `SOUL` (`1`) | Agent/User/Tenant persona, core values, system prompt baseline, and ethical guardrails. |
 | **Salience Profile** | `SALIENCE` (`2`) | Baseline ICNU weights (Interest, Novelty, Utility, Confidence) and cognitive modulation constants. |
 | **Identity Continuity** | `CONTINUITY` (`3`) | Autobiographical narrative trajectory, identity checkpoints, and cross-session lineage. |
@@ -135,7 +148,7 @@ graph TD
     end
 
     subgraph "Kernel Runtime (runtime.bundle)"
-        IM["InsulaMemory (RegionId.INSULA)<br/><i>Anterior Insular Cortex Analog</i><br/>- Dynamic Confidence & Uncertainty<br/>- Affective Homeostasis (Valence/Arousal)<br/>- Active Self-Model JSON (CRC-32C)<br/>- Monotonic Version Counter"]
+        IM["InsulaMemory (RegionId.INSULA)<br/><i>Dynamic Self-Model</i><br/>- Dynamic Confidence &amp; Uncertainty<br/>- Affective Homeostasis (Valence/Arousal)<br/>- Active Self-Model JSON (CRC-32C)<br/>- Monotonic Version Counter"]
     end
 
     subgraph "Cognitive Execution & Recall"
@@ -145,12 +158,12 @@ graph TD
 
     S1 & S2 -->|"Boot Hydration<br/>(Load Invariants)"| IM
     IM -->|"Modulates Salience & Priority"| SC
-    ACT -->|"Interoceptive Feedback<br/>(Shift Confidence & Stress)"| IM
+    ACT -->|"State Feedback<br/>(Shift Confidence &amp; Stress)"| IM
     IM -.->|"Soul Evolution / Admin Update<br/>(Atomic Sync & Checkpoint)"| S1
 ```
 
 1. **Boot Hydration**: When a namespace starts up, the identity plane reads the immutable persona and baseline salience weights from `identity.bundle` to hydrate `InsulaMemory` in `runtime.bundle`.
-2. **Dynamic Interoception in `InsulaMemory`**: Modeled after the human **Anterior Insular Cortex** (the brain's hub for self-awareness and interoception), `InsulaMemory` maintains a single, versioned JSON self-model. As the agent encounters uncertainty, solves problems, or interacts with users, it mutates its active confidence, arousal, and urgency markers directly within `runtime.bundle` with sub-microsecond latency.
+2. **Dynamic Self-Model in `InsulaMemory`**: `InsulaMemory` maintains a single, versioned JSON self-model. As the agent encounters uncertainty, solves problems, or interacts with users, it mutates its active confidence, arousal, and urgency markers directly within `runtime.bundle` with sub-microsecond latency.
 3. **Integrity & Checkpoints**: Every update to `InsulaMemory` increments a monotonic version number, recomputes a hardware CRC-32C checksum, and writes an atomic state flag. When persona changes are explicitly authorized, the updated soul is validated and committed back to `identity.bundle`.
 
 ---

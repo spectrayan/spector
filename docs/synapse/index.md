@@ -347,10 +347,6 @@ All settings are configurable via environment variables:
 
 ## License
 
-Spector Synapse is licensed under the **Apache License 2.0**.
+Spector Synapse is licensed under the **Apache License, Version 2.0**.
 
-- **Change Date**: July 6, 2030
-- **Change License**: Apache License, Version 2.0
-- **Additional Use Grant**: You may use the software freely except for offering it as a managed service or embedding it into a competing AI cognitive memory product.
-
-See [LICENSE](https://github.com/spectrayan/spector/blob/main/spector-synapse/LICENSE) for full terms.
+See [LICENSE](https://github.com/spectrayan/spector/blob/main/synapse/spector-synapse/LICENSE) for full terms.

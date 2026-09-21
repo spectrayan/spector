@@ -150,9 +150,6 @@ ng test
 
 ## License
 
-Spector Cortex is licensed under the **Apache License 2.0**.
+Spector Cortex is licensed under the **Apache License, Version 2.0**.
 
-- **Change Date**: July 6, 2030
-- **Change License**: Apache License, Version 2.0
-
-See [LICENSE](https://github.com/spectrayan/spector/blob/main/spector-cortex/LICENSE) for full terms.
+See [LICENSE](https://github.com/spectrayan/spector/blob/main/cortex/spector-cortex/LICENSE) for full terms.

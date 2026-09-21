@@ -15,7 +15,7 @@ In low-level storage architectures, coupling the physical storage layout with do
 
 The Spector Memory Kernel resolves this via **The Shape Principle**:
 
-> **Memory Shapes define access patterns, not storage semantics.** Concrete cognitive subsystems name their domain content only (`SemanticMemory`, `HebbianGraph`, `StrengthLayout`), while the kernel executes operations through seven canonical **Memory Shapes**.
+> **Memory Shapes define access patterns, not storage semantics.** Concrete cognitive subsystems name their domain content only (`SemanticMemory`, `HebbianGraph`, `StrengthLayout`), while the kernel executes operations through ten canonical **Memory Shapes**.
 
 ```mermaid
 graph TD
@@ -38,7 +38,7 @@ graph TD
         T5["Pairwise Co-Activation Tracker<br/><i>Fast frequency lookups</i>"]
         T6["Entity & Relation Type Namespaces<br/><i>Dynamic schema interning</i>"]
         T7["Agent Identity & External Entities<br/><i>Entity directories</i>"]
-        T8["Dynamic Self-Model & Interoception<br/><i>Single-entry JSON self-state</i>"]
+        T8["Dynamic Self-Model &amp; Self-State<br/><i>Single-entry JSON self-state</i>"]
     end
 
     RM --> T1
@@ -131,16 +131,16 @@ graph TD
 
 ---
 
-### 8. `InsulaMemory` *(self-model region used by AISME — experimental)* (Somatic Self-Model Container)
-`InsulaMemory` *(self-model region used by AISME — experimental)* implements a dedicated single-entry container storing the agent's dynamic, real-time self-model and interoceptive somatic state.
+### 8. `InsulaMemory` *(self-model region used by AISME — experimental)* (Dynamic Self-Model Container)
+`InsulaMemory` implements a dedicated single-entry container storing the agent's dynamic, real-time self-model and runtime state.
 
 - **Access Pattern**: Single-entry atomic read/write (`put()`, `get()`, `clear()`) of a variable-length JSON self-model payload.
-- **Biological Analog**: The **Anterior Insular Cortex**, which in the human brain integrates visceral interoception, self-awareness, and emotional valence into a unified subjective feeling state.
+- **Design Rationale**: A single, versioned JSON document holds the agent's confidence, uncertainty, and affective state — updated in sub-microsecond cycles during active reasoning, without scanning or indexing.
 - **Integrity & Concurrency**:
   - Sub-header tracks a monotonic version counter, payload byte length, epoch timestamp, and a hardware-computed CRC-32C checksum.
   - Concurrency is protected by a thread-safe write lock with zero-copy unaligned read semantics across concurrent Virtual Threads.
 - **Backed Subsystems**:
-  - `InsulaMemory` *(self-model region used by AISME — experimental)* (active self-model, task confidence, interoceptive stress, and dynamic salience posture within `runtime.bundle` at `RegionId.INSULA`).
+  - `InsulaMemory` (active self-model, task confidence, dynamic stress level, and salience posture within `runtime.bundle` at `RegionId.INSULA`).
 
 ---
 
@@ -148,11 +148,16 @@ graph TD
 
 | Memory Shape | Record Length | Indexing | Primary Operations | Off-Heap Layout |
 |:---|:---|:---|:---|:---|
-| **`RecordMemory`** | Fixed stride | Numeric slot index | `readSlot()`, `writeSlot()`, `updateField()` | Contiguous cache-aligned array |
-| **`AppendMemory`** | Variable / Fixed | Sequential byte offset | `append()`, `scanFrom()`, `readAt()` | Cursor-driven append log |
-| **`GraphMemory`** | Fixed node/edge | Node identifier | `getNeighbors()`, `updateWeight()`, `traverse()` | Compressed Sparse Row + slab lists |
-| **`ChainMemory`** | Fixed node | Link identifier | `next()`, `previous()`, `link()` | Bidirectional offset pointers |
-| **`HashTableMemory`** | Fixed entry | Hash key | `get()`, `put()`, `increment()` | Open-addressing probing buffer |
-| **`RegistryMemory`** | Variable | String hash & ID | `intern()`, `resolveId()`, `resolveName()` | String pool + ID lookup table |
-| **`EntityDirectoryMemory`**| Composite | Entity identifier | `lookup()`, `register()`, `listEntities()` | Directory index + name buffer |
-| **`InsulaMemory` *(self-model region used by AISME — experimental)*** | Variable (1 slot) | Singleton self-model | `put()`, `get()`, `clear()` | 32-byte header + CRC-32C JSON payload |
+| **`RecordMemory`** | Fixed stride | Numeric slot index | `write(long, MemorySegment)`, `read(long, MemorySegment)`, `recordOffset(long)` | Contiguous cache-aligned array |
+| **`AppendMemory`** | Variable / Fixed | Sequential byte offset | `append(MemorySegment)`, `read(long, int)`, `replay(long)`, `appendCursor()` | Cursor-driven append log |
+| **`GraphMemory`** | Fixed node/edge | Node identifier | `addEdge(int, int, MemorySegment)`, `removeEdge(int)`, `neighbours(int)`, `edgeCount()`, `nodeCount()` | Compressed Sparse Row + slab lists |
+| **`ChainMemory`** | Fixed node | Link identifier | `link(int, int)`, `next(int)`, `prev(int)`, `head()`, `tail()`, `chainLength()` | Bidirectional offset pointers |
+| **`HashTableMemory`** | Fixed entry | Hash key | Marker interface — concrete operations defined by `CoActivationMemory` | Open-addressing probing buffer |
+| **`RegistryMemory`** | Variable | String hash & ID | `intern(String)`, `putDirect(String, int)`, `nameOf(int)`, `idOf(String)`, `entries()` | String pool + ID lookup table |
+| **`EntityDirectoryMemory`** | Composite | Entity identifier | `directoryRegion()`, `namesRegion()`, `entityCapacity()`, `entityCount()`, `flush()`, `close()` | Directory index + name buffer |
+| **`InsulaMemory`** | Variable (1 slot) | Singleton self-model | `put(byte[])`, `get()`, `clear()`, `version()`, `isPresent()` | 32-byte header + CRC-32C JSON payload |
+| **`BundleMemory`** | Multi-region | Region directory | Container lifecycle (open, map, close) | Multi-region mmap container (ADR-0004) |
+| **`DistributedMemoryTensor`** | Fixed tensor | Holographic | `accumulate(float[], float)`, `retract(float[], float)`, `evaluateEnergy(float[], float)`, `decay(float)` | 64-byte header + off-heap PRF accumulator (ADR-0020) |
+
+> [!NOTE]
+> **`PARTITIONED`** is retained in the `MemoryShape` enum for on-disk compatibility (ordinal stability) but has no live code references — the `PartitionedRecordMemory` abstraction was removed as dead code.

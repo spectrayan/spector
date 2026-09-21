@@ -205,7 +205,7 @@ The **Insular Sub-Header** (`InsularLayout`, identifier `0x494E534C` / `'INSL'`)
 | `0x08` | 8B | `updated_at` | int64 | Epoch milliseconds timestamp when the self-model was last written. |
 | `0x10` | 4B | `checksum` | int32 | CRC-32C checksum computed over the UTF-8 JSON payload bytes. |
 | `0x14` | 4B | `flags` | int32 | Presence indicator: `0` = `FLAG_EMPTY` (no model), `1` = `FLAG_PRESENT`. |
-| `0x18` | 8B | `_reserved` | bytes | Zero-padded reserved block for future interoceptive telemetry fields. |
+| `0x18` | 8B | `_reserved` | bytes | Zero-padded reserved block for future self-model telemetry fields. |
 | `0x20` | Var | `payload` | bytes | Raw UTF-8 JSON payload containing the active self-model and dynamic salience markers. |
 
 ### Data Integrity & Reentrant Protection
@@ -213,3 +213,42 @@ The **Insular Sub-Header** (`InsularLayout`, identifier `0x494E534C` / `'INSL'`)
 1. **Hardware CRC-32C Integrity**: Every write calculates a castagnoli CRC-32C checksum over the JSON payload. On read, the checksum is verified before decoding to guarantee corruption-free state recovery.
 2. **Atomic Region Synchronization**: Upon updating the insular sub-header, the enclosing `RegionPreamble` item count and timestamp are atomically refreshed, and the underlying memory-mapped file slice is flushed (`force()`).
 3. **Capacity Guardrails**: Payloads larger than the allocated region capacity (typically 512 KB in standard namespaces) are rejected immediately to protect contiguous bundle alignment.
+
+---
+
+## Region Layout Index
+
+Every memory region has a dedicated documentation page with full wire diagrams, field specifications, and access patterns. See the [Region Reference](regions/index.md) for the complete index.
+
+| Region | ID | Bundle | Layout Class | Shape | Page |
+|:---|:---:|:---|:---|:---|:---|
+| **Semantic** | 0 | partition | `SemanticLayout` | Record | [→](regions/semantic.md) |
+| **Episodic** | 1 | partition | `EpisodicLayout` | Record | [→](regions/episodic.md) |
+| **Procedural** | 2 | partition | `ProceduralLayout` | Record | [→](regions/procedural.md) |
+| **Text** | 3 | partition | `TextBlobLayout` | Append | [→](regions/text.md) |
+| **Strength** | 4 | partition | `StrengthLayout` | Record | [→](regions/strength.md) |
+| **Working** | 10 | runtime | `WorkingLayout` | Record | [→](regions/working.md) |
+| **CoActivation** | 11 | runtime | `CoActivationLayout` | HashTable | [→](regions/coactivation.md) |
+| **Index MIDX** | 12 | runtime | `IndexEntryLayout` | Record | [→](regions/index-midx.md) |
+| **Index IDPL** | 13 | runtime | `IdBlobLayout` | Append | [→](regions/index-idpl.md) |
+| **Hebbian** | 14 | runtime | `HebbianLayout` | Graph | [→](regions/hebbian.md) |
+| **Temporal Chain** | 15 | runtime | `TemporalLayout` | Chain | [→](regions/temporal-chain.md) |
+| **Temporal Facts** | 16 | runtime | `TemporalFactLayout` | Append | [→](regions/temporal-facts.md) |
+| **Entity Directory** | 17 | runtime | `EntityDirectoryLayout` | Record | [→](regions/entity-directory.md) |
+| **Entity Names** | 18 | runtime | `RegistryLayout` | Registry | [→](regions/entity-names.md) |
+| **HyperGraph** | 19 | runtime | `HyperEntityLayout` | Graph | [→](regions/hypergraph.md) |
+| **Entity Types** | 20 | runtime | `RegistryLayout` | Registry | [→](regions/entity-types.md) |
+| **Relation Types** | 21 | runtime | `RegistryLayout` | Registry | [→](regions/relation-types.md) |
+| **BM25** | 22 | runtime | — | Append | [→](regions/bm25.md) |
+| **Checkpoint** | 23 | runtime | — | — | [→](regions/checkpoint.md) |
+| **Insula** | 24 | runtime | `InsularLayout` | Insular | [→](regions/insula.md) |
+| **Continuity** | 25 | runtime | `ContinuityLayout` | Record | [→](regions/continuity.md) |
+| **Provenance** | 26 | runtime | `ProvenanceLayout` | Record | [→](regions/provenance.md) |
+| **SPLADE** | 27 | runtime | — | Append | [→](regions/splade.md) |
+| **Entity Reverse** | 28 | runtime | — | — | [→](regions/entity-reverse-index.md) |
+| **Header** | 0 | identity | `BundleFileLayout` | Bundle | [→](regions/identity-header.md) |
+| **Soul** | 1 | identity | `InsularLayout` | Insular | [→](regions/soul.md) |
+| **Salience** | 2 | identity | — | Record | [→](regions/salience.md) |
+| **Continuity** | 3 | identity | `ContinuityLayout` | Record | [→](regions/identity-continuity.md) |
+| **Policy** | 4 | identity | — | Record | [→](regions/policy.md) |
+| **Org Directory** | 5 | identity | — | Record | [→](regions/org-dir.md) |

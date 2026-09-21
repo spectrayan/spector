@@ -1,6 +1,6 @@
 # Modules
 
-Spector is organized as a multi-module Maven project (24 modules). Each module has a focused responsibility, clear API boundaries, and minimal cross-module coupling.
+Spector is organized as a multi-module Maven project (27 modules). Each module has a focused responsibility, clear API boundaries, and minimal cross-module coupling.
 
 ---
 
