@@ -4,6 +4,11 @@ Spector implements the **Constructive Episodic Simulation Hypothesis** (Schacter
 
 ---
 
+!!! warning "Experimental"
+    This pathway is not part of the default memory contract.
+    Constructive simulation is gated behind `enableAisme`. Traces carry
+    provenance `CONSTRUCTED` and require explicit opt-in for recall.
+
 ## 1. Flexible Fragment Recombination
 
 Unlike static centroid averaging, constructive simulation samples diverse candidate pairs across the top retrieval pool:

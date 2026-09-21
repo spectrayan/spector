@@ -4,6 +4,12 @@ The **Active Inference Self-Model Engine (AISME)** provides Spector with autobio
 
 ---
 
+!!! warning "Experimental"
+    This pathway is not part of the default memory contract.
+    Enable only with the documented flag (`enableAisme`). The persona
+    and affect layer modulates recall ranking but is not required for
+    standard Remember / Recall / Reflect / Forget operations.
+
 ## 1. Core Architecture
 
 AISME operates across 12 synchronized processing phases:

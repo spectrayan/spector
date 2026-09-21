@@ -250,7 +250,7 @@ Once connected, your agent has access to Spector's comprehensive suite of 37+ to
 | `memory_browse` | Browse memories by tag filter (AND semantics, zero vector math) |
 | `memory_export` | Bulk JSON export of all live memories in a namespace |
 | `memory_forget` | Tombstone a memory by ID (intentional forgetting) |
-| `memory_reinforce` | Report positive/negative feedback to update Bjork strength |
+| `memory_reinforce` | Report positive/negative feedback to update importance and decay bucket |
 | `memory_suppress` | Temporarily suppress a memory from recall results |
 | `memory_resolve` | Mark a memory engram as resolved or unresolved |
 | `memory_introspect` | Metamemory self-analysis on a conceptual topic |
@@ -271,7 +271,7 @@ Once connected, your agent has access to Spector's comprehensive suite of 37+ to
 | `memory_persona_context` | Inject soul-aligned persona context into an active conversation |
 | `memory_multi_evidence_recall` | Multi-vector evidence aggregation and consensus scoring |
 | `vector_search` | Pure dense vector cosine similarity search |
-| `memory_express` | Synthesize natural language responses grounded in retrieved memories |
+| `memory_express` | Synthesize natural language responses grounded in retrieved memories *(experimental)* |
 
 ### 3. Namespace Multi-Tenancy & RBAC (9 Tools)
 

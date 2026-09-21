@@ -3,6 +3,12 @@ title: Generative Dreaming & Thought Experiments
 description: Spector's 7th canonical cognitive pathway for generative dreaming, constructive simulation, and deliberate thought experiments.
 ---
 
+!!! warning "Experimental"
+    This pathway is not part of the default memory contract.
+    Enable only with the documented flag (`enableDreaming`). Traces it
+    writes use provenance `DREAMED` or `THOUGHT_EXPERIMENT` and must not
+    be mixed with user-stated facts at recall time unless you opt in.
+
 # Generative Dreaming & Thought Experiments
 
 Memory is not a passive recording device — it is an active **generative construction engine**. As formalized in the [Memory Fundamentals Specification (MF-001)](https://github.com/spectrayan/memory-fundamentals), offline consolidation and dreaming replay episodic traces, perform counterfactual simulation, and execute stochastic exploration to prevent overfitting and discover latent cross-domain insights.
