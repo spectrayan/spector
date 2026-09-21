@@ -213,7 +213,7 @@ Connect your agent or application to Spector in seconds:
 | Technology | Specification | Details |
 |:---|:---|:---|
 | **Language & Runtime** | Java 25+ | Pure Java with Foreign Function & Memory (FFM) API |
-| **Licenses** | Apache 2.0 | Open-core foundation with commercial enterprise tier |
+| **License** | Apache 2.0 | 100% open source under the Apache License, Version 2.0 |
 | **Modules** | 25 Maven Modules | Reactor architecture: nucleus, memory, synapse, sdks |
 | **SIMD Acceleration** | AVX2 / AVX-512 / NEON | Java Vector API for zero-copy vectorized arithmetic |
 | **Off-Heap Storage** | MemorySegment & Bundles | Zero-GC guarantees via single-VMA `mmap` containers |

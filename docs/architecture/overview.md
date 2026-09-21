@@ -311,25 +311,35 @@ graph LR
     end
 
     subgraph "🧠 Cognitive Memory Layer (memory/)"
-        memory["spector-memory<br/><i>Bundle Kernel, 4-Tier Memory & Daemons</i>"]
+        kernel["spector-kernel<br/><i>Sealed Off-Heap Bundle Kernel</i>"]
+        memory["spector-memory<br/><i>4-Tier Memory, Cognitive Pathways &amp; Daemons</i>"]
         providerapi["spector-provider-api<br/><i>Provider SPI</i>"]
         providers["spector-providers<br/><i>AI Providers (Ollama, OpenAI, ONNX)</i>"]
-        ingestion["spector-ingestion<br/><i>Sensory & file ingest pipeline</i>"]
+        ingestion["spector-ingestion<br/><i>Sensory &amp; file ingest pipeline</i>"]
         inspect["spector-inspect<br/><i>Bundle inspection CLI</i>"]
         metrics["spector-metrics<br/><i>Micrometer + Prometheus</i>"]
     end
 
-    subgraph "⚡ Nervous System & Gateways (synapse/)"
-        synapse["spector-synapse<br/><i>Spring Boot 4 REST/SSE & Chat Graph</i>"]
+    subgraph "⚡ Nervous System &amp; Gateways (synapse/)"
+        synapse["spector-synapse<br/><i>Spring Boot 4 REST/SSE &amp; Chat Graph</i>"]
+        gateway["spector-gateway<br/><i>API Gateway &amp; routing</i>"]
         connector["spector-connector<br/><i>Apache Camel connectors</i>"]
         mcp["spector-mcp<br/><i>MCP Server — Agent-native</i>"]
-        cli["spector-cli<br/><i>spectorctl CLI & standalone spector.jar</i>"]
+        cli["spector-cli<br/><i>spectorctl CLI &amp; standalone spector.jar</i>"]
         spring["spector-spring<br/><i>Spring AI VectorStore</i>"]
         batch["spector-batch<br/><i>Batch migration engine</i>"]
     end
 
-    subgraph "📈 Performance & Validation (bench/)"
-        bench["spector-bench<br/><i>JMH benchmarks & cognitive eval</i>"]
+    subgraph "🌐 Distributed (cluster/)"
+        cluster["spector-cluster<br/><i>Multi-node coordination</i>"]
+    end
+
+    subgraph "📦 Client SDKs (sdks/)"
+        javaclient["spector-client<br/><i>Java client SDK</i>"]
+    end
+
+    subgraph "📈 Performance &amp; Validation (bench/)"
+        bench["spector-bench<br/><i>JMH benchmarks &amp; cognitive eval</i>"]
     end
 ```
 
@@ -389,13 +399,13 @@ graph TD
 
 | Path | Description |
 |------|-------------|
-| `runtime → memory + ingestion` | Composition root — wires all subsystems |
-| `cli → runtime + client` | CLI with local batch (runtime) and remote (client) modes |
-| `synapse → runtime` | Unified Armeria node: REST + gRPC + SSE + cluster coordination (incorporates former spector-node) |
-| `mcp → runtime + ingestion` | MCP agent entry point (in-process, zero network) |
+| `memory → kernel, index, core, cpu` | Cognitive memory composes kernel bundles, 4-tier engrams, and HNSW/BM25 indexes |
+| `kernel → (JDK only)` | Sealed storage kernel — zero external dependencies, Panama FFM + Vector API only |
+| `cli → memory + mcp + ingestion` | CLI with local batch and remote (client) modes |
+| `synapse → memory + ingestion` | Spring Boot 4 application: REST + SSE + cluster coordination |
+| `mcp → memory + ingestion` | MCP agent entry point (in-process, zero network) |
 | `commons ← ingestion & memory` | Houses `IngestionBoundary` decoupling sensory ingestion from memory (ADR-0037) |
-| `memory → index, events, commons` | Cognitive memory, 7 cognitive pathways, and HNSW/BM25 storage foundations |
-| `synapse → cli, mcp, spring` | Integration layer (CLI, MCP, Spring AI) |
+| `index → core, config, commons` | HNSW, SpectorIndex, BM25, and SPLADE storage foundations |
 
 !!! important
     **No circular dependencies.** `spector-memory` contains both vector search and cognitive memory stores, keeping the API gateway (`spector-synapse`) decoupled from low-level storage.

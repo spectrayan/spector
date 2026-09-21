@@ -3,7 +3,7 @@ site_description: "Spector — cognitive memory engine for AI agents. Four-tier 
 site_url: https://spectrayan.github.io/spector/
 repo_url: https://github.com/spectrayan/spector
 repo_name: spectrayan/spector
-copyright: "Copyright &copy; 2026 Spectrayan — Apache 2.0 / BSL 1.1"
+copyright: "Copyright &copy; 2026 Spectrayan — Apache License 2.0"
 
 theme:
   name: material
@@ -212,6 +212,41 @@ nav:
       - "Memory Shapes": kernel/shapes.md
       - "Binary Layouts & Tags": kernel/layouts.md
       - "WAL & Durability": kernel/wal-recovery.md
+      - "Region Reference":
+          - "Overview & Index": kernel/regions/index.md
+          - "Partition Regions":
+              - "Semantic Memory": kernel/regions/semantic.md
+              - "Episodic Memory": kernel/regions/episodic.md
+              - "Procedural Memory": kernel/regions/procedural.md
+              - "Text Blob Store": kernel/regions/text.md
+              - "Strength State": kernel/regions/strength.md
+          - "Runtime Regions":
+              - "Working Memory": kernel/regions/working.md
+              - "Co-Activation Matrix": kernel/regions/coactivation.md
+              - "Index MIDX": kernel/regions/index-midx.md
+              - "Index IDPL": kernel/regions/index-idpl.md
+              - "Hebbian Graph": kernel/regions/hebbian.md
+              - "Temporal Chains": kernel/regions/temporal-chain.md
+              - "Temporal Facts": kernel/regions/temporal-facts.md
+              - "Entity Directory": kernel/regions/entity-directory.md
+              - "Entity Names Pool": kernel/regions/entity-names.md
+              - "HyperEntity Graph": kernel/regions/hypergraph.md
+              - "Entity Types Registry": kernel/regions/entity-types.md
+              - "Relation Types Registry": kernel/regions/relation-types.md
+              - "BM25 Lexical Index": kernel/regions/bm25.md
+              - "Checkpoint": kernel/regions/checkpoint.md
+              - "Insula (Somatic Self-Model)": kernel/regions/insula.md
+              - "Continuity": kernel/regions/continuity.md
+              - "Provenance": kernel/regions/provenance.md
+              - "SPLADE Sparse Index": kernel/regions/splade.md
+              - "Entity Reverse Index": kernel/regions/entity-reverse-index.md
+          - "Identity Regions":
+              - "Identity Header": kernel/regions/identity-header.md
+              - "Soul Context": kernel/regions/soul.md
+              - "Salience Profile": kernel/regions/salience.md
+              - "Identity Continuity": kernel/regions/identity-continuity.md
+              - "Governance Policy": kernel/regions/policy.md
+              - "Org Directory": kernel/regions/org-dir.md
 
   # Tab 5: Synapse & Cortex — the agentic layer (own tab)
   - "Synapse & Cortex":

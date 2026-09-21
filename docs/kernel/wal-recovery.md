@@ -49,13 +49,15 @@ To prevent unbounded single-file growth and simplify point-in-time snapshots, th
 ```
 namespaces/{namespace_id}/
 ├── wal/
-│   ├── wal-00000000.log            # Archived chunk (frozen at 8MB)
-│   ├── wal-00000001.log            # Archived chunk (frozen at 8MB)
-│   └── wal-00000002.log            # Active write chunk (cursor appending)
+│   ├── wal-000000.bin            # Archived chunk (frozen at 8MB)
+│   ├── wal-000001.bin            # Archived chunk (frozen at 8MB)
+│   └── wal-000002.bin            # Active write chunk (cursor appending)
 ```
 
 1. **Monotonic Sequences**: Every WAL event is tagged with a strictly increasing 64-bit sequence counter ($1, 2, 3, \dots, N$), establishing a total global order across all operations in a namespace.
+
 2. **Chunk Rolling**: When the active write chunk reaches the configured maximum file threshold (default: 8 MB), it is fsync-committed and closed. A new chunk is opened with the next sequential index.
+
 3. **Compaction & Archival**: When an episodic partition bundle is sealed or when a baseline memory snapshot is saved, WAL chunks prior to the snapshot's high-water mark can be pruned or archived to cold object storage.
 
 ---
@@ -68,27 +70,40 @@ Each event in the WAL is serialized as an immutable, self-contained binary frame
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                       record_length (4B)                      |
+|    magic (2B, 0x5741 'WA')    | ver(1B) |flags(1B)|type(1B)|    0x00
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|       id_length (2B)          | rsv(1B) |                      0x05
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                                                               |
-+                    sequence_number (8B)                       +
++                    sequence_number (8B)                       +  0x08
 |                                                               |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|  event_type (1B)              |       id_length (2B)          |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                                                               |
-+                    timestamp_epoch_ms (8B)                    +
++                    timestamp_epoch_ms (8B)                    +  0x10
 |                                                               |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                        crc32_checksum (4B)                    |
+|                      payload_length (4B)                      |  0x18
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                         payload_length (4B)                   |
+|                   payload_crc32 (4B)                          |  0x1C
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                      _reserved (4B)                           |  0x20
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                    header_crc32 (4B)                          |  0x24
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                                                               |
-+                     variable_payload (NB)                     +
++          variable_id (id_length bytes, UTF-8)                +  0x28
 |                                                               |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                                                               |
++          variable_payload (payload_length bytes)              +
+|                                                               |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|              8-byte alignment padding (0-7 bytes)             |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ```
+
+> [!NOTE]
+> The WAL uses **dual CRC-32 checksums**: a `payload_crc32` covering the variable payload bytes, and a separate `header_crc32` covering the fixed 40-byte header itself. This allows independent validation of the header integrity before reading variable-length data.
 
 ### Event Types
 
@@ -100,7 +115,7 @@ Each event in the WAL is serialized as an immutable, self-contained binary frame
 | `0x04` | `RESOLVE` | Zeigarnik task completion: closure timestamp, task identifier. |
 | `0x05` | `CONSOLIDATE` | Memory promotion: transition from episodic chunk to semantic tier. |
 | `0x06` | `EDGE_UPDATE` | Hebbian associative link: source index, target index, adjusted weight. |
-| `0x07` | `INSULA_UPDATE` | Interoceptive state shift: uncertainty, stress, valence markers. |
+| `0x07` | `INSULA_UPDATE` | Self-model state shift: uncertainty, stress, valence markers. |
 
 ---
 
@@ -117,7 +132,7 @@ sequenceDiagram
 
     Boot->>Disp: recoverNamespace(dir)
     Disp->>WAL: locateAllChunks()
-    WAL-->>Disp: [wal-00000.log, wal-00001.log, ...]
+    WAL-->>Disp: [wal-000000.bin, wal-000001.bin, ...]
     loop For Each Chunk in Monotonic Order
         Disp->>WAL: readNextEvent()
         WAL->>WAL: Verify Magic & CRC-32
@@ -133,6 +148,9 @@ sequenceDiagram
 ```
 
 1. **Checksum Verification**: The scanner validates the CRC-32 hash of every record before evaluating the payload. A damaged record caused by sudden power loss mid-write is detected instantly.
+
 2. **Torn Write Truncation**: If the final record in the active chunk is truncated due to a power loss, the recovery engine rolls back to the last valid verified record boundary, preventing corruption of pre-allocated bundles.
+
 3. **State Re-establishment**: Events are re-applied to the bundle memory slices, restoring engram counts, graph weights, and the sequence counter.
+
 4. **Warming Replay**: Frequently accessed vector segments and index pointers are touched during replay, warming the OS page cache before external client queries begin.

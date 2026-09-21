@@ -1,6 +1,6 @@
 # Spector Synapse ⚡🧠
 
-[![License](https://img.shields.io/badge/License-BSL%201.1-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/spectrayan/spector/blob/main/LICENSE)
 [![Java](https://img.shields.io/badge/Java-25+-green.svg)](https://openjdk.org/projects/jdk/25/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0-brightgreen.svg)](https://spring.io/projects/spring-boot)
 
@@ -141,9 +141,6 @@ See the [Contributing Guide](../CONTRIBUTING.md) for setup instructions and the 
 
 ## License
 
-This module is licensed under the **Business Source License 1.1 (BSL 1.1)**.
+This module is licensed under the **Apache License, Version 2.0**.
 
-- **Change Date**: July 6, 2030
-- **Change License**: Apache License, Version 2.0
-
-See [LICENSE](LICENSE) for full terms.
+See [LICENSE](https://github.com/spectrayan/spector/blob/main/LICENSE) for full terms.
