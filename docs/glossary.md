@@ -66,7 +66,7 @@ The **amygdala** is the part of the brain that attaches emotional significance t
 
 **In Spector:** Every memory carries a single-byte valence score from `-128` (strongly negative, e.g. data loss) to `+127` (strongly positive, e.g. a successful launch). Agents can recall by mood or outcome, and persona settings can bias how valence is assigned.
 
-**See also:** [Amygdala — Emotional Valence](memory/amygdala.md) · [Salience & Persona Profiles](memory/salience-importance.md)
+**See also:** [Amygdala — Emotional Valence](memory/valence.md) · [Salience & Persona Profiles](memory/salience-importance.md)
 
 ---
 
@@ -92,7 +92,7 @@ A **Bloom filter** is a compact bit array that answers "is this item possibly in
 
 **In Spector:** Each memory's tags are hashed into a 128-bit Bloom filter stored in its header. Tag matching is two 64-bit bitwise `AND` operations, so non-matching memories are rejected in under a nanosecond before any vector math runs.
 
-**See also:** [Synapse — Tags & Scoring](memory/synapse.md)
+**See also:** [Synapse — Tags & Scoring](memory/tags.md)
 
 ---
 
@@ -142,7 +142,7 @@ During sleep, the brain's **hippocampus** replays recent experiences and gradual
 
 **In Spector:** A background consolidation daemon clusters episodic memories (K-Means) and promotes the stable patterns into the Semantic tier, compacts tombstoned records, and decays [Hebbian](#hebbian-plasticity) edges.
 
-**See also:** [Hippocampus — Sleep Consolidation](memory/hippocampus.md) · [Generative Dreaming](memory/dreaming.md)
+**See also:** [Hippocampus — Sleep Consolidation](memory/consolidation.md) · [Generative Dreaming](memory/dreaming.md)
 
 ---
 
@@ -154,7 +154,7 @@ The idea that different kinds of memory have different lifetimes and purposes, f
 
 **In Spector:** Memories live in one of four tiers: **Working** (current context), **Episodic** (events), **Semantic** (consolidated facts), and **Procedural** (learned rules and how-tos). Each tier has its own retention and scoring behavior.
 
-**See also:** [Cortex — 4-Tier Memory](memory/cortex.md)
+**See also:** [Cortex — 4-Tier Memory](memory/tiers.md)
 
 ---
 
@@ -166,7 +166,7 @@ A compact format for storing sparse graphs or matrices. Instead of reserving a f
 
 **In Spector:** The Hebbian association graph is stored in CSR form, using roughly 90% less memory than a fixed-width layout.
 
-**See also:** [4-Layer Cognitive Graph](memory/hebbian.md)
+**See also:** [4-Layer Cognitive Graph](memory/association-graph.md)
 
 ---
 
@@ -195,7 +195,7 @@ In the brain, **dopamine** signals *prediction error*: the gap between what was 
 
 **In Spector:** A surprise detector measures each new memory's L2 distance to its nearest existing memory or centroid, and keeps a running mean and variance of those distances (Welford's online algorithm). The distance is converted to a z-score against that distribution; the more of an outlier it is, the higher its initial importance. Extreme outliers become [flashbulb memories](#flashbulb-memory).
 
-**See also:** [Dopamine — Surprise Detection](memory/dopamine.md) · [Salience & Importance](memory/salience-importance.md)
+**See also:** [Dopamine — Surprise Detection](memory/novelty.md) · [Salience & Importance](memory/salience-importance.md)
 
 ---
 
@@ -259,7 +259,7 @@ An unusually vivid, long-lasting memory of a surprising or emotionally significa
 
 **In Spector:** When a memory's [surprise](#dopamine-surprise) z-score exceeds the flashbulb threshold (default `3.0`), it is pinned at maximum importance so it keeps surfacing in relevant future recalls.
 
-**See also:** [Salience & Importance](memory/salience-importance.md) · [Dopamine — Surprise Detection](memory/dopamine.md)
+**See also:** [Salience & Importance](memory/salience-importance.md) · [Dopamine — Surprise Detection](memory/novelty.md)
 
 ---
 
@@ -285,7 +285,7 @@ Donald Hebb's 1949 principle, often summarized as *"neurons that fire together, 
 
 **In Spector:** When a memory is ingested, the weighted association edge between it and the memory ingested just before it is strengthened (explicit edge hints can add further edges). At recall time, a spreading-activation walk (default depth 3) from the top results pulls in associated memories that vector similarity alone would miss. Edges decay by 0.9× per reflection cycle, and each memory keeps up to 24 neighbors by default.
 
-**See also:** [4-Layer Cognitive Graph](memory/hebbian.md) · [Spreading Activation](#spreading-activation) · [CSR](#csr-compressed-sparse-row)
+**See also:** [4-Layer Cognitive Graph](memory/association-graph.md) · [Spreading Activation](#spreading-activation) · [CSR](#csr-compressed-sparse-row)
 
 ---
 
@@ -373,7 +373,7 @@ A lasting increase in the strength of a synapse after repeated activation. LTP i
 
 **In Spector:** Each explicit `memory.reinforce(id)` call raises the memory's recall count, and its decay-bucket index is shifted right by one bit per reinforcement (up to 5). The memory therefore decays as if it were much younger, so critical knowledge resists the [forgetting curve](#ebbinghaus-forgetting-curve). Separately, passive **Auto-LTP** on recall adds a small storage-strength increment, rate-limited by `spector.memory.strength.auto-ltp-cooldown-ms`.
 
-**See also:** [Synapse — Tags & Scoring](memory/synapse.md) · [The 6-Phase Scoring Pipeline](memory/scoring-pipeline.md) · [REST API & Runtime Parameters](configuration/api-parameters.md)
+**See also:** [Synapse — Tags & Scoring](memory/tags.md) · [The 6-Phase Scoring Pipeline](memory/scoring-pipeline.md) · [REST API & Runtime Parameters](configuration/api-parameters.md)
 
 ---
 
@@ -515,7 +515,7 @@ A model of associative memory: activating one concept partially activates its ne
 
 **In Spector:** After scoring, a spreading-activation walk through the [Hebbian](#hebbian-plasticity) graph (default depth 3, weight multiplied by 0.7 per hop, stopping below 0.1) adds associated memories to the results with an attenuated score.
 
-**See also:** [4-Layer Cognitive Graph](memory/hebbian.md) · [Explorer — Lateral Retrieval](memory/lateral-retrieval.md)
+**See also:** [4-Layer Cognitive Graph](memory/association-graph.md) · [Explorer — Lateral Retrieval](memory/lateral-retrieval.md)
 
 ---
 

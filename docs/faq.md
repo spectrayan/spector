@@ -64,10 +64,10 @@ Spector is the reference implementation of the MF-001 standard.
 
 ```mermaid
 flowchart LR
-    WM["🧪 Working Memory<br/>(Prefrontal Cortex)<br/>Volatile Turn Buffer"]
-    EM["📝 Episodic Memory<br/>(Hippocampus)<br/>Timestamped Log"]
-    SE["🧬 Semantic Memory<br/>(Neocortex)<br/>Permanent Facts"]
-    PR["⚙️ Procedural Memory<br/>(Basal Ganglia)<br/>Rules & Constraints"]
+    WM["🧪 Working Memory<br/>(Working)<br/>Volatile Turn Buffer"]
+    EM["📝 Episodic Memory<br/>(Episodic)<br/>Timestamped Log"]
+    SE["🧬 Semantic Memory<br/>(Semantic)<br/>Permanent Facts"]
+    PR["⚙️ Procedural Memory<br/>(Procedural)<br/>Rules & Constraints"]
 
     WM -.->|"Sleep Consolidation"| EM
     EM -->|"Dreaming & Pruning"| SE
@@ -89,15 +89,8 @@ Different types of knowledge operate on radically different timescales, access f
 
 ### How does sleep consolidation (dreaming) work?
 
-During idle periods or triggered via `POST /api/v1/memory/reflect`, Spector's background `DreamDaemon` executes a consolidation cycle:
-1. **Salient Seeding**: Identifies salient episodic memories with high prediction error or affective charge.
-2. **Recombination**: Decomposes episodic events into semantic primitives (agents, actions, outcomes).
-3. **Hyper-Association**: Discovers latent links across geometrically distant clusters using temperature-modulated stochastic noise (Hoel's Overfitted Brain Hypothesis).
-4. **Distillation**: Promotes recurring patterns into permanent semantic knowledge while pruning ephemeral noise.
-
----
-
-## ⚡ Panama FFM Zero-GC Kernel & Persistence
+- **Reflect (supported):** cluster, promote, prune, rebuild.
+- **Dream (experimental):** stochastic association; see [Experimental](memory/experimental.md).
 
 ### How does Spector achieve Zero-GC operation?
 

@@ -3,9 +3,7 @@ title: "Habituation — Anti-Filter Bubble"
 description: "How Spector prevents repetitive recall by attenuating scores for frequently-returned memories."
 ---
 
-# 😴 Habituation — Anti-Filter Bubble
-
-> **Biological Analog**: **Habituation** is the simplest form of learning — a decrease in response to a stimulus after repeated presentations. You stop hearing the ticking clock after a few minutes. The brain allocates attention to *novel* stimuli, not repeated ones. This prevents sensory overload and enables adaptation.
+# Habituation
 
 ---
 
@@ -97,5 +95,5 @@ flowchart TD
 ## Next Steps
 
 - :material-cancel: [**Inhibition — Suppression**](inhibition.md) — explicit memory blocking
-- :material-link: [**Hebbian — Association Learning**](hebbian.md) — how co-activation creates associations
+- :material-link: [**Hebbian — Association Learning**](association-graph.md) — how co-activation creates associations
 - :material-lightning-bolt: [**6-Phase Scoring Engine**](scoring-pipeline.md) — the fused SIMD kernel inside the Recall Pathway

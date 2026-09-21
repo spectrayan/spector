@@ -5,6 +5,9 @@ description: "A formal cognitive memory engine implementing MF-001: multi-tier r
 
 # 🧠 Cognitive Memory
 
+Persona, Dream, Wander, Decide, Express are experimental — see [Experimental pathways](experimental.md).
+
+
 !!! quote "The Founding Distinction (MF-001)"
     *A database returns what was written. A memory engine reconstructs what is reachable from a cue at this moment — under decay, association, and tier physics — without losing a live trace because the first index was the wrong one.*
 
@@ -18,7 +21,6 @@ Rather than treating memory as an undifferentiated vector store, Spector organiz
 
 === "🧪 Working Memory"
 
-    **Biological analog: Prefrontal Cortex**
     
     Volatile, limited-capacity buffer for the current task context. Operates as a circular buffer where the oldest entries are automatically evicted when capacity is reached.
     
@@ -28,9 +30,8 @@ Rather than treating memory as an undifferentiated vector store, Spector organiz
 
 === "📝 Episodic Memory"
 
-    **Biological analog: Hippocampus**
     
-    Time-stamped event records representing autobiographical history. Partitioned by day and backed by memory-mapped files for persistence across restarts. Supports sleep consolidation into semantic memory.
+    Time-stamped event records representing autobiographical history. Partitioned by day and backed by memory-mapped files for persistence across restarts. Supports Reflect consolidation into semantic memory.
     
     - **Capacity**: Unbounded (time-partitioned)
     - **Storage**: High-performance memory-mapped partitions (persistent)
@@ -38,9 +39,8 @@ Rather than treating memory as an undifferentiated vector store, Spector organiz
 
 === "🧬 Semantic Memory"
 
-    **Biological analog: Neocortex**
     
-    Distilled, permanent world knowledge and facts. Created by consolidation (sleep cycles) from episodic clusters, or directly by the user. Supports two modes:
+    Distilled, permanent world knowledge and facts. Created by consolidation (Reflect cycles) from episodic clusters, or directly by the user. Supports two modes:
     
     - **Partitioned Mode** (default): Rolling partition files with parallel retrieval.
     - **Single-File Mode**: In-memory slab for light deployments.
@@ -52,7 +52,6 @@ Rather than treating memory as an undifferentiated vector store, Spector organiz
 
 === "⚙️ Procedural Memory"
 
-    **Biological analog: Basal Ganglia**
     
     Learned procedures, rules, and behavioral guidelines. A small, append-only store for rules that shape the agent's reasoning.
     
@@ -101,7 +100,7 @@ flowchart TD
 | Tier | Substrate & Storage | Retention & Eviction | Latency (p50) | Ingestion Verb | Best-Fit Agent Scenarios |
 |:---|:---|:---|:---:|:---|:---|
 | **🧪 Working** | Volatile off-heap circular ring | FIFO eviction on capacity overflow | <span class="chip chip-latency">~100ns</span> | `rememberWorking` | Multi-turn chat context, scratchpads, intermediate plan steps |
-| **📝 Episodic** | Mapped binary partition files (`.seg`) | Unbounded, time-partitioned, sleep consolidation | <span class="chip chip-latency">&lt;1ms</span> | `rememberEpisodic` | Interaction logs, tool execution traces, temporal user events |
+| **📝 Episodic** | Mapped binary partition files (`.seg`) | Unbounded, time-partitioned, Reflect consolidation | <span class="chip chip-latency">&lt;1ms</span> | `rememberEpisodic` | Interaction logs, tool execution traces, temporal user events |
 | **🧬 Semantic** | Partitioned zero-GC off-heap slabs | Permanent, compacted during offline/online cycles | <span class="chip chip-latency">1.01ms</span> | `rememberSemantic` | User preferences, distilled facts, codebase knowledge, ontology |
 | **⚙️ Procedural** | Persistent append-only WAL segment | Permanent, deterministic ordering, high salience | <span class="chip chip-latency">&lt;200ns</span> | `rememberProcedural` | System prompt constraints, tool policies, safety guidelines |
 
@@ -118,10 +117,10 @@ graph TB
         SM --> RP[RecallPathway<br/>Pathway: Recall]:::core
         
         subgraph "Cortex — Tier Stores"
-            NK[NamespaceKernel<br/>EngramMemory]:::core --> WM[Working<br/>Prefrontal Cortex]:::working
-            NK --> EM[Episodic<br/>Hippocampus]:::episodic
-            NK --> SE[Semantic<br/>Neocortex]:::semantic
-            NK --> PR[Procedural<br/>Basal Ganglia]:::procedural
+            NK[NamespaceKernel<br/>EngramMemory]:::core --> WM[Working<br/>Working tier]:::working
+            NK --> EM[Episodic<br/>Episodic tier]:::episodic
+            NK --> SE[Semantic<br/>Semantic tier]:::semantic
+            NK --> PR[Procedural<br/>Procedural tier]:::procedural
         end
         
         subgraph "Synapse — Scoring"
@@ -145,7 +144,7 @@ graph TB
         end
         
         subgraph "Consolidation"
-            RD[ReflectDaemon<br/>Sleep Consolidation]:::core
+            RD[ReflectDaemon<br/>Reflect Consolidation]:::core
             TCC[TombstoneCompactor<br/>Synaptic Pruning]:::core
         end
         
@@ -209,7 +208,7 @@ Spector Memory collapses the entire cognitive stack onto a **zero-overhead, off-
 
     Hebbian association, temporal causal chains, and event-episode hyperedges — three graph structures that augment vector recall with multi-hop reasoning, integrated with a central EntityDirectory
 
-    [:octicons-arrow-right-24: Cognitive Graph](hebbian.md)
+    [:octicons-arrow-right-24: Cognitive Graph](association-graph.md)
 
 -   :material-head-cog:{ .lg .middle } **Cognitive Subsystems**
 
@@ -217,7 +216,7 @@ Spector Memory collapses the entire cognitive stack onto a **zero-overhead, off-
 
     Principled cognitive subsystems mapped to code: Cortex, Hippocampus, Synapse, Dopamine, Amygdala, Habituation, Inhibition
 
-    [:octicons-arrow-right-24: Start with Cortex](cortex.md)
+    [:octicons-arrow-right-24: Start with Cortex](tiers.md)
 
 -   :material-speedometer:{ .lg .middle } **Performance & SIMD**
 

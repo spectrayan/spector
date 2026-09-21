@@ -3,9 +3,7 @@ title: "Metamemory — Self-Reflection"
 description: "Memory health analytics — the agent's ability to reason about its own memory state and optimize behavior."
 ---
 
-# 🪞 Metamemory — Self-Reflection
-
-> **Biological Analog**: **Metamemory** is the awareness of one's own memory processes — "I know I'm forgetting things more often" or "I'm confident I remember this correctly." It's what enables humans to say "I need to write this down" or "Let me double-check that."
+# Metamemory
 
 ---
 

@@ -1,11 +1,9 @@
 ---
-title: "Amygdala — Emotional Valence"
+title: "Valence — Emotional Weighting"
 description: "How Spector adds emotional coloring to memories — enabling agents to recall by mood, sentiment, and outcome quality."
 ---
 
-# 😱 Amygdala — Emotional Valence
-
-> **Biological Analog**: The **amygdala** is the brain's emotional processor. It assigns emotional significance to experiences — fear, joy, anger, relief — which profoundly influences how memories are encoded, stored, and retrieved. Emotionally charged memories are remembered more vividly and last longer.
+# Valence — Emotional Weighting
 
 ---
 
@@ -108,6 +106,6 @@ This costs exactly **1 byte per memory** — negligible overhead for a powerful 
 
 ## Next Steps
 
-- :material-link: [**Hebbian — Association Learning**](hebbian.md) — "neurons that fire together wire together"
-- :material-head-cog: [**Dopamine — Surprise Detection**](dopamine.md) — auto-importance scoring
+- :material-link: [**Hebbian — Association Learning**](association-graph.md) — "neurons that fire together wire together"
+- :material-head-cog: [**Dopamine — Surprise Detection**](novelty.md) — auto-importance scoring
 - :material-lightning-bolt: [**6-Phase Scoring Pipeline**](scoring-pipeline.md) — where valence filtering happens

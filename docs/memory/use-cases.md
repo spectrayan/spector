@@ -501,7 +501,7 @@ Dr. Jones querying the same hospital's Spector instance **cannot see Dr. Smith's
 - [Cognitive Profiles](cognitive-profiles.md) — Deep dive on all 12 profiles with biological analogs
 - [Salience & Persona Profiles](salience-importance.md) — Personalized importance with persona-based modulation
 - [Scoring Pipeline](scoring-pipeline.md) — The 6-phase SIMD scoring engine
-- [Hebbian Association](hebbian.md) — Co-activation learning and spreading activation
+- [Hebbian Association](association-graph.md) — Co-activation learning and spreading activation
 - [Lateral Retrieval](lateral-retrieval.md) — Cross-domain dual-heap mechanics
 - [Encryption at Rest](../architecture/encryption-at-rest.md) — Per-tenant/per-user encryption architecture
 - [API Reference](api-reference.md) — Full Java API documentation

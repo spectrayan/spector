@@ -487,7 +487,7 @@ In strict security mode (`SPECTOR_STRICT_SECURITY=true`), P0 failures block star
 
 ## Next Steps
 
-- :material-flash: [**Dopamine — Surprise Detection**](../memory/dopamine.md) — how importance is computed
+- :material-flash: [**Dopamine — Surprise Detection**](../memory/novelty.md) — how importance is computed
 - :material-brain: [**Salience & Importance**](salience-importance.md) — personalized importance via salience profiles
-- :material-tag: [**Synapse — Tags & Scoring**](../memory/synapse.md) — the 64-byte header where encrypted tags live
+- :material-tag: [**Synapse — Tags & Scoring**](../memory/tags.md) — the 64-byte header where encrypted tags live
 - :material-database: [**WAL Design**](../memory/wal-design.md) — write-ahead log internals

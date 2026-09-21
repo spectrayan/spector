@@ -101,7 +101,7 @@ The Systematizer profile is designed for agents that need to build **comprehensi
 
 ### Persistent Memory Pinning
 
-The key feature of SYSTEMATIZER is **lossless consolidation**. During the [sleep consolidation cycle](hippocampus.md) (REM sleep), the system normally clusters similar episodic memories and promotes a summary to semantic memory. The source episodes may then be tombstoned.
+The key feature of SYSTEMATIZER is **lossless consolidation**. During the [sleep consolidation cycle](consolidation.md) (REM sleep), the system normally clusters similar episodic memories and promotes a summary to semantic memory. The source episodes may then be tombstoned.
 
 With SYSTEMATIZER, source episodes are **pinned** — they receive the pinned flag in their record header, which prevents tombstoning:
 

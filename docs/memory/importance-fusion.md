@@ -11,7 +11,7 @@ The **ICNU Importance Fusion** system computes a memory's importance score at in
 
 ## The Problem
 
-Without ICNU, importance is determined solely by the [Surprise Detector](dopamine.md) — a statistical outlier test based on how "surprising" a memory's embedding is relative to recent memories. This works well for detecting unusual information, but has blind spots:
+Without ICNU, importance is determined solely by the [Surprise Detector](novelty.md) — a statistical outlier test based on how "surprising" a memory's embedding is relative to recent memories. This works well for detecting unusual information, but has blind spots:
 
 - A memory about a user's **urgent deadline** might not be statistically surprising
 - A memory about a **challenging technical problem** might have a common embedding
@@ -318,6 +318,6 @@ When using the MCP tools, importance fusion happens automatically if the ingesti
 ## Next Steps
 
 - :material-star-shooting: [**Salience & Persona Profiles**](salience-importance.md) — topic interests, persona modulation, hierarchical merge
-- :material-flash: [**Dopamine — Surprise Detection**](dopamine.md) — adaptive surprise detection
+- :material-flash: [**Dopamine — Surprise Detection**](novelty.md) — adaptive surprise detection
 - :material-brain: [**Scoring Pipeline**](scoring-pipeline.md) — the 6-phase SIMD scoring engine
 - :material-tag: [**Cognitive Profiles**](cognitive-profiles.md) — how profiles interact with importance

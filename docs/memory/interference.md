@@ -3,9 +3,7 @@ title: "Interference — Deduplication"
 description: "Near-duplicate detection and merge in the Remember Pathway — preventing proactive interference from redundant memories."
 ---
 
-# 🔀 Interference — Deduplication
-
-> **Biological Analog**: **Proactive interference** occurs when old memories interfere with new learning. If you move to a new city, your old address "interferes" when you try to recall the new one. The brain resolves this by strengthening the newer trace and weakening the old one.
+# Dedup and Interference
 
 ---
 

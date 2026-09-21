@@ -259,7 +259,7 @@ This is the expensive operation that phases 1-4 are designed to gate. It:
 
 ```mermaid
 flowchart LR
-    DECAY["Lookup decay<br/>from adjusted bucket"] --> FUSE["Fused score =<br/><b>α × similarity + β × importance × decay</b>"]
+    DECAY["Lookup decay<br/>from adjusted bucket"] --> FUSE["Fused score =<br/><b>α·sim + β·I·D</b>"]
     FUSE --> HEAP{"Score > heap minimum?"}
     HEAP -->|"Yes"| INSERT(["Insert into top-K min-heap"])
     HEAP -->|"No"| DROP(["Discard — not in top-K"])
@@ -370,8 +370,8 @@ Entities are extracted from the query text, then looked up in the `EntityDirecto
 
 ## Next Steps
 
-- :material-share-variant: [**4-Layer Cognitive Graph**](hebbian.md) — deep dive into Hebbian, Entity, Temporal, and HyperEntity graphs
-- :material-brain: [**Cortex — Tier Stores**](cortex.md) — the 4-tier memory architecture
-- :material-flash: [**Synapse — Tags & Scoring**](synapse.md) — Bloom filter and binary layout
+- :material-share-variant: [**4-Layer Cognitive Graph**](association-graph.md) — deep dive into Hebbian, Entity, Temporal, and HyperEntity graphs
+- :material-brain: [**Cortex — Tier Stores**](tiers.md) — the 4-tier memory architecture
+- :material-flash: [**Synapse — Tags & Scoring**](tags.md) — Bloom filter and binary layout
 - :material-school: [**Theoretical Foundations**](theoretical-foundations.md) — ACT-R lineage, power law of forgetting, Two-Factor model
 - :material-speedometer: [**Performance**](performance.md) — benchmark results

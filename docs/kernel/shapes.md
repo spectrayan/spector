@@ -131,8 +131,8 @@ graph TD
 
 ---
 
-### 8. `InsulaMemory` (Somatic Self-Model Container)
-`InsulaMemory` implements a dedicated single-entry container storing the agent's dynamic, real-time self-model and interoceptive somatic state.
+### 8. `InsulaMemory` *(self-model region used by AISME — experimental)* (Somatic Self-Model Container)
+`InsulaMemory` *(self-model region used by AISME — experimental)* implements a dedicated single-entry container storing the agent's dynamic, real-time self-model and interoceptive somatic state.
 
 - **Access Pattern**: Single-entry atomic read/write (`put()`, `get()`, `clear()`) of a variable-length JSON self-model payload.
 - **Biological Analog**: The **Anterior Insular Cortex**, which in the human brain integrates visceral interoception, self-awareness, and emotional valence into a unified subjective feeling state.
@@ -140,7 +140,7 @@ graph TD
   - Sub-header tracks a monotonic version counter, payload byte length, epoch timestamp, and a hardware-computed CRC-32C checksum.
   - Concurrency is protected by a thread-safe write lock with zero-copy unaligned read semantics across concurrent Virtual Threads.
 - **Backed Subsystems**:
-  - `InsulaMemory` (active self-model, task confidence, interoceptive stress, and dynamic salience posture within `runtime.bundle` at `RegionId.INSULA`).
+  - `InsulaMemory` *(self-model region used by AISME — experimental)* (active self-model, task confidence, interoceptive stress, and dynamic salience posture within `runtime.bundle` at `RegionId.INSULA`).
 
 ---
 
@@ -155,4 +155,4 @@ graph TD
 | **`HashTableMemory`** | Fixed entry | Hash key | `get()`, `put()`, `increment()` | Open-addressing probing buffer |
 | **`RegistryMemory`** | Variable | String hash & ID | `intern()`, `resolveId()`, `resolveName()` | String pool + ID lookup table |
 | **`EntityDirectoryMemory`**| Composite | Entity identifier | `lookup()`, `register()`, `listEntities()` | Directory index + name buffer |
-| **`InsulaMemory`** | Variable (1 slot) | Singleton self-model | `put()`, `get()`, `clear()` | 32-byte header + CRC-32C JSON payload |
+| **`InsulaMemory` *(self-model region used by AISME — experimental)*** | Variable (1 slot) | Singleton self-model | `put()`, `get()`, `clear()` | 32-byte header + CRC-32C JSON payload |

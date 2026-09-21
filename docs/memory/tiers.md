@@ -1,11 +1,9 @@
 ---
-title: "Cortex — 4-Tier Memory Architecture"
+title: "Four Memory Tiers"
 description: "The 4-tier cognitive memory architecture: Working, Episodic, Semantic, and Procedural — structured for distinct retention windows, access frequencies, and consolidation dynamics."
 ---
 
-# 🧠 Cortex — 4-Tier Memory Architecture
-
-> **Biological Analog**: The **Cerebral Cortex** — the outer layer of the brain responsible for higher-order cognitive functions. Different cortical regions specialize in distinct memory domains, durations, and consolidation dynamics.
+# Four Memory Tiers
 
 ---
 
@@ -39,7 +37,7 @@ All four memory stores are backed directly by the off-heap `spector-kernel`:
 
 ## 🧪 Working Memory (Prefrontal Cortex)
 
-**Biological Analog**: The **Prefrontal Cortex** maintains a limited workspace for active processing and immediate task execution. It holds transient context in biological systems ($7 \pm 2$ chunks).
+**Design rationale**: Working memory maintains a limited workspace for active processing and immediate task execution. It holds transient context in biological systems ($7 \pm 2$ chunks).
 
 | Property | Value |
 |:---|:---|
@@ -57,7 +55,7 @@ Working memory operates as a high-speed circular buffer: when the allocated capa
 
 ## 📝 Episodic Memory (Hippocampus)
 
-**Biological Analog**: The **Hippocampus** encodes autobiographical events as time-ordered traces. Events are appended rapidly (one-trial learning), and during consolidation phases, the hippocampus replays sequences for transfer into permanent cortical memory.
+**Design rationale**: Episodic memory encodes autobiographical events as time-ordered traces. Events are appended rapidly (one-trial learning), and during consolidation phases, the hippocampus replays sequences for transfer into permanent cortical memory.
 
 | Property | Value |
 |:---|:---|
@@ -90,7 +88,7 @@ stateDiagram-v2
 
 ## 🧬 Semantic Memory (Neocortex)
 
-**Biological Analog**: The **Neocortex** stores distilled, permanent world knowledge — generalized concepts, domain facts, and rules extracted from repeated experience.
+**Design rationale**: Semantic memory stores distilled, permanent world knowledge — generalized concepts, domain facts, and rules extracted from repeated experience.
 
 | Property | Value |
 |:---|:---|
@@ -111,7 +109,7 @@ Semantic memories enter the system through two primary pathways:
 
 ## ⚙️ Procedural Memory (Basal Ganglia)
 
-**Biological Analog**: The **Basal Ganglia** stores learned behavioral patterns, motor routines, and procedural protocols — operational skills that execute automatically.
+**Design rationale**: Procedural memory stores learned behavioral patterns, motor routines, and procedural protocols — operational skills that execute automatically.
 
 | Property | Value |
 |:---|:---|
@@ -194,6 +192,6 @@ Client applications can target specific tiers or allow cognitive routing:
 ## Next Steps
 
 - :material-lightning-bolt: [**The 6-Phase Scoring Pipeline**](scoring-pipeline.md) — associative multi-tier retrieval
-- :material-tag: [**Synapse — Tags & Scoring**](synapse.md) — 128-bit Bloom filters and affective tagging
-- :material-sleep: [**Hippocampus — Sleep Consolidation**](hippocampus.md) — episodic to semantic transfer
+- :material-tag: [**Synapse — Tags & Scoring**](tags.md) — 128-bit Bloom filters and affective tagging
+- :material-sleep: [**Hippocampus — Sleep Consolidation**](consolidation.md) — episodic to semantic transfer
 - :material-memory: [**Memory Kernel**](../kernel/index.md) — off-heap storage and bundle containers

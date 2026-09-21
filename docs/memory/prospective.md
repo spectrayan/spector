@@ -3,9 +3,7 @@ title: "Prospective — Future Intents"
 description: "Time-triggered memory reminders — the agent's ability to remember to do something in the future."
 ---
 
-# 🔮 Prospective — Future Intents
-
-> **Biological Analog**: **Prospective memory** is the ability to remember to perform an intended action in the future — "Remember to call the doctor at 3pm." Unlike retrospective memory (recalling the past), prospective memory is future-oriented and time-triggered.
+# Prospective Intents
 
 ---
 

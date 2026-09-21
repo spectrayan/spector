@@ -202,5 +202,5 @@ The entire data path from persistent storage to CPU computation operates on **ra
 - :material-speedometer: [**Performance**](performance.md) — benchmark results
 - :material-brain: [**Architecture**](architecture.md) — system design
 - :material-lightning-bolt: [**6-Phase Scoring Pipeline**](scoring-pipeline.md) — the SIMD hot-loop
-- :material-tag: [**Synapse — Tags & Scoring**](synapse.md) — versioned header byte maps, arousal decay, Bloom filter
+- :material-tag: [**Synapse — Tags & Scoring**](tags.md) — versioned header byte maps, arousal decay, Bloom filter
 - :material-flask: [**Labs — Research Roadmap**](../labs/roadmap.md) — Dynamic Quantization (SQ4), Two-Factor Memory

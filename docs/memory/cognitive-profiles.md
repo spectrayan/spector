@@ -39,7 +39,7 @@ A profile sets α, β, and optional modifiers (hyperfocus boost, lateral mode, e
 
 These profiles go beyond α/β tuning — they activate specialized scoring mechanics in the [6-Phase Pipeline](scoring-pipeline.md) and model specific neurocognitive patterns.
 
-| Profile | α | β | Biological Analog | Special Mechanics |
+| Profile | α | β | Design rationale | Special Mechanics |
 |:---|:---:|:---:|:---|:---|
 | `HYPERFOCUS` | 1.0 | 0.0 | Monotropism | [Focus Mode](focus-mode.md) — Zero decay, strict tag gate, boost multiplier |
 | `SYSTEMATIZER` | 0.3 | 0.7 | Bottom-up processing (autism) | [Systemizer](focus-mode.md#systemizer) — Pins source episodes during consolidation |
@@ -271,6 +271,6 @@ Agents can use this metadata to adjust their reasoning — for example, treating
 - [Focus Mode](focus-mode.md) — Deep dive on HYPERFOCUS and SYSTEMATIZER
 - [Explorer — Lateral Retrieval](lateral-retrieval.md) — Cross-domain dual-heap mechanics
 - [Importance Fusion (ICNU)](importance-fusion.md) — Sigmoid-gated importance with dopaminergic I×N interaction
-- [Synapse — Tags & Scoring](synapse.md) — Versioned header layouts (V1/V2/V3) and arousal-modulated decay
-- [Hebbian — Association Learning](hebbian.md) — STDP with directed causal edges
+- [Synapse — Tags & Scoring](tags.md) — Versioned header layouts (V1/V2/V3) and arousal-modulated decay
+- [Hebbian — Association Learning](association-graph.md) — STDP with directed causal edges
 - [Labs — Research Roadmap](../labs/roadmap.md) — Neuromodulatory Gain, Executive Dysfunction Profile

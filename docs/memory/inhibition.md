@@ -3,9 +3,7 @@ title: "Inhibition — Suppression"
 description: "Memory suppression enables explicit, reversible blocking — the digital equivalent of motivated forgetting."
 ---
 
-# 🚫 Inhibition — Suppression
-
-> **Biological Analog**: **Retrieval-Induced Forgetting** (Anderson et al., 1994) — the brain actively suppresses competing memories during recall. When you try to remember where you parked today, your brain inhibits memories of yesterday's parking spot. This is an active process, not passive decay.
+# Inhibition — Suppression
 
 ---
 

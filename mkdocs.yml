@@ -160,10 +160,10 @@ nav:
       - Use Cases: memory/use-cases.md
       - API Reference: memory/api-reference.md
       - Concepts:
-          - Four memory tiers: memory/cortex.md
+          - Four memory tiers: memory/tiers.md
           - Recall scoring: memory/scoring-pipeline.md
           - Scoring regimes: memory/scoring-regimes.md
-          - Association graph: memory/hebbian.md
+          - Association graph: memory/association-graph.md
           - Retrieval stack:
               - Overview: memory/retrieval-overview.md
               - Keyword (BM25): memory/bm25.md
@@ -171,11 +171,11 @@ nav:
               - Late interaction (ColBERT): memory/colbert.md
       - Pathways:
           - Remember, Recall, Reflect: memory/architecture.md
-          - Offline consolidation: memory/hippocampus.md
+          - Offline consolidation: memory/consolidation.md
       - Scoring features:
-          - Tags and Bloom gating: memory/synapse.md
-          - Valence: memory/amygdala.md
-          - Novelty detection: memory/dopamine.md
+          - Tags and Bloom gating: memory/tags.md
+          - Valence: memory/valence.md
+          - Novelty detection: memory/novelty.md
           - Habituation: memory/habituation.md
           - Inhibition: memory/inhibition.md
           - Dedup and interference: memory/interference.md

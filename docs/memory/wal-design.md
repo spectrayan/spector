@@ -3,9 +3,7 @@ title: "WAL Design — Write-Ahead Log"
 description: "Append-only binary WAL with chunked files, CRC-32 integrity, DEFLATE compression, crash recovery, CRDT merge, and cloud replication for cognitive memory durability."
 ---
 
-# 📝 WAL Design — Write-Ahead Log
-
-> **Biological Analog**: The hippocampus doesn't write memories directly to the neocortex. It first records a transient "replay buffer" — a sequential log of experiences — and consolidates them during sleep. The WAL is the digital equivalent: an ordered, append-only log of every memory mutation that can be replayed to reconstruct state.
+# WAL Design
 
 ---
 
@@ -502,6 +500,6 @@ Planned implementations:
 ## Next Steps
 
 - :material-memory: [**Off-Heap Panama Design**](panama-design.md) — how mmap partitions store cognitive records
-- :material-sleep: [**Hippocampus — Sleep Consolidation**](hippocampus.md) — the consolidation daemon that triggers snapshot + truncation
+- :material-sleep: [**Hippocampus — Sleep Consolidation**](consolidation.md) — the consolidation daemon that triggers snapshot + truncation
 - :material-brain: [**Architecture**](architecture.md) — system overview
-- :material-lightning-bolt: [**Synapse — Tags & Scoring**](synapse.md) — the synaptic header that WAL events serialize
+- :material-lightning-bolt: [**Synapse — Tags & Scoring**](tags.md) — the synaptic header that WAL events serialize
