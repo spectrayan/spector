@@ -3,7 +3,26 @@ title: Generative Dreaming & Thought Experiments
 description: Spector's 7th canonical cognitive pathway for generative dreaming, constructive simulation, and deliberate thought experiments.
 ---
 
-# Generative Dreaming & Thought Experiments
+!!! warning "Experimental"
+    This pathway is not part of the default memory contract.
+    Enable only with the documented flag (`enableDreaming`). Traces it
+    writes use provenance `DREAMED` or `THOUGHT_EXPERIMENT` and must not
+    be mixed with user-stated facts at recall time unless you opt in.
+
+# Dream Pathway (Experimental)
+
+## 2. Operating Modes
+
+The generative cognitive engine operates across three distinct modes, sharing the same constructive machinery under different temperature and constraint regimes:
+
+| Mode | Temperature | Constraint Level | Trigger Condition | Provenance Source |
+|:---|:---:|:---|:---|:---|
+| **REM Dream** | **$2.0$** (High) | Weak (Unconstrained exploratory recombination) | Offline sleep cycles via `DreamDaemon` | `MemorySource.DREAMED` |
+| **Daydream** | **$1.0$** (Medium) | Moderate (Narrative continuity & predictive coding) | Cognitive idle periods via `DmnSpontaneousDaemon` | `MemorySource.DREAMED` |
+| **Thought Experiment** | **$0.5$** (Low) | Strict (Expected Free Energy & multi-soul alignment) | Deliberate decision forks via `DecidePathway` | `MemorySource.THOUGHT_EXPERIMENT` |
+
+---
+
 
 Memory is not a passive recording device — it is an active **generative construction engine**. As formalized in the [Memory Fundamentals Specification (MF-001)](https://github.com/spectrayan/memory-fundamentals), offline consolidation and dreaming replay episodic traces, perform counterfactual simulation, and execute stochastic exploration to prevent overfitting and discover latent cross-domain insights.
 
@@ -44,41 +63,7 @@ graph TB
 
 ---
 
-## 1. Biological Foundations
 
-The DreamPathway unifies four landmark discoveries across neuroscience and computational cognitive science:
-
-### A. The Overfitted Brain Hypothesis (Hoel, 2021)
-Dreams serve as biological regularization. By injecting structured, temperature-modulated noise into compressed episodic replays ($\sigma_{\text{dream}}$), dreaming prevents an agent's cognitive models from overfitting to daily observations and enables cross-context generalization.
-
-??? note "📐 View Mathematical Formulation (Stochastic Regularization)"
-    $$\mathbf{v}_{\text{dream}} = \mathbf{v}_{\text{seed}} + \boldsymbol{\epsilon}, \quad \boldsymbol{\epsilon} \sim \mathcal{N}\left(0, \sigma^2_{\text{dream}} \mathbf{I}\right)$$
-
-### B. Constructive Episodic Simulation (Schacter & Addis, 2007)
-The brain does not replay intact video logs; it decomposes past memories into typed semantic primitives (Agents, Actions, Objects, Locations, and Affective tones) and recombines them into synthetic scenarios that never occurred.
-
-### C. Anti-Centroid Hyper-Association (Lewis & Bendor)
-While waking retrieval binds semantically close items within a cluster, REM dreaming intentionally pairs concepts that are **geometrically distant in latent space** but share **relational structural overlap and emotional resonance**.
-
-### D. Langevin Stochastic Energy Diffusion
-Spontaneous cortical fluctuations follow continuous Langevin dynamics over holographic associative memory landscapes, allowing the cognitive engine to tunnel across energy barriers and discover unmapped interstitial concept basins.
-
-??? note "📐 View Mathematical Formulation (Langevin Stochastic Dynamics)"
-    $$d\mathbf{v}_t = -\nabla_{\mathbf{v}} E(\mathbf{v}_t; \mathbf{T}) \, dt + \sqrt{2\mathcal{T}} \, d\mathbf{W}_t$$
-
----
-
-## 2. Operating Modes
-
-The generative cognitive engine operates across three distinct modes, sharing the same constructive machinery under different temperature and constraint regimes:
-
-| Mode | Temperature | Constraint Level | Trigger Condition | Provenance Source |
-|:---|:---:|:---|:---|:---|
-| **REM Dream** | **$2.0$** (High) | Weak (Unconstrained exploratory recombination) | Offline sleep cycles via `DreamDaemon` | `MemorySource.DREAMED` |
-| **Daydream** | **$1.0$** (Medium) | Moderate (Narrative continuity & predictive coding) | Cognitive idle periods via `DmnSpontaneousDaemon` | `MemorySource.DREAMED` |
-| **Thought Experiment** | **$0.5$** (Low) | Strict (Expected Free Energy & multi-soul alignment) | Deliberate decision forks via `DecidePathway` | `MemorySource.THOUGHT_EXPERIMENT` |
-
----
 
 ## 3. The 12-Relay Cognitive Pipeline
 
@@ -188,3 +173,29 @@ spector:
       journal-enabled: true                  # Append-only off-heap audit trail
       cycle-frequency: 3                     # Run dream cycle every N sleep consolidation epochs
 ```
+
+<details>
+<summary>Design ancestry</summary>
+
+The DreamPathway unifies four landmark discoveries across neuroscience and computational cognitive science:
+
+### A. The Overfitted Brain Hypothesis (Hoel, 2021)
+Dreams serve as biological regularization. By injecting structured, temperature-modulated noise into compressed episodic replays ($\sigma_{\text{dream}}$), dreaming prevents an agent's cognitive models from overfitting to daily observations and enables cross-context generalization.
+
+??? note "📐 View Mathematical Formulation (Stochastic Regularization)"
+    $$\mathbf{v}_{\text{dream}} = \mathbf{v}_{\text{seed}} + \boldsymbol{\epsilon}, \quad \boldsymbol{\epsilon} \sim \mathcal{N}\left(0, \sigma^2_{\text{dream}} \mathbf{I}\right)$$
+
+### B. Constructive Episodic Simulation (Schacter & Addis, 2007)
+The brain does not replay intact video logs; it decomposes past memories into typed semantic primitives (Agents, Actions, Objects, Locations, and Affective tones) and recombines them into synthetic scenarios that never occurred.
+
+### C. Anti-Centroid Hyper-Association (Lewis & Bendor)
+While waking retrieval binds semantically close items within a cluster, REM dreaming intentionally pairs concepts that are **geometrically distant in latent space** but share **relational structural overlap and emotional resonance**.
+
+### D. Langevin Stochastic Energy Diffusion
+Spontaneous cortical fluctuations follow continuous Langevin dynamics over holographic associative memory landscapes, allowing the cognitive engine to tunnel across energy barriers and discover unmapped interstitial concept basins.
+
+??? note "📐 View Mathematical Formulation (Langevin Stochastic Dynamics)"
+    $$d\mathbf{v}_t = -\nabla_{\mathbf{v}} E(\mathbf{v}_t; \mathbf{T}) \, dt + \sqrt{2\mathcal{T}} \, d\mathbf{W}_t$$
+
+See [theoretical-foundations.md](theoretical-foundations.md)
+</details>

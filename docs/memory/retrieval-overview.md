@@ -82,4 +82,4 @@ Once the retrieval stack generates and reranks the top candidate memories, Spect
 3. **Temporal Causal Chains**: Follows chronological links forward and backward to reconstruct the event context of a conversation or activity.
 4. **Event-Episode (Hyperedge) Graph**: Links groups of entities and actions belonging to a single temporal episode.
 
-For a deep dive into graph parameters, thresholds, and spreading activation decay formulas, see the [4-Layer Cognitive Graph](hebbian.md) documentation.
+For a deep dive into graph parameters, thresholds, and spreading activation decay formulas, see the [4-Layer Cognitive Graph](association-graph.md) documentation.

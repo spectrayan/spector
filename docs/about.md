@@ -1,11 +1,11 @@
 ---
-title: "What is Spector? — AI Cognitive Memory Backbone"
-description: "Spector is a cognitive memory backbone for AI agents, combining multi-tier memory retention, associative Hebbian graphs, and fused semantic and hybrid retrieval in a single embeddable library with a built-in MCP server."
+title: "What is Spector? — AI Cognitive Memory Engine"
+description: "Spector is a cognitive memory engine for AI agents, combining multi-tier memory retention, associative graphs, and fused semantic and hybrid retrieval in a single embeddable library with a built-in MCP server."
 ---
 
 # 🌟 What is Spector?
 
-> **The Zero-Overhead, Agent-Ready AI Memory Backbone.**
+> **The Zero-Overhead, Agent-Ready AI Memory Engine.**
 >
 > Legacy AI stacks bolt memory onto stateless vector databases — storage without cognition. Spector is built from the ground up for modern AI agents: it remembers, forgets, consolidates, and **forms associations** across an associative memory graph — Hebbian co-activation, temporal chains, and entity links — then retrieves with fused semantic and hybrid scoring. Connect any AI agent through the built-in MCP server, call it over REST/gRPC, use the Python, TypeScript, or Java Client SDKs, or embed it directly in the JVM.
 
@@ -69,7 +69,7 @@ Includes a built-in [Model Context Protocol](https://modelcontextprotocol.io/) s
 
 ### 🕸️ Associative Cognitive Graphs
 
-Spector doesn't just store vectors — it links memories. Hebbian co-activation, temporal chains, and an LLM-powered entity graph connect related memories, and spreading activation means recall surfaces what's *related*, not just what matches. It's memory that forms associations, the way a brain does.
+Spector doesn't just store vectors — it links memories. Hebbian co-activation, temporal chains, and an LLM-powered entity graph connect related memories, and spreading activation means recall surfaces what's *related*, not just what matches. It's memory that forms associations, by co-activation and temporal edges.
 
 ### 🔒 Physical Namespace Isolation
 

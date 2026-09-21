@@ -8,7 +8,7 @@
 
 ## 🤖 Repository Overview
 
-Spector is the high-performance, zero-overhead cognitive memory backbone for autonomous AI agents. It provides biological memory mechanisms—working, episodic, semantic, and procedural memory tiers with power-law temporal decay, Hebbian associative graphs, homeostatic affective regulation, and fused 6-phase cognitive scoring.
+Spector is a zero-overhead cognitive memory engine for autonomous AI agents. It implements working, episodic, semantic, and procedural tiers with power-law temporal decay, co-activation association graphs, valence-weighted ranking, and fused multi-phase recall scoring.
 
 - **Primary Stack**: Java 25 (OpenJDK), Project Panama Foreign Function & Memory (FFM), Java Vector API (SIMD), Virtual Threads.
 - **Frontend / Inspection UI**: Angular 22 + Three.js (`cortex/spector-cortex`).

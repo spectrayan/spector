@@ -3,9 +3,7 @@ title: "Sync — Persistence & Replication"
 description: "Checkpoint-driven durability, namespace snapshot replication, and CRDT merge for distributed memory synchronization."
 ---
 
-# 🔄 Sync — Persistence & Replication
-
-> **Biological Analog**: Memory consolidation doesn't happen in isolation. During sleep, the brain replays memories and transfers them between regions (hippocampus → neocortex). The sync subsystem provides the infrastructure for **durable persistence**, **checkpoint-driven snapshots**, and **distributed memory replication**.
+# Sync and Replication
 
 ---
 

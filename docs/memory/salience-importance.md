@@ -489,9 +489,9 @@ flowchart TD
 
 ## Next Steps
 
-- :material-flash: [**Dopamine — Surprise Detection**](dopamine.md) — the biological model in detail
+- :material-flash: [**Dopamine — Surprise Detection**](novelty.md) — the biological model in detail
 - :material-chart-bar: [**Importance Fusion (ICNU)**](importance-fusion.md) — the four-signal fusion
-- :material-sleep: [**Hippocampus — Sleep Consolidation**](hippocampus.md) — how importance decays
+- :material-sleep: [**Hippocampus — Sleep Consolidation**](consolidation.md) — how importance decays
 - :material-shield-lock: [**Encryption at Rest**](../architecture/encryption-at-rest.md) — how encrypted data interacts with importance
 - :material-brain: [**Cognitive Profiles**](cognitive-profiles.md) — how profiles interact with importance
 - :material-bell-ring: [**Event Notifications**](../architecture/event-notifications.md) — how importance changes trigger events

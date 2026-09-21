@@ -1,11 +1,9 @@
 ---
-title: "Dopamine — Surprise Detection"
+title: "Novelty Detection"
 description: "How Spector uses Welford online statistics to automatically score memory importance based on novelty and temporal surprise."
 ---
 
-# ⚡ Dopamine — Surprise Detection
-
-> **Biological Analog**: The **dopaminergic system** signals prediction error — the difference between what the brain expected and what actually happened. When a stimulus is surprising (high prediction error), dopamine release strengthens memory encoding. This is why we vividly remember surprising events (flashbulb memories) but quickly forget routine ones.
+# Novelty Detection
 
 ---
 
@@ -105,6 +103,6 @@ flowchart LR
 
 ## Next Steps
 
-- :material-emoticon: [**Amygdala — Emotional Valence**](amygdala.md) — emotional coloring of memories
-- :material-flash: [**Synapse — Tags & Scoring**](synapse.md) — the 64-byte header
-- :material-sleep: [**Hippocampus — Sleep Consolidation**](hippocampus.md) — what happens to important memories
+- :material-emoticon: [**Amygdala — Emotional Valence**](valence.md) — emotional coloring of memories
+- :material-flash: [**Synapse — Tags & Scoring**](tags.md) — the 64-byte header
+- :material-sleep: [**Hippocampus — Sleep Consolidation**](consolidation.md) — what happens to important memories

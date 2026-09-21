@@ -1,8 +1,16 @@
-# Active Inference Self-Model Engine (AISME)
+# AISME — Persona and Affect Layer (Experimental)
+
+> Note: Internal names include Insula, interoception, cortical hierarchy, and soul-drift.
 
 The **Active Inference Self-Model Engine (AISME)** provides Spector with autobiographical narrative identity, homeostatic affective tracking, and predictive coding capabilities across recall and consolidation pathways.
 
 ---
+
+!!! warning "Experimental"
+    This pathway is not part of the default memory contract.
+    Enable only with the documented flag (`enableAisme`). The persona
+    and affect layer modulates recall ranking but is not required for
+    standard Remember / Recall / Reflect / Forget operations.
 
 ## 1. Core Architecture
 

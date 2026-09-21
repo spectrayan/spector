@@ -14,7 +14,7 @@
     <artifactId>spector-synapse</artifactId>
     <name>Spector Synapse</name>
     <description>
-        Spector Synapse — the central nervous system. Spring Boot 4 + Armeria entry point
+        Spector Synapse — the unified application gateway and agent orchestration server. Spring Boot 4 + Armeria entry point
         for cognitive chat, autonomous agent orchestration, LLM provider management,
         data connector routing, and channel adapters. Serves the Cortex UI as static assets.
     </description>

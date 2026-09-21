@@ -35,20 +35,20 @@ A profile sets α, β, and optional modifiers (hyperfocus boost, lateral mode, e
 | `RECALLING` | 0.4 | 0.6 | Positive only (≥ +10) | Retrieving proven solutions and successes |
 | `CRITICAL` | 0.2 | 0.8 | All | Security audits, compliance checks, high-stakes |
 
-### Advanced Profiles — Neurodivergent
+### Advanced Profiles — Specialized Retrieval Patterns
 
-These profiles go beyond α/β tuning — they activate specialized scoring mechanics in the [6-Phase Pipeline](scoring-pipeline.md) and model specific neurocognitive patterns.
+These profiles go beyond α/β tuning — they activate specialized scoring mechanics in the [6-Phase Pipeline](scoring-pipeline.md) and model specific retrieval patterns.
 
-| Profile | α | β | Biological Analog | Special Mechanics |
+| Profile | α | β | Design rationale | Special Mechanics |
 |:---|:---:|:---:|:---|:---|
-| `HYPERFOCUS` | 1.0 | 0.0 | Monotropism | [Focus Mode](focus-mode.md) — Zero decay, strict tag gate, boost multiplier |
-| `SYSTEMATIZER` | 0.3 | 0.7 | Bottom-up processing (autism) | [Systemizer](focus-mode.md#systemizer) — Pins source episodes during consolidation |
-| `DIVERGENT` | 0.8 | 0.2 | Reduced Latent Inhibition (ADHD) | [Explorer](lateral-retrieval.md) — Lateral cross-domain retrieval |
-| `PARANOID_SENTINEL` | 0.2 | 0.8 | Amygdala threat-detection | Negative-only valence, mood-congruent threat recall |
-| `THE_EXECUTOR` | 0.3 | 0.7 | Prefrontal executive function | Heaviside Cliff (strictness=10.0), no lateral retrieval |
-| `HIGHLY_SENSITIVE` | 0.7 | 0.3 | Sensory Processing Sensitivity | Low flashbulb threshold, strong lateral inhibition |
-| `DEFAULT_MODE_NETWORK` | 0.2 | 0.8 | Brain's resting state network | Skips Working + Episodic, Semantic + Procedural only |
-| `EXECUTIVE_DYSFUNCTION` | 0.3 | 0.7 | Prefrontal executive dysfunction | Hebbian-first associative recall, bypasses vector similarity |
+| `HYPERFOCUS` | 1.0 | 0.0 | Single-channel attention | [Focus Mode](focus-mode.md) — Zero decay, strict tag gate, boost multiplier |
+| `SYSTEMATIZER` | 0.3 | 0.7 | Bottom-up, detail-first processing | [Systemizer](focus-mode.md#systemizer) — Pins source episodes during consolidation |
+| `DIVERGENT` | 0.8 | 0.2 | Reduced latent inhibition | [Explorer](lateral-retrieval.md) — Lateral cross-domain retrieval |
+| `PARANOID_SENTINEL` | 0.2 | 0.8 | Threat-detection bias | Negative-only valence, mood-congruent threat recall |
+| `THE_EXECUTOR` | 0.3 | 0.7 | Strong executive function | Heaviside Cliff (strictness=10.0), no lateral retrieval |
+| `HIGHLY_SENSITIVE` | 0.7 | 0.3 | High sensory sensitivity | Low flashbulb threshold, strong lateral inhibition |
+| `DEFAULT_MODE_NETWORK` | 0.2 | 0.8 | Resting-state retrieval | Skips Working + Episodic, Semantic + Procedural only |
+| `EXECUTIVE_DYSFUNCTION` | 0.3 | 0.7 | Weak directed search | Association-first recall, bypasses vector similarity |
 
 ---
 
@@ -271,6 +271,6 @@ Agents can use this metadata to adjust their reasoning — for example, treating
 - [Focus Mode](focus-mode.md) — Deep dive on HYPERFOCUS and SYSTEMATIZER
 - [Explorer — Lateral Retrieval](lateral-retrieval.md) — Cross-domain dual-heap mechanics
 - [Importance Fusion (ICNU)](importance-fusion.md) — Sigmoid-gated importance with dopaminergic I×N interaction
-- [Synapse — Tags & Scoring](synapse.md) — Versioned header layouts (V1/V2/V3) and arousal-modulated decay
-- [Hebbian — Association Learning](hebbian.md) — STDP with directed causal edges
+- [Synapse — Tags & Scoring](tags.md) — Versioned header layouts (V1/V2/V3) and arousal-modulated decay
+- [Hebbian — Association Learning](association-graph.md) — STDP with directed causal edges
 - [Labs — Research Roadmap](../labs/roadmap.md) — Neuromodulatory Gain, Executive Dysfunction Profile

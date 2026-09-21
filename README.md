@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <strong>The Zero-Overhead, Agent-Ready AI Memory Backbone.</strong>
+  <strong>The Zero-Overhead, Agent-Ready AI Memory Engine.</strong>
 </p>
 
 <p align="center">
@@ -21,9 +21,15 @@
   <a href="ACKNOWLEDGMENTS.md#open-source-contributors"><img src="https://img.shields.io/github/contributors/spectrayan/spector?style=for-the-badge&color=blue" alt="Contributors" /></a>
 </p>
 
+<p align="center">
+  <em>"A database returns what was written. A memory engine reconstructs what is reachable from a cue — under decay, association, and tier physics."</em>
+  <br/>
+  <sub>— <a href="https://github.com/spectrayan/memory-fundamentals">Memory Fundamentals MF-001</a></sub>
+</p>
+
 ---
 
-Legacy AI stacks bolt memory onto stateless vector databases — storage without cognition. **Spector** is a cognitive memory backbone for modern AI agents: it remembers, forgets, consolidates, and **forms associations** across a biologically-inspired memory graph — Hebbian co-activation, temporal chains, and event-episode hyperedges — then retrieves with fused semantic and hybrid scoring at sub-millisecond latency. Connect any AI agent through the built-in **MCP server**, call it over **REST/gRPC**, drive it from the **Python or TypeScript SDKs**, or embed it directly in the JVM. Every user, agent, or tenant is physically isolated in its own on-disk namespace — true data separation, not a shared-store filter. Under the hood, Java Project Panama and the Vector API deliver C++-class SIMD speed with zero garbage-collection pressure.
+Legacy AI stacks bolt memory onto stateless vector databases — storage without cognition. **Spector** is a cognitive memory engine for AI agents: it remembers, forgets, consolidates, and forms associations across working, episodic, semantic, and procedural tiers, then retrieves with fused semantic and hybrid scoring at sub-millisecond latency. Traces are linked by co-activation, temporal, and entity edges, so recall can surface what is related, not only what matches a vector. Connect any agent through the built-in **MCP server**, call it over **REST/gRPC**, drive it from the **Python or TypeScript SDKs**, or embed it directly in the JVM. Every user, agent, or tenant is physically isolated in its own on-disk namespace — true data separation, not a shared-store filter. Under the hood, Java Project Panama and the Vector API deliver SIMD scoring with measured near-zero garbage-collection pressure, and no external database.
 
 ---
 
@@ -148,35 +154,35 @@ claude mcp add spector -- npx -y @spectrayan/spector mcp
 
 ## 📐 Mathematical Foundation
 
-Spector Cognitive Memory is built on a mathematically rigorous foundation modeling biological memory encoding and retrieval dynamics.
+Every stored trace is a fixed record:
 
-### Ingestion: **Remember**
+$$m = \bigl(\vec{v}_m,\ \tau_m,\ V_m,\ I_m,\ t_m,\ k_m\bigr)$$
 
-When a new memory $m$ is ingested, Spector initializes its state vector with fused importance scoring:
+embedding, tag Bloom, valence, base importance, write time, recall count.
 
-$$\mathbf{S}_m(t_0) = \langle \vec{v}_m, \text{Bloom}(T_m), V_m, I_m(t_0), R_m(t_0) \rangle$$
+**Decay** (power-law, bucketed lookup in the hot loop):
 
-$$\text{where } I_m(t_0) = \omega_s \cdot \left(1 - e^{-\lambda \cdot \|\vec{v}_m - \vec{\mu}_t\|^2}\right) + \omega_p \cdot \text{Salience}(m)$$
+$$D(t, k) = \max\bigl(D_{\min},\; a \cdot t_{\mathrm{eff}}^{\;-d}\bigr), \quad t_{\mathrm{eff}} = \mathrm{bucket}(t) \gg k$$
 
-📖 **[Read the Ingestion Mathematics deep-dive &rarr;](https://spectrayan.com/blog/mathematics-of-ai-memory-ingestion-remember-pipeline)**
+with $d = 0.15$, $D_{\min} = 0.10$.
 
-### Retrieval: **Recall**
+**Rank** (after live-bit, tag-containment, and valence-range gates):
 
-Recall dynamically decays importance over time using Bjork & Bjork retrieval strength dynamics and applies emotional valence state-dependent constraints in a single SIMD pass:
+$$\mathrm{score}(q, m) = \alpha\,\mathrm{sim}(q, \vec{v}_m) + \beta\,I_m\,D(t - t_m,\; k_m)$$
 
-$$\text{FusedScore}(m, \vec{q}) = \left[ \alpha \cdot \text{Cos}(\vec{q}, \vec{v}_m) + \beta \cdot I_m(t) \cdot e^{-\delta \cdot \frac{t - t_m}{R_m(t)}} + \gamma \cdot \frac{|\text{Bloom}(T_q) \cap \text{Bloom}(T_m)|}{\text{BitCount}(\text{Bloom}(T_q))} \right] \cdot \left( 1.0 - \eta \cdot \frac{|V_q - V_m|}{255} \right)$$
+**Association** (after top-$K$, not inside the SIMD product): neighbours on the co-activation graph enter with $\mathrm{score} \times 0.3$, then temporal and entity hops.
 
-📖 **[Read the Retrieval Mathematics deep-dive &rarr;](https://spectrayan.com/blog/mathematics-of-ai-memory-retrieval-recall-pipeline)**
+Similarity is dense retrieval. Decay and importance change what remains reachable. The graph walk changes what else is admitted. That is the whole distinction from a vector store. Details and parameters: [scoring-pipeline.md](https://spectrayan.github.io/spector/memory/scoring-pipeline/) and [MF-001](https://github.com/spectrayan/memory-fundamentals).
 
 ---
 
 ## System Architecture & Data Flow
 
-Spector is structured around a modular, biologically-inspired architecture designed to bridge low-level bare-metal SIMD operations with high-level agent orchestration:
+Spector is structured as a modular four-tier engine: a sealed off-heap kernel, graph-backed association, and in-process MCP between the SIMD path and the agent runtime:
 *   **Nucleus (Foundation)**: Core configurations, off-heap storage layouts (Panama MemorySegment), and standard utilities.
-*   **Memory (Cognitive Engine)**: The flagship hybrid retrieval and cognitive memory system combining dense vector, sparse (SPLADE/Li-LSR), keyword (BM25), 3-layer cognitive graph, and sleep consolidation pipelines.
+*   **Memory (Cognitive Engine)**: The flagship hybrid retrieval and cognitive memory system combining dense vector, sparse (SPLADE/Li-LSR), keyword (BM25), association graphs, and consolidation pipelines.
 *   **Synapse (Gateway & APIs)**: Spring Boot entry points, Armeria-based REST/gRPC gateways, and stdio/HTTP Model Context Protocol (MCP) servers.
-*   **Cortex (UI)**: Three.js and Angular-powered neural dashboard for real-time visualization of memory graphs, decay, and search metrics.
+*   **Cortex (UI)**: Three.js and Angular-powered observability dashboard for real-time visualization of memory graphs, decay, and search metrics.
 
 For a comprehensive analysis of the system architecture, data flows, thread scheduling model, and detailed Mermaid diagrams, see the **[Architecture Overview Docs](https://spectrayan.github.io/spector/architecture/overview/)**.
 
@@ -184,7 +190,7 @@ For a comprehensive analysis of the system architecture, data flows, thread sche
 
 ## 🤖 MCP-Native — Built for AI Agents
 
-Spector is an **MCP-native cognitive memory** — not an afterthought adapter. The MCP server runs **in-process** with the memory system (zero network, zero serialization), giving agents direct SIMD-accelerated access to 16 tools across memory storage, recall, and introspection.
+Spector is an **MCP-native cognitive memory engine** — not an afterthought adapter. The MCP server runs **in-process** with the memory system (zero network, zero serialization), giving agents direct SIMD-accelerated access to 16 tools across memory storage, recall, and introspection.
 
 ### Why MCP-Native Matters
 
@@ -192,7 +198,7 @@ Spector is an **MCP-native cognitive memory** — not an afterthought adapter. T
 |:---|:---|:---|
 | **Architecture** | Memory + MCP in one JVM | Python wrapper → HTTP → DB |
 | **Memory recall** | **Ultra-low latency** (fused scoring) | 50–200ms (Mem0/Letta/Zep) |
-| **Tools** | **16** (cognitive memory tools) | 3–5 basic CRUD |
+| **Tools** | **16** (memory, recall, introspection) | 3–5 basic CRUD |
 | **Cognitive features** | Decay, Hebbian, consolidation, valence | Key-value store |
 | **GC pressure** | **Zero** (Panama off-heap) | Full GC overhead |
 
@@ -200,15 +206,15 @@ Spector is an **MCP-native cognitive memory** — not an afterthought adapter. T
 
 ## 🧠 Cognitive Memory — AI Agents That Actually Remember
 
-Spector Memory is a **biologically-inspired cognitive memory system** that gives AI agents the ability to **remember**, **forget**, **consolidate**, and **associate** — with microsecond latency and zero garbage collection pressure.
+Spector Memory gives AI agents a cognitive memory layer that can **remember**, **forget**, **consolidate**, and **associate** — with sub-millisecond in-process recall and measured near-zero garbage-collection pressure.
 
 | Capability | What it does |
 |:---|:---|
-| 🧠 **4-Tier Cortex** | Working → Episodic → Semantic → Procedural memory |
+| **Four memory tiers** | Working → Episodic → Semantic → Procedural |
 | ⚡ **Ultra-Fast Recall** | Sub-millisecond in-process execution (vs. 50–200ms for Mem0/Letta/Zep) |
 | 🔗 **Fused SIMD Scoring** | Similarity × importance × decay in a single pass — no truncation trap |
-| 🛏️ **Sleep Consolidation** | Hippocampus-inspired pruning and partition rebuild |
-| 😱 **Emotional Valence** | Amygdala-driven positive/negative/neutral tagging |
+| 🛏️ **Offline Consolidation** | Demote or drop low-utility traces, rebuild partitions |
+| 😱 **Valence Weighting** | Signed valence weight in the recall score |
 | 🚫 **Zero GC** | 100% off-heap Panama storage (≤0.01% overhead measured) |
 
 > 📖 **[Full Cognitive Memory Documentation →](https://spectrayan.github.io/spector/memory/)**
@@ -219,8 +225,8 @@ Spector Memory is a **biologically-inspired cognitive memory system** that gives
 
 | Capability | What makes it different |
 |:---|:---|
-| 🧠 **Cognitive memory tiers** | Working → Episodic → Semantic → Procedural, with decay, consolidation, and emotional valence — memory that behaves like memory, not a key-value store |
-| 🔗 **Associative memory graphs** | Hebbian co-activation, temporal chains, and event-episode hyperedges — recall surfaces what's *related*, not just what matches |
+| 🧠 **Cognitive memory tiers** | Working → Episodic → Semantic → Procedural, with decay, consolidation, and valence — memory that behaves like memory, not a key-value store |
+| 🔗 **Associative memory graphs** | Co-activation, temporal, and entity edges — recall surfaces what is *related*, not only what matches |
 | 🤖 **In-process MCP server** | Cognitive tools over stdio + Streamable HTTP — agents call memory directly, zero network hops |
 | ⚡ **Fused SIMD scoring** | Similarity × importance × decay in one pass — ultra-fast in-process fused recall |
 | 🔍 **Hybrid retrieval** | Dense + sparse + late-interaction reranking, fused with RRF, with graceful degradation |

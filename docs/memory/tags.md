@@ -1,17 +1,15 @@
 ---
-title: "Synapse — Tags & Cognitive Scoring"
+title: "Tags and Bloom Gating"
 description: "The 64-byte cache-line-aligned pure encoding header, 128-bit inline Bloom filter, arousal-modulated decay, and power-law forgetting curves."
 ---
 
-# 🔗 Synapse — Tags & Cognitive Scoring
-
-> **Biological Analog**: In neuroscience, the **Synaptic Tagging and Capture (STC)** hypothesis (Frey & Morris, 1997) describes how synapses are "tagged" during learning with lightweight chemical markers. These tags identify *what* the memory is about and *when* it was formed, enabling the brain to route consolidation activity efficiently.
+# Tags and Bloom Gating
 
 ---
 
 ## 64-Byte Pure Encoding Header (V2)
 
-Every cognitive memory record begins with a synaptic header — the digital equivalent of a biological synaptic tag. The header is strictly aligned to a full **CPU cache line** (64 bytes) for optimal sequential scan performance.
+Every cognitive memory record begins with an encoding header. The header is strictly aligned to a full **CPU cache line** (64 bytes) for optimal sequential scan performance.
 
 ```mermaid
 graph LR
@@ -207,5 +205,5 @@ Every time a memory is explicitly reinforced by an agent or user (`client.memory
 
 - :material-lightning-bolt: [**The 6-Phase Scoring Pipeline**](scoring-pipeline.md) — hot-loop SIMD scoring
 - :material-memory: [**Memory Kernel Layouts**](../kernel/layouts.md) — byte-level layout specifications
-- :material-head-cog: [**Dopamine — Surprise Detection**](dopamine.md) — Bayesian surprise and flashbulb memories
-- :material-brain: [**Cortex — 4-Tier Memory**](cortex.md) — 4 cognitive memory tiers
+- :material-head-cog: [**Dopamine — Surprise Detection**](novelty.md) — Bayesian surprise and flashbulb memories
+- :material-brain: [**Cortex — 4-Tier Memory**](tiers.md) — 4 cognitive memory tiers

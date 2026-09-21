@@ -56,15 +56,15 @@ graph TB
 
 | System | Brain Region | Key Concept | Spector Implementation | Reference |
 |---|---|---|---|---|
-| [**Cortex**](cortex.md) | Prefrontal, Hippocampus, Neocortex, Basal Ganglia | Multi-store memory model | 4-tier off-heap stores (Working, Episodic, Semantic, Procedural) | Atkinson & Shiffrin, 1968[^1]; Baddeley, 2000[^21]; McClelland et al., 1995[^20] |
-| [**Synapse**](synapse.md) | Synaptic junction | Synaptic tagging & capture | 128-bit Bloom filter tag encoding, 64B binary EncodingHeader | Frey & Morris, 1997[^2] |
-| [**Dopamine**](dopamine.md) | Ventral tegmental area | Prediction error signaling | Welford Z-score surprise detection, flashbulb encoding | Schultz, 1997[^3] |
-| [**Amygdala**](amygdala.md) | Amygdala | Emotional memory modulation | Signed valence byte (-128 to +127), emotional filtering | McGaugh, 2004[^4] |
-| [**4-Layer Graph**](hebbian.md) | Cortical networks, Hippocampus | Hebbian learning, STDP, episodic sequences | Off-heap HebbianGraph, EntityGraph, TemporalChain, HyperEntityGraph | Hebb, 1949[^5]; Bi & Poo, 2001[^6] |
+| [**Cortex**](tiers.md) | Prefrontal, Hippocampus, Neocortex, Basal Ganglia | Multi-store memory model | 4-tier off-heap stores (Working, Episodic, Semantic, Procedural) | Atkinson & Shiffrin, 1968[^1]; Baddeley, 2000[^21]; McClelland et al., 1995[^20] |
+| [**Synapse**](tags.md) | Synaptic junction | Synaptic tagging & capture | 128-bit Bloom filter tag encoding, 64B binary EncodingHeader | Frey & Morris, 1997[^2] |
+| [**Dopamine**](novelty.md) | Ventral tegmental area | Prediction error signaling | Welford Z-score surprise detection, flashbulb encoding | Schultz, 1997[^3] |
+| [**Amygdala**](valence.md) | Amygdala | Emotional memory modulation | Signed valence byte (-128 to +127), emotional filtering | McGaugh, 2004[^4] |
+| [**4-Layer Graph**](association-graph.md) | Cortical networks, Hippocampus | Hebbian learning, STDP, episodic sequences | Off-heap HebbianGraph, EntityGraph, TemporalChain, HyperEntityGraph | Hebb, 1949[^5]; Bi & Poo, 2001[^6] |
 | [**Habituation**](habituation.md) | Sensory cortex | Response decrement to repetition | Exponential penalty on repeated recall | Thompson & Spencer, 1966[^7] |
 | [**Inhibition**](inhibition.md) | Prefrontal cortex | Inhibition of return | SuppressionSet with TTL-based suppression windows | Klein, 2000[^8] |
 | [**Interference**](interference.md) | Hippocampus | Proactive/retroactive interference | Similarity-based deduplication during ingestion | Underwood, 1957[^9] |
-| [**Hippocampus**](hippocampus.md) | Hippocampus | Sleep consolidation & replay | ReflectPathway: 9-relay sleep cycle, soul-drift re-fusion, episodic log consolidation | Rasch & Born, 2013[^10] |
+| [**Hippocampus**](consolidation.md) | Hippocampus | Sleep consolidation & replay | ReflectPathway: 9-relay sleep cycle, soul-drift re-fusion, episodic log consolidation | Rasch & Born, 2013[^10] |
 | [**Prospective**](prospective.md) | Prefrontal cortex | Prospective memory | Scheduled future intent reminders | Einstein & McDaniel, 1990[^11] |
 | [**Metamemory**](metamemory.md) | Prefrontal cortex | Metacognitive monitoring | Confidence calibration, recall quality estimation | Nelson & Narens, 1990[^12] |
 | [**Sync**](sync.md) | — (engineering) | Persistence & replication | WAL + mmap-backed partitions | — |
@@ -172,7 +172,7 @@ Where $n$ is the number of times the memory appeared in recent results and $\gam
 
     Working, Episodic, Semantic, and Procedural memory tiers
 
-    [:octicons-arrow-right-24: Cortex](cortex.md)
+    [:octicons-arrow-right-24: Cortex](tiers.md)
 
 -   :material-flash:{ .lg .middle } **Synapse — Tags & Scoring**
 
@@ -180,7 +180,7 @@ Where $n$ is the number of times the memory appeared in recent results and $\gam
 
     Bloom filter encoding, binary layout, 6-phase scorer
 
-    [:octicons-arrow-right-24: Synapse](synapse.md)
+    [:octicons-arrow-right-24: Synapse](tags.md)
 
 -   :material-head-lightning-bolt:{ .lg .middle } **Dopamine — Surprise**
 
@@ -188,7 +188,7 @@ Where $n$ is the number of times the memory appeared in recent results and $\gam
 
     Welford Z-score, flashbulb encoding, importance scoring
 
-    [:octicons-arrow-right-24: Dopamine](dopamine.md)
+    [:octicons-arrow-right-24: Dopamine](novelty.md)
 
 -   :material-heart:{ .lg .middle } **Amygdala — Valence**
 
@@ -196,7 +196,7 @@ Where $n$ is the number of times the memory appeared in recent results and $\gam
 
     Emotional coloring, valence-based filtering
 
-    [:octicons-arrow-right-24: Amygdala](amygdala.md)
+    [:octicons-arrow-right-24: Amygdala](valence.md)
 
 -   :material-share-variant:{ .lg .middle } **4-Layer Cognitive Graph**
 
@@ -204,7 +204,7 @@ Where $n$ is the number of times the memory appeared in recent results and $\gam
 
     Hebbian, Entity-Relationship, Temporal Causal, and Event-Episode graphs
 
-    [:octicons-arrow-right-24: Cognitive Graph](hebbian.md)
+    [:octicons-arrow-right-24: Cognitive Graph](association-graph.md)
 
 -   :material-sleep:{ .lg .middle } **Hippocampus — Consolidation**
 
@@ -212,7 +212,7 @@ Where $n$ is the number of times the memory appeared in recent results and $\gam
 
     Sleep cycles, decay, episodic-to-semantic promotion
 
-    [:octicons-arrow-right-24: Hippocampus](hippocampus.md)
+    [:octicons-arrow-right-24: Hippocampus](consolidation.md)
 
 </div>
 

@@ -1,17 +1,15 @@
 ---
-title: "Hippocampus — Sleep Consolidation"
+title: "Offline Consolidation"
 description: "How Spector consolidates episodic memories into semantic knowledge during 'sleep' — K-Means clustering, tombstone compaction, and partition rebuild."
 ---
 
-# 🛏️ Hippocampus — Sleep Consolidation
-
-> **Biological Analog**: During sleep, the **hippocampus replays** episodic memory traces to the neocortex, gradually transferring knowledge from episode-specific to generalized semantic form. This is called **systems consolidation**. Simultaneously, **synaptic pruning** weakens unused connections — the brain's garbage collector.
+# Offline Consolidation
 
 ---
 
 ## The Two Mechanisms
 
-### 1. Sleep Consolidation — Episodic → Semantic Promotion
+### 1. Offline Consolidation — Episodic → Semantic Promotion
 
 The consolidation daemon performs K-Means clustering on episodic memories to extract semantic knowledge:
 
@@ -180,6 +178,6 @@ This report is logged, monitored, and exposed via the introspection API and Micr
 
 ## Next Steps
 
-- :material-brain: [**Cortex — Tier Stores**](cortex.md) — the 4-tier architecture
-- :material-flash: [**Synapse — Tags & Scoring**](synapse.md) — the 64-byte header
-- :material-head-cog: [**Dopamine — Surprise Detection**](dopamine.md) — auto-importance scoring
+- :material-brain: [**Cortex — Tier Stores**](tiers.md) — the 4-tier architecture
+- :material-flash: [**Synapse — Tags & Scoring**](tags.md) — the 64-byte header
+- :material-head-cog: [**Dopamine — Surprise Detection**](novelty.md) — auto-importance scoring

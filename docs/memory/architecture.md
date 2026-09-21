@@ -12,11 +12,11 @@ description: "High-level architecture, cognitive data flow, and subsystem compos
 ## Architectural Overview
 
 Spector Memory organizes cognitive capabilities around principled cognitive subsystems:
-- **Hippocampal Consolidation**: Sleep replay and episodic-to-semantic memory transfer.
-- **Prefrontal Working Memory**: High-speed circular workspace for active reasoning.
-- **Basal Ganglia**: Procedural memory for learned operational rules.
+- **Offline Consolidation**: Sleep replay and episodic-to-semantic memory transfer.
+- **Working Memory tier**: High-speed circular workspace for active reasoning.
+- **Procedural Memory tier**: Procedural memory for learned operational rules.
 - **Hebbian Synaptic Plasticity**: Long-Term Potentiation (LTP) and co-activation graphs.
-- **Dopaminergic Surprise**: Bayesian surprise detection triggering flashbulb memory consolidation.
+- **Novelty detection**: Bayesian surprise detection triggering flashbulb memory consolidation.
 - **Amygdala Valence**: Affective coloring influencing retention and decay rates.
 
 ```mermaid
@@ -309,6 +309,6 @@ Client applications connect to the cognitive architecture through our multi-lang
 ## Next Steps
 
 - :material-lightning-bolt: [**The 6-Phase Scoring Pipeline**](scoring-pipeline.md) — hot-loop scoring architecture
-- :material-brain: [**Cortex — 4-Tier Memory**](cortex.md) — Working, Episodic, Semantic, and Procedural tiers
-- :material-share-variant: [**Hebbian Associative Graph**](hebbian.md) — 4-layer cognitive graph architecture
+- :material-brain: [**Cortex — 4-Tier Memory**](tiers.md) — Working, Episodic, Semantic, and Procedural tiers
+- :material-share-variant: [**Hebbian Associative Graph**](association-graph.md) — 4-layer cognitive graph architecture
 - :material-memory: [**Memory Kernel**](../kernel/index.md) — sealed off-heap storage and bundle containers

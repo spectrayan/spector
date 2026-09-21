@@ -1,11 +1,9 @@
 ---
-title: "4-Layer Cognitive Graph"
+title: "Association Graph"
 description: "HebbianGraphMemory, TemporalChainMemory, HyperEntityGraphMemory, and the Cross-Capture Graph — four cognitive graph structures that augment vector recall with associative, temporal, hyperedge, and tag co-occurrence signals."
 ---
 
-# 🧠 4-Layer Cognitive Graph
-
-> **Biological Analog**: The brain doesn't retrieve memories by content similarity alone. It uses **associative networks** (neurons that fire together wire together), **temporal sequences** (what happened next?), **n-body event groupings** (multi-entity episodes), and **synaptic tag cross-capture** (conceptually linked contexts). Spector Memory implements all four as graph structures that augment vector recall, supported by a central EntityDirectory.
+# Association Graph
 
 ---
 
@@ -437,5 +435,5 @@ Graph expansion occurs during the later stages of the `RecallPipeline`. After ve
 
 - :material-lightning-bolt: [**6-Phase Scoring Pipeline**](scoring-pipeline.md) — the SIMD hot-loop that produces the seed set
 - :material-sleep: [**Habituation — Anti-Filter Bubble**](habituation.md) — preventing repetitive recall
-- :material-head-cog: [**Dopamine — Surprise Detection**](dopamine.md) — auto-importance scoring
+- :material-head-cog: [**Dopamine — Surprise Detection**](novelty.md) — auto-importance scoring
 - :material-brain: [**Architecture**](architecture.md) — how graphs fit in the full pipeline

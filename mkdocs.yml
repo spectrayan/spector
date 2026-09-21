@@ -1,5 +1,5 @@
 site_name: Spector Documentation
-site_description: "Spector — Zero-Overhead, Agent-Ready AI Cognitive Memory Backbone. Dense vector similarity, BM25 text matching, SPLADE sparse retrieval, Hebbian graph structures, and multi-tier cognitive memory."
+site_description: "Spector — cognitive memory engine for AI agents. Four-tier store, association-graph recall, sub-millisecond scoring, no external database."
 site_url: https://spectrayan.github.io/spector/
 repo_url: https://github.com/spectrayan/spector
 repo_name: spectrayan/spector
@@ -157,47 +157,53 @@ nav:
   - Cognitive Memory:
       - Overview: memory/index.md
       - Getting Started: memory/getting-started.md
-      - "Use Cases & Configuration": memory/use-cases.md
+      - Use Cases: memory/use-cases.md
       - API Reference: memory/api-reference.md
-      - Architecture: memory/architecture.md
-      - The 6-Phase Scoring Pipeline: memory/scoring-pipeline.md
-      - "Scoring Regimes & Fusion Modes": memory/scoring-regimes.md
-      - "Active Inference Self-Model Engine (AISME)": memory/aisme.md
-      - "Generative Dreaming & Thought Experiments": memory/dreaming.md
-      - "Constructive Simulation & Provenance": memory/constructive-memory.md
-      - "Theoretical Foundations": memory/theoretical-foundations.md
-      - "Retrieval Stack":
-          - Overview: memory/retrieval-overview.md
-          - "Keyword Retrieval (BM25)": memory/bm25.md
-          - "Learned Sparse Search (SPLADE)": memory/splade.md
-          - "Late-Interaction Reranking (ColBERT v2)": memory/colbert.md
-      - Cognitive Profiles:
+      - Concepts:
+          - Four memory tiers: memory/tiers.md
+          - Recall scoring: memory/scoring-pipeline.md
+          - Scoring regimes: memory/scoring-regimes.md
+          - Association graph: memory/association-graph.md
+          - Retrieval stack:
+              - Overview: memory/retrieval-overview.md
+              - Keyword (BM25): memory/bm25.md
+              - Learned sparse (SPLADE): memory/splade.md
+              - Late interaction (ColBERT): memory/colbert.md
+      - Pathways:
+          - Remember, Recall, Reflect: memory/architecture.md
+          - Offline consolidation: memory/consolidation.md
+      - Scoring features:
+          - Tags and Bloom gating: memory/tags.md
+          - Valence: memory/valence.md
+          - Novelty detection: memory/novelty.md
+          - Habituation: memory/habituation.md
+          - Inhibition: memory/inhibition.md
+          - Dedup and interference: memory/interference.md
+          - Importance fusion: memory/importance-fusion.md
+          - Salience profiles: memory/salience-importance.md
+      - Profiles:
           - Overview: memory/cognitive-profiles.md
-          - "Self-Tuning Adaptor": memory/profile-adaptor.md
-          - "Focus Mode": memory/focus-mode.md
-          - "Explorer — Lateral Retrieval": memory/lateral-retrieval.md
-          - "Importance Fusion (ICNU)": memory/importance-fusion.md
-      - "Salience & Importance":
-          - "Salience & Persona Profiles": memory/salience-importance.md
-      - Cognitive Subsystems:
-          - Overview: memory/cognitive-systems.md
-          - "Cortex — 4-Tier Memory": memory/cortex.md
-          - "Hippocampus — Sleep Consolidation": memory/hippocampus.md
-          - "Synapse — Tags & Scoring": memory/synapse.md
-          - "Dopamine — Surprise Detection": memory/dopamine.md
-          - "Amygdala — Emotional Valence": memory/amygdala.md
-          - "4-Layer Cognitive Graph": memory/hebbian.md
-          - "Habituation — Anti-Filter Bubble": memory/habituation.md
-          - "Inhibition — Suppression": memory/inhibition.md
-          - "Interference — Deduplication": memory/interference.md
-          - "Prospective — Future Intents": memory/prospective.md
-          - "Metamemory — Self-Reflection": memory/metamemory.md
-          - "Sync — Persistence & Replication": memory/sync.md
-      - Performance & Internals:
-          - "Performance & SIMD": memory/performance.md
-          - "Off-Heap Panama Design": memory/panama-design.md
-          - "WAL Design": memory/wal-design.md
-      - Cognitive Evaluation: memory/evaluation.md
+          - Self-tuning adaptor: memory/profile-adaptor.md
+          - Focus mode: memory/focus-mode.md
+          - Explorer (lateral retrieval): memory/lateral-retrieval.md
+      - Experimental:
+          - Overview: memory/experimental.md
+          - AISME (persona and affect): memory/aisme.md
+          - Dream: memory/dreaming.md
+          - Wander: memory/wander.md
+          - Decide: memory/decide.md
+          - Express: memory/express.md
+          - Constructive simulation: memory/constructive-memory.md
+          - Prospective intents: memory/prospective.md
+          - Metamemory: memory/metamemory.md
+      - Internals:
+          - Architecture: memory/architecture.md
+          - Performance and SIMD: memory/performance.md
+          - Off-heap Panama: memory/panama-design.md
+          - WAL: memory/wal-design.md
+          - Sync and replication: memory/sync.md
+          - Evaluation: memory/evaluation.md
+      - Design ancestry: memory/theoretical-foundations.md
 
   # Tab 4: Memory Kernel — zero-GC Panama FFM storage backbone (NEW TAB!)
   - "Memory Kernel":
@@ -225,7 +231,6 @@ nav:
       - GPU Acceleration: architecture/gpu-acceleration.md
       - Performance Tuning: operations/performance-tuning.md
       - Test Framework & LLM Judge: architecture/test-framework.md
-      - "AISME Verification Report": architecture/aisme-completeness-verification-report.md
       - Security & Data:
           - "Encryption at Rest": architecture/encryption-at-rest.md
       - "Architecture Decision Records (ADRs)":
