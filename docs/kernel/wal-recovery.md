@@ -55,7 +55,9 @@ namespaces/{namespace_id}/
 ```
 
 1. **Monotonic Sequences**: Every WAL event is tagged with a strictly increasing 64-bit sequence counter ($1, 2, 3, \dots, N$), establishing a total global order across all operations in a namespace.
+
 2. **Chunk Rolling**: When the active write chunk reaches the configured maximum file threshold (default: 8 MB), it is fsync-committed and closed. A new chunk is opened with the next sequential index.
+
 3. **Compaction & Archival**: When an episodic partition bundle is sealed or when a baseline memory snapshot is saved, WAL chunks prior to the snapshot's high-water mark can be pruned or archived to cold object storage.
 
 ---
@@ -146,6 +148,9 @@ sequenceDiagram
 ```
 
 1. **Checksum Verification**: The scanner validates the CRC-32 hash of every record before evaluating the payload. A damaged record caused by sudden power loss mid-write is detected instantly.
+
 2. **Torn Write Truncation**: If the final record in the active chunk is truncated due to a power loss, the recovery engine rolls back to the last valid verified record boundary, preventing corruption of pre-allocated bundles.
+
 3. **State Re-establishment**: Events are re-applied to the bundle memory slices, restoring engram counts, graph weights, and the sequence counter.
+
 4. **Warming Replay**: Frequently accessed vector segments and index pointers are touched during replay, warming the OS page cache before external client queries begin.

@@ -14,7 +14,7 @@ description: "Salience profile (ICNU weights, interest topics, modulation consta
 | **Bundle** | `identity.bundle` |
 | **Memory Shape** | Raw Payload (Managed by Bundle) |
 | **Layout Class** | N/A (Standard `IdentityBundle` region payload) |
-| **Store Class** | [`IdentityBundle`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/bundle/identity/IdentityBundle.java) |
+| **Store Class** | [`IdentityBundle`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/bundle/identity/IdentityBundle.java) |
 | **Record Stride** | Variable |
 | **Cache-Line Aligned** | Payload page-aligned initially |
 
@@ -36,7 +36,7 @@ description: "Salience profile (ICNU weights, interest topics, modulation consta
 
 *Payload specific parsing is delegated to higher-level domain models rather than strict layout structs in the memory kernel.*
 
-See [`IdentityRegionEntry`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/bundle/identity/IdentityRegionEntry.java) for metadata (offset, size, CRC32C, version).
+See [`IdentityRegionEntry`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/bundle/identity/IdentityRegionEntry.java) for metadata (offset, size, CRC32C, version).
 
 ## Access Patterns & Concurrency
 
@@ -48,4 +48,4 @@ Holds dynamic prioritization and attention filters for an entity. Defines ICNU (
 
 ## Related
 
-- [IdentityBundle (Store)](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/bundle/identity/IdentityBundle.java)
+- [IdentityBundle (Store)](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/bundle/identity/IdentityBundle.java)

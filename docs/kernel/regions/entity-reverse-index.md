@@ -37,4 +37,4 @@ Planned support for fast entity-to-memory reverse projections, mapping explicit 
 
 ## Related
 
-- [RegionPreamble](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/region/RegionPreamble.java)
+- [RegionPreamble](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/region/RegionPreamble.java)

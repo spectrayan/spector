@@ -14,7 +14,7 @@ description: "Tenant compliance policies, governance floors, and domain constrai
 | **Bundle** | `identity.bundle` |
 | **Memory Shape** | Raw Payload (Managed by Bundle) |
 | **Layout Class** | N/A (Standard `IdentityBundle` region payload) |
-| **Store Class** | [`IdentityBundle`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/bundle/identity/IdentityBundle.java) |
+| **Store Class** | [`IdentityBundle`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/bundle/identity/IdentityBundle.java) |
 | **Record Stride** | Variable |
 | **Cache-Line Aligned** | Payload page-aligned initially |
 
@@ -46,4 +46,4 @@ Acts as the governance boundary for an identity context, strictly imposing floor
 
 ## Related
 
-- [IdentityBundle (Store)](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/bundle/identity/IdentityBundle.java)
+- [IdentityBundle (Store)](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/bundle/identity/IdentityBundle.java)

@@ -14,8 +14,8 @@ description: "Episodic→Semantic lineage tracking and verification"
 |:---|:---|
 | **Bundle** | `runtime.bundle` |
 | **Memory Shape** | RecordMemory |
-| **Layout Class** | [`ProvenanceLayout`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/ProvenanceLayout.java) |
-| **Store Class** | [`ProvenanceMemory`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/ProvenanceMemory.java) |
+| **Layout Class** | [`ProvenanceLayout`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/ProvenanceLayout.java) |
+| **Store Class** | [`ProvenanceMemory`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/ProvenanceMemory.java) |
 | **Record Stride** | 72 bytes |
 | **Cache-Line Aligned** | No |
 
@@ -88,4 +88,4 @@ Acts as the episodic→semantic audit log. It maps extracted knowledge back to t
 
 ## Related
 
-- [RegionPreamble](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/region/RegionPreamble.java)
+- [RegionPreamble](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/region/RegionPreamble.java)

@@ -14,8 +14,8 @@ description: "Interned entity type symbols (person, organization, location, etc.
 |:---|:---|
 | **Bundle** | `runtime.bundle` |
 | **Memory Shape** | RegistryMemory |
-| **Layout Class** | [`RegistryLayout`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/RegistryLayout.java) |
-| **Store Class** | [`RegistryMemory`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/shape/RegistryMemory.java) |
+| **Layout Class** | [`RegistryLayout`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/RegistryLayout.java) |
+| **Store Class** | [`RegistryMemory`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/shape/RegistryMemory.java) |
 | **Record Stride** | 0 bytes (variable-length) |
 | **Cache-Line Aligned** | No |
 
@@ -43,4 +43,4 @@ Interns entity type symbols (e.g., person, organization, location) to integer or
 
 ## Related
 
-- [RegionPreamble](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/region/RegionPreamble.java)
+- [RegionPreamble](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/region/RegionPreamble.java)

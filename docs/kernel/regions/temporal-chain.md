@@ -13,8 +13,8 @@ description: "Memory layout for nodes in the temporal causal chain."
 |:---|:---|
 | **Bundle** | `runtime.bundle` |
 | **Memory Shape** | ChainMemory |
-| **Layout Class** | [`TemporalLayout`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/TemporalLayout.java) |
-| **Store Class** | [`TemporalChainMemory`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/TemporalChainMemory.java) |
+| **Layout Class** | [`TemporalLayout`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/TemporalLayout.java) |
+| **Store Class** | [`TemporalChainMemory`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/TemporalChainMemory.java) |
 | **Record Stride** | 16 bytes |
 | **Cache-Line Aligned** | No |
 

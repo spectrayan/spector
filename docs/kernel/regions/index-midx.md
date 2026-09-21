@@ -13,8 +13,8 @@ description: "Memory layout for the index entry slot table (48 bytes fixed size,
 |:---|:---|
 | **Bundle** | `runtime.bundle` |
 | **Memory Shape** | RecordMemory |
-| **Layout Class** | [`IndexEntryLayout`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/IndexEntryLayout.java) |
-| **Store Class** | [`IndexEntryMemory`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/IndexEntryMemory.java) |
+| **Layout Class** | [`IndexEntryLayout`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/IndexEntryLayout.java) |
+| **Store Class** | [`IndexEntryMemory`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/IndexEntryMemory.java) |
 | **Record Stride** | 48 bytes |
 | **Cache-Line Aligned** | No (48B, 8B aligned) |
 

@@ -13,8 +13,8 @@ description: "Identity continuity trajectory and narrative history."
 |:---|:---|
 | **Bundle** | `identity.bundle` (also present in `runtime.bundle` as Region 25) |
 | **Memory Shape** | RECORD |
-| **Layout Class** | [`ContinuityLayout`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/ContinuityLayout.java) |
-| **Store Class** | [`ContinuityMemory`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/ContinuityMemory.java) |
+| **Layout Class** | [`ContinuityLayout`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/ContinuityLayout.java) |
+| **Store Class** | [`ContinuityMemory`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/ContinuityMemory.java) |
 | **Record Stride** | 32 bytes |
 | **Cache-Line Aligned** | Yes (64B Preamble) |
 
@@ -83,4 +83,4 @@ Longitudinal identity cohesion tracker. Monitors identity drift, state deltas, a
 
 ## Related
 
-- [ContinuityMemory Java Store](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/ContinuityMemory.java)
+- [ContinuityMemory Java Store](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/ContinuityMemory.java)

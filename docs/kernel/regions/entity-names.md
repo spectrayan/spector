@@ -13,7 +13,7 @@ description: "A simple RegionLayout implementation for registries."
 |:---|:---|
 | **Bundle** | `runtime.bundle` |
 | **Memory Shape** | RegistryMemory |
-| **Layout Class** | [`RegistryLayout`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/RegistryLayout.java) |
+| **Layout Class** | [`RegistryLayout`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/RegistryLayout.java) |
 | **Store Class** | `RegistryMemory` based |
 | **Record Stride** | Variable |
 | **Cache-Line Aligned** | No |

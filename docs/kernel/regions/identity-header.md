@@ -13,8 +13,8 @@ description: "Magic, schema version, and 16-entry region directory for Identity 
 |:---|:---|
 | **Bundle** | `identity.bundle` |
 | **Memory Shape** | BUNDLE |
-| **Layout Class** | [`IdentityBundleHeader`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/bundle/identity/IdentityBundleHeader.java), [`IdentityRegionEntry`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/bundle/identity/IdentityRegionEntry.java) |
-| **Store Class** | [`IdentityBundle`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/bundle/identity/IdentityBundle.java) |
+| **Layout Class** | [`IdentityBundleHeader`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/bundle/identity/IdentityBundleHeader.java), [`IdentityRegionEntry`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/bundle/identity/IdentityRegionEntry.java) |
+| **Store Class** | [`IdentityBundle`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/bundle/identity/IdentityBundle.java) |
 | **Record Stride** | 64 bytes (Per Region Entry) |
 | **Cache-Line Aligned** | Yes (64B) |
 

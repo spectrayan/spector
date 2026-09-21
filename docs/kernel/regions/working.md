@@ -13,8 +13,8 @@ description: "Dedicated record layout for the Working memory tier (ADR-0030)."
 |:---|:---|
 | **Bundle** | `runtime.bundle` |
 | **Memory Shape** | RecordMemory |
-| **Layout Class** | [`WorkingLayout`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/WorkingLayout.java) |
-| **Store Class** | [`DefaultEngramMemory`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/DefaultEngramMemory.java) |
+| **Layout Class** | [`WorkingLayout`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/WorkingLayout.java) |
+| **Store Class** | [`DefaultEngramMemory`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/DefaultEngramMemory.java) |
 | **Record Stride** | 64 bytes (header) + quantized vector bytes |
 | **Cache-Line Aligned** | Yes (64B Header) |
 
@@ -79,5 +79,5 @@ Working memory tier representation, serving as the fast-access buffer for recent
 
 ## Related
 
-- [`WorkingHeaderLayout`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/engram/WorkingHeaderLayout.java)
-- [`EncodingHeaderFields`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/engram/field/EncodingHeaderFields.java)
+- [`WorkingHeaderLayout`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/engram/WorkingHeaderLayout.java)
+- [`EncodingHeaderFields`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/engram/field/EncodingHeaderFields.java)

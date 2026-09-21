@@ -13,8 +13,8 @@ description: "Off-heap Recall Audit Region storing mutable recall telemetry, LTP
 |:---|:---|
 | **Bundle** | `partition.bundle` |
 | **Memory Shape** | RecordMemory |
-| **Layout Class** | [`StrengthLayout`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/StrengthLayout.java) |
-| **Store Class** | [`StrengthMemory`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/StrengthMemory.java) |
+| **Layout Class** | [`StrengthLayout`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/StrengthLayout.java) |
+| **Store Class** | [`StrengthMemory`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/StrengthMemory.java) |
 | **Record Stride** | 96 bytes |
 | **Cache-Line Aligned** | No (32B Aligned) |
 
@@ -78,5 +78,5 @@ Highly concurrent. Telemetry fields use `VarHandle CAS` and `VarHandle Add` for 
 Separates mutable recall telemetry, Long-Term Potentiation (LTP) counters, Two-Factor storage strength, and ACT-R recall timestamp ring buffers from the read-mostly 64-byte encoding headers in other tiers. This prevents false sharing and CPU cache invalidation during sequential SIMD scoring, mapping all tiers (Semantic, Episodic, Procedural) via deterministic deterministic offsets.
 
 ## Related
-- [`StrengthLayout.java`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/StrengthLayout.java)
-- [`StrengthMemory.java`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/StrengthMemory.java)
+- [`StrengthLayout.java`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/StrengthLayout.java)
+- [`StrengthMemory.java`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/StrengthMemory.java)

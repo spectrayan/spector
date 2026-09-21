@@ -13,8 +13,8 @@ description: "Memory layout for 64-byte temporal fact records."
 |:---|:---|
 | **Bundle** | `runtime.bundle` |
 | **Memory Shape** | AppendMemory |
-| **Layout Class** | [`TemporalFactLayout`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/TemporalFactLayout.java) |
-| **Store Class** | [`TemporalFactsMemory`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/TemporalFactsMemory.java) |
+| **Layout Class** | [`TemporalFactLayout`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/TemporalFactLayout.java) |
+| **Store Class** | [`TemporalFactsMemory`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/TemporalFactsMemory.java) |
 | **Record Stride** | 64 bytes |
 | **Cache-Line Aligned** | Yes (64B) |
 

@@ -14,7 +14,7 @@ description: "Namespace recovery checkpoint metadata"
 |:---|:---|
 | **Bundle** | `runtime.bundle` |
 | **Memory Shape** | RegionPreamble Only |
-| **Layout Class** | [`RegionPreamble`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/region/RegionPreamble.java) |
+| **Layout Class** | [`RegionPreamble`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/region/RegionPreamble.java) |
 | **Store Class** | N/A |
 | **Record Stride** | N/A |
 | **Cache-Line Aligned** | Yes (64B) |
@@ -78,4 +78,4 @@ Acts as the namespace recovery anchor, holding high-water marks and diagnostic m
 
 ## Related
 
-- [RegionPreamble](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/region/RegionPreamble.java)
+- [RegionPreamble](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/region/RegionPreamble.java)

@@ -13,8 +13,8 @@ description: "Memory layout for nodes/relations in the Hyper Entity Graph."
 |:---|:---|
 | **Bundle** | `runtime.bundle` |
 | **Memory Shape** | GraphMemory |
-| **Layout Class** | [`HyperEntityLayout`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/HyperEntityLayout.java) |
-| **Store Class** | [`HyperEntityGraphMemory`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/HyperEntityGraphMemory.java) |
+| **Layout Class** | [`HyperEntityLayout`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/HyperEntityLayout.java) |
+| **Store Class** | [`HyperEntityGraphMemory`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/HyperEntityGraphMemory.java) |
 | **Record Stride** | 32 bytes |
 | **Cache-Line Aligned** | No (32B) |
 

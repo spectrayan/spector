@@ -13,8 +13,8 @@ description: "Permanent factual knowledge store — stores full cognitive record
 |:---|:---|
 | **Bundle** | `partition.bundle` |
 | **Memory Shape** | RecordMemory |
-| **Layout Class** | [`SemanticLayout`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/SemanticLayout.java) |
-| **Store Class** | [`SemanticMemory`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/SemanticMemory.java) |
+| **Layout Class** | [`SemanticLayout`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/SemanticLayout.java) |
+| **Store Class** | [`SemanticMemory`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/SemanticMemory.java) |
 | **Record Stride** | 64 bytes + quantized vector bytes |
 | **Cache-Line Aligned** | Yes (64B Header) |
 
@@ -82,5 +82,5 @@ Written via SWMR (Single Writer Multiple Reader) with a ReentrantLock during sto
 The durable knowledge tier. Stores permanent, deduplicated facts consolidated from episodic memories during offline consolidation. Self-contained storage holds the 64-byte encoding header followed by the INT8 quantized vector payload in a single tier store file.
 
 ## Related
-- [`SemanticMemory.java`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/SemanticMemory.java)
-- [`EncodingHeaderFields.java`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/engram/field/EncodingHeaderFields.java)
+- [`SemanticMemory.java`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/SemanticMemory.java)
+- [`EncodingHeaderFields.java`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/engram/field/EncodingHeaderFields.java)

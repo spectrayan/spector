@@ -13,8 +13,8 @@ description: "Log-structured episodic conversation memory store."
 |:---|:---|
 | **Bundle** | `partition.bundle` |
 | **Memory Shape** | AppendMemory |
-| **Layout Class** | [`EpisodicLayout`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/EpisodicLayout.java) |
-| **Store Class** | [`EpisodicMemory`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/EpisodicMemory.java) |
+| **Layout Class** | [`EpisodicLayout`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/EpisodicLayout.java) |
+| **Store Class** | [`EpisodicMemory`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/EpisodicMemory.java) |
 | **Record Stride** | Variable |
 | **Cache-Line Aligned** | No (Variable log-structured framing) |
 
@@ -59,5 +59,5 @@ Log-structured append-only operations. Writes are locked via `ReentrantLock`. Re
 Acts as the episodic log of conversation turns. Every interaction is recorded sequentially. These experiences are later processed during offline consolidation and promoted into semantic and procedural stores.
 
 ## Related
-- [`EpisodicMemory.java`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/EpisodicMemory.java)
-- [`EpisodicLayout.java`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/EpisodicLayout.java)
+- [`EpisodicMemory.java`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/EpisodicMemory.java)
+- [`EpisodicLayout.java`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/EpisodicLayout.java)

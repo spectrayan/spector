@@ -13,8 +13,8 @@ description: "Memory layout descriptor for the co-activation tracker's compound 
 |:---|:---|
 | **Bundle** | `runtime.bundle` |
 | **Memory Shape** | HashTableMemory |
-| **Layout Class** | [`CoActivationLayout`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/CoActivationLayout.java) |
-| **Store Class** | [`CoActivationMemory`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/CoActivationMemory.java) |
+| **Layout Class** | [`CoActivationLayout`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/CoActivationLayout.java) |
+| **Store Class** | [`CoActivationMemory`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/CoActivationMemory.java) |
 | **Record Stride** | N/A (1 for compatibility) |
 | **Cache-Line Aligned** | No |
 

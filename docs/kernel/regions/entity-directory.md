@@ -13,8 +13,8 @@ description: "Memory layout for the kernel-substrate companion that owns entity 
 |:---|:---|
 | **Bundle** | `runtime.bundle` |
 | **Memory Shape** | RecordMemory (composite) |
-| **Layout Class** | [`EntityDirectoryLayout`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/EntityDirectoryLayout.java) |
-| **Store Class** | [`EntityDirectoryMemory`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/EntityDirectoryMemory.java) |
+| **Layout Class** | [`EntityDirectoryLayout`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/EntityDirectoryLayout.java) |
+| **Store Class** | [`EntityDirectoryMemory`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/EntityDirectoryMemory.java) |
 | **Record Stride** | 64 bytes (node) |
 | **Cache-Line Aligned** | Yes (64B) |
 

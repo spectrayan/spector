@@ -14,8 +14,8 @@ description: "Dynamic self-model container for agent state, confidence, and affe
 |:---|:---|
 | **Bundle** | `runtime.bundle` |
 | **Memory Shape** | Insular |
-| **Layout Class** | [`InsularLayout`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/InsularLayout.java) |
-| **Store Class** | [`InsulaMemory`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/InsulaMemory.java) |
+| **Layout Class** | [`InsularLayout`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/InsularLayout.java) |
+| **Store Class** | [`InsulaMemory`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/InsulaMemory.java) |
 | **Record Stride** | 0 bytes (variable-length single JSON blob) |
 | **Cache-Line Aligned** | No (Sub-header is 32B, sits at offset 64) |
 
@@ -58,4 +58,4 @@ The dynamic self-model container. It holds the agent's internal self-state, conf
 
 ## Related
 
-- [RegionPreamble](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/region/RegionPreamble.java)
+- [RegionPreamble](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/region/RegionPreamble.java)

@@ -13,8 +13,8 @@ description: "Self-model soul context (UserSoul, AgentSoul, or TenantSoul)."
 |:---|:---|
 | **Bundle** | `identity.bundle` |
 | **Memory Shape** | INSULAR |
-| **Layout Class** | [`InsularLayout`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/InsularLayout.java) |
-| **Store Class** | [`InsulaMemory`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/InsulaMemory.java) |
+| **Layout Class** | [`InsularLayout`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/InsularLayout.java) |
+| **Store Class** | [`InsulaMemory`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/InsulaMemory.java) |
 | **Record Stride** | Variable (Single JSON blob) |
 | **Cache-Line Aligned** | Yes (Headers) |
 
@@ -59,4 +59,4 @@ Stores the self-model region, acting as the central definitional reference for w
 
 ## Related
 
-- [`InsularLayout` Java Source](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/InsularLayout.java)
+- [`InsularLayout` Java Source](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/InsularLayout.java)

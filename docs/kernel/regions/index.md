@@ -12,7 +12,9 @@ description: "Comprehensive index of all 30 memory regions across Spector Kernel
 
 The Spector Memory Kernel distributes memory structures across three distinct bundle types:
 1. **Partition Bundle** (`partition.bundle`): Contains read-heavy, often historical or static semantic/episodic records.
+
 2. **Runtime Bundle** (`runtime.bundle`): Contains highly dynamic, volatile, or short-term operational state (e.g., working memory, temporal chains).
+
 3. **Identity Bundle** (`identity.bundle`): Stores tenant/agent self-models, policies, salience, and continuity metadata (ADR-0029).
 
 ```mermaid
@@ -93,9 +95,9 @@ flowchart TD
 ### Identity Regions (`identity.bundle`)
 | Region Name | RegionId Enum | Numeric ID | Memory Shape | Layout Class | Store Class | Reference |
 |:---|:---|:---:|:---|:---|:---|:---|
-| **HEADER** | `IdentityRegionId.HEADER` | 0 | BUNDLE | [`IdentityBundleHeader`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/bundle/identity/IdentityBundleHeader.java) | [`IdentityBundle`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/bundle/identity/IdentityBundle.java) | [View](./identity-header.md) |
-| **SOUL** | `IdentityRegionId.SOUL` | 1 | INSULAR | [`InsularLayout`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/InsularLayout.java) | [`InsulaMemory`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/InsulaMemory.java) | [View](./soul.md) |
-| **SALIENCE** | `IdentityRegionId.SALIENCE` | 2 | Raw Payload | Raw (Managed by Bundle) | [`IdentityBundle`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/bundle/identity/IdentityBundle.java) | [View](./salience.md) |
-| **CONTINUITY** | `IdentityRegionId.CONTINUITY` | 3 | RECORD | [`ContinuityLayout`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/ContinuityLayout.java) | [`ContinuityMemory`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/ContinuityMemory.java) | [View](./identity-continuity.md) |
-| **POLICY** | `IdentityRegionId.POLICY` | 4 | Raw Payload | Raw (Managed by Bundle) | [`IdentityBundle`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/bundle/identity/IdentityBundle.java) | [View](./policy.md) |
-| **ORG_DIR** | `IdentityRegionId.ORG_DIR` | 5 | Raw Payload | Raw (Managed by Bundle) | [`IdentityBundle`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/bundle/identity/IdentityBundle.java) | [View](./org-dir.md) |
+| **HEADER** | `IdentityRegionId.HEADER` | 0 | BUNDLE | [`IdentityBundleHeader`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/bundle/identity/IdentityBundleHeader.java) | [`IdentityBundle`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/bundle/identity/IdentityBundle.java) | [View](./identity-header.md) |
+| **SOUL** | `IdentityRegionId.SOUL` | 1 | INSULAR | [`InsularLayout`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/InsularLayout.java) | [`InsulaMemory`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/InsulaMemory.java) | [View](./soul.md) |
+| **SALIENCE** | `IdentityRegionId.SALIENCE` | 2 | Raw Payload | Raw (Managed by Bundle) | [`IdentityBundle`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/bundle/identity/IdentityBundle.java) | [View](./salience.md) |
+| **CONTINUITY** | `IdentityRegionId.CONTINUITY` | 3 | RECORD | [`ContinuityLayout`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/ContinuityLayout.java) | [`ContinuityMemory`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/ContinuityMemory.java) | [View](./identity-continuity.md) |
+| **POLICY** | `IdentityRegionId.POLICY` | 4 | Raw Payload | Raw (Managed by Bundle) | [`IdentityBundle`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/bundle/identity/IdentityBundle.java) | [View](./policy.md) |
+| **ORG_DIR** | `IdentityRegionId.ORG_DIR` | 5 | Raw Payload | Raw (Managed by Bundle) | [`IdentityBundle`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/bundle/identity/IdentityBundle.java) | [View](./org-dir.md) |

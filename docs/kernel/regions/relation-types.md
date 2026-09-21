@@ -14,8 +14,8 @@ description: "Interned relation type symbols (causes, depends_on, works_at, etc.
 |:---|:---|
 | **Bundle** | `runtime.bundle` |
 | **Memory Shape** | RegistryMemory |
-| **Layout Class** | [`RegistryLayout`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/RegistryLayout.java) |
-| **Store Class** | [`RegistryMemory`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/shape/RegistryMemory.java) |
+| **Layout Class** | [`RegistryLayout`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/RegistryLayout.java) |
+| **Store Class** | [`RegistryMemory`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/shape/RegistryMemory.java) |
 | **Record Stride** | 0 bytes (variable-length) |
 | **Cache-Line Aligned** | No |
 
@@ -43,4 +43,4 @@ Interns relation type symbols (e.g., causes, depends_on, works_at) to integer or
 
 ## Related
 
-- [RegionPreamble](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/region/RegionPreamble.java)
+- [RegionPreamble](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/region/RegionPreamble.java)

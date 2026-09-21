@@ -13,8 +13,8 @@ description: "Memory layout for the variable-length ID/metadata payload pool."
 |:---|:---|
 | **Bundle** | `runtime.bundle` |
 | **Memory Shape** | AppendMemory |
-| **Layout Class** | [`IdBlobLayout`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/IdBlobLayout.java) |
-| **Store Class** | [`IndexEntryMemory`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/IndexEntryMemory.java) |
+| **Layout Class** | [`IdBlobLayout`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/IdBlobLayout.java) |
+| **Store Class** | [`IndexEntryMemory`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/IndexEntryMemory.java) |
 | **Record Stride** | Variable |
 | **Cache-Line Aligned** | No |
 

@@ -36,6 +36,7 @@ graph TD
 ```
 
 1. **Pure Encoding Identity**: The primary engram record contains only immutable or read-mostly attributes established during memory ingestion. It remains static during search operations.
+
 2. **Strength Region**: All mutable metrics—including Bjork storage strength, explicit agent reinforcement counts, passive auto-LTP retrieval counts, and ACT-R recall timestamp history—are relocated to an independent 96-byte record within the dedicated **Strength Region** (`RegionId.STRENGTH`).
 
 ---
@@ -211,7 +212,9 @@ The **Insular Sub-Header** (`InsularLayout`, identifier `0x494E534C` / `'INSL'`)
 ### Data Integrity & Reentrant Protection
 
 1. **Hardware CRC-32C Integrity**: Every write calculates a castagnoli CRC-32C checksum over the JSON payload. On read, the checksum is verified before decoding to guarantee corruption-free state recovery.
+
 2. **Atomic Region Synchronization**: Upon updating the insular sub-header, the enclosing `RegionPreamble` item count and timestamp are atomically refreshed, and the underlying memory-mapped file slice is flushed (`force()`).
+
 3. **Capacity Guardrails**: Payloads larger than the allocated region capacity (typically 512 KB in standard namespaces) are rejected immediately to protect contiguous bundle alignment.
 
 ---

@@ -163,7 +163,9 @@ graph TD
 ```
 
 1. **Boot Hydration**: When a namespace starts up, the identity plane reads the immutable persona and baseline salience weights from `identity.bundle` to hydrate `InsulaMemory` in `runtime.bundle`.
+
 2. **Dynamic Self-Model in `InsulaMemory`**: `InsulaMemory` maintains a single, versioned JSON self-model. As the agent encounters uncertainty, solves problems, or interacts with users, it mutates its active confidence, arousal, and urgency markers directly within `runtime.bundle` with sub-microsecond latency.
+
 3. **Integrity & Checkpoints**: Every update to `InsulaMemory` increments a monotonic version number, recomputes a hardware CRC-32C checksum, and writes an atomic state flag. When persona changes are explicitly authorized, the updated soul is validated and committed back to `identity.bundle`.
 
 ---
@@ -346,6 +348,9 @@ sequenceDiagram
 ```
 
 1. **Capacity Monitoring**: Background monitoring monitors region utilization. When a region crosses 80% utilization, an alert is triggered.
+
 2. **Tail Allocation**: When growth is required, the underlying bundle file is expanded, and a new, larger region slab is allocated at the end of the file.
+
 3. **Atomic Pointer Switch**: Active records are copied, and the region table entry in the Bundle Directory at offset `0x00` is atomically updated to point to the new physical offset.
+
 4. **Zero Downtime**: Reads continue seamlessly against mapped virtual memory without locking global access. Dead space left behind by relocated regions is reclaimed during background compaction or maintenance windows.

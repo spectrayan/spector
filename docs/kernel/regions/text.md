@@ -13,7 +13,7 @@ description: "Variable-length text payload pool."
 |:---|:---|
 | **Bundle** | `partition.bundle` |
 | **Memory Shape** | AppendMemory |
-| **Layout Class** | [`TextBlobLayout`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/TextBlobLayout.java) |
+| **Layout Class** | [`TextBlobLayout`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/TextBlobLayout.java) |
 | **Store Class** | N/A (AppendMemory) |
 | **Record Stride** | Variable |
 | **Cache-Line Aligned** | No |
@@ -43,4 +43,4 @@ Standard variable append log writes.
 Acts as a storage pool for text chunks, documents, and other varying length text elements linked from semantic records or indexes.
 
 ## Related
-- [`TextBlobLayout.java`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/TextBlobLayout.java)
+- [`TextBlobLayout.java`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/TextBlobLayout.java)

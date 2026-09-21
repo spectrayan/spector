@@ -13,8 +13,8 @@ description: "Procedural memory tier — stores crystallized patterns, habits, a
 |:---|:---|
 | **Bundle** | `partition.bundle` |
 | **Memory Shape** | RecordMemory |
-| **Layout Class** | [`ProceduralLayout`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/ProceduralLayout.java) |
-| **Store Class** | [`ProceduralMemory`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/ProceduralMemory.java) |
+| **Layout Class** | [`ProceduralLayout`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/ProceduralLayout.java) |
+| **Store Class** | [`ProceduralMemory`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/ProceduralMemory.java) |
 | **Record Stride** | 64 bytes + quantized vector bytes |
 | **Cache-Line Aligned** | Yes (64B Header) |
 
@@ -82,5 +82,5 @@ Written sequentially with SWMR via `ReentrantLock`. Lookups are flat scans using
 Stores multi-step executable action sequences, habits, and behavioral policies. Crystallized from repeated episodic success sequences during consolidation. Built for microsecond lookups of "when X happens, do Y".
 
 ## Related
-- [`ProceduralMemory.java`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/ProceduralMemory.java)
-- [`EncodingHeaderFields.java`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/engram/field/EncodingHeaderFields.java)
+- [`ProceduralMemory.java`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/ProceduralMemory.java)
+- [`EncodingHeaderFields.java`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/engram/field/EncodingHeaderFields.java)

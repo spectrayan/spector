@@ -13,8 +13,8 @@ description: "Memory layout for edges in the Hebbian Graph CSR."
 |:---|:---|
 | **Bundle** | `runtime.bundle` |
 | **Memory Shape** | GraphMemory |
-| **Layout Class** | [`HebbianLayout`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/HebbianLayout.java) |
-| **Store Class** | [`HebbianGraphMemory`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/HebbianGraphMemory.java) |
+| **Layout Class** | [`HebbianLayout`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/HebbianLayout.java) |
+| **Store Class** | [`HebbianGraphMemory`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/HebbianGraphMemory.java) |
 | **Record Stride** | 12 bytes |
 | **Cache-Line Aligned** | No |
 

@@ -14,8 +14,8 @@ description: "Cross-turn session continuity checkpoints"
 |:---|:---|
 | **Bundle** | `runtime.bundle` |
 | **Memory Shape** | RecordMemory |
-| **Layout Class** | [`ContinuityLayout`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/ContinuityLayout.java) |
-| **Store Class** | [`ContinuityMemory`](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/ContinuityMemory.java) |
+| **Layout Class** | [`ContinuityLayout`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/ContinuityLayout.java) |
+| **Store Class** | [`ContinuityMemory`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/ContinuityMemory.java) |
 | **Record Stride** | 32 bytes |
 | **Cache-Line Aligned** | No (32B stride) |
 
@@ -90,4 +90,4 @@ Preserves longitudinal consciousness continuity and identity trajectory, trackin
 
 ## Related
 
-- [RegionPreamble](file:///d:/git/spector/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/region/RegionPreamble.java)
+- [RegionPreamble](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/region/RegionPreamble.java)
