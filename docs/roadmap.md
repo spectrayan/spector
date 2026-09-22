@@ -1,857 +1,308 @@
 # 🗺️ Roadmap
 
-Spector is under active development. This page details planned improvements, their projected impact, and implementation status.
+Spector is under active development. This page tracks delivered milestones, in-progress work, and the forward engineering roadmap.
+
+> For the high-level strategic overview, see the root [ROADMAP.md](https://github.com/spectrayan/spector/blob/main/ROADMAP.md).
 
 ---
 
-## ✅ Priority: OpenClaw Integration
+## ✅ Milestones Delivered (May–Sep 2026)
 
-### ✅ OpenClaw Integration — Spector as Main Memory {#openclaw}
+Major engineering accomplishments from the last four months, grouped by domain.
 
-!!! success "Completed"
-    Implemented as an OpenClaw plugin (`plugins/openclaw`). Spector runs as the primary long-term memory backend for OpenClaw agents via MCP stdio transport. Includes install scripts for Windows/Linux, embedding provider configuration (Ollama / OpenAI-compatible), and full plugin manifest.
+---
 
-Integrate Spector Memory as the **primary long-term memory backend** for [OpenClaw](https://openclaw.ai) — the open-source autonomous AI agent framework that runs as a local gateway across WhatsApp, Telegram, Slack, and Discord.
+### Kernel & Off-Heap Memory Engine
 
-**Why OpenClaw + Spector:**
-
-OpenClaw provides the agentic loop (observe → reason → act) and multi-channel interface, but lacks a principled cognitive memory system. Currently, OpenClaw agents lose context across sessions or rely on simple key-value stores. Spector Memory gives OpenClaw agents:
-
-- **Cross-session persistence** — memories survive across conversations and channels
-- **Cognitive recall** — multi-factor cognitive scoring (decay, importance, valence) instead of naive vector search
-- **Emotional context** — valence-filtered recall for empathetic responses
-- **Anti-repetition** — habituation prevents the agent from repeating the same responses
-- **Associative recall** — Hebbian + Temporal + Entity graphs surface connected memories
-
-**Architecture:**
-
-```
-┌──────────────────────────────────────────────┐
-│  OpenClaw Agent (Python)                      │
-│  Observe → Reason → Act loop                  │
-│  Multi-channel: WhatsApp, Telegram, Slack     │
-├──────────────────────────────────────────────┤
-│  ↕  MCP stdio / HTTP transport                │
-├──────────────────────────────────────────────┤
-│  Spector MCP Server (Java)                    │
-│  memory_recall · memory_remember          │
-│  memory_reinforce · memory_introspect         │
-│  memory_why_not · memory_status               │
-├──────────────────────────────────────────────┤
-│  Spector Memory Engine                        │
-│  4-tier storage · SIMD scoring · Bloom filter │
-│  Cognitive graph · Decay · Habituation        │
-│  ⚡ Local, private, off-heap, sub-ms recall    │
-└──────────────────────────────────────────────┘
-```
-
-**Integration points:**
-
-| OpenClaw Concept | Spector Mapping |
+| Feature | Description |
 |:---|:---|
-| Skill execution result | `memory_remember` with tags from skill name |
-| User message (any channel) | Ingest as `EPISODIC` with channel + user tags |
-| Agent observation | Ingest as `WORKING` (ephemeral scratchpad) |
-| Task planning | `THE_EXECUTOR` profile with Zeigarnik tracking |
-| Conversation context | `memory_recall` with `BALANCED` profile |
-| User preference learning | `memory_reinforce` on confirmed preferences |
-| Security-sensitive context | `PARANOID_SENTINEL` for audit/compliance queries |
-| Multi-channel persistence | Same Spector instance across all channels — WhatsApp memory available in Telegram |
-
-**Profile mapping for OpenClaw modes:**
-
-| OpenClaw Mode | Spector Profile | Why |
-|:---|:---|:---|
-| General chat | `BALANCED` | Equal weight to similarity and importance |
-| Deep research | `HYPERFOCUS` | Zero decay, strict tag gate on research topic |
-| Task execution | `THE_EXECUTOR` | Strict matching, no tangents, Zeigarnik tracking |
-| Creative brainstorm | `DIVERGENT` | Cross-domain lateral retrieval |
-| Error recovery | `DEBUGGING` | Surface past failures and fixes |
-| Security audit | `PARANOID_SENTINEL` | Threat-only recall |
-
-**Implementation plan:**
-
-1. **MCP Bridge**: OpenClaw connects to Spector via MCP stdio transport (local) or HTTP transport (remote)
-2. **Memory Lifecycle Hook**: OpenClaw's agentic loop calls `memory_remember` after each skill execution and `memory_recall` before each reasoning step
-3. **Channel Metadata**: Channel (WhatsApp/Telegram/Slack) and user ID encoded as synaptic tags for cross-channel memory isolation or sharing
-4. **Consolidation**: Spector's `reflect()` daemon runs on a schedule, consolidating episodic memories into semantic knowledge across all channels
-5. **Python SDK**: The planned [Python SDK](#python-sdk) wraps the MCP transport for native OpenClaw integration
-
-**Privacy advantage:** Both OpenClaw and Spector run locally — the most personal conversations never leave the user's machine.
+| **Sealed Kernel Module** (`spector-kernel`) | Carved Panama FFM mmap slab isolation into a dedicated module with 22 off-heap `RegionLayout` definitions — zero-copy layouts for engrams, graphs, WAL, provenance, and strengths. [#793](https://github.com/spectrayan/spector/pull/796) |
+| **Pure Math Kernels** (ADR-0033) | Extracted domain-pure computational kernels — Hopfield, BOCPD (Bayesian Change-Point), Predictive Coding, Time2Vec, SDE Solver, Dopaminergic Surprise — into `spector-core` with zero external dependencies. [#809](https://github.com/spectrayan/spector/pull/809), [#810](https://github.com/spectrayan/spector/pull/810) |
+| **Dual-Plane Concurrency** (ADR-0026) | Executor injection, thread classification (IO vs Compute plane), Quartz-based routing, and Arena safety for Virtual Thread-safe off-heap access. [#783](https://github.com/spectrayan/spector/pull/784) |
+| **Structured Concurrency** (JEP 505) | `ConcurrentTasks` utility centralizing `StructuredTaskScope` usage with `forkJoinAll` (all-or-nothing) and `forkJoinPartial` (deadline-bounded gather). Virtual thread `ExecutorService` fallback via `-Dspector.concurrency.structured=false`. |
+| **128-bit Synaptic Tag Gating** | Closed precision gap in Bloom filter tag masks for high-cardinality tag spaces. [#951](https://github.com/spectrayan/spector/pull/951) |
+| **Namespace Path Unification** (ADR-0033) | Unified storage directory layout across all memory tiers and regions for consistent multi-namespace isolation. [#821](https://github.com/spectrayan/spector/pull/821) |
 
 ---
 
-## ✅ Completed — Client SDKs, Packaging & Distribution
+### Cognitive Architecture
 
-### ✅ Universal TypeScript SDK (`@spectrayan/spector-client`) {#typescript-sdk}
-
-!!! success "Completed"
-    Implemented in `sdks/typescript/spector-client` as `@spectrayan/spector-client`. Dual ESM/CJS universal packaging targeting Node.js 18+, Bun, Deno, and modern browsers with zero external dependencies. Full cognitive verb parity (`remember`, `recall`, `forget`, `reinforce`, `suppress`, `resolve`), typed OpenAPI escape hatch, and native async iterable Server-Sent Events (SSE) streaming. Published to npm registry. Documentation at `docs/sdk-usage/typescript-sdk.md`.
-
-### ✅ Python SDK (`spector-client`) — HTTP/SSE Client & PyPI Release {#python-sdk}
-
-!!! success "Completed"
-    Standardized in `sdks/python` as `spector-client`. Dual synchronous (`SpectorClient`) and asynchronous (`AsyncSpectorClient`) clients connecting directly to Spector Synapse over HTTP REST and SSE with zero Java runtime requirements on the client machine. Includes authentic cognitive verbs, real-time event streaming, and PyPI Trusted Publishing workflow (`.github/workflows/release-pypi.yml`). Documentation at `docs/sdk-usage/python-sdk.md`.
-
-### ✅ Zero-Install NPX MCP Runner (`@spectrayan/spector`) {#npx-runner}
-
-!!! success "Completed"
-    Lightweight zero-install launcher package in `deploy/npm/spector/` runnable via `npx -y @spectrayan/spector mcp`. Intelligently auto-detects active local Synapse daemons on `:7070` or `:7700` and streams MCP JSON-RPC over HTTP/SSE, or auto-downloads and bootstraps the release JVM binary with JDK 25 Vector API flags. Package size: 3.7 kB.
-
-### ✅ One-Line Installers & Package Managers (Brew & Scoop) {#installers}
-
-!!! success "Completed"
-    Standalone binary distribution channels:
-    - POSIX shell installer (`scripts/install.sh`) via `curl -fsSL ... | sh`
-    - Windows PowerShell installer (`scripts/install.ps1`) via `irm ... | iex`
-    - Homebrew tap formula (`packaging/homebrew/spector.rb`) with managed OpenJDK 25 dependency
-    - Windows Scoop manifest (`packaging/scoop/spector.json`)
-
-### ✅ Containerization, Helm & Cloud Deployments {#containers-cloud}
-
-!!! success "Completed"
-    - **Hermetic Dockerfile** (`deploy/docker/Dockerfile`): 3-stage self-contained build (Node 22 + Temurin 25 + Alpine JRE 25) with multi-arch GHCR publishing.
-    - **Docker Compose** (`docker-compose.yml`): Automatic volume provisioning and profiles (`embeddings`, `gpu`, `ui`).
-    - **Helm Chart** (`deploy/helm/spector/`): StatefulSet packaging published to GHCR OCI registry (`oci://ghcr.io/spectrayan/charts/spector`).
-    - **Terraform Multi-Cloud** (`deploy/terraform/`): Reusable production modules for AWS ECS Fargate, GCP Cloud Run v2, and Azure Container Apps.
+| Feature | Description |
+|:---|:---|
+| **6 Cognitive Pathways** (ADR-0035, Epic #924) | Full rearchitecture into six named pathways — *Remember*, *Recall*, *Reflect*, *Wander*, *Dream*, *Express* — each implemented as a dedicated relay chain with pathway-specific instrumentation. [#935](https://github.com/spectrayan/spector/pull/935) |
+| **4-Layer Cognitive Graph** | Three associative graph structures augmenting vector recall: **Hebbian** (STDP causal edges, off-heap adjacency), **Entity Directory + HyperEntityGraph** (n-ary hyperedges with typed roles), **Temporal Chain** (session-local bidirectional linked list). 357 tests. |
+| **HyperEntityGraph Graduation** | Hypergraph promoted to sole entity graph structure, completely replacing the legacy binary `EntityGraph`. Phase 4 binary excision completed. |
+| **Hypergraph Vertex Quarantine** (ADR-0082) | Index reconciliation engine with quarantine protocol for orphaned hypergraph vertices during concurrent ingestion. [#948](https://github.com/spectrayan/spector/pull/948) |
+| **Index Plane Lifecycle** (ADR-0082) | `IndexPlaneCoordinator` managing SPLADE bundle persistence and Quartz `IndexReconcileJob`. [#945](https://github.com/spectrayan/spector/pull/945) |
+| **Cross-Layer Promotion** | Hebbian→Entity automatic promotion during `reflect()` — strong statistical co-activations graduate to explicit entity relations via reverse index. |
+| **Entity Graph Decay, Merging & Adjacency LTD** | Levenshtein-based entity merge, multiplicative edge decay, adjacency weight LTD with compaction. Fan-effect attenuation (1/√refCount) for ACT-R spreading activation dilution. |
+| **Temporal Chain Pruning** | Configurable retention via `temporalRetentionDays()`, integrated into `ReflectionOrchestrator` consolidation cycle. |
+| **Graph-Aware Scoring** | `GraphScoringPolicy` record — 8 tunable parameters for causal boost, Hebbian spread, temporal hop attenuation, and entity hop depth. |
+| **ProfileAdaptor Contextual Bandit** | ε-greedy (10% exploration) auto-profile selection via `profile=auto`. Tracks reinforcement rates per (tag-context, CognitiveProfile) pair. Falls back to `BALANCED` until ≥10 signals. 37 tests. |
+| **Two-Factor Memory** (Bjork & Bjork, 1992) | Separate retrieval strength R(t) from storage strength S(t). Spacing effect: low-R retrieval produces maximal storage gain ΔS = S_gain × (1 − R(t)). Precomputed 64-entry LUT for S(t)^0.3 (~50× faster than `Math.pow`). |
+| **Executive Dysfunction Profile** | Hebbian-first recall bypass — when queries are vague, STDP causal edges and recent context tags drive retrieval instead of vector similarity. Fully wired into `RecallPathway` as `ASSOCIATIVE` scoring mode. |
+| **MindSpan Benchmark Validation** | 100% QA accuracy on 20-year longitudinal MindSpan dataset. Dream Pathway validated against MindSpan longitudinal corpus. [#752](https://github.com/spectrayan/spector/pull/752), [#918](https://github.com/spectrayan/spector/pull/918) |
 
 ---
 
-### ✅ Documentation Split — User Guide vs Architecture Guide {#docs-split}
+### 4-Layer Retrieval Stack
 
-!!! success "Completed"
-    Docs split into "Getting Started" tab (quickstart, SDK usage, MCP server, CLI) and "Architecture" tab (core concepts, deep dives, internals). Agent developers never see `EncodingHeaderFields` in their onboarding path.
-
-Separate documentation into two tracks to prevent the "19 packages overwhelm developers" perception:
-
-| Track | Audience | Content |
-|---|---|---|
-| **User Guide** | Agent developers, MCP users | 5-minute quickstart, MCP tool reference, Python/JS SDK, RecallOptions presets |
-| **Architecture Guide** | Spector contributors | Off-heap layouts, SIMD scoring, Bloom filter encoding, Panama internals |
-
-**Key principle:** A developer using `memory.recall("query")` should never see `EncodingHeaderFields` or `EngramLayout` in the getting-started docs.
-
----
-
-## 📜 Planned — Agentic AI
-
-### ✅ ProfileAdaptor — Self-Tuning Cognitive Profiles {#profile-adaptor}
-
-!!! success "Completed"
-    Implemented in `spector-memory` (OSS repo) as a contextual bandit that tracks reinforcement signals per tag-context and profile, persisting stats to `coactivation.tracker` (COAX v2). Enabled via `profile=auto`. Fully tested with 37 unit tests.
-
-A lightweight **contextual bandit** that learns which `CognitiveProfile` performs best for each context (tag combination), using the existing `memory_reinforce` feedback signal. Instead of requiring AI agents to manually select `DEBUGGING` vs `EXPLORING` vs `BALANCED`, the system auto-selects the optimal profile based on historical reinforcement rates.
-
-**How it works:**
-
-1. Agent calls `memory_recall` with `profile=BALANCED` (or no profile)
-2. Agent calls `memory_reinforce` on useful results (positive valence) or unhelpful results (negative valence)
-3. `ProfileAdaptor` tracks reinforcement rates per `(tag-context, profile)` pair via an exponential moving average
-4. On subsequent recalls with matching tags, `ProfileAdaptor.suggest()` returns the profile with the highest historical hit rate
-
-**API:**
-
-```java
-public class ProfileAdaptor {
-    // Track reinforcement rates per (tag-context, profile) pair
-    private final Map<String, Map<CognitiveProfile, RunningStats>> stats;
-
-    /** Called after memory_reinforce. Updates profile effectiveness. */
-    public void recordOutcome(CognitiveProfile profile, String[] tags, boolean positive);
-
-    /** Suggests the best profile for a given tag context. */
-    public CognitiveProfile suggest(String... tags);
-}
-```
-
-**MCP integration:**
-
-```json
-{
-  "query": "why did the payment service crash?",
-  "profile": "auto",
-  "synaptic_filter": "payments,errors"
-}
-```
-
-When `profile=auto`, the system queries `ProfileAdaptor.suggest("payments", "errors")` and transparently selects the best-performing profile for that tag context.
-
-**Design considerations:**
-
-- **Cold start**: Falls back to `BALANCED` until ≥10 reinforcement signals are recorded for a context
-- **Exploration**: ε-greedy strategy (10% random profile selection) to avoid local optima
-- **Persistence**: Stats serialized to WAL for cross-session learning
-- **Multi-tenant**: Per-user stats isolation via the planned `userId` field
-
----
-
-## 📜 Planned — Compute & Hardware
-
-### 📜 GPU Kernel Dispatch {#gpu-dispatch}
-
-!!! info "Status: Infrastructure Ready"
-    CUDA context management and Panama FFM bridge are implemented. The compute kernel dispatch is pending.
-
-Ship actual CUDA compute kernels for batch cosine similarity and HNSW neighbor selection. The existing `spector-gpu` module provides context management, memory allocation, and kernel loading via Panama FFM — the remaining work is the CUDA kernel code itself.
-
-**Prerequisites:** CUDA Toolkit 12+ on the host machine.
-
-**Expected impact:** 10–100× throughput improvement for batch similarity computation on large datasets (> 100K vectors).
-
----
-
-### 🔄 Project Valhalla Value Classes {#valhalla}
-
-!!! tip "Status: Prepared — Awaiting JDK 28+"
-    Migration TODOs added to all 5 hot-path records. Manual flat-array optimizations serve as intermediate solutions until value classes are available.
-
-Migrate hot-path intermediate records to `value class` (or `value record`). JDK 25 does not include JEP 401 — Valhalla value classes are expected in JDK 28+.
-
-**Current preparation:**
-
-- **Javadoc TODOs** added to all 5 hot-path records: `EncodingHeader`, `ScoredRecord`, `HebbianEdge`, `EntityEdge`, `TraversalResult`
-- **Manual flat-array optimization** (`FlatMinHeap`) serves as an intermediate solution — will be replaceable with `PriorityQueue<value ScoredRecord>` once specialized generics land
-- **Performance optimizations** implemented as stop-gap: autoboxing elimination (`int[]` vs `List<Integer>`), `boolean[]` vs `HashSet<Integer>`, LUT-based `Math.pow` replacement
-
-**Benefits (when JDK 28+ lands):**
-- **Zero-GC Hot Path**: Short-lived search results and option records are stack-allocated, avoiding the JVM heap.
-- **Cache Locality**: Contiguous storage of value structures inside arrays prevents pointer chasing.
-- **Header Elimination**: Removes standard 12-to-16-byte JVM object headers for inline arrays.
-
----
-
-## 🔬 Research & Future
-
-### 🔬 TypeScript/JavaScript SDK {#typescript-sdk}
-
-!!! note "Status: Future"
-    Medium effort. Wraps MCP HTTP transport.
-
-A TypeScript SDK for Node.js and browser-adjacent environments, wrapping the Streamable HTTP MCP transport:
-
-```typescript
-import { SpectorMemory } from '@spector/memory';
-
-const mem = new SpectorMemory({ url: 'http://localhost:8080' });
-await mem.remember('user prefers dark mode', { tags: ['pref', 'ui'] });
-const results = await mem.recall('theme preference?');
-```
-
-**Use cases:** Next.js agents, Vercel AI SDK integration, Electron desktop assistants.
-
----
-
-### 🔬 RecallMode.REPLAY — WAL Time-Travel Recall {#recall-replay}
-
-!!! note "Status: Future Research"
-    High effort. Requires WAL event replay and off-heap snapshot reconstruction.
-
-Replay recall from a frozen point-in-time state by reconstructing memory state from WAL events. Answers the question: *"Why did the agent retrieve X instead of Y at 2pm yesterday?"*
-
-**How it works:**
-
-1. User calls `memory_recall` with `recall_mode=REPLAY` and a target `replay_timestamp`
-2. System reads WAL events (ingestions, reinforcements, suppressions) up to the target timestamp
-3. Reconstructs a temporary off-heap `MemorySegment` representing the memory state at time T
-4. Runs the standard Recall Pathway against the frozen snapshot (no mutations)
-5. Returns results with a `[REPLAY @ 2025-06-02T14:00:00Z]` provenance marker
-
-**Implementation options:**
-
-- **Option A — Full replay**: Read all WAL events from start to target timestamp, apply each mutation to a temporary segment. Expensive compute, but minimal storage overhead.
-- **Option B — Periodic snapshots**: Periodically snapshot the full off-heap state. Replay only needs events between the last snapshot and the target timestamp. More storage, faster replay.
-
-**Prerequisites:**
-
-- WAL must record all header mutations (recallCount, valence, storageStrength changes)
-- Snapshot serialization for off-heap `MemorySegment` state
-- Temporary segment allocation + cleanup lifecycle
-
-**Use cases:** Debugging agent behavior, audit trails, compliance (regulated industries), algorithm comparison ("did the new scoring function improve recall quality?").
-
----
-
-### 🔬 LoRA Adapter Routing {#lora-routing}
-
-!!! note "Status: Future Research"
-    Requires LoRA weight format specification and SIMD matrix multiply implementation.
-
-Multi-tenant query projection via SIMD matrix multiply. Instead of creating separate indexes per tenant, store one base index and apply per-tenant LoRA weight matrices at query time using Panama FMA loops.
-
-**How it works:**
-- Ingest base model embeddings once
-- Each tenant uploads a small LoRA matrix ($W_A$, typically 768×32 or similar)
-- At query time: $q_{tenant} = q_{base} \times W_A$ (microseconds via Panama SIMD)
-- Search the same index with the projected query
-
-**Expected impact:** Zero-downtime multi-tenant customization without index duplication.
-
----
-
-### ✅ ColBERT v2 Late Interaction Reranking {#colbert}
-
-!!! success "Graduated to Completed"
-    Implemented in `ColBERTReranker` (`spector-index`). SIMD-accelerated MaxSim scoring via Panama `FloatVector`.
-    Wired into `RecallPipeline` Step 6b. Configurable via `RecallOptions.enableReranker()` and `rerankerDepth()`.
-
-Native ColBERT reranking using Panama FMA loops. ColBERT stores a vector for every token in a document, then computes relevance via MaxSim (maximum similarity per query token).
-
-**Spector advantage:** Off-heap `MemorySegment` arrays and Fused-Multiply-Add Panama loops natively execute ColBERT MaxSim reranking faster than almost any competitor.
-
-**Implementation:**
-
-- `ColBERTReranker`: Takes `TokenEmbeddingProvider` SPI, computes MaxSim with SIMD-accelerated dot products
-- `TokenEmbeddingProvider` SPI: Produces per-token embedding arrays (e.g., from ColBERT v2 model)
-- `TokenEmbeddingResult`: Wraps `float[][]` token-level embeddings
-- Integration in `RecallPipeline` Step 6b: Reranks top-N first-stage candidates after sort
-- Scoring: `combinedScore = α·maxSimScore + (1-α)·firstStageScore`
-- Nullable SPI: silently skips if `TokenEmbeddingProvider` is not configured
-
-**Configuration:**
-
-```java
-RecallOptions.builder()
-    .enableReranker(true)
-    .rerankerDepth(50)    // rerank top-50 first-stage candidates
-    .textSearchMode(TextSearchMode.COLBERT_RERANK)
-    .build();
-```
-
----
-
-### 🔬 SVASQ-PQ Hybrid — Product Quantization of SVASQ Residuals {#svasq-pq}
-
-!!! note "Status: Future Research"
-    Very high implementation effort. Most aggressive compression option.
-
-After FWHT rotation, instead of scalar INT8/INT4 quantization, apply **Product Quantization** to the rotated coordinates. The FWHT rotation makes coordinates near-independent (isotropized), which is the ideal input distribution for PQ — similar to how Optimized PQ (OPQ) works with learned rotations, but using FWHT instead of an expensive SVD-based rotation matrix.
-
-**Memory layout:**
-```
-[float32 normSq (4 bytes)] [PQ codes: M bytes (one centroid ID per subspace)]
-```
-
-With M=16 subspaces, K=256 centroids:
-
-| Dims | Float32 | SVASQ-8 | SVASQ-PQ (M=16) | Compression vs float32 |
-|------|---------|--------|----------------|----------------------|
-| 768 | 3,072 B | 1,028 B | 20 B | **154×** |
-| 4096 | 16,384 B | 4,100 B | 68 B | **241×** |
-
-**Recall impact:**
-
-- PQ on FWHT-rotated residuals: ~85–93% recall@10
-- FWHT rotation gives ~3–5% recall advantage over naive PQ (pre-decorrelates dimensions)
-- Rescore with exact float32 residuals pushes recall to 95%+
-
-**Why it works:** The FWHT rotation is essentially a free, lossless "Optimized PQ" rotation — it decorrelates dimensions without requiring an expensive SVD or learned rotation matrix. This means PQ subspaces can be independent slices of the rotated vector, which is information-theoretically optimal.
-
-**Implementation scope:**
-
-- Train PQ codebooks per shard (or globally after FWHT rotation)
-- Asymmetric Distance Computation (ADC) lookup tables during search
-- New SIMD kernel for PQ distance computation
-- Integration with existing `ProductQuantizer` in `spector-index`
-
-!!! danger "Complexity Warning"
-    This is essentially building a new quantization mode. The existing `ProductQuantizer` could be adapted, but integrating it with the FWHT rotation pipeline is non-trivial. Estimated effort: 2–4 weeks.
-
----
-
-### 🔬 Flat-Mode SVASQ — Compress Flat-Shard Storage {#flat-svasq}
-
-!!! note "Status: Future Research"
-    Medium effort, good payoff for large flat shards.
-
-In `SpectorShard`'s flat mode, residuals are stored as raw `float32[]`. Since all residuals in a shard share the same centroid, they have similar statistical distributions. **SVASQ quantization of flat residuals** could compress flat-mode storage by ~3× without changing the shard architecture.
-
-**Savings:**
-
-| Scenario | Current (float32) | With SVASQ | Savings |
-|----------|-------------------|-----------|---------
-| 10K vectors × 768 dims | 30 MB/shard | 10 MB/shard | **3×** |
-| 50K vectors × 4096 dims | 781 MB/shard | 195 MB/shard | **4×** |
-
-**Recall impact:**
-
-- If applied only to storage (decode for search): **None** — search uses decoded float32
-- If applied to search (scan quantized codes directly): Same as SVASQ-8 (~99.5%)
-
-**Implementation scope:**
-
-- Integrate SVASQ encoding into the flat-mode ingestion path
-- Modify `SpectorShard.flatScan()` to use the SVASQ SIMD kernel directly
-- Per-shard calibration using the shard's centroid residuals
-
----
-
-### 🔬 NPU Acceleration {#npu}
-
-!!! note "Status: Exploratory"
-    Depends on Intel/AMD NPU SDK maturity.
-
-Leverage Intel NPU (via OpenVINO) or AMD XDNA (via DirectML) for INT8 batch operations. NPUs are optimized for low-precision matrix operations, making them ideal for quantized SVASQ distance computation.
-
-**Target workloads:** INT8/INT4 batch similarity, SVASQ kernel offload.
-
----
-
-### 🔬 WASM Runtime for Edge Deployment {#wasm}
-
-!!! note "Status: Exploratory"
-    Depends on GraalWasm or Chicory maturity for JVM → WASM compilation.
-
-Compile the core SIMD kernels and HNSW index to WebAssembly for browser-based or edge deployment. This would enable client-side semantic search without a server round-trip.
-
----
-
-### 🔴 Adaptive Bit-Width SVASQ {#adaptive-bw}
-
-!!! warning "Status: Not Recommended"
-    Very high effort, marginal benefit due to FWHT already equalizing variance.
-
-Instead of uniform INT8 across all dimensions, assign more bits to high-variance dimensions and fewer to low-variance ones (after FWHT rotation):
-
-- Dimensions with σ > 2× median: 8 bits
-- Dimensions with σ < 0.5× median: 4 bits
-- Others: 6 bits
-
-**Projected savings:** ~10–15% additional compression.
-
-**Recall impact:** Minimal (< 0.5%) — allocating bits proportionally to variance is information-theoretically optimal.
-
-**Why it's not recommended:** FWHT already equalizes variance by design, so the marginal gain from adaptive bit-widths is small. The implementation requires variable-length encoding, non-aligned SIMD reads, and per-dimension bit-width bookkeeping — the worst effort-to-benefit ratio of all proposed improvements.
-
----
-
-### 🔬 SPLARE — Sparse Autoencoder Learned Retrieval {#splare}
-
-!!! note "Status: Future Research"
-    Depends on multilingual sparse autoencoder models. No public models available yet.
-
-SPLARE (Sparse Autoencoder Learned Retrieval) uses sparse autoencoders to extract interpretable sparse features from dense embeddings. Unlike SPLADE which uses a masked language model, SPLARE operates on the embedding space directly, making it model-agnostic.
-
-**Proposed approach:**
-
-1. Train a sparse autoencoder on the embedding provider's dense vectors
-2. Extract top-K active features per document (typically 128-256)
-3. Use feature indices + activations as sparse retrieval keys
-4. Index into the existing `SpladeIndex` infrastructure (same posting list format)
-
-**Advantages over SPLADE:**
-
-| Aspect | SPLADE | SPLARE |
-|:---|:---|:---|
-| Model dependency | Requires MLM (BERT-family) | Model-agnostic (any embedding) |
-| Vocabulary | WordPiece (~30K) | Learned feature dictionary |
-| Multilingual | Requires multilingual MLM | Inherits from base embedder |
-| Interpretability | Token-level (human readable) | Feature-level (less interpretable) |
-
-**Prerequisites:** Sparse autoencoder training pipeline, feature dictionary management, `SparseEncodingProvider` adapter.
-
----
-
-### 🔬 ColPali — Vision-Language Late Interaction {#colpali}
-
-!!! note "Status: Future Research"
-    Requires vision encoder integration and multi-modal token embedding. Very high effort.
-
-Extend ColBERT's late interaction paradigm to **visual documents** using the ColPali architecture (Faysse et al., 2024). Instead of OCR → text → embed, ColPali directly produces per-patch token embeddings from document images, enabling visual retrieval of PDFs, screenshots, diagrams, and handwritten notes.
-
-**How it works:**
-
-1. Document images are encoded by a vision transformer (e.g., PaliGemma) into per-patch embeddings
-2. Query text is encoded into per-token embeddings (same as ColBERT)
-3. MaxSim scoring between query tokens and image patches
-4. Reuses the existing `ColBERTReranker` MaxSim SIMD kernel
-
-**Architecture:**
-
-```
-Query: "database schema diagram"         Document: [screenshot.png]
-   ↓                                          ↓
-TokenEmbeddingProvider.embed()           VisionPatchProvider.embed()
-   ↓                                          ↓
-["database", "schema", "diagram"]        [patch_1, patch_2, ..., patch_N]
-   ↓              ↓            ↓              ↓
-[768-d vec]   [768-d vec]  [768-d vec]    [768-d vec] × N patches
-   └──────────── MaxSim ──────────────────────┘
-```
-
-**Prerequisites:**
-
-- `VisionPatchProvider` SPI (produces `float[][]` per-patch embeddings)
-- Vision model integration (PaliGemma, SigLIP, or similar)
-- Image storage in `TextDataStore` or new `MediaDataStore`
-- Multi-modal `MemoryType` extension
-
-**Estimated effort:** 6-8 weeks (vision encoder integration is the bottleneck).
-
----
-
-## ✅ Completed
-
-### ✅ Native MCP Server {#mcp-server}
-
-!!! success "Completed"
-    Implemented in `spector-mcp` module. 6 tools, stdio transport, agent-native search.
-
-Built-in [Model Context Protocol](https://modelcontextprotocol.io/) server that gives AI agents (Claude Desktop, Cursor, autonomous agents) direct, in-process access to Spector's search engine. Zero network overhead — tool handlers call `SpectorEngine` directly via virtual threads.
-
-**Tools:** `semantic_search`, `hybrid_search`, `rag_query`, `ingest_document`, `delete_document`, `engine_status`
-
-**Architecture:**
-- `McpToolHandler` abstract base class (common timing, error handling, arg parsing)
-- `ToolSchemaBuilder` fluent JSON schema construction
-- `SpectorToolRegistry` for extensible tool registration
-- `SpectorResourceProvider` + `SpectorPromptProvider` for MCP resources/prompts
-- `ResultFormatter` shared formatting utilities
-
----
-
-### ✅ Streamable HTTP Transport {#mcp-http}
-
-!!! success "Completed"
-    `TransportMode` enum with `STDIO` and `HTTP` modes. CLI: `--transport=http --port=8080`.
-
-HTTP-based MCP transport for remote/cloud deployments. Same 6 tools exposed over an HTTP endpoint.
-
-**Implementation:**
-
-- `TransportMode` enum: `STDIO` (default), `HTTP`
-- CLI flags: `--transport=http`, `--port=8080`
-- `SpectorMcpMain`: Parses transport mode and configures server accordingly
-- Graceful shutdown on SIGTERM for container readiness
-
-**Use cases:** Cloud deployments, remote agent connections, multi-agent architectures.
-
----
-
-### ✅ 4-Layer Cognitive Graph {#cognitive-graph}
-
-!!! success "Completed"
-    All four phases implemented and merged. 357 tests pass, 0 failures.
-
-Full graph augmentation layer for `spector-memory` — three associative graph structures that augment vector recall with associative, temporal, and hyperedge signals.
-
-**Architecture:**
-```
-RecallPipeline
-  Step 5a: Habituation + Inhibition of Return
-  Step 5b: STDP causal boost (CoActivationMemory)
-  Step 5c: Hebbian spreading activation (HebbianGraph, depth=2)
-  Step 5d: Temporal chain extension (TemporalChain, maxHops=3)
-  Step 5e: Entity directory & hypergraph traversal (EntityDirectory & HyperEntityGraph, depth=2)
-```
-
-**Layer 1 — Hebbian Association Graph:**
-
-- Off-heap adjacency list (164B/node, MAX_DEGREE=20) via Panama `MemorySegment`
-- Edge strengthening, decay (0.9 factor per consolidation), spreading activation
-- Persistence via `HGPH` magic header, chunked 64KB FileChannel I/O
-- CoActivationTracker migrated to off-heap: `OffHeapPairTable` (32B/slot) + `OffHeapEdgeTable` (40B/slot)
-- Persistence via `COAX` magic header with hash→tag reverse map
-
-**Layer 2 — Entity-Relationship Graph:**
-
-- Off-heap entity store (64B/entity, 12B/edge), BFS traversal with typed edge filtering
-- **Unlimited entity→memory adjacency** via separate off-heap adjacency segment (8B/entry: memIdx + weight)
-- LTP reinforcement (+0.2 weight on re-mention), LTD decay (0.95× per reflection cycle, pruned below 0.2)
-- Fan-effect attenuation (1/√refCount) in recall scoring — ACT-R spreading activation dilution
-- Adjacency compaction (defragmentation) during reflection cycles
-- 21 entity types × 21 relation types (well-known seeds) + open-schema `TypeRegistry` for LLM-identified novel types
-- `EntityExtractor` SPI with `LlmEntityExtractor` (externalized prompt template) and `NoOpEntityExtractor`
-- Persistence via `EGPH` magic header with nameIndex reconstruction + adjacency segment + separate TypeRegistry files
-
-**Layer 3 — Temporal Causal Chain:**
-
-- Off-heap linked list (16B/node: prevIdx + nextIdx + sessionId + pad)
-- Session-local memory linking at ingestion, forward/backward traversal at recall
-- Persistence via `TPCH` magic header
-
-**Error framework:** 6 error codes (`SPE-310-006..011`), 7 granular exception classes extending `SpectorGraphException`. All catch sites use `catch(RuntimeException)` → create exception → `log(ex.getMessage())`. No string concatenation.
-
-**Each graph step is additive and gracefully degrading** — if the graph is null/empty or the operation throws, the step is a no-op.
-
----
-
-### ✅ Temporal Chain Pruning {#temporal-pruning}
-
-!!! success "Completed"
-    `pruneOlderThan(long cutoffEpochMs)` implemented. Integrated into `reflect()` cycle with configurable `temporalRetentionDays(int)`.
-
-Temporal chain links now support automatic pruning during the `reflect()` consolidation cycle.
-
-**Implementation:**
-
-- `TemporalChain.pruneOlderThan(long cutoffEpochMs)`: Scans all nodes, unlinks stale entries, re-stitches prev → next pointers
-- `pad:4B` field in node layout replaced with `epochSec:4B` (seconds since epoch)
-- Configurable via Builder: `temporalRetentionDays(int)` (default: 7)
-- Pruned count reported in `ReflectReport`
-
----
-
-### ✅ Cross-Layer Promotion (Hebbian → Entity) {#cross-layer-promotion}
-
-!!! success "Completed"
-    `promoteHebbianToEntity()` implemented in `DefaultSpectorMemory.reflect()`. Uses reverse index for O(1) entity lookup per memory.
-
-Strong statistical Hebbian associations are automatically promoted to explicit entity relations during the `reflect()` consolidation cycle — analogous to hippocampal replay.
-
-**Implementation:**
-
-- During `reflect()`, scans HebbianGraph for edges with weight ≥ threshold
-- Builds `memoryIdx → entityIds` reverse index for O(1) lookup (vs previous O(E×R) scan)
-- If shared entities exist, strengthens the entity relation edge; if none, creates a `RELATED_TO` relation
-- Cross-promotion count reported in `ReflectReport`
-
----
-
-### ✅ Entity Graph Decay + Node Merging + Adjacency Maintenance {#entity-decay}
-
-!!! success "Completed"
-    `decayRelations()`, `mergeSimilarEntities()`, `decayAdjacencyWeights()`, `compactAdjacency()`, and `fanFactor()` implemented with off-heap optimizations.
-
-Entity graph edges now decay during consolidation, near-duplicate entities are automatically merged, and entity→memory adjacency links decay and compact.
-
-**Implementation:**
-
-- `EntityGraph.decayRelations(float factor)`: Multiplicative decay, prunes edges below threshold
-- `EntityGraph.mergeSimilarEntities(int maxEditDistance)`: Levenshtein-based fuzzy matching with `ThreadLocal` reusable int[] arrays (zero GC after warmup)
-- `EntityGraph.decayAdjacencyWeights(float factor, float threshold)`: LTD decay of entity→memory link weights, pruning weak associations
-- `EntityGraph.compactAdjacency()`: Defragments the adjacency segment, reclaiming dead blocks from pruned/grown entries
-- `EntityGraph.fanFactor(int entityId)`: Returns 1/√(refCount) for ACT-R spreading activation dilution in recall scoring
-- Integrated into `ReflectionOrchestrator` as Phase 5 (edge decay + merge), Phase 5b (adjacency LTD), Phase 5c (compaction)
-- Decay/merge/compaction counts reported in `ReflectReport`
-
----
-
-### ✅ Graph-Aware Scoring Weights {#graph-scoring}
-
-!!! success "Completed"
-    `GraphScoringPolicy` record implemented. Configurable via `DefaultSpectorMemory.Builder.graphScoringPolicy()`.
-
-All hardcoded graph score attenuation factors are now extracted into a configurable `GraphScoringPolicy` record:
-
-```java
-public record GraphScoringPolicy(
-    float causalBoostWeight,       // default 0.3
-    float hebbianBoostFactor,      // default 0.3
-    float temporalForwardFactor,   // default 0.8
-    float temporalBackwardFactor,  // default 0.7
-    float entityHopAttenuation,    // default 0.25
-    int hebbianMaxDepth,           // default 2
-    int temporalMaxHops,           // default 3
-    int entityMaxHops              // default 2
-) {
-    public static final GraphScoringPolicy DEFAULT = ...;
-}
-```
-
-- Configurable via Builder: `graphScoringPolicy(GraphScoringPolicy)`
-- All 8 constants replaced with policy accessors in `RecallPipeline`
-- Future: online tuning based on user reinforcement/suppression feedback
-
----
-
-### ✅ SVASQ-4 — Half-Precision SVASQ (INT4 Codes) {#svasq-4}
-
-!!! success "Completed"
-    Implemented and merged. Available via `SpectorEngine.builder().svasq4()` or `QuantizedHnswIndex.svasq4(...)`.
-
-Replace INT8 `[-127, 127]` codes with INT4 `[-7, 7]` codes in the SVASQ pipeline. The FWHT rotation still equalizes variance, so INT4 quantization error remains uniformly distributed — just at a coarser granularity (15 levels vs 255).
-
-**Memory layout:**
-```
-[float32 normSq (4 bytes)] [INT4 × paddedDim nibble-packed (paddedDim/2 bytes)]
-```
-
-| Dims | Current SVASQ-8 | SVASQ-4 | Compression vs float32 |
-|------|---------------|--------|----------------------|
-| 384 → 512 | 516 B | 260 B | **5.9×** |
-| 768 → 1024 | 1028 B | 516 B | **6.0×** |
-| 4096 | 4100 B | 2052 B | **8.0×** |
-
-**Recall:**
-
-- Without rescore: ~95–97% recall@10
-- With 3× oversampling rescore: **~97–99% recall@10**
-
-**Key design decisions:**
-
-- Separate `Svasq4Encoder` / `Svasq4SimdKernel` classes (not parameterizing SVASQ-8) to avoid impacting existing code
-- Offset encoding `[0, 14]` keeps byte values non-negative for correct `castShape` sign extension
-- Deinterleaved hi/lo query arrays match nibble layout for natural SIMD ILP
-- Tighter clipping (2.5σ vs 3.0σ) optimizes for 15 quantization levels
-
----
-
-### ✅ Padding-Aware Storage — Skip Zero Dimensions {#padding-aware}
-
-!!! success "Completed"
-    Implemented in `SvasqEncoder`, `Svasq4Encoder`, `SvasqParams.storedDim()`. SIMD-aligned to 16-byte boundary (Option A).
-
-SVASQ pads vectors to the next power-of-two dimensionality (e.g., 768 → 1024), adding wasted bytes. The padded dimensions are zero-filled before FWHT, so their rotated codes are predictable. We now **store only the first `originalDim` codes** (aligned to the next SIMD boundary) and reconstruct padded codes at query time.
-
-| Dims | paddedDim | Before | After (Padding-Aware) | Savings |
-|------|-----------|---------------|---------------|---------
-| 384 | 512 | 516 B | 388 B | **25%** |
-| 768 | 1024 | 1028 B | 772 B | **25%** |
-| 1536 | 2048 | 2052 B | 1540 B | **25%** |
-| 4096 | 4096 | 4100 B | 4100 B | 0% (already pow2) |
-
-**Recall impact:** **None** for L2 distance — padded dimensions contribute a constant offset that doesn't affect ranking.
-
-**Implementation:** SIMD-aligned stored codes (Option A — aligns `storedDim` to next 16-byte boundary). Zero SIMD tail loop overhead.
-
-**Changes:**
-
-- `SvasqParams.storedDim()`: Returns SIMD-aligned `originalDim`
-- `SvasqEncoder` / `Svasq4Encoder`: Store only `storedDim` codes
-- `SvasqSimdKernel` / `Svasq4SimdKernel`: Loop over `storedDim` instead of `paddedDim`
-
----
-
-### ✅ Norm Header Compression — float32 → float16 {#norm-f16}
-
-!!! success "Completed"
-    Implemented via `Float.floatToFloat16()` / `Float.float16ToFloat()` in all SVASQ encoders and kernels.
-
-The 4-byte `float32 exactNormSq` header is now compressed to 2 bytes using `float16` (half-precision).
-
-**Savings:** 2 bytes per vector (combined with padding-aware storage for maximum effect).
-
-| Combined with | Before | After | Savings |
-|---------------|--------|-------|---------|
-| SVASQ-8 (768-dim) | 1028 B | 770 B | **25%** |
-| SVASQ-4 (768-dim) | 516 B | 386 B | **25%** |
-
-**Recall impact:** < 0.01% — `float16` has ~3 decimal digits of precision.
-
-**Changes:**
-
-- `SvasqEncoder` / `Svasq4Encoder`: Write norm via `Float.floatToFloat16()`
-- `SvasqSimdKernel` / `Svasq4SimdKernel`: Read via `Float.float16ToFloat()`
-- `SvasqParams.bytesPerVector()`: Uses 2-byte norm header
-
----
-
-### ✅ Structured Concurrency (JEP 505) {#structured-concurrency}
-
-!!! success "Completed"
-    Implemented via `ConcurrentTasks` in `spector-commons`. Dual-mode: structured concurrency (default) with classic `ExecutorService` fallback via `-Dspector.concurrency.structured=false`.
-
-Migrated all 6 concurrency sites from unstructured `ExecutorService` + `Future` to the JEP 505 `StructuredTaskScope` API, centralized in `ConcurrentTasks`:
-
-| `RecallPipeline` / `Gatherer` | spector-memory | Multi-way recall fan-out (keyword ∥ vector ∥ graph) | Auto-cancel sibling on failure |
-| `SynapseApplication` | spector-synapse | N-way request fan-out | Auto-cancel on worker failure |
-| `EmbeddingProvider` | spector-provider-api | N-way batch embedding | Scope-per-call, no executor lifecycle |
-| `ParallelPqTrainer` | spector-index | M-way K-Means subspace training | All-or-nothing structured scope |
-| `BM25Index` | spector-index | Parallel term scoring | Auto-cancel with sequential fallback |
-
-**Key design decisions:**
-
-- Centralized in `ConcurrentTasks` (spector-commons) for single-point updates when JEP finalizes
-- Feature flag: `-Dspector.concurrency.structured=false` for fallback to classic virtual threads
-- `forkJoinAll()`: all-or-nothing with auto-cancel (uses `awaitAllSuccessfulOrThrow` Joiner)
-- `forkJoinPartial()`: deadline-based with `LabeledTask`/`PartialResult` records (uses `awaitAll` Joiner + `Configuration.withTimeout()`)
-
----
-
-### ✅ 4-Layer Retrieval Stack {#retrieval-stack}
-
-!!! success "Completed"
-    Off-Heap BM25 SIMD, SPLADE sparse retrieval, ColBERT v2 reranking — all wired into `CognitiveIngestionTarget` and `RecallPipeline`. 539 tests pass, 0 failures.
-
-Full 4-layer retrieval architecture with SIMD-accelerated scoring at every layer:
+Full SIMD-accelerated retrieval architecture with Reciprocal Rank Fusion (RRF) across all layers:
 
 ```
 Layer 4: ColBERT v2 Reranker   (token-level late interaction, SIMD MaxSim)
 Layer 3: SPLADE / Li-LSR       (learned sparse retrieval, inverted index)
 Layer 2: BM25                  (keyword search, AVX-512 SIMD scoring)
-Layer 1: Dense Vector           (HNSW semantic similarity, SQ8/SQ4 quantized)
+Layer 1: Dense Vector           (HNSW semantic similarity, SVASQ-8/SVASQ-4)
 ─────── RRF Fusion ─────────── (merges all layer signals)
 ```
 
-**Components built:**
-
 | Component | Module | Description |
 |:---|:---|:---|
-| `SIMDScoreAccumulator` | spector-index | AVX-512 `FloatVector` utilities for BM25 dot-product scoring |
-| `BM25Index` | spector-index | Struct-of-arrays posting lists with SIMD-accelerated term scoring |
-| `SparseEncodingProvider` | spector-embed-api | SPI for SPLADE/Li-LSR/SPLARE sparse encoding |
-| `SpladeIndex` | spector-index | In-memory inverted index for sparse term-weight vectors |
-| `MemorySpladeIndex` | spector-memory | Partition manager for `SpladeIndex` with parallel search |
-| `TokenEmbeddingProvider` | spector-embed-api | SPI for per-token embeddings (ColBERT v2) |
-| `ColBERTReranker` | spector-index | MaxSim scoring with SIMD-accelerated dot products |
-| `TextSearchMode` | spector-memory | 8-mode enum controlling which retrieval layers are active |
+| `BM25Index` | spector-index | Struct-of-Arrays posting lists with `SIMDScoreAccumulator` for AVX-512 term scoring |
+| `SpladeIndex` + `MemorySpladeIndex` | spector-index, spector-memory | Neural sparse term expansion via `SparseEncodingProvider` SPI, partition-parallel search |
+| `ColBERTReranker` | spector-memory | MaxSim scoring with SIMD-accelerated dot products via `TokenEmbeddingProvider` SPI |
+| `TextSearchMode` | spector-memory | 8-mode enum controlling layer activation: `BM25_ONLY`, `SPLADE`, `COLBERT_RERANK`, `FULL_STACK`, etc. |
 
-**Pipeline integration:**
+---
 
-- `CognitiveIngestionTarget` Step 9a-splade: SPLADE encoding + indexing at ingestion
-- `RecallPipeline` Step 3c: SPLADE sparse search (parallel to BM25, fused via RRF)
-- `RecallPipeline` Step 6b: ColBERT reranking (top-N candidates after first-stage sort)
-- All features follow the **nullable SPI design** — graceful degradation when providers are absent
+### Compression & Quantization
 
-**Configuration:**
+| Feature | Compression | Recall Impact |
+|:---|:---|:---|
+| **SVASQ-4** (INT4 Codes) | 6× vs float32 (768-dim) | ~97–99% recall@10 with 3× oversampling rescore |
+| **Padding-Aware Storage** | 25% savings (skip zero-padded dimensions) | None for L2 distance |
+| **Norm Header Compression** (float32 → float16) | 2 bytes saved per vector | < 0.01% |
 
-```java
-RecallOptions.builder()
-    .textSearchMode(TextSearchMode.FULL_STACK)  // all 4 layers
-    .enableReranker(true)                       // ColBERT reranking
-    .rerankerDepth(50)                          // top-50 reranked
-    .gamma(0.3f)                                // BM25/SPLADE weight
-    .build();
-```
+---
+
+### Distributed Systems — Cell HA (ADR-0034)
+
+Complete multi-phase distributed clustering epic:
+
+| Phase | Feature | Description |
+|:---|:---|:---|
+| Phase 1 | **Cell Ownership Ring** | Ketama consistent hashing with monotonic fence tokens |
+| Phase 2 | **Redis Routing Cache** | Gateway resilience with Caffeine fallback for Redis-free deployments |
+| Phase 3 | **Snapshot Replication** | gRPC mTLS sealed-once invariant replication |
+| Phase 4 | **Lease Coordinator Election** | Fence tokens and monitored failover |
+| Phase 5 | **Kubernetes Topology** | Role separation and resource isolation |
+| Phase 6 | **Disaster Recovery & Compliance Erasure** | Legal hold, namespace erasure, measured RPO |
+| Hardening | **Production Wiring** | 60+ findings addressed (G0–G61) across replication, routing, failover, control plane, and DR |
+| ADR-0081 | **Reactive Cell Ingress Gateway** | Dedicated `spector-gateway` module with streaming reverse proxy and CSRF protection |
+
+---
+
+### Security Hardening
+
+| Feature | Description |
+|:---|:---|
+| **PII Redaction** | Phileas integration behind Spector facade for automatic PII detection and redaction. [#914](https://github.com/spectrayan/spector/pull/914) |
+| **Prompt Injection Detection** | Prevention and audit logging for prompt injection attacks against MCP tools. [#913](https://github.com/spectrayan/spector/pull/913) |
+| **Tool Access Policy** | Per-namespace Synapse tool authorization controlling which MCP tools are accessible. [#917](https://github.com/spectrayan/spector/pull/917) |
+| **CVE Remediation** | 174 vulnerability findings remediated: 5 Critical, 13 High, 88 Medium severity across Trivy, CodeQL, and npm advisories. |
+| **Docker Container Scanning** | Trivy + CodeQL integrated into CI pipeline for continuous vulnerability detection. |
+
+---
+
+### Agent Protocols & Developer Experience
+
+| Feature | Description |
+|:---|:---|
+| **MCP Server** | 16 cognitive tools via stdio and HTTP transport — `memory_remember`, `memory_recall`, `memory_reinforce`, `memory_consolidate`, `memory_introspect`, `memory_why_not`, and more |
+| **MEL — Memory Engine Language** | Diagnostic REPL with Lexer → Parser → sealed AST → Evaluator pipeline. Supports `REMEMBER`, `RECALL`, `CONSOLIDATE`, `FORGET`, `EXPLAIN RECALL`, `INTROSPECT`. Module: `synapse/spector-mel` |
+| **OpenClaw Integration** | First-class MCP memory provider plugin for OpenClaw autonomous agents (`plugins/openclaw`) |
+| **Python SDK** (`spector-client`) | Dual sync/async HTTP+SSE client on PyPI with zero Java runtime requirements |
+| **TypeScript SDK** (`@spectrayan/spector-client`) | Universal ESM/CJS packaging for Node.js, Bun, Deno, and browsers. Full cognitive verb parity + SSE streaming |
+| **Java Client SDK** | Pure HTTP/SSE Maven client (`sdks/java/spector-client`) with OpenAPI 3.1 contract generation |
+| **NPX Zero-Install Runner** | `npx -y @spectrayan/spector mcp` — auto-detects local Synapse or boots release JAR |
+| **One-Line Installers** | POSIX shell (`install.sh`), PowerShell (`install.ps1`), Homebrew tap, Scoop manifest |
+| **Docker, Helm & Terraform** | Multi-arch GHCR image, OCI Helm chart, and production Terraform modules for AWS ECS, GCP Cloud Run, Azure Container Apps |
+| **Streaming Agentic Chat** (ADR-0084) | Dual-plane persistence with SSE streaming endpoint (< 500ms TTFT), Flyway V9 migration, Playwright visual regression suite |
+
+---
+
+### Frontend — Cortex (Angular 22)
+
+| Feature | Description |
+|:---|:---|
+| **Streaming Chat UI** (ADR-0084) | Token-by-token SSE rendering, tool call cards, thought disclosure panels |
+| **Dynamic Configuration Hub** (ADR-0085) | JSON schema reflection, auto-save debounce, hot reload for runtime settings |
+| **Component Decomposition** | Feature-based modular architecture: Dashboard (12+ cognitive cards), Query Playground, Memories Table, Graph Explorer, Settings, Health, Control Center |
+| **3D Graph Explorer** | Three.js force-directed neural graph with glowing nodes, edge types, time-travel scrubbing, and fly-to inspection |
+| **Namespace-Isolated Telemetry** (ADR-0083) | Per-namespace Micrometer meters eliminating cross-namespace IDOR on live metrics |
+| **Observability** | Prometheus + Grafana setup for production monitoring dashboards |
+
+---
+
+### Documentation & Governance
+
+| Feature | Description |
+|:---|:---|
+| **85 Architecture Decision Records** | Living ADR framework covering all cognitive pathways, memory layouts, provider SPIs, and platform concerns |
+| **Documentation Split** | Separate User Guide (quickstart, SDKs, MCP) and Architecture Guide (internals, off-heap layouts, SIMD) |
+| **Public Voice Standard** | Mechanism-over-analogy documentation tone across all docs and README |
+| **Kernel Documentation** | 30+ region pages with package-level documentation for kernel and provider modules |
+
+---
+
+## 🔄 In Progress — Q4 2026
+
+| Feature | Category | Status | Notes |
+|:---|:---|:---:|:---|
+| **MEL Phase 2** — `REHEARSE`, `ASSOCIATE`, `DREAM` statements + `spector mel` CLI subcommand | Language | 🔄 In Progress | Phase 1 (6 statements + REPL) is complete. Phase 2 adds advanced cognitive verbs. |
+| **Index Plane Reconciliation GA** (ADR-0082) | Engine | 🔄 Hardening | Finalize SPLADE bundle persistence and Quartz reconciliation jobs |
+| **GPU Kernel Dispatch** | Compute | 📜 Planned | Ship CUDA compute kernels for batch cosine similarity. Panama FFM bridge and context management are implemented; kernel code is pending. |
+| **Cortex Apache 2.0 Header Fix** | Governance | 📜 Planned | Batch license header replacement for ~47 TypeScript files still carrying legacy BSL 1.1 headers |
+| **Automated SBOM** | Supply Chain | 📜 Planned | CycloneDX 1.6 aggregate SBOM generation + OpenSSF Best Practices badge |
+| **Maven Central Distribution** | Distribution | 📜 Planned | Migrate artifact deployment from GitHub Packages to Sonatype Central |
+| **Observability GA** | Operations | 🔄 Hardening | Prometheus + Grafana dashboards moving to production-ready state |
+
+---
+
+## 📅 Near-Term Roadmap — Q1–Q2 2027
+
+### Q1 2027: Agent Runtimes & Protocol Interoperability
+
+| Feature | Category | Notes |
+|:---|:---|:---|
+| **Native Goose Extension** | Agent Runtimes | Dedicated Goose toolkit extension for instant context hydration, working memory, and sleep consolidation in Goose sessions |
+| **Streamable HTTP MCP Transport** | Agent Runtimes | Upgrade MCP server from stdio/SSE to modern streamable HTTP and WebSocket transports |
+| **A2A Memory Sharing Fabric** | Agent Runtimes | Federated engram sharing and selective epistemic boundary filtering between cooperating agents |
+
+### Q2 2027: Hardware Acceleration & Edge
+
+| Feature | Category | Notes |
+|:---|:---|:---|
+| **Panama Symmetric HAL GA** | Hardware | Finalize zero-overhead off-heap abstraction (`spector-cpu`, `spector-gpu`) using JDK 25 Foreign Function & Memory API |
+| **Apple Silicon / ARM64 NEON** | Hardware | Native hardware-intrinsic vector kernels for sub-millisecond 6-phase scoring on M-series and Graviton |
+| **Cell HA GA** | Distributed | Production graduation of distributed cell clustering with full replication and failover |
+
+---
+
+## 🔮 Forward Roadmap — Q3 2027+
+
+### Q3 2027: Platform & Frontend Upgrades
+
+| Feature | Category | Target | Notes |
+|:---|:---|:---:|:---|
+| **JDK 27 Intermediate Upgrade** | Platform | Q3 2027 | Toolchain bump enabling Project Valhalla value class candidates. Branch `epic/802-jdk27-upgrade` with 22 `@ValueCandidate` records already certified. |
+| **Angular 23 LTS Upgrade** | Frontend | Q3 2027 | Angular 23 LTS releases June 2027. Upgrade Cortex from Angular 22 to Angular 23 with extended 24-month support window. |
+
+### Sep 2027: JDK 29 LTS
+
+| Feature | Category | Target | Notes |
+|:---|:---|:---:|:---|
+| **JDK 29 LTS Upgrade** | Platform | Sep 2027 | Next OpenJDK Long-Term Support release. Full Valhalla value classes, finalized Vector API, and next-gen Panama FFM improvements. Hot-path records (`EncodingHeader`, `ScoredRecord`, `HebbianEdge`, `EntityEdge`, `TraversalResult`) migrate to `value class`. |
+
+### Q3–Q4 2027: Advanced Cognitive Science
+
+| Feature | Category | Notes |
+|:---|:---|:---|
+| **AISME Phase 8** — Closed-Loop Epistemic Learning | Cognitive Science | Active Inference Self-Model Engine updating posterior belief models based on agent action feedback |
+| **Modern Hopfield Associative Memory** | Cognitive Science | Log-Sum-ReLU dense associative indexing for instant pattern completion under noisy input |
+| **Continuous Self-Dynamics** | Cognitive Science | Homeostatic regulation and automated sleep-consolidation daemon with dreaming and counterfactual replay during agent idle windows |
+| **RecallMode.REPLAY** — WAL Time-Travel | Agentic AI | Reconstruct point-in-time memory state from WAL events for debugging and audit trails |
+
+---
+
+## 🔬 Research & Future
+
+Items under active investigation or dependent on external ecosystem maturity.
+
+| Feature | Category | Complexity | Key Dependency |
+|:---|:---|:---:|:---|
+| **LoRA Adapter Routing** | Agentic AI | High | LoRA weight format spec, SIMD matrix multiply |
+| **SVASQ-PQ Hybrid** | Compression | Very High | PQ codebook training, ADC lookup tables |
+| **Flat-Mode SVASQ** | Compression | Medium | Flat-shard architecture integration |
+| **NPU Acceleration** | Compute | High | Intel OpenVINO / AMD XDNA SDK maturity |
+| **WASM Edge Runtime** | Runtime | High | GraalWasm or Chicory maturity |
+| **SPLARE** — Sparse Autoencoder Learned Retrieval | Retrieval | High | Sparse autoencoder training pipeline |
+| **ColPali** — Vision-Language Late Interaction | Retrieval | Very High | Vision encoder integration (PaliGemma/SigLIP) |
+| **Neuromodulatory Gain Control** | Cognitive Science | High | Runtime neuromodulatory state calibration |
+| **Dynamic Quantization Stepping** | Compression | High | Online re-quantization without locking |
+| **Spectral Sparsification** | Graph Memory | High | Approximate eigenvalue computation (Lanczos) |
 
 ---
 
 ## Summary Table
 
-### 📜 Active & Planned
+### 🔄 Active & Planned
 
-| # | Improvement | Category | Effort | Status |
-|---|------------|----------|--------|--------|
-| 2 | **GPU kernel dispatch** | Compute | Medium | 📜 Infra ready |
-| 3 | **Project Valhalla** | Runtime | Medium | 🔄 Prepared |
+| # | Feature | Category | Effort | Target | Status |
+|:---:|:---|:---|:---:|:---:|:---:|
+| 1 | MEL Phase 2 (advanced cognitive verbs) | Language | Medium | Q4 2026 | 🔄 In Progress |
+| 2 | GPU Kernel Dispatch | Compute | Medium | Q4 2026 | 📜 Infra Ready |
+| 3 | Index Plane Reconciliation GA | Engine | Medium | Q4 2026 | 🔄 Hardening |
+| 4 | Automated SBOM + OpenSSF | Supply Chain | Low | Q4 2026 | 📜 Planned |
+| 5 | Maven Central Distribution | Distribution | Medium | Q4 2026 | 📜 Planned |
+| 6 | Native Goose Extension | Agent Runtimes | Medium | Q1 2027 | 📜 Planned |
+| 7 | Streamable HTTP MCP Transport | Agent Runtimes | Medium | Q1 2027 | 📜 Planned |
+| 8 | A2A Memory Sharing Fabric | Agent Runtimes | High | Q1 2027 | 📜 Planned |
+| 9 | Panama Symmetric HAL GA | Hardware | Medium | Q2 2027 | 📜 Planned |
+| 10 | Apple Silicon / ARM64 NEON | Hardware | High | Q2 2027 | 📜 Planned |
+| 11 | Cell HA GA | Distributed | Medium | Q2 2027 | 🔄 Hardening |
+| 12 | JDK 27 Intermediate Upgrade | Platform | Medium | Q3 2027 | 📜 Prepared |
+| 13 | Angular 23 LTS Upgrade | Frontend | Medium | Q3 2027 | 📜 Planned |
+| 14 | JDK 29 LTS Upgrade | Platform | High | Sep 2027 | 📜 Planned |
+| 15 | AISME Phase 8 | Cognitive Science | High | Q3 2027 | 📜 Planned |
+| 16 | Modern Hopfield Associative Memory | Cognitive Science | High | Q3 2027 | 📜 Planned |
+| 17 | Continuous Self-Dynamics | Cognitive Science | High | Q3+ 2027 | 📜 Planned |
+| 18 | RecallMode.REPLAY (WAL Time-Travel) | Agentic AI | High | Q3+ 2027 | 📜 Planned |
 
 ### 🔬 Research & Future
 
-| # | Improvement | Category | Effort | Status |
-|---|------------|----------|--------|--------|
-| 4 | **TypeScript/JS SDK** | Client SDKs | Medium | 🔬 Future |
-| 5 | **RecallMode.REPLAY (WAL time-travel)** | Agentic AI | High | 🔬 Research |
-| 6 | **LoRA adapter routing** | Agentic AI | High | 🔬 Research |
-| 7 | **SVASQ-PQ hybrid** | Compression | Very High | 🔬 Research |
-| 8 | **Flat-mode SVASQ** | Compression | Medium | 🔬 Research |
-| 9 | **NPU acceleration** | Compute | High | 🔬 Exploratory |
-| 10 | **WASM edge runtime** | Runtime | High | 🔬 Exploratory |
-| 11 | **Adaptive bit-width** | Compression | Very High | 🔴 Not planned |
-| 12 | **SPLARE sparse autoencoder** | Retrieval | High | 🔬 Research |
-| 13 | **ColPali vision-language** | Retrieval | Very High | 🔬 Research |
+| # | Feature | Category | Effort | Status |
+|:---:|:---|:---|:---:|:---:|
+| 19 | LoRA Adapter Routing | Agentic AI | High | 🔬 Research |
+| 20 | SVASQ-PQ Hybrid | Compression | Very High | 🔬 Research |
+| 21 | Flat-Mode SVASQ | Compression | Medium | 🔬 Research |
+| 22 | NPU Acceleration | Compute | High | 🔬 Exploratory |
+| 23 | WASM Edge Runtime | Runtime | High | 🔬 Exploratory |
+| 24 | SPLARE (Sparse Autoencoder) | Retrieval | High | 🔬 Research |
+| 25 | ColPali (Vision-Language) | Retrieval | Very High | 🔬 Research |
+| 26 | Neuromodulatory Gain Control | Cognitive Science | High | 🔬 Research |
+| 27 | Dynamic Quantization Stepping | Compression | High | 🔬 Research |
+| 28 | Spectral Sparsification | Graph Memory | High | 🔬 Research |
 
-### ✅ Completed
+### ✅ Delivered (May–Sep 2026)
 
-| # | Improvement | Category | Effort |
-|---|------------|----------|--------|
-| 1 | **ProfileAdaptor (contextual bandit)** | Agentic AI | Low-Medium |
-| 14 | **Executive Dysfunction (Hebbian recall)** | Agentic AI | Low-Medium |
-| 17 | **OpenClaw integration** | Agentic AI | Medium |
-| 18 | **Python SDK (MCP wrapper)** | Client SDKs | Low-Medium |
-| 19 | **Documentation split** | Documentation | Low |
-| 20 | **Native MCP Server** | Agentic AI | Medium |
-| 21 | **Streamable HTTP transport** | Agentic AI | Medium |
-| 22 | **4-Layer Cognitive Graph** | Graph Memory | High |
-| 23 | **Cross-layer promotion** | Graph Memory | Medium |
-| 24 | **Entity graph decay + merging + adjacency LTD** | Graph Memory | Medium |
-| 25 | **Graph scoring weights** | Graph Memory | Low |
-| 26 | **Temporal chain pruning** | Graph Memory | Low |
-| 27 | **SVASQ-4** | Compression | Medium |
-| 28 | **Padding-aware storage** | Compression | Low |
-| 29 | **Norm header f16** | Compression | Very Low |
-| 30 | **Structured Concurrency** | Runtime | Low |
-| 31 | **4-Layer Retrieval Stack** | Retrieval | High |
-| 32 | **ColBERT v2 reranking** | Retrieval | Medium |
-| 33 | **Multi-LLM Provider Integration** | N/A | None | Medium | ?? Planned |
-
-
+| # | Feature | Category |
+|:---:|:---|:---|
+| 29 | Sealed Kernel Module (spector-kernel) | Kernel |
+| 30 | Pure Math Kernels (ADR-0033) | Kernel |
+| 31 | Dual-Plane Concurrency (ADR-0026) | Kernel |
+| 32 | Structured Concurrency (JEP 505) | Runtime |
+| 33 | 128-bit Synaptic Tag Gating | Kernel |
+| 34 | 6 Cognitive Pathways (ADR-0035) | Cognitive Architecture |
+| 35 | 4-Layer Cognitive Graph | Cognitive Architecture |
+| 36 | HyperEntityGraph Graduation | Cognitive Architecture |
+| 37 | Index Plane Lifecycle (ADR-0082) | Engine |
+| 38 | Cross-Layer Promotion | Cognitive Architecture |
+| 39 | ProfileAdaptor Contextual Bandit | Agentic AI |
+| 40 | Two-Factor Memory (Bjork & Bjork) | Cognitive Architecture |
+| 41 | Executive Dysfunction Profile | Agentic AI |
+| 42 | MindSpan Benchmark Validation | Benchmarks |
+| 43 | 4-Layer Retrieval Stack (BM25 + SPLADE + ColBERT + Dense) | Retrieval |
+| 44 | SVASQ-4 (INT4 Codes) | Compression |
+| 45 | Padding-Aware Storage | Compression |
+| 46 | Norm Header Compression (f16) | Compression |
+| 47 | Cell HA — 6-Phase Distributed Clustering (ADR-0034) | Distributed Systems |
+| 48 | Reactive Cell Ingress Gateway (ADR-0081) | Distributed Systems |
+| 49 | Security Hardening (PII, Prompt Injection, CVEs) | Security |
+| 50 | MCP Server (16 tools, stdio + HTTP) | Agent Protocols |
+| 51 | MEL Phase 1 (Memory Engine Language REPL) | Language |
+| 52 | OpenClaw Integration | Agent Protocols |
+| 53 | Python SDK (spector-client) | Client SDKs |
+| 54 | TypeScript SDK (@spectrayan/spector-client) | Client SDKs |
+| 55 | Java Client SDK | Client SDKs |
+| 56 | NPX Zero-Install Runner | Distribution |
+| 57 | One-Line Installers (Brew, Scoop, Shell, PS1) | Distribution |
+| 58 | Docker, Helm & Terraform | Distribution |
+| 59 | Streaming Agentic Chat (ADR-0084) | Frontend |
+| 60 | Cortex Dynamic Configuration Hub (ADR-0085) | Frontend |
+| 61 | 3D Graph Explorer (Three.js) | Frontend |
+| 62 | Namespace-Isolated Telemetry (ADR-0083) | Observability |
+| 63 | 85 Architecture Decision Records | Documentation |
+| 64 | Documentation Split (User Guide / Architecture Guide) | Documentation |
+| 65 | Public Voice Standard | Documentation |

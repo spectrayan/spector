@@ -38,28 +38,36 @@ flowchart LR
 
 ## 📅 Milestones (6–12 Month Horizon)
 
-### Q4 2026: Foundation Harmonization & v1.0 GA Preparation
-- [x] **100% Apache 2.0 Licensing**: Harmonize all core modules (`spector-memory`, `spector-synapse`, `spector-cortex`) to Apache 2.0 for open-source foundation compliance.
-- [x] **Open Community Governance**: Adopt meritocratic open governance, 4-tier contributor ladder, and DCO 1.1 sign-off (`GOVERNANCE.md`).
-- [x] **Living ADR Framework**: Codify 80+ standardized Architectural Decision Records covering all cognitive pathways, memory layouts, and provider SPIs (`docs/adr/`).
-- [ ] **Automated Supply Chain Security**: Integrate automated CycloneDX 1.6 aggregate SBOM generation and OpenSSF Best Practices badging.
-- [ ] **Maven Central Distribution**: Migrate artifact deployment from GitHub Packages to Sonatype Central / Maven Central repository.
+### Q4 2026: Foundation Hardening & v1.0 GA Preparation
+- [x] **100% Apache 2.0 Licensing**: All core Java modules harmonized to Apache 2.0. Cortex TypeScript header batch fix pending.
+- [x] **Open Community Governance**: Meritocratic 4-tier contributor ladder, DCO 1.1 sign-off (`GOVERNANCE.md`).
+- [x] **Living ADR Framework**: 85 standardized Architecture Decision Records covering all cognitive pathways, memory layouts, and provider SPIs.
+- [x] **MEL Phase 1 — Memory Engine Language**: Diagnostic REPL with 6 statement types (`REMEMBER`, `RECALL`, `CONSOLIDATE`, `FORGET`, `EXPLAIN RECALL`, `INTROSPECT`), recursive-descent parser, sealed AST, and engine evaluator.
+- [ ] **MEL Phase 2**: Advanced cognitive verbs (`REHEARSE`, `ASSOCIATE`, `DREAM`) + `spector mel` CLI subcommand.
+- [ ] **Automated Supply Chain Security**: CycloneDX 1.6 aggregate SBOM generation and OpenSSF Best Practices badging.
+- [ ] **Maven Central Distribution**: Migrate artifact deployment from GitHub Packages to Sonatype Central.
+- [ ] **GPU Kernel Dispatch**: Ship CUDA compute kernels for batch cosine similarity (Panama FFM bridge is implemented).
 
 ### Q1 2027: Agent Runtimes & Protocol Interoperability
 - [x] **OpenClaw Integration**: First-class long-term memory provider for OpenClaw autonomous agents via MCP stdio/HTTP transport (`plugins/openclaw`).
-- [ ] **Native Goose Extension**: Dedicated Goose toolkit extension enabling instant context hydration, working memory, and sleep consolidation in Goose sessions.
-- [ ] **Streamable HTTP MCP Transport**: Upgrade MCP server implementation (`spector-mcp`) from legacy stdio/SSE to modern streamable HTTP and WebSocket transports.
-- [ ] **A2A Memory Sharing Fabric**: Implement federated engram sharing and selective epistemic boundary filtering between cooperating agents.
+- [ ] **Native Goose Extension**: Dedicated Goose toolkit extension enabling instant context hydration, working memory, and sleep consolidation.
+- [ ] **Streamable HTTP MCP Transport**: Upgrade MCP server from legacy stdio/SSE to modern streamable HTTP and WebSocket transports.
+- [ ] **A2A Memory Sharing Fabric**: Federated engram sharing and selective epistemic boundary filtering between cooperating agents.
 
 ### Q2 2027: Hardware Acceleration & Edge Deployment
-- [ ] **Project Panama Symmetric HAL GA**: Finalize zero-overhead off-heap abstraction (`spector-cpu`, `spector-gpu`) using JDK 25 Foreign Function & Memory (FFM) API.
-- [ ] **Apple Silicon & ARM64 NEON Optimization**: Native hardware-intrinsic vector kernels delivering sub-millisecond 6-phase scoring on edge devices (M-series, Graviton).
-- [ ] **Distributed Cell Clustering (Cell HA)**: Finalize sticky-sharded namespace ownership and consensus leasing coordinator (`spector-cluster`).
+- [ ] **Project Panama Symmetric HAL GA**: Finalize zero-overhead off-heap abstraction (`spector-cpu`, `spector-gpu`) using JDK 25 FFM API.
+- [ ] **Apple Silicon & ARM64 NEON Optimization**: Native hardware-intrinsic vector kernels for sub-millisecond 6-phase scoring on edge devices (M-series, Graviton).
+- [ ] **Cell HA GA**: Production graduation of distributed cell clustering with full replication and failover.
 
-### Q3 2027: Advanced Cognitive Science & Self-Model (AISME)
-- [ ] **Closed-Loop Epistemic Learning**: Active Inference Self-Model Engine (AISME Phase 8) updating posterior belief models based on agent action feedback.
-- [ ] **Log-Sum-ReLU Modern Hopfield Associative Memory**: Dense associative memory indexing for instant pattern completion under noisy sensory input.
-- [ ] **Continuous Self-Dynamics**: Homeostatic regulation and automated sleep-consolidation daemon executing dreaming and counterfactual replay during agent idle windows.
+### Q3 2027: Platform Upgrades & Cognitive Science
+- [ ] **JDK 27 Intermediate Upgrade**: Toolchain bump enabling Project Valhalla value class candidates. 22 `@ValueCandidate` records already certified on `epic/802-jdk27-upgrade`.
+- [ ] **Angular 23 LTS Upgrade**: Migrate Cortex frontend from Angular 22 to Angular 23 LTS (releases June 2027, 24-month support window).
+- [ ] **AISME Phase 8 — Closed-Loop Epistemic Learning**: Active Inference Self-Model Engine updating posterior belief models based on agent action feedback.
+- [ ] **Modern Hopfield Associative Memory**: Log-Sum-ReLU dense associative indexing for instant pattern completion under noisy input.
+- [ ] **Continuous Self-Dynamics**: Homeostatic regulation and automated dreaming daemon during agent idle windows.
+
+### Sep 2027: JDK 29 LTS
+- [ ] **JDK 29 LTS Upgrade**: Next OpenJDK Long-Term Support release. Full Valhalla value classes, finalized Vector API, and next-gen Panama FFM. Hot-path records migrate to `value class`.
 
 ---
 
