@@ -385,6 +385,7 @@ nav:
               - spector-synapse: modules/spector-synapse.md
               - spector-connector: modules/spector-connector.md
               - spector-mcp: modules/spector-mcp.md
+              - spector-mel: modules/spector-mel.md
               - spector-cli: modules/spector-cli.md
               - spector-spring: modules/spector-spring.md
               - spector-batch: modules/spector-batch.md
