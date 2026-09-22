@@ -1,0 +1,17 @@
+{
+  "name": "memory_consolidate",
+  "description": "Trigger a manual memory consolidation cycle. Consolidation lifts episodic traces into semantic or procedural tiers with lineage, compacts tombstoned records, and updates decay strengths. This is one of the four required MF-001 operations (remember, recall, consolidate, forget). Use this after a batch of ingestions or before a reflection cycle to ensure the memory store is optimized.",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:memory:write"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "namespace": {
+        "type": "string",
+        "description": "Target memory namespace (slug or ID). Omit to use connection or account default."
+      }
+    }
+  }
+}

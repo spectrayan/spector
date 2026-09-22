@@ -50,6 +50,7 @@ With cognitive memory enabled (`spector.memory.enabled: true`), your AI agent no
 - *"Jot this down while I think it through"* → `memory_scratchpad`
 - *"What do you actually know about this project?"* → `memory_introspect`
 - *"Forget what I told you about the old API key"* → `memory_forget`
+- *"Consolidate what you've learned into long-term memory"* → `memory_consolidate`
 - *"Switch to tenant production namespace"* → `namespace_switch`
 
 ---
@@ -240,7 +241,7 @@ curl -X POST http://localhost:7070/mcp \
 
 Once connected, your agent has access to Spector's comprehensive suite of 37+ tools across memory, graph context, multi-tenancy, and persona governance:
 
-### 1. Memory Tier Operations (16 Tools)
+### 1. Memory Tier Operations (17 Tools)
 
 | Tool | Description |
 |:---|:---|
@@ -259,6 +260,7 @@ Once connected, your agent has access to Spector's comprehensive suite of 37+ to
 | `memory_reminder` | Schedule time-triggered prospective memory reminders |
 | `memory_why_not` | Explain why a specific memory was filtered out during recall |
 | `memory_status` | Memory tier counts, off-heap bundle capacity, and health |
+| `memory_consolidate` | Trigger a manual consolidation cycle (required MF-001 operation) |
 | `memory_salience` | Inspect and tune the active salience profile (topics/boosts) |
 
 ### 2. Graph & Multi-Evidence Retrieval (7 Tools)
