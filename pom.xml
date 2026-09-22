@@ -84,6 +84,7 @@
         <module>synapse/spector-gateway</module>
         <module>synapse/spector-synapse</module>
         <module>synapse/spector-cli</module>
+        <module>synapse/spector-mel</module>
 
         <!-- ── Bench: Benchmarks ── -->
         <module>bench/spector-bench</module>
