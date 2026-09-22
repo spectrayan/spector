@@ -365,6 +365,17 @@ For branding and trademark guidelines, see the [NOTICE](NOTICE) file.
 
 See [SECURITY.md](SECURITY.md) for our security policy and vulnerability reporting.
 
+## 🧠 Cognitive Math Kernels
+
+The `nucleus/spector-core` cognitive kernels implement biologically inspired computations with SIMD Vector API acceleration. Each kernel now includes formal LaTeX formula docstrings and academic citations:
+
+- **HopfieldKernel** — Hopfield energy function (Hopfield, 1982, doi:10.1073/pnas.79.8.2554)
+- **FreeEnergyKernel** — Friston's Free Energy Principle (Friston, 2010, doi:10.1038/nrn2787)
+- **PredictiveCodingKernel** — Hierarchical prediction error minimization (Rao & Ballard, 1999, doi:10.1038/nn0199_79)
+- **IntegratedInformationKernel** — Tononi's Integrated Information Theory Φ (Tononi, 2004, doi:10.1186/1471-2202-5-42)
+
+See the [kernel source Javadocs](nucleus/spector-core/src/main/java/com/spectrayan/spector/core/cognitive/) for full equations and references.
+
 ## 🙏 Acknowledgments
 
 See [ACKNOWLEDGMENTS.md](ACKNOWLEDGMENTS.md) for our [Open Source Contributors](ACKNOWLEDGMENTS.md#open-source-contributors) hall of fame, as well as credits to the cognitive science researchers, open-source frameworks, and AI coding tools that made Spector possible.
