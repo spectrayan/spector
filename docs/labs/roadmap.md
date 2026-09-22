@@ -739,7 +739,7 @@ Incidence List Entry (4B):
 | Two-Factor Memory (R+S) | 🟢 High | Medium | ✅ | 1-2 weeks | ✅ Done |
 | SPLADE Sparse Retrieval | 🟢 High | High | ✅ | 2-3 weeks | ✅ Done |
 | ColBERT v2 Reranking | 🟢 High | High | ✅ | 2-3 weeks | ✅ Done |
-| Executive Dysfunction | 🟡 Medium | Medium | ✅ | 1-2 weeks | 🔜 Planned |
+| Executive Dysfunction | 🟡 Medium | Medium | ✅ | 1-2 weeks | ✅ Done |
 | Hypergraphs | 🟢 High | High | ✅ | 3-4 weeks | ✅ Done |
 | Spectral Sparsification | 🟢 High | High | ⏳ | 2-3 weeks | 🔬 Research |
 | Neuromodulatory Gain | 🟡 Medium | High | ⏳ | 3-4 weeks | 🔬 Research |
