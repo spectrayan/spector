@@ -2,13 +2,64 @@
 
 | Field | Value |
 |:---|:---|
-| **Status** | Accepted (Implemented) |
+| **Status** | Proposed (**not** implemented — see §0) |
 | **Date** | 2026-08-13 |
 | **Authors** | Spector Maintainers & Architecture Working Group |
 | **Deciders** | Spector Technical Steering Committee (TSC) |
 | **Supersedes** | None |
 | **Superseded By** | None |
-| **Last Verified** | 2026-09-16 (Verified against `main`) |
+| **Last Verified** | 2026-09-23 (status corrected from `Accepted (Implemented)`) |
+
+---
+
+## 0. Status correction — 2026-09-23 (issue #981)
+
+This ADR was marked `Accepted (Implemented)` and "Verified against `main`" on 2026-09-16. **It is not
+implemented.** A review against `main` @ `09f1f2d7` found that `SpectorExportJobConfig` holds no reference
+to a memory engine — no `SpectorMemory` field, constructor parameter, or import — and is therefore
+structurally incapable of reading a namespace. Every `.smb` member was a hardcoded literal:
+
+| Member | What was actually written |
+|:---|:---|
+| `manifest.json` | hardcoded `schemaVersion "2.0.0"`; no embed model, no dims, no namespace id |
+| `nodes/chunk-00001.jsonl` | two sample rows (`"Spector cognitive memory initialized"`, `"Spring Batch pipeline configured"`) |
+| `vectors/vectors-dim1536.bin` | four literal bytes `{0x00,0x01,0x02,0x03}` |
+| `graph/edges.jsonl` | one invented `DEPENDS_ON` edge |
+| `subsystems/state.json` | literal invented subsystem values |
+| `security/keys.json` | a literal `AES-256-GCM` claim — **no encryption code exists anywhere in the product** |
+
+`validateExportStep` then rewrote the manifest, adding counts of those fixtures and `"verified": true`.
+On the import side the node, graph and vector-index steps were `log.info` no-ops: nothing was parsed,
+nothing was written, and no memory id was ever read. `E2EMigrationParityTest` was annotated *"verify 100%
+parity"* but only SHA-256'd a hand-built directory through a zip round trip — and returned early, passing
+unconditionally, whenever its source directory was absent, which it always is in CI.
+
+The practical consequence: an operator following this ADR to migrate a namespace or take a portable backup
+would have received a bundle containing none of their data, with `"verified": true` in its manifest, and
+imported it to a log line reporting success. Silent total data loss presented as success.
+
+**All affected steps now throw `UnsupportedOperationException`.** Producing or consuming an `.smb` bundle
+is disabled. The design in this ADR is sound and is retained as the target; implementation is owned by
+`spectrayan/.kiro/specs/memory-portability`, which depends on embedder identity being persisted first
+(`memory-durability-contract` R3) and on the cursor-stable listing path
+(`namespace-scale-and-observability` R4). This ADR returns to `Accepted (Implemented)` only when that
+spec's golden test passes — export → wipe → import, with memory id, vector and graph-edge parity — and is
+demonstrated to fail against a fixture-based implementation.
+
+### 0.1 Format divergences between this ADR and the code
+
+Recorded rather than silently tolerated; `memory-portability` R6 resolves each.
+
+| This ADR specifies | The code does | Resolution |
+|:---|:---|:---|
+| `.smb` = tar.zst | `SpectorBundleCodec` is a plain `java.util.zip` ZIP | R6.1 — recommendation is to amend this ADR to ZIP, since manifest-first refusal needs random access to one member and tar.zst is a solid stream |
+| `graph/edges.jsonl.zst` | `graph/edges.jsonl`, uncompressed | R6.2 — follows R6.1 |
+| dims recorded in the manifest | dims appear **only** in the filename `vectors-dim1536.bin` | R6.3 |
+| codec javadoc claims CRC32 and entity counts | neither is computed anywhere | R3.2 |
+
+Also note: the codec archives regular files only, so an empty member directory does not survive the round
+trip (`SpectorBundleArchiveFidelityTest#emptyDirectoriesAreNotPreserved`). Any implementation validating
+members by directory presence must account for that.
 
 ---
 

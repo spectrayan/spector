@@ -34,7 +34,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.Instant;
 
 /**
  * Spring Batch job configuration for exporting complete Spector Memory cognitive state.
@@ -80,22 +79,10 @@ public class SpectorExportJobConfig {
             @Value("#{jobParameters['namespace']}") String namespace,
             @Value("#{jobParameters['targetBundlePath']}") String targetBundlePath) {
         return (contribution, chunkContext) -> {
-            Path tempStaging = getStagingDir(targetBundlePath);
-            Files.createDirectories(tempStaging);
-
-            Path manifestFile = tempStaging.resolve("manifest.json");
-            String manifestJson = String.format("""
-                    {
-                      "schemaVersion": "2.0.0",
-                      "namespace": "%s",
-                      "exportTimestamp": "%s",
-                      "components": ["nodes", "vectors", "graph", "subsystems", "security"]
-                    }
-                    """, namespace, Instant.now().toString());
-
-            Files.writeString(manifestFile, manifestJson);
-            log.info("[ExportJob] Manifest created for namespace={}", namespace);
-            return RepeatStatus.FINISHED;
+            throw SpectorBatchUnimplemented.step("exportManifest",
+                    "It wrote a hardcoded schemaVersion and component list, recording neither the "
+                            + "embedding model, the vector dimensionality, nor the namespace id that an "
+                            + "importer needs in order to decide whether the bundle is compatible.");
         };
     }
 
@@ -110,17 +97,11 @@ public class SpectorExportJobConfig {
     @StepScope
     public Tasklet exportMemoryNodesTasklet(@Value("#{jobParameters['targetBundlePath']}") String targetBundlePath) {
         return (contribution, chunkContext) -> {
-            Path nodesDir = getStagingDir(targetBundlePath).resolve("nodes");
-            Files.createDirectories(nodesDir);
-
-            Path chunkFile = nodesDir.resolve("chunk-00001.jsonl");
-            String sampleNodes = """
-                    {"id":"node-1","text":"Spector cognitive memory initialized","tags":["system","init"],"salience":1.0,"decay":0.05}
-                    {"id":"node-2","text":"Spring Batch pipeline configured","tags":["batch","migration"],"salience":0.9,"decay":0.01}
-                    """;
-            Files.writeString(chunkFile, sampleNodes);
-            log.info("[ExportJob] Memory texts, tags, and key-values exported.");
-            return RepeatStatus.FINISHED;
+            throw SpectorBatchUnimplemented.step("exportMemoryNodes",
+                    "It wrote two hardcoded sample rows ('Spector cognitive memory initialized' and "
+                            + "'Spring Batch pipeline configured') regardless of namespace contents. This "
+                            + "configuration holds no reference to a memory engine and so cannot read any "
+                            + "record.");
         };
     }
 
@@ -135,13 +116,10 @@ public class SpectorExportJobConfig {
     @StepScope
     public Tasklet exportVectorsTasklet(@Value("#{jobParameters['targetBundlePath']}") String targetBundlePath) {
         return (contribution, chunkContext) -> {
-            Path vectorsDir = getStagingDir(targetBundlePath).resolve("vectors");
-            Files.createDirectories(vectorsDir);
-
-            Path binFile = vectorsDir.resolve("vectors-dim1536.bin");
-            Files.write(binFile, new byte[]{0x00, 0x01, 0x02, 0x03});
-            log.info("[ExportJob] Raw vector float arrays exported.");
-            return RepeatStatus.FINISHED;
+            throw SpectorBatchUnimplemented.step("exportVectors",
+                    "It wrote four literal bytes {0x00,0x01,0x02,0x03} into a file whose name hardcoded "
+                            + "a dimensionality of 1536 — which was also the only place any dimensionality "
+                            + "was recorded.");
         };
     }
 
@@ -156,16 +134,10 @@ public class SpectorExportJobConfig {
     @StepScope
     public Tasklet exportGraphTasklet(@Value("#{jobParameters['targetBundlePath']}") String targetBundlePath) {
         return (contribution, chunkContext) -> {
-            Path graphDir = getStagingDir(targetBundlePath).resolve("graph");
-            Files.createDirectories(graphDir);
-
-            Path edgesFile = graphDir.resolve("edges.jsonl");
-            String edges = """
-                    {"source":"node-1","target":"node-2","relation":"DEPENDS_ON","weight":0.95,"hebbian":0.88}
-                    """;
-            Files.writeString(edgesFile, edges);
-            log.info("[ExportJob] Cognitive hypergraph edges and Hebbian weights exported.");
-            return RepeatStatus.FINISHED;
+            throw SpectorBatchUnimplemented.step("exportGraph",
+                    "It wrote a single hardcoded 'DEPENDS_ON' edge — a relation the engine does not "
+                            + "produce — and emitted no Hebbian, temporal-chain or entity edges, and none "
+                            + "of the hyperedge types and roles that recall actually traverses.");
         };
     }
 
@@ -180,16 +152,10 @@ public class SpectorExportJobConfig {
     @StepScope
     public Tasklet exportSubsystemsTasklet(@Value("#{jobParameters['targetBundlePath']}") String targetBundlePath) {
         return (contribution, chunkContext) -> {
-            Path subsystemsDir = getStagingDir(targetBundlePath).resolve("subsystems");
-            Files.createDirectories(subsystemsDir);
-
-            Path stateFile = subsystemsDir.resolve("state.json");
-            String state = """
-                    {"hippocampus":"active","amygdala":{"arousal":0.2},"insula":{"empathy":0.8},"dopamine":1.0}
-                    """;
-            Files.writeString(stateFile, state);
-            log.info("[ExportJob] Biological subsystem states exported.");
-            return RepeatStatus.FINISHED;
+            throw SpectorBatchUnimplemented.step("exportSubsystems",
+                    "It wrote a literal JSON object of invented subsystem values (arousal 0.2, empathy "
+                            + "0.8, dopamine 1.0) read from nothing. Fabricated state is worse than an "
+                            + "absent member because it looks like data.");
         };
     }
 
@@ -204,16 +170,11 @@ public class SpectorExportJobConfig {
     @StepScope
     public Tasklet exportKeysTasklet(@Value("#{jobParameters['targetBundlePath']}") String targetBundlePath) {
         return (contribution, chunkContext) -> {
-            Path securityDir = getStagingDir(targetBundlePath).resolve("security");
-            Files.createDirectories(securityDir);
-
-            Path keysFile = securityDir.resolve("keys.json");
-            String keys = """
-                    {"algorithm":"AES-256-GCM","header":"enc-v1"}
-                    """;
-            Files.writeString(keysFile, keys);
-            log.info("[ExportJob] Encryption headers and metadata exported.");
-            return RepeatStatus.FINISHED;
+            throw SpectorBatchUnimplemented.step("exportKeys",
+                    "It wrote a literal claim of 'AES-256-GCM' encryption. No encryption, DEK, or "
+                            + "envelope-encryption code exists anywhere in the product, so this asserted a "
+                            + "security property the system does not implement. This member must stay "
+                            + "absent until a DEK exists; see ADR-0034 Phase 6 decision D6.");
         };
     }
 
@@ -230,82 +191,11 @@ public class SpectorExportJobConfig {
             @Value("#{jobParameters['namespace']}") String namespace,
             @Value("#{jobParameters['targetBundlePath']}") String targetBundlePath) {
         return (contribution, chunkContext) -> {
-            Path stagingDir = getStagingDir(targetBundlePath);
-
-            // 1. Validate nodes
-            Path nodesDir = stagingDir.resolve("nodes");
-            if (!Files.exists(nodesDir) || !Files.isDirectory(nodesDir)) {
-                throw new IllegalStateException("Export validation failed: nodes directory missing");
-            }
-            long nodeCount = 0;
-            try (var stream = Files.list(nodesDir)) {
-                for (Path file : stream.filter(p -> p.toString().endsWith(".jsonl")).toList()) {
-                    nodeCount += Files.lines(file).filter(line -> !line.isBlank()).count();
-                }
-            }
-            if (nodeCount == 0) {
-                throw new IllegalStateException("Export validation failed: 0 memory nodes exported");
-            }
-
-            // 2. Validate vectors
-            Path vectorsDir = stagingDir.resolve("vectors");
-            if (!Files.exists(vectorsDir) || !Files.isDirectory(vectorsDir)) {
-                throw new IllegalStateException("Export validation failed: vectors directory missing");
-            }
-            long vectorFilesCount = 0;
-            try (var stream = Files.list(vectorsDir)) {
-                vectorFilesCount = stream.filter(p -> p.toString().endsWith(".bin")).count();
-            }
-            if (vectorFilesCount == 0) {
-                throw new IllegalStateException("Export validation failed: 0 vector files exported");
-            }
-
-            // 3. Validate graph
-            Path graphDir = stagingDir.resolve("graph");
-            if (!Files.exists(graphDir) || !Files.isDirectory(graphDir)) {
-                throw new IllegalStateException("Export validation failed: graph directory missing");
-            }
-            long edgeCount = 0;
-            Path edgesFile = graphDir.resolve("edges.jsonl");
-            if (Files.exists(edgesFile)) {
-                edgeCount = Files.lines(edgesFile).filter(line -> !line.isBlank()).count();
-            }
-
-            // 4. Validate subsystems
-            Path subDir = stagingDir.resolve("subsystems");
-            if (!Files.exists(subDir) || !Files.isDirectory(subDir) || !Files.exists(subDir.resolve("state.json"))) {
-                throw new IllegalStateException("Export validation failed: subsystems state missing");
-            }
-
-            // 5. Validate security
-            Path secDir = stagingDir.resolve("security");
-            if (!Files.exists(secDir) || !Files.isDirectory(secDir) || !Files.exists(secDir.resolve("keys.json"))) {
-                throw new IllegalStateException("Export validation failed: security keys missing");
-            }
-
-            // 6. Update manifest with verified counts
-            Path manifestFile = stagingDir.resolve("manifest.json");
-            String manifestJson = String.format("""
-                    {
-                      "schemaVersion": "2.0.0",
-                      "namespace": "%s",
-                      "exportTimestamp": "%s",
-                      "components": ["nodes", "vectors", "graph", "subsystems", "security"],
-                      "counts": {
-                        "nodes": %d,
-                        "vectorFiles": %d,
-                        "edges": %d,
-                        "subsystems": 1,
-                        "keys": 1
-                      },
-                      "verified": true
-                    }
-                    """, namespace, Instant.now().toString(), nodeCount, vectorFilesCount, edgeCount);
-            Files.writeString(manifestFile, manifestJson);
-
-            log.info("[ExportJob] Validation PASSED: namespace='{}', nodes={}, vectorFiles={}, edges={}",
-                    namespace, nodeCount, vectorFilesCount, edgeCount);
-            return RepeatStatus.FINISHED;
+            throw SpectorBatchUnimplemented.step("validateExport",
+                    "It asserted the presence of the members the preceding steps had just fabricated, "
+                            + "then rewrote manifest.json adding counts of those fixtures and a literal "
+                            + "\"verified\": true. A validator must never stamp its own input as verified; "
+                            + "the real implementation validates against the source namespace.");
         };
     }
 

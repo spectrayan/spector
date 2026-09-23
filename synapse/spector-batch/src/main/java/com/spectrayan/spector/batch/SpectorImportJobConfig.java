@@ -100,7 +100,13 @@ public class SpectorImportJobConfig {
             if (!Files.exists(manifestPath)) {
                 throw new IllegalStateException("Invalid SMB bundle: missing manifest.json");
             }
-            String manifestJson = Files.readString(manifestPath);
+
+            // NOTE: this step verifies member *presence* only. The manifest is deliberately not parsed
+            // here, and there is consequently NO schema-version, embedding-model or dimensionality
+            // compatibility check. Until issue #981 the manifest was read into a local variable and then
+            // discarded, which gave the misleading appearance of validation; that read has been removed
+            // rather than left in place. Manifest parsing and refusal-before-write are owned by
+            // memory-portability R2.5/R3.3 (see SpectorBatchUnimplemented.OWNING_SPEC).
 
             // 1. Verify nodes component
             Path nodesDir = stagingDir.resolve("nodes");
@@ -156,11 +162,12 @@ public class SpectorImportJobConfig {
             @Value("#{jobParameters['bundlePath']}") String bundlePath,
             @Value("#{jobParameters['targetNamespace']}") String targetNamespace) {
         return (contribution, chunkContext) -> {
-            Path nodesChunk = getStagingDir(bundlePath).resolve("nodes").resolve("chunk-00001.jsonl");
-            if (Files.exists(nodesChunk)) {
-                log.info("[ImportJob] Imported memory nodes into namespace='{}': {}", targetNamespace, nodesChunk);
-            }
-            return RepeatStatus.FINISHED;
+            throw SpectorBatchUnimplemented.step("importMemoryNodes",
+                    "It checked that nodes/chunk-00001.jsonl existed and logged that it had imported "
+                            + "the nodes. Nothing was parsed and nothing was written to memory; no memory "
+                            + "id was ever read, so import was neither idempotent nor non-idempotent — it "
+                            + "was undefined. It also hardcoded a single chunk name, silently ignoring "
+                            + "every chunk beyond the first.");
         };
     }
 
@@ -177,11 +184,11 @@ public class SpectorImportJobConfig {
             @Value("#{jobParameters['bundlePath']}") String bundlePath,
             @Value("#{jobParameters['targetNamespace']}") String targetNamespace) {
         return (contribution, chunkContext) -> {
-            Path edgesChunk = getStagingDir(bundlePath).resolve("graph").resolve("edges.jsonl");
-            if (Files.exists(edgesChunk)) {
-                log.info("[ImportJob] Imported hypergraph edges and Hebbian weights into namespace='{}'", targetNamespace);
-            }
-            return RepeatStatus.FINISHED;
+            throw SpectorBatchUnimplemented.step("importGraph",
+                    "It checked that graph/edges.jsonl existed and logged that it had imported "
+                            + "hypergraph edges and Hebbian weights. No edge was created. Silent edge loss "
+                            + "is the hardest defect to notice here, because recall keeps working and only "
+                            + "degrades.");
         };
     }
 
@@ -198,11 +205,9 @@ public class SpectorImportJobConfig {
             @Value("#{jobParameters['bundlePath']}") String bundlePath,
             @Value("#{jobParameters['targetNamespace']}") String targetNamespace) {
         return (contribution, chunkContext) -> {
-            Path binFile = getStagingDir(bundlePath).resolve("vectors").resolve("vectors-dim1536.bin");
-            if (Files.exists(binFile)) {
-                log.info("[ImportJob] Rebuilt vector indices for namespace='{}'", targetNamespace);
-            }
-            return RepeatStatus.FINISHED;
+            throw SpectorBatchUnimplemented.step("rebuildVectorIndex",
+                    "It checked that a file named vectors-dim1536.bin existed and logged that it had "
+                            + "rebuilt the vector indices. No index was rebuilt or reconciled.");
         };
     }
 
