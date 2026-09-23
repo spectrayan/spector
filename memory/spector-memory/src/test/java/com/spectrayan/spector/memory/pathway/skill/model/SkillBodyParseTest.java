@@ -149,4 +149,45 @@ class SkillBodyParseTest {
         assertThat(parsed.meta().parents().get("episodic")).containsExactly("epi-1", "epi-2");
         assertThat(parsed.body()).isEqualTo("# Header\nAction sequence.");
     }
+
+    @Test
+    @DisplayName("ADR-0086 Phase 7: GRAPH_TEMPLATE kind parses cleanly from frontmatter")
+    void testGraphTemplateSkillParsing() {
+        String graphContent = """
+                ---
+                schema: spector.skill.v1
+                name: automated-incident-response-flow
+                kind: graph_template
+                confidence: 0.85
+                tools:
+                  - incident_tool
+                  - slack_notifier
+                parents:
+                  episodic:
+                    - "07ABC999INC"
+                  semantic:
+                    - "runbook-p1"
+                ---
+                # Automated Incident Response Flow
+
+                flowchart TD
+                  Detect[Incident Detected] --> Triage[Triage Severity]
+                  Triage --> Mitigate[Execute Runbook]
+                """;
+
+        SkillBody body = SkillBody.parse(graphContent);
+
+        assertThat(body.hasMeta()).isTrue();
+        SkillMeta meta = body.meta();
+        assertThat(meta.name()).isEqualTo("automated-incident-response-flow");
+        assertThat(meta.kind()).isEqualTo(SkillKind.GRAPH_TEMPLATE);
+        assertThat(meta.confidence()).isEqualTo(0.85f);
+        assertThat(meta.tools()).containsExactly("incident_tool", "slack_notifier");
+        assertThat(body.body()).contains("flowchart TD");
+
+        String serialized = body.serialize();
+        SkillBody roundtripped = SkillBody.parse(serialized);
+        assertThat(roundtripped.hasMeta()).isTrue();
+        assertThat(roundtripped.meta().kind()).isEqualTo(SkillKind.GRAPH_TEMPLATE);
+    }
 }

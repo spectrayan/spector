@@ -59,7 +59,7 @@ public final class SkillDedupRelay implements SynapticRelay<SkillSignal> {
 
         float[] candidateVector = signal.vector();
         if (candidateVector == null) {
-            EmbeddingProvider embedder = signal.context() != null ? signal.context().get(EmbeddingProvider.class) : null;
+            EmbeddingProvider embedder = signal.context() != null ? signal.context().find(EmbeddingProvider.class).orElse(null) : null;
             if (embedder != null) {
                 try {
                     candidateVector = embedder.embed(signal.extractedBody().body()).vector();
@@ -87,7 +87,7 @@ public final class SkillDedupRelay implements SynapticRelay<SkillSignal> {
         }
 
         // If VectorIndex is bound in context, scan procedural vectors
-        VectorIndex index = signal.context() != null ? signal.context().get(VectorIndex.class) : null;
+        VectorIndex index = signal.context() != null ? signal.context().find(VectorIndex.class).orElse(null) : null;
         if (index != null) {
             try {
                 var searchResults = index.search(candidateVector, 5);
