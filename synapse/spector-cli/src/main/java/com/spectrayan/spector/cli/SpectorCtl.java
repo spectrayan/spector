@@ -59,6 +59,7 @@ import picocli.CommandLine.Option;
                 IndexCommand.class,
                 StatusCommand.class,
                 MemoryCommand.class,
+                SkillCommand.class,
                 MigrateNamespacesCommand.class,
                 DisasterRecoveryCommand.class
         }

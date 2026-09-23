@@ -43,6 +43,12 @@ class SpectorCtlTest {
                 if (cls == RememberCommand.class) {
                     return cls.cast(new RememberCommand(mock(ObjectProvider.class), mock(ObjectProvider.class)));
                 }
+                if (cls == SkillCommand.class) {
+                    return cls.cast(new SkillCommand(mock(ObjectProvider.class)));
+                }
+                if (cls == SkillCommand.CompileSubcommand.class) {
+                    return cls.cast(new SkillCommand.CompileSubcommand(mock(ObjectProvider.class)));
+                }
                 return CommandLine.defaultFactory().create(cls);
             }
         };
@@ -69,6 +75,7 @@ class SpectorCtlTest {
         assertThat(output).contains("doctor");
         assertThat(output).contains("serve");
         assertThat(output).contains("init");
+        assertThat(output).contains("skill");
     }
 
     @Test
@@ -247,6 +254,35 @@ class SpectorCtlTest {
         assertThat(output).contains("--dims");
         assertThat(output).contains("--capacity");
         assertThat(output).contains("--data-dir");
+    }
+
+    @Test
+    void skillHelp_showsOptions() {
+        var cli = createCli();
+        var sw = new StringWriter();
+        cli.setOut(new PrintWriter(sw));
+
+        int exitCode = cli.execute("skill", "--help");
+
+        assertThat(exitCode).isEqualTo(0);
+        String output = sw.toString();
+        assertThat(output).contains("compile");
+    }
+
+    @Test
+    void skillCompileHelp_showsOptions() {
+        var cli = createCli();
+        var sw = new StringWriter();
+        cli.setOut(new PrintWriter(sw));
+
+        int exitCode = cli.execute("skill", "compile", "--help");
+
+        assertThat(exitCode).isEqualTo(0);
+        String output = sw.toString();
+        assertThat(output).contains("--cue");
+        assertThat(output).contains("--parents");
+        assertThat(output).contains("--parent-texts");
+        assertThat(output).contains("--commit");
     }
 
     // ─────────────── Requirement 18.2: Configurable host/port ───────────────
