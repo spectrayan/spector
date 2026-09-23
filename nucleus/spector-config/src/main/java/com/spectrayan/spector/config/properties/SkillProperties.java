@@ -62,4 +62,16 @@ public class SkillProperties implements Serializable {
     public void setUtilityAlpha(float utilityAlpha) {
         this.utilityAlpha = utilityAlpha;
     }
+
+    public float duplicateCosine() {
+        return duplicateCosine;
+    }
+
+    public int minSessions() {
+        return minSessions;
+    }
+
+    public float utilityAlpha() {
+        return utilityAlpha;
+    }
 }
