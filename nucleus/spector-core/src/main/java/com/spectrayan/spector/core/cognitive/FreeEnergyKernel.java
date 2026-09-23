@@ -31,6 +31,18 @@ import jdk.incubator.vector.VectorSpecies;
  * <p>Implements the mathematical foundation of Karl Friston's Free Energy Principle for Gaussian
  * density distributions. Computes analytical Kullback-Leibler (KL) divergence and expected log-likelihood
  * across continuous latent mental state distributions using SIMD vectorization.</p>
+ *
+ * <h3>Formal Equation</h3>
+ * <pre>
+ *   F = D_KL(q(s) || p(s)) - E_q[ln p(o|s)]
+ * </pre>
+ * In LaTeX notation:
+ * {@code \mathcal{F} = D_{KL}(q(s) \| p(s)) - \mathbb{E}_{q}[\ln p(o|s)]}
+ *
+ * <h3>Academic Citation</h3>
+ * <p>Friston, K. (2010). The free-energy principle: a unified brain theory?
+ * <i>Nature Reviews Neuroscience</i>, 11(2), 127–138.
+ * <a href="https://doi.org/10.1038/nrn2787">doi:10.1038/nrn2787</a></p>
  */
 public final class FreeEnergyKernel {
 
