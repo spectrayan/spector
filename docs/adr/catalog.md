@@ -94,6 +94,7 @@
 | **ADR-0083** | [Namespace-Isolated Memory Analytics and Stats Telemetry](0083-namespace-isolated-memory-analytics-telemetry.md) | `Proposed` | 2026-09-18 | [`0083-namespace-isolated-memory-analytics-telemetry.md`](0083-namespace-isolated-memory-analytics-telemetry.md) |
 | **ADR-0084** | [Dual-Plane Conversation Persistence](0084-dual-plane-conversation-persistence.md) | `Proposed` | 2026-09-19 | [`0084-dual-plane-conversation-persistence.md`](0084-dual-plane-conversation-persistence.md) |
 | **ADR-0085** | [Dynamic Synapse Configuration Overrides and SpectorMemory Runtime Propagation Architecture](0085-dynamic-synapse-configuration-and-runtime-propagation.md) | `Proposed` | 2026-09-19 | [`0085-dynamic-synapse-configuration-and-runtime-propagation.md`](0085-dynamic-synapse-configuration-and-runtime-propagation.md) |
+| **ADR-0086** | [Procedural Skill Crystallization](0086-procedural-skill-crystallization.md) | `Accepted (Implemented)` | 2026-09-22 | [`0086-procedural-skill-crystallization.md`](0086-procedural-skill-crystallization.md) |
 
 ---
 
@@ -155,6 +156,7 @@ Biological memory pathways, free-energy active inference, dynamic dreaming, asso
 - **[ADR-0073: Recall Cognitive Pathway and Multi-Phase Retrieval Architecture](0073-recall-cognitive-pathway-multi-phase-retrieval.md)** (`Accepted (Implemented)`)
 - **[ADR-0074: Reflect Cognitive Pathway and Sleep Consolidation Architecture](0074-reflect-cognitive-pathway-sleep-consolidation.md)** (`Accepted (Implemented)`)
 - **[ADR-0078: Salience Network and Thalamic Cognitive Profiles Architecture](0078-salience-network-and-thalamic-cognitive-profiles.md)** (`Accepted (Implemented)`)
+- **[ADR-0086: Procedural Skill Crystallization](0086-procedural-skill-crystallization.md)** (`Accepted (Implemented)`)
 
 ### 3. Platform, Hardware Abstraction, Security & Synapse Services
 Hardware Abstraction Layer (HAL), actor concurrency, clustering & cell HA, REST/gRPC gateways, MCP server integration, and client SDKs:

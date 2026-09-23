@@ -2,8 +2,8 @@
 
 | Field | Value |
 |:---|:---|
-| **Status** | Proposed |
-| **Date** | 2026-09-18 |
+| **Status** | Accepted (Implemented) |
+| **Date** | 2026-09-22 |
 | **Authors** | Spector Maintainers & Architecture Working Group |
 | **Deciders** | Spector Technical Steering Committee (TSC) |
 | **Supersedes** | Operational interpretation of ADR-0008 MSCE skill formation (free-text distill in `ProceduralCrystallizationRelay`) |
@@ -15,7 +15,7 @@
 
 ## 1. Context
 
-Spector already treats procedural memory as the basal-ganglia tier: a small, durable, append-only `RecordMemory` of crystallized habits, looked up in microseconds and injected into LLM context as skills.
+Spector already treats procedural memory as the procedural heuristics tier: a small, durable, append-only `RecordMemory` of crystallized habits, looked up in microseconds and injected into LLM context as skills.
 
 ADR-0008 introduced GPM (Goal & Procedural Memory) and MSCE (Multi-Scale Crystallization). The production writer is `ProceduralCrystallizationRelay` on `ReflectPathway` (ADR-0074). Dream's `EfeTriageRelay` already classifies `PRAGMATIC` simulations as procedural-rule candidates. Synapse already *consumes* procedural hits: `ContextPackFormatter` budgets 25% of a context pack for `## 2. PROCEDURAL HEURISTICS & DECISION CADENCE` and labels each hit `[Skill #id]`. MCP `memory_remember` already accepts `tier=PROCEDURAL` as “skills, patterns, how-to.”
 
@@ -32,7 +32,7 @@ What the relay actually writes today is not a skill. It:
 
 Semantic facts, working scratch, existing procedural near-duplicates, TANGLE chains, and ADR-0029 provenance rows are unused. `templateEngine` is probed and ignored. Dream's `PRAGMATIC` path can mint a second, uncoordinated procedural write.
 
-The 64-byte procedural header (ADR-0030 / `ProceduralHeaderLayout` → `SemanticProceduralHeaderLayout`) is an index card shared with semantic. Variable skill structure cannot live there. The body already lives in `TextBlobMemory`. Mutable support already has a home in `StrengthMemory` (Region 4). Lineage already has a home in `ProvenanceMemory` (Region 26), whose `target_kind` enumerates `PROCEDURAL` but whose `source_kind` is only `EPISODIC_LOG = 1`.
+The 64-byte procedural header (ADR-0030 / `ProceduralHeaderLayout` → `SemanticProceduralHeaderLayout`) is an index card shared with semantic. Variable skill structure cannot live there. The body already lives in `TextBlobMemory`. Mutable support already has a home in `StrengthMemory` (Region 4). Lineage already has a home in `ProvenanceMemory` (Region 26), whose `target_kind` enumerates `PROCEDURAL` but whose `source_kind` was originally only `EPISODIC = 1` (formerly `EPISODIC_LOG`).
 
 ACT-R is useful as a **separation of concerns**, not as a single crystallization formula. In ACT-R, knowledge compilation *creates* a production; utility learning *ranks* it later; conflict resolution *selects* among matching productions. Those three jobs must not collapse into one Reflect relay or one `SkillCompiler` method.
 
@@ -220,7 +220,7 @@ flowchart LR
   end
 
   subgraph Prov["ProvenanceMemory Region 26"]
-    Rows["1..N rows, same target_tsid<br/>source_kind EPISODIC_LOG / SEMANTIC / PROCEDURAL"]
+    Rows["1..N rows, same target_tsid<br/>source_kind EPISODIC / SEMANTIC / PROCEDURAL"]
   end
 
   subgraph Str["StrengthMemory Region 4"]
@@ -303,18 +303,18 @@ Rules:
 
 ### 5.5 Provenance extension — semantic and procedural parents
 
-Lock ordinals to `ProvenanceLayout.java` / `docs/kernel/regions/provenance.md`, not the ADR-0029 prose table (they disagree):
+Lock ordinals to `ProvenanceLayout.java` / `docs/kernel/regions/provenance.md` and typed via `ProvenanceSourceKind` (`EPISODIC = 1`, `SEMANTIC = 2`, `PROCEDURAL = 3`):
 
 | Field | Canonical value |
 |:---|:---|
-| `source_kind` | `EPISODIC_LOG = 1` (existing), **`SEMANTIC = 2` (new)**, **`PROCEDURAL = 3` (new)**, `WORKING = 4` reserved, unused in v1 |
+| `source_kind` | `EPISODIC = 1` (formerly `EPISODIC_LOG`), **`SEMANTIC = 2` (new)**, **`PROCEDURAL = 3` (new)**, `WORKING = 4` reserved, unused in v1 |
 | `target_kind` | `SEMANTIC = 2`, `PROCEDURAL = 3` |
 
 Use the existing 12-byte `_reserved` block at offset 56 of the 72-byte provenance row. **Do not change stride.**
 
 | When | Offset 56–63 | Offset 64–67 |
 |:---|:---|:---|
-| `source_kind = EPISODIC_LOG` | remain zero | remain zero |
+| `source_kind = EPISODIC` | remain zero | remain zero |
 | `source_kind ∈ {SEMANTIC, PROCEDURAL}` | `source_tsid` int64 | `source_partition` int32, or zero |
 
 Mixed skills = **multiple rows**, same `target_tsid`. Write order: persist success → lineage rows → hyperedges → then mark source episodic turns consolidated if they were members of this compile. On provenance exhaustion: keep the skill, metric `skill.provenance.dropped` (ADR-0029 D6 fail-open).
@@ -531,7 +531,7 @@ Mint prior: low `importance` (compiled-child analog of ACT-R \(U_0 \approx 0\) o
 2. **Phase 2 — Admit / extract / dedup relays + `SkillBody`.** SnakeYAML parser; extract IR → v1 markdown; algorithmic fallback; cosine reinforce. Reflect relay only builds parent lists.
 3. **Phase 3 — Semantic and mixed parents.** `source_kind=SEMANTIC` + reserved `source_tsid`; mixed two-row provenance; tags `from:semantic` / `from:episodic` as gates only.
 4. **Phase 4 — Consumption.** `ContextPackFormatter` short form; `explain()` mixed parents.
-5. **Phase 5 — MCP / CLI + Dream redirect.** `memory_compile_skill` (`DRY_RUN` / `COMPILE`); CLI sibling; PRAGMATIC persist removed; `skill-` prefix_kind registered.
+5. **Phase 5 — MCP / CLI + Dream redirect.** `memory_compile_skill` (`DRY_RUN` / `COMPILE`); CLI sibling command (`spector skill compile`); PRAGMATIC persist removed; `skill-` prefix_kind registered.
 6. **Phase 6 — `REINFORCE` / `SkillUtilityRelay`.** Only after an outcome signal exists. Optional softmax mix into Recall. Not required to mark this ADR Accepted.
 7. **Phase 7 — Deferred.** `graph_template` + approval-backed `FlowSpec`.
 
