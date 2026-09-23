@@ -40,7 +40,7 @@ public final class SkillPersistRelay implements SynapticRelay<SkillSignal> {
 
     @Override
     public boolean transmit(final SkillSignal signal) {
-        if (!signal.commit() || signal.extractedBody() == null) {
+        if (signal.mode() == SkillSignal.Mode.REINFORCE || !signal.commit() || signal.extractedBody() == null) {
             return true;
         }
 

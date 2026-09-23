@@ -22,8 +22,12 @@ import com.spectrayan.spector.kernel.store.ProvenanceMemory;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.pathway.skill.model.SkillBody;
 
+import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Mutable signal driving the {@link com.spectrayan.spector.memory.pathway.skill.SkillPathway} (ADR-0086 §5.2).
+ */
 public final class SkillSignal extends AbstractSignal {
 
     public enum Mode {
@@ -34,8 +38,9 @@ public final class SkillSignal extends AbstractSignal {
 
     public record ParentRef(String tsid, MemoryType type) {}
 
-    private final Mode mode;
+    private Mode mode;
     private final List<ParentRef> parents;
+    private final List<String> parentTexts;
     private final String cue;
     private final boolean commit;
     private final String skillId;
@@ -48,6 +53,7 @@ public final class SkillSignal extends AbstractSignal {
     private SkillBody extractedBody;
     private String duplicateOf;
     private String persistedSkillId;
+    private float[] vector;
 
     public SkillSignal(
             final Mode mode,
@@ -59,8 +65,23 @@ public final class SkillSignal extends AbstractSignal {
             final HyperEntityGraphMemory hyperEntityGraph,
             final EntityDirectory entityDirectory,
             final ProvenanceMemory provenanceMemory) {
+        this(mode, parents, List.of(), cue, commit, skillId, reward, hyperEntityGraph, entityDirectory, provenanceMemory);
+    }
+
+    public SkillSignal(
+            final Mode mode,
+            final List<ParentRef> parents,
+            final List<String> parentTexts,
+            final String cue,
+            final boolean commit,
+            final String skillId,
+            final float reward,
+            final HyperEntityGraphMemory hyperEntityGraph,
+            final EntityDirectory entityDirectory,
+            final ProvenanceMemory provenanceMemory) {
         this.mode = mode != null ? mode : Mode.DRY_RUN;
         this.parents = parents != null ? List.copyOf(parents) : List.of();
+        this.parentTexts = parentTexts != null ? List.copyOf(parentTexts) : List.of();
         this.cue = cue;
         this.commit = this.mode != Mode.DRY_RUN && commit;
         this.skillId = skillId;
@@ -71,7 +92,10 @@ public final class SkillSignal extends AbstractSignal {
     }
 
     public Mode mode() { return mode; }
+    public void mode(final Mode mode) { this.mode = mode != null ? mode : Mode.DRY_RUN; }
+
     public List<ParentRef> parents() { return parents; }
+    public List<String> parentTexts() { return parentTexts; }
     public String cue() { return cue; }
     public boolean commit() { return commit; }
     public String skillId() { return skillId; }
@@ -89,4 +113,45 @@ public final class SkillSignal extends AbstractSignal {
 
     public String persistedSkillId() { return persistedSkillId; }
     public void persistedSkillId(final String persistedSkillId) { this.persistedSkillId = persistedSkillId; }
+
+    public float[] vector() { return vector; }
+    public void vector(final float[] vector) { this.vector = vector; }
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static final class Builder {
+        private Mode mode = Mode.COMPILE;
+        private final List<ParentRef> parents = new ArrayList<>();
+        private final List<String> parentTexts = new ArrayList<>();
+        private String cue;
+        private boolean commit = true;
+        private String skillId;
+        private float reward;
+        private HyperEntityGraphMemory hyperEntityGraph;
+        private EntityDirectory entityDirectory;
+        private ProvenanceMemory provenanceMemory;
+        private SkillBody extractedBody;
+
+        public Builder mode(final Mode mode) { this.mode = mode; return this; }
+        public Builder parent(final String tsid, final MemoryType type) { this.parents.add(new ParentRef(tsid, type)); return this; }
+        public Builder parents(final List<ParentRef> parents) { if (parents != null) this.parents.addAll(parents); return this; }
+        public Builder parentText(final String text) { if (text != null && !text.isBlank()) this.parentTexts.add(text); return this; }
+        public Builder parentTexts(final List<String> texts) { if (texts != null) this.parentTexts.addAll(texts); return this; }
+        public Builder cue(final String cue) { this.cue = cue; return this; }
+        public Builder commit(final boolean commit) { this.commit = commit; return this; }
+        public Builder skillId(final String skillId) { this.skillId = skillId; return this; }
+        public Builder reward(final float reward) { this.reward = reward; return this; }
+        public Builder hyperEntityGraph(final HyperEntityGraphMemory h) { this.hyperEntityGraph = h; return this; }
+        public Builder entityDirectory(final EntityDirectory e) { this.entityDirectory = e; return this; }
+        public Builder provenanceMemory(final ProvenanceMemory p) { this.provenanceMemory = p; return this; }
+        public Builder extractedBody(final SkillBody b) { this.extractedBody = b; return this; }
+
+        public SkillSignal build() {
+            var signal = new SkillSignal(mode, parents, parentTexts, cue, commit, skillId, reward, hyperEntityGraph, entityDirectory, provenanceMemory);
+            signal.extractedBody(extractedBody);
+            return signal;
+        }
+    }
 }

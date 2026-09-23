@@ -29,10 +29,16 @@ import java.util.Objects;
  */
 public final class SkillRecipe implements PathwayRecipe<SkillSignal> {
 
+    private final ClusterAdmitRelay admitRelay;
+    private final SkillExtractRelay extractRelay;
+    private final SkillDedupRelay dedupRelay;
     private final SkillPersistRelay persistRelay;
     private final SkillLineageRelay lineageRelay;
 
     private SkillRecipe(final Builder builder) {
+        this.admitRelay = Objects.requireNonNull(builder.admitRelay, "admitRelay cannot be null");
+        this.extractRelay = Objects.requireNonNull(builder.extractRelay, "extractRelay cannot be null");
+        this.dedupRelay = Objects.requireNonNull(builder.dedupRelay, "dedupRelay cannot be null");
         this.persistRelay = Objects.requireNonNull(builder.persistRelay, "persistRelay cannot be null");
         this.lineageRelay = Objects.requireNonNull(builder.lineageRelay, "lineageRelay cannot be null");
     }
@@ -43,7 +49,25 @@ public final class SkillRecipe implements PathwayRecipe<SkillSignal> {
 
     @Override
     public void compose(final PathwayComposer<SkillSignal> composer) {
-        // Nested Remember invocation behind shared breaker and bulkhead
+        // 1. Cluster Admission
+        composer.stage(RelayNames.SKILL_ADMIT)
+                .relay(admitRelay)
+                .policy(ErrorPolicy.FAIL_FAST)
+                .add();
+
+        // 2. Structured Skill Extraction
+        composer.stage(RelayNames.SKILL_EXTRACT)
+                .relay(extractRelay)
+                .policy(ErrorPolicy.FAIL_FAST)
+                .add();
+
+        // 3. Deduplication
+        composer.stage(RelayNames.SKILL_DEDUP)
+                .relay(dedupRelay)
+                .policy(ErrorPolicy.DEGRADE_GRACEFULLY)
+                .add();
+
+        // 4. Nested Remember invocation behind shared breaker and bulkhead
         composer.stage(RelayNames.SKILL_PERSIST)
                 .relay(persistRelay)
                 .policy(ErrorPolicy.DEGRADE_GRACEFULLY)
@@ -52,16 +76,40 @@ public final class SkillRecipe implements PathwayRecipe<SkillSignal> {
                         PathwayResilience.nestedRememberBulkhead())
                 .add();
 
-        // Lineage tracking (provenance + hypergraph)
+        // 5. Lineage tracking (provenance + hypergraph)
         composer.stage(RelayNames.SKILL_LINEAGE)
                 .relay(lineageRelay)
                 .policy(ErrorPolicy.DEGRADE_GRACEFULLY)
                 .add();
     }
 
+    public ClusterAdmitRelay admitRelay() { return admitRelay; }
+    public SkillExtractRelay extractRelay() { return extractRelay; }
+    public SkillDedupRelay dedupRelay() { return dedupRelay; }
+    public SkillPersistRelay persistRelay() { return persistRelay; }
+    public SkillLineageRelay lineageRelay() { return lineageRelay; }
+
     public static final class Builder {
-        private SkillPersistRelay persistRelay;
-        private SkillLineageRelay lineageRelay;
+        private ClusterAdmitRelay admitRelay = new ClusterAdmitRelay();
+        private SkillExtractRelay extractRelay = new SkillExtractRelay();
+        private SkillDedupRelay dedupRelay = new SkillDedupRelay();
+        private SkillPersistRelay persistRelay = new SkillPersistRelay();
+        private SkillLineageRelay lineageRelay = new SkillLineageRelay();
+
+        public Builder admitRelay(final ClusterAdmitRelay admitRelay) {
+            this.admitRelay = admitRelay;
+            return this;
+        }
+
+        public Builder extractRelay(final SkillExtractRelay extractRelay) {
+            this.extractRelay = extractRelay;
+            return this;
+        }
+
+        public Builder dedupRelay(final SkillDedupRelay dedupRelay) {
+            this.dedupRelay = dedupRelay;
+            return this;
+        }
 
         public Builder persistRelay(final SkillPersistRelay persistRelay) {
             this.persistRelay = persistRelay;
