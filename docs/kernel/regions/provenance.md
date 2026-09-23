@@ -58,7 +58,7 @@ Each 72-byte record captures the lineage between a batch of episodic conversatio
 | Offset | Size | Field Name | Type | Description |
 |:---:|:---:|:---|:---|:---|
 | `0x00` | 1B | `flags` | uint8 | 0=LIVE, 1=TOMBSTONE, 2=PARTIAL_RUN |
-| `0x01` | 1B | `source_kind` | uint8 | EPISODIC_LOG = 1 |
+| `0x01` | 1B | `source_kind` | uint8 | EPISODIC = 1 (formerly EPISODIC_LOG), SEMANTIC = 2, PROCEDURAL = 3 |
 | `0x02` | 1B | `target_kind` | uint8 | SEMANTIC = 2, PROCEDURAL = 3 |
 | `0x03` | 1B | `prefix_kind` | uint8 | Target ID prefix registry ordinal |
 | `0x04` | 2B | `pass_number` | uint16 | Monotonic consolidation pass counter |
@@ -74,8 +74,8 @@ Each 72-byte record captures the lineage between a batch of episodic conversatio
 | `0x34` | 1B | `fact_index` | uint8 | Index of this fact within its batch |
 | `0x35` | 1B | `batch_fact_count` | uint8 | Total facts in this batch |
 | `0x36` | 2B | `content_hash_hi` | uint16 | Upper 16 bits of fact text CRC32C |
-| `0x38` | 8B | `reserved` | bytes | Zero-filled |
-| `0x40` | 4B | `reserved_2` | bytes | Zero-filled |
+| `0x38` | 8B | `source_tsid` | int64 | Source entity TSID when source is semantic/procedural (ADR-0086 §5.5) |
+| `0x40` | 4B | `source_partition` | int32 | Source partition sequence or 0 (ADR-0086 §5.5) |
 | `0x44` | 4B | `crc32c` | int32 | Record-level CRC32C checksum |
 
 ## Access Patterns & Concurrency

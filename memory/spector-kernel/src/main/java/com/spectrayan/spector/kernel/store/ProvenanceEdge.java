@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.kernel.store;
 
+import com.spectrayan.spector.kernel.api.ProvenanceSourceKind;
 import com.spectrayan.spector.kernel.layout.ProvenanceLayout;
 
 /**
@@ -36,7 +37,7 @@ import com.spectrayan.spector.kernel.layout.ProvenanceLayout;
  * @param turnCount        number of turns covered by this edge
  * @param contentHashHi    upper 16 bits of fact text CRC32C (dedup aid)
  * @param consolidatedAtMs epoch millis when consolidation occurred
- * @param sourceKind       source kind (default: {@link ProvenanceLayout#SOURCE_EPISODIC_LOG})
+ * @param sourceKind       source kind (default: {@link ProvenanceLayout#SOURCE_EPISODIC})
  * @param targetKind       target kind ({@link ProvenanceLayout#TARGET_SEMANTIC} or
  *                         {@link ProvenanceLayout#TARGET_PROCEDURAL})
  * @param prefixKind       target ID prefix registry ordinal
@@ -83,6 +84,24 @@ public record ProvenanceEdge(
     }
 
     /**
+     * Strongly typed constructor accepting {@link ProvenanceSourceKind}.
+     */
+    public ProvenanceEdge(long sessionId, long targetTsid, short passNumber,
+                          byte factIndex, byte batchFactCount,
+                          int partitionSeq, int firstSeq, int lastSeq,
+                          int firstOffsetHint, int lastOffsetHint,
+                          short turnCount, short contentHashHi,
+                          long consolidatedAtMs,
+                          ProvenanceSourceKind sourceKind, byte targetKind, byte prefixKind,
+                          long sourceTsid, int sourcePartition) {
+        this(sessionId, targetTsid, passNumber, factIndex, batchFactCount,
+                partitionSeq, firstSeq, lastSeq, firstOffsetHint, lastOffsetHint,
+                turnCount, contentHashHi, consolidatedAtMs,
+                sourceKind != null ? sourceKind.code() : ProvenanceLayout.SOURCE_EPISODIC,
+                targetKind, prefixKind, sourceTsid, sourcePartition);
+    }
+
+    /**
      * Creates a provenance edge with default source/target kinds for the common case:
      * episodic log → semantic memory.
      */
@@ -95,10 +114,17 @@ public record ProvenanceEdge(
         this(sessionId, targetTsid, passNumber, factIndex, batchFactCount,
                 partitionSeq, firstSeq, lastSeq, firstOffsetHint, lastOffsetHint,
                 turnCount, contentHashHi, consolidatedAtMs,
-                ProvenanceLayout.SOURCE_EPISODIC_LOG,
+                ProvenanceLayout.SOURCE_EPISODIC,
                 ProvenanceLayout.TARGET_SEMANTIC,
                 (byte) 0,
                 0L,
                 0);
+    }
+
+    /**
+     * Returns the source kind as a {@link ProvenanceSourceKind} enum.
+     */
+    public ProvenanceSourceKind sourceKindEnum() {
+        return ProvenanceSourceKind.fromCode(sourceKind);
     }
 }

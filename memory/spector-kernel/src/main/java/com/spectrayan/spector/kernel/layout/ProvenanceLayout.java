@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.kernel.layout;
 
+import com.spectrayan.spector.kernel.api.ProvenanceSourceKind;
 import com.spectrayan.spector.kernel.layout.RegionLayout;
 
 import java.lang.foreign.MemorySegment;
@@ -33,7 +34,7 @@ import java.lang.foreign.ValueLayout;
  *   Offset  Size  Field               Type     Description
  *   ──────  ────  ──────────────────  ───────  ───────────────────────────────────
  *    0      1B    flags               uint8    LIVE(0), TOMBSTONE(1), PARTIAL_RUN(2)
- *    1      1B    source_kind         uint8    EPISODIC_LOG = 1
+ *    1      1B    source_kind         uint8    EPISODIC = 1, SEMANTIC = 2, PROCEDURAL = 3
  *    2      1B    target_kind         uint8    SEMANTIC = 2, PROCEDURAL = 3
  *    3      1B    prefix_kind         uint8    Target ID prefix registry ordinal
  *    4      2B    pass_number         uint16   Monotonic consolidation pass counter (1-indexed)
@@ -49,8 +50,8 @@ import java.lang.foreign.ValueLayout;
  *   52      1B    fact_index          uint8    Index of this fact within its batch
  *   53      1B    batch_fact_count    uint8    Total facts in this batch
  *   54      2B    content_hash_hi     uint16   Upper 16 bits of fact text CRC32C
- *   56      8B    _reserved           bytes    Zero-filled; future fields
- *   64      4B    reserved_2          bytes    Zero-filled; future fields
+ *   56      8B    source_tsid         int64    Source entity TSID when source is semantic/procedural
+ *   64      4B    source_partition    int32    Source partition sequence or 0
  *   68      4B    crc32c              int32    Written/verified by AbstractRecordMemory
  *   ── 72B total stride ────────────────────────────────────────────────────────
  * </pre>
@@ -85,14 +86,20 @@ public final class ProvenanceLayout implements RegionLayout {
 
     // ── Source/Target Kind Constants ──
 
-    /** Source kind: episodic conversation log. */
-    public static final byte SOURCE_EPISODIC_LOG = 1;
+    /** Source kind: episodic memory (formerly EPISODIC_LOG). */
+    public static final byte SOURCE_EPISODIC = com.spectrayan.spector.kernel.api.ProvenanceSourceKind.EPISODIC.code();
+
+    /**
+     * @deprecated Renamed to {@link #SOURCE_EPISODIC}.
+     */
+    @Deprecated
+    public static final byte SOURCE_EPISODIC_LOG = SOURCE_EPISODIC;
 
     /** Source kind: semantic memory (ADR-0086 §5.5). */
-    public static final byte SOURCE_SEMANTIC = 2;
+    public static final byte SOURCE_SEMANTIC = com.spectrayan.spector.kernel.api.ProvenanceSourceKind.SEMANTIC.code();
 
     /** Source kind: procedural memory (ADR-0086 §5.5). */
-    public static final byte SOURCE_PROCEDURAL = 3;
+    public static final byte SOURCE_PROCEDURAL = com.spectrayan.spector.kernel.api.ProvenanceSourceKind.PROCEDURAL.code();
 
     /** Target kind: semantic memory. */
     public static final byte TARGET_SEMANTIC = 2;
@@ -184,6 +191,10 @@ public final class ProvenanceLayout implements RegionLayout {
         return seg.get(LAYOUT_SOURCE_KIND, recordOff + OFFSET_SOURCE_KIND);
     }
 
+    public static ProvenanceSourceKind readSourceKindEnum(MemorySegment seg, long recordOff) {
+        return ProvenanceSourceKind.fromCode(readSourceKind(seg, recordOff));
+    }
+
     public static byte readTargetKind(MemorySegment seg, long recordOff) {
         return seg.get(LAYOUT_TARGET_KIND, recordOff + OFFSET_TARGET_KIND);
     }
@@ -260,6 +271,10 @@ public final class ProvenanceLayout implements RegionLayout {
 
     public static void writeSourceKind(MemorySegment seg, long recordOff, byte kind) {
         seg.set(LAYOUT_SOURCE_KIND, recordOff + OFFSET_SOURCE_KIND, kind);
+    }
+
+    public static void writeSourceKind(MemorySegment seg, long recordOff, ProvenanceSourceKind kind) {
+        writeSourceKind(seg, recordOff, kind.code());
     }
 
     public static void writeTargetKind(MemorySegment seg, long recordOff, byte kind) {
@@ -468,6 +483,11 @@ public final class ProvenanceLayout implements RegionLayout {
         /** Returns {@code true} if this record is live (not tombstoned). */
         public boolean isLive() {
             return flags == FLAG_LIVE || flags == FLAG_PARTIAL_RUN;
+        }
+
+        /** Returns the source kind as a {@link ProvenanceSourceKind} enum. */
+        public ProvenanceSourceKind sourceKindEnum() {
+            return ProvenanceSourceKind.fromCode(sourceKind);
         }
     }
 }

@@ -119,7 +119,7 @@ belonging to one batch.
 | Offset | Size | Type | Field | Purpose |
 |:---|:---:|:---|:---|:---|
 | `0` | 1B | `uint8` | `flags` | `LIVE`(0x01), `PARTIAL_RUN`(0x02), `TOMBSTONE`(0xFF) |
-| `1` | 1B | `uint8` | `source_kind` | `EPISODIC_LOG = 1` |
+| `1` | 1B | `uint8` | `source_kind` | `EPISODIC = 1` (formerly `EPISODIC_LOG`; see `ProvenanceSourceKind` & ADR-0086) |
 | `2` | 1B | `uint8` | `target_kind` | `SEMANTIC = 1`, `PROCEDURAL = 2` |
 | `3` | 1B | `uint8` | `prefix_kind` | Target ID prefix registry ordinal (see D5). **Mandatory.** |
 | `4` | 2B | `uint16` | `pass_number` | 1-indexed consolidation pass counter (multi-pass session support) |

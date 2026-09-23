@@ -31,11 +31,21 @@ class ProvenanceLayoutExtensionTest {
     private final ProvenanceLayout layout = ProvenanceLayout.INSTANCE;
 
     @Test
-    @DisplayName("Constants SOURCE_SEMANTIC and SOURCE_PROCEDURAL exist with correct values")
+    @DisplayName("Constants SOURCE_EPISODIC, SOURCE_SEMANTIC, and SOURCE_PROCEDURAL exist with correct values")
     void sourceKindConstants() {
-        assertThat(ProvenanceLayout.SOURCE_EPISODIC_LOG).isEqualTo((byte) 1);
+        assertThat(ProvenanceLayout.SOURCE_EPISODIC).isEqualTo((byte) 1);
+        assertThat(ProvenanceLayout.SOURCE_EPISODIC_LOG).isEqualTo((byte) 1); // backwards compat alias
         assertThat(ProvenanceLayout.SOURCE_SEMANTIC).isEqualTo((byte) 2);
         assertThat(ProvenanceLayout.SOURCE_PROCEDURAL).isEqualTo((byte) 3);
+
+        assertThat(com.spectrayan.spector.kernel.api.ProvenanceSourceKind.EPISODIC.code()).isEqualTo((byte) 1);
+        assertThat(com.spectrayan.spector.kernel.api.ProvenanceSourceKind.SEMANTIC.code()).isEqualTo((byte) 2);
+        assertThat(com.spectrayan.spector.kernel.api.ProvenanceSourceKind.PROCEDURAL.code()).isEqualTo((byte) 3);
+
+        assertThat(com.spectrayan.spector.kernel.api.ProvenanceSourceKind.fromCode((byte) 1))
+                .isEqualTo(com.spectrayan.spector.kernel.api.ProvenanceSourceKind.EPISODIC);
+        assertThat(com.spectrayan.spector.kernel.api.ProvenanceSourceKind.fromString("episodic_log"))
+                .isEqualTo(com.spectrayan.spector.kernel.api.ProvenanceSourceKind.EPISODIC);
     }
 
     @Test
@@ -100,7 +110,7 @@ class ProvenanceLayoutExtensionTest {
     void backwardCompatibleConstructor() {
         ProvenanceLayout.ProvenanceState legacyState = new ProvenanceLayout.ProvenanceState(
                 ProvenanceLayout.FLAG_LIVE,
-                ProvenanceLayout.SOURCE_EPISODIC_LOG,
+                ProvenanceLayout.SOURCE_EPISODIC,
                 ProvenanceLayout.TARGET_SEMANTIC,
                 (byte) 0,
                 (short) 1,
