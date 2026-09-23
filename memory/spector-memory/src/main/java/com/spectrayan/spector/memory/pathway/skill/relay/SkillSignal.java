@@ -36,7 +36,69 @@ public final class SkillSignal extends AbstractSignal {
         REINFORCE
     }
 
-    public record ParentRef(String tsid, MemoryType type) {}
+    public record ParentRef(
+            String id,
+            MemoryType type,
+            long tsid,
+            long sessionId,
+            int firstSeq,
+            int lastSeq,
+            String text
+    ) {
+        public ParentRef(String id, MemoryType type) {
+            this(id, type, parseTsid(id), parseSessionId(id), 0, 0, null);
+        }
+
+        public ParentRef(String id, MemoryType type, String text) {
+            this(id, type, parseTsid(id), parseSessionId(id), 0, 0, text);
+        }
+
+        public static ParentRef episodic(long sessionId, int sequenceId, String text) {
+            return new ParentRef(sessionId + "#" + sequenceId, MemoryType.EPISODIC, 0L, sessionId, sequenceId, sequenceId, text);
+        }
+
+        public static ParentRef episodic(long sessionId, int firstSeq, int lastSeq, String text) {
+            return new ParentRef(sessionId + "#" + firstSeq + "-" + lastSeq, MemoryType.EPISODIC, 0L, sessionId, firstSeq, lastSeq, text);
+        }
+
+        public static ParentRef semantic(long tsid, String text) {
+            return new ParentRef("sem-" + com.spectrayan.spector.kernel.id.TsidGenerator.encodeCrockford(tsid), MemoryType.SEMANTIC, tsid, 0L, 0, 0, text);
+        }
+
+        public static ParentRef procedural(long tsid, String text) {
+            return new ParentRef("skill-" + com.spectrayan.spector.kernel.id.TsidGenerator.encodeCrockford(tsid), MemoryType.PROCEDURAL, tsid, 0L, 0, 0, text);
+        }
+
+        public static ParentRef of(String id, MemoryType type) {
+            return new ParentRef(id, type);
+        }
+
+        private static long parseTsid(String id) {
+            if (id == null || id.isBlank()) return 0L;
+            try {
+                int dashIdx = id.lastIndexOf('-');
+                String token = dashIdx >= 0 ? id.substring(dashIdx + 1) : id;
+                return com.spectrayan.spector.kernel.id.TsidGenerator.decodeCrockford(token);
+            } catch (Exception e) {
+                try {
+                    return Long.parseLong(id);
+                } catch (Exception ignored) {
+                    return 0L;
+                }
+            }
+        }
+
+        private static long parseSessionId(String id) {
+            if (id == null || id.isBlank()) return 0L;
+            try {
+                int hashIdx = id.indexOf('#');
+                if (hashIdx >= 0) {
+                    return Long.parseLong(id.substring(0, hashIdx));
+                }
+            } catch (Exception ignored) {}
+            return 0L;
+        }
+    }
 
     private Mode mode;
     private final List<ParentRef> parents;
@@ -81,7 +143,14 @@ public final class SkillSignal extends AbstractSignal {
             final ProvenanceMemory provenanceMemory) {
         this.mode = mode != null ? mode : Mode.DRY_RUN;
         this.parents = parents != null ? List.copyOf(parents) : List.of();
-        this.parentTexts = parentTexts != null ? List.copyOf(parentTexts) : List.of();
+        if (parentTexts != null && !parentTexts.isEmpty()) {
+            this.parentTexts = List.copyOf(parentTexts);
+        } else {
+            this.parentTexts = this.parents.stream()
+                    .map(ParentRef::text)
+                    .filter(t -> t != null && !t.isBlank())
+                    .toList();
+        }
         this.cue = cue;
         this.commit = this.mode != Mode.DRY_RUN && commit;
         this.skillId = skillId;
@@ -136,6 +205,7 @@ public final class SkillSignal extends AbstractSignal {
 
         public Builder mode(final Mode mode) { this.mode = mode; return this; }
         public Builder parent(final String tsid, final MemoryType type) { this.parents.add(new ParentRef(tsid, type)); return this; }
+        public Builder parent(final ParentRef parent) { if (parent != null) this.parents.add(parent); return this; }
         public Builder parents(final List<ParentRef> parents) { if (parents != null) this.parents.addAll(parents); return this; }
         public Builder parentText(final String text) { if (text != null && !text.isBlank()) this.parentTexts.add(text); return this; }
         public Builder parentTexts(final List<String> texts) { if (texts != null) this.parentTexts.addAll(texts); return this; }

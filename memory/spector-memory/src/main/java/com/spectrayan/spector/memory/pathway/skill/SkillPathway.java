@@ -49,7 +49,10 @@ public final class SkillPathway extends AbstractPathway<SkillSignal, SkillReport
     }
 
     /**
-     * Creates a standard instance wired with default persist and lineage relays.
+     * Creates a standard instance wired with all 6 procedural crystallization relays:
+     * admission, extraction, deduplication, persistence, lineage tracking, and utility updating.
+     * When running without a catalog-registered {@code RememberPathway}, persistence degrades
+     * gracefully without failing the pathway execution.
      *
      * @return configured SkillPathway
      */

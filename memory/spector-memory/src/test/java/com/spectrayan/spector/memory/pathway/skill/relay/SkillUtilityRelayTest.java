@@ -83,12 +83,29 @@ class SkillUtilityRelayTest {
     }
 
     @Test
-    @DisplayName("Near-duplicate reroute triggers Hebbian co-activation bump without explicit reward")
-    void duplicateRerouteTriggersHebbianBump() {
+    @DisplayName("Near-duplicate reroute without explicit reward is a no-op (outcome gate)")
+    void duplicateRerouteWithoutRewardIsNoOp() {
         SkillUtilityRelay relay = new SkillUtilityRelay(0.15f);
 
         SkillSignal signal = SkillSignal.builder()
                 .mode(SkillSignal.Mode.REINFORCE)
+                .build();
+        signal.duplicateOf("skill-existing-99");
+
+        boolean transmitted = relay.transmit(signal);
+
+        assertThat(transmitted).isTrue();
+        assertThat(relay.utilityFor("skill-existing-99")).isEqualTo(0.0f);
+    }
+
+    @Test
+    @DisplayName("Near-duplicate reroute with outcome reward updates duplicate utility")
+    void duplicateRerouteWithRewardUpdatesUtility() {
+        SkillUtilityRelay relay = new SkillUtilityRelay(0.15f);
+
+        SkillSignal signal = SkillSignal.builder()
+                .mode(SkillSignal.Mode.REINFORCE)
+                .reward(1.0f)
                 .build();
         signal.duplicateOf("skill-existing-99");
 

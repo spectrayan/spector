@@ -69,14 +69,18 @@ public final class SkillPersistRelay implements SynapticRelay<SkillSignal> {
 
         String serializedText = signal.extractedBody().serialize();
 
+        // Mint prior: low initial importance (analog of ACT-R U0 ≈ 0) to avoid dominating fused recall
+        com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints mintPrior =
+                new com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints(0.15f, 0.15f, 0.15f);
+
         RememberSignal rs = RememberSignal.forCognitive(
                 skillId,
                 serializedText,
                 null,
                 MemoryType.PROCEDURAL,
                 new String[]{"procedural", "skill", "crystallized"},
-                MemorySource.REFLECTED,
-                null,
+                MemorySource.PROCEDURAL,
+                mintPrior,
                 SalienceProfile.NEUTRAL,
                 soulVer
         );

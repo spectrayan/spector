@@ -17,6 +17,7 @@ package com.spectrayan.spector.memory.pathway.skill.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.kernel.api.ProvenanceSourceKind;
 import com.spectrayan.spector.kernel.id.TsidGenerator;
 import com.spectrayan.spector.kernel.layout.ProvenanceLayout;
 import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
@@ -35,7 +36,7 @@ public final class SkillLineageRelay implements SynapticRelay<SkillSignal> {
 
     @Override
     public boolean transmit(final SkillSignal signal) {
-        if (!signal.commit() || signal.persistedSkillId() == null || signal.parents().isEmpty()) {
+        if (!signal.commit() || signal.persistedSkillId() == null) {
             return true;
         }
 
@@ -55,66 +56,61 @@ public final class SkillLineageRelay implements SynapticRelay<SkillSignal> {
 
         for (var parent : signal.parents()) {
             if (signal.provenanceMemory() != null) {
-                long parentTsid;
-                try {
-                    String pid = parent.tsid();
-                    int dashIdx = pid.lastIndexOf('-');
-                    String basePart = (dashIdx != -1) ? pid.substring(0, dashIdx) : pid;
-                    try {
-                        parentTsid = TsidGenerator.decodeCrockford(basePart);
-                    } catch (Exception notCrockford) {
-                        try {
-                            parentTsid = Long.parseLong(basePart);
-                        } catch (NumberFormatException notLong) {
-                            parentTsid = (dashIdx != -1) ? TsidGenerator.decodeCrockford(pid.substring(dashIdx + 1)) : 0L;
-                        }
-                    }
-                } catch (Exception e) {
-                    log.debug("Skipping unparseable parent TSID '{}'", parent.tsid());
-                    parentTsid = 0L;
+                ProvenanceSourceKind sourceKind;
+                long sessionId = 0L;
+                int firstSeq = 0;
+                int lastSeq = 0;
+                short turnCount = 1;
+                long sourceTsid = 0L;
+
+                if (parent.type() == MemoryType.EPISODIC) {
+                    sourceKind = ProvenanceSourceKind.EPISODIC;
+                    sessionId = parent.sessionId();
+                    firstSeq = parent.firstSeq();
+                    lastSeq = parent.lastSeq() >= firstSeq ? parent.lastSeq() : firstSeq;
+                    turnCount = (short) Math.max(1, (lastSeq - firstSeq + 1));
+                    sourceTsid = 0L; // ADR-0086 §5.5: remain 0 for episodic source
+                } else if (parent.type() == MemoryType.SEMANTIC) {
+                    sourceKind = ProvenanceSourceKind.SEMANTIC;
+                    sourceTsid = parent.tsid();
+                } else if (parent.type() == MemoryType.PROCEDURAL) {
+                    sourceKind = ProvenanceSourceKind.PROCEDURAL;
+                    sourceTsid = parent.tsid();
+                } else {
+                    continue; // Skip non-provenance parent tiers (e.g. WORKING)
                 }
 
-                if (parentTsid != 0L) {
-                    byte sourceKind = ProvenanceLayout.SOURCE_EPISODIC_LOG;
-                    if (parent.type() == MemoryType.SEMANTIC) {
-                        sourceKind = ProvenanceLayout.SOURCE_SEMANTIC;
-                    } else if (parent.type() == MemoryType.PROCEDURAL) {
-                        sourceKind = ProvenanceLayout.SOURCE_PROCEDURAL;
-                    }
+                ProvenanceEdge edge = new ProvenanceEdge(
+                        sessionId,
+                        targetTsid,
+                        (short) 1,
+                        (byte) 0,
+                        (byte) 1,
+                        0,
+                        firstSeq,
+                        lastSeq,
+                        0,
+                        0,
+                        turnCount,
+                        (short) 0,
+                        now,
+                        sourceKind,
+                        ProvenanceLayout.TARGET_PROCEDURAL,
+                        (byte) 0,
+                        sourceTsid,
+                        0
+                );
 
-                    long sourceTsid = (sourceKind != ProvenanceLayout.SOURCE_EPISODIC_LOG) ? parentTsid : 0L;
-                    ProvenanceEdge edge = new ProvenanceEdge(
-                            parentTsid,
-                            targetTsid,
-                            (short) 1,
-                            (byte) 0,
-                            (byte) 1,
-                            0,
-                            0,
-                            0,
-                            0,
-                            0,
-                            (short) 1,
-                            (short) 0,
-                            now,
-                            sourceKind,
-                            ProvenanceLayout.TARGET_PROCEDURAL,
-                            (byte) 0,
-                            sourceTsid,
-                            0
-                    );
-
-                    try {
-                        signal.provenanceMemory().append(edge);
-                    } catch (Exception e) {
-                        log.warn("Failed to append provenance edge for skill #{}: {}", signal.persistedSkillId(), e.getMessage());
-                    }
+                try {
+                    signal.provenanceMemory().append(edge);
+                } catch (Exception e) {
+                    log.warn("Failed to append provenance edge for skill #{}: {}", signal.persistedSkillId(), e.getMessage());
                 }
             }
 
             if (signal.hyperEntityGraph() != null && signal.entityDirectory() != null) {
                 try {
-                    int parentEntityId = signal.entityDirectory().intern("memory:" + parent.tsid(), parent.type().name());
+                    int parentEntityId = signal.entityDirectory().intern("memory:" + parent.id(), parent.type().name());
                     int skillEntityId = signal.entityDirectory().intern("skill:" + signal.persistedSkillId(), "PROCEDURAL_SKILL");
 
                     int[] entities = new int[]{parentEntityId, skillEntityId};
@@ -124,7 +120,7 @@ public final class SkillLineageRelay implements SynapticRelay<SkillSignal> {
                             entities, roles, HyperEntityGraphMemory.TYPE_RELATIONSHIP, 1.0f, 0, now
                     );
                 } catch (Exception e) {
-                    log.debug("HyperEntity lineage linking skipped: {}", e.getMessage());
+                    log.debug("HyperEntity lineage linking skipped for parent '{}': {}", parent.id(), e.getMessage());
                 }
             }
         }

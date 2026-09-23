@@ -67,7 +67,7 @@ public final class SkillExtractRelay implements SynapticRelay<SkillSignal> {
 
         float initialConfidence = 0.35f; // Initial confidence prior at mint time (ADR-0086 §5.4)
 
-        LlmProvider llm = signal.context() != null ? signal.context().get(LlmProvider.class) : null;
+        LlmProvider llm = signal.context() != null ? signal.context().find(LlmProvider.class).orElse(null) : null;
         if (llm != null && !signal.parentTexts().isEmpty()) {
             try {
                 String prompt = buildPrompt(signal.parentTexts(), kind);
@@ -101,8 +101,14 @@ public final class SkillExtractRelay implements SynapticRelay<SkillSignal> {
     private static Map<String, List<String>> buildParentsMap(final List<SkillSignal.ParentRef> parents) {
         Map<String, List<String>> map = new HashMap<>();
         for (var p : parents) {
-            String key = p.type() == MemoryType.EPISODIC ? "episodic" : "semantic";
-            map.computeIfAbsent(key, k -> new ArrayList<>()).add(p.tsid());
+            String key = switch (p.type()) {
+                case EPISODIC -> "episodic";
+                case SEMANTIC -> "semantic";
+                case PROCEDURAL -> "procedural";
+                case WORKING -> "working";
+                default -> "other";
+            };
+            map.computeIfAbsent(key, k -> new ArrayList<>()).add(p.id());
         }
         return map;
     }

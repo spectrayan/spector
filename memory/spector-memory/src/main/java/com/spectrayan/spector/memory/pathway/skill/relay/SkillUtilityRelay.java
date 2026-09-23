@@ -30,12 +30,11 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Utility tracking and Hebbian reinforcement relay for procedural skills (ADR-0086 §5.8, Phase 6).
+ * Updates procedural skill utility $U$ and Hebbian storage strength upon receiving outcome feedback
+ * (ADR-0086 §5.2, §5.8).
  *
- * <p>Only executes when {@link SkillSignal#mode()} is {@link SkillSignal.Mode#REINFORCE}.
- * Without an outcome signal (reward != 0 or duplicateOf != null), this relay is an intentional no-op.
- * When an outcome signal exists, updates storage strength in {@link StrengthMemory}
- * to dampen power-law decay and boost procedural recall without mutating the immutable 64B encoding header.</p>
+ * <p>Invariant: Without an explicit outcome reward signal ({@code reward != 0.0f}), utility reinforcement
+ * is a no-op. Deduplication alone links lineage, but does not reward or inflate utility.</p>
  */
 public final class SkillUtilityRelay implements SynapticRelay<SkillSignal> {
 
@@ -43,7 +42,7 @@ public final class SkillUtilityRelay implements SynapticRelay<SkillSignal> {
 
     private final float utilityAlpha;
     private final StrengthMemory directStrengthMemory;
-    private final Map<String, Float> utilityScores = new ConcurrentHashMap<>();
+    private final Map<String, Float> inMemoryUtilityDeltas = new ConcurrentHashMap<>();
 
     public SkillUtilityRelay() {
         this(0.1f, null);
@@ -64,6 +63,13 @@ public final class SkillUtilityRelay implements SynapticRelay<SkillSignal> {
             return true;
         }
 
+        // Outcome gate: ADR-0086 §5.8 "Without an outcome signal, REINFORCE is a no-op."
+        // Dedup is near-duplicate detection, not a success reward.
+        if (signal.reward() == 0.0f) {
+            log.debug("SkillUtilityRelay: no outcome reward for skill signal, skipping utility learning");
+            return true;
+        }
+
         String targetId = signal.skillId();
         if (targetId == null) {
             targetId = signal.duplicateOf();
@@ -75,23 +81,15 @@ public final class SkillUtilityRelay implements SynapticRelay<SkillSignal> {
             return true;
         }
 
-        // Outcome gate: ADR-0086 §5.8 "Without an outcome signal, REINFORCE is a no-op."
-        boolean hasOutcome = signal.reward() != 0.0f || signal.duplicateOf() != null;
-        if (!hasOutcome) {
-            log.debug("SkillUtilityRelay: no outcome signal or duplicate for '{}', skipping reinforcement", targetId);
-            return true;
-        }
-
         SkillProperties config = signal.context() != null ? signal.context().find(SkillProperties.class).orElse(null) : null;
         float alpha = config != null ? config.getUtilityAlpha() : this.utilityAlpha;
 
-        float effectiveReward = signal.reward() != 0.0f ? signal.reward() : 1.0f;
-        float delta = alpha * effectiveReward;
+        float reward = signal.reward();
+        float delta = alpha * reward;
 
-        // Track in local utility score accumulator
-        utilityScores.compute(targetId, (k, current) -> (current == null ? 0.0f : current) + delta);
+        inMemoryUtilityDeltas.compute(targetId, (k, current) -> (current == null ? 0.0f : current) + delta);
 
-        // Resolve StrengthMemory from direct field or context
+        // Resolve StrengthMemory from direct field or context (the authoritative ground truth)
         StrengthMemory strength = directStrengthMemory;
         if (strength == null && signal.context() != null) {
             strength = signal.context().find(StrengthMemory.class).orElse(null);
@@ -100,13 +98,15 @@ public final class SkillUtilityRelay implements SynapticRelay<SkillSignal> {
         MemoryIndex index = signal.context() != null ? signal.context().find(MemoryIndex.class).orElse(null) : null;
         if (strength != null && index != null) {
             MemoryLocation loc = index.locate(targetId);
-            if (loc != null) {
-                int slot = loc.graphSlot() >= 0 ? loc.graphSlot() : (int) (loc.offset() / 164);
+            if (loc != null && loc.graphSlot() >= 0) {
+                int slot = loc.graphSlot();
                 strength.addAgentRecallCount(loc.type(), slot, 1);
                 float currentS = strength.readStorageStrength(loc.type(), slot);
                 float newS = Math.max(0.0f, currentS + delta);
                 strength.writeStorageStrength(loc.type(), slot, newS);
                 log.debug("SkillUtilityRelay: updated storage strength for skill '{}' slot {} to {}", targetId, slot, newS);
+            } else {
+                log.debug("SkillUtilityRelay: skipping strength write for skill '{}': no valid slot index", targetId);
             }
         }
 
@@ -115,20 +115,26 @@ public final class SkillUtilityRelay implements SynapticRelay<SkillSignal> {
             ReinforcementHandler handler = signal.context().find(ReinforcementHandler.class).orElse(null);
             PartitionRegistry registry = signal.context().find(PartitionRegistry.class).orElse(null);
             if (handler != null && registry != null && index != null) {
-                byte valence = (byte) Math.max(-128, Math.min(127, Math.round(effectiveReward * 127.0f)));
-                if (valence == 0 && signal.duplicateOf() != null) {
-                    valence = (byte) 64;
-                }
+                byte valence = (byte) Math.max(-128, Math.min(127, Math.round(reward * 127.0f)));
                 handler.reinforce(targetId, valence, registry, index);
             }
         }
 
-        log.debug("SkillUtilityRelay: reinforced skill '{}' with reward {} (delta={})", targetId, effectiveReward, delta);
         return true;
     }
 
+    /**
+     * Returns accumulated in-memory delta for a given skill (primarily for test assertions).
+     */
+    public float getUtilityScore(final String skillId) {
+        return inMemoryUtilityDeltas.getOrDefault(skillId, 0.0f);
+    }
+
+    /**
+     * Alias for {@link #getUtilityScore(String)}.
+     */
     public float utilityFor(final String skillId) {
-        return utilityScores.getOrDefault(skillId, 0.0f);
+        return getUtilityScore(skillId);
     }
 
     @Override

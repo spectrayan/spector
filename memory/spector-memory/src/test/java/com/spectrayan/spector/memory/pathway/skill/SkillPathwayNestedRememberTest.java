@@ -126,7 +126,7 @@ class SkillPathwayNestedRememberTest {
         RememberSignal rs = fakeRemember.received().getFirst();
 
         assertThat(rs.type()).isEqualTo(MemoryType.PROCEDURAL);
-        assertThat(rs.source()).isEqualTo(MemorySource.REFLECTED);
+        assertThat(rs.source()).isEqualTo(MemorySource.PROCEDURAL);
         assertThat(rs.source().toEngramSource()).isEqualTo(com.spectrayan.spector.kernel.api.EngramSource.DISTILLED);
         // Header must be null so DopaminergicSurpriseRelay uses the importance calculator!
         assertThat(rs.header()).isNull();
@@ -140,7 +140,8 @@ class SkillPathwayNestedRememberTest {
         ArgumentCaptor<ProvenanceEdge> edgeCaptor = ArgumentCaptor.forClass(ProvenanceEdge.class);
         verify(provenanceMemory).append(edgeCaptor.capture());
         ProvenanceEdge edge = edgeCaptor.getValue();
-        assertThat(edge.sourceKind()).isEqualTo(ProvenanceLayout.SOURCE_EPISODIC_LOG);
+        assertThat(edge.sourceKind()).isEqualTo(ProvenanceLayout.SOURCE_EPISODIC);
+        assertThat(edge.sourceKindEnum()).isEqualTo(com.spectrayan.spector.kernel.api.ProvenanceSourceKind.EPISODIC);
         assertThat(edge.targetKind()).isEqualTo(ProvenanceLayout.TARGET_PROCEDURAL);
 
         // Verify HyperEntityGraph created a real hyperedge linking parent -> skill (not a self-edge!)
