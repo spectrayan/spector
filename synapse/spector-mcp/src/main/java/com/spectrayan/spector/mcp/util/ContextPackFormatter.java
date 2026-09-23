@@ -21,6 +21,7 @@ import java.util.Objects;
 
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.FactHistory;
+import com.spectrayan.spector.memory.pathway.skill.model.SkillBody;
 import com.spectrayan.spector.kernel.api.MemoryType;
 
 /**
@@ -126,8 +127,26 @@ public final class ContextPackFormatter {
         sb.append("## 2. PROCEDURAL HEURISTICS & DECISION CADENCE (Basal Ganglia)\n");
         int procCharsUsed = 0;
         for (CognitiveResult r : proceduralMemories) {
+            SkillBody skillBody = SkillBody.parse(r.text());
             StringBuilder item = new StringBuilder();
-            item.append("- [Skill #").append(r.id()).append("]: ").append(r.text()).append("\n");
+
+            if (skillBody.hasMeta()) {
+                var meta = skillBody.meta();
+                String kindStr = meta.kind() != null ? meta.kind().name().toLowerCase() : "heuristic";
+                String nameStr = meta.name() != null ? meta.name() : "unnamed";
+                String summary = extractFirstParagraph(skillBody.body());
+                item.append("- [Skill #").append(r.id()).append("] (").append(kindStr).append(": ").append(nameStr).append(")");
+                if (!summary.isEmpty()) {
+                    item.append(": ").append(summary);
+                }
+                item.append("\n");
+                if (meta.tools() != null && !meta.tools().isEmpty()) {
+                    item.append("  - Tools: [").append(String.join(", ", meta.tools())).append("]\n");
+                }
+            } else {
+                item.append("- [Skill #").append(r.id()).append("]: ").append(r.text()).append("\n");
+            }
+
             item.append("  - Score: ").append(String.format("%.2f", r.score()));
             item.append(" | Valence: ").append(r.valence()).append("\n");
             if (procCharsUsed + item.length() <= proceduralBudget) {
@@ -198,5 +217,23 @@ public final class ContextPackFormatter {
 
         sb.append("# === END COGNITIVE CONTEXT PACK ===\n");
         return sb.toString();
+    }
+
+    private static String extractFirstParagraph(final String body) {
+        if (body == null || body.isBlank()) {
+            return "";
+        }
+        String stripped = body.strip();
+        if (stripped.startsWith("#")) {
+            int firstNewline = stripped.indexOf('\n');
+            if (firstNewline != -1) {
+                stripped = stripped.substring(firstNewline).strip();
+            }
+        }
+        int doubleNewline = stripped.indexOf("\n\n");
+        if (doubleNewline != -1) {
+            return stripped.substring(0, doubleNewline).strip().replace("\n", " ");
+        }
+        return stripped.replace("\n", " ");
     }
 }
