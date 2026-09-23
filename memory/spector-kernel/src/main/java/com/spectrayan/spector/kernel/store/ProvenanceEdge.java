@@ -61,8 +61,26 @@ public record ProvenanceEdge(
         long consolidatedAtMs,
         byte sourceKind,
         byte targetKind,
-        byte prefixKind
+        byte prefixKind,
+        long sourceTsid,
+        int sourcePartition
 ) {
+
+    /**
+     * Backward-compatible constructor for 16-field provenance edge (prior to ADR-0086 §5.5).
+     */
+    public ProvenanceEdge(long sessionId, long targetTsid, short passNumber,
+                          byte factIndex, byte batchFactCount,
+                          int partitionSeq, int firstSeq, int lastSeq,
+                          int firstOffsetHint, int lastOffsetHint,
+                          short turnCount, short contentHashHi,
+                          long consolidatedAtMs,
+                          byte sourceKind, byte targetKind, byte prefixKind) {
+        this(sessionId, targetTsid, passNumber, factIndex, batchFactCount,
+                partitionSeq, firstSeq, lastSeq, firstOffsetHint, lastOffsetHint,
+                turnCount, contentHashHi, consolidatedAtMs,
+                sourceKind, targetKind, prefixKind, 0L, 0);
+    }
 
     /**
      * Creates a provenance edge with default source/target kinds for the common case:
@@ -79,6 +97,8 @@ public record ProvenanceEdge(
                 turnCount, contentHashHi, consolidatedAtMs,
                 ProvenanceLayout.SOURCE_EPISODIC_LOG,
                 ProvenanceLayout.TARGET_SEMANTIC,
-                (byte) 0);
+                (byte) 0,
+                0L,
+                0);
     }
 }

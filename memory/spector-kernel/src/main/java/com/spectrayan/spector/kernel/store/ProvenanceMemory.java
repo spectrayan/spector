@@ -199,7 +199,9 @@ public final class ProvenanceMemory extends AbstractRecordMemory<ProvenanceLayou
                     edge.lastOffsetHint(),
                     edge.factIndex(),
                     edge.batchFactCount(),
-                    edge.contentHashHi()
+                    edge.contentHashHi(),
+                    edge.sourceTsid(),
+                    edge.sourcePartition()
             );
 
             // Write fields to off-heap segment

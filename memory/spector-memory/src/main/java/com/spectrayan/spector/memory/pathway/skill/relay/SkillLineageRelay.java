@@ -77,11 +77,12 @@ public final class SkillLineageRelay implements SynapticRelay<SkillSignal> {
                 if (parentTsid != 0L) {
                     byte sourceKind = ProvenanceLayout.SOURCE_EPISODIC_LOG;
                     if (parent.type() == MemoryType.SEMANTIC) {
-                        sourceKind = ProvenanceLayout.TARGET_SEMANTIC;
+                        sourceKind = ProvenanceLayout.SOURCE_SEMANTIC;
                     } else if (parent.type() == MemoryType.PROCEDURAL) {
-                        sourceKind = ProvenanceLayout.TARGET_PROCEDURAL;
+                        sourceKind = ProvenanceLayout.SOURCE_PROCEDURAL;
                     }
 
+                    long sourceTsid = (sourceKind != ProvenanceLayout.SOURCE_EPISODIC_LOG) ? parentTsid : 0L;
                     ProvenanceEdge edge = new ProvenanceEdge(
                             parentTsid,
                             targetTsid,
@@ -98,7 +99,9 @@ public final class SkillLineageRelay implements SynapticRelay<SkillSignal> {
                             now,
                             sourceKind,
                             ProvenanceLayout.TARGET_PROCEDURAL,
-                            (byte) 0
+                            (byte) 0,
+                            sourceTsid,
+                            0
                     );
 
                     try {

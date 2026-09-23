@@ -88,6 +88,12 @@ public final class ProvenanceLayout implements RegionLayout {
     /** Source kind: episodic conversation log. */
     public static final byte SOURCE_EPISODIC_LOG = 1;
 
+    /** Source kind: semantic memory (ADR-0086 §5.5). */
+    public static final byte SOURCE_SEMANTIC = 2;
+
+    /** Source kind: procedural memory (ADR-0086 §5.5). */
+    public static final byte SOURCE_PROCEDURAL = 3;
+
     /** Target kind: semantic memory. */
     public static final byte TARGET_SEMANTIC = 2;
 
@@ -114,7 +120,9 @@ public final class ProvenanceLayout implements RegionLayout {
     public static final long OFFSET_BATCH_FACT_COUNT   = 53L;
     public static final long OFFSET_CONTENT_HASH_HI    = 54L;
     public static final long OFFSET_RESERVED           = 56L;
+    public static final long OFFSET_SOURCE_TSID        = 56L;
     public static final long OFFSET_RESERVED_2         = 64L;
+    public static final long OFFSET_SOURCE_PARTITION   = 64L;
     public static final long OFFSET_CRC32C             = 68L;
 
     // ── ValueLayout Constants ──
@@ -136,6 +144,8 @@ public final class ProvenanceLayout implements RegionLayout {
     public static final ValueLayout.OfByte  LAYOUT_FACT_INDEX      = ValueLayout.JAVA_BYTE;
     public static final ValueLayout.OfByte  LAYOUT_BATCH_FACT_CNT  = ValueLayout.JAVA_BYTE;
     public static final ValueLayout.OfShort LAYOUT_CONTENT_HASH    = ValueLayout.JAVA_SHORT_UNALIGNED;
+    public static final ValueLayout.OfLong  LAYOUT_SOURCE_TSID     = ValueLayout.JAVA_LONG_UNALIGNED;
+    public static final ValueLayout.OfInt   LAYOUT_SOURCE_PART     = ValueLayout.JAVA_INT_UNALIGNED;
 
     private ProvenanceLayout() {}
 
@@ -234,6 +244,14 @@ public final class ProvenanceLayout implements RegionLayout {
         return seg.get(LAYOUT_CONTENT_HASH, recordOff + OFFSET_CONTENT_HASH_HI);
     }
 
+    public static long readSourceTsid(MemorySegment seg, long recordOff) {
+        return seg.get(LAYOUT_SOURCE_TSID, recordOff + OFFSET_SOURCE_TSID);
+    }
+
+    public static int readSourcePartition(MemorySegment seg, long recordOff) {
+        return seg.get(LAYOUT_SOURCE_PART, recordOff + OFFSET_SOURCE_PARTITION);
+    }
+
     // ── Field Write Helpers ──
 
     public static void writeFlags(MemorySegment seg, long recordOff, byte flags) {
@@ -304,6 +322,14 @@ public final class ProvenanceLayout implements RegionLayout {
         seg.set(LAYOUT_CONTENT_HASH, recordOff + OFFSET_CONTENT_HASH_HI, hash);
     }
 
+    public static void writeSourceTsid(MemorySegment seg, long recordOff, long sourceTsid) {
+        seg.set(LAYOUT_SOURCE_TSID, recordOff + OFFSET_SOURCE_TSID, sourceTsid);
+    }
+
+    public static void writeSourcePartition(MemorySegment seg, long recordOff, int sourcePartition) {
+        seg.set(LAYOUT_SOURCE_PART, recordOff + OFFSET_SOURCE_PARTITION, sourcePartition);
+    }
+
     // ── Composite Read/Write ──
 
     /**
@@ -331,7 +357,9 @@ public final class ProvenanceLayout implements RegionLayout {
                 readLastOffsetHint(seg, recordOff),
                 readFactIndex(seg, recordOff),
                 readBatchFactCount(seg, recordOff),
-                readContentHashHi(seg, recordOff)
+                readContentHashHi(seg, recordOff),
+                readSourceTsid(seg, recordOff),
+                readSourcePartition(seg, recordOff)
         );
     }
 
@@ -363,9 +391,8 @@ public final class ProvenanceLayout implements RegionLayout {
         writeFactIndex(seg, recordOff, state.factIndex());
         writeBatchFactCount(seg, recordOff, state.batchFactCount());
         writeContentHashHi(seg, recordOff, state.contentHashHi());
-        // Zero reserved bytes
-        seg.set(ValueLayout.JAVA_LONG, recordOff + OFFSET_RESERVED, 0L);
-        seg.set(ValueLayout.JAVA_INT, recordOff + OFFSET_RESERVED_2, 0);
+        writeSourceTsid(seg, recordOff, state.sourceTsid());
+        writeSourcePartition(seg, recordOff, state.sourcePartition());
     }
 
     /**
@@ -418,8 +445,26 @@ public final class ProvenanceLayout implements RegionLayout {
             int lastOffsetHint,
             byte factIndex,
             byte batchFactCount,
-            short contentHashHi
+            short contentHashHi,
+            long sourceTsid,
+            int sourcePartition
     ) {
+        /**
+         * Backward-compatible constructor for 17-field provenance records (prior to ADR-0086 §5.5).
+         */
+        public ProvenanceState(
+                byte flags, byte sourceKind, byte targetKind, byte prefixKind,
+                short passNumber, short turnCount, long sessionId, long targetTsid,
+                long consolidatedAtMs, int partitionSeq, int firstSeq, int lastSeq,
+                int firstOffsetHint, int lastOffsetHint, byte factIndex, byte batchFactCount,
+                short contentHashHi
+        ) {
+            this(flags, sourceKind, targetKind, prefixKind, passNumber, turnCount,
+                    sessionId, targetTsid, consolidatedAtMs, partitionSeq, firstSeq, lastSeq,
+                    firstOffsetHint, lastOffsetHint, factIndex, batchFactCount, contentHashHi,
+                    0L, 0);
+        }
+
         /** Returns {@code true} if this record is live (not tombstoned). */
         public boolean isLive() {
             return flags == FLAG_LIVE || flags == FLAG_PARTIAL_RUN;
