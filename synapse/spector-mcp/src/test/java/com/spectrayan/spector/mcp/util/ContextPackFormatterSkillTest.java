@@ -72,11 +72,56 @@ class ContextPackFormatterSkillTest {
 
         String result = ContextPackFormatter.format(input);
 
-        assertThat(result).contains("## 2. PROCEDURAL HEURISTICS & DECISION CADENCE (Basal Ganglia)");
-        assertThat(result).contains("[Skill #skill-999] (playbook: safe-git-rebase): Always fetch origin and ensure working directory is clean before rebasing.");
+        assertThat(result).contains("## 2. PROCEDURAL HEURISTICS & DECISION CADENCE\n");
+        assertThat(result).doesNotContain("Basal Ganglia");
+        assertThat(result).contains("[Skill #skill-999] safe-git-rebase  (playbook, conf 0.85): Always fetch origin and ensure working directory is clean before rebasing.");
         assertThat(result).contains("Tools: [git, terminal]");
         assertThat(result).contains("Score: 0.92 | Valence: 10");
         assertThat(result).doesNotContain("Detailed Steps"); // Truncated after first paragraph
+    }
+
+    @Test
+    @DisplayName("Formats structured spector.skill.v1 with When/Do/Done sections")
+    void formatsWhenDoDoneSkill() {
+        String skillText = """
+                ---
+                schema: spector.skill.v1
+                name: null-check-auth-validator
+                kind: playbook
+                confidence: 0.35
+                tools: []
+                parents: {}
+                ---
+                When: login NPE / missing auth context
+                Do:
+                  1. Reproduce in unit test
+                  2. Guard principal extraction
+                Done: NPE gone and test green
+                """;
+
+        CognitiveResult skill = mock(CognitiveResult.class);
+        when(skill.id()).thenReturn("skill-auth-1");
+        when(skill.text()).thenReturn(skillText);
+        when(skill.memoryType()).thenReturn(MemoryType.PROCEDURAL);
+        when(skill.score()).thenReturn(0.88f);
+        when(skill.valence()).thenReturn((byte) 5);
+
+        ContextPackInput input = new ContextPackInput(
+                "How to fix auth NPE?",
+                "Null check auth",
+                List.of(skill),
+                List.of(),
+                1000,
+                "BALANCED",
+                "persona-dev"
+        );
+
+        String result = ContextPackFormatter.format(input);
+
+        assertThat(result).contains("[Skill #skill-auth-1] null-check-auth-validator  (playbook, conf 0.35)");
+        assertThat(result).contains("When: login NPE / missing auth context");
+        assertThat(result).contains("Do:\n    1. Reproduce in unit test\n    2. Guard principal extraction");
+        assertThat(result).contains("Done: NPE gone and test green");
     }
 
     @Test

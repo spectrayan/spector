@@ -85,15 +85,18 @@ class ContextPackFormatterTest {
         assertThat(result).contains("## 1. ACTIVE WORKING INTENT & SCRATCHPAD");
         assertThat(result).contains("[Turn Intent]: Test the context pack");
         assertThat(result).contains("[Working #w-1]: Active plan: write unit tests");
-        assertThat(result).contains("## 2. PROCEDURAL HEURISTICS & DECISION CADENCE (Basal Ganglia)");
+        assertThat(result).contains("## 2. PROCEDURAL HEURISTICS & DECISION CADENCE\n");
         assertThat(result).contains("[Skill #p-1]: Always assert on edge conditions first");
-        assertThat(result).contains("## 3. CORE SEMANTIC FACTS & AXIOMS (Neocortex)");
+        assertThat(result).contains("## 3. CORE SEMANTIC FACTS & AXIOMS\n");
         assertThat(result).contains("[Fact #s-1]: Spector is a Zero-GC cognitive memory substrate");
         assertThat(result).contains("Tags: [architecture, zero-gc]");
-        assertThat(result).contains("## 4. CHRONO-EPISODIC MEMORIES & EXPERIENCES (Hippocampus)");
+        assertThat(result).contains("## 4. CHRONO-EPISODIC MEMORIES & EXPERIENCES\n");
         assertThat(result).contains("[Episode #e-1]: Passed all 500 regression tests on commit #42");
         assertThat(result).contains("## 5. BITEMPORAL EVIDENCE TRANSITIONS & CONFLICTS");
         assertThat(result).contains("Active Consensus: `BSL 1.1`");
         assertThat(result).contains("# === END COGNITIVE CONTEXT PACK ===");
+        assertThat(result).doesNotContain("Basal Ganglia");
+        assertThat(result).doesNotContain("Neocortex");
+        assertThat(result).doesNotContain("Hippocampus");
     }
 }

@@ -57,12 +57,28 @@ public final class MemoryCompileSkillTool extends MemoryToolHandler {
 
         if (args.get("parents") instanceof List<?> parentList) {
             for (Object item : parentList) {
-                if (item != null) {
+                if (item instanceof Map<?, ?> map) {
+                    String pid = map.get("id") != null ? map.get("id").toString().trim() : "";
+                    String typeStr = map.get("type") != null ? map.get("type").toString().trim().toUpperCase() : null;
+                    String text = map.get("text") != null ? map.get("text").toString().trim() : null;
+                    MemoryType type;
+                    if (typeStr != null) {
+                        try {
+                            type = MemoryType.valueOf(typeStr);
+                        } catch (Exception e) {
+                            type = detectType(pid);
+                        }
+                    } else {
+                        type = detectType(pid);
+                    }
+                    if (text != null && !text.isBlank()) {
+                        builder.parent(new SkillSignal.ParentRef(pid, type, text));
+                    } else {
+                        builder.parent(pid, type);
+                    }
+                } else if (item != null) {
                     String pid = item.toString().trim();
-                    MemoryType type = pid.startsWith("sem-") || pid.startsWith("fact-")
-                            ? MemoryType.SEMANTIC
-                            : MemoryType.EPISODIC;
-                    builder.parent(pid, type);
+                    builder.parent(pid, detectType(pid));
                 }
             }
         }
@@ -98,5 +114,17 @@ public final class MemoryCompileSkillTool extends MemoryToolHandler {
         }
 
         return textResult(MAPPER.writeValueAsString(response));
+    }
+
+    private static MemoryType detectType(final String pid) {
+        if (pid == null) return MemoryType.EPISODIC;
+        String lower = pid.toLowerCase();
+        if (lower.startsWith("sem-") || lower.startsWith("fact-") || lower.startsWith("rem-log-")) {
+            return MemoryType.SEMANTIC;
+        }
+        if (lower.startsWith("skill-") || lower.startsWith("proc-")) {
+            return MemoryType.PROCEDURAL;
+        }
+        return MemoryType.EPISODIC;
     }
 }
