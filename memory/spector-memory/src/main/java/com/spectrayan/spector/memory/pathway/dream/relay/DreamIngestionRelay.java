@@ -74,6 +74,14 @@ public final class DreamIngestionRelay implements SynapticRelay<DreamSignal> {
         // 1. Ingest qualified surviving dream insights
         for (DreamSignal.DreamScene scene : signal.survivingScenes()) {
             if (scene.qualityScore() >= threshold) {
+                // ADR-0086 §5.6: PRAGMATIC scenes are procedural skill candidates;
+                // do not auto-persist unless explicit dream skill-auto-commit is enabled.
+                if (scene.triageOutcome() == TriageOutcome.PRAGMATIC && (signal.config() == null || !signal.config().isSkillAutoCommit())) {
+                    log.info("DreamIngestionRelay: PRAGMATIC dream scene [{}] proposed as skill candidate (auto-commit=false): {}",
+                            scene.id(), scene.insightText());
+                    continue;
+                }
+
                 if (scene.embedding() != null && rememberAvailable) {
                     attempted++;
                     try {

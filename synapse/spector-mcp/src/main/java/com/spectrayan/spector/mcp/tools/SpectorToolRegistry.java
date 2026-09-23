@@ -44,6 +44,7 @@ import com.spectrayan.spector.mcp.tools.memory.MemoryMultiEvidenceRecallTool;
 import com.spectrayan.spector.mcp.tools.memory.MemorySalienceTool;
 import com.spectrayan.spector.mcp.tools.memory.MemoryExpressTool;
 import com.spectrayan.spector.mcp.tools.memory.MemoryPersonaContextTool;
+import com.spectrayan.spector.mcp.tools.memory.MemoryCompileSkillTool;
 import com.spectrayan.spector.mcp.tools.memory.PersonaEnactTool;
 
 import io.modelcontextprotocol.server.McpServerFeatures;
@@ -101,6 +102,7 @@ public final class SpectorToolRegistry {
             handlers.add(new MemoryMultiEvidenceRecallTool(memory));
             handlers.add(new MemoryExpressTool(memory));
             handlers.add(new MemoryPersonaContextTool(memory));
+            handlers.add(new MemoryCompileSkillTool(memory));
             handlers.add(new PersonaEnactTool(memory));
         }
 
@@ -143,6 +145,7 @@ public final class SpectorToolRegistry {
         handlers.add(new MemoryMultiEvidenceRecallTool(memoryResolver));
         handlers.add(new MemoryExpressTool(memoryResolver));
         handlers.add(new MemoryPersonaContextTool(memoryResolver));
+        handlers.add(new MemoryCompileSkillTool(memoryResolver));
         handlers.add(new PersonaEnactTool(memoryResolver));
 
         return List.copyOf(handlers);

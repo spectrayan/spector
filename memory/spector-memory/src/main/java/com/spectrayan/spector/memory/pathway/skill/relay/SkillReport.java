@@ -25,4 +25,12 @@ public record SkillReport(
     SkillBody body,
     SkillSignal.Mode mode,
     boolean reinforced
-) {}
+) {
+    public static SkillReport empty() {
+        return new SkillReport(null, List.of(), null, null, SkillSignal.Mode.DRY_RUN, false);
+    }
+
+    public SkillBody extractedBody() {
+        return body;
+    }
+}

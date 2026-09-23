@@ -1,0 +1,39 @@
+{
+  "name": "memory_compile_skill",
+  "description": "Compile, test, or dry-run a procedural skill (playbook or heuristic) from episodic turns or semantic memories through the SkillPathway (ADR-0086). In DRY_RUN mode (commit=false), generates the spector.skill.v1 preview and checks for near-duplicates without persisting. In COMPILE mode (commit=true), persists to procedural memory with full lineage.",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:memory:write"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "parents": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "List of parent memory TSIDs (episodic conversation turns or semantic facts) to crystallize into a skill."
+      },
+      "parent_texts": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Optional explicit observation texts or procedure steps if parents are not pre-indexed."
+      },
+      "cue": {
+        "type": "string",
+        "description": "Optional name, invocation cue, or intent for the procedural skill."
+      },
+      "commit": {
+        "type": "boolean",
+        "description": "If true, persists the skill to procedural memory. If false (default), performs a dry-run preview and dedup check without persisting."
+      },
+      "namespace": {
+        "type": "string",
+        "description": "Target memory namespace. Omit to use connection default."
+      }
+    }
+  }
+}

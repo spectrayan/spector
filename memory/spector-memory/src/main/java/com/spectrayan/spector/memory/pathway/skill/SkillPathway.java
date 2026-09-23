@@ -54,11 +54,18 @@ public final class SkillPathway extends AbstractPathway<SkillSignal, SkillReport
      * @return configured SkillPathway
      */
     public static SkillPathway standard() {
-        final SkillRecipe recipe = SkillRecipe.builder()
-                .persistRelay(new SkillPersistRelay())
-                .lineageRelay(new SkillLineageRelay())
-                .build();
+        final SkillRecipe recipe = SkillRecipe.builder().build();
         return new SkillPathway(recipe);
+    }
+
+    /**
+     * Conducts the skill signal through the pathway relays and returns the compilation report.
+     *
+     * @param signal mutable skill signal
+     * @return resulting skill report
+     */
+    public SkillReport compile(final SkillSignal signal) {
+        return conduct(signal);
     }
 
     @Override
