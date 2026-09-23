@@ -45,7 +45,7 @@
     "node": ">=24.16.0 <25 || >=26.1.0"
   },
   "dependencies": {
-    "openclaw": "^2026.0.0"
+    "openclaw": "^2026.9.5"
   },
   "devDependencies": {
     "typescript": "^5.7.0",
