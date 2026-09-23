@@ -51,8 +51,12 @@ public class DreamProperties implements Serializable {
     private float langevinSoulAttractorLambda = DEFAULT_MEMORY_DREAM_LANGEVIN_SOUL_ATTRACTOR_LAMBDA;
     private float hartmannOpennessMultiplier = DEFAULT_MEMORY_DREAM_HARTMANN_OPENNESS_MULTIPLIER;
     private float hartmannVigilanceMultiplier = DEFAULT_MEMORY_DREAM_HARTMANN_VIGILANCE_MULTIPLIER;
+    private boolean skillAutoCommit = false;
 
     public DreamProperties() {}
+
+    public boolean isSkillAutoCommit() { return skillAutoCommit; }
+    public void setSkillAutoCommit(boolean skillAutoCommit) { this.skillAutoCommit = skillAutoCommit; }
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }

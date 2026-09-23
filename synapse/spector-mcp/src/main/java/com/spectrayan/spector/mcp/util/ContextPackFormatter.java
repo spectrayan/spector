@@ -21,6 +21,7 @@ import java.util.Objects;
 
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.FactHistory;
+import com.spectrayan.spector.memory.pathway.skill.model.SkillBody;
 import com.spectrayan.spector.kernel.api.MemoryType;
 
 /**
@@ -123,12 +124,48 @@ public final class ContextPackFormatter {
         sb.append("\n");
 
         // 2. Procedural Heuristics & Cadence
-        sb.append("## 2. PROCEDURAL HEURISTICS & DECISION CADENCE (Basal Ganglia)\n");
+        sb.append("## 2. PROCEDURAL HEURISTICS & DECISION CADENCE\n");
         int procCharsUsed = 0;
         for (CognitiveResult r : proceduralMemories) {
+            SkillBody skillBody = SkillBody.parse(r.text());
             StringBuilder item = new StringBuilder();
-            item.append("- [Skill #").append(r.id()).append("]: ").append(r.text()).append("\n");
-            item.append("  - Score: ").append(String.format("%.2f", r.score()));
+
+            if (skillBody.hasMeta()) {
+                var meta = skillBody.meta();
+                String kindStr = meta.kind() != null ? meta.kind().name().toLowerCase() : "heuristic";
+                String nameStr = meta.name() != null ? meta.name() : "unnamed";
+                String structured = formatStructuredSkill(skillBody.body());
+                if (!structured.isEmpty()) {
+                    item.append("- [Skill #").append(r.id()).append("] ").append(nameStr)
+                            .append("  (").append(kindStr).append(", conf ")
+                            .append(String.format(java.util.Locale.ROOT, "%.2f", meta.confidence())).append(")\n");
+                    item.append(structured);
+                } else {
+                    String summary = extractFirstParagraph(skillBody.body());
+                    item.append("- [Skill #").append(r.id()).append("] ").append(nameStr)
+                            .append("  (").append(kindStr).append(", conf ")
+                            .append(String.format(java.util.Locale.ROOT, "%.2f", meta.confidence())).append(")");
+                    if (!summary.isEmpty()) {
+                        item.append(": ").append(summary);
+                    }
+                    item.append("\n");
+                }
+                if (meta.tools() != null && !meta.tools().isEmpty()) {
+                    item.append("  - Tools: [").append(String.join(", ", meta.tools())).append("]\n");
+                }
+            } else {
+                String cleanText = r.text();
+                // Strip raw frontmatter fences if corrupt
+                if (cleanText.stripLeading().startsWith("---")) {
+                    int secondFence = cleanText.indexOf("---", 3);
+                    if (secondFence != -1) {
+                        cleanText = cleanText.substring(secondFence + 3).strip();
+                    }
+                }
+                item.append("- [Skill #").append(r.id()).append("]: ").append(cleanText).append("\n");
+            }
+
+            item.append("  - Score: ").append(String.format(java.util.Locale.ROOT, "%.2f", r.score()));
             item.append(" | Valence: ").append(r.valence()).append("\n");
             if (procCharsUsed + item.length() <= proceduralBudget) {
                 sb.append(item);
@@ -141,7 +178,7 @@ public final class ContextPackFormatter {
         sb.append("\n");
 
         // 3. Core Semantic Facts & Moral Axioms
-        sb.append("## 3. CORE SEMANTIC FACTS & AXIOMS (Neocortex)\n");
+        sb.append("## 3. CORE SEMANTIC FACTS & AXIOMS\n");
         int semCharsUsed = 0;
         for (CognitiveResult r : semanticMemories) {
             StringBuilder item = new StringBuilder();
@@ -160,7 +197,7 @@ public final class ContextPackFormatter {
         sb.append("\n");
 
         // 4. Chrono-Episodic Memories & Anecdotes
-        sb.append("## 4. CHRONO-EPISODIC MEMORIES & EXPERIENCES (Hippocampus)\n");
+        sb.append("## 4. CHRONO-EPISODIC MEMORIES & EXPERIENCES\n");
         int epiCharsUsed = 0;
         for (CognitiveResult r : episodicMemories) {
             StringBuilder item = new StringBuilder();
@@ -198,5 +235,85 @@ public final class ContextPackFormatter {
 
         sb.append("# === END COGNITIVE CONTEXT PACK ===\n");
         return sb.toString();
+    }
+
+    private static String formatStructuredSkill(final String body) {
+        if (body == null || body.isBlank()) {
+            return "";
+        }
+        String[] lines = body.split("\\r?\\n");
+        String currentSection = null;
+        List<String> doLines = new ArrayList<>();
+        String whenLine = null;
+        String doneLine = null;
+
+        for (String rawLine : lines) {
+            String line = rawLine.strip();
+            if (line.isEmpty()) continue;
+
+            String lower = line.toLowerCase();
+            if (lower.startsWith("when:") || lower.startsWith("## when")) {
+                currentSection = "when";
+                int colonIdx = line.indexOf(':');
+                if (colonIdx >= 0 && colonIdx < line.length() - 1) {
+                    whenLine = line.substring(colonIdx + 1).strip();
+                }
+            } else if (lower.startsWith("do:") || lower.startsWith("## do") || lower.startsWith("## execution steps")) {
+                currentSection = "do";
+                int colonIdx = line.indexOf(':');
+                if (colonIdx >= 0 && colonIdx < line.length() - 1) {
+                    String after = line.substring(colonIdx + 1).strip();
+                    if (!after.isEmpty()) doLines.add(after);
+                }
+            } else if (lower.startsWith("done:") || lower.startsWith("## done") || lower.startsWith("## validation")) {
+                currentSection = "done";
+                int colonIdx = line.indexOf(':');
+                if (colonIdx >= 0 && colonIdx < line.length() - 1) {
+                    doneLine = line.substring(colonIdx + 1).strip();
+                }
+            } else if ("when".equals(currentSection) && whenLine == null) {
+                whenLine = line;
+            } else if ("done".equals(currentSection) && doneLine == null) {
+                doneLine = line;
+            } else if ("do".equals(currentSection)) {
+                doLines.add(line);
+            }
+        }
+
+        if (whenLine != null || !doLines.isEmpty() || doneLine != null) {
+            StringBuilder out = new StringBuilder();
+            if (whenLine != null) {
+                out.append("  When: ").append(whenLine).append("\n");
+            }
+            if (!doLines.isEmpty()) {
+                out.append("  Do:\n");
+                for (String step : doLines) {
+                    out.append("    ").append(step).append("\n");
+                }
+            }
+            if (doneLine != null) {
+                out.append("  Done: ").append(doneLine).append("\n");
+            }
+            return out.toString();
+        }
+        return "";
+    }
+
+    private static String extractFirstParagraph(final String body) {
+        if (body == null || body.isBlank()) {
+            return "";
+        }
+        String stripped = body.strip();
+        if (stripped.startsWith("#")) {
+            int firstNewline = stripped.indexOf('\n');
+            if (firstNewline != -1) {
+                stripped = stripped.substring(firstNewline).strip();
+            }
+        }
+        int doubleNewline = stripped.indexOf("\n\n");
+        if (doubleNewline != -1) {
+            return stripped.substring(0, doubleNewline).strip().replace("\n", " ");
+        }
+        return stripped.replace("\n", " ");
     }
 }

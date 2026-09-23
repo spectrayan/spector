@@ -81,6 +81,12 @@
             <artifactId>jackson-databind</artifactId>
         </dependency>
 
+        <!-- ── YAML parsing (SnakeYAML for ADR-0086 Skill frontmatter) ── -->
+        <dependency>
+            <groupId>org.yaml</groupId>
+            <artifactId>snakeyaml</artifactId>
+        </dependency>
+
         <!-- ── Test ── -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>

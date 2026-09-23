@@ -1560,5 +1560,18 @@ public final class SpectorPropertyConstants {
     /** TTL for the getStats() / getScoringStats() namespace-scoped cache. */
     public static final String MEMORY_STATS_CACHE_TTL = "spector.memory.stats.cache-ttl";
     public static final String DEFAULT_MEMORY_STATS_CACHE_TTL = "5s";
+
+    // ── Procedural Skill Crystallization (ADR-0086) ────────────────
+    public static final String MEMORY_SKILL_MIN_SESSIONS = "spector.memory.skill.min-sessions";
+    public static final int DEFAULT_MEMORY_SKILL_MIN_SESSIONS = 3;
+
+    public static final String MEMORY_SKILL_DUPLICATE_COSINE = "spector.memory.skill.duplicate-cosine";
+    public static final float DEFAULT_MEMORY_SKILL_DUPLICATE_COSINE = 0.88f;
+
+    public static final String MEMORY_SKILL_ALLOW_SEMANTIC_ONLY = "spector.memory.skill.allow-semantic-only";
+    public static final boolean DEFAULT_MEMORY_SKILL_ALLOW_SEMANTIC_ONLY = true;
+
+    public static final String MEMORY_SKILL_UTILITY_ALPHA = "spector.memory.skill.utility-alpha";
+    public static final float DEFAULT_MEMORY_SKILL_UTILITY_ALPHA = 0.1f;
 }
 

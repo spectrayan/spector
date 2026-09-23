@@ -47,6 +47,7 @@ import com.spectrayan.spector.memory.pathway.express.ExpressPathway;
 import com.spectrayan.spector.memory.pathway.recall.RecallPathway;
 import com.spectrayan.spector.memory.pathway.reflect.ReflectPathway;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
+import com.spectrayan.spector.memory.pathway.skill.SkillPathway;
 import com.spectrayan.spector.memory.pathway.wander.WanderPathway;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.ParallelEmbeddingPipeline;
@@ -92,6 +93,7 @@ public class SpectorRuntime implements AutoCloseable {
     private volatile DreamPathway dreamPathway;
     private final DecidePathway decidePathway;
     private volatile WanderPathway wanderPathway;
+    private volatile SkillPathway skillPathway;
 
     // ── Hot Map of Bound Kernels ─────────────────────────────────
     private final ConcurrentHashMap<String, NamespaceKernel> hotKernels = new ConcurrentHashMap<>();
@@ -120,6 +122,9 @@ public class SpectorRuntime implements AutoCloseable {
                 ? builder.decidePathway
                 : DecidePathway.builder().build();
         this.wanderPathway = builder.wanderPathway;
+        this.skillPathway = builder.skillPathway != null
+                ? builder.skillPathway
+                : SkillPathway.standard();
 
         registerPathwaySafe(RememberPathway.class, this.rememberPathway);
         registerPathwaySafe(RecallPathway.class, this.recallPathway);
@@ -128,6 +133,7 @@ public class SpectorRuntime implements AutoCloseable {
         registerPathwaySafe(DreamPathway.class, this.dreamPathway);
         registerPathwaySafe(DecidePathway.class, this.decidePathway);
         registerPathwaySafe(WanderPathway.class, this.wanderPathway);
+        registerPathwaySafe(SkillPathway.class, this.skillPathway);
 
         DefaultPathwayContext.Builder ctxBuilder = DefaultPathwayContext.builder()
                 .namespaceId("_process_")
@@ -407,6 +413,7 @@ public class SpectorRuntime implements AutoCloseable {
     public DreamPathway dreamPathway() { return (DreamPathway) catalog.find(DreamPathway.class).orElse(dreamPathway); }
     public DecidePathway decidePathway() { return (DecidePathway) catalog.find(DecidePathway.class).orElse(decidePathway); }
     public WanderPathway wanderPathway() { return (WanderPathway) catalog.find(WanderPathway.class).orElse(wanderPathway); }
+    public SkillPathway skillPathway() { return (SkillPathway) catalog.find(SkillPathway.class).orElse(skillPathway); }
 
     @Override
     public void close() {
@@ -453,6 +460,13 @@ public class SpectorRuntime implements AutoCloseable {
                 log.warn("[SpectorRuntime] failed to close DecidePathway", e);
             }
         }
+        if (skillPathway != null) {
+            try {
+                skillPathway.close();
+            } catch (Exception e) {
+                log.warn("[SpectorRuntime] failed to close SkillPathway", e);
+            }
+        }
     }
 
     private void checkNotClosed() {
@@ -478,6 +492,7 @@ public class SpectorRuntime implements AutoCloseable {
         private DreamPathway dreamPathway;
         private DecidePathway decidePathway;
         private WanderPathway wanderPathway;
+        private SkillPathway skillPathway;
 
         public Builder properties(SpectorProperties properties) {
             this.properties = properties;
@@ -536,6 +551,11 @@ public class SpectorRuntime implements AutoCloseable {
 
         public Builder wanderPathway(WanderPathway wanderPathway) {
             this.wanderPathway = wanderPathway;
+            return this;
+        }
+
+        public Builder skillPathway(SkillPathway skillPathway) {
+            this.skillPathway = skillPathway;
             return this;
         }
 

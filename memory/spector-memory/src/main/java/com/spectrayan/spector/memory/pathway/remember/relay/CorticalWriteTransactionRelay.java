@@ -151,7 +151,7 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
                     preserved.encodingBeta(),
                     preserved.soulVersion(),
                     preserved.encodingSurprise(),
-                    preserved.consolidationFlags(),
+                    (byte) (preserved.consolidationFlags() | signal.consolidationFlagsOverlay()),
                     engramSource
             );
         } else {
@@ -196,7 +196,7 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
                     encodingBeta,
                     signal.soulVersion(),
                     surpriseZScore,
-                    (byte) 0,
+                    signal.consolidationFlagsOverlay(),
                     engramSource
             );
         }

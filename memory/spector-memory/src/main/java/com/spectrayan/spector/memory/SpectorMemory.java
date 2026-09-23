@@ -392,6 +392,17 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
     }
 
     /**
+     * Compiles, tests, or reinforces a procedural skill through the SkillPathway (ADR-0086 §5.2).
+     *
+     * @param signal the skill signal carrying candidate parents, cue, and execution mode
+     * @return the resulting skill compilation report
+     */
+    default com.spectrayan.spector.memory.pathway.skill.relay.SkillReport compileSkill(
+            com.spectrayan.spector.memory.pathway.skill.relay.SkillSignal signal) {
+        return com.spectrayan.spector.memory.pathway.skill.relay.SkillReport.empty();
+    }
+
+    /**
      * Retrieves the longitudinal identity and consciousness continuity trajectory history.
      *
      * @param limit maximum number of snapshots to return (newest first)

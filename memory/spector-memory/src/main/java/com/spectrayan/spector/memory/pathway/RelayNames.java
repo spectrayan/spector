@@ -126,4 +126,12 @@ public final class RelayNames {
     // Decide Pathway Relays.
     public static final String POLICY_INFERENCE                 = "policy_inference";
     public static final String EXPERIMENT_THOUGHT               = "experiment_thought";
+
+    // Skill Pathway Relays
+    public static final String SKILL_ADMIT                      = "skill_admit";
+    public static final String SKILL_EXTRACT                    = "skill_extract";
+    public static final String SKILL_DEDUP                      = "skill_dedup";
+    public static final String SKILL_PERSIST                    = "skill_persist";
+    public static final String SKILL_LINEAGE                    = "skill_lineage";
+    public static final String SKILL_UTILITY                    = "skill_utility";
 }

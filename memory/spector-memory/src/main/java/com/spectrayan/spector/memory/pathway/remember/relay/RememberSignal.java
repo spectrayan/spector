@@ -57,6 +57,7 @@ public final class RememberSignal extends com.spectrayan.spector.commons.pathway
     private boolean duplicate = false;
     private boolean successful = false;
     private boolean gated = false;
+    private byte consolidationFlagsOverlay;
     private com.spectrayan.spector.memory.aisme.fegr.EventDensityMetrics eventDensityMetrics;
     private com.spectrayan.spector.memory.aisme.segmentation.EpisodicSegment episodicSegment;
     private List<com.spectrayan.spector.memory.model.SoulContext> soulContexts = List.of();
@@ -211,6 +212,9 @@ public final class RememberSignal extends com.spectrayan.spector.commons.pathway
 
     public com.spectrayan.spector.memory.aisme.segmentation.EpisodicSegment episodicSegment() { return episodicSegment; }
     public void episodicSegment(final com.spectrayan.spector.memory.aisme.segmentation.EpisodicSegment segment) { this.episodicSegment = segment; }
+
+    public byte consolidationFlagsOverlay() { return consolidationFlagsOverlay; }
+    public void consolidationFlagsOverlay(final byte consolidationFlagsOverlay) { this.consolidationFlagsOverlay = consolidationFlagsOverlay; }
 
     public java.util.Map<String, Object> attributes() { return attributes; }
 }

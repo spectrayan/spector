@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.kernel.layout;
 
+import com.spectrayan.spector.kernel.api.ProvenanceSourceKind;
 import com.spectrayan.spector.kernel.layout.RegionLayout;
 
 import java.lang.foreign.MemorySegment;
@@ -33,7 +34,7 @@ import java.lang.foreign.ValueLayout;
  *   Offset  Size  Field               Type     Description
  *   ──────  ────  ──────────────────  ───────  ───────────────────────────────────
  *    0      1B    flags               uint8    LIVE(0), TOMBSTONE(1), PARTIAL_RUN(2)
- *    1      1B    source_kind         uint8    EPISODIC_LOG = 1
+ *    1      1B    source_kind         uint8    EPISODIC = 1, SEMANTIC = 2, PROCEDURAL = 3
  *    2      1B    target_kind         uint8    SEMANTIC = 2, PROCEDURAL = 3
  *    3      1B    prefix_kind         uint8    Target ID prefix registry ordinal
  *    4      2B    pass_number         uint16   Monotonic consolidation pass counter (1-indexed)
@@ -49,8 +50,8 @@ import java.lang.foreign.ValueLayout;
  *   52      1B    fact_index          uint8    Index of this fact within its batch
  *   53      1B    batch_fact_count    uint8    Total facts in this batch
  *   54      2B    content_hash_hi     uint16   Upper 16 bits of fact text CRC32C
- *   56      8B    _reserved           bytes    Zero-filled; future fields
- *   64      4B    reserved_2          bytes    Zero-filled; future fields
+ *   56      8B    source_tsid         int64    Source entity TSID when source is semantic/procedural
+ *   64      4B    source_partition    int32    Source partition sequence or 0
  *   68      4B    crc32c              int32    Written/verified by AbstractRecordMemory
  *   ── 72B total stride ────────────────────────────────────────────────────────
  * </pre>
@@ -85,8 +86,20 @@ public final class ProvenanceLayout implements RegionLayout {
 
     // ── Source/Target Kind Constants ──
 
-    /** Source kind: episodic conversation log. */
-    public static final byte SOURCE_EPISODIC_LOG = 1;
+    /** Source kind: episodic memory (formerly EPISODIC_LOG). */
+    public static final byte SOURCE_EPISODIC = com.spectrayan.spector.kernel.api.ProvenanceSourceKind.EPISODIC.code();
+
+    /**
+     * @deprecated Renamed to {@link #SOURCE_EPISODIC}.
+     */
+    @Deprecated
+    public static final byte SOURCE_EPISODIC_LOG = SOURCE_EPISODIC;
+
+    /** Source kind: semantic memory (ADR-0086 §5.5). */
+    public static final byte SOURCE_SEMANTIC = com.spectrayan.spector.kernel.api.ProvenanceSourceKind.SEMANTIC.code();
+
+    /** Source kind: procedural memory (ADR-0086 §5.5). */
+    public static final byte SOURCE_PROCEDURAL = com.spectrayan.spector.kernel.api.ProvenanceSourceKind.PROCEDURAL.code();
 
     /** Target kind: semantic memory. */
     public static final byte TARGET_SEMANTIC = 2;
@@ -114,7 +127,9 @@ public final class ProvenanceLayout implements RegionLayout {
     public static final long OFFSET_BATCH_FACT_COUNT   = 53L;
     public static final long OFFSET_CONTENT_HASH_HI    = 54L;
     public static final long OFFSET_RESERVED           = 56L;
+    public static final long OFFSET_SOURCE_TSID        = 56L;
     public static final long OFFSET_RESERVED_2         = 64L;
+    public static final long OFFSET_SOURCE_PARTITION   = 64L;
     public static final long OFFSET_CRC32C             = 68L;
 
     // ── ValueLayout Constants ──
@@ -136,6 +151,8 @@ public final class ProvenanceLayout implements RegionLayout {
     public static final ValueLayout.OfByte  LAYOUT_FACT_INDEX      = ValueLayout.JAVA_BYTE;
     public static final ValueLayout.OfByte  LAYOUT_BATCH_FACT_CNT  = ValueLayout.JAVA_BYTE;
     public static final ValueLayout.OfShort LAYOUT_CONTENT_HASH    = ValueLayout.JAVA_SHORT_UNALIGNED;
+    public static final ValueLayout.OfLong  LAYOUT_SOURCE_TSID     = ValueLayout.JAVA_LONG_UNALIGNED;
+    public static final ValueLayout.OfInt   LAYOUT_SOURCE_PART     = ValueLayout.JAVA_INT_UNALIGNED;
 
     private ProvenanceLayout() {}
 
@@ -172,6 +189,10 @@ public final class ProvenanceLayout implements RegionLayout {
 
     public static byte readSourceKind(MemorySegment seg, long recordOff) {
         return seg.get(LAYOUT_SOURCE_KIND, recordOff + OFFSET_SOURCE_KIND);
+    }
+
+    public static ProvenanceSourceKind readSourceKindEnum(MemorySegment seg, long recordOff) {
+        return ProvenanceSourceKind.fromCode(readSourceKind(seg, recordOff));
     }
 
     public static byte readTargetKind(MemorySegment seg, long recordOff) {
@@ -234,6 +255,14 @@ public final class ProvenanceLayout implements RegionLayout {
         return seg.get(LAYOUT_CONTENT_HASH, recordOff + OFFSET_CONTENT_HASH_HI);
     }
 
+    public static long readSourceTsid(MemorySegment seg, long recordOff) {
+        return seg.get(LAYOUT_SOURCE_TSID, recordOff + OFFSET_SOURCE_TSID);
+    }
+
+    public static int readSourcePartition(MemorySegment seg, long recordOff) {
+        return seg.get(LAYOUT_SOURCE_PART, recordOff + OFFSET_SOURCE_PARTITION);
+    }
+
     // ── Field Write Helpers ──
 
     public static void writeFlags(MemorySegment seg, long recordOff, byte flags) {
@@ -242,6 +271,10 @@ public final class ProvenanceLayout implements RegionLayout {
 
     public static void writeSourceKind(MemorySegment seg, long recordOff, byte kind) {
         seg.set(LAYOUT_SOURCE_KIND, recordOff + OFFSET_SOURCE_KIND, kind);
+    }
+
+    public static void writeSourceKind(MemorySegment seg, long recordOff, ProvenanceSourceKind kind) {
+        writeSourceKind(seg, recordOff, kind.code());
     }
 
     public static void writeTargetKind(MemorySegment seg, long recordOff, byte kind) {
@@ -304,6 +337,14 @@ public final class ProvenanceLayout implements RegionLayout {
         seg.set(LAYOUT_CONTENT_HASH, recordOff + OFFSET_CONTENT_HASH_HI, hash);
     }
 
+    public static void writeSourceTsid(MemorySegment seg, long recordOff, long sourceTsid) {
+        seg.set(LAYOUT_SOURCE_TSID, recordOff + OFFSET_SOURCE_TSID, sourceTsid);
+    }
+
+    public static void writeSourcePartition(MemorySegment seg, long recordOff, int sourcePartition) {
+        seg.set(LAYOUT_SOURCE_PART, recordOff + OFFSET_SOURCE_PARTITION, sourcePartition);
+    }
+
     // ── Composite Read/Write ──
 
     /**
@@ -331,7 +372,9 @@ public final class ProvenanceLayout implements RegionLayout {
                 readLastOffsetHint(seg, recordOff),
                 readFactIndex(seg, recordOff),
                 readBatchFactCount(seg, recordOff),
-                readContentHashHi(seg, recordOff)
+                readContentHashHi(seg, recordOff),
+                readSourceTsid(seg, recordOff),
+                readSourcePartition(seg, recordOff)
         );
     }
 
@@ -363,9 +406,8 @@ public final class ProvenanceLayout implements RegionLayout {
         writeFactIndex(seg, recordOff, state.factIndex());
         writeBatchFactCount(seg, recordOff, state.batchFactCount());
         writeContentHashHi(seg, recordOff, state.contentHashHi());
-        // Zero reserved bytes
-        seg.set(ValueLayout.JAVA_LONG, recordOff + OFFSET_RESERVED, 0L);
-        seg.set(ValueLayout.JAVA_INT, recordOff + OFFSET_RESERVED_2, 0);
+        writeSourceTsid(seg, recordOff, state.sourceTsid());
+        writeSourcePartition(seg, recordOff, state.sourcePartition());
     }
 
     /**
@@ -418,11 +460,34 @@ public final class ProvenanceLayout implements RegionLayout {
             int lastOffsetHint,
             byte factIndex,
             byte batchFactCount,
-            short contentHashHi
+            short contentHashHi,
+            long sourceTsid,
+            int sourcePartition
     ) {
+        /**
+         * Backward-compatible constructor for 17-field provenance records (prior to ADR-0086 §5.5).
+         */
+        public ProvenanceState(
+                byte flags, byte sourceKind, byte targetKind, byte prefixKind,
+                short passNumber, short turnCount, long sessionId, long targetTsid,
+                long consolidatedAtMs, int partitionSeq, int firstSeq, int lastSeq,
+                int firstOffsetHint, int lastOffsetHint, byte factIndex, byte batchFactCount,
+                short contentHashHi
+        ) {
+            this(flags, sourceKind, targetKind, prefixKind, passNumber, turnCount,
+                    sessionId, targetTsid, consolidatedAtMs, partitionSeq, firstSeq, lastSeq,
+                    firstOffsetHint, lastOffsetHint, factIndex, batchFactCount, contentHashHi,
+                    0L, 0);
+        }
+
         /** Returns {@code true} if this record is live (not tombstoned). */
         public boolean isLive() {
             return flags == FLAG_LIVE || flags == FLAG_PARTIAL_RUN;
+        }
+
+        /** Returns the source kind as a {@link ProvenanceSourceKind} enum. */
+        public ProvenanceSourceKind sourceKindEnum() {
+            return ProvenanceSourceKind.fromCode(sourceKind);
         }
     }
 }

@@ -111,13 +111,16 @@ class MemoryContextPackToolTest {
         assertThat(text).contains("**Persona:** `persona-founder-001`");
         assertThat(text).contains("## 1. ACTIVE WORKING INTENT & SCRATCHPAD");
         assertThat(text).contains("[Working #work-1]: Discussing startup founding timeline");
-        assertThat(text).contains("## 2. PROCEDURAL HEURISTICS & DECISION CADENCE (Basal Ganglia)");
+        assertThat(text).contains("## 2. PROCEDURAL HEURISTICS & DECISION CADENCE\n");
         assertThat(text).contains("[Skill #proc-1]: Validate anxiety before offering advice");
-        assertThat(text).contains("## 3. CORE SEMANTIC FACTS & AXIOMS (Neocortex)");
+        assertThat(text).contains("## 3. CORE SEMANTIC FACTS & AXIOMS\n");
         assertThat(text).contains("[Fact #sem-1]: Founded first AI laboratory in Austin");
-        assertThat(text).contains("## 4. CHRONO-EPISODIC MEMORIES & EXPERIENCES (Hippocampus)");
+        assertThat(text).contains("## 4. CHRONO-EPISODIC MEMORIES & EXPERIENCES\n");
         assertThat(text).contains("[Episode #epi-1]: Late night brainstorming at the kitchen table");
         assertThat(text).contains("# === END COGNITIVE CONTEXT PACK ===");
+        assertThat(text).doesNotContain("Basal Ganglia");
+        assertThat(text).doesNotContain("Neocortex");
+        assertThat(text).doesNotContain("Hippocampus");
 
         ArgumentCaptor<RecallOptions> captor = ArgumentCaptor.forClass(RecallOptions.class);
         verify(memory).recall(eq("How did we start the lab?"), captor.capture());

@@ -105,6 +105,7 @@ public class MemoryProperties implements Serializable {
     private GraphProperties graph = new GraphProperties();
     private CircadianProperties circadian = new CircadianProperties();
     private DreamProperties dream = new DreamProperties();
+    private SkillProperties skill = new SkillProperties();
     private TwoFactorProperties twofactor = new TwoFactorProperties();
     private WalProperties wal = new WalProperties();
     private VacuumProperties vacuum = new VacuumProperties();
@@ -516,6 +517,13 @@ public class MemoryProperties implements Serializable {
         return this;
     }
     public DreamProperties dream() { return dream; }
+
+    public SkillProperties getSkill() { return skill; }
+    public MemoryProperties setSkill(SkillProperties skill) {
+        if (skill != null) this.skill = skill;
+        return this;
+    }
+    public SkillProperties skill() { return skill; }
 
     public TwoFactorProperties getTwofactor() { return twofactor; }
     public MemoryProperties setTwofactor(TwoFactorProperties twofactor) {

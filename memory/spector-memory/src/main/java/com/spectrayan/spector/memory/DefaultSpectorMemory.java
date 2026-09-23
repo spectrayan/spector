@@ -125,6 +125,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final ReflectPathway reflectPathway;     // #503 relay-based sleep reflection engine
     private final ExpressPathway expressPathway;     // #602 relay-based express engine
     private final DreamPathway dreamPathway;         // #679 relay-based generative dreaming & thought experiment engine
+    private final com.spectrayan.spector.memory.pathway.skill.SkillPathway skillPathway; // ADR-0086 procedural skill crystallization
     private final MemoryIndex index;
     private final ScalarQuantizer quantizer;
 
@@ -324,6 +325,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.provenanceMemory = bundle.provenanceMemory();
         this.decidePathway = bundle.decidePathway();
         this.dreamPathway = bundle.dreamPathway();
+        this.skillPathway = com.spectrayan.spector.memory.pathway.skill.SkillPathway.standard();
         this.aismeBundle = bundle.aismeBundle();
         this.hook = builder.hook() != null ? builder.hook() : MemoryObservationHook.NOOP;
         this.sharedPathways = builder.sharedPathways();
@@ -1163,6 +1165,31 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 return decidePathway.decide(signal);
             }
             return com.spectrayan.spector.memory.pathway.decide.relay.DecideReport.empty();
+        } finally {
+            releaseLease();
+        }
+    }
+
+    @Override
+    public com.spectrayan.spector.memory.pathway.skill.relay.SkillReport compileSkill(
+            com.spectrayan.spector.memory.pathway.skill.relay.SkillSignal signal) {
+        acquireLease();
+        try {
+            if (skillPathway != null) {
+                if (signal.context() == null) {
+                    var catalog = new com.spectrayan.spector.commons.pathway.DefaultPathwayCatalog();
+                    catalog.register(com.spectrayan.spector.memory.pathway.skill.SkillPathway.class, skillPathway);
+                    if (rememberPathway != null) {
+                        catalog.register(com.spectrayan.spector.memory.pathway.remember.RememberPathway.class, rememberPathway);
+                    }
+                    var ctx = com.spectrayan.spector.commons.pathway.DefaultPathwayContext.builder()
+                            .catalog(catalog)
+                            .build();
+                    signal.bind(ctx);
+                }
+                return skillPathway.compile(signal);
+            }
+            return com.spectrayan.spector.memory.pathway.skill.relay.SkillReport.empty();
         } finally {
             releaseLease();
         }
