@@ -99,7 +99,10 @@ public final class SkillDedupRelay implements SynapticRelay<SkillSignal> {
 
         // If VectorIndex is bound in context, scan procedural vectors strictly
         VectorIndex index = signal.context() != null ? signal.context().find(VectorIndex.class).orElse(null) : null;
-        MemoryIndex memoryIndex = signal.context() != null ? signal.context().find(MemoryIndex.class).orElse(null) : null;
+        com.spectrayan.spector.kernel.store.IndexEntryMemory memoryIndex = signal.context() != null
+                ? signal.context().find(MemoryIndex.class).map(m -> (com.spectrayan.spector.kernel.store.IndexEntryMemory) m)
+                        .orElseGet(() -> signal.context().find(com.spectrayan.spector.kernel.store.IndexEntryMemory.class).orElse(null))
+                : null;
 
         if (index != null) {
             try {
@@ -142,7 +145,7 @@ public final class SkillDedupRelay implements SynapticRelay<SkillSignal> {
         return true;
     }
 
-    private boolean isProceduralSkill(final String id, final MemoryIndex memoryIndex) {
+    private boolean isProceduralSkill(final String id, final com.spectrayan.spector.kernel.store.IndexEntryMemory memoryIndex) {
         if (id == null) return false;
         if (id.startsWith("skill-") || id.startsWith("proc-")) {
             return true;
@@ -151,6 +154,21 @@ public final class SkillDedupRelay implements SynapticRelay<SkillSignal> {
             MemoryLocation loc = memoryIndex.locate(id);
             if (loc != null) {
                 return loc.type() == MemoryType.PROCEDURAL;
+            }
+            if (id.startsWith("skill-")) {
+                loc = memoryIndex.locate(id.substring(6));
+                if (loc != null) return loc.type() == MemoryType.PROCEDURAL;
+            } else if (id.startsWith("proc-")) {
+                loc = memoryIndex.locate(id.substring(5));
+                if (loc != null) return loc.type() == MemoryType.PROCEDURAL;
+            } else {
+                loc = memoryIndex.locate("skill-" + id);
+                if (loc != null) return loc.type() == MemoryType.PROCEDURAL;
+            }
+            String rawId = id.startsWith("skill-") ? id.substring(6) : (id.startsWith("proc-") ? id.substring(5) : id);
+            if (memoryIndex.idsByTag("skill").contains(id) || memoryIndex.idsByTag("skill").contains(rawId)
+                    || memoryIndex.idsByTag("procedural").contains(id) || memoryIndex.idsByTag("procedural").contains(rawId)) {
+                return true;
             }
         }
         return false;

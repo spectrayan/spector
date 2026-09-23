@@ -45,9 +45,9 @@ Each 72-byte record captures the lineage between a batch of episodic conversatio
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |      last_offset_hint         |fidx|bfct| content_hash_hi   |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                       reserved (8B)                           |
+|                       source_tsid (8B)                        |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|       reserved (cont.)        |     reserved_2 (4B)           |
+|       source_tsid (cont.)     |    source_partition (4B)      |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |          crc32c (4B)          |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -55,28 +55,28 @@ Each 72-byte record captures the lineage between a batch of episodic conversatio
 
 ## Field Specifications
 
-| Offset | Size | Field Name | Type | Description |
+| Offset (Hex / Dec) | Size | Field Name | Type | Description |
 |:---:|:---:|:---|:---|:---|
-| `0x00` | 1B | `flags` | uint8 | 0=LIVE, 1=TOMBSTONE, 2=PARTIAL_RUN |
-| `0x01` | 1B | `source_kind` | uint8 | EPISODIC = 1 (formerly EPISODIC_LOG), SEMANTIC = 2, PROCEDURAL = 3 |
-| `0x02` | 1B | `target_kind` | uint8 | SEMANTIC = 2, PROCEDURAL = 3 |
-| `0x03` | 1B | `prefix_kind` | uint8 | Target ID prefix registry ordinal |
-| `0x04` | 2B | `pass_number` | uint16 | Monotonic consolidation pass counter |
-| `0x06` | 2B | `turn_count` | uint16 | Turns covered by this row |
-| `0x08` | 8B | `session_id` | int64 | Matches episodic header session_id |
-| `0x10` | 8B | `target_tsid` | int64 | Raw 64-bit TSID of consolidated fact |
-| `0x18` | 8B | `consolidated_at_ms` | int64 | Epoch ms of the consolidation pass |
-| `0x20` | 4B | `partition_seq` | int32 | Partition holding source turns |
-| `0x24` | 4B | `first_seq` | int32 | First episodic sequence_id in the run |
-| `0x28` | 4B | `last_seq` | int32 | Last episodic sequence_id in the run |
-| `0x2C` | 4B | `first_offset_hint` | uint32 | Region-relative byte offset hint |
-| `0x30` | 4B | `last_offset_hint` | uint32 | Region-relative byte offset hint |
-| `0x34` | 1B | `fact_index` | uint8 | Index of this fact within its batch |
-| `0x35` | 1B | `batch_fact_count` | uint8 | Total facts in this batch |
-| `0x36` | 2B | `content_hash_hi` | uint16 | Upper 16 bits of fact text CRC32C |
-| `0x38` | 8B | `source_tsid` | int64 | Source entity TSID when source is semantic/procedural (ADR-0086 §5.5) |
-| `0x40` | 4B | `source_partition` | int32 | Source partition sequence or 0 (ADR-0086 §5.5) |
-| `0x44` | 4B | `crc32c` | int32 | Record-level CRC32C checksum |
+| `0x00` (0) | 1B | `flags` | uint8 | 0=LIVE, 1=TOMBSTONE, 2=PARTIAL_RUN |
+| `0x01` (1) | 1B | `source_kind` | uint8 | EPISODIC = 1 (formerly EPISODIC_LOG), SEMANTIC = 2, PROCEDURAL = 3 (`ProvenanceSourceKind`) |
+| `0x02` (2) | 1B | `target_kind` | uint8 | SEMANTIC = 2, PROCEDURAL = 3 |
+| `0x03` (3) | 1B | `prefix_kind` | uint8 | Target ID prefix registry ordinal |
+| `0x04` (4) | 2B | `pass_number` | uint16 | Monotonic consolidation pass counter |
+| `0x06` (6) | 2B | `turn_count` | uint16 | Turns covered by this row |
+| `0x08` (8) | 8B | `session_id` | int64 | Matches episodic header session_id |
+| `0x10` (16) | 8B | `target_tsid` | int64 | Raw 64-bit TSID of consolidated fact or skill |
+| `0x18` (24) | 8B | `consolidated_at_ms` | int64 | Epoch ms of the consolidation pass |
+| `0x20` (32) | 4B | `partition_seq` | int32 | Partition holding source turns |
+| `0x24` (36) | 4B | `first_seq` | int32 | First episodic sequence_id in the run |
+| `0x28` (40) | 4B | `last_seq` | int32 | Last episodic sequence_id in the run |
+| `0x2C` (44) | 4B | `first_offset_hint` | uint32 | Region-relative byte offset hint |
+| `0x30` (48) | 4B | `last_offset_hint` | uint32 | Region-relative byte offset hint |
+| `0x34` (52) | 1B | `fact_index` | uint8 | Index of this fact within its batch |
+| `0x35` (53) | 1B | `batch_fact_count` | uint8 | Total facts in this batch |
+| `0x36` (54) | 2B | `content_hash_hi` | uint16 | Upper 16 bits of fact text CRC32C |
+| `0x38` (56) | 8B | `source_tsid` | int64 | Source entity TSID when source is semantic/procedural (ADR-0086 §5.5) |
+| `0x40` (64) | 4B | `source_partition` | int32 | Source partition sequence or 0 (ADR-0086 §5.5) |
+| `0x44` (68) | 4B | `crc32c` | int32 | Record-level CRC32C checksum |
 
 ## Access Patterns & Concurrency
 

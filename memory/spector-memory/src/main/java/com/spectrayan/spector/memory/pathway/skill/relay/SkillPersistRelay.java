@@ -17,8 +17,10 @@ package com.spectrayan.spector.memory.pathway.skill.relay;
 
 import com.spectrayan.spector.commons.pathway.PathwayCatalog;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
+import com.spectrayan.spector.kernel.api.EngramSource;
 import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.kernel.id.TsidGenerator;
 import com.spectrayan.spector.memory.model.SalienceProfile;
@@ -69,20 +71,38 @@ public final class SkillPersistRelay implements SynapticRelay<SkillSignal> {
 
         String serializedText = signal.extractedBody().serialize();
 
-        // Mint prior: low initial importance (analog of ACT-R U0 ≈ 0) to avoid dominating fused recall
-        com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints mintPrior =
-                new com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints(0.15f, 0.15f, 0.15f);
+        // Mint prior: low initial importance (analog of ACT-R U0 ≈ 0) to avoid dominating fused recall.
+        // Pre-construct EncodingHeader with 0.15f importance and NF7 SOURCE_DISTILLED (EngramSource.DISTILLED)
+        // so DopaminergicSurpriseRelay preserves the mint prior rather than overwriting it with ICNU fusion.
+        EncodingHeader header = new EncodingHeader(
+                System.currentTimeMillis(),
+                0L,
+                0L,
+                0.0f,
+                0.15f,
+                0,
+                (short) 0,
+                (byte) 0,
+                EncodingHeaderFields.withMemoryType((byte) 0, MemoryType.PROCEDURAL.ordinal()),
+                (byte) 0,
+                1.0f,
+                (byte) 0,
+                (byte) 0,
+                (byte) 0,
+                soulVer,
+                0.0f,
+                EncodingHeaderFields.FLAG_CRYSTALLIZED,
+                EngramSource.DISTILLED
+        );
 
-        RememberSignal rs = RememberSignal.forCognitive(
+        RememberSignal rs = RememberSignal.forCognitiveWithHeader(
                 skillId,
                 serializedText,
                 null,
                 MemoryType.PROCEDURAL,
                 new String[]{"procedural", "skill", "crystallized"},
                 MemorySource.PROCEDURAL,
-                mintPrior,
-                SalienceProfile.NEUTRAL,
-                soulVer
+                header
         );
         rs.consolidationFlagsOverlay(EncodingHeaderFields.FLAG_CRYSTALLIZED);
 

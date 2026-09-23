@@ -128,9 +128,12 @@ class SkillPathwayNestedRememberTest {
         assertThat(rs.type()).isEqualTo(MemoryType.PROCEDURAL);
         assertThat(rs.source()).isEqualTo(MemorySource.PROCEDURAL);
         assertThat(rs.source().toEngramSource()).isEqualTo(com.spectrayan.spector.kernel.api.EngramSource.DISTILLED);
-        // Header must be null so DopaminergicSurpriseRelay uses the importance calculator!
-        assertThat(rs.header()).isNull();
-        // FLAG_CRYSTALLIZED must be passed in the overlay
+        // Header is explicitly constructed with mint prior 0.15f, FLAG_CRYSTALLIZED, and EngramSource.DISTILLED
+        assertThat(rs.header()).isNotNull();
+        assertThat(rs.header().importance()).isEqualTo(0.15f);
+        assertThat(rs.header().source()).isEqualTo(com.spectrayan.spector.kernel.api.EngramSource.DISTILLED);
+        assertThat(rs.header().consolidationFlags()).isEqualTo(EncodingHeaderFields.FLAG_CRYSTALLIZED);
+        // FLAG_CRYSTALLIZED must also be passed in the overlay
         assertThat(rs.consolidationFlagsOverlay()).isEqualTo(EncodingHeaderFields.FLAG_CRYSTALLIZED);
         // Text must contain the serialized markdown with frontmatter
         assertThat(rs.text()).contains("schema: spector.skill.v1");

@@ -34,6 +34,8 @@ import java.util.List;
  *   <li><b>Episodic cluster</b>: $\ge 2$ episodic turns.</li>
  *   <li><b>Semantic cluster</b>: $\ge 3$ semantic facts.</li>
  *   <li><b>Mixed cluster</b>: $\ge 1$ episodic turn and $\ge 1$ semantic fact (or prior procedural skill).</li>
+ *   <li><b>Explicit tool compilation (Rule 5)</b>: pre-extracted body with parent reference or valid cue (MCP/CLI compilation);
+ *       bypasses multi-item clustering shapes while still strictly enforcing denylist and working-only rejection.</li>
  * </ul>
  * </p>
  */
@@ -108,6 +110,8 @@ public final class ClusterAdmitRelay implements SynapticRelay<SkillSignal> {
         }
 
         // Rule 5: Pre-extracted body with parent reference or valid cue (MCP compile_skill, CLI, explicit crystallization)
+        // Explicit tool compilations provide structured SkillBody directly and intentionally bypass multi-item
+        // shape constraints (k >= 2), while denylist filtering and working-only rejection are strictly enforced.
         if (signal.extractedBody() != null && (!signal.parents().isEmpty() || (signal.cue() != null && !signal.cue().isBlank()))) {
             return true;
         }

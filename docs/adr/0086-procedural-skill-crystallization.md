@@ -380,7 +380,9 @@ sequenceDiagram
   SP-->>PCR: SkillReport
 ```
 
-Admission defaults (config, not header fields): `k_sessions = 3`, or `k = 2` plus valence / `FLAG_RESOLVED`. Reject working-only clusters and tool-JSON / CoT dumps.
+Admission defaults for automated sleep clustering (config, not header fields): `k_sessions = 3`, or `k = 2` plus valence / `FLAG_RESOLVED`. Reject working-only clusters and tool-JSON / CoT dumps. Explicit tool/compiler invocations (MCP `memory_compile_skill`, CLI `spector skill compile`) providing a pre-extracted body and parent reference or valid cue bypass multi-item clustering shapes via Rule 5, while denylist patterns and working-only rejection remain strictly enforced. Do not document or treat admission as "k ≥ 2 always" across all entry points; explicit tool compilation permits single-parent or cue-directed crystallization when sanitized.
+
+In v1, the automated sleep consolidation trigger in `ProceduralCrystallizationRelay` scans and clusters unconsolidated episodic turns. Semantic how-tos and mixed episodic-semantic skills are fully supported across the core pathway, data representations, and lineage persistence, but in v1 they are compiled via MCP/CLI tools rather than autonomous background Reflect consolidation. Full automated multi-tier scanning during sleep consolidation is deferred; do not claim all 7 phases cover autonomous semantic graduation from Reflect.
 
 Semantic-only clusters default to `heuristic`. Mixed axiom + episodic proof default to `playbook`. Working memory may cue clustering; it is not a v1 `source_kind`.
 
@@ -529,7 +531,7 @@ Mint prior: low `importance` (compiled-child analog of ACT-R \(U_0 \approx 0\) o
 
 1. **Phase 1 — Pathway shell.** `SkillPathway` / `SkillSignal` / `SkillReport` / `SkillRecipe` with persist + lineage relays only. `ProceduralCrystallizationRelay` dispatches current free-text through the pathway. Nested catalog + breaker proven. No schema change yet. 
 2. **Phase 2 — Admit / extract / dedup relays + `SkillBody`.** SnakeYAML parser; extract IR → v1 markdown; algorithmic fallback; cosine reinforce. Reflect relay only builds parent lists.
-3. **Phase 3 — Semantic and mixed parents.** `source_kind=SEMANTIC` + reserved `source_tsid`; mixed two-row provenance; tags `from:semantic` / `from:episodic` as gates only.
+3. **Phase 3 — Semantic and mixed parents.** `source_kind=SEMANTIC` + reserved `source_tsid`; mixed two-row provenance; tags `from:semantic` / `from:episodic` as gates only. Note: in v1, semantic and mixed compilation is exercised via MCP/CLI tools; autonomous background Reflect consolidation remains focused on episodic turn clusters.
 4. **Phase 4 — Consumption.** `ContextPackFormatter` short form; `explain()` mixed parents.
 5. **Phase 5 — MCP / CLI + Dream redirect.** `memory_compile_skill` (`DRY_RUN` / `COMPILE`); CLI sibling command (`spector skill compile`); PRAGMATIC persist removed; `skill-` prefix_kind registered.
 6. **Phase 6 — `REINFORCE` / `SkillUtilityRelay`.** Only after an outcome signal exists. Optional softmax mix into Recall. Not required to mark this ADR Accepted.

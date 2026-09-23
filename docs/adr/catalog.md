@@ -1,11 +1,11 @@
 # Architecture Decision Records (ADRs) — Master Catalog
 
-> **Authoritative registry of all 83 Architecture Decision Records governing Spector.** Every record tracks architectural rationale, options evaluated, trade-offs accepted, and code verification against `main`.
+> **Authoritative registry of all 86 Architecture Decision Records governing Spector.** Every record tracks architectural rationale, options evaluated, trade-offs accepted, and code verification against `main`.
 
 > [!NOTE]
 > The Active Inference Self-Model Engine verification report has graduated to the architecture audit section: [Architecture Verification Report: Active Inference Self-Model Engine (AISME)](../architecture/aisme-completeness-verification-report.md).
 
-## Master Registry (0001–0083)
+## Master Registry (0001–0086)
 
 | ADR | Title | Status | Date | Target File |
 |:---|:---|:---:|:---:|:---|
