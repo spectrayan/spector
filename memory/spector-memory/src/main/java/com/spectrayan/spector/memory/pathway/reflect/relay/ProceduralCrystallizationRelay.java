@@ -39,6 +39,9 @@ import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.pathway.RelayNames;
 import com.spectrayan.spector.memory.pathway.SoulVersionSource;
+import com.spectrayan.spector.memory.pathway.skill.SkillPathway;
+import com.spectrayan.spector.memory.pathway.skill.model.SkillBody;
+import com.spectrayan.spector.memory.pathway.skill.relay.SkillSignal;
 import com.spectrayan.spector.provider.generation.GenerationOptions;
 
 /**
@@ -112,7 +115,31 @@ public final class ProceduralCrystallizationRelay implements SynapticRelay<Refle
 
                 String[] tags = new String[]{"procedural", "crystallized", "skill"};
                 final PathwayCatalog catalog = signal.context() != null ? signal.context().catalog() : null;
-                if (catalog != null && catalog.find(RememberPathway.class).isPresent()) {
+                if (catalog != null && catalog.find(SkillPathway.class).isPresent()) {
+                    List<SkillSignal.ParentRef> parents = new ArrayList<>();
+                    for (var t : sessionList) {
+                        parents.add(new SkillSignal.ParentRef(t.sessionId() + "-" + t.sequenceId(), MemoryType.EPISODIC));
+                    }
+                    SkillBody skillBody = SkillBody.parse(skillText);
+                    SkillSignal skillSignal = new SkillSignal(
+                            SkillSignal.Mode.COMPILE,
+                            parents,
+                            null,
+                            true,
+                            null,
+                            0.0f,
+                            signal.hyperEntityGraph(),
+                            signal.entityDirectory(),
+                            signal.provenanceMemory()
+                    );
+                    skillSignal.extractedBody(skillBody);
+                    try {
+                        catalog.invoke(SkillPathway.class, signal.context(), skillSignal);
+                        signal.addProceduralCrystallized(1);
+                    } catch (Exception e) {
+                        log.warn("Failed to invoke SkillPathway via catalog for skill {}: {}", skillId, e.getMessage());
+                    }
+                } else if (catalog != null && catalog.find(RememberPathway.class).isPresent()) {
                     float exactNorm = vector != null ? VectorOps.magnitude(vector) : 1.0f;
                     byte procFlags = EncodingHeaderFields.withMemoryType(
                             (byte) 0, MemoryType.PROCEDURAL.ordinal());
@@ -135,19 +162,19 @@ public final class ProceduralCrystallizationRelay implements SynapticRelay<Refle
                         log.warn("Failed to invoke Remember via catalog for skill {}: {}", skillId, e.getMessage());
                     }
                     signal.addProceduralCrystallized(1);
-                }
 
-                // Link procedural skill to hypergraph lineage
-                if (signal.hyperEntityGraph() != null && signal.entityDirectory() != null) {
-                    try {
-                        int skillEntityId = signal.entityDirectory().intern("skill:" + skillId, "PROCEDURAL_SKILL");
-                        int[] entities = new int[]{skillEntityId};
-                        int[] roles = new int[]{HyperEntityGraphMemory.ROLE_DERIVED_FROM};
-                        signal.hyperEntityGraph().addHyperedge(
-                                entities, roles, HyperEntityGraphMemory.TYPE_RELATIONSHIP, 1.0f, 0, System.currentTimeMillis()
-                        );
-                    } catch (Exception e) {
-                        log.debug("HyperEntity lineage linking skipped: {}", e.getMessage());
+                    // Link procedural skill to hypergraph lineage
+                    if (signal.hyperEntityGraph() != null && signal.entityDirectory() != null) {
+                        try {
+                            int skillEntityId = signal.entityDirectory().intern("skill:" + skillId, "PROCEDURAL_SKILL");
+                            int[] entities = new int[]{skillEntityId};
+                            int[] roles = new int[]{HyperEntityGraphMemory.ROLE_DERIVED_FROM};
+                            signal.hyperEntityGraph().addHyperedge(
+                                    entities, roles, HyperEntityGraphMemory.TYPE_RELATIONSHIP, 1.0f, 0, System.currentTimeMillis()
+                            );
+                        } catch (Exception e) {
+                            log.debug("HyperEntity lineage linking skipped: {}", e.getMessage());
+                        }
                     }
                 }
             }
