@@ -210,7 +210,10 @@ class ProceduralCrystallizationRelayTest {
         RememberSignal rs = fakeRemember.received().getFirst();
         assertThat(rs.type()).isEqualTo(MemoryType.PROCEDURAL);
         assertThat(rs.source()).isEqualTo(MemorySource.PROCEDURAL);
-        assertThat(rs.header()).isNull(); // Dynamic importance calculator enabled!
+        assertThat(rs.header()).isNotNull();
+        assertThat(rs.header().importance()).isEqualTo(0.15f);
+        assertThat(rs.header().source()).isEqualTo(com.spectrayan.spector.kernel.api.EngramSource.DISTILLED);
+        assertThat(rs.header().consolidationFlags()).isEqualTo(EncodingHeaderFields.FLAG_CRYSTALLIZED);
         assertThat(rs.consolidationFlagsOverlay()).isEqualTo(EncodingHeaderFields.FLAG_CRYSTALLIZED);
     }
 }
