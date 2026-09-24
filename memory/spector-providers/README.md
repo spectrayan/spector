@@ -20,5 +20,4 @@ spector:
       dimensions: 384                    # 384, 768, 1024, or custom model dimensions
       model-path: ~/.spector/models/all-minilm-l6-v2.onnx  # Optional local path
       execution-provider: CPU            # CPU, DIRECTML, or CUDA
-      intra-op-threads: 0                # 0 = auto-detect available CPU cores
 ```

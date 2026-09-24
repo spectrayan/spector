@@ -30,8 +30,43 @@ public final class SimdCapability {
     /** The preferred float vector species for this platform (AVX2 = 256-bit, AVX-512 = 512-bit, etc.). */
     public static final VectorSpecies<Float> PREFERRED_SPECIES = FloatVector.SPECIES_PREFERRED;
 
+    /**
+     * Fewest float lanes usable by a kernel that pairs a float species with a same-lane-count byte species.
+     *
+     * <p>The narrowest shape the Vector API defines is 64-bit, so a byte species has at least 8 lanes.</p>
+     */
+    private static final int MIN_BYTE_PAIRABLE_LANES = 64 / Byte.SIZE;
+
+    /**
+     * Float species for kernels that must pair each float lane with a byte lane.
+     *
+     * <p>Equal to {@link #PREFERRED_SPECIES} wherever that species has at least
+     * {@value #MIN_BYTE_PAIRABLE_LANES} lanes, and widened to exactly that many otherwise.</p>
+     *
+     * <h3>Why this exists</h3>
+     * <p>The INT8 quantisation kernels derive their byte species as
+     * {@code VectorShape.forBitSize(floatLanes * Byte.SIZE)}. On x86_64 the preferred float species has 8
+     * lanes, which asks for a valid 64-bit byte shape. On aarch64 the 128-bit NEON registers give a 4-lane
+     * preferred species, which asks for a 32-bit shape that does not exist — so those kernels threw during
+     * class initialisation and were entirely unusable on Apple Silicon and Graviton. CI runs x86_64, so the
+     * failure never surfaced there: the build was green on a platform where the bug cannot occur.</p>
+     *
+     * <p>Where the returned species is wider than the hardware register, the Vector API emulates it across
+     * multiple registers. That costs throughput and is the right trade against not running at all; it also
+     * keeps a single code path rather than a second narrow-lane kernel to maintain and test.</p>
+     */
+    public static final VectorSpecies<Float> BYTE_PAIRABLE_SPECIES = resolveBytePairableSpecies();
+
     private SimdCapability() {
         // utility class
+    }
+
+    private static VectorSpecies<Float> resolveBytePairableSpecies() {
+        if (PREFERRED_SPECIES.length() >= MIN_BYTE_PAIRABLE_LANES) {
+            return PREFERRED_SPECIES;
+        }
+        return VectorSpecies.of(float.class,
+                jdk.incubator.vector.VectorShape.forBitSize(MIN_BYTE_PAIRABLE_LANES * Float.SIZE));
     }
 
     /**

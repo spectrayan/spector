@@ -224,6 +224,26 @@ public class SpectorEmbeddingAutoConfiguration {
         if (embedding.getCacheStatsLogInterval() != null) {
             properties.put("cache.stats-log-interval-seconds", String.valueOf(embedding.getCacheStatsLogInterval().toSeconds()));
         }
+
+        // Forward the typed fields the factories actually read. These were declared on EmbeddingProperties,
+        // bound from configuration, and then never reached a factory through this path — so setting
+        // spector.provider.embedding.model-path, execution-provider, timeout, batch-size or max-concurrent
+        // did nothing at all. Property-map keys match what the factories look up:
+        // OnnxProviderFactory reads modelPath/model-path, tokenizerPath/vocabPath and executionProvider;
+        // OllamaProviderFactory reads timeout, batchSize and maxConcurrent.
+        putIfPresent(properties, "modelPath", embedding.getModelPath());
+        putIfPresent(properties, "vocabPath", embedding.getVocabPath());
+        putIfPresent(properties, "executionProvider", embedding.getExecutionProvider());
+        if (embedding.getTimeout() != null && !embedding.getTimeout().isZero()) {
+            properties.putIfAbsent("timeout", String.valueOf(embedding.getTimeout().toSeconds()));
+        }
+        if (embedding.getBatchSize() > 0) {
+            properties.putIfAbsent("batchSize", String.valueOf(embedding.getBatchSize()));
+        }
+        if (embedding.getMaxConcurrent() > 0) {
+            properties.putIfAbsent("maxConcurrent", String.valueOf(embedding.getMaxConcurrent()));
+        }
+
         return new ProviderConfig(
                 embedding.getType(),
                 embedding.getType(),
@@ -233,5 +253,19 @@ public class SpectorEmbeddingAutoConfiguration {
                 embedding.getDimensions(),
                 properties
         );
+    }
+
+    /**
+     * Copies a configured value into the properties map, leaving an explicit entry already present in
+     * {@code spector.provider.embedding.properties} untouched.
+     *
+     * <p>{@code putIfAbsent} rather than {@code put}: the free-form properties map is the lower-level escape
+     * hatch, so an operator who set a key there directly has been more specific than one who set the typed
+     * field, and must win.</p>
+     */
+    private static void putIfPresent(java.util.Map<String, String> properties, String key, String value) {
+        if (value != null && !value.isBlank()) {
+            properties.putIfAbsent(key, value);
+        }
     }
 }

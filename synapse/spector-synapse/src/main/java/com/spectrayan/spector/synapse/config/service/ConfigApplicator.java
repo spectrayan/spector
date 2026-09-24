@@ -28,6 +28,7 @@ import com.spectrayan.spector.provider.ProviderFactory;
 import com.spectrayan.spector.provider.ProviderRegistry;
 import com.spectrayan.spector.synapse.config.SynapseSalienceProvider;
 import com.spectrayan.spector.synapse.config.model.ConfigCategory;
+import com.spectrayan.spector.synapse.connector.service.CredentialService;
 import com.spectrayan.spector.synapse.memory.MemoryRegistry;
 
 import org.slf4j.Logger;
@@ -53,6 +54,7 @@ public class ConfigApplicator {
     private final ObjectProvider<SynapseSalienceProvider> salienceProvider;
     private final ObjectProvider<ObjectMapper> objectMapperProvider;
     private final ConfigSchemaRegistry schemaRegistry;
+    private final ObjectProvider<CredentialService> credentialServiceProvider;
 
     public ConfigApplicator(ProviderRegistry providerRegistry,
                             ObjectProvider<SpectorMemory> spectorMemoryProvider,
@@ -60,12 +62,31 @@ public class ConfigApplicator {
                             ObjectProvider<SynapseSalienceProvider> salienceProvider,
                             ObjectProvider<ObjectMapper> objectMapperProvider,
                             ConfigSchemaRegistry schemaRegistry) {
+        this(providerRegistry, spectorMemoryProvider, memoryRegistryProvider, salienceProvider,
+                objectMapperProvider, schemaRegistry, null);
+    }
+
+    /**
+     * Creates an applicator that can resolve provider secrets from the credentials store.
+     *
+     * @param credentialServiceProvider the credentials store, optional — absent in embedded use, in which
+     *                                  case providers are built without a key
+     */
+    @org.springframework.beans.factory.annotation.Autowired
+    public ConfigApplicator(ProviderRegistry providerRegistry,
+                            ObjectProvider<SpectorMemory> spectorMemoryProvider,
+                            ObjectProvider<MemoryRegistry> memoryRegistryProvider,
+                            ObjectProvider<SynapseSalienceProvider> salienceProvider,
+                            ObjectProvider<ObjectMapper> objectMapperProvider,
+                            ConfigSchemaRegistry schemaRegistry,
+                            ObjectProvider<CredentialService> credentialServiceProvider) {
         this.providerRegistry = providerRegistry;
         this.spectorMemoryProvider = spectorMemoryProvider;
         this.memoryRegistryProvider = memoryRegistryProvider;
         this.salienceProvider = salienceProvider;
         this.objectMapperProvider = objectMapperProvider;
         this.schemaRegistry = schemaRegistry;
+        this.credentialServiceProvider = credentialServiceProvider;
         log.info("ConfigApplicator initialized with dynamic typed dispatch");
     }
 
@@ -292,7 +313,9 @@ public class ConfigApplicator {
         }
 
         String model = stringVal(values, "model", "default");
-        String apiKey = stringVal(values, "api-key", "");
+        // Resolved from the encrypted credentials store via a reference in configuration. This used to read
+        // a cleartext `api-key` straight out of the scoped_config values.
+        String apiKey = resolveCredential(tenantId, values);
         String baseUrl = stringVal(values, "base-url", null);
 
         for (ProviderFactory factory : ServiceLoader.load(ProviderFactory.class)) {
@@ -419,12 +442,51 @@ public class ConfigApplicator {
         return def;
     }
 
+    /**
+     * Resolves a provider's secret from the encrypted credentials store.
+     *
+     * <p>Configuration carries only {@code credential-ref}, the name of a {@code credentials} row. The secret
+     * is decrypted here, at the point of provider construction, under a per-tenant derived key — so it never
+     * enters a config row, an API response, or a log line.</p>
+     *
+     * @return the decrypted secret, or an empty string when no reference is configured or it cannot be
+     *         resolved. Empty is correct for local providers such as Ollama, which need no credential.
+     */
+    private String resolveCredential(String tenantId, Map<String, Object> values) {
+        String ref = stringVal(values, ConfigResolutionService.CREDENTIAL_REF_KEY, "");
+        if (ref == null || ref.isBlank()) {
+            return "";
+        }
+        CredentialService credentials = credentialServiceProvider != null
+                ? credentialServiceProvider.getIfAvailable() : null;
+        if (credentials == null) {
+            log.warn("[ConfigApplicator] configuration references credential '{}' but no CredentialService is "
+                    + "available; the provider will be built without a key", ref);
+            return "";
+        }
+        try {
+            return credentials.resolveSecret(ref, tenantId).orElseGet(() -> {
+                log.warn("[ConfigApplicator] credential '{}' is referenced by configuration but was not found "
+                        + "for tenant '{}'; the provider will be built without a key", ref, tenantId);
+                return "";
+            });
+        } catch (RuntimeException e) {
+            // Never log the exception's payload — it may carry decrypted material.
+            log.warn("[ConfigApplicator] could not resolve credential '{}' for tenant '{}': {}",
+                    ref, tenantId, e.getClass().getSimpleName());
+            return "";
+        }
+    }
+
     private static Map<String, String> extractProperties(Map<String, Object> values) {
         var props = new LinkedHashMap<String, String>();
         values.forEach((k, v) -> {
             if (v != null && !k.equals("provider") && !k.equals("model")
-                    && !k.equals("api-key") && !k.equals("base-url")
-                    && !k.equals("dimensions")) {
+                    && !k.equals("base-url") && !k.equals("dimensions")
+                    // Never propagate secret-bearing keys into the provider properties map: it is copied onto
+                    // ProviderConfig, which is fingerprinted and logged.
+                    && !ConfigResolutionService.FORBIDDEN_VALUE_KEYS.contains(k)
+                    && !k.equals(ConfigResolutionService.CREDENTIAL_REF_KEY)) {
                 props.put(k, v.toString());
             }
         });

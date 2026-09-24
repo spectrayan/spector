@@ -217,8 +217,16 @@ public class ConfigSchemaRegistry {
                 of("base-url", gen != null && gen.getBaseUrl() != null ? gen.getBaseUrl() : "http://localhost:11434",
                         "string", "API endpoint base URL", "POLICY"),
                 number("temperature", temp, "Generation temperature", "POLICY", 0.0, 2.0, 0.05),
-                secret("api-key", gen != null && gen.getApiKey() != null ? gen.getApiKey() : "",
-                        "Provider API key or bearer credential", "POLICY"),
+                // A credential name, not a secret. This used to surface the raw api-key as a `secret(...)`
+                // field, which is only a UI rendering hint — the value was persisted in cleartext.
+                of(com.spectrayan.spector.synapse.config.service.ConfigResolutionService.CREDENTIAL_REF_KEY, "",
+                        "string",
+                        "Name of the stored credential holding this provider's API key. Manage credentials "
+                                + "under Settings → Credentials; the secret itself is never stored in "
+                                + "configuration.",
+                        "POLICY"),
+                // 'api-key' deliberately absent — it is refused on save by
+                // ConfigResolutionService.rejectSecretValues. Use credential-ref above.
                 number("timeout", 30,
                         "Request timeout in seconds", "POLICY", 1, 300, 1),
                 of("fallback-model", "", "string", "Fallback model name on rate-limit or error", "POLICY")
@@ -238,6 +246,11 @@ public class ConfigSchemaRegistry {
                 // Reads the embedding property, like every other field in this schema. It previously
                 // reached into configSnapshot.memory().getDimensions() — the *memory* property — so the
                 // embedding schema reported a value the embedding provider did not necessarily use.
+                of(com.spectrayan.spector.synapse.config.service.ConfigResolutionService.CREDENTIAL_REF_KEY, "",
+                        "string",
+                        "Name of the stored credential holding this provider's API key. The secret itself is "
+                                + "never stored in configuration.",
+                        "REBUILD"),
                 number("dimensions", emb != null ? emb.getDimensions() : 384,
                         "Vector embedding dimensionality", "REBUILD", 32, 4096, 1),
                 number("batch-size", emb != null ? emb.getBatchSize() : 32,

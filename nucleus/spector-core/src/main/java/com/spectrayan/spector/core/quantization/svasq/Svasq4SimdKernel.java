@@ -64,8 +64,12 @@ import java.nio.ByteOrder;
  */
 public final class Svasq4SimdKernel {
 
-    // Preferred float species: AVX2 → 8 lanes (256-bit), AVX-512 → 16 lanes (512-bit)
-    private static final VectorSpecies<Float> F_SPECIES = SimdCapability.PREFERRED_SPECIES;
+    /**
+     * Float species used for scoring. Widened where the platform's preferred species has too few lanes for a
+     * matching byte species to exist — see {@link SimdCapability#BYTE_PAIRABLE_SPECIES}. Without this the
+     * class failed to initialise on aarch64.
+     */
+    private static final VectorSpecies<Float> F_SPECIES = SimdCapability.BYTE_PAIRABLE_SPECIES;
 
     // Byte species with the SAME lane count as F_SPECIES.
     private static final VectorSpecies<Byte> B_SPECIES =

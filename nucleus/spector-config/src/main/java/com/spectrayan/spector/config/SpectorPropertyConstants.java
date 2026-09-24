@@ -209,9 +209,6 @@ public final class SpectorPropertyConstants {
     public static final String PROVIDER_EMBEDDING_EXECUTION_PROVIDER = "spector.provider.embedding.execution-provider";
     public static final String DEFAULT_PROVIDER_EMBEDDING_EXECUTION_PROVIDER = "CPU";
 
-    public static final String PROVIDER_EMBEDDING_INTRA_OP_THREADS = "spector.provider.embedding.intra-op-threads";
-    public static final int DEFAULT_PROVIDER_EMBEDDING_INTRA_OP_THREADS = 0;
-
     public static final String PROVIDER_EMBEDDING_VOCAB_PATH = "spector.provider.embedding.vocab-path";
     public static final String DEFAULT_PROVIDER_EMBEDDING_VOCAB_PATH = "";
 
@@ -309,13 +306,40 @@ public final class SpectorPropertyConstants {
     public static final String REMOVED_MEMORY_DIMENSIONS = "spector.memory.dimensions";
 
     /**
-     * Configuration keys that no longer exist, mapped to the key that replaced each one.
+     * Removed. Declared, bound from configuration, and read by no provider factory — so setting it tuned
+     * nothing.
      *
-     * <p>Consulted once at load time so a removed key fails fast rather than being ignored. Add to
-     * this map when deleting a property; never delete a property without adding to it.</p>
+     * <p>It cannot be honoured through the current ONNX path either: models are built reflectively via
+     * LangChain4j's {@code OnnxEmbeddingModel.builder()}, which exposes no thread-count knob. Keeping a
+     * property that can never take effect is the silent-ignore defect this mechanism exists to end, so it is
+     * removed rather than left in place with a caveat.</p>
      */
-    public static final java.util.Map<String, String> REMOVED_PROPERTIES = java.util.Map.of(
-            REMOVED_MEMORY_DIMENSIONS, PROVIDER_EMBEDDING_DIMENSIONS);
+    public static final String REMOVED_PROVIDER_EMBEDDING_INTRA_OP_THREADS =
+            "spector.provider.embedding.intra-op-threads";
+
+    /**
+     * A configuration key that no longer exists.
+     *
+     * @param replacement the key to use instead, or {@code null} when the property was removed outright
+     * @param reason      why it was removed, stated so the operator can judge whether they lose anything
+     */
+    public record RemovedProperty(String replacement, String reason) {
+    }
+
+    /**
+     * Configuration keys that no longer exist.
+     *
+     * <p>Consulted once at load time so a removed key fails fast rather than being ignored. Add to this map
+     * when deleting a property; never delete a property without adding to it.</p>
+     */
+    public static final java.util.Map<String, RemovedProperty> REMOVED_PROPERTIES = java.util.Map.of(
+            REMOVED_MEMORY_DIMENSIONS, new RemovedProperty(PROVIDER_EMBEDDING_DIMENSIONS,
+                    "embedding dimensionality now has a single source, and the engine derives its own width "
+                            + "from it"),
+            REMOVED_PROVIDER_EMBEDDING_INTRA_OP_THREADS, new RemovedProperty(null,
+                    "no provider factory ever read it, and the ONNX runtime is constructed through a "
+                            + "LangChain4j builder that exposes no thread-count option, so this setting never "
+                            + "had any effect"));
 
     /**
      * Total addressable memories for a namespace across all partitions.

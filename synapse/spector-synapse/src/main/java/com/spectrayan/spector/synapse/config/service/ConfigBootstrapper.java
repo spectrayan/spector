@@ -39,13 +39,28 @@ public class ConfigBootstrapper implements CommandLineRunner {
     private final ConfigResolutionService resolutionService;
     private final ConfigApplicator applicator;
     private final ObjectProvider<MemoryRegistry> memoryRegistryProvider;
+    private final ObjectProvider<com.spectrayan.spector.synapse.connector.service.CredentialService>
+            credentialServiceProvider;
 
     public ConfigBootstrapper(ConfigResolutionService resolutionService,
                               ConfigApplicator applicator,
                               ObjectProvider<MemoryRegistry> memoryRegistryProvider) {
+        this(resolutionService, applicator, memoryRegistryProvider, null);
+    }
+
+    /**
+     * @param credentialServiceProvider the encrypted credentials store, optional — absent in embedded use
+     */
+    @org.springframework.beans.factory.annotation.Autowired
+    public ConfigBootstrapper(ConfigResolutionService resolutionService,
+                              ConfigApplicator applicator,
+                              ObjectProvider<MemoryRegistry> memoryRegistryProvider,
+                              ObjectProvider<com.spectrayan.spector.synapse.connector.service.CredentialService>
+                                      credentialServiceProvider) {
         this.resolutionService = resolutionService;
         this.applicator = applicator;
         this.memoryRegistryProvider = memoryRegistryProvider;
+        this.credentialServiceProvider = credentialServiceProvider;
     }
 
     @Override
@@ -68,6 +83,13 @@ public class ConfigBootstrapper implements CommandLineRunner {
             // which is too late to choose an embedding model.
             memoryRegistry.namespaceResolver().setEmbeddingConfigResolver(
                     (tenantId, namespaceId) -> resolveEmbeddingConfig(tenantId, namespaceId));
+
+            // The other half of scoped LLM overrides. ConfigApplicator stopped activating them in the
+            // process-wide ProviderRegistry because that registry holds one active-generation name and
+            // changed the LLM for every namespace; without this resolver a scoped override took effect
+            // nowhere instead of everywhere.
+            memoryRegistry.namespaceResolver().setLlmConfigResolver(
+                    (tenantId, namespaceId) -> resolveLlmConfig(tenantId, namespaceId));
 
             memoryRegistry.namespaceResolver().addOpenListener((tenantId, namespaceId, memory) -> {
                 log.debug("[ConfigBootstrapper] Overlaying configurations for opened namespace ns={}, tenant={}",
@@ -125,13 +147,75 @@ public class ConfigBootstrapper implements CommandLineRunner {
                 provider,
                 provider,
                 stringValue(values, "model", ""),
-                // Embedding credentials are not part of scoped config — CredentialCategory has no EMBEDDING
-                // value and nothing joins the credentials store to provider construction yet. Left empty
-                // rather than reading a key from the config table, which would put a secret in cleartext.
-                "",
+                resolveCredential(tenantId, values),
                 stringValue(values, "base-url", ""),
                 Math.max(dimensions, 0),
                 properties);
+    }
+
+    /**
+     * Resolves the effective LLM provider configuration for one namespace.
+     *
+     * <p>Returns {@code null} when the namespace has no scoped override, so the resolver falls back to the
+     * process-wide LLM bean rather than building a second identical provider.</p>
+     */
+    private com.spectrayan.spector.provider.ProviderConfig resolveLlmConfig(String tenantId, String namespaceId) {
+        if (!resolutionService.hasScopedOverride(tenantId, namespaceId, ConfigCategory.LLM_PROVIDER)) {
+            return null;
+        }
+        Map<String, Object> values = resolutionService.resolve(tenantId, namespaceId,
+                ConfigCategory.LLM_PROVIDER);
+        if (values == null || values.isEmpty()) {
+            return null;
+        }
+        String provider = stringValue(values, "provider", null);
+        if (provider == null || provider.isBlank()) {
+            return null;
+        }
+        var properties = new java.util.LinkedHashMap<String, String>();
+        values.forEach((k, v) -> {
+            if (v != null && !"provider".equals(k) && !"model".equals(k) && !"base-url".equals(k)
+                    && !ConfigResolutionService.CREDENTIAL_REF_KEY.equals(k)
+                    && !ConfigResolutionService.FORBIDDEN_VALUE_KEYS.contains(k)) {
+                properties.put(k, v.toString());
+            }
+        });
+        return new com.spectrayan.spector.provider.ProviderConfig(
+                provider,
+                provider,
+                stringValue(values, "model", ""),
+                resolveCredential(tenantId, values),
+                stringValue(values, "base-url", ""),
+                0,
+                properties);
+    }
+
+    /**
+     * Resolves a provider's secret from the encrypted credentials store.
+     *
+     * <p>Configuration carries only {@code credential-ref}. The secret is decrypted here, under a per-tenant
+     * derived key, and handed straight to the provider — it never enters a config row or a log line. An empty
+     * result is correct for local providers such as Ollama, which need no credential.</p>
+     */
+    private String resolveCredential(String tenantId, Map<String, Object> values) {
+        String ref = stringValue(values, ConfigResolutionService.CREDENTIAL_REF_KEY, "");
+        if (ref == null || ref.isBlank()) {
+            return "";
+        }
+        var credentials = credentialServiceProvider != null ? credentialServiceProvider.getIfAvailable() : null;
+        if (credentials == null) {
+            log.warn("[ConfigBootstrapper] configuration references credential '{}' but no CredentialService "
+                    + "is available; the provider will be built without a key", ref);
+            return "";
+        }
+        try {
+            return credentials.resolveSecret(ref, tenantId).orElse("");
+        } catch (RuntimeException e) {
+            // Log the exception type only: the message could carry decrypted material.
+            log.warn("[ConfigBootstrapper] could not resolve credential '{}' for tenant '{}': {}",
+                    ref, tenantId, e.getClass().getSimpleName());
+            return "";
+        }
     }
 
     private static String stringValue(Map<String, Object> values, String key, String fallback) {

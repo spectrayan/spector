@@ -15,21 +15,24 @@
  */
 package com.spectrayan.spector.synapse.memory;
 
-import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.generation.LlmProvider;
 
 /**
- * Reference-counted pool of embedding providers, keyed by configuration fingerprint.
+ * Reference-counted pool of LLM providers, keyed by configuration fingerprint.
  *
- * <p>All mechanics live in {@link ReferenceCountedProviderPool}; this subclass exists only to fix the type
- * and the log wording. See that class for why the key is a fingerprint rather than a namespace id, and why
- * the pool refuses at its cap instead of evicting.</p>
+ * <p>Exists because the process-wide {@code ProviderRegistry} is the wrong mechanism for a scoped override:
+ * it keeps a single {@code volatile} active-generation name, so activating a tenant's model there changed the
+ * LLM for every namespace in the process, including other tenants'. The registry remains correct for a
+ * system-wide default, which embedded and single-tenant deployments rely on.</p>
+ *
+ * <p>All mechanics live in {@link ReferenceCountedProviderPool}.</p>
  */
-public final class EmbeddingProviderPool extends ReferenceCountedProviderPool<EmbeddingProvider> {
+public final class LlmProviderPool extends ReferenceCountedProviderPool<LlmProvider> {
 
     /**
      * Creates a pool with the default configuration cap.
      */
-    public EmbeddingProviderPool() {
+    public LlmProviderPool() {
         this(DEFAULT_MAX_CONFIGURATIONS);
     }
 
@@ -38,7 +41,7 @@ public final class EmbeddingProviderPool extends ReferenceCountedProviderPool<Em
      *
      * @param maxConfigurations the cap; values below 1 are raised to 1
      */
-    public EmbeddingProviderPool(int maxConfigurations) {
-        super("embedding provider", maxConfigurations);
+    public LlmProviderPool(int maxConfigurations) {
+        super("LLM provider", maxConfigurations);
     }
 }

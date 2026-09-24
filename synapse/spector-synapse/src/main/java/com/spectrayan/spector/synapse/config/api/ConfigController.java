@@ -219,31 +219,25 @@ public class ConfigController {
         }
     }
 
+    /**
+     * Strips any secret-bearing value from a configuration response.
+     *
+     * <p>Removes rather than masks. Masking was the previous behaviour and it was actively misleading: the
+     * response looked handled while the {@code scoped_config} column held the key in cleartext. Secrets are
+     * now refused at the write (see {@code ConfigResolutionService.rejectSecretValues}), so a value reaching
+     * here is either legacy data or a bug — in both cases the right response is not to serve it at all.</p>
+     */
     private Map<String, Object> maskApiKeys(Map<String, Object> values) {
-        var masked = new LinkedHashMap<>(values);
-        masked.computeIfPresent("api-key", (k, v) -> {
-            String s = v.toString();
-            if (s.length() > 8) {
-                return s.substring(0, 3) + "****" + s.substring(s.length() - 4);
-            }
-            return s.isEmpty() ? "" : "****";
-        });
-        return masked;
+        var sanitised = new LinkedHashMap<>(values);
+        ConfigResolutionService.FORBIDDEN_VALUE_KEYS.forEach(sanitised::remove);
+        return sanitised;
     }
 
+    /** Annotated-response counterpart of {@link #maskApiKeys(Map)} — removes, does not mask. */
     private Map<String, ConfigResolutionService.AnnotatedValue> maskAnnotatedApiKeys(
             Map<String, ConfigResolutionService.AnnotatedValue> values) {
-        var masked = new LinkedHashMap<>(values);
-        masked.computeIfPresent("api-key", (k, v) -> {
-            String s = v.value().toString();
-            String maskedStr;
-            if (s.length() > 8) {
-                maskedStr = s.substring(0, 3) + "****" + s.substring(s.length() - 4);
-            } else {
-                maskedStr = s.isEmpty() ? "" : "****";
-            }
-            return new ConfigResolutionService.AnnotatedValue(maskedStr, v.source());
-        });
-        return masked;
+        var sanitised = new LinkedHashMap<>(values);
+        ConfigResolutionService.FORBIDDEN_VALUE_KEYS.forEach(sanitised::remove);
+        return sanitised;
     }
 }

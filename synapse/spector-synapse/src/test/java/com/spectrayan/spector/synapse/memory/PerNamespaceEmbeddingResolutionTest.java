@@ -306,6 +306,87 @@ class PerNamespaceEmbeddingResolutionTest {
         }
     }
 
+    private static ProviderConfig fixedWidthConfig(String model, int dims) {
+        return new ProviderConfig(FixedWidthTestProviderFactory.TYPE, FixedWidthTestProviderFactory.TYPE,
+                model, "", "", dims, Map.of());
+    }
+
+    @Test
+    @DisplayName("two namespaces get different providers, each at its own dimensionality")
+    void twoNamespacesResolveToDifferentWidths() {
+        try (NamespaceResolver resolver = newResolver()) {
+            resolver.setEmbeddingConfigResolver((tenantId, namespaceId) -> switch (namespaceId) {
+                case "ns-1" -> fixedWidthConfig("narrow-model", 8);
+                case "ns-2" -> fixedWidthConfig("wide-model", 32);
+                default -> null;
+            });
+
+            SpectorMemory first = resolver.resolve(ACCOUNT_ID, "ns-1");
+            SpectorMemory second = resolver.resolve(ACCOUNT_ID, "ns-2");
+
+            assertThat(first).isNotNull();
+            assertThat(second).isNotNull();
+
+            // Two distinct configurations means two pooled providers, not one shared one.
+            assertThat(resolver.providerPool().distinctConfigurations()).isEqualTo(2);
+            assertThat(resolver.providerPool().referenceCount(
+                    com.spectrayan.spector.provider.ProviderFingerprint.of(fixedWidthConfig("narrow-model", 8))))
+                    .isEqualTo(1);
+            assertThat(resolver.providerPool().referenceCount(
+                    com.spectrayan.spector.provider.ProviderFingerprint.of(fixedWidthConfig("wide-model", 32))))
+                    .isEqualTo(1);
+
+            // Each namespace recorded its own width and model, which is the on-disk consequence of the two
+            // namespaces having genuinely different embedders rather than sharing one.
+            assertThat(readMarkerQuietly("ns-1"))
+                    .containsEntry(NamespaceResolver.MARKER_EMBEDDING_MODEL, "narrow-model")
+                    .containsEntry(NamespaceResolver.MARKER_EMBEDDING_DIMENSIONS, 8);
+            assertThat(readMarkerQuietly("ns-2"))
+                    .containsEntry(NamespaceResolver.MARKER_EMBEDDING_MODEL, "wide-model")
+                    .containsEntry(NamespaceResolver.MARKER_EMBEDDING_DIMENSIONS, 32);
+        }
+    }
+
+    @Test
+    @DisplayName("two namespaces on identical configuration share one pooled provider")
+    void identicalConfigurationSharesOnePooledProvider() {
+        try (NamespaceResolver resolver = newResolver()) {
+            resolver.setEmbeddingConfigResolver(
+                    (tenantId, namespaceId) -> fixedWidthConfig("shared-model", 8));
+
+            resolver.resolve(ACCOUNT_ID, "ns-1");
+            resolver.resolve(ACCOUNT_ID, "ns-2");
+
+            // The assertion that separates this design from a per-namespace one: two namespaces, one provider.
+            assertThat(resolver.providerPool().distinctConfigurations()).isEqualTo(1);
+            assertThat(resolver.providerPool().referenceCount(
+                    com.spectrayan.spector.provider.ProviderFingerprint.of(fixedWidthConfig("shared-model", 8))))
+                    .isEqualTo(2);
+        }
+    }
+
+    @Test
+    @DisplayName("a namespace configured for an unknown provider type is refused, not silently defaulted")
+    void unknownProviderTypeIsRefused() {
+        try (NamespaceResolver resolver = newResolver()) {
+            resolver.setEmbeddingConfigResolver((tenantId, namespaceId) -> new ProviderConfig(
+                    "no-such-provider", "no-such-provider", "m", "", "", DIMS, Map.of()));
+
+            // Substituting the default would embed into a different vector space than configured.
+            assertThat(catchOpen(resolver, "ns-1"))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("no-such-provider");
+        }
+    }
+
+    private Map<String, Object> readMarkerQuietly(String namespaceId) {
+        try {
+            return readMarker(namespaceId);
+        } catch (Exception e) {
+            throw new AssertionError("could not read marker for " + namespaceId, e);
+        }
+    }
+
     @Test
     @DisplayName("opening a namespace does not rewrite the global storage root")
     void openingANamespaceDoesNotRewriteTheStorageRoot() {

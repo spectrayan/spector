@@ -151,6 +151,40 @@ public class NamespaceResolver implements AutoCloseable {
     private volatile EmbeddingConfigResolver embeddingConfigResolver;
 
     /**
+     * LLM providers shared by configuration rather than by namespace.
+     *
+     * <p>Separate from the process-wide {@code ProviderRegistry}, which keeps one active-generation name and
+     * therefore cannot express a per-tenant choice.</p>
+     */
+    private final LlmProviderPool llmPool = new LlmProviderPool();
+
+    /** Fingerprint each open namespace holds an LLM pool reference for, so eviction can release it. */
+    private final ConcurrentHashMap<String, com.spectrayan.spector.provider.ProviderFingerprint>
+            llmFingerprintsByNamespace = new ConcurrentHashMap<>();
+
+    /** Resolves the effective LLM configuration for a namespace; null means "no overrides". */
+    private volatile EmbeddingConfigResolver llmConfigResolver;
+
+    /**
+     * Installs the resolver that supplies per-namespace LLM configuration.
+     *
+     * <p>Until it is set, every namespace uses the process-wide LLM bean, which is the pre-existing
+     * behaviour and remains correct for a system-wide default.</p>
+     *
+     * @param resolver the resolver, or {@code null} to disable per-namespace LLM resolution
+     */
+    public void setLlmConfigResolver(EmbeddingConfigResolver resolver) {
+        this.llmConfigResolver = resolver;
+        log.info("[NamespaceResolver] per-namespace LLM config resolver {}",
+                resolver != null ? "installed" : "cleared");
+    }
+
+    /** @return the LLM provider pool, for metrics and tests. */
+    public LlmProviderPool llmPool() {
+        return llmPool;
+    }
+
+    /**
      * Supplies the effective embedding configuration for a namespace.
      *
      * <p>Defined as an interface here rather than depending on {@code ConfigResolutionService} directly so
@@ -411,12 +445,13 @@ public class NamespaceResolver implements AutoCloseable {
      */
     private void releasePooledEmbedding(String namespaceId) {
         var fingerprint = fingerprintsByNamespace.remove(namespaceId);
-        if (fingerprint == null) {
-            return;
-        }
-        if (providerPool.release(fingerprint)) {
+        if (fingerprint != null && providerPool.release(fingerprint)) {
             // Last reference gone, so the pipeline wrapping it is dead too.
             pipelinesByFingerprint.remove(fingerprint);
+        }
+        var llmFingerprint = llmFingerprintsByNamespace.remove(namespaceId);
+        if (llmFingerprint != null) {
+            llmPool.release(llmFingerprint);
         }
     }
 
@@ -550,10 +585,16 @@ public class NamespaceResolver implements AutoCloseable {
             // no namespace will be served again.
             fingerprintsByNamespace.clear();
             pipelinesByFingerprint.clear();
+            llmFingerprintsByNamespace.clear();
             try {
                 providerPool.close();
             } catch (Exception e) {
                 log.warn("[NamespaceResolver] error closing the embedding provider pool: {}", e.getMessage());
+            }
+            try {
+                llmPool.close();
+            } catch (Exception e) {
+                log.warn("[NamespaceResolver] error closing the LLM provider pool: {}", e.getMessage());
             }
             if (runtime != null) {
                 try {
@@ -832,7 +873,12 @@ public class NamespaceResolver implements AutoCloseable {
         // into the shared Spring bean — so the first namespace opened decided the entity-extraction mode
         // for every namespace opened after it.
         var spectorProps = synapseProps.toSpectorProperties();
-        LlmProvider textGen = textGenProvider != null ? textGenProvider.getIfAvailable() : null;
+
+        // Resolve the LLM before the entity-extraction decision below, which branches on whether an LLM is
+        // available. Deciding from the process-wide bean and then handing the namespace a different LLM
+        // would pick an extractor for a provider the namespace does not use.
+        LlmProvider textGen = resolveLlmFor(tenantId, namespaceId);
+
         if (spectorProps.memory() != null && spectorProps.memory().getGraph() != null
                 && spectorProps.memory().getGraph().getEntity() != null) {
             var entityCfg = spectorProps.memory().getGraph().getEntity();
@@ -1105,6 +1151,74 @@ public class NamespaceResolver implements AutoCloseable {
         boolean isOverride() {
             return fingerprint != null;
         }
+    }
+
+    /**
+     * Resolves the LLM provider for one namespace.
+     *
+     * <p>Returns the process-wide bean when no resolver is installed, when the resolver declines, or when the
+     * resolved configuration names the provider already active — so the common single-model deployment is
+     * unchanged and takes no pool reference.</p>
+     *
+     * <p>Otherwise takes a reference on the LLM pool. This is the half of scoped LLM overrides that
+     * {@code ConfigApplicator} deliberately stopped doing through the global {@code ProviderRegistry}: the
+     * registry holds one active-generation name, so activating a tenant's model there changed the LLM for
+     * every namespace in the process. Without this method a scoped override took effect nowhere.</p>
+     */
+    private LlmProvider resolveLlmFor(String tenantId, String namespaceId) {
+        LlmProvider processDefault = textGenProvider != null ? textGenProvider.getIfAvailable() : null;
+
+        EmbeddingConfigResolver resolver = this.llmConfigResolver;
+        if (resolver == null) {
+            return processDefault;
+        }
+
+        com.spectrayan.spector.provider.ProviderConfig config;
+        try {
+            config = resolver.resolve(tenantId, namespaceId);
+        } catch (RuntimeException e) {
+            // A config plane that cannot answer must not stop a namespace opening. Failing here would make an
+            // unrelated database hiccup look like memory corruption.
+            log.warn("[NamespaceResolver] could not resolve LLM config for ns={}; using the process-wide "
+                    + "provider: {}", namespaceId, e.getMessage());
+            return processDefault;
+        }
+        if (config == null) {
+            return processDefault;
+        }
+
+        var fingerprint = com.spectrayan.spector.provider.ProviderFingerprint.of(config);
+        try {
+            LlmProvider pooled = llmPool.acquire(fingerprint, fp -> createLlmProvider(config, fp));
+            llmFingerprintsByNamespace.put(namespaceId, fingerprint);
+            log.info("[NamespaceResolver] ns={} uses its own LLM configuration {} (pool holds {} distinct)",
+                    namespaceId, fingerprint.toLogString(), llmPool.distinctConfigurations());
+            return pooled;
+        } catch (RuntimeException e) {
+            // Falling back is right for the LLM but would be wrong for the embedder. An LLM is used for
+            // entity extraction and generation, where degrading to the process default is a quality change;
+            // an embedder decides the vector space, where the same fallback would silently corrupt recall.
+            log.warn("[NamespaceResolver] could not build the configured LLM for ns={} ({}); falling back to "
+                    + "the process-wide provider: {}", namespaceId, fingerprint.toLogString(), e.getMessage());
+            return processDefault;
+        }
+    }
+
+    /**
+     * Builds an LLM provider from a resolved configuration via the {@link ProviderFactory} SPI.
+     */
+    private LlmProvider createLlmProvider(com.spectrayan.spector.provider.ProviderConfig config,
+            com.spectrayan.spector.provider.ProviderFingerprint fingerprint) {
+        for (com.spectrayan.spector.provider.ProviderFactory factory
+                : java.util.ServiceLoader.load(com.spectrayan.spector.provider.ProviderFactory.class)) {
+            if (factory.name().equalsIgnoreCase(config.type()) && factory.supportsGeneration()) {
+                return factory.createGenerationProvider(config).orElseThrow(() -> new IllegalStateException(
+                        "Provider factory '" + factory.name() + "' produced no LLM provider for "
+                                + fingerprint.toLogString()));
+            }
+        }
+        throw new IllegalStateException(
+                "No LLM provider factory found for type '" + config.type() + "'");
     }
 
     /**
