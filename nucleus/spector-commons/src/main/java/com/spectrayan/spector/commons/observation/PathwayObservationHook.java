@@ -116,4 +116,15 @@ public interface PathwayObservationHook {
      * @param kind  the classified fault kind
      */
     default void onConsolidationFailure(String relay, FaultKind kind) {}
+
+    /**
+     * Called when partition recall completes pruning and budgeting.
+     * Maps to {@code spector.recall.partitions_*}.
+     *
+     * @param namespace the target memory namespace (may be null)
+     * @param visited   number of candidate partitions actually scanned
+     * @param skipped   number of partitions pruned by pruner
+     * @param budgeted  number of surviving partitions dropped by visit budget
+     */
+    default void onRecallPartitionStats(String namespace, int visited, int skipped, int budgeted) {}
 }

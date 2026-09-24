@@ -30,6 +30,7 @@ public class RecallProperties implements Serializable {
     private String engine = "pathway"; // pathway, direct, auto, etc.
     private int maxReplayEvents = 100000;
     private boolean includeContradictions = false;
+    private int partitionVisitBudget = 0;
     
     // Sub-property objects
     private MmrProperties mmr = new MmrProperties();
@@ -73,6 +74,10 @@ public class RecallProperties implements Serializable {
     public boolean isIncludeContradictions() { return includeContradictions; }
     public void setIncludeContradictions(boolean includeContradictions) { this.includeContradictions = includeContradictions; }
     public boolean includeContradictions() { return includeContradictions; }
+
+    public int getPartitionVisitBudget() { return partitionVisitBudget; }
+    public void setPartitionVisitBudget(int partitionVisitBudget) { this.partitionVisitBudget = partitionVisitBudget; }
+    public int partitionVisitBudget() { return partitionVisitBudget; }
 
     public MmrProperties getMmr() { return mmr; }
     public void setMmr(MmrProperties mmr) { this.mmr = mmr; }

@@ -157,8 +157,17 @@ public record RecallOptions(
         //  Spacetime Vector Search (ADR-0030 v1)
         boolean allowFuture,
         boolean enableSpacetime,
-        float spacetimeHarmonicWeight
+        float spacetimeHarmonicWeight,
+        //  Partition Visit Budget (R3 / F6)
+        int partitionVisitBudget
 ) {
+
+    /**
+     * Alias for {@link #partitionVisitBudget()}.
+     */
+    public int partitionBudget() {
+        return partitionVisitBudget;
+    }
 
     /** Default options: top 10, no filters, balanced scoring. */
     public static final RecallOptions DEFAULT = builder().build();
@@ -486,6 +495,24 @@ public record RecallOptions(
         public Builder spacetimeHarmonicWeight(float weight) {
             this.spacetimeHarmonicWeight = weight;
             return this;
+        }
+
+        // ─── Partition Visit Budget (R3 / F6) ───
+        private int partitionVisitBudget = 0; // <= 0 means unbounded
+
+        /** Sets the partition visit budget (default <= 0 / unbounded). */
+        public Builder partitionVisitBudget(int budget) {
+            this.partitionVisitBudget = budget;
+            return this;
+        }
+
+        /** Alias for {@link #partitionVisitBudget(int)}. */
+        public Builder partitionBudget(int budget) {
+            return partitionVisitBudget(budget);
+        }
+
+        public int partitionVisitBudget() {
+            return partitionVisitBudget;
         }
 
         /**
@@ -1200,6 +1227,9 @@ public record RecallOptions(
             if (props.getValenceAlignment() != null) {
                 this.enableValenceAlignment = props.getValenceAlignment().isEnabled();
             }
+            if (props.getPartitionVisitBudget() > 0) {
+                this.partitionVisitBudget = props.getPartitionVisitBudget();
+            }
             return this;
         }
 
@@ -1253,7 +1283,8 @@ public record RecallOptions(
                     associativePriorHubWeight,
                     allowFuture,
                     enableSpacetime,
-                    spacetimeHarmonicWeight);
+                    spacetimeHarmonicWeight,
+                    partitionVisitBudget);
             return options;
         }
     }
@@ -1449,6 +1480,7 @@ public record RecallOptions(
         b.allowFuture = this.allowFuture;
         b.enableSpacetime = this.enableSpacetime;
         b.spacetimeHarmonicWeight = this.spacetimeHarmonicWeight;
+        b.partitionVisitBudget = this.partitionVisitBudget;
         return b;
     }
 }

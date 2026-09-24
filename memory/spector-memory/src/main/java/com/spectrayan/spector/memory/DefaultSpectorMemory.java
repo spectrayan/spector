@@ -1047,6 +1047,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             List<CognitiveResult> storeResults = recallPathway.execute(null, signal);
             String sessionId = MemoryScope.sessionId();
             storeResults = sessionBufferManager.merge(sessionId, queryText, options, storeResults, embeddingProvider, () -> 0);
+            if (signal.isTruncated()) {
+                storeResults = storeResults.stream().map(r -> r.withTruncated(true)).toList();
+            }
             return storeResults;
         } finally {
             releaseLease();
@@ -1869,6 +1872,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     public void bindRecallSignalContext(com.spectrayan.spector.memory.pathway.recall.relay.RecallSignal signal) {
         if (signal == null) return;
+
+        if (this.namespaceId != null) {
+            signal.attributes().put(com.spectrayan.spector.commons.observation.MemoryObservationHook.TAG_NAMESPACE, this.namespaceId);
+            signal.attributes().put("namespace", this.namespaceId);
+        }
 
         var ctxBuilder = signal.context() != null
                 ? com.spectrayan.spector.commons.pathway.DefaultPathwayContext.from(signal.context())

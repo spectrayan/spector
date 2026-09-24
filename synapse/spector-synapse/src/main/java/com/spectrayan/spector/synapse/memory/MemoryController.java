@@ -21,6 +21,7 @@ import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryGraphResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryStatusResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryTableResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.RecallRequest;
+import com.spectrayan.spector.synapse.memory.MemoryDto.RecallResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.RecallResult;
 import com.spectrayan.spector.memory.pathway.reflect.ReflectFilter;
 import com.spectrayan.spector.memory.pathway.reflect.ReflectSweepProgress;
@@ -204,7 +205,25 @@ public class MemoryController {
     @PostMapping("/recall")
     @Operation(operationId = "recallMemories", summary = "Cognitive recall with biological scoring")
     public ResponseEntity<List<RecallResult>> recall(@RequestBody RecallRequest request) {
-        return ResponseEntity.ok(memoryService.recall(request));
+        List<RecallResult> results = memoryService.recall(request);
+        boolean truncated = results.stream().anyMatch(RecallResult::truncated);
+        return ResponseEntity.ok()
+                .header("X-Recall-Truncated", String.valueOf(truncated))
+                .body(results);
+    }
+
+    /**
+     * Cognitive recall returning full RecallResponse payload with truncation metadata (R3).
+     *
+     * <p>{@code POST /api/v1/memory/recall/response}</p>
+     */
+    @PostMapping("/recall/response")
+    @Operation(operationId = "recallMemoriesWithResponse", summary = "Cognitive recall returning full response with truncation metadata")
+    public ResponseEntity<RecallResponse> recallResponse(@RequestBody RecallRequest request) {
+        RecallResponse response = memoryService.recallWithResponse(request);
+        return ResponseEntity.ok()
+                .header("X-Recall-Truncated", String.valueOf(response.truncated()))
+                .body(response);
     }
 
     /**
