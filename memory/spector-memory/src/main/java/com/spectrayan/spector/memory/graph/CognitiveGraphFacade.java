@@ -173,6 +173,108 @@ public final class CognitiveGraphFacade {
     public HyperEntityGraphMemory rawHyperEntityGraph() { return hyperEntityGraph; }
 
     // ══════════════════════════════════════════════════════════════
+    // DETACHMENT (purge support)
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * What a {@link #detachMemory(int)} call actually removed, per graph plane.
+     *
+     * <p>Reported per plane rather than as a total because the planes fail independently and a purge audit
+     * has to say which ones were reached. A single number would hide a plane that was absent.</p>
+     *
+     * @param hebbianEdges     Hebbian association edges dropped (both directions)
+     * @param temporalUnlinked whether the record was spliced out of the temporal chain
+     * @param entityLinks      entity→memory adjacency references dropped
+     * @param hyperedges       hyperedges derived from this record that were deleted
+     */
+    public record DetachReport(int hebbianEdges, boolean temporalUnlinked, int entityLinks, int hyperedges) {
+        /** Total graph references removed across all planes. */
+        public int total() {
+            return hebbianEdges + (temporalUnlinked ? 1 : 0) + entityLinks + hyperedges;
+        }
+    }
+
+    /**
+     * Removes every graph reference to the memory at {@code graphSlot}, across all four graph planes.
+     *
+     * <p>Used by purge. Destroying a record's bytes while leaving it wired into the graphs does not remove
+     * its influence: it remains reachable as a Hebbian neighbour and keeps steering spreading activation,
+     * it still bridges its temporal predecessor to its successor, and its hyperedges keep asserting
+     * relationships on the authority of content that no longer exists.</p>
+     *
+     * <p>The planes are handled independently and a failure in one is logged rather than allowed to abort the
+     * others — a partial detachment that is reported is better than an all-or-nothing operation that leaves
+     * the caller unable to tell which planes were cleaned.</p>
+     *
+     * <p>{@code graphSlot} is the record's stable graph slot, not its byte offset. Slots are monotonic and
+     * never reused, so this cannot detach the wrong record even if the store is later compacted.</p>
+     *
+     * @param graphSlot the record's graph slot
+     * @return what was removed, per plane
+     */
+    public DetachReport detachMemory(int graphSlot) {
+        if (graphSlot < 0) {
+            return new DetachReport(0, false, 0, 0);
+        }
+        int hebbianEdges = 0;
+        boolean temporalUnlinked = false;
+        int entityLinks = 0;
+        int hyperedges = 0;
+
+        if (hebbianGraph != null) {
+            try {
+                hebbianEdges = hebbianGraph.removeNode(graphSlot);
+            } catch (RuntimeException e) {
+                log.warn("Detach slot {}: Hebbian edge removal failed", graphSlot, e);
+            }
+        }
+        if (temporalChain != null) {
+            try {
+                if (temporalChain.isLinked(graphSlot)) {
+                    // unlink splices predecessor to successor, so the chain stays traversable across the gap.
+                    temporalChain.unlink(graphSlot);
+                    temporalUnlinked = true;
+                }
+            } catch (RuntimeException e) {
+                log.warn("Detach slot {}: temporal chain unlink failed", graphSlot, e);
+            }
+        }
+        if (entityDirectory != null) {
+            try {
+                entityLinks = entityDirectory.unlinkMemory(graphSlot);
+            } catch (RuntimeException e) {
+                log.warn("Detach slot {}: entity adjacency unlink failed", graphSlot, e);
+            }
+        }
+        if (hyperEntityGraph != null) {
+            try {
+                hyperedges = hyperEntityGraph.removeHyperedgesForMemory(graphSlot);
+            } catch (RuntimeException e) {
+                log.warn("Detach slot {}: hyperedge removal failed", graphSlot, e);
+            }
+        }
+
+        DetachReport report = new DetachReport(hebbianEdges, temporalUnlinked, entityLinks, hyperedges);
+        invalidateCache();
+        log.debug("Detached slot {} from graphs: {}", graphSlot, report);
+        return report;
+    }
+
+    /**
+     * Returns whether any graph plane still references {@code graphSlot}.
+     *
+     * <p>Verification aid for purge: lets a caller assert detachment instead of trusting it. Scans, so not a
+     * hot-path query.</p>
+     */
+    public boolean isReferencedInAnyGraph(int graphSlot) {
+        if (graphSlot < 0) return false;
+        if (hebbianGraph != null && hebbianGraph.hasAnyEdge(graphSlot)) return true;
+        if (temporalChain != null && temporalChain.isLinked(graphSlot)) return true;
+        if (entityDirectory != null && !entityDirectory.entityIdsForMemory(graphSlot).isEmpty()) return true;
+        return hyperEntityGraph != null && hyperEntityGraph.hasHyperedgesForMemory(graphSlot);
+    }
+
+    // ══════════════════════════════════════════════════════════════
     // HIGH-LEVEL GRAPH QUERIES
     // ══════════════════════════════════════════════════════════════
 

@@ -1214,6 +1214,72 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
         }
     }
 
+    /**
+     * Deletes every hyperedge derived from the memory record at {@code memoryIdx}.
+     *
+     * <p>Needed by purge. A hyperedge records the memory it was extracted from
+     * ({@code HEDGE_OFF_MEMORY_IDX}), and left in place it keeps asserting a relationship between entities
+     * on the authority of content that no longer exists — the association survives its evidence.</p>
+     *
+     * <p>Implemented as a linear scan over allocated hyperedge ids because <b>no reverse index from memory
+     * index to hyperedge exists</b>; {@code incidenceHeap} is keyed by entity, not by memory. The scan is
+     * O(nextHyperedgeId) and is fine for a rare compliance operation; if purge ever becomes frequent this is
+     * the place that needs a reverse index, not a faster scan.</p>
+     *
+     * @param memoryIdx memory record index whose derived hyperedges should be deleted
+     * @return number of hyperedges deleted
+     */
+    public int removeHyperedgesForMemory(int memoryIdx) {
+        if (memoryIdx < 0) return 0;
+        long stamp = lock.writeLock();
+        try {
+            int deleted = 0;
+            for (int edgeId = 0; edgeId < nextHyperedgeId; edgeId++) {
+                long hedgeOff = (long) edgeId * HyperEntityLayout.HEDGE_BYTES;
+                if (hedges.get(ValueLayout.JAVA_INT, hedgeOff + HyperEntityLayout.HEDGE_OFF_VERTEX_COUNT) == 0) {
+                    continue; // already deleted
+                }
+                if (hedges.get(ValueLayout.JAVA_INT, hedgeOff + HyperEntityLayout.HEDGE_OFF_MEMORY_IDX)
+                        == memoryIdx) {
+                    deleteHyperedge(edgeId);
+                    deleted++;
+                }
+            }
+            if (deleted > 0) {
+                log.debug("HyperEntityGraphMemory: deleted {} hyperedge(s) derived from memory {}",
+                        deleted, memoryIdx);
+            }
+            return deleted;
+        } finally {
+            lock.unlockWrite(stamp);
+        }
+    }
+
+    /**
+     * Returns whether any live hyperedge is still derived from {@code memoryIdx}.
+     *
+     * <p>Exists so a purge can verify it detached the record rather than assume it.</p>
+     */
+    public boolean hasHyperedgesForMemory(int memoryIdx) {
+        if (memoryIdx < 0) return false;
+        long stamp = lock.readLock();
+        try {
+            for (int edgeId = 0; edgeId < nextHyperedgeId; edgeId++) {
+                long hedgeOff = (long) edgeId * HyperEntityLayout.HEDGE_BYTES;
+                if (hedges.get(ValueLayout.JAVA_INT, hedgeOff + HyperEntityLayout.HEDGE_OFF_VERTEX_COUNT) == 0) {
+                    continue;
+                }
+                if (hedges.get(ValueLayout.JAVA_INT, hedgeOff + HyperEntityLayout.HEDGE_OFF_MEMORY_IDX)
+                        == memoryIdx) {
+                    return true;
+                }
+            }
+            return false;
+        } finally {
+            lock.unlockRead(stamp);
+        }
+    }
+
     @Override
     public PrimitiveIterator.OfInt neighbours(int nodeId) {
         return findCoOccurringEntities(nodeId).stream().mapToInt(Integer::intValue).iterator();
