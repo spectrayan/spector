@@ -78,20 +78,27 @@ class SpectorBatchUnimplementedStepsTest {
     class ImportSteps {
 
         @Test
-        @DisplayName("every data-writing step refuses")
+        @DisplayName("import steps refuse when no SpectorMemory or resolver is configured")
         void allImportWriteStepsRefuse() {
-            assertRefuses(importConfig.importMemoryNodesTasklet("/tmp/b.smb", "ns"), "importMemoryNodes");
-            assertRefuses(importConfig.importGraphTasklet("/tmp/b.smb", "ns"), "importGraph");
-            assertRefuses(importConfig.rebuildVectorIndexTasklet("/tmp/b.smb", "ns"), "rebuildVectorIndex");
+            assertThatThrownBy(() -> importConfig.importMemoryNodesTasklet("/tmp/b.smb", "ns").execute(null, null))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("no SpectorMemory or SpectorMemoryResolver available");
+
+            assertThatThrownBy(() -> importConfig.importGraphTasklet("/tmp/b.smb", "ns").execute(null, null))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("no SpectorMemory or SpectorMemoryResolver available");
+
+            assertThatThrownBy(() -> importConfig.rebuildVectorIndexTasklet("/tmp/b.smb", "ns").execute(null, null))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("no SpectorMemory or SpectorMemoryResolver available");
         }
 
         @Test
         @DisplayName("refusal happens before anything is written to the target namespace")
         void refusesBeforeWriting() {
-            // importMemoryNodes is the first step that would write. Unpack and manifest-presence
-            // validation run ahead of it and are retained, so a bundle is never partially applied.
             assertThatThrownBy(() -> importConfig.importMemoryNodesTasklet("/tmp/b.smb", "ns").execute(null, null))
-                    .isInstanceOf(UnsupportedOperationException.class);
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("no SpectorMemory or SpectorMemoryResolver available");
         }
     }
 

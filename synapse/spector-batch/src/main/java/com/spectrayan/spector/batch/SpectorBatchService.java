@@ -103,14 +103,37 @@ public class SpectorBatchService {
      * @throws Exception if job initiation fails
      */
     public JobExecution runImportJob(Path bundlePath, String targetNamespace) throws Exception {
-        log.info("[SpectorBatchService] Launching import job from {} -> namespace='{}'", bundlePath, targetNamespace);
-        JobParameters params = new JobParametersBuilder()
+        return runImportJob(bundlePath, targetNamespace, null);
+    }
+
+    /**
+     * Executes an import job from a given SMB bundle path into a target namespace with custom parameters.
+     *
+     * @param bundlePath input SMB bundle path
+     * @param targetNamespace destination namespace
+     * @param additionalParameters optional parameters (e.g. reembed, targetModel, targetDimensions, stagingNamespace)
+     * @return JobExecution details
+     * @throws Exception if job initiation fails
+     */
+    public JobExecution runImportJob(Path bundlePath, String targetNamespace, java.util.Map<String, Object> additionalParameters) throws Exception {
+        log.info("[SpectorBatchService] Launching import job from {} -> namespace='{}' (params={})",
+                bundlePath, targetNamespace, additionalParameters);
+        JobParametersBuilder builder = new JobParametersBuilder()
                 .addString("bundlePath", bundlePath.toAbsolutePath().toString())
                 .addString("targetNamespace", targetNamespace)
-                .addLong("timestamp", System.currentTimeMillis())
-                .toJobParameters();
+                .addLong("timestamp", System.currentTimeMillis());
 
-        return jobLauncher.run(importJob, params);
+        if (additionalParameters != null) {
+            additionalParameters.forEach((k, v) -> {
+                if (v instanceof String s) builder.addString(k, s);
+                else if (v instanceof Long l) builder.addLong(k, l);
+                else if (v instanceof Double d) builder.addDouble(k, d);
+                else if (v instanceof Integer i) builder.addLong(k, i.longValue());
+                else if (v != null) builder.addString(k, v.toString());
+            });
+        }
+
+        return jobLauncher.run(importJob, builder.toJobParameters());
     }
 
     /**
