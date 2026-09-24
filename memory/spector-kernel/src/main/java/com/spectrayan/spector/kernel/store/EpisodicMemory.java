@@ -354,6 +354,72 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> i
     }
 
     /**
+     * Physically destroys the turn body of the record at the given relative byte offset.
+     *
+     * <p>Irreversible counterpart to {@link #tombstone(long)}. Episodic records are variable-length —
+     * a 16-byte prefix, a 64-byte header, then {@code payloadBytes} of encoded turn body — so the whole
+     * payload region is overwritten with zeros, along with the content-derived episodic tag Bloom filter
+     * in the header.</p>
+     *
+     * <p>The record's CRC32C is <b>recomputed</b> over the zeroed payload rather than left stale. A stale
+     * checksum would make a deliberately erased record read as a corrupted one, which conflates two very
+     * different events and would send an operator hunting for hardware faults.</p>
+     *
+     * <p>The 16-byte prefix — {@code payloadBytes}, {@code sequence_id}, {@code magic} — is preserved
+     * intact, because the framing walk relies on {@code payloadBytes} to find the next record. Losing it
+     * would truncate the entire region at the purged record, destroying every later turn. So a purged
+     * episodic record keeps its size and position; only its content is gone.</p>
+     *
+     * @param offset relative byte offset of the record
+     * @return the number of payload bytes overwritten
+     */
+    public int purge(long offset) {
+        writeLock.lock();
+        try {
+            long absoluteOffset = dataOffset() + offset;
+            var headerLayout = layout().headerLayout();
+            int payloadBytes = headerLayout.readPayloadBytes(segment(), absoluteOffset);
+            if (payloadBytes < 0) {
+                payloadBytes = 0;
+            }
+            long payloadOffset = absoluteOffset + EpisodicLayout.FIXED_OVERHEAD_BYTES;
+            if (payloadBytes > 0 && payloadOffset + payloadBytes <= segment().byteSize()) {
+                segment().asSlice(payloadOffset, payloadBytes).fill((byte) 0);
+            } else {
+                payloadBytes = 0;
+            }
+            // Drop the content-derived tag Bloom filter: left behind it still answers
+            // "this turn was about X" and can be probed by trial.
+            headerLayout.writeEpisodicTags(segment(), absoluteOffset + EpisodicLayout.PREFIX_BYTES, 0L, 0L);
+            headerLayout.markPurgedRecord(segment(), absoluteOffset);
+
+            boolean wasTombstoned = headerLayout.isTombstonedRecord(segment(), absoluteOffset);
+            headerLayout.tombstoneRecord(segment(), absoluteOffset);
+            if (!wasTombstoned) {
+                liveTurnCount.decrementAndGet();
+            }
+
+            // Re-seal the record over its new (zeroed) contents.
+            int sequenceId = headerLayout.readSequenceId(segment(), absoluteOffset);
+            MemorySegment headerSlice =
+                    segment().asSlice(absoluteOffset + EpisodicLayout.PREFIX_BYTES, EpisodicLayout.HEADER_BYTES);
+            byte[] zeroedPayload = new byte[payloadBytes];
+            headerLayout.writeChecksum(segment(), absoluteOffset,
+                    EpisodeCodec.computeChecksum(sequenceId, headerSlice, zeroedPayload));
+            return payloadBytes;
+        } finally {
+            writeLock.unlock();
+        }
+    }
+
+    /**
+     * Returns whether the record at the given relative byte offset has been {@linkplain #purge purged}.
+     */
+    public boolean isPurged(long offset) {
+        return layout().headerLayout().isPurgedRecord(segment(), dataOffset() + offset);
+    }
+
+    /**
      * Marks a record as consolidated at the given relative byte offset.
      */
     public void markConsolidated(long offset) {
@@ -678,6 +744,8 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> i
         if (!isFixedRecordLayout()) return null;
         MemorySegment seg = segment();
         if (seg == null) return null;
+        // A purged record's payload is zeros, which decodes to a valid-looking zero vector. Report absence.
+        if (isPurged(offset)) return null;
         int stride = RegionPreamble.readRecordStride(seg, 0L);
         int vecBytes = stride > com.spectrayan.spector.kernel.engram.EncodingHeaderLayout.HEADER_BYTES
                 ? stride - com.spectrayan.spector.kernel.engram.EncodingHeaderLayout.HEADER_BYTES : 0;

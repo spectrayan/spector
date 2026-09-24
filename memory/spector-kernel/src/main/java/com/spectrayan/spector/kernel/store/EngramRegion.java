@@ -112,7 +112,11 @@ public sealed interface EngramRegion extends AutoCloseable permits AbstractEngra
 
     /**
      * Reads the quantized vector payload for the record at the given byte offset,
-     * or null if not present or unsupported.
+     * or null if not present, unsupported, or {@linkplain #purge purged}.
+     *
+     * <p>Purged records return {@code null} rather than the zeros actually on disk. Returning the zeros
+     * would be worse than useless: they decode to a legitimate all-zero vector and get scored as data, so a
+     * purged record would quietly participate in similarity results instead of being absent from them.</p>
      */
     byte[] readVector(long offset);
 
@@ -120,6 +124,31 @@ public sealed interface EngramRegion extends AutoCloseable permits AbstractEngra
      * Marks the record at the given byte offset as tombstoned.
      */
     void tombstone(long offset);
+
+    /**
+     * Physically overwrites the content of the record at the given byte offset with zeros, and marks it
+     * both tombstoned and purged. Irreversible.
+     *
+     * <p>This is the operation {@link #tombstone(long)} is routinely mistaken for. Tombstoning sets a bit
+     * and hides the record from recall; every byte of its content stays readable to anyone holding the
+     * file or a backup of it. Purging destroys those bytes.</p>
+     *
+     * <p>No relocation, no slot reuse, no file shrink — record strides and offsets are unchanged, which is
+     * what lets this run without touching any index. Reclaiming the space is compaction's job, separately.</p>
+     *
+     * @param offset byte offset of the record
+     * @return the number of payload bytes overwritten
+     */
+    int purge(long offset);
+
+    /**
+     * Returns true if the record at the given byte offset has been {@linkplain #purge purged}.
+     *
+     * <p>Strictly stronger than {@link #isTombstoned(long)}. Any caller that dequantizes, scores or
+     * reports the payload must consult this, because a zeroed payload is arithmetically a valid all-zero
+     * vector, not a detectable absence.</p>
+     */
+    boolean isPurged(long offset);
 
     /**
      * Marks the record at the given byte offset as contradicted.

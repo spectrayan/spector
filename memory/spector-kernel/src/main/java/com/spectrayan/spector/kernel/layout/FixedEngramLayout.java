@@ -222,6 +222,64 @@ public interface FixedEngramLayout extends RegionLayout {
         headerLayout().markTombstoned(segment, offset);
     }
 
+    /**
+     * Physically destroys the content of the record at {@code offset}, in place.
+     *
+     * <p>This is the irreversible counterpart to {@link #tombstone}. Tombstoning only sets a bit; every
+     * byte of the vector stays readable to anyone with the file. Purging overwrites those bytes.</p>
+     *
+     * <h4>What this zeroes</h4>
+     * <ul>
+     *   <li>the whole quantized vector payload — {@link #quantizedVecBytes()} bytes at
+     *       {@link #vectorOffset(long)};</li>
+     *   <li>{@code exact_norm}, the L2 norm of the unquantized vector — a scalar derived from the content,
+     *       and a real leak if left behind;</li>
+     *   <li>the 128-bit synaptic-tag Bloom filter, which is derived from the content's tags. Leaving it
+     *       would let {@code SlabScanner} and {@code RecordGates} still answer "this record was about X",
+     *       and would let a caller probe tags by trial;</li>
+     *   <li>{@code centroid_id}, the IVF routing cluster, which localises the content in vector space.</li>
+     * </ul>
+     *
+     * <h4>What this deliberately leaves</h4>
+     * <p>The lifecycle metadata in the header survives: {@code header_version}, the flags bytes,
+     * {@code timestamp_ms}, {@code importance}, {@code valence}/{@code arousal}, and the encoding-time
+     * profile fields. That is a deliberate, disclosable choice — the record's existence and its formation
+     * time remain, which is what makes the purge auditable, and no content can be reconstructed from them.
+     * Callers that report on a purge must disclose this rather than claim the record is gone.</p>
+     *
+     * <p>Sets both {@code FLAG_TOMBSTONE} and {@code FLAG_PURGED}. The tombstone matters: the many existing
+     * read gates check only the tombstone bit, and they must keep hiding the record.</p>
+     *
+     * <p>No relocation, no file shrink, no slot reuse. The stride is unchanged so every other record's
+     * offset is unaffected, which is what makes this safe to do without touching any index.</p>
+     *
+     * @param segment the region segment
+     * @param offset  absolute record offset within {@code segment}
+     * @return the number of payload bytes overwritten
+     */
+    default int purge(MemorySegment segment, long offset) {
+        int payloadBytes = quantizedVecBytes();
+        segment.asSlice(vectorOffset(offset), payloadBytes).fill((byte) 0);
+        EncodingHeaderLayout hdr = headerLayout();
+        hdr.writeExactNorm(segment, offset, 0.0f);
+        hdr.writeSynapticTags(segment, offset, 0L, 0L);
+        hdr.writeCentroidId(segment, offset, (short) 0);
+        hdr.markTombstoned(segment, offset);
+        hdr.markPurged(segment, offset);
+        return payloadBytes;
+    }
+
+    /**
+     * Returns whether the record at {@code offset} has been {@linkplain #purge purged}.
+     *
+     * <p>Distinct from tombstoned, and the distinction matters for anything that interprets the payload: a
+     * purged record's vector is all zeros, which dequantizes to a legitimate-looking zero vector rather
+     * than to an absence. Code that scores, dequantizes or reports content must consult this.</p>
+     */
+    default boolean isPurged(MemorySegment segment, long offset) {
+        return headerLayout().isPurged(segment, offset);
+    }
+
     default void markConsolidated(MemorySegment segment, long offset) {
         headerLayout().markConsolidated(segment, offset);
     }

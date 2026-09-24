@@ -183,7 +183,7 @@ public final class ProvenanceMemory extends AbstractRecordMemory<ProvenanceLayou
             long recordOff = recordOffset(slot);
 
             ProvenanceState state = new ProvenanceState(
-                    ProvenanceLayout.FLAG_LIVE,
+                    ProvenanceLayout.STATE_LIVE,
                     edge.sourceKind(),
                     edge.targetKind(),
                     edge.prefixKind(),
@@ -323,7 +323,7 @@ public final class ProvenanceMemory extends AbstractRecordMemory<ProvenanceLayou
             long recordOff = recordOffset(slot);
             short passNum = ProvenanceLayout.readPassNumber(seg, recordOff);
             byte flags = ProvenanceLayout.readFlags(seg, recordOff);
-            if (flags != ProvenanceLayout.FLAG_TOMBSTONE && passNum > maxPass) {
+            if (flags != ProvenanceLayout.STATE_TOMBSTONE && passNum > maxPass) {
                 maxPass = passNum;
             }
         }
@@ -346,7 +346,7 @@ public final class ProvenanceMemory extends AbstractRecordMemory<ProvenanceLayou
         for (int slot = 0; slot < count; slot++) {
             long recordOff = recordOffset(slot);
             byte flags = ProvenanceLayout.readFlags(seg, recordOff);
-            if (flags == ProvenanceLayout.FLAG_TOMBSTONE) {
+            if (flags == ProvenanceLayout.STATE_TOMBSTONE) {
                 continue;
             }
 

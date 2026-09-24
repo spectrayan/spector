@@ -115,6 +115,10 @@ public final class SegmentEngramRegion implements EngramRegion {
 
     @Override
     public byte[] readVector(long offset) {
+        // A purged record's payload is zeros, which decodes to a valid-looking zero vector. Report absence.
+        if (isPurged(offset)) {
+            return null;
+        }
         int vecBytes = layout.quantizedVecBytes();
         byte[] bytes = new byte[vecBytes];
         MemorySegment.copy(segment, ValueLayout.JAVA_BYTE,
@@ -125,6 +129,16 @@ public final class SegmentEngramRegion implements EngramRegion {
     @Override
     public void tombstone(long offset) {
         layout.tombstone(segment, offset);
+    }
+
+    @Override
+    public int purge(long offset) {
+        return layout.purge(segment, offset);
+    }
+
+    @Override
+    public boolean isPurged(long offset) {
+        return layout.isPurged(segment, offset);
     }
 
     @Override

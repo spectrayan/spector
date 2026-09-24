@@ -347,6 +347,11 @@ public abstract sealed class AbstractEngramMemory<L extends FixedEngramLayout>
     }
 
     public byte[] readVector(long offset) {
+        // A purged record's payload is all zeros, which decodes to a perfectly valid zero vector and would
+        // be scored as data. Report absence instead; every caller already handles null.
+        if (isPurged(offset)) {
+            return null;
+        }
         int vecBytes = layout.quantizedVecBytes();
         byte[] quantizedVec = new byte[vecBytes];
         long vecOffset = layout.vectorOffset(offset);
@@ -371,6 +376,31 @@ public abstract sealed class AbstractEngramMemory<L extends FixedEngramLayout>
 
     public void tombstone(long offset) {
         layout.tombstone(segment(), offset);
+    }
+
+    /**
+     * Physically overwrites the content of the record at {@code offset} with zeros and marks it purged.
+     *
+     * <p>Irreversible. See {@link FixedEngramLayout#purge} for exactly which bytes are destroyed and which
+     * lifecycle metadata deliberately survives. Also sets the tombstone bit, so existing read gates keep
+     * hiding the record.</p>
+     *
+     * @param offset absolute record offset
+     * @return the number of payload bytes overwritten
+     */
+    public int purge(long offset) {
+        return layout.purge(segment(), offset);
+    }
+
+    /**
+     * Returns whether the record at {@code offset} has been {@linkplain #purge purged}.
+     *
+     * <p>Stronger than {@link #isTombstoned(long)}: a purged record's payload bytes are zeros. Anything
+     * that dequantizes or scores the payload must check this, because an all-zero vector is
+     * indistinguishable from real data at the arithmetic level.</p>
+     */
+    public boolean isPurged(long offset) {
+        return layout.isPurged(segment(), offset);
     }
 
     public void markContradicted(long offset) {
