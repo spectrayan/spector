@@ -188,11 +188,9 @@ public final class RuntimeBundle implements AbstractBundle {
                     MemorySegment mapped = fc.map(FileChannel.MapMode.READ_WRITE, 0, fileSize, arena);
                     // fc closed after map per Option C
 
-                    BundleDirectory dir = BundleDirectory.read(mapped);
-                    if (dir.bundleMagic() != BundleSubHeader.MAGIC_RUNTIME) {
-                        throw new SpectorStorageException(ErrorCode.RECORD_CRC_CORRUPTED, "Not a runtime bundle: magic=0x"
-                                + Integer.toHexString(dir.bundleMagic()));
-                    }
+                    // Magic checked inside read(), alongside the format-version gate, so both bundle types
+                    // are validated in one place rather than each open path doing its own subset.
+                    BundleDirectory dir = BundleDirectory.read(mapped, BundleSubHeader.MAGIC_RUNTIME);
                     log.info("Opened runtime bundle: {} ({} live regions, {}KB)",
                             path, dir.liveRegionCount(), fileSize / 1024);
                     return new RuntimeBundle(arena, mapped, dir, path, false);

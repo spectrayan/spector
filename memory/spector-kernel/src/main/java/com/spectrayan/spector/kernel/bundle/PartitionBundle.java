@@ -214,7 +214,10 @@ public final class PartitionBundle implements AbstractBundle {
                     MemorySegment mapped = fc.map(FileChannel.MapMode.READ_WRITE, 0, fileSize, arena);
                     // fc closed after map per Option C
 
-                    BundleDirectory dir = BundleDirectory.read(mapped);
+                    // Magic enforced here, as RuntimeBundle.Init.open already did. Without it a
+                    // runtime.bundle opened as a partition bundle was accepted and simply found no partition
+                    // regions — a confusing absence rather than a clear refusal.
+                    BundleDirectory dir = BundleDirectory.read(mapped, BundleSubHeader.MAGIC_PARTITION);
                     log.info("Opened partition bundle: {} ({} live regions, {}KB)",
                             path, dir.liveRegionCount(), fileSize / 1024);
                     return new PartitionBundle(arena, mapped, dir, path, false);

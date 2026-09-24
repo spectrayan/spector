@@ -136,6 +136,15 @@ class BundleFormatCompatibilityTest {
                         .as("region %s must be mappable", region.name()).isNotNull();
             }
 
+            // The fixture's recorded format version must stay inside the range this binary declares it can
+            // read. If a future change bumps SCHEMA_VERSION without raising MIN_READABLE, this keeps passing
+            // — which is the point. If it bumps MIN_READABLE past the fixture, this fails and says so here,
+            // rather than users discovering it when their existing stores stop opening.
+            assertThat(reopened.directory().schemaVersion())
+                    .as("frozen fixture's bundle format version must remain readable [%d, %d]",
+                            BundleFileLayout.MIN_READABLE_SCHEMA_VERSION, BundleFileLayout.SCHEMA_VERSION)
+                    .isBetween(BundleFileLayout.MIN_READABLE_SCHEMA_VERSION, BundleFileLayout.SCHEMA_VERSION);
+
             // Prove we are reading real persisted bytes, not a freshly initialised bundle.
             MemorySegment sem = reopened.regionSegment(RegionId.SEMANTIC);
             assertThat(RegionPreamble.isValid(sem, 0))

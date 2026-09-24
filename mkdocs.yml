@@ -201,6 +201,7 @@ nav:
           - Performance and SIMD: memory/performance.md
           - Off-heap Panama: memory/panama-design.md
           - WAL: memory/wal-design.md
+          - Bundle format compatibility: memory/bundle-format-compatibility.md
           - Sync and replication: memory/sync.md
           - Evaluation: memory/evaluation.md
       - Design ancestry: memory/theoretical-foundations.md
