@@ -174,6 +174,12 @@ public final class SpectorConfigFactory {
         properties.setDimensions(props.getInt(MEMORY_DIMENSIONS, DEFAULT_MEMORY_DIMENSIONS));
         properties.setCapacity(props.getInt(MEMORY_CAPACITY, DEFAULT_MEMORY_CAPACITY));
         properties.setNodesPerPartition(props.getInt(MEMORY_NODES_PER_PARTITION, DEFAULT_MEMORY_NODES_PER_PARTITION));
+        // Bound for the first time in #983. Without these the namespace-global graph capacity was
+        // unreachable from YAML or env, so operators had no workaround when it was exhausted.
+        properties.setHebbianGraphCapacity(
+                props.getInt(MEMORY_HEBBIAN_GRAPH_CAPACITY, DEFAULT_MEMORY_HEBBIAN_GRAPH_CAPACITY));
+        properties.setTemporalChainCapacity(
+                props.getInt(MEMORY_TEMPORAL_CHAIN_CAPACITY, DEFAULT_MEMORY_TEMPORAL_CHAIN_CAPACITY));
         properties.setDefaultIngestionTier(props.getEnum(MEMORY_DEFAULT_INGESTION_TIER, RememberTier.class, DEFAULT_MEMORY_DEFAULT_INGESTION_TIER));
         properties.setHnswPrefilter(props.getEnum(MEMORY_HNSW_PREFILTER, HnswPrefilterMode.class, DEFAULT_MEMORY_HNSW_PREFILTER));
         properties.setTagExtractor(props.getEnum(MEMORY_TAG_EXTRACTOR, TagExtractorMode.class, DEFAULT_MEMORY_TAG_EXTRACTOR));

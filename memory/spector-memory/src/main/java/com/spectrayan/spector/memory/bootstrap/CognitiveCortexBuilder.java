@@ -341,11 +341,10 @@ public final class CognitiveCortexBuilder {
         int pairCap = memProps.getCoactivationPairCapacity();
         int edgeCap = memProps.getCoactivationEdgeCapacity();
 
-        int graphCapacity = memProps.getHebbianGraphCapacity() > 0
-                ? memProps.getHebbianGraphCapacity() : memProps.getEpisodicPartitionCapacity();
-
-        int temporalCapacity = memProps.getTemporalChainCapacity() > 0
-                ? memProps.getTemporalChainCapacity() : graphCapacity;
+        // Shared with CognitiveGraphBuilder so region bytes and object capacity cannot diverge (#983).
+        GraphCapacityPlan capacityPlan = GraphCapacityPlan.from(memProps);
+        int graphCapacity = capacityPlan.nodeCapacity();
+        int temporalCapacity = capacityPlan.temporalCapacity();
 
         int hyperCap = memProps.getEntityGraphCapacity();
         int hyperEdgeCap = hyperCap * 2;
@@ -360,11 +359,7 @@ public final class CognitiveCortexBuilder {
         // BM25 region sizing: header(24) + docIds(~48B/doc) + docLengths(4B/doc) + terms+postings(~1400B/doc)
         long bm25InitialSize = Math.max(4L * 1024 * 1024, 24 + 1500L * memProps.getEpisodicPartitionCapacity());
 
-        int hebbianMaxDegree = (memProps.getGraph() != null && memProps.getGraph().getHebbian() != null)
-                ? memProps.getGraph().getHebbian().getMaxDegree() : 16;
-        if (hebbianMaxDegree <= 0) {
-            hebbianMaxDegree = 16;
-        }
+        int hebbianMaxDegree = capacityPlan.maxDegree();
 
         return List.of(
                 new RegionSizeSpec(
@@ -405,7 +400,7 @@ public final class CognitiveCortexBuilder {
                 ),
                 new RegionSizeSpec(
                         RegionId.HEBBIAN,
-                        64 + 16 + (long) (graphCapacity + 1) * Integer.BYTES + (long) graphCapacity * hebbianMaxDegree * 12L,
+                        capacityPlan.hebbianRegionBytes(),
                         graphCapacity,
                         0,
                         new com.spectrayan.spector.kernel.layout.HebbianLayout().layoutId(),
@@ -414,7 +409,7 @@ public final class CognitiveCortexBuilder {
                 ),
                 new RegionSizeSpec(
                         RegionId.TEMPORAL_CHAIN,
-                        64 + 24L * temporalCapacity,
+                        capacityPlan.temporalChainRegionBytes(),
                         temporalCapacity,
                         24,
                         new com.spectrayan.spector.kernel.layout.TemporalLayout().layoutId(),

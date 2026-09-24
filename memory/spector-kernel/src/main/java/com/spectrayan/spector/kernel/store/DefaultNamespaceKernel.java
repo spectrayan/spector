@@ -353,11 +353,13 @@ class DefaultNamespaceKernel implements NamespaceKernel {
             }
         }
 
-        long bytesReclaimed = (long) tombstoned * 64L;
         long duration = System.nanoTime() - start;
 
+        // bytesReclaimed is 0 because this method reclaims nothing: it walks the cursor, counts tombstoned
+        // versus live, and returns. It previously reported `tombstoned * 64L` -- a hardcoded stride guess
+        // multiplied by a count, presented as a measurement (#983). recordsCompacted is likewise 0.
         return new com.spectrayan.spector.kernel.sync.VacuumResult(
-                targetTier, count, live, tombstoned, bytesReclaimed, duration, true, java.util.Map.of()
+                targetTier, count, 0, tombstoned, 0L, duration, true, java.util.Map.of()
         );
     }
 
@@ -370,12 +372,21 @@ class DefaultNamespaceKernel implements NamespaceKernel {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * @throws UnsupportedOperationException always — header migration is not implemented here
+     */
     @Override
     public com.spectrayan.spector.kernel.sync.MigrationReport migrateHeaders(int fromVersion, int toVersion) {
-        Path bundlePath = directory.resolve("runtime.bundle");
-        return new com.spectrayan.spector.kernel.sync.MigrationReport(
-                0, 0L, 0L, java.time.Duration.ZERO, bundlePath, fromVersion > toVersion
-        );
+        // Previously returned a MigrationReport of all zeros, which a caller could not distinguish from a
+        // migration that ran and found nothing to do (#983). Refuses instead of reporting a vacuous success.
+        throw new UnsupportedOperationException(
+                "DefaultNamespaceKernel.migrateHeaders is not implemented (requested " + fromVersion
+                        + " -> " + toVersion + "). It previously returned an all-zero MigrationReport,"
+                        + " indistinguishable from a successful no-op migration. Use the V3->V4 bundle"
+                        + " migration path in BundleMigrationCli, or see"
+                        + " spectrayan/.kiro/specs/memory-durability-contract R4 for the versioning work.");
     }
 
     @Override

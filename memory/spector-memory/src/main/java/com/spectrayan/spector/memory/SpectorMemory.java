@@ -314,8 +314,40 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
     /** Convenience overload with default options. */
     List<CognitiveResult> recall(String queryText);
 
-    /** Tombstones a memory by ID (logical deletion). */
+    /**
+     * Tombstones a memory by ID (logical deletion).
+     *
+     * <p>Idempotent: forgetting an unknown or already-forgotten id is not an error. Callers who need to
+     * know whether anything was actually tombstoned should use {@link #forgetWithResult(String)} — this
+     * overload cannot express that, which is why the MCP tool used to report success unconditionally.</p>
+     *
+     * @param id the memory id to tombstone
+     */
     void forget(String id);
+
+    /**
+     * Tombstones a memory by ID and reports whether it existed.
+     *
+     * <p><b>Logical deletion only.</b> A tombstone sets a header flag; the payload bytes remain in the
+     * memory-mapped store and in every snapshot and DR export taken since. Recall, {@code inspect} and
+     * {@code export} skip tombstoned records, so the memory becomes invisible rather than gone.</p>
+     *
+     * <p>This method does <b>not</b> consult legal hold. Legal hold is enforced only at namespace
+     * granularity in the catalog plane ({@code JdbcAccountCatalog.tombstone},
+     * {@code TenantErasureService}), so a namespace under hold can still have individual records
+     * forgotten — including in bulk. That gap is tolerable only because forget hides rather than destroys:
+     * held data remains available for discovery. Physical erasure with byte zeroing, graph-edge removal and
+     * record-level legal hold arrives with the {@code purge} verb in
+     * {@code spectrayan/.kiro/specs/memory-durability-contract} R1.</p>
+     *
+     * @param id the memory id to tombstone
+     * @return the outcome, including whether a memory was actually found and tombstoned
+     * @see <a href="https://github.com/spectrayan/spector/issues/983">spectrayan/spector#983</a>
+     */
+    default com.spectrayan.spector.memory.model.ForgetResult forgetWithResult(String id) {
+        forget(id);
+        return com.spectrayan.spector.memory.model.ForgetResult.tombstoned(id);
+    }
 
     /** Triggers a synchronous reflection (sleep consolidation) cycle. */
     ReflectReport reflect();

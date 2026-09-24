@@ -82,7 +82,19 @@ public class HebbianGraph implements HebbianGraphBase {
     /** File header: 4B magic + 4B version + 4B capacity + 4B maxDegree = 16 bytes. */
     private static final int FILE_HEADER_BYTES = 16;
 
-    /** Default maximum number of Hebbian neighbors per memory (configurable). */
+    /**
+     * Default maximum number of Hebbian neighbors per memory (configurable).
+     *
+     * <p>Must stay equal to {@code SpectorPropertyConstants.DEFAULT_MEMORY_HEBBIAN_MAX_DEGREE} and to
+     * {@code GraphProperties.HebbianProperties.maxDegree}. Not referenced directly because
+     * {@code spector-kernel} takes no dependency on {@code spector-config} (AGENTS.md architecture
+     * invariant 1); {@code HebbianMaxDegreeConsistencyTest} pins the equality instead.</p>
+     *
+     * <p>Note {@code HebbianGraphMemory.load(Path, int)} historically defaulted to 20 and both cognitive
+     * builders fell back to 16 — the latter being the <i>entity</i> graph's cap copy-pasted. Neither
+     * fallback fired in practice, but they made the effective default unknowable by reading any single
+     * site. See #983.</p>
+     */
     public static final int DEFAULT_MAX_DEGREE = 24;
 
     /**
@@ -332,6 +344,36 @@ public class HebbianGraph implements HebbianGraphBase {
                                     "v2NodeBytes={}, v2MaxDegree={}",
                             migratedEdges, v2NodeBytes, v2MaxDegree);
                 } else {
+                    // Fail closed on a max-degree change (#983).
+                    //
+                    // nodeBytesPerNode is computed from the CONFIGURED maxDegree, but the file was written
+                    // with fileDegree. If they differ, mmapping with this stride misreads every node's
+                    // edge array: reads land mid-record and return arbitrary neighbour ids and weights.
+                    // Previously fileDegree was read and never compared, so changing
+                    // spector.memory.graph.hebbian.max-degree against an existing file silently garbled
+                    // the graph with no exception and no log line.
+                    //
+                    // Refused rather than migrated on purpose: a data-preserving widening path exists
+                    // (the version branch above) but it is triggered by a FORMAT version change, not a
+                    // config change. Reusing it here would silently rewrite a user's graph file because
+                    // someone edited YAML — trading silent corruption for silent rewriting. Migration
+                    // must be an explicitly invoked operation.
+                    if (fileDegree > 0 && fileDegree != maxDegree) {
+                        String detail = "max-degree mismatch for " + filePath
+                                + ": file was written with maxDegree=" + fileDegree
+                                + " but configuration requests " + maxDegree
+                                + ". Opening with the configured value would mmap this file at the wrong"
+                                + " record stride and silently corrupt every edge list. Either set"
+                                + " spector.memory.graph.hebbian.max-degree=" + fileDegree
+                                + " to match the file, or migrate the graph explicitly.";
+                        // Logged as well as thrown: SpectorGraphPersistenceException renders a fixed
+                        // error-code message, so without this the actionable guidance would reach the
+                        // operator only as a nested cause.
+                        log.error("HebbianGraph refusing to open: {}", detail);
+                        ch.close();
+                        throw new SpectorGraphPersistenceException("HebbianGraph", filePath,
+                                new IllegalStateException(detail));
+                    }
                     this.capacity = fileCapacity;
                     dataBytes = (long) nodeBytesPerNode * fileCapacity;
                 }

@@ -1047,18 +1047,27 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public void forget(String id) {
+        forgetWithResult(id);
+    }
+
+    @Override
+    public com.spectrayan.spector.memory.model.ForgetResult forgetWithResult(String id) {
         acquireLease();
         try {
             if (id == null) { throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "id"); }
             MemoryLocation loc = index.locate(id);
             if (loc == null) {
-                log.warn("Forget: memory '{}' not found in index", id);
-                return;
+                // Deliberately does NOT throw: idempotent delete is a contract Spring AI's VectorStore and
+                // both chat-memory bulk paths rely on. The caller now distinguishes this case via the
+                // returned result instead of being told the memory was forgotten (#983).
+                log.warn("Forget: memory '{}' not found in index — nothing was tombstoned", id);
+                return com.spectrayan.spector.memory.model.ForgetResult.notFound(id);
             }
             partitionManager.routerFor(loc.colocatedPartition()).tombstone(loc);
             wal.appendForget(id);
             index.remove(id);
             log.debug("Forget: '{}' tombstoned", id);
+            return com.spectrayan.spector.memory.model.ForgetResult.tombstoned(id);
         } finally {
             releaseLease();
         }
@@ -1863,7 +1872,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         }
         vacuumLock.lock();
         try {
-            return VacuumCompactor.compact(store, tier, index);
+            return VacuumCompactor.compact(store, tier);
         } finally {
             vacuumLock.unlock();
         }

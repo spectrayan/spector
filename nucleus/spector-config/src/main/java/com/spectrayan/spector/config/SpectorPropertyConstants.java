@@ -292,11 +292,35 @@ public final class SpectorPropertyConstants {
     public static final String MEMORY_DIMENSIONS = "spector.memory.dimensions";
     public static final int DEFAULT_MEMORY_DIMENSIONS = 768;
 
+    /**
+     * Total addressable memories for a namespace across all partitions.
+     *
+     * <p>Sizes the namespace-global graph structures via {@code GraphCapacityPlan}. Until #983 this
+     * property was bound from configuration but read by nothing, so {@code SPECTOR_MEMORY_CAPACITY} —
+     * shipped in the Dockerfile, the Helm configmap and three Terraform modules — had no effect.</p>
+     */
     public static final String MEMORY_CAPACITY = "spector.memory.capacity";
     public static final int DEFAULT_MEMORY_CAPACITY = 100_000;
 
     public static final String MEMORY_NODES_PER_PARTITION = "spector.memory.nodes-per-partition";
     public static final int DEFAULT_MEMORY_NODES_PER_PARTITION = 10_000;
+
+    /**
+     * Explicit override for Hebbian graph node capacity; {@code 0} means derive from
+     * {@link #MEMORY_CAPACITY}.
+     *
+     * <p>Had no configuration binding at all before #983 — settable only programmatically, so operators
+     * had no way to size the association graph or work around its exhaustion.</p>
+     */
+    public static final String MEMORY_HEBBIAN_GRAPH_CAPACITY = "spector.memory.hebbian-graph-capacity";
+    public static final int DEFAULT_MEMORY_HEBBIAN_GRAPH_CAPACITY = 0;
+
+    /**
+     * Explicit override for temporal chain capacity; {@code 0} means derive from
+     * {@link #MEMORY_HEBBIAN_GRAPH_CAPACITY}.
+     */
+    public static final String MEMORY_TEMPORAL_CHAIN_CAPACITY = "spector.memory.temporal-chain-capacity";
+    public static final int DEFAULT_MEMORY_TEMPORAL_CHAIN_CAPACITY = 0;
 
     public static final String MEMORY_WORKING_CAPACITY = "spector.memory.working-capacity";
     public static final int DEFAULT_MEMORY_WORKING_CAPACITY = 100;

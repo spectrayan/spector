@@ -119,7 +119,14 @@ flowchart LR
     style NEXT fill:#00b894,color:white
 ```
 
-Tombstoned memories are skipped without reading any other fields. When the tombstone ratio in an episodic partition exceeds 30%, the `TombstoneCompactor` triggers a partition rebuild.
+Tombstoned memories are skipped without reading any other fields.
+
+!!! warning "Tombstoned records are not reclaimed"
+    Tombstoned records remain on disk indefinitely. There is no automatic partition rebuild, no compaction
+    threshold, and no `TombstoneCompactor` — earlier revisions of this page described all three, and none
+    exist. `POST /api/v1/memory/vacuum` performs a tombstone **census** and reclaims nothing.
+
+    Real compaction is specified in `spectrayan/.kiro/specs/memory-durability-contract` R2.
 
 ---
 

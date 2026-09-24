@@ -18,14 +18,28 @@ package com.spectrayan.spector.memory.sync;
 import com.spectrayan.spector.kernel.api.MemoryType;
 
 /**
- * Result of a vacuum/compaction operation on a tier store.
+ * Result of a vacuum operation on a tier store.
  *
- * @param tier               the memory tier that was compacted
- * @param beforeCount        total records before compaction (live + tombstoned)
- * @param afterCount         live records after compaction
- * @param tombstonesRemoved  number of tombstoned records removed
- * @param bytesReclaimed     bytes freed by removing tombstoned records
- * @param durationMs         compaction duration in milliseconds
+ * <p><b>This is currently a census, not a compaction.</b> No implementation relocates records or reclaims
+ * space, so {@link #bytesReclaimed()} is always {@code 0} and {@link #compacted()} is always
+ * {@code false}. Until issue #981/#983 this record carried {@code bytesReclaimed} computed as
+ * {@code tombstoneCount * recordStride} — a multiplication, not a measurement — and the caller logged
+ * "reclaimed {}KB" for an operation that wrote nothing. The documented REST endpoint described it as
+ * purging tombstones and defragmenting off-heap pages.</p>
+ *
+ * <p>Real compaction is owned by {@code spectrayan/.kiro/specs/memory-durability-contract} R2, which
+ * requires reclaimed bytes to be <i>measured</i> and id→record resolution preserved across relocation.</p>
+ *
+ * @param tier               the memory tier that was surveyed
+ * @param beforeCount        total records surveyed (live + tombstoned)
+ * @param afterCount         live records
+ * @param tombstonesRemoved  tombstoned records <b>found</b>; none are removed while {@code compacted} is
+ *                           {@code false}
+ * @param bytesReclaimed     bytes actually freed. Always {@code 0} until compaction exists — never a
+ *                           computed estimate
+ * @param durationMs         survey duration in milliseconds
+ * @param compacted          whether records were relocated and space reclaimed
+ * @see <a href="https://github.com/spectrayan/spector/issues/983">spectrayan/spector#983</a>
  */
 public record CompactionResult(
     MemoryType tier,
@@ -33,5 +47,21 @@ public record CompactionResult(
     int afterCount,
     int tombstonesRemoved,
     long bytesReclaimed,
-    long durationMs
-) {}
+    long durationMs,
+    boolean compacted
+) {
+    /**
+     * Creates a census result: tombstones counted, nothing reclaimed.
+     *
+     * @param tier              the tier surveyed
+     * @param beforeCount       total records surveyed
+     * @param afterCount        live records
+     * @param tombstonesFound   tombstoned records found
+     * @param durationMs        survey duration
+     * @return a result reporting zero reclaimed bytes and {@code compacted=false}
+     */
+    public static CompactionResult census(MemoryType tier, int beforeCount, int afterCount,
+                                          int tombstonesFound, long durationMs) {
+        return new CompactionResult(tier, beforeCount, afterCount, tombstonesFound, 0L, durationMs, false);
+    }
+}

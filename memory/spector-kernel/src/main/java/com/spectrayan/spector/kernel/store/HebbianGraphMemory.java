@@ -132,6 +132,25 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
     private volatile long lastCompactionEpochMs = 0L;
     private volatile long bytesReclaimedLastCycle = 0L;
 
+    // ── Capacity-exhaustion telemetry (#983) ──
+    // These counters exist because all three capacity boundaries used to drop data in silence. The
+    // node-index guard in strengthen() sits before the WAL append, so a rejected association left no
+    // trace in the graph, the log, metrics, or the WAL. LongAdder rather than a Micrometer counter:
+    // spector-kernel takes no third-party dependencies (see AGENTS.md architecture invariant 1), so the
+    // metrics module binds these via structureHealthSnapshot() instead.
+    private final java.util.concurrent.atomic.LongAdder rejectedNodeOutOfRange =
+            new java.util.concurrent.atomic.LongAdder();
+    private final java.util.concurrent.atomic.LongAdder degreeCapEvictions =
+            new java.util.concurrent.atomic.LongAdder();
+    private final java.util.concurrent.atomic.LongAdder truncatedEdgesAtCapacity =
+            new java.util.concurrent.atomic.LongAdder();
+    /** Highest node index ever passed to {@link #strengthen}, accepted or rejected. */
+    private final java.util.concurrent.atomic.AtomicInteger highestNodeIndexSeen =
+            new java.util.concurrent.atomic.AtomicInteger(-1);
+    /** Throttle so an exhausted graph logs periodically rather than once per ingest. */
+    private volatile long lastCapacityWarnMs = 0L;
+    private static final long CAPACITY_WARN_INTERVAL_MS = 60_000L;
+
     // ══════════════════════════════════════════════════════════════
     // CONSTRUCTORS
     // ══════════════════════════════════════════════════════════════
@@ -305,7 +324,17 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
     public void strengthen(int nodeA, int nodeB, float weightDelta) {
         graphLock.lock();
         try {
-            if (nodeA < 0 || nodeA >= capacity || nodeB < 0 || nodeB >= capacity) return;
+            recordNodeIndexSeen(nodeA);
+            recordNodeIndexSeen(nodeB);
+            if (nodeA < 0 || nodeA >= capacity || nodeB < 0 || nodeB >= capacity) {
+                // Graph slots are allocated monotonically and never reused
+                // (IndexEntryMemory.allocateGraphSlot), so once the high-water mark passes capacity every
+                // subsequent association is refused for the lifetime of the namespace. Previously silent:
+                // no log, no metric, and no WAL record, since this guard precedes the WAL append below.
+                rejectedNodeOutOfRange.increment();
+                warnCapacityExhausted(nodeA, nodeB);
+                return;
+            }
             if (nodeA == nodeB) return;
 
             if (wal != null && !bypassWal) {
@@ -420,6 +449,11 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
                         }
 
                         if (newWeight >= DECAY_FLOOR) {
+                            if (writePos >= edgeCapacity) {
+                                // Survived decay but the slab is full, so it is dropped anyway. Counted
+                                // separately from `removed`, which tallies intentional decay eviction only.
+                                truncatedEdgesAtCapacity.increment();
+                            }
                             if (writePos < edgeCapacity) {
                                 long edgeOff = (long) writePos * EDGE_BYTES;
                                 tmpEdges.set(ValueLayout.JAVA_INT, edgeOff + EDGE_OFF_NEIGHBOR, e.neighbor);
@@ -811,6 +845,10 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
 
         int currentDegree = degree(from);
         if (currentDegree >= maxDegree) {
+            // Bounded importance-based eviction, not a blind drop: replaceLowestImportance keeps the new
+            // edge only if it outscores the weakest existing one. Counted for visibility rather than
+            // changed — this is deliberate behaviour, unlike the node-index and edge-slab boundaries.
+            degreeCapEvictions.increment();
             replaceLowestImportance(from, to, weightDelta);
             return;
         }
@@ -929,6 +967,7 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
             try (Arena tmpArena = Arena.ofConfined()) {
                 MemorySegment tmpEdges = tmpArena.allocate((long) edgeCapacity * EDGE_BYTES);
 
+                long truncatedThisPass = 0L;
                 for (int node = 0; node < capacity; node++) {
                     newOffsets[node] = writePos;
                     List<EdgeData> all = collectAllEdges(node);
@@ -941,8 +980,20 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
                             tmpEdges.set(ValueLayout.JAVA_BYTE, edgeOff + EDGE_OFF_BRIDGE_SCORE, (byte) e.bridgeScore);
                             tmpEdges.set(ValueLayout.JAVA_BYTE, edgeOff + EDGE_OFF_EDGE_FLAGS, (byte) e.flags);
                             writePos++;
+                        } else {
+                            // Edge slab full: this edge was already accepted and is now being discarded.
+                            // Previously silent — the CSR simply forgot it when newOffsets[capacity] was
+                            // set. Distinct from decay eviction, which is intentional.
+                            truncatedThisPass++;
                         }
                     }
+                }
+                if (truncatedThisPass > 0) {
+                    truncatedEdgesAtCapacity.add(truncatedThisPass);
+                    log.warn("HebbianGraphMemory compaction discarded {} already-accepted edges: edge slab "
+                                    + "full at edgeCapacity={} (total truncated={}). Raise "
+                                    + "spector.memory.hebbian-graph-capacity or graph.hebbian.max-degree.",
+                            truncatedThisPass, edgeCapacity, truncatedEdgesAtCapacity.sum());
                 }
 
                 int oldTotal = totalEdgeCount + overflowEdgeCount;
@@ -1113,8 +1164,62 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
         }
     }
 
+    /** Tracks the highest node index observed so headroom can be reported before exhaustion (#983). */
+    private void recordNodeIndexSeen(int node) {
+        if (node < 0) {
+            return;
+        }
+        highestNodeIndexSeen.accumulateAndGet(node, Math::max);
+    }
+
+    /**
+     * Logs node-space exhaustion at most once per {@link #CAPACITY_WARN_INTERVAL_MS}.
+     *
+     * <p>Throttled rather than logged per rejection: once the slot high-water mark passes capacity,
+     * <i>every</i> subsequent ingest is refused, so an unthrottled warning would emit per remember call
+     * forever.</p>
+     */
+    private void warnCapacityExhausted(int nodeA, int nodeB) {
+        long now = System.currentTimeMillis();
+        if (now - lastCapacityWarnMs < CAPACITY_WARN_INTERVAL_MS) {
+            return;
+        }
+        lastCapacityWarnMs = now;
+        log.warn("HebbianGraphMemory node capacity exhausted: refused association ({}, {}) with capacity={}, "
+                        + "highestNodeIndexSeen={}, totalRefused={}. Graph slots are never reused, so all "
+                        + "further associations in this namespace will be refused until capacity is raised. "
+                        + "Raise spector.memory.capacity (or spector.memory.hebbian-graph-capacity) and "
+                        + "restart. Recall continues to work but will progressively degrade.",
+                nodeA, nodeB, capacity, highestNodeIndexSeen.get(), rejectedNodeOutOfRange.sum());
+    }
+
+    /** Associations refused because a node index was at or beyond capacity (#983). */
+    public long rejectedNodeOutOfRangeCount() {
+        return rejectedNodeOutOfRange.sum();
+    }
+
+    /** Insertions that triggered importance-based eviction at the per-node degree cap (#983). */
+    public long degreeCapEvictionCount() {
+        return degreeCapEvictions.sum();
+    }
+
+    /** Already-accepted edges discarded because the edge slab was full (#983). */
+    public long truncatedEdgesAtCapacityCount() {
+        return truncatedEdgesAtCapacity.sum();
+    }
+
+    /** Highest node index ever passed to {@link #strengthen}, or {@code -1} if none (#983). */
+    public int highestNodeIndexSeen() {
+        return highestNodeIndexSeen.get();
+    }
+
     /**
      * Captures a read-only telemetry snapshot of CSR health, overflow occupancy, and compaction stats (MR-08).
+     *
+     * <p>Since #983 this also carries node-space capacity, high-water mark, and the two association-loss
+     * counters. Node headroom was previously unobservable: every field was byte- or edge-denominated, and
+     * {@code capacity} appeared only entangled inside {@code allocatedBytes} and
+     * {@code csrOverflowOccupancy}.</p>
      */
     public GraphStructureHealthSnapshot structureHealthSnapshot() {
         graphLock.lock();
@@ -1133,7 +1238,11 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
                     0,
                     csrOverflowOccupancy,
                     lastCompactionEpochMs,
-                    bytesReclaimedLastCycle
+                    bytesReclaimedLastCycle,
+                    capacity,
+                    highestNodeIndexSeen.get(),
+                    rejectedNodeOutOfRange.sum(),
+                    truncatedEdgesAtCapacity.sum()
             );
         } finally {
             graphLock.unlock();
