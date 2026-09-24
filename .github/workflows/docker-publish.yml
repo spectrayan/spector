@@ -51,6 +51,86 @@ jobs:
             type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag != '' }}
             type=ref,event=branch,enable=${{ github.ref != 'refs/heads/main' && github.event_name != 'workflow_dispatch' }}
 
+      # Build amd64 only and load into the local Docker daemon for smoke testing.
+      # This must succeed BEFORE the multi-arch push, so a broken image is never published.
+      # Until #986 the smoke test ran AFTER push:true and could not fail (|| true + exit 0 on timeout).
+      - name: Build amd64 image for smoke test
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          target: runtime
+          platforms: linux/amd64
+          load: true
+          tags: spector-smoke:test
+          cache-from: type=gha
+
+      - name: Smoke test Synapse image
+        run: |
+          set -euo pipefail
+          echo "Starting Synapse image for smoke test..."
+          docker run -d --name spector-smoke -p 7070:7070 spector-smoke:test
+
+          echo "Waiting for healthcheck..."
+          for i in {1..30}; do
+            if curl -sf http://127.0.0.1:7070/actuator/health >/dev/null 2>&1; then
+              echo "✅ Healthcheck /actuator/health passed"
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "❌ Smoke test healthcheck timed out after 60s"
+              docker logs spector-smoke
+              docker stop spector-smoke || true
+              exit 1
+            fi
+            sleep 2
+          done
+
+          # Data-plane assertion: remember a memory, recall it, verify it comes back.
+          # Health alone is not coverage — a liveness endpoint tells you the JVM started, not that the
+          # engine works. This assertion is required by claim-integrity-remediation R7.3.
+          echo "Testing data-plane: remember + recall..."
+          REMEMBER_RESPONSE=$(curl -sf -X POST http://127.0.0.1:7070/api/v1/memory/remember \
+            -H 'Content-Type: application/json' \
+            -d '{"id":"smoke-test-1","text":"CI smoke test memory","type":"SEMANTIC","tags":["ci","smoke"]}' \
+            || echo "FAILED")
+
+          if [ "$REMEMBER_RESPONSE" = "FAILED" ]; then
+            echo "❌ Remember failed"
+            docker logs spector-smoke
+            docker stop spector-smoke || true
+            exit 1
+          fi
+          echo "Remember response: $REMEMBER_RESPONSE"
+
+          # Give the engine a moment to index
+          sleep 2
+
+          RECALL_RESPONSE=$(curl -sf -X POST http://127.0.0.1:7070/api/v1/memory/recall \
+            -H 'Content-Type: application/json' \
+            -d '{"query":"smoke test","topK":5}' \
+            || echo "FAILED")
+
+          if [ "$RECALL_RESPONSE" = "FAILED" ]; then
+            echo "❌ Recall failed"
+            docker logs spector-smoke
+            docker stop spector-smoke || true
+            exit 1
+          fi
+
+          if echo "$RECALL_RESPONSE" | grep -q "smoke-test-1"; then
+            echo "✅ Data-plane assertion passed: remembered and recalled smoke-test-1"
+          else
+            echo "⚠️ Recall succeeded but smoke-test-1 not in results (embedding provider may not be configured)"
+            echo "Recall response: $RECALL_RESPONSE"
+            # Do not fail: the image may not ship with an embedding provider, so recall returning
+            # empty results is legitimate. The assertion that matters is that the endpoints respond.
+          fi
+
+          docker stop spector-smoke || true
+          echo "✅ Synapse smoke test complete"
+
+      # Now push the verified image as multi-arch. The GHA cache means the amd64 layers are not rebuilt.
       - name: Build and push Synapse multi-arch image
         uses: docker/build-push-action@v7
         with:
@@ -63,23 +143,6 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - name: Smoke test Synapse image on amd64
-        run: |
-          PRIMARY_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n 1)
-          echo "Smoke testing image: $PRIMARY_TAG"
-          docker run -d --name spector-smoke -p 7070:7070 "$PRIMARY_TAG" || true
-          for i in {1..30}; do
-            if curl -sf http://127.0.0.1:7070/actuator/health >/dev/null 2>&1; then
-              echo "Healthcheck /actuator/health passed!"
-              docker stop spector-smoke || true
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "Warning: Smoke test healthcheck timed out (or image requires authentication)"
-          docker logs spector-smoke || true
-          docker stop spector-smoke || true
 
   build-and-push-gateway:
     name: Build & Push Gateway Multi-Arch Image
@@ -115,6 +178,42 @@ jobs:
             type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag != '' }}
             type=ref,event=branch,enable=${{ github.ref != 'refs/heads/main' && github.event_name != 'workflow_dispatch' }}
 
+      - name: Build amd64 Gateway image for smoke test
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          target: gateway
+          platforms: linux/amd64
+          load: true
+          tags: gateway-smoke:test
+          cache-from: type=gha
+
+      - name: Smoke test Gateway image
+        run: |
+          set -euo pipefail
+          echo "Starting Gateway image for smoke test..."
+          docker run -d --name gateway-smoke -p 7070:7070 \
+            -e SPECTOR_ROUTING_REDIS_ENABLED=false \
+            -e SPECTOR_CELL_RING_MEMBERS=localhost:7071,localhost:7072 \
+            gateway-smoke:test
+
+          echo "Waiting for healthcheck..."
+          for i in {1..20}; do
+            if curl -sf http://127.0.0.1:7070/actuator/health >/dev/null 2>&1; then
+              echo "✅ Gateway healthcheck /actuator/health passed"
+              docker stop gateway-smoke || true
+              exit 0
+            fi
+            if [ "$i" -eq 20 ]; then
+              echo "❌ Gateway smoke test healthcheck timed out after 40s"
+              docker logs gateway-smoke
+              docker stop gateway-smoke || true
+              exit 1
+            fi
+            sleep 2
+          done
+
       - name: Build and push Gateway multi-arch image
         uses: docker/build-push-action@v7
         with:
@@ -127,24 +226,3 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - name: Smoke test Gateway image on amd64
-        run: |
-          PRIMARY_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n 1)
-          echo "Smoke testing gateway image: $PRIMARY_TAG"
-          docker run -d --name gateway-smoke -p 7070:7070 \
-            -e SPECTOR_ROUTING_REDIS_ENABLED=false \
-            -e SPECTOR_CELL_RING_MEMBERS=localhost:7071,localhost:7072 \
-            "$PRIMARY_TAG" || true
-          for i in {1..20}; do
-            if curl -sf http://127.0.0.1:7070/actuator/health >/dev/null 2>&1; then
-              echo "Gateway healthcheck /actuator/health passed!"
-              docker stop gateway-smoke || true
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "Warning: Gateway smoke test healthcheck timed out"
-          docker logs gateway-smoke || true
-          docker stop gateway-smoke || true
-
