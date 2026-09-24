@@ -36,7 +36,6 @@ Configuration block for embedding model providers under `spector.provider.embedd
 | `cache.stats-log-interval` | Duration | `5m` | Standard ISO duration | Log interval for embedding cache hit/miss telemetry. |
 | `model-path` | Path | `""` | File path | Filesystem path to local ONNX model file (only used when `type: onnx`). |
 | `execution-provider` | String | `CPU` | `CPU`, `CUDA`, `TENSOR_RT` | Execution provider hardware accelerator for local ONNX inference. |
-| `intra-op-threads` | Integer | `0` | 0–64 | Number of internal math threads for ONNX CPU runtime (0 = auto-detect cores). |
 | `vocab-path` | Path | `""` | File path | Path to tokenizer vocabulary file for local ONNX tokenization. |
 
 ---

@@ -60,7 +60,9 @@ class RemovedPropertyRejectionTest {
                 .hasMessageContaining("spector.memory.dimensions")
                 .hasMessageContaining("512")
                 .hasMessageContaining(SpectorPropertyConstants.PROVIDER_EMBEDDING_DIMENSIONS)
-                .hasMessageContaining("SPECTOR_EMBEDDING_DIMS");
+                // The reason matters as much as the replacement: an operator who set this believed they were
+                // sizing the engine independently of the embedder.
+                .hasMessageContaining("single source");
     }
 
     @Test
@@ -88,13 +90,30 @@ class RemovedPropertyRejectionTest {
     }
 
     @Test
-    @DisplayName("every removed property maps to a replacement that still exists")
-    void everyRemovalNamesALiveReplacement() {
+    @DisplayName("every removal states a reason, and any replacement it names is a real property")
+    void everyRemovalIsSelfExplaining() {
         assertThat(SpectorPropertyConstants.REMOVED_PROPERTIES).isNotEmpty();
-        SpectorPropertyConstants.REMOVED_PROPERTIES.forEach((removed, replacement) -> {
+        SpectorPropertyConstants.REMOVED_PROPERTIES.forEach((removed, removal) -> {
             assertThat(removed).startsWith("spector.");
-            assertThat(replacement).startsWith("spector.");
-            assertThat(replacement).isNotEqualTo(removed);
+            // A refusal that cannot say why is just an obstacle.
+            assertThat(removal.reason()).isNotBlank();
+            if (removal.replacement() != null) {
+                assertThat(removal.replacement()).startsWith("spector.").isNotEqualTo(removed);
+            }
         });
+    }
+
+    @Test
+    @DisplayName("a property removed with no replacement is refused, and says nothing is lost")
+    void removalWithoutReplacementIsRefused() {
+        SpectorConfigSource source = SpectorConfigSource.builder()
+                .override(SpectorPropertyConstants.REMOVED_PROVIDER_EMBEDDING_INTRA_OP_THREADS, "4")
+                .build();
+
+        assertThatThrownBy(() -> SpectorConfigFactory.spectorProperties(source))
+                .isInstanceOf(SpectorConfigException.class)
+                .hasMessageContaining("intra-op-threads")
+                .hasMessageContaining("no replacement")
+                .hasMessageContaining("had no effect");
     }
 }

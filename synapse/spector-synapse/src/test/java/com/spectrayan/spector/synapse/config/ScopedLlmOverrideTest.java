@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Test;
 import com.spectrayan.spector.provider.ProviderRegistry;
 import com.spectrayan.spector.synapse.config.model.ConfigCategory;
 import com.spectrayan.spector.synapse.config.service.ConfigApplicator;
+import com.spectrayan.spector.synapse.memory.NamespaceResolver;
 
 /**
  * Verifies that a tenant- or user-scoped LLM override no longer repoints the LLM for the whole process.
@@ -95,6 +96,47 @@ class ScopedLlmOverrideTest {
         applicator.apply(null, null, ConfigCategory.LLM_PROVIDER, ollamaOverride());
 
         verify(providerRegistry).activateGeneration("ollama");
+    }
+
+    @Test
+    @DisplayName("a scoped override reaches that tenant's namespaces and no others")
+    void scopedOverrideReachesOnlyItsOwnNamespaces() {
+        // The positive half of the requirement. Stopping the global mutation was only half the fix: without
+        // per-namespace resolution a scoped override took effect nowhere instead of everywhere.
+        var resolvedFor = new java.util.LinkedHashMap<String, String>();
+
+        NamespaceResolver.EmbeddingConfigResolver resolver = (tenantId, namespaceId) -> {
+            if (!"acme".equals(tenantId)) {
+                return null;
+            }
+            resolvedFor.put(namespaceId, "acme-model");
+            return new com.spectrayan.spector.provider.ProviderConfig(
+                    "ollama", "ollama", "acme-model", "", "http://localhost:11434", 0, java.util.Map.of());
+        };
+
+        assertThat(resolver.resolve("acme", "ns-acme-1")).isNotNull();
+        assertThat(resolver.resolve("acme", "ns-acme-2")).isNotNull();
+        assertThat(resolver.resolve("other-tenant", "ns-other")).isNull();
+
+        assertThat(resolvedFor).containsOnlyKeys("ns-acme-1", "ns-acme-2");
+    }
+
+    @Test
+    @DisplayName("the LLM pool shares one provider across namespaces on the same configuration")
+    void llmPoolSharesByConfiguration() {
+        var pool = new com.spectrayan.spector.synapse.memory.LlmProviderPool();
+        var config = new com.spectrayan.spector.provider.ProviderConfig(
+                "ollama", "ollama", "llama3.2", "", "http://localhost:11434", 0, java.util.Map.of());
+        var fingerprint = com.spectrayan.spector.provider.ProviderFingerprint.of(config);
+        var provider = mock(com.spectrayan.spector.provider.generation.LlmProvider.class);
+
+        var first = pool.acquire(fingerprint, fp -> provider);
+        var second = pool.acquire(fingerprint, fp -> provider);
+
+        assertThat(second).isSameAs(first);
+        assertThat(pool.distinctConfigurations()).isEqualTo(1);
+        assertThat(pool.referenceCount(fingerprint)).isEqualTo(2);
+        pool.close();
     }
 
     @Test

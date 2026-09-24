@@ -21,6 +21,7 @@ import org.springframework.core.env.Environment;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorConfigException;
+import com.spectrayan.spector.config.SpectorConfigFactory;
 import com.spectrayan.spector.config.SpectorPropertyConstants;
 
 /**
@@ -52,22 +53,16 @@ public final class RemovedPropertyGuard {
         if (environment == null) {
             return;
         }
-        for (Map.Entry<String, String> entry : SpectorPropertyConstants.REMOVED_PROPERTIES.entrySet()) {
+        for (Map.Entry<String, SpectorPropertyConstants.RemovedProperty> entry
+                : SpectorPropertyConstants.REMOVED_PROPERTIES.entrySet()) {
             String removed = entry.getKey();
             if (!environment.containsProperty(removed)) {
                 continue;
             }
-            String replacement = entry.getValue();
-            String value = environment.getProperty(removed, "");
             throw new SpectorConfigException(
                     ErrorCode.CONFIG_VALUE_INVALID,
-                    String.format(
-                            "Configuration property '%s' has been removed; it is still set (to '%s'). Use '%s' "
-                                    + "instead — it is now the single source of embedding dimensionality, and the "
-                                    + "engine derives its own width from it. Set '%s: %s' and delete '%s'. If you "
-                                    + "configure dimensionality through the SPECTOR_EMBEDDING_DIMS environment "
-                                    + "variable, no change is needed: it now maps only to the replacement.",
-                            removed, value, replacement, replacement, value, removed),
+                    SpectorConfigFactory.removedPropertyMessage(
+                            removed, environment.getProperty(removed, ""), entry.getValue()),
                     true);
         }
     }

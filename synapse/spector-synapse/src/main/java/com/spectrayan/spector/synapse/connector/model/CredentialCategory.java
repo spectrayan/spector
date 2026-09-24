@@ -20,6 +20,7 @@ package com.spectrayan.spector.synapse.connector.model;
  */
 public enum CredentialCategory {
     LLM("AI & Cognitive Models"),
+    EMBEDDING("Embedding Models"),
     CHANNEL("Messaging Channels"),
     DATABASE("Databases & Data Stores"),
     BROKER("Message Brokers & Event Streaming"),

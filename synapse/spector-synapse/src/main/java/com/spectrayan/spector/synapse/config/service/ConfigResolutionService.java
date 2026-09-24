@@ -92,6 +92,25 @@ public class ConfigResolutionService {
     }
 
     /**
+     * Key naming the {@code credentials} row that holds a provider's secret.
+     *
+     * <p>Replaces the former {@code api-key} value key. Configuration carries a reference; the secret stays
+     * encrypted in the credentials store. Resolved through {@code CredentialService.resolveSecret} at the
+     * point of provider construction, so it never enters a config row, an API response, or a log line.</p>
+     */
+    public static final String CREDENTIAL_REF_KEY = "credential-ref";
+
+    /**
+     * Configuration value keys that must never be persisted, because they would carry secret material.
+     *
+     * <p>Enforced on save by {@link #saveOverride}. A denylist rather than a convention: the previous
+     * arrangement relied on nobody writing {@code api-key} into a scoped override, and that is exactly what
+     * the UI did.</p>
+     */
+    public static final java.util.Set<String> FORBIDDEN_VALUE_KEYS =
+            java.util.Set.of("api-key", "apiKey", "api_key", "secret", "password", "token");
+
+    /**
      * Reports whether a tenant- or user-scoped override exists for a category.
      *
      * <p>Distinguishes "resolved to the system defaults" from "resolved to something an operator chose",
@@ -154,7 +173,34 @@ public class ConfigResolutionService {
                     "Scope '%s' is not allowed to override category '%s' by current policy",
                     scopeLevel, config.category().key()));
         }
+        rejectSecretValues(config);
         repository.save(config);
+    }
+
+    /**
+     * Refuses to persist a scoped override that carries secret material.
+     *
+     * <p>The config table is not an appropriate home for a secret: it has no encryption, and
+     * {@code ConfigController} masks on read, which makes a cleartext column look handled. Refusing at the
+     * write is the only place that actually prevents the secret existing there.</p>
+     *
+     * @throws IllegalArgumentException naming the offending key and the reference key to use instead
+     */
+    private void rejectSecretValues(ScopedConfig config) {
+        if (config.values() == null || config.values().isEmpty()) {
+            return;
+        }
+        for (String key : config.values().keySet()) {
+            if (FORBIDDEN_VALUE_KEYS.contains(key)) {
+                throw new IllegalArgumentException(String.format(
+                        "Configuration key '%s' may not be stored in scoped configuration: this table is "
+                                + "unencrypted, so the value would be persisted in cleartext. Store the secret "
+                                + "as a credential and reference it with '%s' instead — credentials are "
+                                + "encrypted with a per-tenant derived key and resolved when the provider is "
+                                + "built.",
+                        key, CREDENTIAL_REF_KEY));
+            }
+        }
     }
 
     /**
@@ -333,7 +379,11 @@ public class ConfigResolutionService {
             } catch (NumberFormatException ignored) {}
         }
         map.put("temperature", temp);
-        map.put("api-key", gen != null && gen.getApiKey() != null ? gen.getApiKey() : "");
+        // A credential *reference*, never the secret. `api-key` used to carry the raw key here, which meant
+        // saving a scoped override wrote it in cleartext into the scoped_config values JSON —
+        // ConfigController masked it on read, so the response looked safe while the column was not. The
+        // secret lives in the `credentials` table under a per-tenant derived key; this names which row.
+        map.put(CREDENTIAL_REF_KEY, "");
         return map;
     }
 

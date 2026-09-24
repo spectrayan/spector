@@ -88,19 +88,34 @@ public final class SpectorConfigFactory {
             if (!source.containsKey(removed)) {
                 continue;
             }
-            String replacement = entry.getValue();
-            String value = source.getString(removed, "");
             throw new com.spectrayan.spector.commons.error.SpectorConfigException(
                     com.spectrayan.spector.commons.error.ErrorCode.CONFIG_VALUE_INVALID,
-                    String.format(
-                            "Configuration property '%s' has been removed; it is still set (to '%s'). Use '%s' "
-                                    + "instead — it is now the single source of embedding dimensionality, and the "
-                                    + "engine derives its own width from it. Set '%s: %s' and delete '%s'. If you "
-                                    + "configure dimensionality through the SPECTOR_EMBEDDING_DIMS environment "
-                                    + "variable, no change is needed: it now maps only to the replacement.",
-                            removed, value, replacement, replacement, value, removed),
+                    removedPropertyMessage(removed, source.getString(removed, ""), entry.getValue()),
                     true);
         }
+    }
+
+    /**
+     * Builds the refusal message for a removed property.
+     *
+     * <p>Names the key, the value found, why it went, and what to do — a refusal that omits any of those just
+     * moves the confusion somewhere else.</p>
+     */
+    public static String removedPropertyMessage(String removed, String value,
+            SpectorPropertyConstants.RemovedProperty removal) {
+        StringBuilder message = new StringBuilder(String.format(
+                "Configuration property '%s' has been removed; it is still set (to '%s'). Reason: %s.",
+                removed, value, removal.reason()));
+        if (removal.replacement() != null) {
+            message.append(String.format(
+                    " Use '%s' instead: set '%s: %s' and delete '%s'.",
+                    removal.replacement(), removal.replacement(), value, removed));
+        } else {
+            message.append(String.format(
+                    " There is no replacement — delete '%s'. Nothing is lost, because the property had no"
+                            + " effect.", removed));
+        }
+        return message.toString();
     }
 
     // ─────────────── Namespace Properties ───────────────

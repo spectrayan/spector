@@ -110,7 +110,6 @@ public class EmbeddingProperties implements Serializable {
 
     private String modelPath = DEFAULT_PROVIDER_EMBEDDING_MODEL_PATH;
     private String executionProvider = DEFAULT_PROVIDER_EMBEDDING_EXECUTION_PROVIDER;
-    private int intraOpThreads = DEFAULT_PROVIDER_EMBEDDING_INTRA_OP_THREADS;
     private String vocabPath = DEFAULT_PROVIDER_EMBEDDING_VOCAB_PATH;
 
     public String getModelPath() { return modelPath; }
@@ -121,11 +120,6 @@ public class EmbeddingProperties implements Serializable {
     public String getExecutionProvider() { return executionProvider; }
     public void setExecutionProvider(String executionProvider) {
         if (executionProvider != null && !executionProvider.isBlank()) this.executionProvider = executionProvider;
-    }
-
-    public int getIntraOpThreads() { return intraOpThreads; }
-    public void setIntraOpThreads(int intraOpThreads) {
-        if (intraOpThreads >= 0) this.intraOpThreads = intraOpThreads;
     }
 
     public String getVocabPath() { return vocabPath; }
@@ -176,7 +170,6 @@ public class EmbeddingProperties implements Serializable {
     public Map<String, String> properties() { return getProperties(); }
     public String modelPath() { return getModelPath(); }
     public String executionProvider() { return getExecutionProvider(); }
-    public int intraOpThreads() { return getIntraOpThreads(); }
     public String vocabPath() { return getVocabPath(); }
 
     /**
@@ -197,7 +190,6 @@ public class EmbeddingProperties implements Serializable {
         cp.setSequential(this.sequential);
         cp.setModelPath(this.modelPath);
         cp.setExecutionProvider(this.executionProvider);
-        cp.setIntraOpThreads(this.intraOpThreads);
         cp.setVocabPath(this.vocabPath);
         if (this.cache != null) {
             CacheProperties cacheCp = new CacheProperties();
