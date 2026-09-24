@@ -517,8 +517,12 @@ public class NamespaceResolver implements AutoCloseable {
                     } else {
                         globalCacheManager = com.spectrayan.spector.commons.cache.TtlConcurrentMapCacheManager.defaultManager();
                     }
+                    // Scope cache keys to the embedder's model identity. This hoisted provider is shared
+                    // by every namespace in the process today, so an unscoped key would become a
+                    // cross-model collision the moment namespaces can differ in model (see spec group 3).
                     this.hoistedEmbeddingProvider = com.spectrayan.spector.provider.embedding.CachingEmbeddingProvider.wrap(
-                            rawEmbedder, globalCacheManager);
+                            rawEmbedder, globalCacheManager,
+                            com.spectrayan.spector.provider.ProviderFingerprint.ofProvider(rawEmbedder));
 
                     boolean sequential = spectorProps != null
                             && spectorProps.provider() != null

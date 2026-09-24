@@ -18,6 +18,7 @@ package com.spectrayan.spector.provider.embedding;
 import com.spectrayan.spector.commons.cache.NoOpSpectorCache;
 import com.spectrayan.spector.commons.cache.SpectorCache;
 import com.spectrayan.spector.commons.cache.SpectorCacheManager;
+import com.spectrayan.spector.provider.ProviderFingerprint;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -41,10 +42,20 @@ import java.util.Optional;
  *
  * <h3>Design</h3>
  * <ul>
- *   <li><b>Key</b> — SHA-256 hash of the input text (keeps memory low and safe across all cache providers)</li>
+ *   <li><b>Key</b> — SHA-256 hash of the input text, prefixed with the {@linkplain ProviderFingerprint
+ *       fingerprint} of the provider that produced the vector (keeps memory low and safe across all
+ *       cache providers)</li>
  *   <li><b>Cache Backend</b> — delegates to {@link SpectorCache}, seamlessly supporting standalone in-memory,
  *       Caffeine, and distributed Redis caches</li>
  * </ul>
+ *
+ * <h3>Why the key is model-scoped</h3>
+ * <p>One cache is shared process-wide ({@value #DEFAULT_CACHE_NAME}). Hashing the text alone was safe
+ * only for as long as exactly one embedding provider existed per process. Once two namespaces can be
+ * configured with different models, a text-only key makes the first model's vector answer the second
+ * model's request — a silent, undetectable wrong answer rather than an error. The fingerprint prefix
+ * makes collisions across models impossible while preserving sharing between namespaces that really
+ * do use the same model.</p>
  *
  * <p>Cached vectors are defensively copied on store and on every hit, so callers
  * can never mutate cached state.</p>
@@ -53,18 +64,45 @@ public final class CachingEmbeddingProvider implements EmbeddingProvider {
 
     public static final String DEFAULT_CACHE_NAME = "spector-embeddings";
 
+    /**
+     * Key prefix used when no fingerprint is supplied.
+     *
+     * <p>Deliberately not the empty string: an unscoped entry must be distinguishable from a
+     * fingerprinted one, so that a provider constructed without a fingerprint can never read a
+     * fingerprinted entry or vice versa.</p>
+     */
+    static final String UNSCOPED = "unscoped";
+
+    private static final char KEY_SEPARATOR = ':';
+
     private final EmbeddingProvider delegate;
     private final SpectorCache cache;
+    private final String keyScope;
 
     /**
-     * Constructs a caching decorator with a specific {@link SpectorCache}.
+     * Constructs a caching decorator with a specific {@link SpectorCache}, scoping cache keys to a
+     * provider fingerprint.
+     *
+     * @param delegate    the underlying provider
+     * @param cache       the cache SPI instance
+     * @param fingerprint fingerprint of the configuration that produced {@code delegate}; may be
+     *                    {@code null}, in which case keys are scoped as {@link #UNSCOPED}
+     */
+    public CachingEmbeddingProvider(EmbeddingProvider delegate, SpectorCache cache,
+                                    ProviderFingerprint fingerprint) {
+        this.delegate = Objects.requireNonNull(delegate, "delegate must not be null");
+        this.cache = Objects.requireNonNull(cache, "cache must not be null");
+        this.keyScope = fingerprint == null ? UNSCOPED : fingerprint.digest();
+    }
+
+    /**
+     * Constructs a caching decorator with a specific {@link SpectorCache} and no fingerprint.
      *
      * @param delegate the underlying provider
      * @param cache    the cache SPI instance
      */
     public CachingEmbeddingProvider(EmbeddingProvider delegate, SpectorCache cache) {
-        this.delegate = Objects.requireNonNull(delegate, "delegate must not be null");
-        this.cache = Objects.requireNonNull(cache, "cache must not be null");
+        this(delegate, cache, null);
     }
 
     /**
@@ -75,6 +113,20 @@ public final class CachingEmbeddingProvider implements EmbeddingProvider {
      */
     public CachingEmbeddingProvider(EmbeddingProvider delegate, SpectorCacheManager cacheManager) {
         this(delegate, Objects.requireNonNull(cacheManager, "cacheManager must not be null").getCache(DEFAULT_CACHE_NAME));
+    }
+
+    /**
+     * Constructs a caching decorator obtaining the default embedding cache from a
+     * {@link SpectorCacheManager}, scoping cache keys to a provider fingerprint.
+     *
+     * @param delegate     the underlying provider
+     * @param cacheManager the cache manager instance
+     * @param fingerprint  fingerprint of the configuration that produced {@code delegate}
+     */
+    public CachingEmbeddingProvider(EmbeddingProvider delegate, SpectorCacheManager cacheManager,
+                                    ProviderFingerprint fingerprint) {
+        this(delegate, Objects.requireNonNull(cacheManager, "cacheManager must not be null").getCache(DEFAULT_CACHE_NAME),
+                fingerprint);
     }
 
     /**
@@ -97,11 +149,25 @@ public final class CachingEmbeddingProvider implements EmbeddingProvider {
      * @return the caching decorator, or {@code provider} itself if already wrapped or cache is null/noop
      */
     public static EmbeddingProvider wrap(EmbeddingProvider provider, SpectorCache cache) {
+        return wrap(provider, cache, null);
+    }
+
+    /**
+     * Wraps a provider with caching using an explicit {@link SpectorCache}, scoping cache keys to a
+     * provider fingerprint.
+     *
+     * @param provider    the provider to wrap
+     * @param cache       the cache SPI instance
+     * @param fingerprint fingerprint of the configuration that produced {@code provider}
+     * @return the caching decorator, or {@code provider} itself if already wrapped or cache is null/noop
+     */
+    public static EmbeddingProvider wrap(EmbeddingProvider provider, SpectorCache cache,
+                                         ProviderFingerprint fingerprint) {
         Objects.requireNonNull(provider, "provider must not be null");
         if (cache == null || cache instanceof NoOpSpectorCache || provider instanceof CachingEmbeddingProvider) {
             return provider;
         }
-        return new CachingEmbeddingProvider(provider, cache);
+        return new CachingEmbeddingProvider(provider, cache, fingerprint);
     }
 
     /**
@@ -112,10 +178,24 @@ public final class CachingEmbeddingProvider implements EmbeddingProvider {
      * @return the caching decorator, or {@code provider} itself if already wrapped or manager is null
      */
     public static EmbeddingProvider wrap(EmbeddingProvider provider, SpectorCacheManager cacheManager) {
+        return wrap(provider, cacheManager, (ProviderFingerprint) null);
+    }
+
+    /**
+     * Wraps a provider with caching using the default embedding cache from a {@link SpectorCacheManager},
+     * scoping cache keys to a provider fingerprint.
+     *
+     * @param provider     the provider to wrap
+     * @param cacheManager the cache manager instance
+     * @param fingerprint  fingerprint of the configuration that produced {@code provider}
+     * @return the caching decorator, or {@code provider} itself if already wrapped or manager is null
+     */
+    public static EmbeddingProvider wrap(EmbeddingProvider provider, SpectorCacheManager cacheManager,
+                                         ProviderFingerprint fingerprint) {
         if (cacheManager == null || provider instanceof CachingEmbeddingProvider) {
             return provider;
         }
-        return wrap(provider, cacheManager.getCache(DEFAULT_CACHE_NAME));
+        return wrap(provider, cacheManager.getCache(DEFAULT_CACHE_NAME), fingerprint);
     }
 
     /**
@@ -230,10 +310,31 @@ public final class CachingEmbeddingProvider implements EmbeddingProvider {
         return cache;
     }
 
-    private static String cacheKey(String text) {
+    /**
+     * Returns the fingerprint digest this instance prefixes its cache keys with, or
+     * {@value #UNSCOPED} when constructed without a fingerprint.
+     *
+     * @return the key scope token
+     */
+    public String keyScope() {
+        return keyScope;
+    }
+
+    /**
+     * Computes the cache key for a text under this provider's fingerprint.
+     *
+     * <p>The scope is a prefix rather than part of the hashed input so that entries remain
+     * attributable to a provider when inspecting the cache, which matters when diagnosing a
+     * suspected cross-model hit.</p>
+     */
+    private String cacheKey(String text) {
+        return keyScope + KEY_SEPARATOR + sha256Hex(text);
+    }
+
+    private static String sha256Hex(String input) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(text.getBytes(StandardCharsets.UTF_8)));
+            return HexFormat.of().formatHex(digest.digest(input.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 not available", e);
         }

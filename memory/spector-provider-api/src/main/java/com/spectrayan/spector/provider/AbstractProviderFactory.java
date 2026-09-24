@@ -54,7 +54,10 @@ public abstract class AbstractProviderFactory implements ProviderFactory {
         return createRawEmbeddingProvider(config)
                 .map(raw -> {
                     if (cacheManager != null && config.embeddingCacheConfig().enabled()) {
-                        return CachingEmbeddingProvider.wrap(raw, cacheManager);
+                        // Scope cache keys to the configuration that produced this provider. The cache is
+                        // shared process-wide, so an unscoped key would let one model answer another
+                        // model's request once namespaces can differ in model.
+                        return CachingEmbeddingProvider.wrap(raw, cacheManager, ProviderFingerprint.of(config));
                     }
                     return raw;
                 });
