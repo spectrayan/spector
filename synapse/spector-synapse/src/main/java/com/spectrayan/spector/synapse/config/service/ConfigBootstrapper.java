@@ -63,6 +63,12 @@ public class ConfigBootstrapper implements CommandLineRunner {
 
         MemoryRegistry memoryRegistry = memoryRegistryProvider.getIfAvailable();
         if (memoryRegistry != null && memoryRegistry.namespaceResolver() != null) {
+            // Per-namespace embedding resolution happens at build time, before the open listener below
+            // fires. The listener can only overlay live categories onto an already-dimensioned memory,
+            // which is too late to choose an embedding model.
+            memoryRegistry.namespaceResolver().setEmbeddingConfigResolver(
+                    (tenantId, namespaceId) -> resolveEmbeddingConfig(tenantId, namespaceId));
+
             memoryRegistry.namespaceResolver().addOpenListener((tenantId, namespaceId, memory) -> {
                 log.debug("[ConfigBootstrapper] Overlaying configurations for opened namespace ns={}, tenant={}",
                         namespaceId, tenantId);
@@ -78,5 +84,73 @@ public class ConfigBootstrapper implements CommandLineRunner {
             });
             log.info("[ConfigBootstrapper] Registered NamespaceOpenListener with MemoryRegistry");
         }
+    }
+
+    /**
+     * Resolves the effective embedding provider configuration for one namespace.
+     *
+     * <p>Returns {@code null} when the namespace has no scoped override, so the resolver falls back to
+     * the process default rather than rebuilding an identical provider.</p>
+     *
+     * <p>{@code namespaceId} is passed in {@code ConfigResolutionService}'s user slot, matching what the
+     * open listener below already does. That conflates user and namespace scope in the
+     * {@code user:<tenant>:<id>} key; the conflation is pre-existing and deliberately left alone here.</p>
+     */
+    private com.spectrayan.spector.provider.ProviderConfig resolveEmbeddingConfig(String tenantId, String namespaceId) {
+        Map<String, Object> values = resolutionService.resolve(tenantId, namespaceId,
+                ConfigCategory.EMBEDDING_PROVIDER);
+        if (values == null || values.isEmpty()) {
+            return null;
+        }
+        boolean scoped = resolutionService.hasScopedOverride(tenantId, namespaceId,
+                ConfigCategory.EMBEDDING_PROVIDER);
+        if (!scoped) {
+            // No tenant or namespace override: the resolved map is just the system defaults, which is what
+            // the process-default embedder was already built from.
+            return null;
+        }
+        String provider = stringValue(values, "provider", null);
+        if (provider == null || provider.isBlank()) {
+            return null;
+        }
+        int dimensions = intValue(values, "dimensions", 0);
+        var properties = new java.util.LinkedHashMap<String, String>();
+        values.forEach((k, v) -> {
+            if (v != null && !"provider".equals(k) && !"model".equals(k)
+                    && !"base-url".equals(k) && !"dimensions".equals(k)) {
+                properties.put(k, v.toString());
+            }
+        });
+        return new com.spectrayan.spector.provider.ProviderConfig(
+                provider,
+                provider,
+                stringValue(values, "model", ""),
+                // Embedding credentials are not part of scoped config — CredentialCategory has no EMBEDDING
+                // value and nothing joins the credentials store to provider construction yet. Left empty
+                // rather than reading a key from the config table, which would put a secret in cleartext.
+                "",
+                stringValue(values, "base-url", ""),
+                Math.max(dimensions, 0),
+                properties);
+    }
+
+    private static String stringValue(Map<String, Object> values, String key, String fallback) {
+        Object value = values.get(key);
+        return value != null ? value.toString() : fallback;
+    }
+
+    private static int intValue(Map<String, Object> values, String key, int fallback) {
+        Object value = values.get(key);
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        if (value != null) {
+            try {
+                return Integer.parseInt(value.toString().trim());
+            } catch (NumberFormatException ignored) {
+                return fallback;
+            }
+        }
+        return fallback;
     }
 }

@@ -131,7 +131,7 @@ public class ConfigApplicator {
 
         // 4. Dispatch external subsystems
         switch (category) {
-            case LLM_PROVIDER -> applyLlmProvider(values);
+            case LLM_PROVIDER -> applyLlmProvider(tenantId, userId, values);
             case SALIENCE -> applySalience(values);
             case SOUL -> applySoul(userId, values);
             default -> {}
@@ -161,6 +161,14 @@ public class ConfigApplicator {
             case RECALL, RAG -> applyRecall(memory, values);
             case HNSW -> applyHnsw(memory, values);
             case INGESTION -> applyIngestion(memory, values);
+            // Provider categories are resolved when the namespace is *built*, not overlaid onto a built
+            // memory: the vector store is already dimensioned by the time this listener fires, so an
+            // embedding change applied here could not take effect. Say so rather than falling into a
+            // debug-level shrug that reads like the category was handled.
+            case EMBEDDING_PROVIDER, LLM_PROVIDER -> log.debug(
+                    "[ConfigApplicator] Category {} is resolved at namespace build time by NamespaceResolver, "
+                            + "not applied to a built SpectorMemory. A change takes effect on the next open.",
+                    category.key());
             default -> log.debug("[ConfigApplicator] Category {} does not target SpectorMemory directly", category.key());
         }
     }
@@ -249,9 +257,33 @@ public class ConfigApplicator {
                 chunkSize, overlap, parentChild);
     }
 
-    private void applyLlmProvider(Map<String, Object> values) {
+    /**
+     * Applies an LLM provider configuration.
+     *
+     * <p><strong>Only system scope touches the process-wide registry.</strong>
+     * {@code registerGeneration} / {@code activateGeneration} mutate a single {@code volatile} active-name
+     * field in {@code DefaultProviderRegistry}, so calling them for a tenant-scoped override changed the
+     * LLM for every namespace in the process — including other tenants'. One tenant configuring its own
+     * model silently repointed everybody's.</p>
+     *
+     * <p>The global registry remains correct for a system-wide default, which is what embedded and
+     * single-tenant deployments rely on; it is simply the wrong mechanism for a per-tenant override. A
+     * scoped override is therefore recorded for resolution at namespace build time, and takes effect on
+     * the namespace's next open rather than by mutating shared state now.</p>
+     */
+    private void applyLlmProvider(String tenantId, String userId, Map<String, Object> values) {
         String providerName = stringVal(values, "provider", null);
         if (providerName == null) return;
+
+        boolean systemScope = (tenantId == null || tenantId.isBlank() || "default".equals(tenantId))
+                && (userId == null || userId.isBlank() || "default".equals(userId));
+        if (!systemScope) {
+            log.info("[ConfigApplicator] LLM provider '{}' is scoped to tenant='{}' user='{}'; it will be "
+                    + "resolved when that scope's namespaces are next opened. Not activating it in the "
+                    + "process-wide ProviderRegistry, which would change the LLM for every namespace in "
+                    + "this process including other tenants'.", providerName, tenantId, userId);
+            return;
+        }
 
         if (providerRegistry.generationProviderNames().contains(providerName)) {
             providerRegistry.activateGeneration(providerName);

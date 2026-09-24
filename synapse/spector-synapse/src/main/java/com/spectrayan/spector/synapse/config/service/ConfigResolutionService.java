@@ -92,6 +92,29 @@ public class ConfigResolutionService {
     }
 
     /**
+     * Reports whether a tenant- or user-scoped override exists for a category.
+     *
+     * <p>Distinguishes "resolved to the system defaults" from "resolved to something an operator chose",
+     * which {@link #resolve} cannot: it always returns a fully populated map. Callers that build an
+     * expensive object from the result need that distinction so they can reuse a process-wide default
+     * instead of constructing a second, identical one.</p>
+     *
+     * @param tenantId the tenant, may be {@code null}
+     * @param userId   the user or namespace scope value, may be {@code null}
+     * @param category the configuration category
+     * @return {@code true} if a tenant or user scope row exists for this category
+     */
+    public boolean hasScopedOverride(String tenantId, String userId, ConfigCategory category) {
+        if (tenantId != null && !tenantId.isBlank() && policy.isTenantOverridable(category)
+                && repository.get("tenant:" + tenantId, category).isPresent()) {
+            return true;
+        }
+        return userId != null && !userId.isBlank() && tenantId != null
+                && policy.isUserOverridable(category)
+                && repository.get("user:" + tenantId + ":" + userId, category).isPresent();
+    }
+
+    /**
      * Resolves with source annotations for UI override badges.
      */
     public Map<String, AnnotatedValue> resolveAnnotated(String tenantId, String userId,

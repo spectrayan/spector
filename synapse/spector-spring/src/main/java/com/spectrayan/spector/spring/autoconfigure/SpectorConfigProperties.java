@@ -123,6 +123,21 @@ public class SpectorConfigProperties {
     /**
      * Converts this Spring Boot configuration properties bean into a canonical
      * {@link SpectorProperties} aggregate root snapshot.
+     *
+     * <p><strong>The returned aggregate is an independent deep copy.</strong> Callers may mutate it
+     * freely; nothing they do reaches this bean or any other caller's snapshot.</p>
+     *
+     * <p>This used to hand out the bean's own child objects by reference. Every caller therefore shared
+     * one mutable graph, and both existing callers mutate what they receive — {@code NamespaceResolver}
+     * adjusts the entity-extraction mode per namespace, and {@code SpectorAutoConfiguration} corrects
+     * dimensionality from the live embedder. With aliasing, the first namespace opened in a process
+     * decided the entity-extraction mode for every namespace opened afterwards, because its decision
+     * was written into the shared singleton rather than into its own snapshot. That is invisible until a
+     * tenant with no LLM configured silently inherits LLM extraction from a tenant that has one.</p>
+     *
+     * <p>Cost is one deep copy per namespace build, on the cold path only.</p>
+     *
+     * @return a fresh, independent snapshot
      */
     public SpectorProperties toSpectorProperties() {
         return SpectorProperties.builder()
@@ -138,7 +153,8 @@ public class SpectorConfigProperties {
                 .telemetry(telemetry)
                 .multimodal(multimodal)
                 .namespace(namespace)
-                .build();
+                .build()
+                .copy();
     }
 
     // ─────────────── Metrics ───────────────
