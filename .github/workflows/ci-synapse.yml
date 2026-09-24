@@ -28,8 +28,18 @@ env:
 
 jobs:
   build-synapse:
-    runs-on: ubuntu-latest
-    name: Build & Test Synapse
+    # Both architectures. The synapse reactor pulls in the off-heap kernel and the SIMD scoring kernels, so a
+    # green x86_64 run does not establish that it works on aarch64 -- see #992 for the defect that proved it.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            arch: x86_64
+          - runner: ubuntu-24.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.runner }}
+    name: Build & Test Synapse (${{ matrix.arch }})
     timeout-minutes: 30
 
     steps:
@@ -59,7 +69,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: synapse-test-results
+          name: synapse-test-results-${{ matrix.arch }}
           path: 'synapse/spector-synapse/target/surefire-reports/*.xml'
           retention-days: 7
 

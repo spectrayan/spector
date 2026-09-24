@@ -120,6 +120,24 @@ If you are building applications that interact with Spector over HTTP/SSE:
 | **RAM** | 1 GB | 4 GB+ |
 | **Architecture** | x86_64 (AVX2/AVX-512) or aarch64 (NEON) | SIMD hardware support |
 
+### Verified architectures
+
+Both listed architectures are built and tested on every commit:
+
+| Architecture | CI runner | Covers |
+|:---|:---|:---|
+| x86_64 | `ubuntu-latest` | Full reactor, plus reproducibility, dependency pinning, coverage and provenance checks |
+| aarch64 | `ubuntu-24.04-arm` | Full reactor and test suite |
+
+This matters more than a support matrix usually does. Spector's hot paths use the Java Vector API and
+off-heap `MemorySegment` layouts, where vector lane counts, alignment and byte order differ between
+architectures. Until [#992](https://github.com/spectrayan/spector/issues/992), CI ran x86_64 only — and the
+INT8 quantisation kernels were entirely unusable on aarch64 while this page already claimed aarch64 support.
+Both architectures are now tested, so the claim on the row above is checked rather than asserted.
+
+Other aarch64 platforms — Apple Silicon and AWS Graviton in particular — run the same NEON path as the CI
+runner, but are not themselves part of the matrix.
+
 ### Build Instructions
 
 ```bash
