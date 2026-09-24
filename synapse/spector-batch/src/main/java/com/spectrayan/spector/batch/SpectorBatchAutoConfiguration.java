@@ -32,7 +32,9 @@ import org.springframework.context.annotation.Import;
         com.spectrayan.spector.batch.reflect.SessionWorkItemReader.class,
         com.spectrayan.spector.batch.reflect.SessionConsolidationProcessor.class,
         com.spectrayan.spector.batch.reflect.SessionSweepResultWriter.class,
-        com.spectrayan.spector.batch.reflect.SpringBatchReflectSweepExecutor.class
+        com.spectrayan.spector.batch.reflect.SpringBatchReflectSweepExecutor.class,
+        com.spectrayan.spector.batch.exporting.SpectorMemoryExporter.class,
+        com.spectrayan.spector.batch.importing.SpectorMemoryImporter.class
 })
 public class SpectorBatchAutoConfiguration {
 

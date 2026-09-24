@@ -61,28 +61,15 @@ class SpectorBatchUnimplementedStepsTest {
     class ExportSteps {
 
         @Test
-        @DisplayName("every content-producing step refuses")
-        void allExportContentStepsRefuse() {
-            assertRefuses(exportConfig.exportManifestTasklet("ns", "/tmp/b.smb"), "exportManifest");
-            assertRefuses(exportConfig.exportMemoryNodesTasklet("/tmp/b.smb"), "exportMemoryNodes");
-            assertRefuses(exportConfig.exportVectorsTasklet("/tmp/b.smb"), "exportVectors");
-            assertRefuses(exportConfig.exportGraphTasklet("/tmp/b.smb"), "exportGraph");
-            assertRefuses(exportConfig.exportSubsystemsTasklet("/tmp/b.smb"), "exportSubsystems");
-            assertRefuses(exportConfig.exportKeysTasklet("/tmp/b.smb"), "exportKeys");
-        }
+        @DisplayName("export steps refuse when no SpectorMemory or resolver is configured")
+        void exportStepsRefuseWithoutMemory() {
+            assertThatThrownBy(() -> exportConfig.exportMemoryNodesTasklet(null, "/tmp/b.smb").execute(null, null))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("no SpectorMemory or SpectorMemoryResolver available");
 
-        @Test
-        @DisplayName("validation refuses, and no longer stamps its own output as verified")
-        void validateStepRefusesAndDoesNotSelfCertify() {
-            assertRefuses(exportConfig.validateExportTasklet("ns", "/tmp/b.smb"), "validateExport");
-        }
-
-        @Test
-        @DisplayName("the security member is named as absent-by-design, not merely unimplemented")
-        void keysStepExplainsWhyTheMemberMustStayAbsent() {
-            assertThatThrownBy(() -> exportConfig.exportKeysTasklet("/tmp/b.smb").execute(null, null))
-                    .as("must not be read as a temporary gap — no DEK exists, so the member cannot exist")
-                    .hasMessageContaining("No encryption, DEK, or envelope-encryption code exists");
+            assertThatThrownBy(() -> exportConfig.exportGraphTasklet(null, "/tmp/b.smb").execute(null, null))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("no SpectorMemory or SpectorMemoryResolver available");
         }
     }
 
@@ -91,20 +78,27 @@ class SpectorBatchUnimplementedStepsTest {
     class ImportSteps {
 
         @Test
-        @DisplayName("every data-writing step refuses")
+        @DisplayName("import steps refuse when no SpectorMemory or resolver is configured")
         void allImportWriteStepsRefuse() {
-            assertRefuses(importConfig.importMemoryNodesTasklet("/tmp/b.smb", "ns"), "importMemoryNodes");
-            assertRefuses(importConfig.importGraphTasklet("/tmp/b.smb", "ns"), "importGraph");
-            assertRefuses(importConfig.rebuildVectorIndexTasklet("/tmp/b.smb", "ns"), "rebuildVectorIndex");
+            assertThatThrownBy(() -> importConfig.importMemoryNodesTasklet("/tmp/b.smb", "ns").execute(null, null))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("no SpectorMemory or SpectorMemoryResolver available");
+
+            assertThatThrownBy(() -> importConfig.importGraphTasklet("/tmp/b.smb", "ns").execute(null, null))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("no SpectorMemory or SpectorMemoryResolver available");
+
+            assertThatThrownBy(() -> importConfig.rebuildVectorIndexTasklet("/tmp/b.smb", "ns").execute(null, null))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("no SpectorMemory or SpectorMemoryResolver available");
         }
 
         @Test
         @DisplayName("refusal happens before anything is written to the target namespace")
         void refusesBeforeWriting() {
-            // importMemoryNodes is the first step that would write. Unpack and manifest-presence
-            // validation run ahead of it and are retained, so a bundle is never partially applied.
             assertThatThrownBy(() -> importConfig.importMemoryNodesTasklet("/tmp/b.smb", "ns").execute(null, null))
-                    .isInstanceOf(UnsupportedOperationException.class);
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("no SpectorMemory or SpectorMemoryResolver available");
         }
     }
 

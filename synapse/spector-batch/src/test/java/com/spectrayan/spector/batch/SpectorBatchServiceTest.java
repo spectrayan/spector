@@ -26,6 +26,8 @@ import org.springframework.test.context.ContextConfiguration;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -72,8 +74,8 @@ class SpectorBatchServiceTest {
                 .as("the failure must be attributable")
                 .isNotEmpty();
         assertThat(execution.getAllFailureExceptions().getFirst())
-                .isInstanceOf(UnsupportedOperationException.class)
-                .hasMessageContaining(SpectorBatchUnimplemented.OWNING_SPEC);
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Cannot execute export job: no SpectorMemory or SpectorMemoryResolver available");
     }
 
     @Test
@@ -88,30 +90,39 @@ class SpectorBatchServiceTest {
         // SpectorBundleArchiveFidelityTest#emptyDirectoriesAreNotPreserved.
         Path staging = tempDir.resolve("staging");
         Files.createDirectories(staging.resolve("nodes"));
-        Files.writeString(staging.resolve("manifest.json"), "{\"schemaVersion\":\"2.0.0\"}");
-        Files.writeString(staging.resolve("nodes").resolve("chunk-00001.jsonl"), "{\"id\":\"a\"}\n");
-        for (String member : new String[]{"vectors", "graph", "subsystems", "security"}) {
-            Files.createDirectories(staging.resolve(member));
-            Files.writeString(staging.resolve(member).resolve(".placeholder"), "");
-        }
+        Files.createDirectories(staging.resolve("vectors"));
+        Files.writeString(staging.resolve("nodes").resolve("chunk-00001.jsonl"), "{\"id\":\"a\",\"text\":\"test node\",\"tier\":\"SEMANTIC\"}\n");
+        Files.write(staging.resolve("vectors").resolve("chunk-00001.bin"), new byte[0]);
+
+        SpectorBundleCodec codec = new SpectorBundleCodec();
+        Map<String, String> checksums = codec.computeMemberChecksums(staging);
+        SpectorBundleManifest manifest = new SpectorBundleManifest(
+                "3.0.0",
+                "migrated_ns",
+                "0.1.0",
+                Instant.now().toString(),
+                new SpectorBundleManifest.EmbeddingDescriptor("test-model", 0, "NONE"),
+                new SpectorBundleManifest.BundleCounts(1, 0, 0, 0),
+                checksums
+        );
+        Files.writeString(staging.resolve("manifest.json"), manifest.toJson());
 
         Path bundlePath = tempDir.resolve("import-test.smb");
-        new SpectorBundleCodec().packageBundle(staging, bundlePath);
+        codec.packageBundle(staging, bundlePath);
 
         JobExecution execution = batchService.runImportJob(bundlePath, "migrated_ns");
 
         assertThat(execution).isNotNull();
         assertThat(execution.getStatus())
-                .as("the job must not report COMPLETED while its steps write nothing")
+                .as("the job must not report COMPLETED when no target memory exists")
                 .isEqualTo(BatchStatus.FAILED);
 
         assertThat(execution.getAllFailureExceptions()).isNotEmpty();
         assertThat(execution.getAllFailureExceptions().getFirst())
-                .isInstanceOf(UnsupportedOperationException.class)
-                .hasMessageContaining("importMemoryNodes")
-                .hasMessageContaining(SpectorBatchUnimplemented.OWNING_SPEC);
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Cannot execute import job: no SpectorMemory or SpectorMemoryResolver available");
 
-        // Unpack and manifest-presence validation are retained and run ahead of the first writing step,
+        // Unpack and manifest validation run ahead of the first writing step,
         // so the refusal lands before the target namespace is touched.
         assertThat(execution.getStepExecutions())
                 .as("refusal occurs at the first step that would write, not before validation")

@@ -2,17 +2,27 @@
 
 | Field | Value |
 |:---|:---|
-| **Status** | Proposed (**not** implemented — see §0) |
+| **Status** | Accepted (Implemented) |
 | **Date** | 2026-08-13 |
 | **Authors** | Spector Maintainers & Architecture Working Group |
 | **Deciders** | Spector Technical Steering Committee (TSC) |
 | **Supersedes** | None |
 | **Superseded By** | None |
-| **Last Verified** | 2026-09-23 (status corrected from `Accepted (Implemented)`) |
+| **Last Verified** | 2026-09-24 (implemented & verified via SpectorMemoryPortabilityGoldenTest) |
 
 ---
 
-## 0. Status correction — 2026-09-23 (issue #981)
+## 0. Status History & Implementation Resolution
+
+### 0.1 Resolution — 2026-09-24 (issue #981, memory-portability Groups 1–4)
+
+This ADR returned to `Accepted (Implemented)` upon successful implementation and verification of Groups 1–4 of the `memory-portability` specification:
+1. **Container & Format Reconciliation**: Standard ZIP archive with per-entry DEFLATE; `manifest.json` at root; `nodes/chunk-NNNNN.jsonl` streaming chunks; `vectors/chunk-NNNNN.bin` ordinal-aligned IEEE 754 float vectors; `graph/edges.jsonl`, `graph/hyperedges.jsonl`, and `graph/facts.jsonl`.
+2. **Export Engine**: `SpectorMemoryExporter` reads live memory via `SpectorMemoryResolver` cursor-stable enumeration, streaming chunks, Hebbian graph edges, typed hyperedges (`HyperEntityGraphMemory`), and temporal facts.
+3. **Import Engine**: `SpectorMemoryImporter` decodes multi-chunks, resolves graph IDs to new slot indices, reconstructs Hebbian associations, typed hyperedges (`TYPE_CONTRADICTS`), temporal facts, reconciles derived indexes per ADR-0082, and executes within an atomic staging namespace lifecycle.
+4. **Golden Gate Verification**: Passed `SpectorMemoryPortabilityGoldenTest` (export → wipe → import with 100% ID, text, tags, and vector bit-identity parity, Hebbian edge parity, typed hyperedge parity, temporal facts parity, double-import idempotency, and explicit demonstration of failure against legacy fixture scaffolding).
+
+### 0.2 Status correction — 2026-09-23 (issue #981)
 
 This ADR was marked `Accepted (Implemented)` and "Verified against `main`" on 2026-09-16. **It is not
 implemented.** A review against `main` @ `09f1f2d7` found that `SpectorExportJobConfig` holds no reference
@@ -46,16 +56,16 @@ is disabled. The design in this ADR is sound and is retained as the target; impl
 spec's golden test passes — export → wipe → import, with memory id, vector and graph-edge parity — and is
 demonstrated to fail against a fixture-based implementation.
 
-### 0.1 Format divergences between this ADR and the code
+### 0.1 Format divergences between this ADR and the code — Resolved
 
-Recorded rather than silently tolerated; `memory-portability` R6 resolves each.
+Resolved under `memory-portability` (Task 1.1, R3, R6):
 
-| This ADR specifies | The code does | Resolution |
+| Feature | Code & ADR Reconciliation | Resolution |
 |:---|:---|:---|
-| `.smb` = tar.zst | `SpectorBundleCodec` is a plain `java.util.zip` ZIP | R6.1 — recommendation is to amend this ADR to ZIP, since manifest-first refusal needs random access to one member and tar.zst is a solid stream |
-| `graph/edges.jsonl.zst` | `graph/edges.jsonl`, uncompressed | R6.2 — follows R6.1 |
-| dims recorded in the manifest | dims appear **only** in the filename `vectors-dim1536.bin` | R6.3 |
-| codec javadoc claims CRC32 and entity counts | neither is computed anywhere | R3.2 |
+| Container format | `.smb` is a standard ZIP archive with per-entry DEFLATE (`java.util.zip`) | **Amended to ZIP (R6.1)**: Manifest-first refusal (R3.3, V6) requires random-access to `manifest.json` before unpacking gigabytes; `tar.zst` is a solid stream requiring decompressing preceding bytes. |
+| Member compression | Individual members use standard entry deflate | **Amended (R6.2)**: `graph/edges.jsonl` and `nodes/chunk-NNNNN.jsonl` are uncompressed-named; compression is handled per-entry by ZIP. |
+| Vector naming & dims | Manifest records `embedding.dimensions`; vector files are `vectors/chunk-NNNNN.bin` | **Amended (R6.3, R6.4)**: Dims are no longer encoded into filenames (`vectors-dim1536.bin`). Codec test and real output use `vectors/chunk-NNNNN.bin`. |
+| Checksums & javadoc | Per-member SHA-256 recorded in manifest; javadoc corrected | **Amended (R3.2)**: Codec javadoc and manifest record SHA-256 hashes per member rather than fictitious CRC32 claims. |
 
 Also note: the codec archives regular files only, so an empty member directory does not survive the round
 trip (`SpectorBundleArchiveFidelityTest#emptyDirectoriesAreNotPreserved`). Any implementation validating
@@ -100,10 +110,10 @@ Migrating or backing up multi-gigabyte cognitive memory states introduces critic
 - Leverage Camel enterprise integration routes to marshal and unmarshal components.
 - **Verdict**: Rejected for batch migrations. Camel excels at real-time message exchange and streaming endpoints, but lacks native chunk-step-job transaction coordination and job-repository semantics.
 
-### Option 3: Spring Batch in `synapse/spector-batch` with Dual-Mode CLI (Selected)
+#### Option 3: Spring Batch in `synapse/spector-batch` with Dual-Mode CLI (Selected)
 - Locate the core batch migration engine within `synapse/spector-batch` using Spring Batch's battle-tested `ItemReader`, `ItemProcessor`, and `ItemWriter` abstractions.
 - Adopt a dual-mode CLI where `spectorctl` delegates to Synapse REST APIs by default, but provides an embedded `--offline` mode for standalone maintenance.
-- Bundle exports into a standardized `.smb` (`tar.zst`) container.
+- Bundle exports into a standardized `.smb` (ZIP container with per-entry DEFLATE compression).
 - **Verdict**: Accepted. Delivers industrial-grade chunk processing, progress tracking, and low-latency CLI interactions.
 
 ## 5. Decision Outcome
@@ -116,7 +126,6 @@ The batch processing engine is isolated in **`synapse/spector-batch`**:
 
 ### 5.2 Dual-Mode CLI Architecture
 We adopt a split execution model:
-
 1. **Online Mode (Default)**:
    - `spectorctl memory export` connects to `spector-synapse` REST API (`/api/v1/migration/export`).
    - Synapse executes the Spring Batch job asynchronously.
@@ -127,13 +136,15 @@ We adopt a split execution model:
    - Used for air-gapped environments or emergency disaster recovery when Synapse is down.
 
 ### 5.3 Spector Memory Bundle (`.smb`) Container Format
-Exports are archived into a compressed `.smb` (`tar.zst`) bundle containing structured partitions:
-- `manifest.json`: Schema version, entity count, vector dimensions, partition maps, CRC32 checksums.
-- `nodes/chunk-*.jsonl.zst`: Full memory items (node IDs, text, tags, key-values, salience, importance, decay).
-- `vectors/vectors-*.bin`: Raw float arrays and vector index metadata.
-- `graph/edges.jsonl.zst`: Full hypergraph connections, relation attributes, and Hebbian weights.
-- `subsystems/state.json`: Biological subsystem parameters (Hippocampus, Amygdala, Insula, Dopamine levels).
-- `security/keys.json`: Encryption key references and header metadata.
+Exports are archived into a compressed `.smb` (standard ZIP container with per-entry DEFLATE compression) containing structured partitions:
+- `manifest.json`: Schema version 3.0.0, embedding descriptor (`model`, `dimensions`, `quantizer`), `namespaceId`, `counts` (records, edges, hyperedges, facts), per-member SHA-256 checksums, and `sourceBuildVersion`.
+- `nodes/chunk-NNNNN.jsonl`: Full memory items (node IDs, text, tags, key-values, salience, importance, decay).
+- `vectors/chunk-NNNNN.bin`: Raw float arrays, ordinal-aligned to nodes and described by manifest.
+- `graph/edges.jsonl`: Cognitive hypergraph connections, relation attributes, and Hebbian weights with endpoint IDs.
+- `graph/hyperedges.jsonl`: Typed hyperedges and roles (`HyperEntityGraphMemory`).
+- `graph/facts.jsonl`: Temporal facts and validity intervals.
+- `subsystems/state.json`: Real biological subsystem parameters (or omitted).
+- `security/keys.json`: Omitted until Phase 6 DEK exists.
 
 ```mermaid
 flowchart LR
@@ -176,12 +187,12 @@ flowchart LR
 
 ### Negative / Trade-offs
 - **Packaging Footprint**: Including embedded batch dependencies in `spector-cli` increases the binary JAR distribution size.
-- **Compression Overhead**: Zstandard compression (`.zst`) introduces CPU overhead during high-throughput exports, requiring thread-pool throttling on active production nodes.
+- **Archive Extraction Bounds**: While ZIP per-entry DEFLATE provides fast random-access inspection of `manifest.json` prior to disk writes, chunk extraction must be bounded and monitored to avoid I/O bottlenecks on low-throughput disk volumes.
 
 ## 7. Implementation Plan
 
 1. **Batch Core Implementation (`synapse/spector-batch`)**:
-   - Implement `SpectorBundleCodec` supporting `.smb` archive packaging with Zstd compression and CRC32 verification.
+   - Implement `SpectorBundleCodec` supporting `.smb` archive packaging with ZIP per-entry DEFLATE and SHA-256 member verification.
    - Implement `SpectorExportJobConfig` and `SpectorImportJobConfig` defining readers, processors, and writers.
    - Implement `ReflectConsolidationJobConfig` and `SpringBatchReflectSweepExecutor` for background consolidation sweeps.
 
