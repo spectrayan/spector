@@ -124,6 +124,8 @@ class CellHaPhase3ReplicaOpenRecallIntegrationTest {
 
     private static MemoryProperties createMemoryProperties() {
         var memProps = new MemoryProperties()
+                .setCapacity(100)
+                .setEntityGraphCapacity(100)
                 .setDimensions(DIMS)
                 .setWorkingCapacity(10)
                 .setEpisodicPartitionCapacity(100)

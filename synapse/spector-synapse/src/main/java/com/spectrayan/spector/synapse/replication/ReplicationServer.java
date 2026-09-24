@@ -208,8 +208,10 @@ public class ReplicationServer implements AutoCloseable {
                 ReplicationFrame response = processFrame(frame, socket);
                 response.writeTo(out);
             }
+        } catch (SocketException | EOFException e) {
+            log.debug("Replication connection ended: {}", e.getMessage());
         } catch (Exception e) {
-            log.debug("Connection ended: {}", e.getMessage());
+            log.warn("[ReplicationServer] Connection error: {}", e.getMessage(), e);
         }
     }
 
