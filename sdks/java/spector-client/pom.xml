@@ -17,6 +17,14 @@
 
     <properties>
         <spector.module.name>com.spectrayan.spector.client</spector.module.name>
+        <!--
+            The client SDK targets Java 21+, not the engine's 25.
+            This is deliberate: the client is a thin HTTP client, and requiring a preview-flag JDK would
+            shrink the integrable audience by accident rather than by decision. The rest of the reactor
+            compiles at 25 via the root POM; this override applies to spector-client only.
+            See claim-integrity-remediation R8.1 and issue #986.
+        -->
+        <maven.compiler.release>21</maven.compiler.release>
     </properties>
 
     <dependencies>
@@ -112,6 +120,22 @@
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+            <!--
+                Override the root POM's compiler configuration for this module only.
+                The root sets release=${java.version} (25), adds jdk.incubator.vector and enable-preview.
+                The client SDK targets Java 21: it is a thin HTTP client with no engine dependencies.
+                See claim-integrity-remediation R8.1 and issue #986.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>21</source>
+                    <target>21</target>
+                    <release>21</release>
+                    <compilerArgs combine.self="override"/>
+                </configuration>
             </plugin>
         </plugins>
     </build>

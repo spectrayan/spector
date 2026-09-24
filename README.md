@@ -286,6 +286,21 @@ Identity, cognitive state (importance/valence/arousal), synaptic tags, and full 
 
 **Prerequisites:** OpenJDK 25+, Maven 3.9+
 
+### Java Compatibility
+
+| Component | Minimum JDK | Notes |
+|:----------|:-----------:|:------|
+| **Client SDK** (`spector-client`) | **21** | Thin HTTP client; no engine dependencies |
+| **Server image** (`deploy/docker`) | **25** | Ships with `--enable-preview --add-modules=jdk.incubator.vector` |
+| **Embedded engine** (`spector-memory`) | **25** + Vector API | Requires `--add-modules jdk.incubator.vector --enable-native-access=ALL-UNNAMED --enable-preview` |
+
+> **Note:** There is no startup preflight for the Vector API module. `SimdCapability` reports SIMD
+> availability but does not probe or fail fast. `spector-kernel`'s `module-info.java` hard-requires
+> `jdk.incubator.vector`, and `SimdCapability` touches `FloatVector` in a static initializer — so a
+> missing module causes a `NoClassDefFoundError` at class load, not a graceful scalar fallback. The scalar
+> fallback at `AcceleratorRegistry` / `SmartSimilarityKernel` covers a missing *accelerator*, not a
+> missing *module*.
+
 ```bash
 git clone https://github.com/spectrayan/spector.git
 cd spector
