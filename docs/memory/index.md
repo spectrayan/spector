@@ -145,7 +145,7 @@ graph TB
         
         subgraph "Consolidation"
             RD[ReflectDaemon<br/>Reflect Consolidation]:::core
-            TCC[TombstoneCompactor<br/>Synaptic Pruning]:::core
+            TCC[VacuumCompactor<br/>Tombstone census only]:::core
         end
         
         CT --> NK

@@ -181,7 +181,15 @@ Flags an unresolved question, goal, or prospective task memory as completed.
 
 ### `POST /api/v1/memory/vacuum`
 
-Forces an immediate storage compaction and defragmentation pass on a specific memory tier, purging soft-deleted tombstones and consolidating off-heap pages.
+Surveys a memory tier and reports how many records are live versus tombstoned.
+
+!!! warning "Census only — nothing is reclaimed"
+    This endpoint does **not** compact, defragment, purge tombstones, or consolidate off-heap pages, despite
+    what earlier revisions of this page claimed. It walks the tier, counts tombstones, and returns
+    `reclaimedBytes: 0` with `compacted: false`. Until issue #983 it reported a byte figure computed as
+    `tombstoneCount × recordStride` — a multiplication, not a measurement.
+
+    Real compaction is specified in `spectrayan/.kiro/specs/memory-durability-contract` R2.
 
 - **Request Body**:
   ```json

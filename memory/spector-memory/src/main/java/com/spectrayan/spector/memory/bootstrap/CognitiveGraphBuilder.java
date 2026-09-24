@@ -104,22 +104,24 @@ public final class CognitiveGraphBuilder {
         Path resolvedPartitionDir = cortex.resolvedPartitionDir();
 
         //  3-Layer Cognitive Graph 
-        int graphCapacity = memProps.getHebbianGraphCapacity() > 0
-                ? memProps.getHebbianGraphCapacity() : memProps.getEpisodicPartitionCapacity();
-
-        int hebbianMaxDegree = hebbianProps.getMaxDegree() > 0 ? hebbianProps.getMaxDegree() : 16;
+        // Capacities come from GraphCapacityPlan so the object and the on-disk region (sized in
+        // CognitiveCortexBuilder) can never be derived from different numbers (#983).
+        GraphCapacityPlan capacityPlan = GraphCapacityPlan.from(memProps);
+        int graphCapacity = capacityPlan.nodeCapacity();
+        int hebbianMaxDegree = capacityPlan.maxDegree();
 
         HebbianGraphBase hebbianGraph;
         if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
-            int edgeCapacity = graphCapacity * hebbianMaxDegree;
             hebbianGraph = cortex.runtimeBundle().openHebbian(
-                    graphCapacity, edgeCapacity, hebbianMaxDegree, builder.edgeImportance());
+                    graphCapacity, capacityPlan.edgeCapacity(), hebbianMaxDegree, builder.edgeImportance());
         } else {
-            hebbianGraph = new HebbianGraphMemory(graphCapacity);
+            // Previously `new HebbianGraphMemory(graphCapacity)`, which silently discarded the configured
+            // max degree and fell back to the constructor default of 20 (#983).
+            hebbianGraph = new HebbianGraphMemory(
+                    graphCapacity, capacityPlan.edgeCapacity(), hebbianMaxDegree, builder.edgeImportance());
         }
 
-        int temporalCapacity = memProps.getTemporalChainCapacity() > 0
-                ? memProps.getTemporalChainCapacity() : graphCapacity;
+        int temporalCapacity = capacityPlan.temporalCapacity();
         TemporalChainMemory temporalChain;
         if (cortex.useBundleMode() && cortex.runtimeBundle() != null && cortex.runtimeBundle().hasRegion(RegionId.TEMPORAL_CHAIN)) {
             temporalChain = com.spectrayan.spector.kernel.store.TemporalChainMemory.fromRegionRef(cortex.runtimeBundle().regionRef(RegionId.TEMPORAL_CHAIN), temporalCapacity, cortex.runtimeBundle().bundlePath(), cortex.runtimeBundle().isNew());

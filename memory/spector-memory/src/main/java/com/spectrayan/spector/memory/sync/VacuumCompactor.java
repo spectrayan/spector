@@ -15,50 +15,58 @@
  */
 package com.spectrayan.spector.memory.sync;
 
-import java.util.HashMap;
-import java.util.Map;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.spectrayan.spector.kernel.store.AbstractEngramMemory;
 import com.spectrayan.spector.kernel.store.EngramRegion;
-import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
-import com.spectrayan.spector.kernel.layout.FixedEngramLayout;
-import com.spectrayan.spector.kernel.engram.EncodingHeader;
-import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.kernel.api.MemoryType;
 
 /**
- * Compacts a tier store by identifying tombstoned records and reclaiming space (R9.1).
+ * Surveys a tier store for tombstoned records.
+ *
+ * <p><b>Despite the name, this does not compact.</b> It counts live versus tombstoned records and returns
+ * the census. No record is relocated, no byte is zeroed, no space is reclaimed, and no index or graph
+ * structure is rewritten.</p>
+ *
+ * <p>Until #983 it computed {@code bytesReclaimed = tombstoneCount * recordStride} and logged
+ * "reclaimed {}KB", so the documented REST endpoint reported freeing space it had not freed. The name is
+ * retained rather than changed because {@code memory-durability-contract} R2 implements real compaction
+ * here; renaming now and back later would churn callers for no gain. The javadoc and the returned
+ * {@code compacted=false} carry the truth in the meantime.</p>
+ *
+ * @see com.spectrayan.spector.memory.sync.CompactionResult
+ * @see <a href="https://github.com/spectrayan/spector/issues/983">spectrayan/spector#983</a>
  */
 public final class VacuumCompactor {
 
     private static final Logger log = LoggerFactory.getLogger(VacuumCompactor.class);
 
-    /** Default tombstone ratio threshold for triggering compaction (20%). */
+    /**
+     * Tombstone ratio at which compaction would be worthwhile, once compaction exists.
+     *
+     * <p>Documented as 20% in {@code spector-yml.md}. Note the consolidation docs claimed a 30% automatic
+     * partition rebuild, which was a conflation with {@code circadian.tombstone-threshold} — a different
+     * knob governing when episodic memories are tombstoned, not when a partition is rebuilt.</p>
+     */
     public static final float DEFAULT_THRESHOLD = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_VACUUM_DEFAULT_THRESHOLD;
 
     private VacuumCompactor() {} // utility class
 
     /**
-     * Compacts a tier store by evaluating live vs. tombstoned records.
+     * Surveys a tier store, counting live versus tombstoned records.
      *
-     * @param store   the tier store to compact
-     * @param type    the memory tier type
-     * @param index   the memory index
-     * @return the compaction result (null if no compaction needed)
+     * @param store the tier store to survey
+     * @param type  the memory tier type
+     * @return the census, or {@code null} if the store is absent or holds no tombstones
      */
-    public static CompactionResult compact(EngramRegion store, MemoryType type,
-                                            MemoryIndex index) {
+    public static CompactionResult compact(EngramRegion store, MemoryType type) {
         if (store == null) {
-            log.warn("Vacuum: store for {} is null, cannot compact", type);
+            log.warn("Vacuum: store for {} is null, cannot survey", type);
             return null;
         }
         long startMs = System.currentTimeMillis();
 
         int totalRecords = store.size();
-        int stride = store.layout().recordStride();
 
         // Phase 1: Count live and tombstoned records
         int liveCount = 0;
@@ -77,31 +85,20 @@ public final class VacuumCompactor {
             return null;
         }
 
-        log.info("Vacuum: {} compacting {} total records ({} live, {} tombstoned)",
-                type, totalRecords, liveCount, tombstoneCount);
-
-        long bytesReclaimed = (long) tombstoneCount * (stride > 0 ? stride : 64);
         long durationMs = System.currentTimeMillis() - startMs;
 
-        CompactionResult result = new CompactionResult(
-                type, totalRecords, liveCount, tombstoneCount,
-                bytesReclaimed, durationMs);
+        // Reports 0 reclaimed bytes and compacted=false because nothing is reclaimed. The previous
+        // implementation returned tombstoneCount * stride -- a multiplication presented as a measurement --
+        // and logged "reclaimed {}KB" for an operation that performed no write. An operator calling the
+        // documented endpoint saw a success response quoting kilobytes freed and nothing had happened.
+        CompactionResult result = CompactionResult.census(
+                type, totalRecords, liveCount, tombstoneCount, durationMs);
 
-        log.info("Vacuum complete: {} — evaluated {} tombstones, reclaimed {}KB in {}ms",
-                type, tombstoneCount, bytesReclaimed / 1024, durationMs);
+        log.info("Vacuum census: {} — {} records ({} live, {} tombstoned) surveyed in {}ms. "
+                        + "No compaction performed: reclamation is not implemented, so no space was freed "
+                        + "and no record was relocated.",
+                type, totalRecords, liveCount, tombstoneCount, durationMs);
 
         return result;
-    }
-
-    /**
-     * Checks if a tier store should be compacted based on tombstone ratio.
-     *
-     * @param store     the store to check
-     * @param threshold the tombstone ratio threshold (e.g., 0.20 for 20%)
-     * @return true if compaction is recommended
-     */
-    public static boolean shouldCompact(EngramRegion store, float threshold) {
-        if (store.size() == 0) return false;
-        return store.tombstoneRatio() >= threshold;
     }
 }

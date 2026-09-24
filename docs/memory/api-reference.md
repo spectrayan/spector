@@ -224,8 +224,8 @@ public enum PartitionState {
     ACTIVE,       // Accepting writes
     SEALED,       // Read-only, awaiting consolidation
     REFLECTABLE,  // Consolidation complete, eligible for pruning
-    TOMBSTONED,   // High tombstone ratio, queued for compaction
-    COMPACTED     // Rebuilt as dense partition
+    TOMBSTONED,   // High tombstone ratio. NOTE: no compaction queue exists
+    COMPACTED     // Reserved. No code path produces this state
 }
 ```
 

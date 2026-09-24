@@ -57,7 +57,7 @@ public record ReplicationFrame(
     public static final byte TYPE_PING = 6;
     public static final byte TYPE_PONG = 7;
 
-    public static final int MAX_FRAME_SIZE = 128 * 1024 * 1024; // 128MB max frame
+    public static final int MAX_FRAME_SIZE = 512 * 1024 * 1024; // 512MB max frame
 
     public ReplicationFrame {
         Objects.requireNonNull(payload, "payload must not be null");

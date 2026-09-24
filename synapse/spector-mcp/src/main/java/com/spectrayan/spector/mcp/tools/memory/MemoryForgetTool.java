@@ -45,7 +45,16 @@ public final class MemoryForgetTool extends MemoryToolHandler {
     protected McpSchema.CallToolResult executeMemory(SpectorMemory memory,
                                                        Map<String, Object> args) throws Exception {
         String memoryId = requireString(args, "memory_id");
-        memory.forget(memoryId);
-        return textResult("🗑️ Memory '" + memoryId + "' has been forgotten (tombstoned).");
+        var result = memory.forgetWithResult(memoryId);
+        if (!result.found()) {
+            // Previously reported "has been forgotten (tombstoned)" regardless, so a typo'd or
+            // already-deleted id produced a confident false confirmation on a deletion path (#983).
+            return textResult("⚠️ No memory found with id '" + memoryId
+                    + "'. Nothing was forgotten.");
+        }
+        // "tombstoned" is stated explicitly because the payload bytes remain on disk and in any snapshot
+        // taken since; this is not erasure. Purge arrives with memory-durability-contract R1.
+        return textResult("🗑️ Memory '" + memoryId + "' has been forgotten (tombstoned — hidden from "
+                + "recall, but payload bytes remain on disk until purge is implemented).");
     }
 }
