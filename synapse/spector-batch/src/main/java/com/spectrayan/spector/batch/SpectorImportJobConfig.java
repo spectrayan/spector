@@ -67,17 +67,33 @@ public class SpectorImportJobConfig {
     @Bean
     public Step unpackBundleStep() {
         return new StepBuilder("unpackBundleStep", jobRepository)
-                .tasklet(unpackBundleTasklet(null), transactionManager)
+                .tasklet(unpackBundleTasklet(null, null, null, null, null), transactionManager)
                 .build();
     }
 
     @Bean
     @StepScope
-    public Tasklet unpackBundleTasklet(@Value("#{jobParameters['bundlePath']}") String bundlePath) {
+    public Tasklet unpackBundleTasklet(
+            @Value("#{jobParameters['bundlePath']}") String bundlePath,
+            @Value("#{jobParameters['targetNamespace']}") String targetNamespace,
+            @Value("#{jobParameters['targetModel']}") String targetModel,
+            @Value("#{jobParameters['targetDimensions']}") String targetDimensions,
+            @Value("#{jobParameters['reembed']}") String reembed) {
         return (contribution, chunkContext) -> {
             Path sourceBundle = Paths.get(bundlePath);
-            Path stagingDir = getStagingDir(bundlePath);
 
+            // Manifest-first read path (R3.3, V6): parse manifest and decide compatibility BEFORE unpacking
+            SpectorBundleManifest manifest = bundleCodec.readManifest(sourceBundle);
+            int dims = 0;
+            if (targetDimensions != null && !targetDimensions.isBlank()) {
+                try {
+                    dims = Integer.parseInt(targetDimensions.trim());
+                } catch (NumberFormatException ignored) {}
+            }
+            boolean allowReembed = Boolean.parseBoolean(reembed);
+            manifest.validateCompatibility(targetModel, dims, allowReembed);
+
+            Path stagingDir = getStagingDir(bundlePath);
             bundleCodec.unpackBundle(sourceBundle, stagingDir);
             log.info("[ImportJob] Unpacked bundle {} to {}", sourceBundle, stagingDir);
             return RepeatStatus.FINISHED;
