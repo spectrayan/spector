@@ -36,8 +36,28 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-    name: Build & Test
+    # Both architectures, because a green x86_64 run says nothing about aarch64. The SVASQ INT8 kernels
+    # derived a byte vector shape from the platform's preferred float species: valid on x86_64 (8 lanes -> a
+    # 64-bit shape), impossible on aarch64 (4 lanes -> a 32-bit shape, which does not exist). Both classes
+    # threw during initialisation, so every SVASQ path was broken on Apple Silicon and Graviton while this
+    # workflow stayed green -- it ran the one architecture on which the bug could not occur. See #992.
+    #
+    # GitHub-hosted Linux arm64 runners are free for public repositories, so the cost here is wall-clock only.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            arch: x86_64
+            # Architecture-independent checks run once, on this leg only. Reproducibility, dependency
+            # pinning, coverage and provenance cannot differ by architecture, and running them twice would
+            # double CI time while proving nothing.
+            primary: true
+          - runner: ubuntu-24.04-arm
+            arch: aarch64
+            primary: false
+    runs-on: ${{ matrix.runner }}
+    name: Build & Test (${{ matrix.arch }})
     timeout-minutes: 30
 
     steps:
@@ -63,6 +83,7 @@ jobs:
 
       # ─── Verify Reproducibility ──────────────────────────────────────
       - name: Verify reproducible JARs
+        if: matrix.primary
         run: |
           # Rebuild and compare checksums to verify byte-for-byte identical output
           mvn -B package -DskipTests \
@@ -73,6 +94,7 @@ jobs:
 
       # ─── Dependency Pinning Verification ─────────────────────────────
       - name: Verify no dynamic version ranges
+        if: matrix.primary
         run: |
           # Fail if any external dependency uses dynamic ranges like [1.0,2.0) or LATEST/RELEASE/SNAPSHOT
           # Exclude internal modules (com.spectrayan) and Maven reactor build lines
@@ -103,16 +125,18 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
+          name: test-results-${{ matrix.arch }}
           path: '**/target/surefire-reports/*.xml'
           retention-days: 7
 
       # ─── Coverage Baseline Enforcement ───────────────────────────────
       - name: Generate coverage report
+        if: matrix.primary
         run: |
           mvn -B jacoco:report-aggregate --no-transfer-progress || true
 
       - name: Check coverage baseline
+        if: matrix.primary
         run: |
           # Extract coverage percentages and compare against baseline
           BASELINE_FILE=".github/coverage-baseline.json"
@@ -146,7 +170,7 @@ jobs:
 
       # ─── Build Provenance ────────────────────────────────────────────
       - name: Publish build provenance
-        if: success()
+        if: matrix.primary && success()
         run: |
           PROVENANCE_FILE="build-provenance.json"
           cat > "$PROVENANCE_FILE" << EOF
@@ -169,7 +193,7 @@ jobs:
           cat "$PROVENANCE_FILE"
 
       - name: Upload build provenance
-        if: success()
+        if: matrix.primary && success()
         uses: actions/upload-artifact@v4
         with:
           name: build-provenance
@@ -178,7 +202,7 @@ jobs:
 
       # ─── Upload JARs ─────────────────────────────────────────────────
       - name: Upload build artifacts
-        if: success() && github.event_name == 'push'
+        if: matrix.primary && success() && github.event_name == 'push'
         uses: actions/upload-artifact@v4
         with:
           name: jars
@@ -209,6 +233,8 @@ jobs:
   # Publish to GitHub Packages (auto on main, after CI passes)
   # ═══════════════════════════════════════════════════════════════════════
   publish:
+    # `build` is a matrix job, so this waits for *every* architecture leg. A published artifact therefore
+    # cannot come from a run that was green on one architecture and broken on another.
     needs: [build, manifest-tests]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     uses: ./.github/workflows/publish-packages.yml
