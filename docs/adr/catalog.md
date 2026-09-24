@@ -53,7 +53,7 @@
 | **ADR-0042** | [Graph Recall Architecture and Cognitive Traversals](0042-graph-recall-architecture-and-cognitive-traversals.md) | `Accepted (Implemented)` | 2026-08-20 | [`0042-graph-recall-architecture-and-cognitive-traversals.md`](0042-graph-recall-architecture-and-cognitive-traversals.md) |
 | **ADR-0043** | [Single-VMA Bundle Layout Specification](0043-single-vma-bundle-layout-specification.md) | `Superseded by ADR-0004` | 2026-08-04 | [`0043-single-vma-bundle-layout-specification.md`](0043-single-vma-bundle-layout-specification.md) |
 | **ADR-0044** | [Memory Kernel Isolation, Composition, and Layout](0044-memory-kernel-isolation-and-layout.md) | `Accepted (Implemented)` | 2026-09-09 | [`0044-memory-kernel-isolation-and-layout.md`](0044-memory-kernel-isolation-and-layout.md) |
-| **ADR-0045** | [Spector Memory Import & Export Pipeline](0045-spector-memory-import-export-pipeline.md) | `Accepted (Implemented)` | 2026-08-13 | [`0045-spector-memory-import-export-pipeline.md`](0045-spector-memory-import-export-pipeline.md) |
+| **ADR-0045** | [Spector Memory Import & Export Pipeline](0045-spector-memory-import-export-pipeline.md) | `Proposed` | 2026-08-13 | [`0045-spector-memory-import-export-pipeline.md`](0045-spector-memory-import-export-pipeline.md) |
 | **ADR-0046** | [Single Engram, Four Stores Storage Architecture](0046-single-engram-storage-architecture.md) | `Accepted (Implemented)` | 2026-09-03 | [`0046-single-engram-storage-architecture.md`](0046-single-engram-storage-architecture.md) |
 | **ADR-0047** | [Episodic Memory and Engram Model Hierarchy](0047-episodic-memory-and-engram-model.md) | `Accepted (Implemented)` | 2026-09-03 | [`0047-episodic-memory-and-engram-model.md`](0047-episodic-memory-and-engram-model.md) |
 | **ADR-0048** | [Cross-Capture Graph & CoActivation Kernel](0048-cross-capture-graph-coactivation-kernel.md) | `Accepted (Implemented)` | 2026-08-23 | [`0048-cross-capture-graph-coactivation-kernel.md`](0048-cross-capture-graph-coactivation-kernel.md) |
@@ -111,7 +111,7 @@ Low-level memory alignment, zero-GC layouts, entity graphs, off-heap bundles, an
 - **[ADR-0042: Graph Recall Architecture and Cognitive Traversals](0042-graph-recall-architecture-and-cognitive-traversals.md)** (`Accepted (Implemented)`)
 - **[ADR-0043: Single-VMA Bundle Layout Specification](0043-single-vma-bundle-layout-specification.md)** (`Superseded by ADR-0004`)
 - **[ADR-0044: Memory Kernel Isolation, Composition, and Layout](0044-memory-kernel-isolation-and-layout.md)** (`Accepted (Implemented)`)
-- **[ADR-0045: Spector Memory Import & Export Pipeline](0045-spector-memory-import-export-pipeline.md)** (`Accepted (Implemented)`)
+- **[ADR-0045: Spector Memory Import & Export Pipeline](0045-spector-memory-import-export-pipeline.md)** (`Proposed` — not implemented; see ADR §0 and issue #981)
 - **[ADR-0046: Single Engram, Four Stores Storage Architecture](0046-single-engram-storage-architecture.md)** (`Accepted (Implemented)`)
 - **[ADR-0047: Episodic Memory and Engram Model Hierarchy](0047-episodic-memory-and-engram-model.md)** (`Accepted (Implemented)`)
 - **[ADR-0057: Remediation of Hardcoded Memory Offsets and Alignment Constants](0057-hardcoded-memory-offsets-and-alignment-constants.md)** (`Accepted (Implemented)`)
