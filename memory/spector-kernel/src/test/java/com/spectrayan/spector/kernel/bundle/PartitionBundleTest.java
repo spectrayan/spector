@@ -205,4 +205,61 @@ class PartitionBundleTest {
             assertThat(bundle.directory().maxRegions()).isEqualTo(5);
         }
     }
+
+    @Test
+    void writeAndReadSummaryOnHeapBundle() {
+        try (PartitionBundle bundle = PartitionBundle.Init.heap(
+                SEM_CAP, EPI_BYTES, PROC_CAP, TEXT_BYTES, DIMS,
+                COG_LAYOUT.layoutId(), COG_LAYOUT.schemaVersion(),
+                TEXT_LAYOUT.layoutId(), TEXT_LAYOUT.schemaVersion())) {
+
+            assertThat(bundle.hasValidSummary()).isFalse();
+            assertThat(bundle.readSummary()).isNull();
+
+            PartitionSummaryHeader header = new PartitionSummaryHeader(
+                    12, 1000L, 5000L, 0x123L, 0x456L, 10, 20, 30);
+            bundle.writeSummary(header);
+
+            assertThat(bundle.hasValidSummary()).isTrue();
+            PartitionSummaryHeader readBack = bundle.readSummary();
+            assertThat(readBack).isNotNull();
+            assertThat(readBack.seq()).isEqualTo(12);
+            assertThat(readBack.minTimestampMs()).isEqualTo(1000L);
+            assertThat(readBack.maxTimestampMs()).isEqualTo(5000L);
+            assertThat(readBack.synapticTagMaskLo()).isEqualTo(0x123L);
+            assertThat(readBack.synapticTagMaskHi()).isEqualTo(0x456L);
+            assertThat(readBack.semanticCount()).isEqualTo(10);
+            assertThat(readBack.episodicCount()).isEqualTo(20);
+            assertThat(readBack.proceduralCount()).isEqualTo(30);
+        }
+    }
+
+    @Test
+    void writeAndReadSummaryOnMmapBundleAcrossReopen(@TempDir Path tempDir) {
+        Path bundlePath = tempDir.resolve("partition.bundle");
+
+        try (PartitionBundle bundle = PartitionBundle.Init.mmap(
+                bundlePath, SEM_CAP, EPI_BYTES, PROC_CAP, TEXT_BYTES, DIMS,
+                COG_LAYOUT.layoutId(), COG_LAYOUT.schemaVersion(),
+                TEXT_LAYOUT.layoutId(), TEXT_LAYOUT.schemaVersion())) {
+
+            PartitionSummaryHeader header = new PartitionSummaryHeader(
+                    3, 2000L, 8000L, 0xAAAL, 0xBBBL, 50, 60, 70);
+            bundle.writeSummary(header);
+            assertThat(bundle.hasValidSummary()).isTrue();
+        }
+
+        // Reopen bundle from disk and verify summary is immediately valid without scanning regions
+        try (PartitionBundle reopened = PartitionBundle.Init.open(bundlePath)) {
+            assertThat(reopened.hasValidSummary()).isTrue();
+            PartitionSummaryHeader header = reopened.readSummary();
+            assertThat(header).isNotNull();
+            assertThat(header.seq()).isEqualTo(3);
+            assertThat(header.minTimestampMs()).isEqualTo(2000L);
+            assertThat(header.maxTimestampMs()).isEqualTo(8000L);
+            assertThat(header.semanticCount()).isEqualTo(50);
+            assertThat(header.episodicCount()).isEqualTo(60);
+            assertThat(header.proceduralCount()).isEqualTo(70);
+        }
+    }
 }

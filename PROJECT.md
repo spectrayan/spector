@@ -57,8 +57,8 @@ The `namespace-scale-and-observability` capability introduces scalable partition
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| M1 | Git Issue, Branch, and PR Lifecycle | Create GitHub issue, cut feature branch `feat/namespace-scale-and-observability`, open draft PR | none | IN_PROGRESS |
-| M2 | Persist Partition Summary ($O(\text{partitions})$ Cold Start) | Bundle header persistence at offset 512, CRC32C validation, cold-start optimization, scan fallback, `PartitionSummaryPersistenceTest` | M1 | PLANNED |
+| M1 | Git Issue, Branch, and PR Lifecycle | Create GitHub issue, cut feature branch `feat/namespace-scale-and-observability`, open draft PR | none | DONE (Issue #998, PR #999) |
+| M2 | Persist Partition Summary ($O(\text{partitions})$ Cold Start) | Bundle header persistence at offset 512, CRC32C validation, cold-start optimization, scan fallback, `PartitionSummaryPersistenceTest` | M1 | DONE |
 | M3 | Partition Recall Fan-Out Budget & Recall Observability | Post-pruning visit budget in `CorticalTierScanRelay`, recency-first sort, truncation flag in REST/MCP, Micrometer counters | M2 | PLANNED |
 | M4 | Graph Memory & Headroom Telemetry | Prometheus gauges for nodes, edges, bytes, headroom in `SpectorMemoryGauges`, `GraphHealthMetricsTest` | M1 | PLANNED |
 | M5 | Index-Assisted Cursor Listing & MCP Parity | Opaque cursor pagination on `/table`, temporal partition seeking, query filters, MCP `memory_list`, updated `memory_export` | M2 | PLANNED |

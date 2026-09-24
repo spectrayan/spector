@@ -1853,6 +1853,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override public RecallPathway recallPathway() { return recallPathway; }
     public boolean sharedPathways() { return sharedPathways; }
     @Override public CognitiveMemoryRouter cognitiveRouter() { return partitionManager.cognitiveRouter(); }
+    public PartitionManager partitionManager() { return partitionManager; }
     @Override public MemoryIndex index() { return index; }
     @Override public LateralEvaluator lateralEvaluator() { return lateralEvaluator; }
     @Override public CognitiveGraphFacade graph() { return graphFacade; }

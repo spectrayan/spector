@@ -128,6 +128,11 @@ public final class PartitionHandle implements AutoCloseable {
     }
 
     public PartitionSummary summary() {
+        if (writable && router != null) {
+            if (router.semantic() != null || router.procedural() != null || router.episodic() != null) {
+                return PartitionSummary.fromRouter(seq, dir, router, true, null);
+            }
+        }
         return summary;
     }
 
@@ -138,10 +143,14 @@ public final class PartitionHandle implements AutoCloseable {
 
     /** Returns a frozen (read-only) copy of this handle sealed with the next partition's epoch seconds. */
     public PartitionHandle asFrozen(Long nextEpochSecs) {
-        return writable
-                ? new PartitionHandle(seq, dir, router, text, false, partitionBundle,
-                PartitionSummary.fromRouter(seq, dir, router, false, nextEpochSecs))
-                : this;
+        if (!writable) {
+            return this;
+        }
+        PartitionSummary frozenSummary = PartitionSummary.fromRouter(seq, dir, router, false, nextEpochSecs);
+        if (partitionBundle != null) {
+            partitionBundle.writeSummary(frozenSummary.toHeader());
+        }
+        return new PartitionHandle(seq, dir, router, text, false, partitionBundle, frozenSummary);
     }
 
     /**
