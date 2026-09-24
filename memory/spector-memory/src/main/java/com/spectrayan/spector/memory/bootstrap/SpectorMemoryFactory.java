@@ -234,9 +234,16 @@ public final class SpectorMemoryFactory {
                 ? builder.cacheManager()
                 : com.spectrayan.spector.commons.cache.TtlConcurrentMapCacheManager.defaultManager();
 
+        // Scope embedding-cache keys to the provider's model identity. The cache may be shared across
+        // memory instances, and a text-only key would let one model's vector answer another model's
+        // request. The provider is supplied directly here, so there is no ProviderConfig to fingerprint;
+        // model name plus dimensionality is the strongest identity available and is sufficient, because
+        // two providers agreeing on both produce interchangeable vectors.
+        EmbeddingProvider rawEmbeddingProvider = builder.embeddingProvider();
         EmbeddingProvider embeddingProvider = com.spectrayan.spector.provider.embedding.CachingEmbeddingProvider.wrap(
-                builder.embeddingProvider(),
-                cacheManager
+                rawEmbeddingProvider,
+                cacheManager,
+                com.spectrayan.spector.provider.ProviderFingerprint.ofProvider(rawEmbeddingProvider)
         );
         boolean sequential = builder.properties() != null
                 && builder.properties().provider() != null

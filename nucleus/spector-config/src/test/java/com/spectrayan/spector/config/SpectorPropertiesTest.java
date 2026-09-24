@@ -38,7 +38,7 @@ class SpectorPropertiesTest {
         SpectorConfigSource props = SpectorConfigSource.load();
 
         // Verify values from spector-defaults.yml
-        assertThat(props.getInt("spector.memory.dimensions", -1)).isEqualTo(384);
+        assertThat(props.getInt("spector.provider.embedding.dimensions", -1)).isEqualTo(384);
         assertThat(props.getInt("spector.memory.capacity", -1)).isEqualTo(100_000);
         assertThat(props.getString("spector.memory.persistence-mode", "")).isEqualTo("DISK");
     }
@@ -103,11 +103,11 @@ class SpectorPropertiesTest {
     @Test
     void builderOverrides_takePrecedence() {
         SpectorConfigSource props = SpectorConfigSource.builder()
-                .override("spector.memory.dimensions", "1024")
+                .override("spector.provider.embedding.dimensions", "1024")
                 .override("spector.provider.embedding.model", "custom-model")
                 .build();
 
-        assertThat(props.getInt("spector.memory.dimensions", -1)).isEqualTo(1024);
+        assertThat(props.getInt("spector.provider.embedding.dimensions", -1)).isEqualTo(1024);
         assertThat(props.getString("spector.provider.embedding.model")).isEqualTo("custom-model");
         assertThat(props.getInt("spector.hnsw.m", -1)).isEqualTo(16); // non-overridden remains default
     }
@@ -134,13 +134,15 @@ class SpectorPropertiesTest {
         Files.writeString(configFile, """
                 spector:
                   memory:
-                    dimensions: 1024
                     capacity: 500000
+                  provider:
+                    embedding:
+                      dimensions: 1024
                 """);
 
         SpectorConfigSource props = SpectorConfigSource.load(configFile);
 
-        assertThat(props.getInt("spector.memory.dimensions", -1)).isEqualTo(1024);
+        assertThat(props.getInt("spector.provider.embedding.dimensions", -1)).isEqualTo(1024);
         assertThat(props.getInt("spector.memory.capacity", -1)).isEqualTo(500_000);
         // Other values still come from classpath defaults
         assertThat(props.getInt("spector.hnsw.m", -1)).isEqualTo(16);
@@ -150,7 +152,7 @@ class SpectorPropertiesTest {
     void propertiesFileOverride(@TempDir Path tempDir) throws IOException {
         Path configFile = tempDir.resolve("custom.properties");
         Files.writeString(configFile, """
-                spector.memory.dimensions=2048
+                spector.provider.embedding.dimensions=2048
                 spector.provider.embedding.model=mxbai-embed-large
                 """);
 
@@ -158,7 +160,7 @@ class SpectorPropertiesTest {
                 .configFile(configFile)
                 .build();
 
-        assertThat(props.getInt("spector.memory.dimensions", -1)).isEqualTo(2048);
+        assertThat(props.getInt("spector.provider.embedding.dimensions", -1)).isEqualTo(2048);
         assertThat(props.getString("spector.provider.embedding.model")).isEqualTo("mxbai-embed-large");
     }
 
@@ -176,8 +178,17 @@ class SpectorPropertiesTest {
     void containsKey() {
         SpectorConfigSource props = SpectorConfigSource.load();
 
-        assertThat(props.containsKey("spector.memory.dimensions")).isTrue();
+        assertThat(props.containsKey("spector.provider.embedding.dimensions")).isTrue();
         assertThat(props.containsKey("nonexistent.key")).isFalse();
+    }
+
+    @Test
+    void shippedDefaults_doNotSetTheRemovedDimensionsProperty() {
+        SpectorConfigSource props = SpectorConfigSource.load();
+
+        // The shipped defaults must not set a property that startup refuses, or every default
+        // configuration would fail to load.
+        assertThat(props.containsKey(SpectorPropertyConstants.REMOVED_MEMORY_DIMENSIONS)).isFalse();
     }
 
     @Test

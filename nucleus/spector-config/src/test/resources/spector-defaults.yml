@@ -55,7 +55,7 @@ spector:
     enabled: false
     persistence-mode: DISK
     persistence-path: .spector/memory
-    dimensions: 384
+    # dimensions: removed — provider.embedding.dimensions is the single source.
     capacity: 100000
     nodes-per-partition: 10000
     decay-enabled: true

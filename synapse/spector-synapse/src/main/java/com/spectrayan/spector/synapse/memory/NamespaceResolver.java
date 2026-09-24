@@ -130,6 +130,65 @@ public class NamespaceResolver implements AutoCloseable {
     private volatile ParallelEmbeddingPipeline hoistedPipeline;
     private volatile SpectorRuntime runtime;
 
+    /**
+     * Embedding providers shared by configuration rather than by namespace.
+     *
+     * <p>The hoisted fields above remain the process default, used when a namespace resolves to no
+     * override. This pool serves namespaces whose resolved configuration differs, sharing one instance
+     * per distinct configuration so that N namespaces on one model do not become N HTTP clients.</p>
+     */
+    private final EmbeddingProviderPool providerPool = new EmbeddingProviderPool();
+
+    /** Per-namespace embedding pipelines, keyed by provider fingerprint. */
+    private final ConcurrentHashMap<com.spectrayan.spector.provider.ProviderFingerprint, ParallelEmbeddingPipeline>
+            pipelinesByFingerprint = new ConcurrentHashMap<>();
+
+    /** Fingerprint each open namespace holds a pool reference for, so eviction can release it. */
+    private final ConcurrentHashMap<String, com.spectrayan.spector.provider.ProviderFingerprint>
+            fingerprintsByNamespace = new ConcurrentHashMap<>();
+
+    /** Resolves the effective embedding configuration for a namespace; null means "no overrides". */
+    private volatile EmbeddingConfigResolver embeddingConfigResolver;
+
+    /**
+     * Supplies the effective embedding configuration for a namespace.
+     *
+     * <p>Defined as an interface here rather than depending on {@code ConfigResolutionService} directly so
+     * that {@code NamespaceResolver} keeps working with no config plane at all — the embedded and
+     * single-tenant cases — and so tests can resolve without a database.</p>
+     */
+    @FunctionalInterface
+    public interface EmbeddingConfigResolver {
+        /**
+         * Returns the effective embedding configuration for a namespace, or {@code null} to use the
+         * process default.
+         *
+         * @param tenantId    the tenant, may be {@code null} on the flat layout
+         * @param namespaceId the namespace being opened
+         * @return the effective provider configuration, or {@code null}
+         */
+        com.spectrayan.spector.provider.ProviderConfig resolve(String tenantId, String namespaceId);
+    }
+
+    /**
+     * Installs the resolver that supplies per-namespace embedding configuration.
+     *
+     * <p>Wired by the config plane at startup. Until it is set, every namespace uses the process-default
+     * embedder, which is the pre-existing behaviour.</p>
+     *
+     * @param resolver the resolver, or {@code null} to disable per-namespace resolution
+     */
+    public void setEmbeddingConfigResolver(EmbeddingConfigResolver resolver) {
+        this.embeddingConfigResolver = resolver;
+        log.info("[NamespaceResolver] per-namespace embedding config resolver {}",
+                resolver != null ? "installed" : "cleared");
+    }
+
+    /** @return the provider pool, for metrics and tests. */
+    public EmbeddingProviderPool providerPool() {
+        return providerPool;
+    }
+
     private final Path basePath;
 
     private final AtomicLong fallbackCounter = new AtomicLong(0);
@@ -214,6 +273,14 @@ public class NamespaceResolver implements AutoCloseable {
         this.meterRegistry = meterRegistryProvider != null ? meterRegistryProvider.getIfAvailable() : null;
         if (this.meterRegistry != null) {
             com.spectrayan.spector.metrics.observation.SpectorHostGauges.instance().bindTo(this.meterRegistry);
+            // Distinct live embedding configurations. This is the number that must stay flat as namespaces
+            // are added when they share a configuration; if it tracks namespace count, the pool is keyed
+            // wrong and the deployment is paying for one client per namespace.
+            io.micrometer.core.instrument.Gauge
+                    .builder("spector.embedding.provider.configurations", providerPool,
+                            EmbeddingProviderPool::distinctConfigurations)
+                    .description("Distinct live embedding provider configurations held by the pool")
+                    .register(this.meterRegistry);
         }
         this.maxInstances = Math.max(1, maxInstances);
         // Canonical rememberer root (Req R3.1) — shared with the migrator, detector, and CLI.
@@ -280,6 +347,7 @@ public class NamespaceResolver implements AutoCloseable {
         MemoryHandle handle = cache.remove(namespaceId);
         if (handle != null) {
             unbindNamespaceMeters(namespaceId);
+            releasePooledEmbedding(namespaceId);
             closeQuietly(handle.memory);
         }
     }
@@ -332,6 +400,23 @@ public class NamespaceResolver implements AutoCloseable {
             } catch (Exception e) {
                 log.warn("[NamespaceResolver] Eviction listener error for ns={}: {}", namespaceId, e.getMessage());
             }
+        }
+    }
+
+    /**
+     * Drops this namespace's reference to its pooled embedding provider.
+     *
+     * <p>Called on every path that removes a namespace from the cache. Without it the pool would only
+     * ever grow, and a namespace evicted under the hot cap would hold a provider forever.</p>
+     */
+    private void releasePooledEmbedding(String namespaceId) {
+        var fingerprint = fingerprintsByNamespace.remove(namespaceId);
+        if (fingerprint == null) {
+            return;
+        }
+        if (providerPool.release(fingerprint)) {
+            // Last reference gone, so the pipeline wrapping it is dead too.
+            pipelinesByFingerprint.remove(fingerprint);
         }
     }
 
@@ -461,6 +546,15 @@ public class NamespaceResolver implements AutoCloseable {
                 closeQuietly(handle.memory);
             }
             cache.clear();
+            // Close pooled providers only after every memory using them is closed, and only here where
+            // no namespace will be served again.
+            fingerprintsByNamespace.clear();
+            pipelinesByFingerprint.clear();
+            try {
+                providerPool.close();
+            } catch (Exception e) {
+                log.warn("[NamespaceResolver] error closing the embedding provider pool: {}", e.getMessage());
+            }
             if (runtime != null) {
                 try {
                     runtime.close();
@@ -517,8 +611,12 @@ public class NamespaceResolver implements AutoCloseable {
                     } else {
                         globalCacheManager = com.spectrayan.spector.commons.cache.TtlConcurrentMapCacheManager.defaultManager();
                     }
+                    // Scope cache keys to the embedder's model identity. This hoisted provider is shared
+                    // by every namespace in the process today, so an unscoped key would become a
+                    // cross-model collision the moment namespaces can differ in model (see spec group 3).
                     this.hoistedEmbeddingProvider = com.spectrayan.spector.provider.embedding.CachingEmbeddingProvider.wrap(
-                            rawEmbedder, globalCacheManager);
+                            rawEmbedder, globalCacheManager,
+                            com.spectrayan.spector.provider.ProviderFingerprint.ofProvider(rawEmbedder));
 
                     boolean sequential = spectorProps != null
                             && spectorProps.provider() != null
@@ -729,6 +827,10 @@ public class NamespaceResolver implements AutoCloseable {
                     "Cannot build namespace memory: no EmbeddingProvider bean available");
         }
 
+        // An independent deep copy per namespace. This is mutated just below, and until
+        // SpectorConfigProperties.toSpectorProperties() began deep-copying, that mutation wrote straight
+        // into the shared Spring bean — so the first namespace opened decided the entity-extraction mode
+        // for every namespace opened after it.
         var spectorProps = synapseProps.toSpectorProperties();
         LlmProvider textGen = textGenProvider != null ? textGenProvider.getIfAvailable() : null;
         if (spectorProps.memory() != null && spectorProps.memory().getGraph() != null
@@ -747,6 +849,18 @@ public class NamespaceResolver implements AutoCloseable {
 
         ensureSpectorRuntime(embedder, spectorProps);
 
+        // Resolve this namespace's embedding provider *before* attach. The vector store is dimensioned
+        // when the memory is built, so a provider chosen afterwards (as the open-listener overlay does)
+        // is already too late to change dimensionality — which is why the config schema has to mark
+        // dimensions as REBUILD.
+        ResolvedEmbedding resolved = resolveEmbeddingFor(tenantId, namespaceId, spectorProps);
+
+        // Record the embedder identity on first open and compare it on every later open. Swapping the
+        // configured model for another at the same width would otherwise make every stored vector
+        // incomparable with every new one, with no error anywhere: all DIMENSIONS_MISMATCH checks in the
+        // index and quantizer layers are width-only, so a same-width swap passes all of them.
+        reconcileEmbeddingIdentity(markerFile, jsonMapper, namespaceId, resolved);
+
         MemoryProperties memory = synapseProps.getMemory();
         SalienceProfileProvider salience = salienceProvider != null ? salienceProvider.getIfAvailable() : null;
         org.springframework.cache.CacheManager springCacheManager = cacheManagerProvider != null
@@ -764,7 +878,35 @@ public class NamespaceResolver implements AutoCloseable {
                 ? quartzSchedulerProvider.getIfAvailable() : null;
 
         final Path effectiveDir = dir;
+        final com.spectrayan.spector.config.SpectorProperties effectiveProps = spectorProps;
         SpectorMemory built = runtime.attach(namespaceId, builder -> {
+            // Re-seed from *this* namespace's snapshot. SpectorRuntime seeds the builder from the
+            // properties of whichever namespace bound first in the process, so without this every later
+            // namespace silently inherits the first one's memory, recall, graph and entity-extraction
+            // configuration — including the extraction mode decided just above from this namespace's own
+            // LLM availability.
+            //
+            // Safe to call here: fromProperties assigns properties and derives recall options, chunk
+            // config, ICNU weights and the graph scoring policy. It touches no provider, pathway,
+            // persistence or cache state, so nothing SpectorRuntime.attach set before the customizer is
+            // clobbered — except namespaceId, which fromProperties re-reads from the properties and which
+            // attach sets *after* its own fromProperties call. Restore it explicitly; getting this wrong
+            // would open the namespace under the configured default id instead of its own.
+            builder.fromProperties(effectiveProps);
+            builder.namespaceId(namespaceId);
+
+            // Override the runtime's process-default embedder when this namespace resolved to its own
+            // configuration. SpectorRuntime.attach applies its single embeddingProvider field before the
+            // customizer runs, and the builder setters are last-write-wins, so setting them here wins.
+            //
+            // The pipeline must be overridden alongside the provider: a ParallelEmbeddingPipeline wrapping
+            // the process-default embedder would quietly defeat the whole change, since ingestion embeds
+            // through the pipeline rather than the provider.
+            if (resolved.isOverride()) {
+                builder.embeddingProvider(resolved.provider());
+                builder.parallelEmbeddingPipeline(resolved.pipeline());
+            }
+
             builder.persistence(effectiveDir);
             if (textGen != null) {
                 builder.llmProvider(textGen);
@@ -772,11 +914,14 @@ public class NamespaceResolver implements AutoCloseable {
             if (salience != null) {
                 builder.salienceProfileProvider(salience);
             }
+            // Derived from this namespace's dense embedder, not the process default: a sparse or token
+            // provider deriving from a different model than the dense vectors were produced with would
+            // score against an unrelated space.
             if (memory != null && memory.isSpladeEnabled()) {
-                builder.sparseEmbeddingProvider(new DenseDerivedSparseProvider(embedder));
+                builder.sparseEmbeddingProvider(new DenseDerivedSparseProvider(resolved.provider()));
             }
             if (memory != null && memory.isColbertEnabled()) {
-                builder.tokenEmbeddingProvider(new DenseDerivedTokenProvider(embedder));
+                builder.tokenEmbeddingProvider(new DenseDerivedTokenProvider(resolved.provider()));
             }
             if (springCacheManager != null) {
                 var cacheBuilder = com.spectrayan.spector.spring.cache.SpringSpectorCacheManagerAdapter.builder(springCacheManager)
@@ -844,6 +989,214 @@ public class NamespaceResolver implements AutoCloseable {
         return built;
     }
 
+    /** Marker field recording the embedding provider type a namespace's vectors were produced with. */
+    static final String MARKER_EMBEDDING_PROVIDER = "embeddingProvider";
+
+    /** Marker field recording the embedding model a namespace's vectors were produced with. */
+    static final String MARKER_EMBEDDING_MODEL = "embeddingModel";
+
+    /** Marker field recording the dimensionality a namespace's vectors were produced at. */
+    static final String MARKER_EMBEDDING_DIMENSIONS = "embeddingDimensions";
+
+    /**
+     * Records the resolved embedder identity in the namespace marker, or refuses to open a namespace
+     * whose recorded identity disagrees with what is now configured.
+     *
+     * <p>Follows the precedent set by the layout check in {@code buildInstance}: recorded on create,
+     * compared on open, refused on mismatch. That is the right shape for this problem too, and it needs no
+     * kernel change, no new bundle region and no format version bump.</p>
+     *
+     * <p>A marker written before this field existed has no recorded identity. Such a namespace still
+     * opens, and the absence is reported rather than guessed — stamping the currently-configured model
+     * onto an existing corpus would assert something unknown to be true, which is worse than admitting
+     * ignorance. The identity is backfilled so the next open can check it.</p>
+     */
+    private void reconcileEmbeddingIdentity(Path markerFile, ObjectMapper jsonMapper, String namespaceId,
+            ResolvedEmbedding resolved) {
+        EmbeddingProvider provider = resolved.provider();
+        if (provider == null) {
+            return;
+        }
+        String model;
+        int dims;
+        try {
+            model = provider.modelName();
+            dims = provider.dimensions();
+        } catch (RuntimeException e) {
+            // An offline provider cannot report its identity. Recording "unknown" would poison the marker
+            // for every later open, so skip rather than guess.
+            log.warn("[NamespaceResolver] ns={} could not report its embedding identity; skipping the "
+                    + "marker identity check: {}", namespaceId, e.getMessage());
+            return;
+        }
+        String providerType = resolved.fingerprint() != null ? resolved.fingerprint().type() : "default";
+        if (model == null || model.isBlank()) {
+            return;
+        }
+
+        try {
+            JsonNode node = Files.exists(markerFile) ? jsonMapper.readTree(markerFile.toFile()) : null;
+            if (node == null) {
+                return;
+            }
+            String recordedModel = node.hasNonNull(MARKER_EMBEDDING_MODEL)
+                    ? node.get(MARKER_EMBEDDING_MODEL).asText() : null;
+
+            if (recordedModel == null || recordedModel.isBlank()) {
+                // Pre-change marker, or a fresh one written moments ago by the block above.
+                writeEmbeddingIdentity(markerFile, jsonMapper, node, providerType, model, dims);
+                log.info("[NamespaceResolver] ns={} recorded embedding identity provider={} model={} dims={}",
+                        namespaceId, providerType, model, dims);
+                return;
+            }
+
+            int recordedDims = node.hasNonNull(MARKER_EMBEDDING_DIMENSIONS)
+                    ? node.get(MARKER_EMBEDDING_DIMENSIONS).asInt() : -1;
+            boolean modelChanged = !recordedModel.equals(model);
+            boolean dimsChanged = recordedDims > 0 && recordedDims != dims;
+            if (modelChanged || dimsChanged) {
+                throw new IllegalStateException(String.format(
+                        "Namespace '%s' was written with embedding model '%s' at %s dimensions, but is now "
+                                + "configured for model '%s' at %d dimensions. Refusing to open it: every stored "
+                                + "vector was produced by the recorded model, so mixing in vectors from a "
+                                + "different one makes all similarity scores between them meaningless — and "
+                                + "nothing downstream would report it, because the dimension checks in the index "
+                                + "and quantizer layers compare width only. Either restore the recorded model in "
+                                + "configuration, or re-embed the namespace against the new one.",
+                        namespaceId, recordedModel,
+                        recordedDims > 0 ? String.valueOf(recordedDims) : "an unrecorded number of",
+                        model, dims));
+            }
+        } catch (IOException e) {
+            log.warn("[NamespaceResolver] ns={} could not read the marker for the embedding identity "
+                    + "check: {}", namespaceId, e.getMessage());
+        }
+    }
+
+    private void writeEmbeddingIdentity(Path markerFile, ObjectMapper jsonMapper, JsonNode existing,
+            String providerType, String model, int dims) {
+        try {
+            Map<String, Object> markerData = jsonMapper.convertValue(existing,
+                    new com.fasterxml.jackson.core.type.TypeReference<LinkedHashMap<String, Object>>() {});
+            markerData.put(MARKER_EMBEDDING_PROVIDER, providerType);
+            markerData.put(MARKER_EMBEDDING_MODEL, model);
+            markerData.put(MARKER_EMBEDDING_DIMENSIONS, dims);
+            jsonMapper.writeValue(markerFile.toFile(), markerData);
+        } catch (IOException | IllegalArgumentException e) {
+            // Not fatal: failing to *record* the identity loses a future check, whereas refusing to open
+            // would deny service over a bookkeeping write. The next open retries.
+            log.warn("[NamespaceResolver] could not record the embedding identity in {}: {}",
+                    markerFile, e.getMessage());
+        }
+    }
+
+    /**
+     * The embedding provider and pipeline a namespace will use.
+     *
+     * @param provider    the dense embedder
+     * @param pipeline    the pipeline wrapping {@code provider}
+     * @param fingerprint the pooled configuration identity, or {@code null} for the process default
+     */
+    record ResolvedEmbedding(EmbeddingProvider provider,
+                             ParallelEmbeddingPipeline pipeline,
+                             com.spectrayan.spector.provider.ProviderFingerprint fingerprint) {
+
+        /** @return whether this namespace overrides the runtime default and must set it on the builder. */
+        boolean isOverride() {
+            return fingerprint != null;
+        }
+    }
+
+    /**
+     * Resolves the embedding provider for one namespace.
+     *
+     * <p>Returns the process-default hoisted provider when no resolver is installed, when the resolver
+     * declines, or when the resolved configuration matches the default — so the common single-model
+     * deployment keeps exactly one provider and one pipeline, as before.</p>
+     *
+     * <p>Otherwise takes a reference on the pool for the resolved configuration. Identical configurations
+     * across namespaces share one provider instance; that sharing is the difference between this design
+     * and a naive per-namespace one, and it is what keeps the client count proportional to distinct
+     * configurations rather than to namespace count.</p>
+     */
+    private ResolvedEmbedding resolveEmbeddingFor(String tenantId, String namespaceId,
+            com.spectrayan.spector.config.SpectorProperties spectorProps) {
+        EmbeddingProvider processDefault = hoistedEmbeddingProvider != null
+                ? hoistedEmbeddingProvider
+                : embedderProvider.getIfAvailable();
+        ResolvedEmbedding fallback = new ResolvedEmbedding(processDefault, hoistedPipeline, null);
+
+        EmbeddingConfigResolver resolver = this.embeddingConfigResolver;
+        if (resolver == null) {
+            return fallback;
+        }
+
+        com.spectrayan.spector.provider.ProviderConfig config;
+        try {
+            config = resolver.resolve(tenantId, namespaceId);
+        } catch (RuntimeException e) {
+            // A config plane that cannot answer must not stop a namespace opening on the default
+            // embedder. Failing here would make an unrelated database hiccup look like memory corruption.
+            log.warn("[NamespaceResolver] could not resolve embedding config for ns={}; using the process "
+                    + "default embedder: {}", namespaceId, e.getMessage());
+            return fallback;
+        }
+        if (config == null) {
+            return fallback;
+        }
+
+        var fingerprint = com.spectrayan.spector.provider.ProviderFingerprint.of(config);
+        var defaultFingerprint = com.spectrayan.spector.provider.ProviderFingerprint.ofProvider(processDefault);
+        if (defaultFingerprint != null
+                && fingerprint.model().equals(defaultFingerprint.model())
+                && fingerprint.dimensions() == defaultFingerprint.dimensions()
+                && fingerprint.secretDigest().equals(defaultFingerprint.secretDigest())) {
+            // Same model at the same width on the same credential: the resolved config describes what the
+            // process default already is, so pooling a second instance would buy nothing.
+            log.debug("[NamespaceResolver] ns={} resolved to the process-default embedding config", namespaceId);
+            return fallback;
+        }
+
+        EmbeddingProvider pooled = providerPool.acquire(fingerprint, fp -> createEmbeddingProvider(config, fp));
+        fingerprintsByNamespace.put(namespaceId, fingerprint);
+
+        boolean sequential = spectorProps != null
+                && spectorProps.provider() != null
+                && spectorProps.provider().getEmbedding() != null
+                && spectorProps.provider().getEmbedding().isSequential();
+        ParallelEmbeddingPipeline pipeline = pipelinesByFingerprint.computeIfAbsent(
+                fingerprint, fp -> new ParallelEmbeddingPipeline(pooled, sequential));
+
+        log.info("[NamespaceResolver] ns={} uses its own embedding configuration {} (pool holds {} distinct)",
+                namespaceId, fingerprint.toLogString(), providerPool.distinctConfigurations());
+        return new ResolvedEmbedding(pooled, pipeline, fingerprint);
+    }
+
+    /**
+     * Builds an embedding provider from a resolved configuration via the {@link ProviderFactory} SPI.
+     *
+     * <p>Wrapped with the fingerprint-scoped cache by {@code AbstractProviderFactory}, so two namespaces
+     * on different models cannot read each other's cached vectors.</p>
+     */
+    private EmbeddingProvider createEmbeddingProvider(com.spectrayan.spector.provider.ProviderConfig config,
+            com.spectrayan.spector.provider.ProviderFingerprint fingerprint) {
+        for (com.spectrayan.spector.provider.ProviderFactory factory
+                : java.util.ServiceLoader.load(com.spectrayan.spector.provider.ProviderFactory.class)) {
+            if (factory.name().equalsIgnoreCase(config.type()) && factory.supportsEmbedding()) {
+                return factory.createEmbeddingProvider(config).orElseThrow(() -> new IllegalStateException(
+                        "Provider factory '" + factory.name() + "' produced no embedding provider for "
+                                + fingerprint.toLogString()));
+            }
+        }
+        // Refusing is correct: silently substituting the process default would give this namespace a
+        // different model than its configuration asks for, which is the defect this spec removes.
+        throw new IllegalStateException(String.format(
+                "No embedding provider factory found for type '%s' (configuration %s). The namespace "
+                        + "configured this provider, so opening it on a different one would silently embed "
+                        + "into the wrong vector space.",
+                config.type(), fingerprint.toLogString()));
+    }
+
     /** The rememberer root — see {@link SynapseProperties#remembererRoot()} (Req R3.1). */
     Path basePath() {
         return this.basePath;
@@ -872,6 +1225,7 @@ public class NamespaceResolver implements AutoCloseable {
             MemoryHandle ev = cache.remove(oldestKey);
             if (ev != null) {
                 unbindNamespaceMeters(oldestKey);
+                releasePooledEmbedding(oldestKey);
                 log.info("[NamespaceResolver] Evicting unleased hot namespace '{}' for account '{}' (hot cap reached)",
                         oldestKey, accountId);
                 return ev;
@@ -896,6 +1250,7 @@ public class NamespaceResolver implements AutoCloseable {
             MemoryHandle ev = cache.remove(oldestKey);
             if (ev != null) {
                 unbindNamespaceMeters(oldestKey);
+                releasePooledEmbedding(oldestKey);
                 log.info("[NamespaceResolver] Evicting unleased hot namespace '{}' (process capacity={})",
                         oldestKey, maxInstances);
                 return ev;

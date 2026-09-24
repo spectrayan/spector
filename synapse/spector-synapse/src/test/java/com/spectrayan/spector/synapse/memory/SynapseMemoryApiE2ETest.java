@@ -61,7 +61,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @TestPropertySource(properties = {
         "spector.memory.enabled=true",
         "spector.memory.persistence-mode=IN_MEMORY",
-        "spector.memory.dimensions=768",
+        "spector.provider.embedding.dimensions=768",
         "spector.memory.capacity=1000",
         "spector.memory.splade-enabled=false",
         "spector.memory.colbert-enabled=false",

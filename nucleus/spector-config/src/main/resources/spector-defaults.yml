@@ -5,8 +5,8 @@
 # This file is bundled inside the JAR and provides sensible defaults.
 # Override any value by placing a 'spector.yml' in the working directory,
 # using a profile file (spector-{profile}.yml), system properties
-# (-Dspector.memory.dimensions=768), or environment variables
-# (SPECTOR_MEMORY_DIMENSIONS=768).
+# (-Dspector.provider.embedding.dimensions=768), or environment variables
+# (SPECTOR_PROVIDER_EMBEDDING_DIMENSIONS=768).
 #
 # Resolution order (highest priority wins):
 #   1. Programmatic overrides
@@ -144,7 +144,9 @@ spector:
     pin-source-episodes: false
     edge-importance: DEFAULT
     id-strategy: TSID
-    dimensions: 384
+    # dimensions: removed — see provider.embedding.dimensions, the single source. This entry used to
+    # say 384 while provider.embedding.dimensions said 768, so the engine was sized to one width while
+    # the embedder produced another.
     capacity: 100000
     nodes-per-partition: 10000
     working-capacity: 100

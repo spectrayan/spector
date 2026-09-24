@@ -92,6 +92,29 @@ public class ConfigResolutionService {
     }
 
     /**
+     * Reports whether a tenant- or user-scoped override exists for a category.
+     *
+     * <p>Distinguishes "resolved to the system defaults" from "resolved to something an operator chose",
+     * which {@link #resolve} cannot: it always returns a fully populated map. Callers that build an
+     * expensive object from the result need that distinction so they can reuse a process-wide default
+     * instead of constructing a second, identical one.</p>
+     *
+     * @param tenantId the tenant, may be {@code null}
+     * @param userId   the user or namespace scope value, may be {@code null}
+     * @param category the configuration category
+     * @return {@code true} if a tenant or user scope row exists for this category
+     */
+    public boolean hasScopedOverride(String tenantId, String userId, ConfigCategory category) {
+        if (tenantId != null && !tenantId.isBlank() && policy.isTenantOverridable(category)
+                && repository.get("tenant:" + tenantId, category).isPresent()) {
+            return true;
+        }
+        return userId != null && !userId.isBlank() && tenantId != null
+                && policy.isUserOverridable(category)
+                && repository.get("user:" + tenantId + ":" + userId, category).isPresent();
+    }
+
+    /**
      * Resolves with source annotations for UI override badges.
      */
     public Map<String, AnnotatedValue> resolveAnnotated(String tenantId, String userId,
@@ -186,7 +209,8 @@ public class ConfigResolutionService {
         map.put("capacity", configSnapshot.memory() != null ? configSnapshot.memory().getCapacity() : 100000);
         map.put("persistence-mode", configSnapshot.memory() != null && configSnapshot.memory().getPersistenceMode() != null
                 ? configSnapshot.memory().getPersistenceMode().name().toLowerCase() : "mmap");
-        map.put("dimensions", configSnapshot.memory() != null ? configSnapshot.memory().getDimensions() : 384);
+        // 'dimensions' deliberately absent — it is an embedding-category key, resolved by
+        // embeddingDefaults(). Emitting it here too let a tenant override one copy and not the other.
         return map;
     }
 
@@ -243,7 +267,10 @@ public class ConfigResolutionService {
         map.put("provider", emb != null && emb.getType() != null ? emb.getType() : "onnx");
         map.put("model", emb != null && emb.getModel() != null ? emb.getModel() : "all-minilm-l6-v2-q");
         map.put("base-url", emb != null && emb.getBaseUrl() != null ? emb.getBaseUrl() : "http://localhost:11434");
-        map.put("dimensions", configSnapshot.memory() != null ? configSnapshot.memory().getDimensions() : 384);
+        // The embedding property, not memory's. This read configSnapshot.memory().getDimensions()
+        // while every neighbouring key read `emb`, so the resolved embedding config could report a
+        // width the embedder was not configured with.
+        map.put("dimensions", emb != null ? emb.getDimensions() : 384);
         map.put("batch-size", emb != null ? emb.getBatchSize() : 32);
         map.put("max-retries", emb != null ? emb.getMaxRetries() : 3);
         map.put("cache.enabled", emb == null || emb.isCacheEnabled());

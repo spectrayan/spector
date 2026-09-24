@@ -94,8 +94,10 @@ class SpectorMemoryBuilderPropertiesTest {
     @Test
     void create_seedsFromSnapshotByDefault() {
         SpectorMemoryBuilder builder = SpectorMemoryBuilder.create();
-        // Should have loaded defaults from classpath spector-defaults.yml
-        assertThat(builder.properties().memory().getDimensions()).isEqualTo(384);
+        // Should have loaded defaults from classpath spector-defaults.yml. The engine's width is
+        // derived from spector.provider.embedding.dimensions — there is no memory dimensions property.
+        assertThat(builder.properties().provider().getEmbedding().getDimensions()).isEqualTo(768);
+        assertThat(builder.properties().memory().getDimensions()).isEqualTo(768);
         assertThat(builder.properties().memory().getSemanticCapacity()).isEqualTo(10_000);
         assertThat(builder.properties().memory().getCircadian()).isNotNull();
         assertThat(builder.properties().memory().getDream()).isNotNull();

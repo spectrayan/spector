@@ -90,8 +90,22 @@ class ConfigResolutionServiceTest {
         SpectorProperties props = SpectorProperties.load();
 
         assertThat(resolved.get("capacity")).isEqualTo(props.memory().getCapacity());
-        assertThat(resolved.get("dimensions")).isEqualTo(props.memory().getDimensions());
         assertThat(resolved.get("surprise-warmup")).isEqualTo(props.memory().getRemember().getSurpriseWarmup());
+        // 'dimensions' belongs to the embedding category alone. It used to appear in both, which let a
+        // tenant override one copy and leave the other stale.
+        assertThat(resolved).doesNotContainKey("dimensions");
+    }
+
+    @Test
+    @DisplayName("projects embedding dimensionality from the embedding property, not the memory one")
+    void testEmbeddingDimensionsProjection() {
+        ConfigRepository repo = Mockito.mock(ConfigRepository.class);
+        ConfigResolutionService service = new ConfigResolutionService(repo);
+
+        Map<String, Object> resolved = service.resolve(null, null, ConfigCategory.EMBEDDING_PROVIDER);
+        SpectorProperties props = SpectorProperties.load();
+
+        assertThat(resolved.get("dimensions")).isEqualTo(props.provider().getEmbedding().getDimensions());
     }
 
     @Test

@@ -91,6 +91,19 @@ public class SpectorAutoConfiguration {
     private static final Logger log = LoggerFactory.getLogger(SpectorAutoConfiguration.class);
 
     /**
+     * Refuses to start when a removed Spector property is set.
+     *
+     * <p>Runs in the constructor so it fires before any bean that reads configuration. Spring's
+     * relaxed binding would otherwise populate a field whose property has been withdrawn and report
+     * nothing — see {@link RemovedPropertyGuard}.</p>
+     *
+     * @param environment the Spring environment
+     */
+    public SpectorAutoConfiguration(org.springframework.core.env.Environment environment) {
+        RemovedPropertyGuard.check(environment);
+    }
+
+    /**
      * Creates the {@link SpectorCacheManager} bean backed by Spring's {@link CacheManager}
      * when a Spring CacheManager is present.
      */

@@ -23,7 +23,7 @@ spector:
     enabled: true
     persistence-mode: DISK
     persistence-path: /opt/spector/data/memory
-    dimensions: 768
+    # dimensions: removed — provider.embedding.dimensions is the single source.
     capacity: 100000
     decay-enabled: true
     consolidation-interval: 60s

@@ -57,20 +57,20 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  * <h3>Resolution Order (highest priority wins)</h3>
  * <ol>
  *   <li>Programmatic overrides (via {@link Builder#override(String, Object)})</li>
- *   <li>System properties ({@code -Dspector.memory.dimensions=768})</li>
- *   <li>System environment variables ({@code SPECTOR_MEMORY_DIMENSIONS=768})</li>
+ *   <li>System properties ({@code -Dspector.provider.embedding.dimensions=768})</li>
+ *   <li>System environment variables ({@code SPECTOR_PROVIDER_EMBEDDING_DIMENSIONS=768})</li>
  * </ul>
  *
  * <p>Examples:</p>
  * <pre>{@code
  * SpectorConfigSource props = SpectorConfigSource.load();
- * int dims = props.getInt("spector.memory.dimensions", 768);
+ * int dims = props.getInt("spector.provider.embedding.dimensions", 768);
  * Path path = props.getPath("spector.memory.persistence-path", Path.of(".spector/memory"));
  * }</pre>
  *
  * <h3>Environment Variable Mapping</h3>
  * <ul>
- *   <li>{@code spector.memory.dimensions} → {@code SPECTOR_MEMORY_DIMENSIONS}</li>
+ *   <li>{@code spector.provider.embedding.dimensions} → {@code SPECTOR_PROVIDER_EMBEDDING_DIMENSIONS}</li>
  * </ol>
  *
  * <h3>Usage</h3>
@@ -85,7 +85,7 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  *   SpectorConfigSource props = SpectorConfigSource.load(Path.of("/etc/spector/spector.yml"));
  *
  *   // Typed access
- *   int dims = props.getInt("spector.memory.dimensions", 768);
+ *   int dims = props.getInt("spector.provider.embedding.dimensions", 768);
  *   String model = props.getString("spector.provider.embedding.model", "nomic-embed-text");
  *   Duration timeout = props.getDuration("spector.provider.embedding.timeout", Duration.ofSeconds(30));
  * }</pre>
@@ -94,7 +94,7 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  * <p>Dot-notation keys are mapped to environment variables by uppercasing and
  * replacing dots/hyphens with underscores:</p>
  * <ul>
- *   <li>{@code spector.memory.dimensions} → {@code SPECTOR_MEMORY_DIMENSIONS}</li>
+ *   <li>{@code spector.provider.embedding.dimensions} → {@code SPECTOR_PROVIDER_EMBEDDING_DIMENSIONS}</li>
  *   <li>{@code spector.hnsw.ef-construction} → {@code SPECTOR_HNSW_EF_CONSTRUCTION}</li>
  * </ul>
  */
@@ -366,7 +366,7 @@ public final class SpectorConfigSource {
         String sysProp = System.getProperty(key);
         if (sysProp != null) return expandPlaceholders(sysProp);
 
-        // 2. Environment variable (spector.memory.dimensions → SPECTOR_MEMORY_DIMENSIONS)
+        // 2. Environment variable (spector.provider.embedding.dimensions → SPECTOR_PROVIDER_EMBEDDING_DIMENSIONS)
         String envKey = key.toUpperCase().replace('.', '_').replace('-', '_');
         String envValue = System.getenv(envKey);
         if (envValue != null) return expandPlaceholders(envValue);
