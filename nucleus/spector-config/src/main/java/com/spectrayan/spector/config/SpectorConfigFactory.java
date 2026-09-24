@@ -47,6 +47,7 @@ public final class SpectorConfigFactory {
      * @return fully hydrated SpectorProperties aggregate
      */
     public static SpectorProperties spectorProperties(SpectorConfigSource source) {
+        rejectRemovedProperties(source);
         return new SpectorProperties(
                 memoryProperties(source),
                 providerProperties(source),
@@ -62,6 +63,44 @@ public final class SpectorConfigFactory {
                 namespaceProperties(source),
                 source
         );
+    }
+
+    /**
+     * Refuses to load a configuration that sets a property which no longer exists.
+     *
+     * <p>Accepting and ignoring a removed key is the worse failure: the operator who set it believes
+     * it took effect, and the symptom surfaces later as inexplicable behaviour with nothing pointing
+     * back at the configuration. Failing here costs one clear restart error and names the replacement.</p>
+     *
+     * <p>This is the single chokepoint — every {@code SpectorProperties.load*} overload routes through
+     * {@link #spectorProperties(SpectorConfigSource)} — so a removed key cannot slip in via a profile,
+     * an environment variable, or a system property.</p>
+     *
+     * @param source the raw configuration source
+     * @throws com.spectrayan.spector.commons.error.SpectorConfigException if a removed property is set
+     */
+    static void rejectRemovedProperties(SpectorConfigSource source) {
+        if (source == null) {
+            return;
+        }
+        for (var entry : SpectorPropertyConstants.REMOVED_PROPERTIES.entrySet()) {
+            String removed = entry.getKey();
+            if (!source.containsKey(removed)) {
+                continue;
+            }
+            String replacement = entry.getValue();
+            String value = source.getString(removed, "");
+            throw new com.spectrayan.spector.commons.error.SpectorConfigException(
+                    com.spectrayan.spector.commons.error.ErrorCode.CONFIG_VALUE_INVALID,
+                    String.format(
+                            "Configuration property '%s' has been removed; it is still set (to '%s'). Use '%s' "
+                                    + "instead — it is now the single source of embedding dimensionality, and the "
+                                    + "engine derives its own width from it. Set '%s: %s' and delete '%s'. If you "
+                                    + "configure dimensionality through the SPECTOR_EMBEDDING_DIMS environment "
+                                    + "variable, no change is needed: it now maps only to the replacement.",
+                            removed, value, replacement, replacement, value, removed),
+                    true);
+        }
     }
 
     // ─────────────── Namespace Properties ───────────────
@@ -171,7 +210,11 @@ public final class SpectorConfigFactory {
         properties.setEnabled(props.getBoolean(MEMORY_ENABLED, DEFAULT_MEMORY_ENABLED));
         properties.setPersistenceMode(props.getEnum(MEMORY_PERSISTENCE_MODE, PersistenceMode.class, DEFAULT_MEMORY_PERSISTENCE_MODE));
         properties.setPersistencePath(props.getPath(MEMORY_PERSISTENCE_PATH, DEFAULT_MEMORY_PERSISTENCE_PATH).toString());
-        properties.setDimensions(props.getInt(MEMORY_DIMENSIONS, DEFAULT_MEMORY_DIMENSIONS));
+        // Single source of dimensionality. This used to read spector.memory.dimensions, a second
+        // property for the same concept with no precedence relationship to the provider's — so the
+        // engine could be sized at one width while the embedder produced another. The engine's
+        // MemoryProperties.dimensions is now derived state, not independently configurable.
+        properties.setDimensions(props.getInt(PROVIDER_EMBEDDING_DIMENSIONS, DEFAULT_PROVIDER_EMBEDDING_DIMENSIONS));
         properties.setCapacity(props.getInt(MEMORY_CAPACITY, DEFAULT_MEMORY_CAPACITY));
         properties.setNodesPerPartition(props.getInt(MEMORY_NODES_PER_PARTITION, DEFAULT_MEMORY_NODES_PER_PARTITION));
         // Bound for the first time in #983. Without these the namespace-global graph capacity was

@@ -4,6 +4,27 @@
 
 ---
 
+!!! warning "Breaking change — `spector.memory.dimensions` has been removed"
+
+    Embedding dimensionality now has a single source: **`spector.provider.embedding.dimensions`**
+    (`SPECTOR_PROVIDER_EMBEDDING_DIMENSIONS`). The cognitive memory derives its record and index width
+    from that value; it is no longer separately configurable.
+
+    Previously the two properties were read independently with no precedence between them, so they
+    could disagree — and in the shipped defaults they did, with `spector.memory.dimensions: 384`
+    against `spector.provider.embedding.dimensions: 768`.
+
+    **Setting `spector.memory.dimensions` now fails at startup** with a message naming the
+    replacement, rather than being silently ignored.
+
+    | If you set | Action |
+    |:---|:---|
+    | `SPECTOR_EMBEDDING_DIMS` | Nothing. It now maps only to the canonical provider variable. |
+    | `SPECTOR_MEMORY_DIMENSIONS` | Rename to `SPECTOR_PROVIDER_EMBEDDING_DIMENSIONS`. |
+    | `spector.memory.dimensions` in YAML | Move the value to `spector.provider.embedding.dimensions` and delete the old key. |
+    | `-Dspector.memory.dimensions` | Rename to `-Dspector.provider.embedding.dimensions`. |
+    | Docker, Helm or Terraform defaults | Nothing. All three set `SPECTOR_EMBEDDING_DIMS`. |
+
 ## 🧭 Systematic Canonical Mapping Rule
 
 Spector's configuration loader (`SpectorConfigSource`) automatically translates any configuration property from `spector.yml` into a canonical environment variable using three simple rules:
@@ -17,7 +38,7 @@ Spector's configuration loader (`SpectorConfigSource`) automatically translates 
 | `spector.yml` Dot Path | Canonical Environment Variable | Example Value |
 |:---|:---|:---|
 | `spector.mode` | `SPECTOR_MODE` | `MEMORY` |
-| `spector.memory.dimensions` | `SPECTOR_MEMORY_DIMENSIONS` | `768` |
+| `spector.provider.embedding.dimensions` | `SPECTOR_PROVIDER_EMBEDDING_DIMENSIONS` | `768` |
 | `spector.memory.persistence-path` | `SPECTOR_MEMORY_PERSISTENCE_PATH` | `/data/memory` |
 | `spector.provider.embedding.type` | `SPECTOR_PROVIDER_EMBEDDING_TYPE` | `openai` |
 | `spector.provider.embedding.api-key` | `SPECTOR_PROVIDER_EMBEDDING_API_KEY` | `sk-proj-xxxx` |
@@ -43,7 +64,7 @@ If an alias is defined and its canonical equivalent is empty, the alias value is
 | `SPECTOR_EMBEDDING_MODEL` | `SPECTOR_PROVIDER_EMBEDDING_MODEL` | Embedding model identifier (`nomic-embed-text`) |
 | `SPECTOR_EMBEDDING_BASE_URL` | `SPECTOR_PROVIDER_EMBEDDING_BASE_URL` | Endpoint URL for remote embedding provider |
 | `SPECTOR_EMBEDDING_API_KEY` | `SPECTOR_PROVIDER_EMBEDDING_API_KEY` | API secret key for embedding provider |
-| `SPECTOR_EMBEDDING_DIMS` | `SPECTOR_PROVIDER_EMBEDDING_DIMENSIONS`<br/>`SPECTOR_MEMORY_DIMENSIONS` | Synchronously sets dimensions for both provider and cognitive memory |
+| `SPECTOR_EMBEDDING_DIMS` | `SPECTOR_PROVIDER_EMBEDDING_DIMENSIONS` | Embedding dimensionality. The cognitive memory derives its record width from this single value; there is no separate memory dimensions property |
 | `SPECTOR_EMBEDDING_TIMEOUT` | `SPECTOR_PROVIDER_EMBEDDING_TIMEOUT` | Embedding request timeout (`30s`, `1m`) |
 | `SPECTOR_GENERATION_PROVIDER` | `SPECTOR_PROVIDER_GENERATION_TYPE` | Text generation provider adapter |
 | `SPECTOR_GENERATION_MODEL` | `SPECTOR_PROVIDER_GENERATION_MODEL` | Generation model identifier (`llama3.2`) |
@@ -113,7 +134,7 @@ Any configuration key can be passed to the JVM runtime as a standard system prop
 ```bash
 java \
   --enable-preview --add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED \
-  -Dspector.memory.dimensions=768 \
+  -Dspector.provider.embedding.dimensions=768 \
   -Dspector.memory.capacity=500000 \
   -Dspector.provider.embedding.type=ollama \
   -jar spector-synapse.jar

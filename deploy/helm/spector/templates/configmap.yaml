@@ -26,7 +26,8 @@ data:
         enabled: true
         persistence-mode: DISK
         persistence-path: /data/memory
-        dimensions: ${SPECTOR_EMBEDDING_DIMS:768}
+        # dimensions: removed — SPECTOR_EMBEDDING_DIMS now reaches the engine solely through
+        # provider.embedding.dimensions below. Setting it here would be refused at startup.
         capacity: ${SPECTOR_MEMORY_CAPACITY:10000}
         entity:
           extraction-mode: ${SPECTOR_ENTITY_EXTRACTION_MODE:NONE}

@@ -289,8 +289,33 @@ public final class SpectorPropertyConstants {
     public static final String MEMORY_PERSISTENCE_PATH = "spector.memory.persistence-path";
     public static final Path DEFAULT_MEMORY_PERSISTENCE_PATH = Path.of(".spector", "memory");
 
-    public static final String MEMORY_DIMENSIONS = "spector.memory.dimensions";
-    public static final int DEFAULT_MEMORY_DIMENSIONS = 768;
+    /**
+     * Removed. Embedding dimensionality has a single source: {@link #PROVIDER_EMBEDDING_DIMENSIONS}.
+     *
+     * <p>Two properties described one concept, read independently with no precedence between them
+     * ({@code SpectorConfigFactory} read this key for the engine and the provider key for the
+     * embedder), so they could disagree — and in the shipped defaults they did: this key was
+     * {@code 384} while {@code spector.provider.embedding.dimensions} was {@code 768}. The
+     * configuration API compounded it by advertising the same concept under two categories with two
+     * different apply modes, both reading this key.</p>
+     *
+     * <p>The name is retained so that startup can <em>refuse</em> it with a message naming the
+     * replacement. Silently ignoring a property an operator set is the defect class this removal
+     * exists to end: someone pinning dimensionality here would otherwise be told nothing while the
+     * value had no effect.</p>
+     *
+     * @see #REMOVED_PROPERTIES
+     */
+    public static final String REMOVED_MEMORY_DIMENSIONS = "spector.memory.dimensions";
+
+    /**
+     * Configuration keys that no longer exist, mapped to the key that replaced each one.
+     *
+     * <p>Consulted once at load time so a removed key fails fast rather than being ignored. Add to
+     * this map when deleting a property; never delete a property without adding to it.</p>
+     */
+    public static final java.util.Map<String, String> REMOVED_PROPERTIES = java.util.Map.of(
+            REMOVED_MEMORY_DIMENSIONS, PROVIDER_EMBEDDING_DIMENSIONS);
 
     /**
      * Total addressable memories for a namespace across all partitions.

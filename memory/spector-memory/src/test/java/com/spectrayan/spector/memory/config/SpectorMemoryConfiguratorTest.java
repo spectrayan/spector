@@ -49,12 +49,14 @@ class SpectorMemoryConfiguratorTest {
                   mode: MEMORY
                   memory:
                     enabled: true
-                    dimensions: 128
                     capacity: 500
                     persistence-mode: EPHEMERAL
                     text-search-mode: HYBRID
                     graph-expansion-mode: GATED
                     graph-expansion-threshold: 0.45
+                  provider:
+                    embedding:
+                      dimensions: 128
                   ingestion:
                     chunk-size: 1500
                     chunk-overlap: 150

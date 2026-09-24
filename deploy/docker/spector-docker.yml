@@ -37,7 +37,7 @@ spector:
     persistence-path: /data/memory
     bundle-mode: true
     insula-size: 2097152
-    dimensions: 768
+    # dimensions: removed — provider.embedding.dimensions is the single source.
     capacity: 10000
     nodes-per-partition: 10000
     decay-enabled: true

@@ -80,8 +80,9 @@ public class SpectorCliConfigInitializer implements ApplicationContextInitialize
 
         String dims = findArgValue("--dims", null);
         if (dims != null && !dims.isBlank()) {
-            overrides.put("spector.memory.dimensions", dims);
-            overrides.put("spector.provider.embedding.dimensions", dims);
+            // One key. --dims used to set spector.memory.dimensions as well; that property is removed
+            // and now refused at startup, so setting it here would make --dims fail outright.
+            overrides.put(com.spectrayan.spector.config.SpectorPropertyConstants.PROVIDER_EMBEDDING_DIMENSIONS, dims);
         }
 
         String capacity = findArgValue("--capacity", null);

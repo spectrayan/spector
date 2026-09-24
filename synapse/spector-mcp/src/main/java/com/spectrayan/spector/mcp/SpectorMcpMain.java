@@ -45,8 +45,8 @@ import com.spectrayan.spector.provider.embedding.CachingEmbeddingProvider;
  * <h3>Configuration Hierarchy (highest priority wins)</h3>
  * <ol>
  *   <li>CLI arguments ({@code --dims 768})</li>
- *   <li>System properties ({@code -Dspector.memory.dimensions=768})</li>
- *   <li>Environment variables ({@code SPECTOR_MEMORY_DIMENSIONS=768})</li>
+ *   <li>System properties ({@code -Dspector.provider.embedding.dimensions=768})</li>
+ *   <li>Environment variables ({@code SPECTOR_PROVIDER_EMBEDDING_DIMENSIONS=768})</li>
  *   <li>Profile config file ({@code spector-{profile}.yml})</li>
  *   <li>User config file ({@code spector.yml} in working directory)</li>
  *   <li>{@code --config /path/to/config.yml} (explicit file)</li>
@@ -97,7 +97,8 @@ public class SpectorMcpMain {
         // CLI args as overrides (highest priority after system props / env vars)
         String cliDims = getStringArg(args, "--dims", null);
         if (cliDims != null) {
-            propsBuilder.override("spector.memory.dimensions", cliDims);
+            // One key. This used to also override spector.memory.dimensions, now removed and refused
+            // at startup — setting it here would make --dims fail outright.
             propsBuilder.override("spector.provider.embedding.dimensions", cliDims);
         }
 
@@ -241,8 +242,8 @@ public class SpectorMcpMain {
                 
                 Config Hierarchy (highest priority wins):
                   1. CLI arguments (--dims, --capacity, etc.)
-                  2. System properties (-Dspector.memory.dimensions=768)
-                  3. Environment variables (SPECTOR_MEMORY_DIMENSIONS=768)
+                  2. System properties (-Dspector.provider.embedding.dimensions=768)
+                  3. Environment variables (SPECTOR_PROVIDER_EMBEDDING_DIMENSIONS=768)
                   4. spector-{profile}.yml (profile-specific)
                   5. spector.yml (working directory)
                   6. spector-defaults.yml (bundled in JAR)

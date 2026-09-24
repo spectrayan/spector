@@ -39,7 +39,7 @@ class SpectorCliConfigInitializerTest {
         initializer.initialize(context);
 
         ConfigurableEnvironment env = context.getEnvironment();
-        assertThat(env.getProperty("spector.memory.dimensions")).isEqualTo("512");
+        assertThat(env.getProperty("spector.provider.embedding.dimensions")).isEqualTo("512");
         assertThat(env.getProperty("spector.provider.embedding.dimensions")).isEqualTo("512");
         assertThat(env.getProperty("spector.memory.capacity")).isEqualTo("20000");
         assertThat(env.getProperty("spector.memory.persistence-path")).isEqualTo("/tmp/spector-test");

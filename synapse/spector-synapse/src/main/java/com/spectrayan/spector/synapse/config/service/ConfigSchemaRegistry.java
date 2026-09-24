@@ -121,9 +121,11 @@ public class ConfigSchemaRegistry {
                 number("capacity", configSnapshot.memory() != null ? configSnapshot.memory().getCapacity() : 100000,
                         "Total memory engram capacity", "BOOT", 1000, 10000000, 1000),
                 select("persistence-mode", configSnapshot.memory() != null && configSnapshot.memory().getPersistenceMode() != null ? configSnapshot.memory().getPersistenceMode().name().toLowerCase() : "mmap",
-                        "Memory persistence storage mode", "BOOT", List.of("mmap", "off_heap", "in_memory")),
-                number("dimensions", configSnapshot.memory() != null ? configSnapshot.memory().getDimensions() : 384,
-                        "Vector dimensionality", "BOOT", 32, 4096, 1)
+                        "Memory persistence storage mode", "BOOT", List.of("mmap", "off_heap", "in_memory"))
+                // 'dimensions' deliberately absent. It belongs to the embedding category and is listed
+                // there. Describing one concept under two categories with two different apply modes
+                // ("BOOT" here, "REBUILD" there) meant the UI could not tell an operator what changing
+                // it would actually do.
         );
     }
 
@@ -233,7 +235,10 @@ public class ConfigSchemaRegistry {
                         "string", "Embedding model name", "POLICY"),
                 of("base-url", emb != null && emb.getBaseUrl() != null ? emb.getBaseUrl() : "http://localhost:11434",
                         "string", "API endpoint base URL", "POLICY"),
-                number("dimensions", configSnapshot.memory() != null ? configSnapshot.memory().getDimensions() : 384,
+                // Reads the embedding property, like every other field in this schema. It previously
+                // reached into configSnapshot.memory().getDimensions() — the *memory* property — so the
+                // embedding schema reported a value the embedding provider did not necessarily use.
+                number("dimensions", emb != null ? emb.getDimensions() : 384,
                         "Vector embedding dimensionality", "REBUILD", 32, 4096, 1),
                 number("batch-size", emb != null ? emb.getBatchSize() : 32,
                         "Max batch embedding request size", "POLICY", 1, 256, 1),

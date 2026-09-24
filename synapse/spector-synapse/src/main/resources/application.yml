@@ -105,7 +105,7 @@ spector:
   memory:
     enabled: true
     max-memories: ${SPECTOR_MAX_MEMORIES:0}
-    dimensions: ${SPECTOR_EMBEDDING_DIMS:${SPECTOR_DIMENSIONS:768}}
+    # dimensions: removed — provider.embedding.dimensions below is the single source.
     persistence-mode: DISK
     persistence-path: ${SPECTOR_PERSISTENCE_PATH:${SPECTOR_DATA_DIR:./spector-data}/memory}
     capacity: ${SPECTOR_MEMORY_CAPACITY:${SPECTOR_MAX_MEMORIES:10000}}

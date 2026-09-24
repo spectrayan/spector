@@ -86,7 +86,7 @@ class SpectorAutoConfigurationTest {
     @Test
     void defaultConfiguration_createsMemoryBean() {
         this.contextRunner
-                .withPropertyValues("spector.memory.dimensions=384")
+                .withPropertyValues("spector.provider.embedding.dimensions=384")
                 .withUserConfiguration(TestDependenciesConfiguration.class)
                 .run(context -> {
                     assertThat(context).hasSingleBean(SpectorMemory.class);
@@ -100,7 +100,7 @@ class SpectorAutoConfigurationTest {
         this.contextRunner
                 .withUserConfiguration(TestDependenciesConfiguration.class)
                 .withUserConfiguration(TestMeterRegistryConfiguration.class)
-                .withPropertyValues("spector.memory.dimensions=384", "spector.metrics.enabled=true")
+                .withPropertyValues("spector.provider.embedding.dimensions=384", "spector.metrics.enabled=true")
                 .run(context -> {
                     assertThat(context).hasSingleBean(SpectorMemory.class);
                     SpectorMemory memory = context.getBean(SpectorMemory.class);
@@ -350,7 +350,7 @@ class SpectorAutoConfigurationTest {
     @Test
     void dualPlaneExecutors_configuredAndInstalled() {
         this.contextRunner
-                .withPropertyValues("spector.memory.dimensions=384")
+                .withPropertyValues("spector.provider.embedding.dimensions=384")
                 .withUserConfiguration(TestDependenciesConfiguration.class)
                 .run(context -> {
                     assertThat(context).hasBean("spectorSharedPool");

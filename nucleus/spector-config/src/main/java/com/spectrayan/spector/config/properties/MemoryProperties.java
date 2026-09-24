@@ -37,7 +37,16 @@ public class MemoryProperties implements Serializable {
     private int maxMemories = 0;
     private PersistenceMode persistenceMode = DEFAULT_MEMORY_PERSISTENCE_MODE;
     private String persistencePath = DEFAULT_MEMORY_PERSISTENCE_PATH.toString();
-    private int dimensions = DEFAULT_MEMORY_DIMENSIONS;
+    /**
+     * Embedding width the engine sizes its records and indexes to.
+     *
+     * <p><strong>Derived, not independently configurable.</strong> There is no
+     * {@code spector.memory.dimensions} property: this is populated from
+     * {@code spector.provider.embedding.dimensions} and then corrected, if necessary, from the live
+     * embedding provider's reported dimensionality. It remains a field because the engine needs the
+     * width in dozens of places that have no business reading provider configuration.</p>
+     */
+    private int dimensions = DEFAULT_PROVIDER_EMBEDDING_DIMENSIONS;
     private int capacity = DEFAULT_MEMORY_CAPACITY;
     private int nodesPerPartition = DEFAULT_MEMORY_NODES_PER_PARTITION;
     private int workingCapacity = DEFAULT_MEMORY_WORKING_CAPACITY;

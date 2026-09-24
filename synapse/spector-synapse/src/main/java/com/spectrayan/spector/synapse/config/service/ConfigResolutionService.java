@@ -186,7 +186,8 @@ public class ConfigResolutionService {
         map.put("capacity", configSnapshot.memory() != null ? configSnapshot.memory().getCapacity() : 100000);
         map.put("persistence-mode", configSnapshot.memory() != null && configSnapshot.memory().getPersistenceMode() != null
                 ? configSnapshot.memory().getPersistenceMode().name().toLowerCase() : "mmap");
-        map.put("dimensions", configSnapshot.memory() != null ? configSnapshot.memory().getDimensions() : 384);
+        // 'dimensions' deliberately absent — it is an embedding-category key, resolved by
+        // embeddingDefaults(). Emitting it here too let a tenant override one copy and not the other.
         return map;
     }
 
@@ -243,7 +244,10 @@ public class ConfigResolutionService {
         map.put("provider", emb != null && emb.getType() != null ? emb.getType() : "onnx");
         map.put("model", emb != null && emb.getModel() != null ? emb.getModel() : "all-minilm-l6-v2-q");
         map.put("base-url", emb != null && emb.getBaseUrl() != null ? emb.getBaseUrl() : "http://localhost:11434");
-        map.put("dimensions", configSnapshot.memory() != null ? configSnapshot.memory().getDimensions() : 384);
+        // The embedding property, not memory's. This read configSnapshot.memory().getDimensions()
+        // while every neighbouring key read `emb`, so the resolved embedding config could report a
+        // width the embedder was not configured with.
+        map.put("dimensions", emb != null ? emb.getDimensions() : 384);
         map.put("batch-size", emb != null ? emb.getBatchSize() : 32);
         map.put("max-retries", emb != null ? emb.getMaxRetries() : 3);
         map.put("cache.enabled", emb == null || emb.isCacheEnabled());

@@ -59,8 +59,8 @@ flowchart TD
     subgraph Resolution["Resolution Hierarchy (Highest Priority Wins)"]
         direction TB
         L1["1. Programmatic Overrides<br/><code>SpectorConfig.DEFAULT.with...</code>"]
-        L2["2. Java System Properties<br/><code>-Dspector.memory.dimensions=768</code>"]
-        L3["3. Environment Variables<br/><code>SPECTOR_MEMORY_DIMENSIONS=768</code>"]
+        L2["2. Java System Properties<br/><code>-Dspector.provider.embedding.dimensions=768</code>"]
+        L3["3. Environment Variables<br/><code>SPECTOR_PROVIDER_EMBEDDING_DIMENSIONS=768</code>"]
         L4["4. Profile Configuration<br/><code>spector-{profile}.yml</code>"]
         L5["5. Local YAML<br/><code>spector.yml (Working Directory)</code>"]
         L6["6. Bundled Classpath Defaults<br/><code>spector-defaults.yml (JAR)</code>"]
@@ -120,7 +120,7 @@ System properties passed on the command line via `-D` override environment varia
 ```bash
 java \
   --enable-preview --add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED \
-  -Dspector.memory.dimensions=1536 \
+  -Dspector.provider.embedding.dimensions=1536 \
   -Dspector.provider.embedding.type=openai \
   -jar spector-synapse.jar
 ```
@@ -129,7 +129,7 @@ java \
 
 Every dot-notation configuration property automatically maps to a screaming snake_case environment variable. Dots and hyphens are replaced with underscores, and the key is uppercased:
 
-- `spector.memory.dimensions` $\to$ `SPECTOR_MEMORY_DIMENSIONS`
+- `spector.provider.embedding.dimensions` $\to$ `SPECTOR_PROVIDER_EMBEDDING_DIMENSIONS`
 - `spector.hnsw.ef-construction` $\to$ `SPECTOR_HNSW_EF_CONSTRUCTION`
 - `spector.provider.embedding.api-key` $\to$ `SPECTOR_PROVIDER_EMBEDDING_API_KEY`
 

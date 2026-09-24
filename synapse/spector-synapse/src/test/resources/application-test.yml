@@ -28,7 +28,6 @@ spector:
   memory:
     enabled: false          # disables SpectorAutoConfiguration bean — no Ollama needed
     max-memories: 0
-    dimensions: 768
     capacity: 1000
     persistence-mode: IN_MEMORY
     splade-enabled: false

@@ -20,7 +20,7 @@ spector:
     enabled: true
     persistence-mode: DISK
     persistence-path: .spector-bench-bge/memory
-    dimensions: 1024
+    # dimensions: removed — provider.embedding.dimensions is the single source.
     capacity: 15000   # Same as qwen3 config — 1200-char chunks produce ~13K chunks
     decay-enabled: false
     consolidation-interval: 600s
