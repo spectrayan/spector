@@ -62,14 +62,36 @@ public class SpectorBatchService {
      * @throws Exception if job initiation fails
      */
     public JobExecution runExportJob(String namespace, Path targetBundlePath) throws Exception {
+        return runExportJob(namespace, targetBundlePath, null);
+    }
+
+    /**
+     * Executes a scoped export job for the given namespace into a target SMB file with custom parameters.
+     *
+     * @param namespace target namespace
+     * @param targetBundlePath destination file path
+     * @param additionalParameters optional scoping or embedding parameters
+     * @return JobExecution details
+     * @throws Exception if job initiation fails
+     */
+    public JobExecution runExportJob(String namespace, Path targetBundlePath, java.util.Map<String, Object> additionalParameters) throws Exception {
         log.info("[SpectorBatchService] Launching export job for namespace='{}' -> {}", namespace, targetBundlePath);
-        JobParameters params = new JobParametersBuilder()
+        JobParametersBuilder builder = new JobParametersBuilder()
                 .addString("namespace", namespace)
                 .addString("targetBundlePath", targetBundlePath.toAbsolutePath().toString())
-                .addLong("timestamp", System.currentTimeMillis())
-                .toJobParameters();
+                .addLong("timestamp", System.currentTimeMillis());
 
-        return jobLauncher.run(exportJob, params);
+        if (additionalParameters != null) {
+            additionalParameters.forEach((k, v) -> {
+                if (v instanceof String s) builder.addString(k, s);
+                else if (v instanceof Long l) builder.addLong(k, l);
+                else if (v instanceof Double d) builder.addDouble(k, d);
+                else if (v instanceof Integer i) builder.addLong(k, i.longValue());
+                else if (v != null) builder.addString(k, v.toString());
+            });
+        }
+
+        return jobLauncher.run(exportJob, builder.toJobParameters());
     }
 
     /**

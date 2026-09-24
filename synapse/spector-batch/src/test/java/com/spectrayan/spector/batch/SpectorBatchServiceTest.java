@@ -72,8 +72,8 @@ class SpectorBatchServiceTest {
                 .as("the failure must be attributable")
                 .isNotEmpty();
         assertThat(execution.getAllFailureExceptions().getFirst())
-                .isInstanceOf(UnsupportedOperationException.class)
-                .hasMessageContaining(SpectorBatchUnimplemented.OWNING_SPEC);
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Cannot execute export job: no SpectorMemory or SpectorMemoryResolver available");
     }
 
     @Test
