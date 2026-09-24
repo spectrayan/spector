@@ -121,12 +121,13 @@ flowchart LR
 
 Tombstoned memories are skipped without reading any other fields.
 
-!!! warning "Tombstoned records are not reclaimed"
-    Tombstoned records remain on disk indefinitely. There is no automatic partition rebuild, no compaction
-    threshold, and no `TombstoneCompactor` — earlier revisions of this page described all three, and none
-    exist. `POST /api/v1/memory/vacuum` performs a tombstone **census** and reclaims nothing.
-
-    Real compaction is specified in `spectrayan/.kiro/specs/memory-durability-contract` R2.
+!!! info "Tombstone Compaction & Space Reclamation"
+    Tombstoned records remain in-place until **partition compaction** runs. Compaction is triggered
+    via `VacuumCompactor` (`admin().vacuum()` or `POST /api/v1/memory/vacuum`) when the partition tombstone
+    ratio exceeds the configured threshold (`0.20`, `spector.memory.vacuum.threshold`) or via explicit force.
+    During compaction, live records are relocated into dense slots, dead slots are zeroed, `MemoryIndex`
+    pointers are updated under `withRollLock`, graph edges are reconciled, and physical space is
+    measured and reclaimed.
 
 ---
 

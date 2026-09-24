@@ -124,6 +124,18 @@ public record CognitiveRecord(
         return EncodingHeaderFields.isTombstoned(flags);
     }
 
+    /**
+     * Returns true if this memory's content has been physically destroyed by {@code purge}.
+     *
+     * <p>Stronger than {@link #isTombstoned()}, and the distinction is not cosmetic: a tombstoned record's
+     * bytes are intact and recoverable, a purged record's are zeros. Anything that reports or interprets
+     * content must check this, because a zeroed payload reads as a legitimate all-zero vector rather than as
+     * an absence.</p>
+     */
+    public boolean isPurged() {
+        return EncodingHeaderFields.isPurged(consolidationFlags);
+    }
+
     /** Returns true if this memory has been consolidated (reflected into Semantic tier). */
     public boolean isConsolidated() {
         return EncodingHeaderFields.isConsolidated(flags);
@@ -201,6 +213,7 @@ public record CognitiveRecord(
         node.put("arousal", Byte.toUnsignedInt(arousal));
         node.put("storageStrength", Float.parseFloat(String.format("%.4f", storageStrength)));
         node.put("tombstoned", isTombstoned());
+        node.put("purged", isPurged());
         node.put("consolidated", isConsolidated());
         node.put("pinned", isPinned());
         node.put("resolved", isResolved());

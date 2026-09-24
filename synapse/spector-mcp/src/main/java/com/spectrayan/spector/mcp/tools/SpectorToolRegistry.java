@@ -26,6 +26,7 @@ import com.spectrayan.spector.mcp.tools.memory.MemoryScratchpadTool;
 import com.spectrayan.spector.mcp.tools.memory.MemoryRecallTool;
 import com.spectrayan.spector.mcp.tools.memory.MemoryReinforceTool;
 import com.spectrayan.spector.mcp.tools.memory.MemoryForgetTool;
+import com.spectrayan.spector.mcp.tools.memory.MemoryPurgeTool;
 import com.spectrayan.spector.mcp.tools.memory.MemoryStatusTool;
 import com.spectrayan.spector.mcp.tools.memory.MemoryIntrospectTool;
 import com.spectrayan.spector.mcp.tools.memory.MemorySuppressTool;
@@ -85,6 +86,7 @@ public final class SpectorToolRegistry {
             handlers.add(new MemoryGraphRecallTool(memory));
             handlers.add(new MemoryReinforceTool(memory));
             handlers.add(new MemoryForgetTool(memory));
+            handlers.add(new MemoryPurgeTool(memory));
             handlers.add(new MemoryStatusTool(memory));
             handlers.add(new MemoryIntrospectTool(memory));
             handlers.add(new MemorySuppressTool(memory));
@@ -128,6 +130,7 @@ public final class SpectorToolRegistry {
         handlers.add(new MemoryGraphRecallTool(memoryResolver));
         handlers.add(new MemoryReinforceTool(memoryResolver));
         handlers.add(new MemoryForgetTool(memoryResolver));
+        handlers.add(new MemoryPurgeTool(memoryResolver));
         handlers.add(new MemoryStatusTool(memoryResolver));
         handlers.add(new MemoryIntrospectTool(memoryResolver));
         handlers.add(new MemorySuppressTool(memoryResolver));

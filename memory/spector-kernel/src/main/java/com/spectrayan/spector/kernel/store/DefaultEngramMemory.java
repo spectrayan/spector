@@ -166,6 +166,25 @@ class DefaultEngramMemory implements EngramMemory {
     }
 
     @Override
+    public int purge(MemoryLocation loc) {
+        Objects.requireNonNull(loc, "loc cannot be null");
+        if (loc.type() == MemoryType.EPISODIC) {
+            return episodicMemory != null ? episodicMemory.purge(loc.offset()) : 0;
+        }
+        EngramRegion region = memories.get(loc.type());
+        if (region == null) {
+            return 0;
+        }
+        int purged = region.purge(loc.offset());
+        // Strength telemetry is derived from the record and must not outlive its content.
+        if (strengthMemory != null && loc.type() != MemoryType.WORKING && layoutFor(loc.type()) != null) {
+            int slotIndex = (int) ((loc.offset() - region.dataOffset()) / layoutFor(loc.type()).stride());
+            strengthMemory.resetRecord(loc.type(), slotIndex);
+        }
+        return purged;
+    }
+
+    @Override
     public boolean isTombstoned(MemoryLocation loc) {
         Objects.requireNonNull(loc, "loc cannot be null");
         if (loc.type() == MemoryType.EPISODIC) {
@@ -173,6 +192,16 @@ class DefaultEngramMemory implements EngramMemory {
         }
         EngramRegion region = memories.get(loc.type());
         return region != null && region.isTombstoned(loc.offset());
+    }
+
+    @Override
+    public boolean isPurged(MemoryLocation loc) {
+        Objects.requireNonNull(loc, "loc cannot be null");
+        if (loc.type() == MemoryType.EPISODIC) {
+            return episodicMemory != null && episodicMemory.isPurged(loc.offset());
+        }
+        EngramRegion region = memories.get(loc.type());
+        return region != null && region.isPurged(loc.offset());
     }
 
     @Override

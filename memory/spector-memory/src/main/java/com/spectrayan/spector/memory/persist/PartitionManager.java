@@ -134,6 +134,38 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
         rollListeners.remove(listener);
     }
 
+    /**
+     * Executes an action under the partition roll lock to guarantee synchronization
+     * with partition rolls and avoid race conditions during compaction (ADR-0077, Design D4).
+     *
+     * @param action the action to execute under roll lock
+     */
+    public void withRollLock(Runnable action) {
+        partitionRollLock.lock();
+        try {
+            action.run();
+        } finally {
+            partitionRollLock.unlock();
+        }
+    }
+
+    /**
+     * Executes a callable under the partition roll lock.
+     *
+     * @param <T>    the return type
+     * @param action the action to execute under roll lock
+     * @return the result of the callable
+     * @throws Exception if the callable throws
+     */
+    public <T> T withRollLock(java.util.concurrent.Callable<T> action) throws Exception {
+        partitionRollLock.lock();
+        try {
+            return action.call();
+        } finally {
+            partitionRollLock.unlock();
+        }
+    }
+
     public PartitionManager(Path basePath,
                      int quantizedVecBytes,
                      int semanticCapacity,
@@ -600,7 +632,7 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
      * persisted. Entity graph flush is included (was missing in V2).</p>
      */
     @SuppressWarnings("removal")
-    private void flushGlobalState() {
+    public void flushGlobalState() {
         if (basePath == null) return;
         Path targetPath = useBundleMode ? StoragePaths.runtimeBundleFile(basePath) : LegacyV3BundleFormat.indexMidxRuntime(basePath);
         try {

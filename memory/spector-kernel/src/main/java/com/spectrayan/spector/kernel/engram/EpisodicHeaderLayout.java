@@ -313,6 +313,39 @@ public class EpisodicHeaderLayout extends EncodingHeaderLayout {
         markTombstoned(segment, headerOffset(recordOffset));
     }
 
+    /**
+     * Marks the record at {@code recordOffset} as purged (payload physically zeroed).
+     *
+     * <p>Records the fact only. Zeroing the variable-length episodic payload and recomputing the record
+     * checksum is {@code EpisodicMemory}'s job.</p>
+     *
+     * @see EncodingHeaderFields#FLAG_PURGED
+     */
+    public void markPurgedRecord(MemorySegment segment, long recordOffset) {
+        markPurged(segment, headerOffset(recordOffset));
+    }
+
+    /**
+     * Returns whether the record at {@code recordOffset} has been purged.
+     *
+     * @see EncodingHeaderFields#FLAG_PURGED
+     */
+    public boolean isPurgedRecord(MemorySegment segment, long recordOffset) {
+        return isPurged(segment, headerOffset(recordOffset));
+    }
+
+    /**
+     * Overwrites the record's CRC32C checksum in the 16-byte prefix.
+     *
+     * <p>Needed after a purge: zeroing the payload invalidates the stored checksum, and leaving a stale one
+     * would make a deliberately erased record indistinguishable from a corrupted one.</p>
+     */
+    public void writeChecksum(MemorySegment segment, long recordOffset, int checksum) {
+        segment.set(ValueLayout.JAVA_INT_UNALIGNED, recordOffset + 8, checksum);
+    }
+
+
+
     public void markConsolidatedRecord(MemorySegment segment, long recordOffset) {
         markConsolidated(segment, headerOffset(recordOffset));
     }

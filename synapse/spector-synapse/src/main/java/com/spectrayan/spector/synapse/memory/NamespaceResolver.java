@@ -954,6 +954,17 @@ public class NamespaceResolver implements AutoCloseable {
             }
 
             builder.persistence(effectiveDir);
+            // Legal hold is enforced inside the engine, not at the API boundary. Record deletion reaches the
+            // engine through the REST controller and its bulk endpoint, MCP tools, the embedded Java API and
+            // both chat-memory bulk paths; a check on any one of those is not enforcement. Scoped to this
+            // namespace's owning account so the catalog lookup is exact.
+            if (ownerAccountId != null && !ownerAccountId.isBlank()) {
+                builder.mutationPolicy(
+                        new com.spectrayan.spector.synapse.catalog.CatalogMutationPolicy(catalog, ownerAccountId));
+            } else {
+                log.warn("[NamespaceResolver] namespace {} has no owner account — legal hold cannot be "
+                        + "enforced on its deletions", namespaceId);
+            }
             if (textGen != null) {
                 builder.llmProvider(textGen);
             }

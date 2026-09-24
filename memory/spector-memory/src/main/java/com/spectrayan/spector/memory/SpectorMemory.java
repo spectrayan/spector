@@ -332,13 +332,12 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
      * memory-mapped store and in every snapshot and DR export taken since. Recall, {@code inspect} and
      * {@code export} skip tombstoned records, so the memory becomes invisible rather than gone.</p>
      *
-     * <p>This method does <b>not</b> consult legal hold. Legal hold is enforced only at namespace
-     * granularity in the catalog plane ({@code JdbcAccountCatalog.tombstone},
-     * {@code TenantErasureService}), so a namespace under hold can still have individual records
-     * forgotten — including in bulk. That gap is tolerable only because forget hides rather than destroys:
-     * held data remains available for discovery. Physical erasure with byte zeroing, graph-edge removal and
-     * record-level legal hold arrives with the {@code purge} verb in
-     * {@code spectrayan/.kiro/specs/memory-durability-contract} R1.</p>
+     * <p>Legal hold is consulted through the host's {@code MutationPolicy}, which is a no-op unless a host
+     * installed one. Note that hold is recorded at <b>namespace</b> granularity: a policy can refuse every
+     * deletion in a held namespace, but no record-level hold exists as data anywhere in the system, so
+     * per-record protection is not available to it.</p>
+     *
+     * <p>If you need the data actually gone, use {@link #purge(String)}.</p>
      *
      * @param id the memory id to tombstone
      * @return the outcome, including whether a memory was actually found and tombstoned
@@ -347,6 +346,45 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
     default com.spectrayan.spector.memory.model.ForgetResult forgetWithResult(String id) {
         forget(id);
         return com.spectrayan.spector.memory.model.ForgetResult.tombstoned(id);
+    }
+
+    /**
+     * Physically destroys a memory's content: overwrites its payload bytes with zeros, erases its stored
+     * text, and detaches it from every association graph. <b>Irreversible.</b>
+     *
+     * <h3>How this differs from {@link #forget(String)}</h3>
+     * <table border="1">
+     *   <caption>forget versus purge</caption>
+     *   <tr><th></th><th>{@code forget}</th><th>{@code purge}</th></tr>
+     *   <tr><td>Payload bytes on disk</td><td>Intact</td><td>Overwritten with zeros</td></tr>
+     *   <tr><td>Stored text</td><td>Intact</td><td>Overwritten with zeros<sup>*</sup></td></tr>
+     *   <tr><td>Graph edges</td><td>Intact</td><td>Removed from all four planes</td></tr>
+     *   <tr><td>Recall / export / inspect</td><td>Skips it</td><td>Skips it</td></tr>
+     *   <tr><td>Reversible</td><td>In principle, the bytes are there</td><td>No</td></tr>
+     *   <tr><td>Reclaims disk space</td><td>No</td><td>No — that is {@code vacuum}</td></tr>
+     * </table>
+     * <p><sup>*</sup> unless the identical text is deduplicated with another live record, in which case the
+     * bytes must stay and the returned report discloses it.</p>
+     *
+     * <h3>What it cannot do</h3>
+     * <p>Purge reaches the bytes in <b>this</b> store only. DR exports, replica disks, cold-tier objects,
+     * filesystem snapshots and WAL segments older than the last checkpoint are all outside its reach, and
+     * copies there survive. The returned {@code PurgeResult} enumerates them rather than leaving a caller to
+     * infer completeness from success. No cryptographic erasure is performed or claimed — no
+     * data-encryption key exists in this system.</p>
+     *
+     * <p>Deleting something that is not there is not an error: the result reports {@code found() == false}.
+     * This keeps the same idempotent-delete contract {@code forget} has.</p>
+     *
+     * @param id the memory id to destroy
+     * @return an audit report of exactly what was destroyed and what could not be reached
+     * @throws RuntimeException if the host's {@code MutationPolicy} refuses the deletion, e.g. under legal
+     *                          hold
+     */
+    default com.spectrayan.spector.memory.model.PurgeResult purge(String id) {
+        throw new UnsupportedOperationException(
+                "purge is not supported by " + getClass().getName() + "; it requires a store that can "
+                        + "overwrite record payloads in place");
     }
 
     /** Triggers a synchronous reflection (sleep consolidation) cycle. */

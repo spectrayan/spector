@@ -485,19 +485,100 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
         return new String(bytes, StandardCharsets.UTF_8);
     }
 
-    public boolean eraseEntry(String targetId) {
+    /**
+     * Outcome of an {@link #eraseEntry(String)} attempt.
+     *
+     * <p>Erasure of deduplicated text is not always possible, and the caller has to be able to tell the
+     * difference. A boolean cannot carry that, and reporting "erased" for a shared blob would be a false
+     * claim in a compliance audit.</p>
+     *
+     * @param status      what actually happened
+     * @param bytesZeroed number of text bytes overwritten with zeros (0 unless {@code ERASED})
+     * @param sharedWith  number of other live ids still referencing the same bytes (only meaningful for
+     *                    {@code SHARED})
+     */
+    public record EraseOutcome(Status status, int bytesZeroed, int sharedWith) {
+
+        /** Erase outcome classification. */
+        public enum Status {
+            /** The text bytes were overwritten with zeros. */
+            ERASED,
+            /** No text was recorded for this id; nothing to erase. */
+            NOT_FOUND,
+            /**
+             * The id's mapping was removed, but the bytes were <b>kept</b> because one or more other live
+             * ids share them via content-hash deduplication. Zeroing would have destroyed their text too.
+             * Must be disclosed, not reported as an erasure.
+             */
+            SHARED
+        }
+
+        public static EraseOutcome erased(int bytes) { return new EraseOutcome(Status.ERASED, bytes, 0); }
+
+        public static EraseOutcome notFound() { return new EraseOutcome(Status.NOT_FOUND, 0, 0); }
+
+        public static EraseOutcome shared(int n) { return new EraseOutcome(Status.SHARED, 0, n); }
+
+        /** Returns {@code true} only if bytes were actually overwritten. */
+        public boolean erased() { return status == Status.ERASED; }
+    }
+
+    /**
+     * Overwrites the stored text for {@code targetId} with zeros, in place.
+     *
+     * <h4>Deduplication makes this conditional</h4>
+     * <p>{@link #write} deduplicates by content hash: two records with byte-identical text share a single
+     * {@link TextPosition}. Zeroing that region unconditionally would erase the text of every record
+     * sharing it while leaving their {@code textPositionMap} entries pointing at the zeroed bytes — silent
+     * cross-record data loss. So when the position is shared with another live id, this method removes only
+     * {@code targetId}'s mapping and reports {@link EraseOutcome.Status#SHARED}. The bytes survive because
+     * another record legitimately needs them, and the caller must disclose that rather than claim an
+     * erasure.</p>
+     *
+     * <h4>The frame is left readable but empty</h4>
+     * <p>Beyond zeroing the bytes, the entry's text-length field is set to zero. {@link #readAll()} rebuilds
+     * the position map from the on-disk frames, so without this a purged entry would reload as a string of
+     * {@code textLength} NUL characters — content-shaped garbage indistinguishable from a decoding fault.
+     * With it, the entry reloads as empty text: the record's existence survives, its content does not. The
+     * frame's own length prefix is untouched, so the walk over later entries is unaffected.</p>
+     *
+     * @param targetId the memory id whose text should be destroyed
+     * @return what actually happened
+     */
+    public EraseOutcome eraseEntry(String targetId) {
         writeLock.lock();
         try {
             if (!Files.exists(file)) {
-                return false;
+                return EraseOutcome.notFound();
             }
 
             TextPosition pos = textPositionMap.get(targetId);
-            if (pos == null) return false;
+            if (pos == null) return EraseOutcome.notFound();
+
+            int coTenants = 0;
+            for (var e : textPositionMap.entrySet()) {
+                if (!e.getKey().equals(targetId) && pos.equals(e.getValue())) {
+                    coTenants++;
+                }
+            }
+            if (coTenants > 0) {
+                textPositionMap.remove(targetId);
+                entryCount--;
+                log.warn("Text for memory '{}' NOT erased: its {} bytes are shared with {} other live "
+                                + "record(s) by content-hash deduplication. Mapping removed only.",
+                        targetId, pos.textLength(), coTenants);
+                return EraseOutcome.shared(coTenants);
+            }
 
             MemorySegment seg = segment();
             if (seg != null) {
                 seg.asSlice(pos.textOffset(), pos.textLength()).fill((byte) 0);
+                // Collapse the frame's declared text length so a reload yields empty text rather than a
+                // NUL-filled string of the original length.
+                long textLenFieldOffset = pos.textOffset() - 4L;
+                if (textLenFieldOffset >= 0) {
+                    seg.set(ValueLayout.JAVA_INT_UNALIGNED, textLenFieldOffset, 0);
+                }
                 flush();
             }
 
@@ -505,8 +586,8 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
             textPositionMap.remove(targetId);
             entryCount--;
 
-            log.debug("Securely erased {} bytes of text for memory '{}'", pos.textLength(), targetId);
-            return true;
+            log.debug("Erased {} bytes of text for memory '{}'", pos.textLength(), targetId);
+            return EraseOutcome.erased(pos.textLength());
         } finally {
             writeLock.unlock();
         }

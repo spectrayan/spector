@@ -560,9 +560,36 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
         return totalEdges();
     }
 
+    /**
+     * Unsupported: this graph has no stable edge identity to remove by.
+     *
+     * <p>Edge positions in the CSR slab are not identities. Every rebuild — decay, overflow compaction, node
+     * detachment — renumbers them, so an {@code edgeId} captured at one moment names a different edge at the
+     * next. There is no id to honour and no honest way to interpret one.</p>
+     *
+     * <p>This method previously did nothing and said so in a comment, which meant callers were told an edge
+     * had been removed when nothing had happened. Failing loudly is the only correct option: silently
+     * ignoring a deletion request is how a "forgotten" association keeps steering recall.</p>
+     *
+     * <p>Supported removal paths:</p>
+     * <ul>
+     *   <li>{@link #removeNode(int)} / {@link #removeNodes(java.util.function.IntPredicate)} — drop every
+     *       edge incident to given nodes (what purge uses);</li>
+     *   <li>{@link #strengthen(int, int, float)} with a negative delta — drive a specific edge's weight
+     *       below the decay floor so the next rebuild drops it;</li>
+     *   <li>{@link #decayEdges(float)} — structural pruning of weak edges.</li>
+     * </ul>
+     *
+     * @throws UnsupportedOperationException always
+     */
     @Override
     public void removeEdge(int edgeId) {
-        // CSR edges are pruned structurally via decay/compaction, not by edge id.
+        throw new UnsupportedOperationException(
+                "HebbianGraphMemory has no stable edge ids: CSR edge positions are renumbered by every "
+                        + "decay, compaction and node-detachment rebuild, so edgeId=" + edgeId
+                        + " cannot be resolved. Use removeNode(int)/removeNodes(IntPredicate) to detach a "
+                        + "node's edges, strengthen(from, to, negativeDelta) to drive a specific edge "
+                        + "below the decay floor, or decayEdges(factor) to prune weak edges structurally.");
     }
 
     @Override
@@ -957,10 +984,114 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
         overflowEdgeCount = 0;
     }
 
+    /**
+     * Drops every edge touching {@code node} — both the node's own adjacency row and every edge from any
+     * other node that points at it — and returns the number of edges removed.
+     *
+     * <p>Needed by purge: a purged record left reachable as a graph neighbour still steers spreading
+     * activation, so recall stays influenced by content that is supposed to be gone.</p>
+     *
+     * <p>This is a full CSR rebuild. There is no cheaper option, and the obvious cheap one is actively
+     * dangerous: {@code degree(node)} is derived as {@code getOffset(node + 1) - getOffset(node)} with no
+     * per-node counter, so a zeroed edge slot is still counted and then surfaces as an edge to <b>node
+     * 0</b> — fabricating an association instead of removing one. Removing a single edge from node
+     * <i>k</i>'s row requires shifting every later edge and rewriting every offset after <i>k</i>, which is
+     * the rebuild anyway.</p>
+     *
+     * <p>Cost is O(capacity × degree). Acceptable for a rare, bounded compliance operation; batch via
+     * {@link #removeNodes(java.util.function.IntPredicate)} rather than calling this in a loop.</p>
+     *
+     * @param node node index to detach
+     * @return number of edges removed, or 0 if {@code node} is out of range
+     */
+    public int removeNode(int node) {
+        if (node < 0 || node >= capacity) return 0;
+        return removeNodes(n -> n == node);
+    }
+
+    /**
+     * Drops every edge incident to any node matching {@code removedNodes}, in a single CSR rebuild.
+     *
+     * <p>Batched form of {@link #removeNode(int)}: one rebuild for N nodes rather than N rebuilds, which is
+     * the difference between a bounded operation and an O(N × capacity × degree) one.</p>
+     *
+     * @param removedNodes predicate selecting node indices to detach; must be side-effect free
+     * @return number of edges removed
+     */
+    public int removeNodes(java.util.function.IntPredicate removedNodes) {
+        java.util.Objects.requireNonNull(removedNodes, "removedNodes");
+        graphLock.lock();
+        try {
+            int removed = rebuildCsr(removedNodes);
+            // Bridge scores are derived from topology and are stale the moment a node is detached.
+            updateBridgeScores();
+            if (removed > 0) {
+                log.debug("HebbianGraphMemory: {} edges removed by node detachment, {} surviving",
+                        removed, totalEdgeCount);
+            }
+            return removed;
+        } finally {
+            graphLock.unlock();
+        }
+    }
+
+    /**
+     * Returns whether any edge in the graph is incident to {@code node}, in either direction.
+     *
+     * <p>Exists so a purge can assert it actually detached the node rather than assume it. Scans the slab,
+     * so it is a verification aid, not a hot-path query.</p>
+     */
+    public boolean hasAnyEdge(int node) {
+        if (node < 0 || node >= capacity) return false;
+        graphLock.lock();
+        try {
+            if (getOffset(node + 1) > getOffset(node)) return true;
+            List<int[]> own = overflow[node];
+            if (own != null && !own.isEmpty()) return true;
+            // Incoming edges count too: a node with an empty row can still be pointed at.
+            for (int i = 0; i < totalEdgeCount; i++) {
+                if (edges.get(ValueLayout.JAVA_INT, (long) i * EDGE_BYTES + EDGE_OFF_NEIGHBOR) == node) {
+                    return true;
+                }
+            }
+            for (int n = 0; n < capacity; n++) {
+                List<int[]> ov = overflow[n];
+                if (ov == null) continue;
+                for (int[] entry : ov) {
+                    if (entry[0] == node) return true;
+                }
+            }
+            return false;
+        } finally {
+            graphLock.unlock();
+        }
+    }
+
     private void compactIfNeeded() {
         if (overflowEdgeCount == 0) return;
         graphLock.lock();
         try {
+            rebuildCsr(null);
+        } finally {
+            graphLock.unlock();
+        }
+    }
+
+    /**
+     * Rebuilds the CSR edge slab from the CSR plus the per-node overflow lists, optionally dropping every
+     * edge incident to a node matching {@code removedNodes}.
+     *
+     * <p>One implementation shared by overflow compaction ({@code removedNodes == null}) and node
+     * detachment. These were two near-identical rebuilds, which is exactly the shape in which a purged
+     * node's edges survive in whichever copy nobody remembered to update.</p>
+     *
+     * <p>Caller must hold {@code graphLock}.</p>
+     *
+     * @return number of edges dropped for being incident to a removed node
+     */
+    private int rebuildCsr(java.util.function.IntPredicate removedNodes) {
+        int removedForNodes = 0;
+        {
             int writePos = 0;
             int[] newOffsets = new int[capacity + 1];
 
@@ -971,7 +1102,18 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
                 for (int node = 0; node < capacity; node++) {
                     newOffsets[node] = writePos;
                     List<EdgeData> all = collectAllEdges(node);
+                    if (removedNodes != null && removedNodes.test(node)) {
+                        // The node's entire outgoing row goes.
+                        removedForNodes += all.size();
+                        continue;
+                    }
                     for (EdgeData e : all) {
+                        if (removedNodes != null && removedNodes.test(e.neighbor)) {
+                            // Incoming edge to a removed node. Dropping only the outgoing row would leave
+                            // the purged node reachable from every peer that pointed at it.
+                            removedForNodes++;
+                            continue;
+                        }
                         if (writePos < edgeCapacity) {
                             long edgeOff = (long) writePos * EDGE_BYTES;
                             tmpEdges.set(ValueLayout.JAVA_INT, edgeOff + EDGE_OFF_NEIGHBOR, e.neighbor);
@@ -1009,9 +1151,8 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
                 this.lastCompactionEpochMs = System.currentTimeMillis();
                 this.bytesReclaimedLastCycle = Math.max(0L, (long) (oldTotal - writePos) * EDGE_BYTES);
             }
-        } finally {
-            graphLock.unlock();
         }
+        return removedForNodes;
     }
 
     private void updateBridgeScores() {

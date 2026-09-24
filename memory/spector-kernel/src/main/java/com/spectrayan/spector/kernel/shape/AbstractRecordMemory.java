@@ -135,4 +135,37 @@ public abstract class AbstractRecordMemory<L extends RegionLayout> extends Abstr
 
         MemorySegment.copy(segment(), offset, dest, 0, layout.recordStride());
     }
+
+    /**
+     * Resets the active record count and publishes SWMR visibility post-compaction.
+     *
+     * @param newCount the compacted dense record count
+     */
+    public void resetCount(int newCount) {
+        this.count = newCount;
+        persistCount();
+        publishVisible();
+    }
+
+    /**
+     * Copies a fixed-stride record from source offset to target offset.
+     *
+     * @param sourceOffset byte offset of source record
+     * @param targetOffset byte offset of destination record
+     */
+    public void copyRecord(long sourceOffset, long targetOffset) {
+        MemorySegment.copy(segment(), sourceOffset, segment(), targetOffset, layout.recordStride());
+    }
+
+    /**
+     * Zeroes out a contiguous byte range in the underlying segment.
+     *
+     * @param offset starting byte offset
+     * @param length number of bytes to zero
+     */
+    public void zeroRange(long offset, long length) {
+        if (length > 0) {
+            segment().asSlice(offset, length).fill((byte) 0);
+        }
+    }
 }

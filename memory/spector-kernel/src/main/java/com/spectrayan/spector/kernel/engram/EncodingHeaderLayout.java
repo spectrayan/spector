@@ -337,6 +337,29 @@ public class EncodingHeaderLayout {
         writeConsolidationFlags(seg, off, (byte) (cFlags | FLAG_CONTRADICTED));
     }
 
+    /**
+     * Marks the record at {@code off} as purged — its payload has been physically zeroed.
+     *
+     * <p>Sets {@link EncodingHeaderFields#FLAG_PURGED} in the consolidation-flags byte. This records the
+     * fact; it does not perform the zeroing. Callers are responsible for both, and for setting
+     * {@link #markTombstoned} so that the ~40 existing tombstone read-gates continue to hide the record.</p>
+     *
+     * @see EncodingHeaderFields#FLAG_PURGED
+     */
+    public void markPurged(MemorySegment seg, long off) {
+        byte cFlags = readConsolidationFlags(seg, off);
+        writeConsolidationFlags(seg, off, (byte) (cFlags | FLAG_PURGED));
+    }
+
+    /**
+     * Returns whether the record at {@code off} has been purged (payload zeroed).
+     *
+     * @see EncodingHeaderFields#FLAG_PURGED
+     */
+    public boolean isPurged(MemorySegment seg, long off) {
+        return EncodingHeaderFields.isPurged(readConsolidationFlags(seg, off));
+    }
+
     public int incrementAgentRecallCount(MemorySegment seg, long off) {
         return 0; // Routed to StrengthLayout in dual-region architecture
     }

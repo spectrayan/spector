@@ -158,10 +158,19 @@ class DuplicateConfigBanTest {
                 .filter(m -> Modifier.isPublic(m.getModifiers()))
                 .count();
 
-        // Pre-refactor: ~193 public members. Target: <= 110 public methods (collaborators + coordinates + lifecycle).
+        // Pre-refactor: ~193 public members. Target: collaborators + coordinates + lifecycle only.
+        //
+        // Budget history — raise this only for a genuine new collaborator, and say which one:
+        //   110  post-#758 refactor
+        //   111  + mutationPolicy(MutationPolicy) — the host deletion/fence policy seam
+        //        (memory-durability-contract R1.4a). Its getter is package-private on purpose, so this
+        //        cost one slot rather than two.
+        //
+        // The guard's job is to stop a drift back toward a 193-method config store, not to freeze the
+        // builder. A one-slot increase with a named cause preserves that; a blanket raise would not.
         assertThat(publicMethodCount)
                 .as("SpectorMemoryBuilder public method count must not bloat back to pre-#758 levels (~193)")
-                .isLessThanOrEqualTo(110);
+                .isLessThanOrEqualTo(111);
     }
 
     private static class MockEmbeddingProvider implements EmbeddingProvider {

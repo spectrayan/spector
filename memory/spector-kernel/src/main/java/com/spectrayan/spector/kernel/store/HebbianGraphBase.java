@@ -55,6 +55,28 @@ public interface HebbianGraphBase extends AutoCloseable {
     int totalEdges();
 
     /**
+     * Drops every edge incident to {@code node}, in both directions, and returns how many were removed.
+     *
+     * <p>Required by purge. Destroying a record's content while leaving it wired into the association graph
+     * does not remove its influence: it stays reachable as a neighbour and keeps steering spreading
+     * activation, so recall remains shaped by content that is supposed to be gone.</p>
+     *
+     * <p>Both directions matter. Clearing only the node's own adjacency leaves every peer that pointed at it
+     * still pointing at it, and those peers are what traversal actually follows.</p>
+     *
+     * @param node node index to detach
+     * @return number of edges removed, or 0 if {@code node} is out of range
+     */
+    int removeNode(int node);
+
+    /**
+     * Returns whether any edge is still incident to {@code node}, in either direction.
+     *
+     * <p>Exists so a purge can verify detachment rather than assume it. Scans, so not a hot-path query.</p>
+     */
+    boolean hasAnyEdge(int node);
+
+    /**
      * Sets the per-node decay modulator for arousal-modulated edge decay.
      *
      * @param modulator per-node modifier

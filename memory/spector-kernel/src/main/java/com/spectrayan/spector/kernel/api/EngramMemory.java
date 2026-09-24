@@ -64,9 +64,25 @@ public interface EngramMemory extends AutoCloseable {
     void tombstone(MemoryLocation loc);
 
     /**
+     * Physically overwrites the content of the record at the given location with zeros and marks it purged.
+     * Irreversible.
+     *
+     * <p>Unlike {@link #tombstone}, which only hides the record while leaving every content byte on disk,
+     * this destroys the payload in place. Offsets and strides are unchanged, so no index needs updating.</p>
+     *
+     * @return the number of payload bytes overwritten, or {@code 0} if the location resolved to no region
+     */
+    int purge(MemoryLocation loc);
+
+    /**
      * Returns whether the record at the given location is tombstoned.
      */
     boolean isTombstoned(MemoryLocation loc);
+
+    /**
+     * Returns whether the record at the given location has been {@linkplain #purge purged}.
+     */
+    boolean isPurged(MemoryLocation loc);
 
     /**
      * Sets the resolved flag (Zeigarnik effect) for the record at the given location.

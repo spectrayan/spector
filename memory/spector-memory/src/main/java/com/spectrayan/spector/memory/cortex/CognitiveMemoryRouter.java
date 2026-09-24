@@ -233,6 +233,45 @@ public final class CognitiveMemoryRouter implements com.spectrayan.spector.kerne
         tombstone(new MemoryLocation(type, offset, 0));
     }
 
+    /**
+     * Physically overwrites the content of the record at the given location with zeros and marks it purged.
+     *
+     * <p>Irreversible. Also tombstones the record and resets its strength telemetry, which is derived from
+     * the content and must not outlive it. Record offsets and strides are untouched, so the caller's index
+     * entries stay valid — reclaiming the space is compaction's concern, not this one.</p>
+     *
+     * @return the number of payload bytes overwritten, or {@code 0} if no region backs this location
+     */
+    public int purge(MemoryLocation loc) {
+        if (loc.type() == MemoryType.EPISODIC) {
+            return episodicMemory != null ? episodicMemory.purge(loc.offset()) : 0;
+        }
+        EngramRegion store = stores.get(loc.type());
+        if (store == null) {
+            return 0;
+        }
+        int purged = store.purge(loc.offset());
+        if (strengthMemory != null && loc.type() != MemoryType.WORKING && layoutFor(loc.type()) != null) {
+            int slotIndex = (int) ((loc.offset() - store.dataOffset()) / layoutFor(loc.type()).stride());
+            strengthMemory.resetRecord(loc.type(), slotIndex);
+        }
+        return purged;
+    }
+
+    /**
+     * Returns {@code true} if the record at the given location has been {@linkplain #purge purged}.
+     *
+     * <p>Stronger than {@link #isTombstoned(MemoryLocation)}: the payload bytes are zeros. Callers that
+     * dequantize or score the payload must check this, since an all-zero vector is arithmetically valid.</p>
+     */
+    public boolean isPurged(MemoryLocation loc) {
+        if (loc.type() == MemoryType.EPISODIC) {
+            return episodicMemory != null && episodicMemory.isPurged(loc.offset());
+        }
+        EngramRegion store = stores.get(loc.type());
+        return store != null && store.isPurged(loc.offset());
+    }
+
     /** Sets the resolved flag (Zeigarnik Effect) for the record at the given location. */
     public void markResolved(MemoryLocation loc) {
         if (loc.type() == MemoryType.EPISODIC) {

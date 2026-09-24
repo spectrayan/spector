@@ -495,6 +495,93 @@ public class HebbianGraph implements HebbianGraphBase {
         return total;
     }
 
+    /**
+     * Drops every edge incident to {@code node}, in both directions.
+     *
+     * <p>Cheaper than the CSR equivalent because this layout stores an explicit per-node degree counter, so
+     * a row can be compacted in place: entries after a removal shift down and the counter drops. Unused
+     * trailing slots are zeroed so nothing stale is readable past the live degree.</p>
+     *
+     * <p>The node's own row is emptied and every other row is swept for edges pointing back at it. Sweeping
+     * every row is O(capacity × maxDegree); this layout has no reverse index, and a purge that skipped the
+     * incoming direction would leave the node reachable from all its peers.</p>
+     *
+     * @param node node index to detach
+     * @return number of edges removed, or 0 if {@code node} is out of range
+     */
+    @Override
+    public int removeNode(int node) {
+        if (node < 0 || node >= capacity) return 0;
+        graphLock.lock();
+        try {
+            int removed = 0;
+            // 1. The node's own adjacency row.
+            long nodeOffset = (long) node * nodeBytesPerNode;
+            int ownDegree = segment.get(ValueLayout.JAVA_INT, nodeOffset);
+            if (ownDegree > 0) {
+                removed += ownDegree;
+                segment.asSlice(nodeOffset + 4, (long) ownDegree * EDGE_BYTES).fill((byte) 0);
+                segment.set(ValueLayout.JAVA_INT, nodeOffset, 0);
+            }
+            // 2. Every incoming edge from any other node.
+            for (int other = 0; other < capacity; other++) {
+                if (other == node) continue;
+                long otherOffset = (long) other * nodeBytesPerNode;
+                int degree = segment.get(ValueLayout.JAVA_INT, otherOffset);
+                if (degree <= 0) continue;
+                int write = 0;
+                for (int i = 0; i < degree; i++) {
+                    long src = otherOffset + 4 + (long) i * EDGE_BYTES;
+                    if (segment.get(ValueLayout.JAVA_INT, src + EDGE_OFF_NEIGHBOR) == node) {
+                        removed++;
+                        continue;
+                    }
+                    if (write != i) {
+                        MemorySegment.copy(segment, otherOffset + 4 + (long) i * EDGE_BYTES,
+                                segment, otherOffset + 4 + (long) write * EDGE_BYTES, EDGE_BYTES);
+                    }
+                    write++;
+                }
+                if (write != degree) {
+                    // Zero the now-unused tail so no stale edge is readable past the live degree.
+                    segment.asSlice(otherOffset + 4 + (long) write * EDGE_BYTES,
+                            (long) (degree - write) * EDGE_BYTES).fill((byte) 0);
+                    segment.set(ValueLayout.JAVA_INT, otherOffset, write);
+                }
+            }
+            if (removed > 0) {
+                log.debug("HebbianGraph: detached node {} — {} edge(s) removed", node, removed);
+            }
+            return removed;
+        } finally {
+            graphLock.unlock();
+        }
+    }
+
+    /**
+     * Returns whether any edge is still incident to {@code node}, in either direction.
+     */
+    @Override
+    public boolean hasAnyEdge(int node) {
+        if (node < 0 || node >= capacity) return false;
+        graphLock.lock();
+        try {
+            if (segment.get(ValueLayout.JAVA_INT, (long) node * nodeBytesPerNode) > 0) return true;
+            for (int other = 0; other < capacity; other++) {
+                if (other == node) continue;
+                long otherOffset = (long) other * nodeBytesPerNode;
+                int degree = segment.get(ValueLayout.JAVA_INT, otherOffset);
+                for (int i = 0; i < degree; i++) {
+                    long src = otherOffset + 4 + (long) i * EDGE_BYTES;
+                    if (segment.get(ValueLayout.JAVA_INT, src + EDGE_OFF_NEIGHBOR) == node) return true;
+                }
+            }
+            return false;
+        } finally {
+            graphLock.unlock();
+        }
+    }
+
     private void addOrUpdateEdge(int from, int to, float weightDelta) {
         long nodeOffset = (long) from * nodeBytesPerNode;
         int degree = segment.get(ValueLayout.JAVA_INT, nodeOffset);

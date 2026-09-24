@@ -53,8 +53,11 @@ public final class MemoryForgetTool extends MemoryToolHandler {
                     + "'. Nothing was forgotten.");
         }
         // "tombstoned" is stated explicitly because the payload bytes remain on disk and in any snapshot
-        // taken since; this is not erasure. Purge arrives with memory-durability-contract R1.
+        // taken since; this is not erasure. An agent relaying a deletion confirmation to a user needs to be
+        // relaying that distinction too, which is why memory_purge is named here rather than left to be
+        // discovered.
         return textResult("🗑️ Memory '" + memoryId + "' has been forgotten (tombstoned — hidden from "
-                + "recall, but payload bytes remain on disk until purge is implemented).");
+                + "recall, but its content bytes remain on disk and in backups). Use memory_purge if the "
+                + "data itself must be destroyed.");
     }
 }

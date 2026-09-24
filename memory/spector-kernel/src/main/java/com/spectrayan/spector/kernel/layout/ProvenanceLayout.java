@@ -73,16 +73,32 @@ public final class ProvenanceLayout implements RegionLayout {
     /** Fixed size of each provenance record in bytes (68B payload + 4B CRC = 72B). */
     public static final int RECORD_STRIDE = 72;
 
-    // ── Flags Constants ──
+    // ── State Constants ──
+    //
+    // IMPORTANT: this field is an EXCLUSIVE STATE ENUM, not a bitmask. Exactly one of these values is
+    // stored; it is written by whole-byte overwrite (writeFlags, tombstone) and read back by EQUALITY
+    // (isTombstoned, isLive), never by masking.
+    //
+    // Do not "harmonise" this with EncodingHeaderLayout's flags byte, which genuinely is a bitmask and
+    // correctly uses OR. OR-ing here would corrupt state: STATE_TOMBSTONE (1) OR-ed onto STATE_PARTIAL_RUN
+    // (2) yields 3, which matches no defined state, so isTombstoned's equality check would then report a
+    // tombstoned record as LIVE. The constants were originally named FLAG_*, which is what invited that
+    // reading; they are STATE_* now to close it off.
+    //
+    // Adding a state means adding a new distinct value here, not a new bit.
 
-    /** Record is live and valid. */
-    public static final byte FLAG_LIVE = 0;
+    /** Exclusive state 0: record is live and valid. */
+    public static final byte STATE_LIVE = 0;
 
-    /** Record has been tombstoned (logically deleted). */
-    public static final byte FLAG_TOMBSTONE = 1;
+    /** Exclusive state 1: record has been tombstoned (logically deleted). */
+    public static final byte STATE_TOMBSTONE = 1;
 
-    /** Partial run — consolidation was interrupted before all facts in the batch were written. */
-    public static final byte FLAG_PARTIAL_RUN = 2;
+    /**
+     * Exclusive state 2: partial run — consolidation was interrupted before all facts in the batch were
+     * written. Still {@linkplain #isLive(MemorySegment, long) live}: the record itself is usable, but the
+     * batch it belongs to is incomplete.
+     */
+    public static final byte STATE_PARTIAL_RUN = 2;
 
     // ── Source/Target Kind Constants ──
 
@@ -183,6 +199,13 @@ public final class ProvenanceLayout implements RegionLayout {
 
     // ── Field Read Helpers ──
 
+    /**
+     * Reads the record's lifecycle state byte.
+     *
+     * <p>Compare the result by <b>equality</b> against {@link #STATE_LIVE}, {@link #STATE_TOMBSTONE} or
+     * {@link #STATE_PARTIAL_RUN} — this byte is an exclusive state enum, not a bitmask. Masking it will
+     * appear to work for {@code STATE_TOMBSTONE} and silently misclassify {@code STATE_PARTIAL_RUN}.</p>
+     */
     public static byte readFlags(MemorySegment seg, long recordOff) {
         return seg.get(LAYOUT_FLAGS, recordOff + OFFSET_FLAGS);
     }
@@ -265,6 +288,13 @@ public final class ProvenanceLayout implements RegionLayout {
 
     // ── Field Write Helpers ──
 
+    /**
+     * Writes the record's lifecycle state byte, replacing whatever was there.
+     *
+     * <p>Whole-byte overwrite is <b>correct</b> here and must stay that way: the byte holds one exclusive
+     * state, not a set of flags. Pass exactly one of {@link #STATE_LIVE}, {@link #STATE_TOMBSTONE} or
+     * {@link #STATE_PARTIAL_RUN}. Never OR a new value onto the old one.</p>
+     */
     public static void writeFlags(MemorySegment seg, long recordOff, byte flags) {
         seg.set(LAYOUT_FLAGS, recordOff + OFFSET_FLAGS, flags);
     }
@@ -411,20 +441,20 @@ public final class ProvenanceLayout implements RegionLayout {
     }
 
     /**
-     * Tombstones a provenance record by setting its flags to {@link #FLAG_TOMBSTONE}.
+     * Tombstones a provenance record by setting its flags to {@link #STATE_TOMBSTONE}.
      *
      * @param seg       off-heap memory segment
      * @param recordOff byte offset where the record starts
      */
     public static void tombstone(MemorySegment seg, long recordOff) {
-        writeFlags(seg, recordOff, FLAG_TOMBSTONE);
+        writeFlags(seg, recordOff, STATE_TOMBSTONE);
     }
 
     /**
      * Returns {@code true} if the record at the given offset is tombstoned.
      */
     public static boolean isTombstoned(MemorySegment seg, long recordOff) {
-        return readFlags(seg, recordOff) == FLAG_TOMBSTONE;
+        return readFlags(seg, recordOff) == STATE_TOMBSTONE;
     }
 
     /**
@@ -432,7 +462,7 @@ public final class ProvenanceLayout implements RegionLayout {
      */
     public static boolean isLive(MemorySegment seg, long recordOff) {
         byte flags = readFlags(seg, recordOff);
-        return flags == FLAG_LIVE || flags == FLAG_PARTIAL_RUN;
+        return flags == STATE_LIVE || flags == STATE_PARTIAL_RUN;
     }
 
     // ── Immutable Snapshot Record ──
@@ -482,7 +512,7 @@ public final class ProvenanceLayout implements RegionLayout {
 
         /** Returns {@code true} if this record is live (not tombstoned). */
         public boolean isLive() {
-            return flags == FLAG_LIVE || flags == FLAG_PARTIAL_RUN;
+            return flags == STATE_LIVE || flags == STATE_PARTIAL_RUN;
         }
 
         /** Returns the source kind as a {@link ProvenanceSourceKind} enum. */

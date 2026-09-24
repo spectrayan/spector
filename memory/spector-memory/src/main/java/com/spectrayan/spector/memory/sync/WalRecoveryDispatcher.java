@@ -88,9 +88,15 @@ public final class WalRecoveryDispatcher {
                 Memory<?> target = memories.get(targetId);
                 if (target == null) {
                     // If it's a legacy or unmapped event, skip or log warning
+                    // REFLECT/TAG_MERGE/RECALL_HIT carry no region target. FORGET and PURGE carry a
+                    // *memory* id rather than a region path, so MemoryId.parse can never resolve them
+                    // here — they are replayed by MemoryWalRecovery, which owns the index and the tier
+                    // lookup. Warning about them would report normal operation as a problem.
                     if (event.type() != WalEvent.EventType.REFLECT &&
                         event.type() != WalEvent.EventType.TAG_MERGE &&
-                        event.type() != WalEvent.EventType.RECALL_HIT) {
+                        event.type() != WalEvent.EventType.RECALL_HIT &&
+                        event.type() != WalEvent.EventType.FORGET &&
+                        event.type() != WalEvent.EventType.PURGE) {
                         log.warn("WAL recovery: no active Memory found for ID '{}', skipping event type {}", event.memoryId(), event.type());
                     }
                     continue;

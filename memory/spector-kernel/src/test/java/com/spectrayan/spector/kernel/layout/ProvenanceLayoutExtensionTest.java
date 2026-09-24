@@ -72,7 +72,7 @@ class ProvenanceLayoutExtensionTest {
             MemorySegment seg = arena.allocate(ProvenanceLayout.RECORD_STRIDE);
 
             ProvenanceLayout.ProvenanceState state = new ProvenanceLayout.ProvenanceState(
-                    ProvenanceLayout.FLAG_LIVE,
+                    ProvenanceLayout.STATE_LIVE,
                     ProvenanceLayout.SOURCE_SEMANTIC,
                     ProvenanceLayout.TARGET_PROCEDURAL,
                     (byte) 0,
@@ -96,7 +96,7 @@ class ProvenanceLayoutExtensionTest {
             ProvenanceLayout.writeRecord(seg, 0L, state);
             ProvenanceLayout.ProvenanceState read = ProvenanceLayout.readRecord(seg, 0L);
 
-            assertThat(read.flags()).isEqualTo(ProvenanceLayout.FLAG_LIVE);
+            assertThat(read.flags()).isEqualTo(ProvenanceLayout.STATE_LIVE);
             assertThat(read.sourceKind()).isEqualTo(ProvenanceLayout.SOURCE_SEMANTIC);
             assertThat(read.targetKind()).isEqualTo(ProvenanceLayout.TARGET_PROCEDURAL);
             assertThat(read.sourceTsid()).isEqualTo(0xFEEDFACECAFEBEEFL);
@@ -109,7 +109,7 @@ class ProvenanceLayoutExtensionTest {
     @DisplayName("Backward-compatible constructor defaults sourceTsid and sourcePartition to 0")
     void backwardCompatibleConstructor() {
         ProvenanceLayout.ProvenanceState legacyState = new ProvenanceLayout.ProvenanceState(
-                ProvenanceLayout.FLAG_LIVE,
+                ProvenanceLayout.STATE_LIVE,
                 ProvenanceLayout.SOURCE_EPISODIC,
                 ProvenanceLayout.TARGET_SEMANTIC,
                 (byte) 0,
