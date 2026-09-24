@@ -3,45 +3,36 @@
 # See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
 # Default — catch-all
-* @spectrayan/ai-engineering @sbharatjoshi
+* @spectrayan/spector-maintainers @sbharatjoshi
 
-# Nucleus (Foundation)
-/nucleus/spector-bom/ @spectrayan/ai-engineering
-/nucleus/spector-commons/ @spectrayan/ai-engineering
-/nucleus/spector-core/ @spectrayan/ai-engineering
-/nucleus/spector-cpu/ @spectrayan/ai-engineering
-/nucleus/spector-config/ @spectrayan/ai-engineering
-/nucleus/spector-events/ @spectrayan/ai-engineering
-/nucleus/spector-index/ @spectrayan/ai-engineering
-/nucleus/spector-gpu/ @spectrayan/ai-engineering
-/nucleus/spector-test-support/ @spectrayan/ai-engineering
+# Nucleus (Foundation & Hardware Acceleration)
+/nucleus/ @spectrayan/spector-maintainers-nucleus @spectrayan/spector-awg
 
-# Memory (Intelligence)
-/memory/spector-memory/ @spectrayan/ai-engineering
-/memory/spector-inspect/ @spectrayan/ai-engineering
-/memory/spector-metrics/ @spectrayan/ai-engineering
-/memory/spector-provider-api/ @spectrayan/ai-engineering
-/memory/spector-providers/ @spectrayan/ai-engineering
-/memory/spector-ingestion/ @spectrayan/ai-engineering
+# Memory (Cognitive Intelligence & Scoring)
+/memory/ @spectrayan/spector-maintainers-memory @spectrayan/spector-awg
 
-# Synapse (Wiring & APIs)
-/synapse/spector-connector/ @spectrayan/ai-engineering
-/synapse/spector-mcp/ @spectrayan/ai-engineering
-/synapse/spector-cli/ @spectrayan/ai-engineering
-/synapse/spector-spring/ @spectrayan/ai-engineering
-/synapse/spector-batch/ @spectrayan/ai-engineering
-/synapse/spector-synapse/ @spectrayan/ai-engineering
+# Synapse (Wiring, CLI & Model Context Protocol)
+/synapse/ @spectrayan/spector-maintainers-synapse
 
-# Cortex (UI)
-/cortex/spector-cortex/ @spectrayan/ai-engineering
+# Cortex (UI & 3D Visualizer)
+/cortex/ @spectrayan/spector-maintainers-cortex
 
-# Benchmarks
-/bench/spector-bench/ @spectrayan/ai-engineering
+# Benchmarks & Profiling
+/bench/ @spectrayan/spector-maintainers-bench
+
+# Architectural Decisions & Deep RFCs
+/docs/adr/ @spectrayan/spector-awg @spectrayan/spector-tsc
+/docs/architecture/ @spectrayan/spector-awg @spectrayan/spector-tsc
+
+# Governance & Security
+/GOVERNANCE.md @spectrayan/spector-tsc
+/docs/community/governance.md @spectrayan/spector-tsc
+/SECURITY.md @spectrayan/spector-security @spectrayan/spector-tsc
 
 # CI/CD, Infrastructure & Docs
-/.github/ @spectrayan/ai-engineering @sbharatjoshi
-/deploy/ @spectrayan/ai-engineering
-/Dockerfile @spectrayan/ai-engineering
-/docker-compose.yml @spectrayan/ai-engineering
-/docs/ @spectrayan/ai-engineering
-*.md @spectrayan/ai-engineering
+/.github/ @spectrayan/spector-maintainers @spectrayan/spector-tsc @sbharatjoshi
+/deploy/ @spectrayan/spector-maintainers
+/Dockerfile @spectrayan/spector-maintainers
+/docker-compose.yml @spectrayan/spector-maintainers
+/docs/ @spectrayan/spector-maintainers
+*.md @spectrayan/spector-maintainers
