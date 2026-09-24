@@ -452,6 +452,28 @@ public class IndexEntryMemory extends AbstractRecordMemory<IndexEntryLayout> {
         this.activePartitionSeq = seq;
     }
 
+    /**
+     * Returns all allocated graph slots that have been tombstoned or removed.
+     *
+     * @return list of tombstoned graph slots
+     */
+    public java.util.List<Integer> tombstonedGraphSlots() {
+        orderedIdsLock.lock();
+        try {
+            java.util.List<Integer> list = new java.util.ArrayList<>();
+            int max = graphSlotHighWater.get();
+            String[] arr = this.slotToId;
+            for (int s = 0; s < max && s < arr.length; s++) {
+                if (arr[s] == null) {
+                    list.add(s);
+                }
+            }
+            return list;
+        } finally {
+            orderedIdsLock.unlock();
+        }
+    }
+
     public int size() {
         return locations.size();
     }

@@ -820,4 +820,54 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> i
                      com.spectrayan.spector.kernel.scan.SlotVisitor visitor) {
         throw new UnsupportedOperationException("EpisodicMemory is log-structured and scanned via cursor");
     }
+
+    /**
+     * Returns total used bytes in this episodic log (relative to dataOffset).
+     */
+    public long usedBytes() {
+        return this.count;
+    }
+
+    /**
+     * Resets the used byte length and live turn count post-compaction under write lock.
+     *
+     * @param newUsedBytes new total byte length of compacted live turns
+     * @param newLiveCount new live turn count
+     */
+    public void resetUsedBytes(long newUsedBytes, int newLiveCount) {
+        writeLock.lock();
+        try {
+            this.count = (int) newUsedBytes;
+            this.liveTurnCount.set(newLiveCount);
+            persistCount();
+            publishVisible();
+        } finally {
+            writeLock.unlock();
+        }
+    }
+
+    /**
+     * Copies a byte range within the segment from source offset to target offset.
+     *
+     * @param sourceOffset source byte offset
+     * @param targetOffset destination byte offset
+     * @param length number of bytes to copy
+     */
+    public void copyBytes(long sourceOffset, long targetOffset, long length) {
+        if (length > 0) {
+            java.lang.foreign.MemorySegment.copy(segment(), sourceOffset, segment(), targetOffset, length);
+        }
+    }
+
+    /**
+     * Zeroes out a contiguous byte range in the underlying segment.
+     *
+     * @param offset starting byte offset
+     * @param length number of bytes to zero
+     */
+    public void zeroBytes(long offset, long length) {
+        if (length > 0) {
+            segment().asSlice(offset, length).fill((byte) 0);
+        }
+    }
 }
