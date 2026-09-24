@@ -513,11 +513,11 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
             SHARED
         }
 
-        static EraseOutcome erased(int bytes) { return new EraseOutcome(Status.ERASED, bytes, 0); }
+        public static EraseOutcome erased(int bytes) { return new EraseOutcome(Status.ERASED, bytes, 0); }
 
-        static EraseOutcome notFound() { return new EraseOutcome(Status.NOT_FOUND, 0, 0); }
+        public static EraseOutcome notFound() { return new EraseOutcome(Status.NOT_FOUND, 0, 0); }
 
-        static EraseOutcome shared(int n) { return new EraseOutcome(Status.SHARED, 0, n); }
+        public static EraseOutcome shared(int n) { return new EraseOutcome(Status.SHARED, 0, n); }
 
         /** Returns {@code true} only if bytes were actually overwritten. */
         public boolean erased() { return status == Status.ERASED; }

@@ -256,12 +256,75 @@ public final class MemoryWalRecovery {
                     case FORGET -> {
                         index.remove(event.memoryId());
                     }
+                    case PURGE -> {
+                        // This case is load-bearing for erasure, not bookkeeping. WalRecoveryDispatcher
+                        // replays RECORD_WRITE by rewriting the record's bytes from the log payload, so
+                        // recovery has already restored the exact content the purge destroyed. Re-zeroing
+                        // here is what keeps the erasure durable across a crash; without it the WAL is a
+                        // resurrection vector.
+                        replayPurge(event, memories);
+                        index.remove(event.memoryId());
+                    }
                     default -> {}
                 }
             } catch (Exception e) {
                 throw new SpectorWalCorruptionException("WAL recovery index sync failed for event seq=" 
                         + event.sequence() + ", type=" + event.type(), e);
             }
+        }
+    }
+
+    /**
+     * Reapplies a purge during recovery, re-zeroing the record's payload.
+     *
+     * <p>Payload layout is {@code [tierOrdinal:4][recordOffset:8]}, written by
+     * {@code MemoryWal.appendPurge}. The offset is carried in the event rather than resolved through the
+     * index because the index is still being rebuilt at this point in recovery — looking it up would be a
+     * chicken-and-egg dependency, and an unresolvable lookup would silently skip the erasure.</p>
+     *
+     * <p>A failure here is escalated by the caller rather than swallowed. If recovery cannot reapply an
+     * erasure, the store has content on disk that an operator was told was destroyed; that must surface as a
+     * corruption error, not a debug line.</p>
+     */
+    private static void replayPurge(WalEvent event,
+                                    java.util.Map<MemoryId, com.spectrayan.spector.kernel.shape.Memory<?>> memories) {
+        byte[] payload = event.payload();
+        if (payload == null || payload.length < 12) {
+            throw new SpectorWalCorruptionException(
+                    "PURGE event for '" + event.memoryId() + "' has a malformed payload ("
+                            + (payload == null ? "null" : payload.length + " bytes, expected 12")
+                            + "); cannot reapply the erasure");
+        }
+        ByteBuffer buf = ByteBuffer.wrap(payload);
+        int tierOrdinal = buf.getInt();
+        long recordOffset = buf.getLong();
+        MemoryType[] tiers = MemoryType.values();
+        if (tierOrdinal < 0 || tierOrdinal >= tiers.length) {
+            throw new SpectorWalCorruptionException(
+                    "PURGE event for '" + event.memoryId() + "' names tier ordinal " + tierOrdinal
+                            + ", which is not a known tier; cannot reapply the erasure");
+        }
+        MemoryType tier = tiers[tierOrdinal];
+        MemoryId targetId = switch (tier) {
+            case WORKING -> SystemMemoryId.WORKING.id();
+            case SEMANTIC -> SystemMemoryId.SEMANTIC.id();
+            case PROCEDURAL -> SystemMemoryId.PROCEDURAL.id();
+            case EPISODIC -> SystemMemoryId.EPISODIC.id();
+        };
+        com.spectrayan.spector.kernel.shape.Memory<?> target = memories.get(targetId);
+        if (target instanceof com.spectrayan.spector.kernel.store.EngramRegion region) {
+            int zeroed = region.purge(recordOffset);
+            log.info("[WalRecovery] Reapplied purge of '{}' in {} at offset {} ({} payload bytes re-zeroed)",
+                    event.memoryId(), tier, recordOffset, zeroed);
+        } else if (target instanceof com.spectrayan.spector.kernel.store.EpisodicMemory episodic) {
+            int zeroed = episodic.purge(recordOffset);
+            log.info("[WalRecovery] Reapplied purge of '{}' in EPISODIC at offset {} ({} payload bytes "
+                    + "re-zeroed)", event.memoryId(), recordOffset, zeroed);
+        } else {
+            throw new SpectorWalCorruptionException(
+                    "PURGE event for '" + event.memoryId() + "' names tier " + tier
+                            + ", but no engram region is mounted for it; the erasure cannot be reapplied and "
+                            + "the record's content may still be on disk");
         }
     }
 }

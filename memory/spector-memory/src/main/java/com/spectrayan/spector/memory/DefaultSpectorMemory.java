@@ -168,6 +168,12 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     //  Multi-Tenant Namespace 
     private final SpectorNamespaceManager namespaceManager;
     private final String namespaceId;
+
+    /**
+     * The host's deletion/write policy. Never null — {@code ALLOW_ALL} when none was installed, so no call
+     * site needs a null check and none can skip the policy by forgetting one.
+     */
+    private final com.spectrayan.spector.memory.policy.MutationPolicy mutationPolicy;
     private final java.util.concurrent.atomic.AtomicInteger activeLeases = new java.util.concurrent.atomic.AtomicInteger(0);
     private final boolean sharedPathways;
 
@@ -304,6 +310,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.liveMemoryPatch = com.spectrayan.spector.config.model.LiveMemoryPatch.from(memProps);
         this.namespaceManager = bundle.namespaceManager();
         this.namespaceId = builder.namespaceId();
+        this.mutationPolicy = builder.mutationPolicy();
         this.idGenerator = bundle.idGenerator();
         this.checkpointEngine = bundle.checkpointEngine();
         if (this.checkpointEngine != null) {
@@ -873,6 +880,19 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         }
     }
 
+    /**
+     * Removes a chunk written during an ingestion that subsequently failed.
+     *
+     * <p><b>Deliberately does not consult {@code mutationPolicy}.</b> This is rollback of a write that never
+     * completed, not deletion of stored data. A legal hold protects data the tenant committed; it has no
+     * interest in half-ingested chunks from a failed operation, and refusing the rollback would leave
+     * exactly that garbage behind — orphaned chunks of a document that was never stored, which nobody can
+     * read and nobody wants retained.</p>
+     *
+     * <p>This is the one deletion path in the engine that intentionally bypasses the policy. It is called out
+     * here rather than left as an unexplained absence, so that a reader auditing R1.4b coverage finds a
+     * reason instead of a gap.</p>
+     */
     private void tombstoneById(String memoryId) {
         MemoryLocation loc = index.locate(memoryId);
         if (loc != null) {
@@ -1063,11 +1083,106 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 log.warn("Forget: memory '{}' not found in index — nothing was tombstoned", id);
                 return com.spectrayan.spector.memory.model.ForgetResult.notFound(id);
             }
+            mutationPolicy.checkDeletion(
+                    com.spectrayan.spector.memory.policy.DeletionRequest.forget(namespaceId, id));
             partitionManager.routerFor(loc.colocatedPartition()).tombstone(loc);
             wal.appendForget(id);
             index.remove(id);
             log.debug("Forget: '{}' tombstoned", id);
             return com.spectrayan.spector.memory.model.ForgetResult.tombstoned(id);
+        } finally {
+            releaseLease();
+        }
+    }
+
+    @Override
+    public com.spectrayan.spector.memory.model.PurgeResult purge(String id) {
+        acquireLease();
+        try {
+            if (id == null) { throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "id"); }
+
+            MemoryLocation loc = index.locate(id);
+            if (loc == null) {
+                // Idempotent by contract, same as forget. Reported, not thrown.
+                log.warn("Purge: memory '{}' not found in index — nothing was destroyed", id);
+                return com.spectrayan.spector.memory.model.PurgeResult.notFound(id, namespaceId);
+            }
+
+            // Policy first. Everything after this point is irreversible, so the refusal has to happen
+            // before the first byte is touched — not after a partial destruction.
+            mutationPolicy.checkDeletion(
+                    com.spectrayan.spector.memory.policy.DeletionRequest.purge(namespaceId, id));
+
+            // Ordering matters throughout and is the easiest thing to get wrong here.
+            //
+            // 1. WAL first. If the process dies mid-purge, recovery replays RECORD_WRITE and restores the
+            //    payload from the log; only a recorded PURGE undoes that. Writing the WAL entry after the
+            //    zeroing would leave a window in which a crash silently resurrects the content.
+            boolean walRecorded = false;
+            try {
+                wal.appendPurge(id, loc.type(), loc.offset());
+                walRecorded = true;
+            } catch (RuntimeException e) {
+                // Refuse rather than proceed. An unrecorded purge is a purge that a crash can undo, and
+                // reporting it as done would be a false claim.
+                log.error("Purge: failed to record WAL entry for '{}' — refusing to destroy data that "
+                        + "recovery could resurrect", id, e);
+                throw e;
+            }
+
+            // 2. Detach from the graphs before the payload goes. The graph planes are keyed by graphSlot,
+            //    which is independent of the record's bytes, so order is not strictly forced — but doing it
+            //    first means a failure leaves a readable record rather than a zeroed record still wired into
+            //    spreading activation.
+            var detach = graphFacade != null
+                    ? graphFacade.detachMemory(loc.graphSlot())
+                    : new com.spectrayan.spector.memory.graph.CognitiveGraphFacade.DetachReport(0, false, 0, 0);
+
+            // 3. Overwrite the payload.
+            int payloadZeroed = partitionManager.routerFor(loc.colocatedPartition()).purge(loc);
+
+            // 4. Erase the text. Two copies exist in a disk-backed store — the off-heap text.dat frame and
+            //    an on-heap entry in the index — and an in-memory store has only the latter. Capture whether
+            //    the on-heap copy was there before erasing, so the report can distinguish "no off-heap bytes
+            //    existed" from "text survived". Deduplication can make the off-heap erase impossible; that
+            //    outcome is disclosed rather than swallowed.
+            boolean hadInlineText = index.hasInlineText(id);
+            var textOutcome = index.eraseText(id);
+
+            // 5. Only now drop the index entry. Every step above needed the location, which index.remove
+            //    destroys — this is why purge cannot simply be bolted onto the end of forget.
+            index.remove(id);
+
+            var result = new com.spectrayan.spector.memory.model.PurgeResult(
+                    id,
+                    namespaceId,
+                    true,
+                    java.time.Instant.now(),
+                    payloadZeroed,
+                    textOutcome.bytesZeroed(),
+                    hadInlineText,
+                    textOutcome.status() == com.spectrayan.spector.kernel.store.TextBlobMemory.EraseOutcome.Status.SHARED ? 1 : 0,
+                    textOutcome.sharedWith(),
+                    detach.hebbianEdges(),
+                    detach.temporalUnlinked(),
+                    detach.entityLinks(),
+                    detach.hyperedges(),
+                    walRecorded,
+                    com.spectrayan.spector.memory.model.PurgeResult.RETAINED_HEADER_FIELDS,
+                    com.spectrayan.spector.memory.model.PurgeResult.UNREACHABLE_COPIES,
+                    com.spectrayan.spector.memory.model.PurgeResult.DISCLOSURE_TEXT);
+
+            if (result.hasLocalRetention()) {
+                log.warn("Purge: '{}' destroyed ({} payload bytes zeroed, {} graph refs removed), but its "
+                                + "text bytes were RETAINED — identical content is shared with {} other live "
+                                + "record(s) by deduplication and erasing it would destroy theirs",
+                        id, payloadZeroed, result.graphReferencesRemoved(), textOutcome.sharedWith());
+            } else {
+                log.info("Purge: '{}' destroyed — {} payload bytes and {} text bytes zeroed, {} graph "
+                                + "references removed",
+                        id, payloadZeroed, textOutcome.bytesZeroed(), result.graphReferencesRemoved());
+            }
+            return result;
         } finally {
             releaseLease();
         }
@@ -1577,7 +1692,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         for (var entry : index.locationMap().entrySet()) {
             String memId = entry.getKey();
             CognitiveRecord record = inspect(memId);
-            if (record != null && !record.isTombstoned()) {
+            // Purged records are excluded unconditionally and separately from the tombstone check, even
+            // though purge sets both bits. Relying on the tombstone bit alone would make the exclusion
+            // incidental: if a future change ever exported tombstoned records behind a flag, purged records
+            // would silently ride along, and what would be exported is a zeroed payload presented as data.
+            if (record != null && !record.isPurged() && !record.isTombstoned()) {
                 // Parse record's JSON into a node to avoid double-encoding
                 arrayNode.add(mapper.readTree(record.toJson()));
             }
@@ -1870,6 +1989,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             log.warn("Vacuum: tier {} is not compactable", tier);
             return null;
         }
+        mutationPolicy.checkDeletion(
+                com.spectrayan.spector.memory.policy.DeletionRequest.vacuum(namespaceId));
         vacuumLock.lock();
         try {
             return VacuumCompactor.compact(store, tier);

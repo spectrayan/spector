@@ -79,6 +79,17 @@ public record WalEvent(
          * {@code [type:4][weight:4f][memoryIdx:4][timestamp:8][vertexCount:4]
          * [(entityId:4, roleId:4) * vertexCount]}. Appended last to keep existing ordinals stable.
          */
-        HYPEREDGE_ADD
+        HYPEREDGE_ADD,
+        /**
+         * Memory was purged — payload physically zeroed, graph edges dropped. Irreversible.
+         *
+         * <p>Distinct from {@link #FORGET} and not a substitute for it. Replay has to be able to tell them
+         * apart: a {@code FORGET} only needs the tombstone reapplied, whereas a {@code PURGE} must suppress
+         * the record's earlier {@code REMEMBER} entirely. Without this opcode, replaying the log would
+         * faithfully reconstruct the content a purge destroyed — the WAL would resurrect it.</p>
+         *
+         * <p>Appended last to keep existing ordinals stable; the enum is serialised by ordinal.</p>
+         */
+        PURGE
     }
 }

@@ -92,6 +92,7 @@ public final class SpectorMemoryBuilder {
     private Path persistencePath;
     private MemoryPersistenceMode persistenceMode;
     private String namespaceId;
+    private com.spectrayan.spector.memory.policy.MutationPolicy mutationPolicy;
     private boolean managedByRegistry = false;
     private boolean useBundleMode = true;   // V4 bundle architecture (ADR-0004)
 
@@ -335,6 +336,21 @@ public final class SpectorMemoryBuilder {
         if (this.properties != null && this.properties.memory() != null) {
             this.properties.memory().setNamespaceId(namespaceId);
         }
+        return this;
+    }
+
+    /**
+     * Installs the host's {@link com.spectrayan.spector.memory.policy.MutationPolicy}.
+     *
+     * <p>Left unset, the engine uses {@code MutationPolicy.ALLOW_ALL} and behaviour is unchanged — embedded
+     * and OSS use needs no policy and takes no new dependency. Enterprise hosts install an implementation
+     * backed by their account catalog so that legal hold is enforced at the engine, where every caller
+     * reaches it, rather than at one API boundary that the other callers walk past.</p>
+     *
+     * @param policy the policy to consult, or {@code null} to permit everything
+     */
+    public SpectorMemoryBuilder mutationPolicy(com.spectrayan.spector.memory.policy.MutationPolicy policy) {
+        this.mutationPolicy = policy;
         return this;
     }
 
@@ -623,6 +639,18 @@ public final class SpectorMemoryBuilder {
         return namespaceId != null ? namespaceId
                 : (properties != null && properties.memory() != null ? properties.memory().getNamespaceId() : null);
     }
+    /**
+     * Returns the installed mutation policy, never null — {@code ALLOW_ALL} when the host installed none.
+     *
+     * <p>Defaulting here rather than at each call site means no deletion path can forget the null check and
+     * accidentally skip the policy.</p>
+     */
+    com.spectrayan.spector.memory.policy.MutationPolicy mutationPolicy() {
+        return mutationPolicy != null
+                ? mutationPolicy
+                : com.spectrayan.spector.memory.policy.MutationPolicy.ALLOW_ALL;
+    }
+
     public boolean managedByRegistry() { return managedByRegistry; }
     public boolean useBundleMode() { return useBundleMode; }
     public EmbeddingProvider embeddingProvider() { return embeddingProvider; }

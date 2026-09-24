@@ -278,6 +278,44 @@ public class IndexEntryMemory extends AbstractRecordMemory<IndexEntryLayout> {
         return texts.getOrDefault(id, "");
     }
 
+    /**
+     * Physically overwrites the stored text for {@code id} with zeros, and drops the on-heap copy.
+     *
+     * <p>Routes to the same text store {@link #text(String)} reads from — resolved by the memory's colocated
+     * partition — so a purge cannot miss the copy a read would find. There are two copies to deal with: the
+     * off-heap frame in {@code text.dat} and an on-heap entry in this index. Clearing only one of them leaves
+     * the text readable through the other.</p>
+     *
+     * <p>Returns {@link TextBlobMemory.EraseOutcome} rather than a boolean because deduplicated text cannot
+     * always be erased: when another live record shares the identical bytes, they must stay, and the caller
+     * has to be able to disclose that instead of reporting success.</p>
+     *
+     * @param id the memory id whose text should be destroyed
+     * @return what actually happened to the off-heap bytes
+     */
+    public TextBlobMemory.EraseOutcome eraseText(String id) {
+        // Drop the on-heap copy regardless of what happens off-heap: it is this index's own duplicate of the
+        // content and nothing else shares it.
+        texts.remove(id);
+        MemoryLocation loc = locations.get(id);
+        if (loc == null) {
+            return TextBlobMemory.EraseOutcome.notFound();
+        }
+        TextBlobMemory store = resolveTextStore(loc.colocatedPartition());
+        if (store != null) {
+            TextBlobMemory.EraseOutcome outcome = store.eraseEntry(id);
+            if (outcome.status() != TextBlobMemory.EraseOutcome.Status.NOT_FOUND) {
+                return outcome;
+            }
+        }
+        // The record may predate the per-partition resolver, in which case its text lives in the global
+        // store. text(String) falls back the same way, so the erase must too.
+        if (textDataStore != null && textDataStore != store) {
+            return textDataStore.eraseEntry(id);
+        }
+        return TextBlobMemory.EraseOutcome.notFound();
+    }
+
     /** Accessor for testing inline on-heap texts retention (R13.4). */
     public int inlineTextCount() {
         return texts.size();

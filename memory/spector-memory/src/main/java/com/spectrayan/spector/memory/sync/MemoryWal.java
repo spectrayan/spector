@@ -223,6 +223,30 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
     }
 
     /**
+     * Appends a PURGE event.
+     *
+     * <p>Must be recorded, and must be distinguishable from {@link #appendForget}. Replay of a
+     * {@code RECORD_WRITE} rewrites the record's bytes from the log payload, so without this event the WAL
+     * would faithfully restore the very content the purge destroyed. The log is the resurrection vector, and
+     * this opcode is what stops it: replay reapplies the zeroing after the write it nullifies.</p>
+     *
+     * <p>Payload is {@code [tierOrdinal:4][recordOffset:8]} — enough for replay to locate the record and
+     * re-zero it without consulting an index that may not exist yet at that stage of recovery.</p>
+     *
+     * @param memoryId     the purged memory's id
+     * @param tier         the tier the record lives in
+     * @param recordOffset absolute record offset within the tier's region
+     */
+    public WalEvent appendPurge(String memoryId,
+                                com.spectrayan.spector.kernel.api.MemoryType tier,
+                                long recordOffset) {
+        java.nio.ByteBuffer buf = java.nio.ByteBuffer.allocate(12);
+        buf.putInt(tier != null ? tier.ordinal() : -1);
+        buf.putLong(recordOffset);
+        return append(WalEvent.EventType.PURGE, memoryId, buf.array());
+    }
+
+    /**
      * Appends a REINFORCE event.
      */
     public WalEvent appendReinforce(String memoryId, byte valence) {
