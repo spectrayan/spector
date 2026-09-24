@@ -1,0 +1,24 @@
+{
+  "name": "memory_purge",
+  "description": "PHYSICALLY DESTROY a memory's content by ID. IRREVERSIBLE. Overwrites the memory's vector payload and stored text with zeros and removes it from every association graph. This is not the same as memory_forget: forget only sets a tombstone bit and every content byte stays readable on disk and in backups, whereas purge destroys the bytes and cannot be undone. Use forget for ordinary deletion; use purge only when the data itself must be gone, such as a data-subject erasure request. Purge does NOT reach DR exports, replica disks, cold-tier objects, filesystem snapshots or backups — copies there survive and must be handled separately. No cryptographic erasure is performed. Purge does not reclaim disk space; vacuum does that.",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:memory:write"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "required": [
+      "memory_id"
+    ],
+    "properties": {
+      "memory_id": {
+        "type": "string",
+        "description": "The ID of the memory to physically destroy. This cannot be undone."
+      },
+      "namespace": {
+        "type": "string",
+        "description": "Target memory namespace (slug or ID). Omit to use connection or account default."
+      }
+    }
+  }
+}

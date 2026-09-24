@@ -39,6 +39,7 @@ import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.GraphNeighborhood;
 import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.memory.model.PurgeResult;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.model.TopologyStats;
 import com.spectrayan.spector.memory.pathway.reflect.ReflectSweepProgress;
@@ -171,6 +172,20 @@ public class MemoryAccessObject {
         } catch (Exception e) {
             log.error("[MemoryAccessObject] Forget failed: {}", e.getMessage(), e);
         }
+    }
+
+    /**
+     * Purge a memory by ID (physical destruction).
+     *
+     * @param memory the memory engine instance
+     * @param id     the memory ID
+     * @return the purge audit report
+     */
+    public PurgeResult purge(SpectorMemory memory, String id) {
+        if (!isAvailable(memory)) {
+            throw new IllegalStateException("Memory engine is unavailable");
+        }
+        return memory.purge(id);
     }
 
     /**

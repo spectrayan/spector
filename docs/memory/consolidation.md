@@ -76,7 +76,23 @@ sequenceDiagram
     compaction preserve recall-by-id and reconcile graph edges — neither of which the sketch below
     addresses.
 
-When memories are `forget()`'d, they are tombstoned (bit 0 of flags byte set to 1). The scorer skips them in Phase 1 (~1 cycle). But tombstoned records still consume disk space.
+### 3. Deletion Semantics: `forget` vs `purge`
+
+Spector provides two distinct deletion verbs with documented semantics:
+
+| Property | `forget` (Logical Tombstone) | `purge` (Physical Destruction) |
+|:---|:---|:---|
+| **Mechanism** | Sets `FLAG_TOMBSTONE` (bit 0 of flags byte) | Overwrites payload and content headers with zeros in-place; sets `FLAG_PURGED` (`0x40`) |
+| **Payload on Disk** | **Retained verbatim** in partition mmap slab and snapshots | **Destroyed** (zeroed off-heap vector, norm, Bloom filter, centroid ID, turn body, unshared text) |
+| **Graph Edges** | Filtered during traversal | **Detached** across all 4 planes: Hebbian CSR rebuild, temporal chain unlink, entity directory unlink, and hyperedges scan |
+| **WAL Event** | `RECORD_WRITE` tombstone bit update | `PURGE` opcode recorded before zeroing, re-applied during recovery |
+| **Legal Hold** | **Permitted** (payload survives for discovery) | **Refused** (`NamespaceLegalHoldException` / HTTP 409) |
+| **Export Behavior** | Omitted unless `--include-tombstones` is passed | Omitted unconditionally |
+| **Audit Report** | Status confirmation | Returns `PurgeResult` disclosing unreachable copies (DR exports, replica disks, cold tier) |
+| **Space Reclaim** | Reclaimed only when partition compaction runs | Space retained in-place (reclaimed only upon compaction) |
+| **Reversibility** | Reversible in principle | **Irreversible** |
+
+When memories are `forget()`'d, they are tombstoned (bit 0 of flags byte set to 1). The scorer skips them in Phase 1 (~1 cycle). But tombstoned records still consume disk space. When records must be permanently destroyed for privacy or compliance (e.g. GDPR erasure), `purge()` must be used.
 
 The proposed design: when the tombstone ratio in a partition exceeds the configured threshold, a
 **partition rebuild** would be triggered.

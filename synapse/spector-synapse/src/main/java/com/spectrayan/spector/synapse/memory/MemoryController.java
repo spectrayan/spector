@@ -30,6 +30,7 @@ import com.spectrayan.spector.synapse.memory.MemoryDto.BrowseResult;
 import com.spectrayan.spector.synapse.memory.MemoryDto.ReflectRequest;
 import com.spectrayan.spector.synapse.memory.MemoryDto.ReflectResponse;
 import java.time.Instant;
+import com.spectrayan.spector.memory.model.PurgeResult;
 import com.spectrayan.spector.synapse.memory.MemoryDto.ReinforceByIdRequest;
 import com.spectrayan.spector.synapse.memory.MemoryDto.RememberRequest;
 import com.spectrayan.spector.synapse.memory.MemoryDto.ResolveRequest;
@@ -414,6 +415,21 @@ public class MemoryController {
     public ResponseEntity<Map<String, String>> forget(@PathVariable String id) {
         memoryService.forget(id);
         return ResponseEntity.ok(Map.of("status", "forgotten", "id", id));
+    }
+
+    /**
+     * Physically destroy (purge) a memory by ID.
+     *
+     * <p>{@code DELETE /api/v1/memory/{id}/purge}</p>
+     */
+    @DeleteMapping("/{id}/purge")
+    @Operation(operationId = "purgeMemory", summary = "Physically destroy (purge) a memory by ID")
+    public ResponseEntity<PurgeResult> purge(@PathVariable String id) {
+        PurgeResult result = memoryService.purge(id);
+        if (!result.found()) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(result);
     }
 
     // ══════════════════════════════════════════════════════════════

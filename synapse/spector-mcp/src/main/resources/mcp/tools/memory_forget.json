@@ -1,6 +1,6 @@
 {
   "name": "memory_forget",
-  "description": "Explicitly forget a memory by ID. The memory is tombstoned (logical deletion) and will be cleaned up during the next Deep Sleep consolidation cycle.",
+  "description": "Explicitly forget a memory by ID. The memory is tombstoned (logical deletion): it becomes invisible to recall, inspect and export, but its content bytes REMAIN on disk and in any backup or snapshot. This is not erasure. Use memory_purge when the data itself must be physically destroyed.",
   "category": "MEMORY",
   "scopes": [
     "spector:memory:write"

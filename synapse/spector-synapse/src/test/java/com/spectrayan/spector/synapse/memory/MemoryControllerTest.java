@@ -225,6 +225,62 @@ class MemoryControllerTest {
     }
 
     // ═══════════════════════════════════════════════════
+    // DELETE /api/v1/memory/{id}/purge
+    // ═══════════════════════════════════════════════════
+
+    @Test
+    @DisplayName("DELETE /memory/{id}/purge — returns 200 with audit report when found")
+    void purge_returns200WithAuditReport() throws Exception {
+        var purgeResult = new com.spectrayan.spector.memory.model.PurgeResult(
+                "mem-purge-1", "test-ns", true, java.time.Instant.now(),
+                512, 128, false, 0, 0,
+                3, true, 1, 0, true,
+                com.spectrayan.spector.memory.model.PurgeResult.RETAINED_HEADER_FIELDS,
+                com.spectrayan.spector.memory.model.PurgeResult.UNREACHABLE_COPIES,
+                com.spectrayan.spector.memory.model.PurgeResult.DISCLOSURE_TEXT
+        );
+        when(memoryService.purge("mem-purge-1")).thenReturn(purgeResult);
+
+        mvc.perform(delete("/api/v1/memory/mem-purge-1/purge"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.found", is(true)))
+                .andExpect(jsonPath("$.memoryId", is("mem-purge-1")))
+                .andExpect(jsonPath("$.payloadBytesZeroed", is(512)))
+                .andExpect(jsonPath("$.textBytesZeroed", is(128)))
+                .andExpect(jsonPath("$.hebbianEdgesRemoved", is(3)))
+                .andExpect(jsonPath("$.temporalUnlinked", is(true)))
+                .andExpect(jsonPath("$.walRecorded", is(true)))
+                .andExpect(jsonPath("$.unreachableCopies", hasItem("dr_exports")));
+
+        verify(memoryService).purge("mem-purge-1");
+    }
+
+    @Test
+    @DisplayName("DELETE /memory/{id}/purge — returns 404 when not found")
+    void purge_returns404WhenNotFound() throws Exception {
+        when(memoryService.purge("missing-id"))
+                .thenReturn(com.spectrayan.spector.memory.model.PurgeResult.notFound("missing-id", "test-ns"));
+
+        mvc.perform(delete("/api/v1/memory/missing-id/purge"))
+                .andExpect(status().isNotFound());
+
+        verify(memoryService).purge("missing-id");
+    }
+
+    @Test
+    @DisplayName("DELETE /memory/{id}/purge — returns 409 Conflict when namespace is under legal hold")
+    void purge_returns409UnderLegalHold() throws Exception {
+        when(memoryService.purge("held-mem"))
+                .thenThrow(new com.spectrayan.spector.synapse.catalog.exception.NamespaceLegalHoldException("held-ns"));
+
+        mvc.perform(delete("/api/v1/memory/held-mem/purge"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error", is(com.spectrayan.spector.commons.error.ErrorCode.NAMESPACE_LEGAL_HOLD.id())));
+
+        verify(memoryService).purge("held-mem");
+    }
+
+    // ═══════════════════════════════════════════════════
     // GET /api/v1/memory/status
     // ═══════════════════════════════════════════════════
 

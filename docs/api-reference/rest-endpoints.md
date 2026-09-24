@@ -171,10 +171,20 @@ curl -X POST http://localhost:7070/api/v1/memory/recall \
 
 ### <span class="badge-method badge-delete">DELETE</span> `/api/v1/memory/{id}`
 
-Tombstone (forget) a memory by ID.
+Tombstone (forget) a memory by ID. Logical deletion: the memory becomes invisible to recall, inspect, and export, but its payload content bytes **remain on disk** and in any backup or snapshot.
 
 ```bash
 curl -X DELETE http://localhost:7070/api/v1/memory/pref-dark-mode
+```
+
+### <span class="badge-method badge-delete">DELETE</span> `/api/v1/memory/{id}/purge`
+
+Physically destroy (purge) a memory by ID. Overwrites vector payload and content-derived headers with zeros in-place, detaches all graph association edges (Hebbian, temporal, entity, hyperedges), and logs the operation to the WAL. Irreversible.
+
+Returns an audit report disclosing what was destroyed and copies that could not be reached (DR exports, replica disks, cold tier). Refuses with HTTP 409 (`SPE-800-008`) if the namespace is under active legal hold.
+
+```bash
+curl -X DELETE http://localhost:7070/api/v1/memory/pref-dark-mode/purge
 ```
 
 ### <span class="badge-method badge-post">POST</span> `/api/v1/memory/{id}/reinforce`

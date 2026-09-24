@@ -50,6 +50,7 @@ import com.spectrayan.spector.kernel.id.TsidGenerator;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.memory.model.PurgeResult;
 import com.spectrayan.spector.memory.model.RecallMode;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ReflectReport;
@@ -577,6 +578,20 @@ public class MemoryService {
         log.debug("[MemoryService] forget: id={}", id);
         mao.forget(resolveMemory(), id);
         eventPublisher.memoryEvent("deleted", id, "Tombstoned memory");
+    }
+
+    /**
+     * Physically destroy (purge) a memory by ID.
+     */
+    public PurgeResult purge(String id) {
+        assertRoleAtLeast(com.spectrayan.spector.synapse.catalog.GrantRole.WRITER);
+        requireId(id);
+        log.info("[MemoryService] purge: id={}", id);
+        PurgeResult result = mao.purge(resolveMemory(), id);
+        if (result.found()) {
+            eventPublisher.memoryEvent("purged", id, "Physically purged memory");
+        }
+        return result;
     }
 
     /**

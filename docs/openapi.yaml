@@ -214,6 +214,32 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
+  /api/v1/memory/{id}/purge:
+    delete:
+      tags:
+      - Memory
+      summary: Physically destroy (purge) a memory by ID
+      description: |
+        Physically overwrites payload bytes with zeros, detaches the record from all graph planes,
+        and logs the purge to the WAL. Irreversible. Discloses unreachable copies (DR exports, replica disks, cold tier).
+      operationId: purgeMemory
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Memory purged successfully (audit report returned)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurgeResult'
+        "404":
+          description: Memory not found
+        "409":
+          description: Namespace is under active legal hold
   /api/v1/credentials/{name}:
     get:
       tags:
@@ -4096,6 +4122,7 @@ components:
           type: string
           enum:
           - LLM
+          - EMBEDDING
           - CHANNEL
           - DATABASE
           - BROKER
@@ -4142,6 +4169,7 @@ components:
           type: string
           enum:
           - LLM
+          - EMBEDDING
           - CHANNEL
           - DATABASE
           - BROKER
@@ -4791,8 +4819,6 @@ components:
           type: boolean
         dreamed:
           type: boolean
-        positivelyReinforced:
-          type: boolean
         multimodal:
           type: boolean
         negativeOutcome:
@@ -4800,6 +4826,8 @@ components:
         lateral:
           type: boolean
         hyperfocused:
+          type: boolean
+        positivelyReinforced:
           type: boolean
     FederatedRecallHit:
       type: object
@@ -4967,6 +4995,7 @@ components:
           type: string
           enum:
           - LLM
+          - EMBEDDING
           - CHANNEL
           - DATABASE
           - BROKER
@@ -5395,6 +5424,55 @@ components:
         connectorCount:
           type: integer
           format: int32
+    PurgeResult:
+      type: object
+      properties:
+        memoryId:
+          type: string
+        namespaceId:
+          type: string
+        found:
+          type: boolean
+        purgedAt:
+          type: string
+          format: date-time
+        payloadBytesZeroed:
+          type: integer
+          format: int32
+        textBytesZeroed:
+          type: integer
+          format: int32
+        inlineTextDropped:
+          type: boolean
+        textRetainedShared:
+          type: integer
+          format: int32
+        textSharedWith:
+          type: integer
+          format: int32
+        hebbianEdgesRemoved:
+          type: integer
+          format: int32
+        temporalUnlinked:
+          type: boolean
+        entityLinksRemoved:
+          type: integer
+          format: int32
+        hyperedgesRemoved:
+          type: integer
+          format: int32
+        walRecorded:
+          type: boolean
+        retainedHeaderFields:
+          type: array
+          items:
+            type: string
+        unreachableCopies:
+          type: array
+          items:
+            type: string
+        disclosure:
+          type: string
     MemoryTableRow:
       type: object
       properties:
