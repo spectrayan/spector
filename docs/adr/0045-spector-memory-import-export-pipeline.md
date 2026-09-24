@@ -2,17 +2,27 @@
 
 | Field | Value |
 |:---|:---|
-| **Status** | Proposed (**not** implemented — see §0) |
+| **Status** | Accepted (Implemented) |
 | **Date** | 2026-08-13 |
 | **Authors** | Spector Maintainers & Architecture Working Group |
 | **Deciders** | Spector Technical Steering Committee (TSC) |
 | **Supersedes** | None |
 | **Superseded By** | None |
-| **Last Verified** | 2026-09-23 (status corrected from `Accepted (Implemented)`) |
+| **Last Verified** | 2026-09-24 (implemented & verified via SpectorMemoryPortabilityGoldenTest) |
 
 ---
 
-## 0. Status correction — 2026-09-23 (issue #981)
+## 0. Status History & Implementation Resolution
+
+### 0.1 Resolution — 2026-09-24 (issue #981, memory-portability Groups 1–4)
+
+This ADR returned to `Accepted (Implemented)` upon successful implementation and verification of Groups 1–4 of the `memory-portability` specification:
+1. **Container & Format Reconciliation**: Standard ZIP archive with per-entry DEFLATE; `manifest.json` at root; `nodes/chunk-NNNNN.jsonl` streaming chunks; `vectors/chunk-NNNNN.bin` ordinal-aligned IEEE 754 float vectors; `graph/edges.jsonl`, `graph/hyperedges.jsonl`, and `graph/facts.jsonl`.
+2. **Export Engine**: `SpectorMemoryExporter` reads live memory via `SpectorMemoryResolver` cursor-stable enumeration, streaming chunks, Hebbian graph edges, typed hyperedges (`HyperEntityGraphMemory`), and temporal facts.
+3. **Import Engine**: `SpectorMemoryImporter` decodes multi-chunks, resolves graph IDs to new slot indices, reconstructs Hebbian associations, typed hyperedges (`TYPE_CONTRADICTS`), temporal facts, reconciles derived indexes per ADR-0082, and executes within an atomic staging namespace lifecycle.
+4. **Golden Gate Verification**: Passed `SpectorMemoryPortabilityGoldenTest` (export → wipe → import with 100% ID, text, tags, and vector bit-identity parity, Hebbian edge parity, typed hyperedge parity, temporal facts parity, double-import idempotency, and explicit demonstration of failure against legacy fixture scaffolding).
+
+### 0.2 Status correction — 2026-09-23 (issue #981)
 
 This ADR was marked `Accepted (Implemented)` and "Verified against `main`" on 2026-09-16. **It is not
 implemented.** A review against `main` @ `09f1f2d7` found that `SpectorExportJobConfig` holds no reference
