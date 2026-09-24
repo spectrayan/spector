@@ -20,19 +20,27 @@ import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.kernel.store.EngramRegion;
 import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.kernel.api.MemoryLocation;
+import com.spectrayan.spector.kernel.shape.AbstractRecordMemory;
+import com.spectrayan.spector.kernel.store.EpisodicMemory;
+import com.spectrayan.spector.kernel.layout.EpisodicLayout;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.store.IndexEntryMemory;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
 
 /**
- * Surveys a tier store for tombstoned records.
+ * Executes tombstone compaction and surveys tier stores.
  *
- * <p><b>Despite the name, this does not compact.</b> It counts live versus tombstoned records and returns
- * the census. No record is relocated, no byte is zeroed, no space is reclaimed, and no index or graph
- * structure is rewritten.</p>
- *
- * <p>Until #983 it computed {@code bytesReclaimed = tombstoneCount * recordStride} and logged
- * "reclaimed {}KB", so the documented REST endpoint reported freeing space it had not freed. The name is
- * retained rather than changed because {@code memory-durability-contract} R2 implements real compaction
- * here; renaming now and back later would churn callers for no gain. The javadoc and the returned
- * {@code compacted=false} carry the truth in the meantime.</p>
+ * <p>Implements {@code memory-durability-contract} R2:
+ * <ul>
+ *   <li><b>R2.1:</b> Relocates live records into dense sequential slots and physically measures reclaimed space</li>
+ *   <li><b>R2.2:</b> Preserves ID-to-record resolution by updating {@link IndexEntryMemory} locations and reverse index</li>
+ *   <li><b>R2.3:</b> Cleans up dead graph references via node detacher callback while keeping live monotonic graph slots stable</li>
+ *   <li><b>R2.4:</b> Triggerable by threshold ({@link #DEFAULT_THRESHOLD}, 0.20) or explicit operator action</li>
+ * </ul>
  *
  * @see com.spectrayan.spector.memory.sync.CompactionResult
  * @see <a href="https://github.com/spectrayan/spector/issues/983">spectrayan/spector#983</a>
@@ -42,24 +50,21 @@ public final class VacuumCompactor {
     private static final Logger log = LoggerFactory.getLogger(VacuumCompactor.class);
 
     /**
-     * Tombstone ratio at which compaction would be worthwhile, once compaction exists.
-     *
-     * <p>Documented as 20% in {@code spector-yml.md}. Note the consolidation docs claimed a 30% automatic
-     * partition rebuild, which was a conflation with {@code circadian.tombstone-threshold} — a different
-     * knob governing when episodic memories are tombstoned, not when a partition is rebuilt.</p>
+     * Tombstone ratio at which compaction is triggered (0.20 default).
      */
-    public static final float DEFAULT_THRESHOLD = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_VACUUM_DEFAULT_THRESHOLD;
+    public static final float DEFAULT_THRESHOLD =
+            com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_VACUUM_DEFAULT_THRESHOLD;
 
     private VacuumCompactor() {} // utility class
 
     /**
-     * Surveys a tier store, counting live versus tombstoned records.
+     * Surveys a tier store, counting live versus tombstoned records without modifying layout.
      *
      * @param store the tier store to survey
      * @param type  the memory tier type
      * @return the census, or {@code null} if the store is absent or holds no tombstones
      */
-    public static CompactionResult compact(EngramRegion store, MemoryType type) {
+    public static CompactionResult survey(EngramRegion store, MemoryType type) {
         if (store == null) {
             log.warn("Vacuum: store for {} is null, cannot survey", type);
             return null;
@@ -67,13 +72,11 @@ public final class VacuumCompactor {
         long startMs = System.currentTimeMillis();
 
         int totalRecords = store.size();
-
-        // Phase 1: Count live and tombstoned records
         int liveCount = 0;
         int tombstoneCount = 0;
         for (int i = 0; i < totalRecords; i++) {
             long offset = store.recordOffset(i);
-            if (store.isTombstoned(offset)) {
+            if (store.isTombstoned(offset) || store.isPurged(offset)) {
                 tombstoneCount++;
             } else {
                 liveCount++;
@@ -81,24 +84,282 @@ public final class VacuumCompactor {
         }
 
         if (tombstoneCount == 0) {
-            log.info("Vacuum: {} has no tombstoned records, skipping", type);
+            log.debug("Vacuum: {} has no tombstoned records, skipping", type);
             return null;
         }
 
         long durationMs = System.currentTimeMillis() - startMs;
+        return CompactionResult.census(type, totalRecords, liveCount, tombstoneCount, durationMs);
+    }
 
-        // Reports 0 reclaimed bytes and compacted=false because nothing is reclaimed. The previous
-        // implementation returned tombstoneCount * stride -- a multiplication presented as a measurement --
-        // and logged "reclaimed {}KB" for an operation that performed no write. An operator calling the
-        // documented endpoint saw a success response quoting kilobytes freed and nothing had happened.
-        CompactionResult result = CompactionResult.census(
-                type, totalRecords, liveCount, tombstoneCount, durationMs);
+    /**
+     * Compacts a tier store with forced execution and default partition 0.
+     *
+     * @param store the tier store to compact
+     * @param type  the memory tier type
+     * @return compaction result with measured reclaimed bytes, or null if no tombstones exist
+     */
+    public static CompactionResult compact(EngramRegion store, MemoryType type) {
+        return compact(store, type, 0, null, null, DEFAULT_THRESHOLD, true);
+    }
 
-        log.info("Vacuum census: {} — {} records ({} live, {} tombstoned) surveyed in {}ms. "
-                        + "No compaction performed: reclamation is not implemented, so no space was freed "
-                        + "and no record was relocated.",
-                type, totalRecords, liveCount, tombstoneCount, durationMs);
+    /**
+     * Compacts a tier store with full context.
+     *
+     * @param store        the tier store to compact
+     * @param type         the memory tier type
+     * @param partitionSeq the partition sequence number
+     * @param index        the index entry memory to update (nullable for standalone stores)
+     * @param nodeDetacher callback to detach graph edges for dead graph slots (nullable)
+     * @param threshold    tombstone ratio threshold to trigger compaction
+     * @param force        if true, compacts unconditionally if tombstones exist
+     * @return compaction result with measured reclaimed bytes, or null if no tombstones exist
+     */
+    public static CompactionResult compact(
+            EngramRegion store,
+            MemoryType type,
+            int partitionSeq,
+            IndexEntryMemory index,
+            Consumer<Integer> nodeDetacher,
+            float threshold,
+            boolean force
+    ) {
+        if (store == null) {
+            log.warn("Vacuum: store for {} is null, cannot compact", type);
+            return null;
+        }
 
-        return result;
+        if (store instanceof EpisodicMemory episodic) {
+            return compactEpisodic(episodic, partitionSeq, index, nodeDetacher, threshold, force);
+        } else if (store instanceof AbstractRecordMemory<?> arm) {
+            return compactFixed(arm, type, partitionSeq, index, nodeDetacher, threshold, force);
+        } else {
+            log.warn("Vacuum: unsupported store type {} for physical compaction; falling back to survey",
+                    store.getClass().getName());
+            return survey(store, type);
+        }
+    }
+
+    private static CompactionResult compactFixed(
+            AbstractRecordMemory<?> arm,
+            MemoryType type,
+            int partitionSeq,
+            IndexEntryMemory index,
+            Consumer<Integer> nodeDetacher,
+            float threshold,
+            boolean force
+    ) {
+        long startMs = System.currentTimeMillis();
+        int totalRecords = arm.visibleCount();
+        if (totalRecords == 0) {
+            return null;
+        }
+
+        int stride = arm.layout().recordStride();
+        int tombstoneCount = 0;
+        int liveCount = 0;
+
+        for (int i = 0; i < totalRecords; i++) {
+            long offset = arm.recordOffset(i);
+            boolean isDead = (arm instanceof EngramRegion er)
+                    ? (er.isTombstoned(offset) || er.isPurged(offset))
+                    : false;
+            if (isDead) {
+                tombstoneCount++;
+            } else {
+                liveCount++;
+            }
+        }
+
+        if (tombstoneCount == 0) {
+            return null;
+        }
+
+        float ratio = (float) tombstoneCount / (float) totalRecords;
+        if (!force && ratio < threshold) {
+            long durationMs = System.currentTimeMillis() - startMs;
+            log.info("Vacuum census: {} partition {} — tombstone ratio {} below threshold {}, skipping compaction",
+                    type, partitionSeq, ratio, threshold);
+            return CompactionResult.census(type, totalRecords, liveCount, tombstoneCount, durationMs);
+        }
+
+        long beforeUsedBytes = (long) totalRecords * stride;
+        int destSlot = 0;
+        int tombstonesRemoved = 0;
+        List<Integer> deadGraphSlots = new ArrayList<>();
+
+        for (int srcSlot = 0; srcSlot < totalRecords; srcSlot++) {
+            long srcOffset = arm.recordOffset(srcSlot);
+            boolean isDead = (arm instanceof EngramRegion er)
+                    ? (er.isTombstoned(srcOffset) || er.isPurged(srcOffset))
+                    : false;
+
+            if (isDead) {
+                tombstonesRemoved++;
+                if (index != null) {
+                    String deadId = index.findIdByOffset(partitionSeq, type, srcOffset);
+                    if (deadId != null) {
+                        MemoryLocation deadLoc = index.locate(deadId);
+                        if (deadLoc != null && deadLoc.graphSlot() >= 0) {
+                            deadGraphSlots.add(deadLoc.graphSlot());
+                        }
+                        index.remove(deadId);
+                    }
+                }
+                // Zero out dead slot
+                arm.zeroRange(srcOffset, stride);
+            } else {
+                if (destSlot == srcSlot) {
+                    destSlot++;
+                } else {
+                    long destOffset = arm.recordOffset(destSlot);
+                    // 1. Copy live record to dense destOffset
+                    arm.copyRecord(srcOffset, destOffset);
+                    // 2. Relocate index entry atomically
+                    if (index != null) {
+                        String liveId = index.findIdByOffset(partitionSeq, type, srcOffset);
+                        if (liveId != null) {
+                            index.relocate(liveId, destOffset);
+                        }
+                    }
+                    // 3. Zero out vacated slot
+                    arm.zeroRange(srcOffset, stride);
+                    destSlot++;
+                }
+            }
+        }
+
+        int newCount = destSlot;
+        arm.resetCount(newCount);
+        long afterUsedBytes = (long) newCount * stride;
+        long bytesReclaimed = beforeUsedBytes - afterUsedBytes;
+
+        if (nodeDetacher != null) {
+            for (int slot : deadGraphSlots) {
+                nodeDetacher.accept(slot);
+            }
+        }
+
+        long durationMs = System.currentTimeMillis() - startMs;
+        log.info("Vacuum compaction: {} partition {} — {} records -> {} live, {} tombstones removed, {} bytes reclaimed in {}ms",
+                type, partitionSeq, totalRecords, newCount, tombstonesRemoved, bytesReclaimed, durationMs);
+        return new CompactionResult(type, totalRecords, newCount, tombstonesRemoved, bytesReclaimed, durationMs, true);
+    }
+
+    private static CompactionResult compactEpisodic(
+            EpisodicMemory episodic,
+            int partitionSeq,
+            IndexEntryMemory index,
+            Consumer<Integer> nodeDetacher,
+            float threshold,
+            boolean force
+    ) {
+        long startMs = System.currentTimeMillis();
+        long base = episodic.dataOffset();
+        long oldUsedBytes = episodic.usedBytes();
+        long limit = base + oldUsedBytes;
+
+        var headerLayout = episodic.layout().headerLayout();
+        int totalRecords = 0;
+        int tombstoneCount = 0;
+        int liveCount = 0;
+
+        long current = base;
+        while (current + EpisodicLayout.HEADER_BYTES <= limit) {
+            if (headerLayout.isOptionBRecord(episodic.segment(), current)) {
+                int payloadBytes = headerLayout.readPayloadBytes(episodic.segment(), current);
+                if (payloadBytes < 0 || current + EpisodicLayout.FIXED_OVERHEAD_BYTES + payloadBytes > limit) {
+                    break;
+                }
+                long recordLen = EpisodicLayout.FIXED_OVERHEAD_BYTES + payloadBytes;
+                byte flags = headerLayout.readFlagsRecord(episodic.segment(), current);
+                totalRecords++;
+                if (EncodingHeaderFields.isTombstoned(flags) || EncodingHeaderFields.isPurged(flags)) {
+                    tombstoneCount++;
+                } else {
+                    liveCount++;
+                }
+                current += recordLen;
+            } else {
+                break;
+            }
+        }
+
+        if (tombstoneCount == 0) {
+            return null;
+        }
+
+        float ratio = totalRecords > 0 ? (float) tombstoneCount / (float) totalRecords : 0.0f;
+        if (!force && ratio < threshold) {
+            long durationMs = System.currentTimeMillis() - startMs;
+            return CompactionResult.census(MemoryType.EPISODIC, totalRecords, liveCount, tombstoneCount, durationMs);
+        }
+
+        long destOffset = base;
+        current = base;
+        int tombstonesRemoved = 0;
+        List<Integer> deadGraphSlots = new ArrayList<>();
+
+        while (current + EpisodicLayout.HEADER_BYTES <= limit) {
+            if (headerLayout.isOptionBRecord(episodic.segment(), current)) {
+                int payloadBytes = headerLayout.readPayloadBytes(episodic.segment(), current);
+                if (payloadBytes < 0 || current + EpisodicLayout.FIXED_OVERHEAD_BYTES + payloadBytes > limit) {
+                    break;
+                }
+                long recordLen = EpisodicLayout.FIXED_OVERHEAD_BYTES + payloadBytes;
+                byte flags = headerLayout.readFlagsRecord(episodic.segment(), current);
+                boolean isDead = EncodingHeaderFields.isTombstoned(flags) || EncodingHeaderFields.isPurged(flags);
+
+                long relativeSrc = current - base;
+                if (isDead) {
+                    tombstonesRemoved++;
+                    if (index != null) {
+                        String deadId = index.findIdByOffset(partitionSeq, MemoryType.EPISODIC, relativeSrc);
+                        if (deadId != null) {
+                            MemoryLocation deadLoc = index.locate(deadId);
+                            if (deadLoc != null && deadLoc.graphSlot() >= 0) {
+                                deadGraphSlots.add(deadLoc.graphSlot());
+                            }
+                            index.remove(deadId);
+                        }
+                    }
+                } else {
+                    long relativeDest = destOffset - base;
+                    if (destOffset == current) {
+                        destOffset += recordLen;
+                    } else {
+                        episodic.copyBytes(current, destOffset, recordLen);
+                        if (index != null) {
+                            String liveId = index.findIdByOffset(partitionSeq, MemoryType.EPISODIC, relativeSrc);
+                            if (liveId != null) {
+                                index.relocate(liveId, relativeDest);
+                            }
+                        }
+                        destOffset += recordLen;
+                    }
+                }
+                current += recordLen;
+            } else {
+                break;
+            }
+        }
+
+        long newUsedBytes = destOffset - base;
+        if (destOffset < limit) {
+            episodic.zeroBytes(destOffset, limit - destOffset);
+        }
+        episodic.resetUsedBytes(newUsedBytes, liveCount);
+        long bytesReclaimed = oldUsedBytes - newUsedBytes;
+
+        if (nodeDetacher != null) {
+            for (int slot : deadGraphSlots) {
+                nodeDetacher.accept(slot);
+            }
+        }
+
+        long durationMs = System.currentTimeMillis() - startMs;
+        log.info("Vacuum compaction: EPISODIC partition {} — {} turns -> {} live, {} tombstones removed, {} bytes reclaimed in {}ms",
+                partitionSeq, totalRecords, liveCount, tombstonesRemoved, bytesReclaimed, durationMs);
+        return new CompactionResult(MemoryType.EPISODIC, totalRecords, liveCount, tombstonesRemoved, bytesReclaimed, durationMs, true);
     }
 }

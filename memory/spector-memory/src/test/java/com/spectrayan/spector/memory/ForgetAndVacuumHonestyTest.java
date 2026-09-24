@@ -129,7 +129,7 @@ class ForgetAndVacuumHonestyTest {
     class Vacuum {
 
         @Test
-        @DisplayName("reports zero reclaimed bytes and compacted=false, not a computed estimate")
+        @DisplayName("survey reports zero reclaimed bytes and compacted=false, not a computed estimate")
         void reportsZeroReclaimedAndNotCompacted() {
             for (int i = 0; i < 6; i++) {
                 memory.remember("vac-" + i, "Vacuum subject " + i, MemoryType.SEMANTIC, "test");
@@ -138,13 +138,13 @@ class ForgetAndVacuumHonestyTest {
                 memory.forget("vac-" + i);
             }
 
-            var result = memory.admin().vacuum(MemoryType.SEMANTIC);
+            var result = memory.admin().survey(MemoryType.SEMANTIC);
             assertThat(result).as("tombstones exist, so a census is returned").isNotNull();
 
             // Asserting the specific values, not non-nullness: a test asserting "result != null" would have
             // passed against the fabricated tombstoneCount * stride figure.
             assertThat(result.bytesReclaimed())
-                    .as("nothing is reclaimed, so no byte count may be reported")
+                    .as("nothing is reclaimed in survey, so no byte count may be reported")
                     .isZero();
             assertThat(result.compacted())
                     .as("the caller must be able to tell a census from a compaction")
@@ -152,6 +152,14 @@ class ForgetAndVacuumHonestyTest {
             assertThat(result.tombstonesRemoved())
                     .as("tombstones are found, not removed")
                     .isPositive();
+
+            // Real vacuum physically compacts and reclaims space
+            var compResult = memory.admin().vacuum(MemoryType.SEMANTIC);
+            assertThat(compResult).as("compaction must succeed").isNotNull();
+            assertThat(compResult.compacted()).isTrue();
+            assertThat(compResult.bytesReclaimed()).as("bytes reclaimed must be measured").isPositive();
+            assertThat(compResult.tombstonesRemoved()).isEqualTo(6);
+            assertThat(compResult.afterCount()).isEqualTo(3);
         }
 
         @Test

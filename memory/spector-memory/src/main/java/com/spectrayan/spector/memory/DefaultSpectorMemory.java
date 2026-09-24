@@ -1983,17 +1983,119 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public CompactionResult vacuum(MemoryType tier) {
-        CognitiveMemoryRouter router = partitionManager.cognitiveRouter();
-        EngramRegion store = router.get(tier);
-        if (store == null) {
-            log.warn("Vacuum: tier {} is not compactable", tier);
-            return null;
-        }
+        return vacuum(tier, true);
+    }
+
+    @Override
+    public CompactionResult vacuum(MemoryType tier, boolean force) {
         mutationPolicy.checkDeletion(
                 com.spectrayan.spector.memory.policy.DeletionRequest.vacuum(namespaceId));
         vacuumLock.lock();
         try {
-            return VacuumCompactor.compact(store, tier);
+            long startMs = System.currentTimeMillis();
+            int[] totals = new int[3]; // [before, after, tombstones]
+            long[] bytesReclaimed = new long[1];
+            boolean[] anyCompacted = new boolean[1];
+            boolean[] anyFound = new boolean[1];
+
+            partitionManager.withRollLock(() -> {
+                List<com.spectrayan.spector.memory.cortex.PartitionHandle> handles = partitionManager.snapshot();
+                MemoryType[] tiersToCompact = (tier != null)
+                        ? new MemoryType[] { tier }
+                        : MemoryType.values();
+
+                float threshold = (liveMemoryPatch != null)
+                        ? liveMemoryPatch.vacuumThreshold()
+                        : VacuumCompactor.DEFAULT_THRESHOLD;
+
+                for (MemoryType t : tiersToCompact) {
+                    for (com.spectrayan.spector.memory.cortex.PartitionHandle h : handles) {
+                        EngramRegion store = h.router().get(t);
+                        if (store == null) continue;
+
+                        CompactionResult r = VacuumCompactor.compact(
+                                store, t, h.seq(), index,
+                                s -> {
+                                    if (graphFacade != null) {
+                                        graphFacade.detachMemory(s);
+                                    }
+                                },
+                                threshold,
+                                force
+                        );
+                        if (r != null) {
+                            anyFound[0] = true;
+                            totals[0] += r.beforeCount();
+                            totals[1] += r.afterCount();
+                            totals[2] += r.tombstonesRemoved();
+                            bytesReclaimed[0] += r.bytesReclaimed();
+                            if (r.compacted()) {
+                                anyCompacted[0] = true;
+                            }
+                        }
+                    }
+                }
+            });
+
+            if (!anyFound[0]) {
+                return null;
+            }
+
+            if (anyCompacted[0]) {
+                if (graphFacade != null) {
+                    for (int s : index.tombstonedGraphSlots()) {
+                        graphFacade.detachMemory(s);
+                    }
+                }
+                if (indexReconcileEngine != null) {
+                    indexReconcileEngine.reconcile();
+                }
+                partitionManager.flushGlobalState();
+            }
+
+            long durationMs = System.currentTimeMillis() - startMs;
+            MemoryType resultType = (tier != null) ? tier : MemoryType.SEMANTIC;
+            return anyCompacted[0]
+                    ? new CompactionResult(resultType, totals[0], totals[1], totals[2], bytesReclaimed[0], durationMs, true)
+                    : CompactionResult.census(resultType, totals[0], totals[1], totals[2], durationMs);
+        } finally {
+            vacuumLock.unlock();
+        }
+    }
+
+    @Override
+    public CompactionResult survey(MemoryType tier) {
+        vacuumLock.lock();
+        try {
+            long startMs = System.currentTimeMillis();
+            List<com.spectrayan.spector.memory.cortex.PartitionHandle> handles = partitionManager.snapshot();
+            int totalBefore = 0;
+            int totalAfter = 0;
+            int totalTombstones = 0;
+            boolean anyFound = false;
+
+            MemoryType[] tiersToSurvey = (tier != null)
+                    ? new MemoryType[] { tier }
+                    : MemoryType.values();
+
+            for (MemoryType t : tiersToSurvey) {
+                for (com.spectrayan.spector.memory.cortex.PartitionHandle h : handles) {
+                    EngramRegion store = h.router().get(t);
+                    if (store == null) continue;
+                    CompactionResult r = VacuumCompactor.survey(store, t);
+                    if (r != null) {
+                        anyFound = true;
+                        totalBefore += r.beforeCount();
+                        totalAfter += r.afterCount();
+                        totalTombstones += r.tombstonesRemoved();
+                    }
+                }
+            }
+
+            if (!anyFound) return null;
+            long durationMs = System.currentTimeMillis() - startMs;
+            MemoryType resultType = (tier != null) ? tier : MemoryType.SEMANTIC;
+            return CompactionResult.census(resultType, totalBefore, totalAfter, totalTombstones, durationMs);
         } finally {
             vacuumLock.unlock();
         }

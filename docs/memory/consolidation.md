@@ -57,24 +57,36 @@ sequenceDiagram
 
 ### 2. Tombstone Compaction — Synaptic Pruning
 
-!!! danger "Not implemented — this section described a proposal as if it shipped"
-    Everything below is the **intended** design. No partition rebuild exists: there is no
-    `TombstoneCompactor` class, no compaction threshold is evaluated, no partition is ever swapped, and
-    no `compactedPartitions` metric is emitted. Tombstoned records remain on disk indefinitely.
+When records are deleted via `forget()` or `purge()`, tombstones (`FLAG_TOMBSTONE`) are marked in the record header, allowing scorer Phase 1 to skip them in ~1 cycle. However, tombstoned records continue to consume disk and slab capacity until **compaction** reclaims the physical space.
 
-    `POST /api/v1/memory/vacuum` performs a tombstone **census** — it counts live versus tombstoned
-    records and reports `reclaimedBytes: 0` with `compacted: false`. Until issue #983 it reported a byte
-    figure computed as `tombstoneCount × recordStride`, which was a multiplication rather than a
-    measurement.
+Spector performs physical compaction via `VacuumCompactor`, which can be triggered on demand (`SpectorMemoryAdmin.vacuum(tier, force)` / `POST /api/v1/memory/vacuum`) or during background maintenance when the tombstone ratio exceeds the configured threshold.
 
-    The 30% figure below was also wrong: the configured threshold is `0.20`
-    (`spector.memory.vacuum.threshold`), and 30% appears to have been confused with
-    `circadian.tombstone-threshold: 0.30` — an unrelated knob governing the activation score below which
-    episodic memories are tombstoned, not when a partition is rebuilt.
+```mermaid
+flowchart LR
+    A["Partition Slab<br/>1000 records<br/>400 tombstoned"] -->|"VacuumCompactor.compact()"| B["Compacted Slab<br/>600 dense records<br/>0 tombstones"]
+    A -->|"Physical Delta"| C["Dead Slots Zeroed<br/>Space Reclaimed"]
 
-    Tracked in `spectrayan/.kiro/specs/memory-durability-contract` R2, which additionally requires that
-    compaction preserve recall-by-id and reconcile graph edges — neither of which the sketch below
-    addresses.
+    style A fill:#e74c3c,color:white
+    style B fill:#2ecc71,color:white
+    style C fill:#27ae60,color:white
+```
+
+**The Compaction Process**:
+
+1. **Census & Threshold Evaluation**:
+   The store's tombstone ratio is evaluated against `spector.memory.vacuum.threshold` (default `0.20`). If the ratio is below threshold and `force=false`, a census report (`CompactionResult.census`) is returned without moving records.
+2. **Dense In-Place Relocation**:
+   Live records are copied sequentially to lower offsets within each partition slab (`compactFixed` for fixed-stride semantic/procedural engrams, `compactEpisodic` for variable-length append logs). Abandoned trailing slots are zeroed out in-place.
+3. **Atomic Counter Updates**:
+   Header prologues (`visibleCount` and `usedBytes`) are atomically updated and published to readers via Panama MemorySegment stores.
+4. **Index Offset Remapping Under Lock**:
+   Under `PartitionManager.withRollLock` (the same lock coordinating partition roll), `IndexEntryMemory` updates record locations to their new offsets, guaranteeing continuous ID-to-record resolution across concurrent reads.
+5. **Graph Edge Reconciliation**:
+   Surviving records maintain stable `graphSlot` mappings, keeping Hebbian associations, temporal chains, and hyperedges intact. Dead records have their `graphSlot`s detached across all four cognitive graph planes (Hebbian CSR, temporal chain, entity directory, hypergraph).
+6. **Derived Index Reconciliation**:
+   Derived indexes (HNSW, BM25, SPLADE) are re-synchronized via `IndexReconcileEngine.reconcile()`.
+7. **Measured Space Reclamation**:
+   Reclaimed space is measured directly from the physical difference (`beforeUsedBytes - afterUsedBytes`) rather than computed via an unverified multiplication.
 
 ### 3. Deletion Semantics: `forget` vs `purge`
 
@@ -92,30 +104,7 @@ Spector provides two distinct deletion verbs with documented semantics:
 | **Space Reclaim** | Reclaimed only when partition compaction runs | Space retained in-place (reclaimed only upon compaction) |
 | **Reversibility** | Reversible in principle | **Irreversible** |
 
-When memories are `forget()`'d, they are tombstoned (bit 0 of flags byte set to 1). The scorer skips them in Phase 1 (~1 cycle). But tombstoned records still consume disk space. When records must be permanently destroyed for privacy or compliance (e.g. GDPR erasure), `purge()` must be used.
-
-The proposed design: when the tombstone ratio in a partition exceeds the configured threshold, a
-**partition rebuild** would be triggered.
-
-```mermaid
-graph LR
-    A["Old Partition<br/>1000 records<br/>400 tombstoned"] -->|"Compact (proposed)"| B["New Partition<br/>600 records<br/>0 tombstoned<br/>(dense)"]
-    A -->|"Atomic swap (proposed)"| C["Closed & Deleted"]
-
-    style A fill:#e74c3c,color:white
-    style B fill:#2ecc71,color:white
-    style C fill:#95a5a6,color:white
-```
-
-**The proposed rebuild process**:
-
-1. Allocate a new partition file
-2. Sequentially copy only live (non-tombstoned) records
-3. Atomically swap the new partition in (CAS operation — readers see old or new, never torn)
-4. Close and delete the old partition
-
-!!! note "Concurrent safety (proposed)"
-    The swap would use a CAS (compare-and-swap) operation, so readers mid-scan on the old partition complete safely because the old memory segment remains valid until close, and new scans use the compacted partition.
+When memories are `forget()`'d, they are tombstoned (bit 0 of flags byte set to 1). The scorer skips them in Phase 1 (~1 cycle). When records must be permanently destroyed for privacy or compliance (e.g. GDPR erasure), `purge()` must be used. In either case, `vacuum()` subsequently compacts the partition to physically reclaim disk space.
 
 ---
 
@@ -143,16 +132,16 @@ stateDiagram-v2
     [*] --> ACTIVE: New day → create partition
     ACTIVE --> SEALED: Day rolls over
     SEALED --> REFLECTABLE: Consolidation processes
-    REFLECTABLE --> TOMBSTONED: tombstoneRatio > threshold (proposed)
-    TOMBSTONED --> COMPACTED: Compactor rebuilds (NOT IMPLEMENTED)
+    REFLECTABLE --> TOMBSTONED: tombstoneRatio > threshold
+    TOMBSTONED --> COMPACTED: VacuumCompactor compacts (dense)
 
     ACTIVE --> TOMBSTONED: High forget rate during active day
 
     note right of ACTIVE: Accepting writes
     note right of SEALED: Read-only, awaiting consolidation
     note right of REFLECTABLE: Consolidation complete, eligible for pruning
-    note right of TOMBSTONED: Queued for compaction
-    note right of COMPACTED: Rebuilt as dense partition
+    note right of TOMBSTONED: Tombstone ratio exceeds threshold
+    note right of COMPACTED: Compacted into dense slab with space reclaimed
 ```
 
 ---
@@ -199,7 +188,7 @@ Each consolidation cycle produces a structured `ReflectReport` summarizing the s
 |---|---|
 | **consolidatedCount** | Number of episodic records / facts promoted to Semantic tier |
 | **tombstonedCount** | Number of memories tombstoned during Deep Sleep pruning |
-| ~~**compactedPartitions**~~ | _Not emitted._ No compaction exists; see the warning above |
+| **compactedPartitions** | Count of partitions compacted and space reclaimed during reflection |
 | **temporalPrunedCount** | Stale temporal chain nodes pruned |
 | **soulDriftedCount** | Count of memories detected with outdated soul version stamps |
 | **soulRefusedCount** | Count of soul-drifted memories re-fused with updated importance |

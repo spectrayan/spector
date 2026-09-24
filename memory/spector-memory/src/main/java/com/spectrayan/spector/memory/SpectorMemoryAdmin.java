@@ -199,6 +199,27 @@ public interface SpectorMemoryAdmin {
     CompactionResult vacuum(MemoryType tier);
 
     /**
+     * Compacts a tier store with explicit force flag.
+     *
+     * @param tier  the memory tier to compact
+     * @param force if true, compacts unconditionally when tombstones exist
+     * @return compaction result with statistics, or null if no compaction needed
+     */
+    default CompactionResult vacuum(MemoryType tier, boolean force) {
+        return vacuum(tier);
+    }
+
+    /**
+     * Surveys a tier store for tombstones without relocating records (census only).
+     *
+     * @param tier the memory tier to survey
+     * @return census result with statistics, or null if no tombstones exist
+     */
+    default CompactionResult survey(MemoryType tier) {
+        return vacuum(tier, false);
+    }
+
+    /**
      * Returns the tombstone ratio for each memory tier.
      *
      * @return map of tier → tombstone ratio (0.0 to 1.0)
