@@ -95,7 +95,7 @@ public class SpectorImportJobConfig {
 
             Path stagingDir = getStagingDir(bundlePath);
             bundleCodec.unpackBundle(sourceBundle, stagingDir);
-            log.info("[ImportJob] Unpacked bundle {} to {}", sourceBundle, stagingDir);
+            log.info("[ImportJob] Unpacked bundle {} to {} for target namespace '{}'", sourceBundle, stagingDir, targetNamespace);
             return RepeatStatus.FINISHED;
         };
     }

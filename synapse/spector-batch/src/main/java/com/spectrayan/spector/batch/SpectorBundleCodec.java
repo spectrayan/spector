@@ -137,6 +137,9 @@ public class SpectorBundleCodec {
             while (entries.hasMoreElements()) {
                 ZipEntry entry = entries.nextElement();
                 Path resolvePath = normalizedTarget.resolve(entry.getName()).normalize();
+                if (!resolvePath.startsWith(normalizedTarget)) {
+                    throw new IOException("Zip slip security violation for entry: " + entry.getName());
+                }
                 if (entry.isDirectory()) {
                     Files.createDirectories(resolvePath);
                 } else {
