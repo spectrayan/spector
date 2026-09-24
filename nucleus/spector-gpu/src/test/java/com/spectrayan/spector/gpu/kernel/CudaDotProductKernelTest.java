@@ -249,7 +249,7 @@ class CudaDotProductKernelTest {
 
         for (int i = 0; i < 3; i++) {
             float expected = scalarDotProduct(query, database, i * dims, dims);
-            assertEquals(expected, results[i], Math.abs(expected) * 1e-5f + 1e-6f,
+            assertEquals(expected, results[i], dotProductTolerance(query, database, i * dims, dims),
                     "Mismatch at vector " + i);
         }
     }
@@ -266,7 +266,7 @@ class CudaDotProductKernelTest {
         assertEquals(n, results.length);
         for (int i = 0; i < n; i++) {
             float expected = scalarDotProduct(query, database, i * dims, dims);
-            assertEquals(expected, results[i], Math.abs(expected) * 1e-5f + 1e-6f,
+            assertEquals(expected, results[i], dotProductTolerance(query, database, i * dims, dims),
                     "Mismatch at vector " + i);
         }
     }
@@ -330,7 +330,7 @@ class CudaDotProductKernelTest {
         // Spot-check a few
         for (int i = 0; i < 10; i++) {
             float expected = scalarDotProduct(query, database, i * dims, dims);
-            assertEquals(expected, results[i], Math.abs(expected) * 1e-5f + 1e-6f);
+            assertEquals(expected, results[i], dotProductTolerance(query, database, i * dims, dims));
         }
     }
 
@@ -342,6 +342,34 @@ class CudaDotProductKernelTest {
         float[] v = new float[dims];
         java.util.Arrays.fill(v, value);
         return v;
+    }
+
+    /**
+     * Error bound for comparing a vectorised dot product against a scalar one.
+     *
+     * <p>Scales with the <em>accumulated magnitude</em> {@code sum |q_i * d_i|}, not with the magnitude of the
+     * result. Those differ enormously here: with components drawn from U(-0.5, 0.5), 384 products summing to
+     * about 24 in absolute terms collapse to a result near 0.003 — roughly 8000x cancellation. Float rounding
+     * error is bounded by the quantity being accumulated, so a tolerance derived from the result understates
+     * the achievable accuracy by that same factor.
+     *
+     * <p>The previous bound, {@code |expected| * 1e-5 + 1e-6}, was calibrated on x86_64 and passed only
+     * because an 8-lane reduction happens to group the partial sums more favourably than a 4-lane one. On
+     * aarch64, where the preferred float species is 128-bit, the same kernel produced a result 1.05e-6 away
+     * from the scalar reference against a tolerance of 1.03e-6 — a failure that reflects float
+     * non-associativity, not a defect in the kernel. See #992.
+     *
+     * <p>Still strict enough to be worth asserting: a genuine indexing or lane error produces an error of
+     * order 0.01 to 1, which is three to five orders of magnitude outside this bound.
+     */
+    private static float dotProductTolerance(float[] query, float[] database, int offset, int dims) {
+        float accumulatedMagnitude = 0f;
+        for (int i = 0; i < dims; i++) {
+            accumulatedMagnitude += Math.abs(query[i] * database[offset + i]);
+        }
+        // 1e-6 is ~8x the float epsilon of 1.19e-7, covering reduction-order differences across lane counts
+        // without masking a real error. The additive floor keeps a degenerate all-zero case meaningful.
+        return accumulatedMagnitude * 1e-6f + 1e-7f;
     }
 
     private static float[] createRandomVector(int dims, long seed) {
