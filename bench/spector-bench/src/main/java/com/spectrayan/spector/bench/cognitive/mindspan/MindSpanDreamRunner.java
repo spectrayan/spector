@@ -176,16 +176,18 @@ public final class MindSpanDreamRunner {
         Files.createDirectories(targetDir.getParent());
 
         // Fast path: attempt macOS APFS copy-on-write clone (takes ~13ms for 360MB)
-        try {
-            Process p = new ProcessBuilder("cp", "-c", "-R", sourceDir.toString(), targetDir.toString())
-                    .redirectErrorStream(true)
-                    .start();
-            int exit = p.waitFor();
-            if (exit == 0 && Files.exists(targetDir.resolve("partitions"))) {
-                log.info("Cloned {} to {} via APFS copy-on-write (zero disk duplication)", sourceDir, targetDir);
-                return targetDir;
-            }
-        } catch (Exception ignored) {}
+        if (Files.isExecutable(Path.of("/bin/cp"))) {
+            try {
+                Process p = new ProcessBuilder("/bin/cp", "-c", "-R", sourceDir.toString(), targetDir.toString())
+                        .redirectErrorStream(true)
+                        .start();
+                int exit = p.waitFor();
+                if (exit == 0 && Files.exists(targetDir.resolve("partitions"))) {
+                    log.info("Cloned {} to {} via APFS copy-on-write (zero disk duplication)", sourceDir, targetDir);
+                    return targetDir;
+                }
+            } catch (Exception ignored) {}
+        }
 
         // Fallback: standard recursive copy
         log.info("Cloning {} to {} via standard recursive copy...", sourceDir, targetDir);
