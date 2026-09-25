@@ -93,6 +93,7 @@ public final class SpectorMemoryBuilder {
     private MemoryPersistenceMode persistenceMode;
     private String namespaceId;
     private com.spectrayan.spector.memory.policy.MutationPolicy mutationPolicy;
+    private com.spectrayan.spector.memory.sync.QuiesceGuard quiesceGuard;
     private boolean managedByRegistry = false;
     private boolean useBundleMode = true;   // V4 bundle architecture (ADR-0004)
 
@@ -351,6 +352,18 @@ public final class SpectorMemoryBuilder {
      */
     public SpectorMemoryBuilder mutationPolicy(com.spectrayan.spector.memory.policy.MutationPolicy policy) {
         this.mutationPolicy = policy;
+        return this;
+    }
+
+    /**
+     * Sets the quiesce guard coordinating writer permits and checkpoint quiesce lock.
+     * Package-private: internal engine collaborator, not public configuration.
+     *
+     * @param quiesceGuard the quiesce guard to use
+     * @return this builder
+     */
+    SpectorMemoryBuilder quiesceGuard(com.spectrayan.spector.memory.sync.QuiesceGuard quiesceGuard) {
+        this.quiesceGuard = quiesceGuard;
         return this;
     }
 
@@ -650,6 +663,8 @@ public final class SpectorMemoryBuilder {
                 ? mutationPolicy
                 : com.spectrayan.spector.memory.policy.MutationPolicy.ALLOW_ALL;
     }
+
+    com.spectrayan.spector.memory.sync.QuiesceGuard quiesceGuard() { return quiesceGuard; }
 
     public boolean managedByRegistry() { return managedByRegistry; }
     public boolean useBundleMode() { return useBundleMode; }

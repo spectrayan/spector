@@ -67,13 +67,6 @@ public final class MemoryReminderTool extends MemoryToolHandler {
                 + "Tags: " + (tags.length > 0 ? String.join(", ", tags) : "none"));
     }
 
-    private int requireInt(Map<String, Object> args, String key) {
-        Object val = args.get(key);
-        if (val == null) throw new IllegalArgumentException("Missing required parameter: " + key);
-        if (val instanceof Number n) return n.intValue();
-        return Integer.parseInt(val.toString());
-    }
-
     private String formatDuration(Duration d) {
         long hours = d.toHours();
         long mins = d.toMinutesPart();

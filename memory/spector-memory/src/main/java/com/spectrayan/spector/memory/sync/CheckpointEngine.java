@@ -88,6 +88,7 @@ public final class CheckpointEngine {
     /** Size of checkpoint.meta in bytes. */
     static final int CKPT_SIZE = 16;
 
+    private QuiesceGuard quiesceGuard;
     private final CognitiveMemoryRouter cognitiveRouter;
     private volatile java.util.function.Supplier<CognitiveMemoryRouter> routerSupplier;
     private final MemoryWal wal;
@@ -194,63 +195,131 @@ public final class CheckpointEngine {
     public void checkpoint() {
         long start = System.nanoTime();
 
-        // Step 1: Force all persistent active cognitive memory store segments (skipping frozen stores)
-        CognitiveMemoryRouter router = (routerSupplier != null) ? routerSupplier.get() : this.cognitiveRouter;
-        if (router != null) {
-            router.forceAll();
-        }
-
-        // Step 2: Save MemoryIndex (IDâ†’offset, text, tags, source)
-        // This is critical for crash recovery â€” without it, tier store
-        // records survive (mmap) but become orphaned (no ID mapping).
-        if (index != null && indexPath != null && index.size() > 0) {
-            try {
-                index.save(indexPath);
-            } catch (Exception e) {
-                log.error("Checkpoint: failed to save MemoryIndex: {}", e.getMessage());
+        if (quiesceGuard != null) {
+            try (var quiesce = quiesceGuard.acquireQuiesce(5, java.util.concurrent.TimeUnit.SECONDS)) {
+    // Step 1: Force all persistent active cognitive memory store segments (skipping frozen stores)
+            CognitiveMemoryRouter router = (routerSupplier != null) ? routerSupplier.get() : this.cognitiveRouter;
+            if (router != null) {
+                router.forceAll();
             }
-        }
-
-        // Step 3: Persist cognitive graphs
-        if (basePath != null) {
-            Path bundlePath = StoragePaths.runtimeBundleFile(basePath);
-            saveGraph("HebbianGraph", () ->
-                    hebbianGraph.save(bundlePath));
-            saveGraph("TemporalChain", () ->
-                    temporalChain.save(bundlePath));
-
-            if (hyperEntityGraph != null) {
-                saveGraph("HyperEntityGraph", () ->
-                        hyperEntityGraph.save(bundlePath));
+    
+            // Step 2: Save MemoryIndex (IDâ†’offset, text, tags, source)
+            // This is critical for crash recovery â€” without it, tier store
+            // records survive (mmap) but become orphaned (no ID mapping).
+            if (index != null && indexPath != null && index.size() > 0) {
+                try {
+                    index.save(indexPath);
+                } catch (Exception e) {
+                    log.error("Checkpoint: failed to save MemoryIndex: {}", e.getMessage());
+                }
             }
-            if (entityDirectory != null) {
-                saveGraph("EntityDirectory", () ->
-                        entityDirectory.save(bundlePath));
-                saveGraph("EntityTypeRegistry", () -> {
-                    try {
-                        entityDirectory.entityTypeRegistry().save(bundlePath);
-                    } catch (java.io.IOException e) {
-                        throw new java.io.UncheckedIOException(e);
-                    }
-                });
+    
+            // Step 3: Persist cognitive graphs
+            if (basePath != null) {
+                Path bundlePath = StoragePaths.runtimeBundleFile(basePath);
+                saveGraph("HebbianGraph", () ->
+                        hebbianGraph.save(bundlePath));
+                saveGraph("TemporalChain", () ->
+                        temporalChain.save(bundlePath));
+    
+                if (hyperEntityGraph != null) {
+                    saveGraph("HyperEntityGraph", () ->
+                            hyperEntityGraph.save(bundlePath));
+                }
+                if (entityDirectory != null) {
+                    saveGraph("EntityDirectory", () ->
+                            entityDirectory.save(bundlePath));
+                    saveGraph("EntityTypeRegistry", () -> {
+                        try {
+                            entityDirectory.entityTypeRegistry().save(bundlePath);
+                        } catch (java.io.IOException e) {
+                            throw new java.io.UncheckedIOException(e);
+                        }
+                    });
+                }
+                if (temporalKnowledgeGraph != null) {
+                    saveGraph("RelationTypeRegistry", () -> {
+                        try {
+                            temporalKnowledgeGraph.predicateRegistry().save(bundlePath);
+                        } catch (java.io.IOException e) {
+                            throw new java.io.UncheckedIOException(e);
+                        }
+                    });
+                }
+                if (coActivationTracker != null) {
+                    saveGraph("CoActivationTracker", () ->
+                            coActivationTracker.save(bundlePath));
+                }
+                if (indexPlaneCoordinator != null) {
+                    saveGraph("IndexPlaneCoordinator", () ->
+                            indexPlaneCoordinator.checkpointAll());
+                }
             }
-            if (temporalKnowledgeGraph != null) {
-                saveGraph("RelationTypeRegistry", () -> {
-                    try {
-                        temporalKnowledgeGraph.predicateRegistry().save(bundlePath);
-                    } catch (java.io.IOException e) {
-                        throw new java.io.UncheckedIOException(e);
-                    }
-                });
+    
+            
             }
-            if (coActivationTracker != null) {
-                saveGraph("CoActivationTracker", () ->
-                        coActivationTracker.save(bundlePath));
+            log.info("Quiesce duration: {} ms", quiesceGuard.lastQuiesceDurationNanos() / 1_000_000);
+        } else {
+    // Step 1: Force all persistent active cognitive memory store segments (skipping frozen stores)
+            CognitiveMemoryRouter router = (routerSupplier != null) ? routerSupplier.get() : this.cognitiveRouter;
+            if (router != null) {
+                router.forceAll();
             }
-            if (indexPlaneCoordinator != null) {
-                saveGraph("IndexPlaneCoordinator", () ->
-                        indexPlaneCoordinator.checkpointAll());
+    
+            // Step 2: Save MemoryIndex (IDâ†’offset, text, tags, source)
+            // This is critical for crash recovery â€” without it, tier store
+            // records survive (mmap) but become orphaned (no ID mapping).
+            if (index != null && indexPath != null && index.size() > 0) {
+                try {
+                    index.save(indexPath);
+                } catch (Exception e) {
+                    log.error("Checkpoint: failed to save MemoryIndex: {}", e.getMessage());
+                }
             }
+    
+            // Step 3: Persist cognitive graphs
+            if (basePath != null) {
+                Path bundlePath = StoragePaths.runtimeBundleFile(basePath);
+                saveGraph("HebbianGraph", () ->
+                        hebbianGraph.save(bundlePath));
+                saveGraph("TemporalChain", () ->
+                        temporalChain.save(bundlePath));
+    
+                if (hyperEntityGraph != null) {
+                    saveGraph("HyperEntityGraph", () ->
+                            hyperEntityGraph.save(bundlePath));
+                }
+                if (entityDirectory != null) {
+                    saveGraph("EntityDirectory", () ->
+                            entityDirectory.save(bundlePath));
+                    saveGraph("EntityTypeRegistry", () -> {
+                        try {
+                            entityDirectory.entityTypeRegistry().save(bundlePath);
+                        } catch (java.io.IOException e) {
+                            throw new java.io.UncheckedIOException(e);
+                        }
+                    });
+                }
+                if (temporalKnowledgeGraph != null) {
+                    saveGraph("RelationTypeRegistry", () -> {
+                        try {
+                            temporalKnowledgeGraph.predicateRegistry().save(bundlePath);
+                        } catch (java.io.IOException e) {
+                            throw new java.io.UncheckedIOException(e);
+                        }
+                    });
+                }
+                if (coActivationTracker != null) {
+                    saveGraph("CoActivationTracker", () ->
+                            coActivationTracker.save(bundlePath));
+                }
+                if (indexPlaneCoordinator != null) {
+                    saveGraph("IndexPlaneCoordinator", () ->
+                            indexPlaneCoordinator.checkpointAll());
+                }
+            }
+    
+            
         }
 
         // Step 5: Read the WAL high-water mark
@@ -292,6 +361,11 @@ public final class CheckpointEngine {
      *
      * @param eventBus the lifecycle event bus (nullable to unset)
      */
+    
+    public void setQuiesceGuard(QuiesceGuard quiesceGuard) {
+        this.quiesceGuard = quiesceGuard;
+    }
+
     public void setEventBus(EventBus<SpectorLifecycleEvent> eventBus) {
         this.eventBus = eventBus;
     }

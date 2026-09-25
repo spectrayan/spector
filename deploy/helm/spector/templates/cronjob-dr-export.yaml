@@ -1,0 +1,39 @@
+{{- if .Values.drExport.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "spector.fullname" . }}-dr-export
+  labels:
+    {{- include "spector.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.drExport.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: {{ .Values.drExport.successfulJobsHistoryLimit | default 3 }}
+  failedJobsHistoryLimit: {{ .Values.drExport.failedJobsHistoryLimit | default 1 }}
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: dr-export
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+              command: ["java"]
+              args:
+                - "--enable-preview"
+                - "--add-modules=jdk.incubator.vector"
+                - "-jar"
+                - "/app/spector-synapse.jar"
+                - "dr-export"
+                - "--target={{ .Values.drExport.objectStoreUrl }}"
+              env:
+                - name: SPECTOR_PERSISTENCE_PATH
+                  value: {{ .Values.persistence.path | default "/data/spector" }}
+              volumeMounts:
+                - name: data
+                  mountPath: {{ .Values.persistence.path | default "/data/spector" }}
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: {{ include "spector.fullname" . }}-data
+{{- end }}

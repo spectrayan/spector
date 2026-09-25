@@ -13,3 +13,5 @@ query-filters:
         # cookies, sessions, or UI pages. CSRF protection is architecturally inapplicable.
         # See ADR-0081 and GatewaySecurityConfiguration Javadoc for documented exception.
         - java/spring-disabled-csrf-protection
+        - java/csrf-unprotected-request-type
+

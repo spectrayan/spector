@@ -772,4 +772,44 @@ public class MemoryController {
         String result = req.isSuppressing() ? "suppressed" : "unsuppressed";
         return ResponseEntity.ok(Map.of(result, ids.size(), "failed", 0, "total", ids.size()));
     }
+    // ══════════════════════════════════════════════════════════════
+    // TEMPORAL FACT PLANE
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Assert a bitemporal fact.
+     *
+     * <p>{@code POST /api/v1/memory/facts}</p>
+     */
+    @PostMapping("/facts")
+    @Operation(operationId = "assertFact", summary = "Assert a temporal fact into the memory graph")
+    public ResponseEntity<FactDto.FactAssertResponse> assertFact(@RequestBody FactDto.FactAssertRequest request) {
+        int factId = memoryService.assertFact(request);
+        return ResponseEntity.ok(new FactDto.FactAssertResponse(factId, "asserted"));
+    }
+
+    /**
+     * Retract a bitemporal fact.
+     *
+     * <p>{@code DELETE /api/v1/memory/facts/{factId}}</p>
+     */
+    @DeleteMapping("/facts/{factId}")
+    @Operation(operationId = "retractFact", summary = "Retract a previously asserted temporal fact")
+    public ResponseEntity<FactDto.FactRetractResponse> retractFact(@PathVariable int factId) {
+        int retractionId = memoryService.retractFact(factId);
+        return ResponseEntity.ok(new FactDto.FactRetractResponse(retractionId, "retracted"));
+    }
+
+    /**
+     * Query facts about an entity.
+     *
+     * <p>{@code GET /api/v1/memory/facts}</p>
+     */
+    @GetMapping("/facts")
+    @Operation(operationId = "getFacts", summary = "Query temporal facts about an entity")
+    public ResponseEntity<java.util.List<com.spectrayan.spector.kernel.store.TemporalFact>> getFacts(
+            @RequestParam String entity,
+            @RequestParam(required = false) Long asOf) {
+        return ResponseEntity.ok(memoryService.factsAbout(entity, asOf));
+    }
 }

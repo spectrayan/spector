@@ -1,4 +1,9 @@
-# Spector Test Infrastructure & Architecture Guide
+---
+title: "Streaming Chat & Visual Test Infrastructure"
+description: "Multi-tiered test pyramid and Playwright visual regression test infrastructure for streaming agentic chat in Spector."
+---
+
+# Streaming Chat & Visual Test Infrastructure
 
 > **Scope**: Issue #263 (Streaming Agentic Chat), ADR-0084 (Dual-Plane Persistence), Cortex Visualization, and Automated Playwright Visual Regression Testing (Requirement R5).
 
@@ -8,20 +13,16 @@
 
 Spector employs a multi-tiered test pyramid designed to guarantee sub-500ms TTFT streaming fidelity, dual-plane data integrity (H2 relational operational plane vs. Spector Memory off-heap cognitive plane), and pixel-perfect Angular presentation.
 
-```
-                  ┌──────────────────────┐
-                  │ Tier 4: Playwright   │  ← Deterministic visual regression,
-                  │ E2E Visual Testing   │     golden SSE/JSON fixtures, no live LLM
-                 ┌┴──────────────────────┴┐
-                 │ Tier 3: Integration &  │  ← H2 Flyway V9, JdbcChatTranscriptAdapter,
-                 │ Persistence Tests      │     LangGraph4j checkpoint persistence
-                ┌┴────────────────────────┴┐
-                │ Tier 2: Controller Slice │  ← Spring WebMvc / MockMvc slice tests for
-                │ & SSE Endpoint Tests     │     session CRUD & stream protocol
-               ┌┴──────────────────────────┴┐
-               │ Tier 1: Unit Tests & Pure  │  ← MemoryTagPolicy guard, TokenSplitter state
-               │ State Machine Reducers     │     machine, reduceChatEvents pure reducer
-               └────────────────────────────┘
+```mermaid
+flowchart TD
+    T4["<b>Tier 4: Playwright E2E Visual Testing</b><br/>Deterministic visual regression, golden SSE/JSON fixtures, no live LLM"]
+    T3["<b>Tier 3: Integration &amp; Persistence Tests</b><br/>H2 Flyway V9, JdbcChatTranscriptAdapter, LangGraph4j checkpoint persistence"]
+    T2["<b>Tier 2: Controller Slice &amp; SSE Endpoint Tests</b><br/>Spring WebMvc / MockMvc slice tests for session CRUD &amp; stream protocol"]
+    T1["<b>Tier 1: Unit Tests &amp; Pure State Machine Reducers</b><br/>MemoryTagPolicy guard, TokenSplitter state machine, reduceChatEvents pure reducer"]
+
+    T4 --> T3
+    T3 --> T2
+    T2 --> T1
 ```
 
 ---
@@ -69,9 +70,28 @@ Spector employs a multi-tiered test pyramid designed to guarantee sub-500ms TTFT
 ## 3. Playwright E2E Architecture & Mocking Strategy
 
 ### 3.1 Critical Route Interception Guard
+
 In Spector Cortex, `/chat` is gated by `canActivate: [featureGuard('chatEnabled')]`. In `FeatureFlagService`, `chatEnabled` defaults to `false`. Without intercepting `/api/v1/features`, navigation to `/chat` redirects immediately to `/memories`.
 
-All Playwright specs utilize `setupChatMocks(page, options)` from `e2e/specs/chat-fixtures.helper.ts`, which guarantees:
+All Playwright specs utilize `setupChatMocks(page, options)` from `e2e/specs/chat-fixtures.helper.ts`:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Browser as Playwright Browser
+    participant Helper as chat-fixtures.helper.ts
+    participant App as Spector Cortex UI
+
+    Browser->>Helper: Navigate to /chat
+    Helper->>App: Intercept /api/v1/features (inject chatEnabled: true)
+    App->>Helper: GET /api/v1/chat/models
+    Helper-->>App: Mock Model Descriptor
+    App->>Helper: POST /api/v1/chat/stream
+    Helper-->>App: Golden SSE Fixture Stream
+    App->>Browser: Render UI (assert toHaveScreenshot)
+```
+
+The mocking helper guarantees:
 1. `**/api/v1/features` returns `{ chatEnabled: true, agentChatEnabled: true }`.
 2. `**/api/v1/chat/models` returns active Ollama model mock.
 3. `**/api/v1/chat/config` returns agent config mock.
@@ -84,9 +104,9 @@ All Playwright specs utilize `setupChatMocks(page, options)` from `e2e/specs/cha
 | Fixture File | Protocol / Format | Description |
 |:---|:---|:---|
 | `empty-suggestions.json` | JSON | Suggestions response and empty session state |
-| `thinking-then-tokens.sse` | SSE (`text/event-stream`) | Stream emitting `session` -> `thinking` deltas -> `:keepalive` -> `token` deltas -> `done` |
-| `tool-interleave.sse` | SSE (`text/event-stream`) | Stream emitting `session` -> `thinking` -> `tool_call` (`memory_recall`) -> `tool_result` -> `token` deltas -> `done` |
-| `error-mid-stream.sse` | SSE (`text/event-stream`) | Stream emitting `session` -> `thinking` -> `error` (`SPE-700-001`, `retryable: true`) |
+| `thinking-then-tokens.sse` | SSE (`text/event-stream`) | Stream emitting `session` &rarr; `thinking` deltas &rarr; `:keepalive` &rarr; `token` deltas &rarr; `done` |
+| `tool-interleave.sse` | SSE (`text/event-stream`) | Stream emitting `session` &rarr; `thinking` &rarr; `tool_call` (`memory_recall`) &rarr; `tool_result` &rarr; `token` deltas &rarr; `done` |
+| `error-mid-stream.sse` | SSE (`text/event-stream`) | Stream emitting `session` &rarr; `thinking` &rarr; `error` (`SPE-700-001`, `retryable: true`) |
 | `history-replay.json` | JSON (`SessionHistoryResponse`) | Structured turns containing user prompt, thinking trace (`elapsedMs: 1380`), tool cards, and assistant markdown |
 
 ### 3.3 Visual Regression Specs Inventory (`cortex/spector-cortex/e2e/specs/`)

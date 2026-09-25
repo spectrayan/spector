@@ -26,7 +26,9 @@ import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.EmbeddingResult;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Path;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -74,10 +76,11 @@ class LiveMemoryPatchTest {
 
     @Test
     @DisplayName("DefaultSpectorMemory hot-swaps LiveMemoryPatch, RecallOptions, and ChunkConfig dynamically")
-    void testDefaultSpectorMemoryDynamicUpdates() {
+    void testDefaultSpectorMemoryDynamicUpdates(@TempDir Path tempDir) {
         MemoryProperties memProps = new MemoryProperties(100, 384);
         try (SpectorMemory memory = SpectorMemory.builder()
                 .fromProperties(memProps)
+                .persistence(tempDir)
                 .embeddingProvider(new com.spectrayan.spector.memory.test.FakeEmbeddingProvider())
                 .build()) {
 

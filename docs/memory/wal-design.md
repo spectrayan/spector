@@ -114,12 +114,12 @@ Each WAL chunk file begins with an 8-byte header:
 Offset   Size   Field      Value
 ──────   ────   ─────      ─────
   0       4B    magic      0x53504543 ("SPEC" in ASCII)
-  4       4B    version    2
+  4       4B    version    3 (or 2 for legacy)
 ```
 
 ### Record Layout
 
-Each event is serialized as a **40-byte fixed header** followed by variable-length segments, aligned to 8-byte boundaries:
+Each event is serialized as a **48-byte fixed header** (Version 3) followed by variable-length segments, aligned to 8-byte boundaries. (Legacy Version 2 logs with 40-byte headers without epoch are seamlessly supported on read):
 
 ```
  0                   1                   2                   3
@@ -137,15 +137,19 @@ Each event is serialized as a **40-byte fixed header** followed by variable-leng
 +                timestamp — epoch millis (8B)                  +  ← Offset 16
 |                                                               |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                    payloadLen (4B)                             |  ← Offset 24
+|                                                               |
++                      epoch — fence term (8B)                  +  ← Offset 24
+|                                                               |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                    payloadCRC (4B)                             |  ← Offset 28
+|                    payloadLen (4B)                             |  ← Offset 32
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                     reserved (4B)                             |  ← Offset 32
+|                    payloadCRC (4B)                             |  ← Offset 36
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                     headerCRC (4B)                            |  ← Offset 36
+|                     reserved (4B)                             |  ← Offset 40
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                  memoryId (idLen bytes, UTF-8)                |  ← Offset 40
+|                     headerCRC (4B)                            |  ← Offset 44
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                  memoryId (idLen bytes, UTF-8)                |  ← Offset 48
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |          payload (payloadLen bytes, optionally compressed)    |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -158,22 +162,23 @@ Each event is serialized as a **40-byte fixed header** followed by variable-leng
 | Offset | Size | Field | Description |
 |--------|------|-------|-------------|
 | 0 | 2B | `recMagic` | `0x5741` ("WA") — record start sentinel |
-| 2 | 1B | `version` | Record format version (matches file version) |
+| 2 | 1B | `version` | Record format version (matches file version: 3 for current, 2 for legacy) |
 | 3 | 1B | `flags` | Bit 0: compressed payload |
 | 4 | 1B | `typeOrd` | `WalEvent.EventType` ordinal |
 | 5 | 2B | `idLen` | Memory ID length in bytes (unsigned) |
 | 7 | 1B | reserved | Future use |
 | 8 | 8B | `sequence` | Monotonic sequence number |
 | 16 | 8B | `timestamp` | Epoch milliseconds |
-| 24 | 4B | `payloadLen` | Payload length in bytes |
-| 28 | 4B | `payloadCRC` | CRC-32 of (possibly compressed) payload |
-| 32 | 4B | reserved | Future use |
-| 36 | 4B | `hdrCRC` | CRC-32 of bytes [0..35] |
-| 40 | N | `memoryId` | UTF-8 encoded memory ID |
-| 40+N | M | `payload` | Event-specific data |
-| 40+N+M | P | padding | `(8 - ((N+M) % 8)) % 8` zero bytes |
+| 24 | 8B | `epoch` | Cell-HA fencing epoch term (V3 only) |
+| 32 | 4B | `payloadLen` | Payload length in bytes |
+| 36 | 4B | `payloadCRC` | CRC-32 of (possibly compressed) payload |
+| 40 | 4B | reserved | Future use |
+| 44 | 4B | `hdrCRC` | CRC-32 of bytes [0..43] (or [0..35] in legacy V2) |
+| 48 | N | `memoryId` | UTF-8 encoded memory ID |
+| 48+N | M | `payload` | Event-specific data |
+| 48+N+M | P | padding | `(8 - ((N+M) % 8)) % 8` zero bytes |
 
-**Total record size**: `40 + idLen + payloadLen + padding`
+**Total record size**: `48 + idLen + payloadLen + padding` (or `40 + idLen + payloadLen + padding` in V2)
 
 ### Integrity: Dual CRC-32
 

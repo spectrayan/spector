@@ -338,7 +338,9 @@ class MemoryWalPersistenceTest {
         Path activeChunk = walDir.resolve(MemoryWal.chunkFileName(0));
         byte[] bytes = Files.readAllBytes(activeChunk);
         
-        bytes[60] ^= (byte) 0xFF;
+        // With 8-byte file header and 56-byte records (48B header + 3B var + 5B pad),
+        // offset 80 falls squarely within Record 2's header (offset 64..119), corrupting its CRC.
+        bytes[80] ^= (byte) 0xFF;
         Files.write(activeChunk, bytes);
 
         org.junit.jupiter.api.Assertions.assertThrows(com.spectrayan.spector.commons.error.SpectorStorageException.class, () -> {

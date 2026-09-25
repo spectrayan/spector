@@ -1,0 +1,24 @@
+{
+  "name": "memory_fact_retract",
+  "description": "Retract a previously asserted bitemporal fact from the cognitive memory graph.",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:memory:write"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "required": [
+      "fact_id"
+    ],
+    "properties": {
+      "fact_id": {
+        "type": "integer",
+        "description": "Unique identifier of the bitemporal fact to retract."
+      },
+      "namespace": {
+        "type": "string",
+        "description": "Target memory namespace (slug or ID). Omit to use connection or account default."
+      }
+    }
+  }
+}

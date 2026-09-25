@@ -78,8 +78,11 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
     /** Magic bytes for WAL file identification: "SPEC" in ASCII. */
     static final int WAL_MAGIC = 0x53504543;
 
-    /** WAL format version. */
-    static final int WAL_VERSION = 2;
+    /** WAL format version (V3 introduces epoch fencing in frame header). */
+    static final int WAL_VERSION = 3;
+
+    /** Legacy WAL format version 2 (without epoch). */
+    static final int WAL_VERSION_V2 = 2;
 
     /** Record magic for Version 2: 'W' and 'A' (0x5741) */
     static final short RECORD_MAGIC = 0x5741;
@@ -183,7 +186,8 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
      */
     public WalEvent append(WalEvent.EventType type, String memoryId, byte[] payload) {
         long seq = sequenceCounter.incrementAndGet();
-        WalEvent event = new WalEvent(seq, type, memoryId, Instant.now(),
+        long currentEpoch = com.spectrayan.spector.commons.concurrent.MemoryScope.fenceEpoch();
+        WalEvent event = new WalEvent(seq, type, memoryId, currentEpoch, Instant.now(),
                 payload != null ? payload : new byte[0]);
 
         writeLock.lock();
@@ -571,7 +575,7 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
         int payloadLen = payload.length;
         int totalVarLen = idLen + payloadLen;
         int paddingLen = (8 - (totalVarLen % 8)) % 8;
-        int recordSize = 40 + totalVarLen + paddingLen;
+        int recordSize = 48 + totalVarLen + paddingLen;
 
         ByteBuffer buf = ByteBuffer.allocate(recordSize);
 
@@ -589,18 +593,21 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
         // Offset 16-23: Timestamp
         buf.putLong(event.timestamp().toEpochMilli());
 
-        // Offset 24-27: Payload Length
+        // Offset 24-31: Epoch
+        buf.putLong(event.epoch());
+
+        // Offset 32-35: Payload Length
         buf.putInt(payloadLen);
 
-        // Offset 28-31: Payload CRC32
+        // Offset 36-39: Payload CRC32
         int payloadCrc = calculateCrc32(payload);
         buf.putInt(payloadCrc);
 
-        // Offset 32-35: Reserved field
+        // Offset 40-43: Reserved field
         buf.putInt(0);
 
-        // Offset 36-39: Compute Header CRC over the first 36 bytes of the header
-        int headerCrc = calculateCrc32(buf, 36);
+        // Offset 44-47: Compute Header CRC over the first 44 bytes of the header
+        int headerCrc = calculateCrc32(buf, 44);
         buf.putInt(headerCrc);
 
         // Variable segments
@@ -657,9 +664,9 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
                         chunkPath, Integer.toHexString(magic), Integer.toHexString(WAL_MAGIC));
                 return;
             }
-            if (version != WAL_VERSION) {
-                log.warn("Unsupported WAL version in {}: {} (expected {})",
-                        chunkPath, version, WAL_VERSION);
+            if (version != WAL_VERSION_V2 && version != WAL_VERSION) {
+                log.warn("Unsupported WAL version in {}: {} (expected {} or {})",
+                        chunkPath, version, WAL_VERSION_V2, WAL_VERSION);
                 return;
             }
 
@@ -678,35 +685,71 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
      * @return the deserialized event, or null if the record is truncated
      */
     private WalEvent readEventFromChannel(FileChannel ch, Path source, int fileVersion) throws IOException {
-        if (fileVersion != WAL_VERSION) {
+        if (fileVersion != WAL_VERSION_V2 && fileVersion != WAL_VERSION) {
             throw new SpectorWalCorruptionException("Unsupported file version: " + fileVersion + " (expected " + WAL_VERSION + ")");
         }
 
         long startPos = ch.position();
-        if (ch.size() - startPos < 40) {
-            if (ch.size() - startPos > 0) {
+        long remaining = ch.size() - startPos;
+        if (remaining < 40) {
+            if (remaining > 0) {
                 handleTornWrite(source, ch, startPos);
             }
             return null; // EOF
         }
 
-        // Read 40-byte header
-        ByteBuffer headerBuf = ByteBuffer.allocate(40);
+        boolean canRead48 = remaining >= 48;
+        int bytesToRead = canRead48 ? 48 : 40;
+        ByteBuffer headerBuf = ByteBuffer.allocate(bytesToRead);
         int bytesRead = ch.read(headerBuf);
-        if (bytesRead < 40) {
+        if (bytesRead < bytesToRead) {
             handleTornWrite(source, ch, startPos);
             return null;
         }
         headerBuf.flip();
 
         // Offset 0-1: Record Magic
-        short magic = headerBuf.getShort();
+        short magic = headerBuf.getShort(0);
         if (magic != RECORD_MAGIC) {
             handleMiddleLogCorruption(source, ch, startPos, "Record magic mismatch: expected 0x5741, got 0x" + Integer.toHexString(magic & 0xFFFF));
             return null;
         }
 
+        // Determine record format based on header CRC check:
+        // V3 (48 bytes): CRC32 of first 44 bytes matches headerCRC at offset 44
+        // V2 (40 bytes): CRC32 of first 36 bytes matches headerCRC at offset 36
+        boolean isV3 = false;
+        if (canRead48) {
+            int crc48 = headerBuf.getInt(44);
+            int computedCrc48 = calculateCrc32(headerBuf, 44);
+            if (crc48 == computedCrc48) {
+                isV3 = true;
+            }
+        }
+
+        boolean isV2 = false;
+        if (!isV3) {
+            int crc40 = headerBuf.getInt(36);
+            int computedCrc40 = calculateCrc32(headerBuf, 36);
+            if (crc40 == computedCrc40) {
+                isV2 = true;
+            }
+        }
+
+        if (!isV3 && !isV2) {
+            int expectedCrc = canRead48 ? headerBuf.getInt(44) : headerBuf.getInt(36);
+            int computedCrc = canRead48 ? calculateCrc32(headerBuf, 44) : calculateCrc32(headerBuf, 36);
+            handleMiddleLogCorruption(source, ch, startPos, "Header CRC mismatch: expected " + expectedCrc + ", got " + computedCrc);
+            return null;
+        }
+
+        if (isV2 && canRead48) {
+            // Reposition channel to start of variable payload for 40-byte header
+            ch.position(startPos + 40);
+        }
+
         // Offset 2-7: Metadata
+        headerBuf.position(2);
         byte recVersion = headerBuf.get();
         byte flags = headerBuf.get();
         byte typeOrd = headerBuf.get();
@@ -719,24 +762,20 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
         // Offset 16-23: Timestamp
         long timestampMs = headerBuf.getLong();
 
-        // Offset 24-27: Payload Length
+        // Epoch: offset 24-31 for V3, default -1L for legacy V2
+        long epoch = isV3 ? headerBuf.getLong() : -1L;
+
+        // Payload Length
         int payloadLen = headerBuf.getInt();
 
-        // Offset 28-31: Payload CRC
+        // Payload CRC
         int payloadCrc = headerBuf.getInt();
 
-        // Offset 32-35: Reserved field
+        // Reserved field
         int reserved4 = headerBuf.getInt();
 
-        // Offset 36-39: Header CRC
+        // Header CRC
         int headerCrc = headerBuf.getInt();
-
-        // Verify Header CRC-32C
-        int computedHeaderCrc = calculateCrc32(headerBuf, 36);
-        if (headerCrc != computedHeaderCrc) {
-            handleMiddleLogCorruption(source, ch, startPos, "Header CRC mismatch: expected " + headerCrc + ", got " + computedHeaderCrc);
-            return null;
-        }
 
         // Variable segments
         int totalVarLen = idLen + payloadLen;
@@ -777,7 +816,7 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
         String memoryId = new String(idBytes, StandardCharsets.UTF_8);
         Instant timestamp = Instant.ofEpochMilli(timestampMs);
 
-        return new WalEvent(sequence, type, memoryId, timestamp, payloadBytes);
+        return new WalEvent(sequence, type, memoryId, epoch, timestamp, payloadBytes);
     }
 
     /**
@@ -862,7 +901,7 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
             int magic = headerBuf.getInt();
             int version = headerBuf.getInt();
 
-            if (magic != WAL_MAGIC || version != WAL_VERSION) {
+            if (magic != WAL_MAGIC || (version != WAL_VERSION_V2 && version != WAL_VERSION)) {
                 return 0L;
             }
 
