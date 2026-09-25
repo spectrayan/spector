@@ -357,11 +357,12 @@ public final class SpectorMemoryBuilder {
 
     /**
      * Sets the quiesce guard coordinating writer permits and checkpoint quiesce lock.
+     * Package-private: internal engine collaborator, not public configuration.
      *
      * @param quiesceGuard the quiesce guard to use
      * @return this builder
      */
-    public SpectorMemoryBuilder quiesceGuard(com.spectrayan.spector.memory.sync.QuiesceGuard quiesceGuard) {
+    SpectorMemoryBuilder quiesceGuard(com.spectrayan.spector.memory.sync.QuiesceGuard quiesceGuard) {
         this.quiesceGuard = quiesceGuard;
         return this;
     }
