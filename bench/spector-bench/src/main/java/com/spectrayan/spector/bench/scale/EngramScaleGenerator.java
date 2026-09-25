@@ -78,11 +78,11 @@ public final class EngramScaleGenerator {
     /**
      * Generates the synthetic engram at the specified index.
      */
-    public GeneratedEngram generate(int index) {
+    public GeneratedEngram generate(long index) {
         String id = String.format("scale-engram-%08d", index);
-        String topic = TOPICS[index % TOPICS.length];
-        String domain = DOMAINS[(index / 7) % DOMAINS.length];
-        String text = String.format("%s in %s zone-%d iteration-%d", topic, domain, (index % 16), index);
+        String topic = TOPICS[(int) Math.floorMod(index, TOPICS.length)];
+        String domain = DOMAINS[(int) Math.floorMod(index / 7, DOMAINS.length)];
+        String text = String.format("%s in %s zone-%d iteration-%d", topic, domain, (int) Math.floorMod(index, 16), index);
 
         long timestampMs = baseTimestampMs + (index * stepIntervalMs);
         float importance = 1.0f + (rng.nextFloat() * 9.0f);
@@ -90,8 +90,8 @@ public final class EngramScaleGenerator {
 
         String[] tags = new String[] {
                 domain,
-                "tier-" + ((index % 3) == 0 ? "episodic" : "semantic"),
-                "cluster-" + (index % 10),
+                "tier-" + (Math.floorMod(index, 3) == 0 ? "episodic" : "semantic"),
+                "cluster-" + Math.floorMod(index, 10),
                 "scale"
         };
 
@@ -99,6 +99,10 @@ public final class EngramScaleGenerator {
         MemorySource source = MemorySource.USER_STATED;
 
         return new GeneratedEngram(id, text, type, source, timestampMs, importance, valence, tags);
+    }
+
+    public GeneratedEngram generate(int index) {
+        return generate((long) index);
     }
 
     public long getBaseTimestampMs() {
