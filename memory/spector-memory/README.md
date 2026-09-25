@@ -132,7 +132,7 @@ spector-memory/
 
 Spector Memory uses a unified **Memory Kernel** abstraction (`Memory<Layout>`) that standardizes all persistent and volatile storage structures using Project Panama's Foreign Function & Memory API. Rather than implementing individual binary layouts from scratch, every subsystem maps to a standardized kernel **Shape**:
 
-*   **`RecordMemory` / `PartitionedRecordMemory`**: Fixed-size contiguous slots used by the cognitive tiers (`Working`, `Semantic`, and `Procedural` stores) and `CoActivationTracker`.
+*   **`RecordMemory`**: Fixed-size contiguous slots used by the cognitive tiers (`Working`, `Semantic`, and `Procedural` stores) and `CoActivationTracker`. Partitioning across episodic bundles is managed by `PartitionManager` (the legacy monolithic `PartitionedRecordMemory` shape was retired in favor of modular `PartitionBundle` files per ADR-0002).
 *   **`AppendMemory`**: Append-only log arrays with cursor offsets, backing `TextDataStore` and the Write-Ahead Log.
 *   **`RegistryMemory`**: Open-schema string-to-int mapping used for metadata serialization (`TypeRegistry`).
 *   **`GraphMemory`**: CSR (Compressed Sparse Row) and slab-allocated structures backing the `EntityGraph` and `HebbianGraph`.
