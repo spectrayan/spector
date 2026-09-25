@@ -364,6 +364,26 @@ mvn test -Psynapse
 - [ ] No hardcoded secrets, tokens, or credentials
 - [ ] JMH benchmarks included (if performance-related)
 
+### Code Review Requirements
+
+All contributions must undergo formal peer code review before being merged into `main`. Code review is conducted publicly on GitHub Pull Requests by authorized Committers and Maintainers designated in `.github/CODEOWNERS`:
+
+- **How Review is Conducted**:
+  - Reviews are conducted through GitHub Pull Request review tools within a default 72-hour review window.
+  - At least one formal approval from an assigned subsystem Committer or Maintainer is mandatory. Architectural changes require review by the Architecture Working Group (AWG) and a 2/3 supermajority vote from the Technical Steering Committee (TSC).
+- **What Reviewers Must Check**:
+  1. **Correctness & Tests**: Automated unit, property, and integration tests cover all new code paths; regression tests accompany every bug fix.
+  2. **Security & Memory Safety**: Absence of hardcoded credentials, strict input validation/allowlisting, bounded arena usage in Project Panama FFM, and zero unsafe memory leaks.
+  3. **Architectural Invariants**: Strict adherence to the zero-dependency invariant in core engine modules (`spector-core`, `spector-kernel`, `spector-memory`); no circular module dependencies.
+  4. **Performance**: Zero allocations on hot-path vector scoring routines, branchless SIMD execution, and JMH benchmark evidence for latency-critical changes.
+  5. **Licensing & Compliance**: Every commit includes a valid DCO 1.1 sign-off (`git commit -s`), Apache 2.0 license headers are formatted on all source files, and public APIs have Javadoc.
+- **Criteria for Acceptance**:
+  - All automated CI jobs (multi-architecture builds, tests, license checks, CodeQL security scans) pass cleanly with zero errors.
+  - Approval by at least one CODEOWNER maintainer with all review comment threads resolved.
+  - Squash merge to `main` preserving a clean, linear git history.
+
+---
+
 ## Reporting Issues
 
 ### Bug Reports
