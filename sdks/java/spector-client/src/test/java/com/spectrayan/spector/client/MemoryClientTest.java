@@ -266,10 +266,20 @@ class MemoryClientTest {
     @DisplayName("table() returns paginated records")
     void tableDelegation() throws Exception {
         MemoryTableResponse tableResp = new MemoryTableResponse().totalCount(100);
-        when(mockApi.getMemoryTable(0, 50, "SEMANTIC", false)).thenReturn(tableResp);
+        when(mockApi.getMemoryTable(null, 0, 50, null, null, null, "SEMANTIC", false)).thenReturn(tableResp);
 
         MemoryTableResponse result = client.table(0, 50, "SEMANTIC", false);
         assertThat(result.getTotalCount()).isEqualTo(100);
+    }
+
+    @Test
+    @DisplayName("table() with cursor returns paginated records")
+    void tableCursorDelegation() throws Exception {
+        MemoryTableResponse tableResp = new MemoryTableResponse().totalCount(50);
+        when(mockApi.getMemoryTable("cursor-abc", null, 25, 1000L, 2000L, "agent", "SEMANTIC", false)).thenReturn(tableResp);
+
+        MemoryTableResponse result = client.table("cursor-abc", 25, 1000L, 2000L, "agent", "SEMANTIC", false);
+        assertThat(result.getTotalCount()).isEqualTo(50);
     }
 
     @Test

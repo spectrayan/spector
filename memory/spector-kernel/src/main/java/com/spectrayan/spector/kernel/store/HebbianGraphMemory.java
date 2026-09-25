@@ -357,9 +357,12 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
         List<HebbianEdge> result = new ArrayList<>();
 
         int start = getOffset(node);
-        int end = getOffset(node + 1);
+        int end = Math.max(start, getOffset(node + 1));
         for (int i = start; i < end; i++) {
             long edgeOff = (long) i * EDGE_BYTES;
+            if (edgeOff + EDGE_BYTES > edges.byteSize()) {
+                break;
+            }
             int neighbor = edges.get(ValueLayout.JAVA_INT, edgeOff + EDGE_OFF_NEIGHBOR);
             float weight = edges.get(ValueLayout.JAVA_FLOAT, edgeOff + EDGE_OFF_WEIGHT);
             int bridge = Byte.toUnsignedInt(edges.get(ValueLayout.JAVA_BYTE, edgeOff + EDGE_OFF_BRIDGE_SCORE));
@@ -943,7 +946,10 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
     }
 
     private int getOffset(int node) {
-        return offsets.get(ValueLayout.JAVA_INT, (long) node * Integer.BYTES);
+        if (node < 0) return 0;
+        if (node > capacity) node = capacity;
+        int off = offsets.get(ValueLayout.JAVA_INT, (long) node * Integer.BYTES);
+        return Math.max(0, Math.min(off, edgeCapacity));
     }
 
     private record EdgeData(int neighbor, float weight, int lastCycle, int bridgeScore, int flags) {}
@@ -952,9 +958,12 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
         List<EdgeData> all = new ArrayList<>();
 
         int start = getOffset(node);
-        int end = getOffset(node + 1);
+        int end = Math.max(start, getOffset(node + 1));
         for (int i = start; i < end; i++) {
             long edgeOff = (long) i * EDGE_BYTES;
+            if (edgeOff + EDGE_BYTES > edges.byteSize()) {
+                break;
+            }
             int neighbor = edges.get(ValueLayout.JAVA_INT, edgeOff + EDGE_OFF_NEIGHBOR);
             float weight = edges.get(ValueLayout.JAVA_FLOAT, edgeOff + EDGE_OFF_WEIGHT);
             int lastCycle = Short.toUnsignedInt(edges.get(ValueLayout.JAVA_SHORT, edgeOff + EDGE_OFF_LAST_CYCLE));

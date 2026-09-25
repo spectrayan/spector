@@ -227,6 +227,7 @@ public final class BenchmarkSetup implements AutoCloseable {
         memoryProperties.setWorkingCapacity(Math.max(50, corpusSize / 10));
         memoryProperties.setEpisodicPartitionCapacity(corpusSize + 100);
         memoryProperties.setProceduralCapacity(Math.max(50, corpusSize / 5));
+        memoryProperties.setMaxNamespaces(1);
 
         memoryProperties.setCircadian(com.spectrayan.spector.config.properties.CircadianProperties.builder()
                 .volumeTrigger(Integer.MAX_VALUE)

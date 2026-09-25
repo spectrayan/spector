@@ -317,7 +317,23 @@ public class MemoryClient {
      * @return paginated memory table response
      */
     public MemoryTableResponse table(int page, int pageSize, String tier, boolean tombstoned) {
-        return SpectorExceptionHandler.execute(() -> memoryApi.getMemoryTable(page, pageSize, tier, tombstoned));
+        return SpectorExceptionHandler.execute(() -> memoryApi.getMemoryTable(null, page, pageSize, null, null, null, tier, tombstoned));
+    }
+
+    /**
+     * Get cursor-paginated memory table records with index-assisted seeking.
+     *
+     * @param cursor      opaque base64 pagination cursor (or null for first page)
+     * @param pageSize    number of records per page
+     * @param createdFrom optional lower bound timestamp ms (inclusive)
+     * @param createdTo   optional upper bound timestamp ms (inclusive)
+     * @param source      optional source filter
+     * @param tier        optional tier filter
+     * @param tombstoned  whether to include tombstoned records
+     * @return memory table response
+     */
+    public MemoryTableResponse table(String cursor, Integer pageSize, Long createdFrom, Long createdTo, String source, String tier, Boolean tombstoned) {
+        return SpectorExceptionHandler.execute(() -> memoryApi.getMemoryTable(cursor, null, pageSize, createdFrom, createdTo, source, tier, tombstoned));
     }
 
     /**
