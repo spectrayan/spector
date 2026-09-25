@@ -269,6 +269,12 @@
             <artifactId>tika-parsers-standard-package</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <!-- Junrar security override (CVE-2026-86071) -->
+        <dependency>
+            <groupId>com.github.junrar</groupId>
+            <artifactId>junrar</artifactId>
+            <scope>runtime</scope>
+        </dependency>
 
         <!-- ── Tabula (structured table extraction from PDFs) ── -->
         <dependency>
