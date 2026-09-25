@@ -145,6 +145,7 @@
         <handlebars.version>4.5.2</handlebars.version>
         <camel.version>4.14.9</camel.version>
         <jsoup.version>1.23.1</jsoup.version>
+        <junrar.version>7.6.1</junrar.version>
         <bucket4j.version>8.10.1</bucket4j.version>
         <phileas.version>4.4.0</phileas.version>
         <caffeine.version>3.2.0</caffeine.version>
@@ -689,6 +690,13 @@
                 <groupId>org.jsoup</groupId>
                 <artifactId>jsoup</artifactId>
                 <version>${jsoup.version}</version>
+            </dependency>
+
+            <!-- Junrar (RAR decompression security override for CVE-2026-86071) -->
+            <dependency>
+                <groupId>com.github.junrar</groupId>
+                <artifactId>junrar</artifactId>
+                <version>${junrar.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

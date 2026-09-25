@@ -97,4 +97,28 @@ public class MindSpanDreamBenchmarkTest {
             }
         }
     }
+
+    @Test
+    @DisplayName("Verify cloneMemoryStore successfully copies directory tree with file content preservation")
+    void testCloneMemoryStore() throws Exception {
+        Path tempSrc = Files.createTempDirectory("mindspan-src-");
+        Path tempDst = Files.createTempDirectory("mindspan-dst-target-");
+        try {
+            Path testFile = tempSrc.resolve("partitions").resolve("part-0.bin");
+            Files.createDirectories(testFile.getParent());
+            Files.writeString(testFile, "test-partition-data");
+
+            Path cloned = MindSpanDreamRunner.cloneMemoryStore(tempSrc, tempDst);
+            assertEquals(tempDst, cloned);
+            assertTrue(Files.exists(tempDst.resolve("partitions").resolve("part-0.bin")));
+            assertEquals("test-partition-data", Files.readString(tempDst.resolve("partitions").resolve("part-0.bin")));
+        } finally {
+            try (var s = Files.walk(tempSrc)) {
+                s.sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(java.io.File::delete);
+            }
+            try (var s = Files.walk(tempDst)) {
+                s.sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(java.io.File::delete);
+            }
+        }
+    }
 }

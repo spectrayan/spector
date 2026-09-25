@@ -75,7 +75,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tini \
     curl \
     ca-certificates \
-    && apt-get --only-upgrade install -y perl-base gpgv \
+    && apt-get --only-upgrade install -y perl-base gpgv libexpat1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user spector (UID/GID 1000)
@@ -132,7 +132,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     wget \
     ca-certificates \
-    && apt-get --only-upgrade install -y perl-base gpgv \
+    && apt-get --only-upgrade install -y perl-base gpgv libexpat1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user spector (UID/GID 1000) and purge unused pebble binary
