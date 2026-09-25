@@ -67,7 +67,7 @@ public final class ProcessMemoryProbe {
             }
 
             // macOS / BSD / POSIX: ps -o rss= -p <pid>
-            ProcessBuilder pb = new ProcessBuilder("ps", "-o", "rss=", "-p", String.valueOf(pid));
+            ProcessBuilder pb = new ProcessBuilder("/bin/ps", "-o", "rss=", "-p", String.valueOf(pid));
             Process process = pb.start();
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
                 String line = reader.readLine();
