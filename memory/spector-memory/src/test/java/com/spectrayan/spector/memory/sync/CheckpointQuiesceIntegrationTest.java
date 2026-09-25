@@ -26,7 +26,7 @@ public class CheckpointQuiesceIntegrationTest {
     @Test
     void testCheckpointAcquiresQuiesce() throws Exception {
         QuiesceGuard guard = new QuiesceGuard();
-        com.spectrayan.spector.kernel.sync.MemoryWal wal = Mockito.mock(com.spectrayan.spector.kernel.sync.MemoryWal.class);
+        com.spectrayan.spector.memory.sync.MemoryWal wal = Mockito.mock(com.spectrayan.spector.memory.sync.MemoryWal.class);
         Mockito.when(wal.highWaterMark()).thenReturn(0L);
 
         CheckpointEngine engine = new CheckpointEngine(null, wal, null, null, null, null, null, null, null, null, null, null, null);

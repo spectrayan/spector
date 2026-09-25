@@ -40,6 +40,11 @@ public record WalEvent(
         byte[] payload
 ) {
 
+    /** Backward-compatible constructor defaulting epoch to 0L. */
+    public WalEvent(long sequence, EventType type, String memoryId, Instant timestamp, byte[] payload) {
+        this(sequence, type, memoryId, 0L, timestamp, payload);
+    }
+
     /**
      * Event types for the write-ahead log.
      */

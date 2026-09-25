@@ -18,9 +18,9 @@ package com.spectrayan.spector.memory.policy;
 import com.spectrayan.spector.commons.concurrent.MemoryScope;
 import com.spectrayan.spector.commons.error.SpectorServerException;
 import com.spectrayan.spector.kernel.api.MemorySource;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.SpectorMemoryBuilder;
 import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.memory.model.MemoryType;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicLong;
@@ -38,11 +38,12 @@ class EngineFencingIntegrationTest {
         SpectorMemory memory = SpectorMemoryBuilder.create()
                 .namespaceId("test-ns")
                 .mutationPolicy(policy)
+                .embeddingProvider(new com.spectrayan.spector.memory.test.FakeEmbeddingProvider())
                 .build();
 
         // Should succeed with valid epoch
         MemoryScope.callWithScope("session", "test-ns", () -> {
-            com.spectrayan.spector.commons.concurrent.ScopedValue.where(MemoryScope.FENCE_EPOCH, 10L).run(() -> {
+            ScopedValue.where(MemoryScope.FENCE_EPOCH, 10L).run(() -> {
                 assertDoesNotThrow(() -> memory.remember("id1", "Hello", MemoryType.SEMANTIC, MemorySource.OBSERVED));
             });
             return null;
@@ -50,7 +51,7 @@ class EngineFencingIntegrationTest {
 
         // Should fail with stale epoch
         MemoryScope.callWithScope("session", "test-ns", () -> {
-            com.spectrayan.spector.commons.concurrent.ScopedValue.where(MemoryScope.FENCE_EPOCH, 9L).run(() -> {
+            ScopedValue.where(MemoryScope.FENCE_EPOCH, 9L).run(() -> {
                 assertThrows(SpectorServerException.class, () -> 
                     memory.remember("id2", "World", MemoryType.SEMANTIC, MemorySource.OBSERVED)
                 );

@@ -35,7 +35,7 @@ class ReembedJobConfigTest {
         SpectorMemoryResolver memoryResolver = mock(SpectorMemoryResolver.class);
         com.spectrayan.spector.memory.SpectorMemory memory = mock(com.spectrayan.spector.memory.SpectorMemory.class);
         com.spectrayan.spector.memory.SpectorMemoryAdmin admin = mock(com.spectrayan.spector.memory.SpectorMemoryAdmin.class);
-        com.spectrayan.spector.memory.MemoryIndex index = mock(com.spectrayan.spector.memory.MemoryIndex.class);
+        com.spectrayan.spector.memory.cortex.index.MemoryIndex index = mock(com.spectrayan.spector.memory.cortex.index.MemoryIndex.class);
         
         when(memoryResolver.resolve("default")).thenReturn(memory);
         when(memory.admin()).thenReturn(admin);

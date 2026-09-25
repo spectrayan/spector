@@ -15,7 +15,7 @@
  */
 package com.spectrayan.spector.memory.sync;
 
-import com.spectrayan.spector.error.SpectorException;
+import com.spectrayan.spector.commons.error.SpectorException;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CountDownLatch;

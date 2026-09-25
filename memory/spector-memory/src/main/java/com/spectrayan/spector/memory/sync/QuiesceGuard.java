@@ -15,8 +15,9 @@
  */
 package com.spectrayan.spector.memory.sync;
 
-import com.spectrayan.spector.error.SpectorException;
-import com.spectrayan.spector.error.ErrorCode;
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorException;
+import com.spectrayan.spector.commons.error.SpectorInternalException;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -32,12 +33,21 @@ public class QuiesceGuard {
     private volatile long lastQuiesceDurationNanos;
 
     /**
+     * An unchecked closeable permit for try-with-resources blocks.
+     */
+    @FunctionalInterface
+    public interface Permit extends AutoCloseable {
+        @Override
+        void close();
+    }
+
+    /**
      * Acquires a permit for writing. Multiple writers can hold permits concurrently.
      * Blocks if a checkpoint is actively holding the quiesce lock.
      *
-     * @return an AutoCloseable permit
+     * @return an unchecked Permit
      */
-    public AutoCloseable acquireWritePermit() {
+    public Permit acquireWritePermit() {
         lock.readLock().lock();
         return () -> lock.readLock().unlock();
     }
@@ -48,17 +58,17 @@ public class QuiesceGuard {
      *
      * @param timeout the maximum time to wait for the quiesce lock
      * @param unit the time unit of the timeout argument
-     * @return an AutoCloseable that releases the quiesce lock and records its duration
+     * @return an unchecked Permit that releases the quiesce lock and records its duration
      * @throws SpectorException if the quiesce lock cannot be acquired
      */
-    public AutoCloseable acquireQuiesce(long timeout, TimeUnit unit) {
+    public Permit acquireQuiesce(long timeout, TimeUnit unit) {
         try {
             if (!lock.writeLock().tryLock(timeout, unit)) {
-                throw new SpectorException(ErrorCode.INTERNAL_ERROR, "Failed to acquire quiesce lock within " + timeout + " " + unit);
+                throw new SpectorInternalException(ErrorCode.INTERNAL_ERROR, "Failed to acquire quiesce lock within " + timeout + " " + unit);
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new SpectorException(ErrorCode.INTERNAL_ERROR, "Interrupted while waiting for quiesce lock", e);
+            throw new SpectorInternalException(ErrorCode.INTERNAL_ERROR, e, "Interrupted while waiting for quiesce lock");
         }
 
         long startNanos = System.nanoTime();
@@ -71,9 +81,9 @@ public class QuiesceGuard {
     /**
      * Acquires an exclusive quiesce lock, waiting indefinitely.
      *
-     * @return an AutoCloseable that releases the quiesce lock and records its duration
+     * @return an unchecked Permit that releases the quiesce lock and records its duration
      */
-    public AutoCloseable acquireQuiesce() {
+    public Permit acquireQuiesce() {
         lock.writeLock().lock();
         long startNanos = System.nanoTime();
         return () -> {

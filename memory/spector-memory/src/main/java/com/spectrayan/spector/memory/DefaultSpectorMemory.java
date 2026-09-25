@@ -174,6 +174,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
      * site needs a null check and none can skip the policy by forgetting one.
      */
     private final com.spectrayan.spector.memory.policy.MutationPolicy mutationPolicy;
+    private final com.spectrayan.spector.memory.sync.QuiesceGuard quiesceGuard;
     private final java.util.concurrent.atomic.AtomicInteger activeLeases = new java.util.concurrent.atomic.AtomicInteger(0);
     private final boolean sharedPathways;
 
@@ -311,10 +312,14 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.namespaceManager = bundle.namespaceManager();
         this.namespaceId = builder.namespaceId();
         this.mutationPolicy = builder.mutationPolicy();
+        this.quiesceGuard = builder.quiesceGuard() != null
+                ? builder.quiesceGuard()
+                : new com.spectrayan.spector.memory.sync.QuiesceGuard();
         this.idGenerator = bundle.idGenerator();
         this.checkpointEngine = bundle.checkpointEngine();
         if (this.checkpointEngine != null) {
             this.checkpointEngine.setRouterSupplier(partitionManager::cognitiveRouter);
+            this.checkpointEngine.setQuiesceGuard(this.quiesceGuard);
         }
         this.graphEnrichmentEngine = bundle.graphEnrichmentEngine();
         this.bm25Index = bundle.bm25Index();
@@ -2444,6 +2449,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override
     public com.spectrayan.spector.memory.aisme.AismeBundle aismeBundle() {
         return aismeBundle;
+    }
+
+    /** Returns the quiesce guard coordinating writer permits and checkpoint quiesce lock. */
+    public com.spectrayan.spector.memory.sync.QuiesceGuard quiesceGuard() {
+        return quiesceGuard;
     }
 
     // ==============================================================

@@ -45,7 +45,7 @@ class CompositeMutationPolicyTest {
         assertTrue(aWrite.get());
         assertTrue(bWrite.get());
         
-        comp.checkDeletion(new DeletionRequest(com.spectrayan.spector.memory.policy.DeletionRequest.DeletionKind.FORGET, "ns", "mem"));
+        comp.checkDeletion(DeletionRequest.forget("ns", "mem"));
         assertTrue(aDel.get());
         assertTrue(bDel.get());
     }

@@ -61,7 +61,7 @@ public class ReembedJobConfig {
     @Bean
     public Job reembedJob() {
         return new JobBuilder("reembedJob", jobRepository)
-                .start(reembedStep(null, null, null))
+                .start(reembedStep("default", 100L, false))
                 .build();
     }
 
@@ -77,8 +77,8 @@ public class ReembedJobConfig {
 
         return new StepBuilder("reembedStep", jobRepository)
                 .<CognitiveRecord, CognitiveRecord>chunk(batchSize, transactionManager)
-                .reader(reembedItemReader(namespace))
-                .writer(reembedItemWriter(namespace, dryRun))
+                .reader(reembedItemReader(namespace != null ? namespace : "default"))
+                .writer(reembedItemWriter(namespace != null ? namespace : "default", dryRun))
                 .build();
     }
 
@@ -86,9 +86,11 @@ public class ReembedJobConfig {
     @StepScope
     public ItemReader<CognitiveRecord> reembedItemReader(
             @Value("#{jobParameters['namespace']}") String namespace) {
-        SpectorMemory memory = memoryResolver.resolve(namespace);
+        String ns = (namespace != null && !namespace.isBlank()) ? namespace : "default";
+        SpectorMemory memory = memoryResolver != null ? memoryResolver.resolve(ns) : null;
         if (memory == null) {
-            throw new IllegalArgumentException("Unknown namespace: " + namespace);
+            log.warn("Unknown or unresolvable namespace: {}", ns);
+            return () -> null;
         }
 
         List<String> ids = new ArrayList<>(memory.admin().index().orderedIds());

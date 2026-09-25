@@ -268,6 +268,22 @@ public abstract class McpToolHandler {
     }
 
     /**
+     * Extracts a required integer argument.
+     */
+    protected static int requireInt(Map<String, Object> args, String key) {
+        Object val = args.get(key);
+        if (val == null) {
+            throw new ToolArgumentException("Parameter '" + key + "' is required.");
+        }
+        if (val instanceof Number n) return n.intValue();
+        try {
+            return Integer.parseInt(val.toString());
+        } catch (NumberFormatException e) {
+            throw new ToolArgumentException("Parameter '" + key + "' must be an integer: " + val);
+        }
+    }
+
+    /**
      * Extracts an optional integer argument with a default.
      */
     protected static int optionalInt(Map<String, Object> args, String key, int defaultValue) {
@@ -276,6 +292,34 @@ public abstract class McpToolHandler {
         if (val instanceof Number n) return n.intValue();
         try {
             return Integer.parseInt(val.toString());
+        } catch (NumberFormatException e) {
+            return defaultValue;
+        }
+    }
+
+    /**
+     * Extracts an optional long argument with a default.
+     */
+    protected static long optionalLong(Map<String, Object> args, String key, long defaultValue) {
+        Object val = args.get(key);
+        if (val == null) return defaultValue;
+        if (val instanceof Number n) return n.longValue();
+        try {
+            return Long.parseLong(val.toString());
+        } catch (NumberFormatException e) {
+            return defaultValue;
+        }
+    }
+
+    /**
+     * Extracts an optional float argument with a default.
+     */
+    protected static float optionalFloat(Map<String, Object> args, String key, float defaultValue) {
+        Object val = args.get(key);
+        if (val == null) return defaultValue;
+        if (val instanceof Number n) return n.floatValue();
+        try {
+            return Float.parseFloat(val.toString());
         } catch (NumberFormatException e) {
             return defaultValue;
         }
