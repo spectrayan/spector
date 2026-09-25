@@ -73,7 +73,7 @@ final class PassthroughCatalog implements AccountCatalog {
 
     @Override
     public void resetNamespace(String accountId, String slugOrId) {
-        // no-op
+        throw new UnsupportedOperationException("PassthroughCatalog does not support namespace reset");
     }
 
     @Override
@@ -104,7 +104,7 @@ final class PassthroughCatalog implements AccountCatalog {
 
     @Override
     public void revokeGrant(String grantId) {
-        // no-op
+        throw new UnsupportedOperationException("PassthroughCatalog does not support grant revocation");
     }
 
     @Override
@@ -141,13 +141,12 @@ final class PassthroughCatalog implements AccountCatalog {
 
     @Override
     public void revokeNamespaceGrant(String callerAccountId, String slugOrId, String grantId) {
-        // no-op
+        throw new UnsupportedOperationException("PassthroughCatalog does not support grant revocation");
     }
 
     @Override
     public NamespaceRecord setLegalHold(String accountId, String slugOrId, boolean legalHold) {
-        return new NamespaceRecord(slugOrId, slugOrId, accountId, NamespaceType.PROJECT, NamespaceStatus.ACTIVE,
-                slugOrId, "Passthrough namespace", null, java.time.Instant.now(), java.time.Instant.now(), legalHold);
+        throw new UnsupportedOperationException("PassthroughCatalog does not support legal hold mutations");
     }
 
     @Override
@@ -158,7 +157,7 @@ final class PassthroughCatalog implements AccountCatalog {
 
     @Override
     public void tombstone(String accountId, String namespaceId) {
-        // no-op
+        throw new UnsupportedOperationException("PassthroughCatalog does not support namespace tombstone");
     }
 
     @Override
