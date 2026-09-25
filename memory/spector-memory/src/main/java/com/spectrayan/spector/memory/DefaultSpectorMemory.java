@@ -435,11 +435,13 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override
     public void remember(String id, String text, MemoryType type,
                                               MemorySource source, String... tags) {
+        try (var permit = quiesceGuard.acquireWritePermit()) {
         mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.remember(
             namespaceId, id, com.spectrayan.spector.commons.concurrent.MemoryScope.fenceEpoch(), System.currentTimeMillis()));
         
         remember(id, text, type, source,
                 (com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints) null, tags);
+            }
     }
 
     @Override
@@ -447,6 +449,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                                               MemorySource source,
                                               com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints hints,
                                               String... tags) {
+        try (var permit = quiesceGuard.acquireWritePermit()) {
         mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.remember(
             namespaceId, id, com.spectrayan.spector.commons.concurrent.MemoryScope.fenceEpoch(), System.currentTimeMillis()));
         
@@ -480,15 +483,18 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         } finally {
             releaseLease();
         }
+            }
     }
 
     @Override
     public void remember(String id, String text, MemoryType type,
                                               String... tags) {
+        try (var permit = quiesceGuard.acquireWritePermit()) {
         mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.remember(
             namespaceId, id, com.spectrayan.spector.commons.concurrent.MemoryScope.fenceEpoch(), System.currentTimeMillis()));
         
         remember(id, text, type, MemorySource.OBSERVED, tags);
+            }
     }
 
     @Override
@@ -524,6 +530,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                                               MemorySource source,
                                               RememberContext context,
                                               String... tags) {
+        try (var permit = quiesceGuard.acquireWritePermit()) {
         mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.remember(
             namespaceId, id, com.spectrayan.spector.commons.concurrent.MemoryScope.fenceEpoch(), System.currentTimeMillis()));
         
@@ -559,6 +566,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         } finally {
             releaseLease();
         }
+            }
     }
 
     @Override
@@ -566,6 +574,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                          MemorySource source,
                          RememberContext context,
                          String... tags) {
+        try (var permit = quiesceGuard.acquireWritePermit()) {
         mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.remember(
             namespaceId, id, com.spectrayan.spector.commons.concurrent.MemoryScope.fenceEpoch(), System.currentTimeMillis()));
         
@@ -602,13 +611,16 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         } finally {
             releaseLease();
         }
+            }
     }
 
     @Override
     public void remember(String id, String text, float[] vector, MemoryType type,
                          MemorySource source,
                          String... tags) {
+        try (var permit = quiesceGuard.acquireWritePermit()) {
         remember(id, text, vector, type, source, (RememberContext) null, tags);
+            }
     }
 
     /**
@@ -1085,14 +1097,17 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public void forget(String id) {
+        try (var permit = quiesceGuard.acquireWritePermit()) {
         mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.forget(
             namespaceId, id, com.spectrayan.spector.commons.concurrent.MemoryScope.fenceEpoch(), System.currentTimeMillis()));
         
         forgetWithResult(id);
+            }
     }
 
     @Override
     public com.spectrayan.spector.memory.model.ForgetResult forgetWithResult(String id) {
+        try (var permit = quiesceGuard.acquireWritePermit()) {
         mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.forget(
             namespaceId, id, com.spectrayan.spector.commons.concurrent.MemoryScope.fenceEpoch(), System.currentTimeMillis()));
         
@@ -1117,10 +1132,12 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         } finally {
             releaseLease();
         }
+            }
     }
 
     @Override
     public com.spectrayan.spector.memory.model.PurgeResult purge(String id) {
+        try (var permit = quiesceGuard.acquireWritePermit()) {
         mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.purge(
             namespaceId, id, com.spectrayan.spector.commons.concurrent.MemoryScope.fenceEpoch(), System.currentTimeMillis()));
         
@@ -1213,6 +1230,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         } finally {
             releaseLease();
         }
+            }
     }
 
     private volatile com.spectrayan.spector.memory.model.ReflectReport lastReflectReport;
@@ -1420,6 +1438,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public void consolidate() {
+        try (var permit = quiesceGuard.acquireWritePermit()) {
         acquireLease();
         try {
             batchConsolidator.consolidate(
@@ -1436,6 +1455,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         } finally {
             releaseLease();
         }
+            }
     }
 
     @Override
@@ -1484,6 +1504,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public void reinforce(String memoryId, byte valence) {
+        try (var permit = quiesceGuard.acquireWritePermit()) {
         mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.reinforce(
             namespaceId, memoryId, com.spectrayan.spector.commons.concurrent.MemoryScope.fenceEpoch(), System.currentTimeMillis()));
         
@@ -1494,11 +1515,13 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         } finally {
             releaseLease();
         }
+            }
     }
 
     @Override
     public void reinforce(String memoryId, byte valence,
                            com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints updatedHints) {
+        try (var permit = quiesceGuard.acquireWritePermit()) {
         acquireLease();
         try {
             reinforcementHandler.reinforceWithHints(memoryId, valence, updatedHints,
@@ -1506,6 +1529,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         } finally {
             releaseLease();
         }
+            }
     }
 
     @Override

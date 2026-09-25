@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS spector_control_store (
+    namespace_id VARCHAR(255) NOT NULL PRIMARY KEY,
+    epoch BIGINT NOT NULL DEFAULT 0,
+    owner_id VARCHAR(255),
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

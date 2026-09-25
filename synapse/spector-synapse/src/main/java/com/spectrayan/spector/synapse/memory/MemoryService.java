@@ -1268,4 +1268,37 @@ public class MemoryService {
             throw new IllegalArgumentException("Memory ID cannot be blank");
         }
     }
+    // ══════════════════════════════════════════════════════════════
+    // TEMPORAL FACT PLANE
+    // ══════════════════════════════════════════════════════════════
+
+    public int assertFact(FactDto.FactAssertRequest request) {
+        SpectorMemory mem = resolveMemory();
+        if (mem == null) {
+            throw new IllegalStateException("No memory resolved");
+        }
+        long validFrom = request.validFrom() != null ? request.validFrom() : java.time.Instant.now().getEpochSecond();
+        long validTo = request.validTo() != null ? request.validTo() : Long.MAX_VALUE;
+        float confidence = request.confidence() != null ? request.confidence() : 1.0f;
+        boolean allowCoexisting = request.allowCoexisting() != null ? request.allowCoexisting() : false;
+
+        return mem.assertFact(request.subject(), request.predicate(), request.object(), validFrom, validTo, confidence, allowCoexisting);
+    }
+
+    public int retractFact(int factId) {
+        SpectorMemory mem = resolveMemory();
+        if (mem == null) {
+            throw new IllegalStateException("No memory resolved");
+        }
+        return mem.retractFact(factId);
+    }
+
+    public java.util.List<com.spectrayan.spector.kernel.store.TemporalFact> factsAbout(String entity, Long asOf) {
+        SpectorMemory mem = resolveMemory();
+        if (mem == null) {
+            throw new IllegalStateException("No memory resolved");
+        }
+        java.time.Instant instant = asOf != null ? java.time.Instant.ofEpochSecond(asOf) : java.time.Instant.now();
+        return mem.factsAbout(entity, instant);
+    }
 }
