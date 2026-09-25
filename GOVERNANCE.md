@@ -102,10 +102,16 @@ Spector provides a transparent ladder for advancement within the project:
 In recognition of outstanding contributions to Spector:
 - **Timothy Kim ([@timothytkim](https://github.com/timothytkim))** has authored 5 merged pull requests spanning vector index diagnostics (#936), kernel documentation (#939), provider architecture (#878), cognitive neuroscience taxonomy (#904), and Prometheus metrics observability (#920). Timothy Kim is explicitly recognized as **immediately eligible** for Tier 2 Committer / Reviewer appointment.
 
-### Stepping Down & Emeritus Status
+### 3.1 Stepping Down & Emeritus Status
 Community members may step down from Maintainer or TSC roles at any time:
 - Maintainers or TSC members inactive for more than 6 months without notice may be transitioned to **Emeritus** status by the TSC.
 - Emeritus members remain permanently honored in [ACKNOWLEDGMENTS.md](ACKNOWLEDGMENTS.md) and may request reactivation via a simple majority vote of the TSC.
+
+### 3.2 Project Continuity & Redundancy
+To ensure uninterrupted project operations if any single individual becomes unavailable, incapacitated, or steps down:
+- **Administrative & Organization Redundancy**: Organization ownership, domain management, and repository administration in the `@spectrayan` GitHub organization are held across multiple administrative contacts and backup credentials.
+- **Release Automation**: Release pipelines and publishing credentials (GHCR, PyPI, npm, Maven) are managed through organization-level GitHub Actions secrets and automated workflows, enabling any authorized Maintainer or TSC member to issue releases.
+- **Review & Merge Rights**: Issue triage, pull request review, and merge authority on `main` are assigned to functional team aliases (`@spectrayan/spector-maintainers`, `@spectrayan/spector-tsc`) defined in `.github/CODEOWNERS`, ensuring that issue tracking, review, and new releases can proceed within one week of any contributor departure.
 
 ---
 
