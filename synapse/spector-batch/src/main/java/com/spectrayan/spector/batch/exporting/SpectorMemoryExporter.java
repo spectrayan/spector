@@ -408,6 +408,8 @@ public class SpectorMemoryExporter {
         return switch (type) {
             case HyperEntityGraphMemory.TYPE_RELATIONSHIP -> "TYPE_RELATIONSHIP";
             case HyperEntityGraphMemory.TYPE_CONTRADICTS -> "TYPE_CONTRADICTS";
+            case HyperEntityGraphMemory.TYPE_SUPERSEDES -> "TYPE_SUPERSEDES";
+            case HyperEntityGraphMemory.TYPE_CONSTRAINS -> "TYPE_CONSTRAINS";
             default -> "TYPE_" + type;
         };
     }

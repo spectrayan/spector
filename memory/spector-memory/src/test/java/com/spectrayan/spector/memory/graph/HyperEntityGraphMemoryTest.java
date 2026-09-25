@@ -303,4 +303,36 @@ class HyperEntityGraphMemoryTest {
             assertThat(g.findCoOccurringEntities(0)).containsExactlyInAnyOrder(2, 3);
         }
     }
+
+    @Test
+    @DisplayName("add and retrieve TYPE_SUPERSEDES and TYPE_CONSTRAINS hyperedges")
+    void addAndRetrieveSupersedesAndConstrainsHyperedges() {
+        try (var g = new HyperEntityGraphMemory(ENTITY_CAP, HEDGE_CAP)) {
+            int supersedesEdgeId = g.addHyperedge(
+                    new int[]{10, 20},
+                    new int[]{HyperEntityGraphMemory.ROLE_CORRECTOR, HyperEntityGraphMemory.ROLE_CORRECTED},
+                    HyperEntityGraphMemory.TYPE_SUPERSEDES,
+                    0.95f, 101, System.currentTimeMillis()
+            );
+
+            int constrainsEdgeId = g.addHyperedge(
+                    new int[]{30, 40},
+                    new int[]{HyperEntityGraphMemory.ROLE_SUBJECT, HyperEntityGraphMemory.ROLE_OBJECT},
+                    HyperEntityGraphMemory.TYPE_CONSTRAINS,
+                    0.85f, 102, System.currentTimeMillis()
+            );
+
+            HyperEdge supersedesEdge = g.getHyperedge(supersedesEdgeId);
+            assertThat(supersedesEdge).isNotNull();
+            assertThat(supersedesEdge.type()).isEqualTo(HyperEntityGraphMemory.TYPE_SUPERSEDES);
+            assertThat(supersedesEdge.weight()).isEqualTo(0.95f);
+            assertThat(supersedesEdge.memoryIdx()).isEqualTo(101);
+
+            HyperEdge constrainsEdge = g.getHyperedge(constrainsEdgeId);
+            assertThat(constrainsEdge).isNotNull();
+            assertThat(constrainsEdge.type()).isEqualTo(HyperEntityGraphMemory.TYPE_CONSTRAINS);
+            assertThat(constrainsEdge.weight()).isEqualTo(0.85f);
+            assertThat(constrainsEdge.memoryIdx()).isEqualTo(102);
+        }
+    }
 }
