@@ -141,7 +141,7 @@ public final class SingleNamespaceScaleBenchmark {
         long ingestStartNs = System.nanoTime();
         int partitionCountAtIngest = 1;
 
-        for (int i = 0; i < config.totalEngrams(); i++) {
+        for (long i = 0; i < config.totalEngrams(); i++) {
             EngramScaleGenerator.GeneratedEngram engram = generator.generate(i);
             memory.remember(
                     engram.id(),
