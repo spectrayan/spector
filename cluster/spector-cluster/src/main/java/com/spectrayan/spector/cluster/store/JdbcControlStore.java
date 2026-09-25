@@ -188,62 +188,67 @@ public class JdbcControlStore implements ControlStore {
 
     @Override
     public Optional<CoordinatorLease> acquireOrRenewCoordinatorLease(String candidateNodeId, Duration duration) {
-        try (Connection conn = dataSource.getConnection()) {
-            conn.setAutoCommit(false);
-            try {
-                CoordinatorLease result = null;
-                try (PreparedStatement ps = conn.prepareStatement(
-                        "SELECT epoch, owner_id, updated_at FROM spector_control_store WHERE namespace_id = ? FOR UPDATE")) {
-                    ps.setString(1, NS_COORDINATOR);
-                    try (ResultSet rs = ps.executeQuery()) {
-                        Instant now = clock.instant();
-                        if (rs.next()) {
-                            long epoch = rs.getLong("epoch");
-                            String ownerIdRaw = rs.getString("owner_id");
-                            Timestamp expiresAt = rs.getTimestamp("updated_at");
-                            
-                            String holder = ownerIdRaw != null ? ownerIdRaw.split("\\|")[0] : null;
-                            
-                            if (holder == null || expiresAt.toInstant().compareTo(now) <= 0 || candidateNodeId.equals(holder)) {
-                                long nextEpoch = epoch + 1;
+        while (true) {
+            try (Connection conn = dataSource.getConnection()) {
+                conn.setAutoCommit(false);
+                try {
+                    CoordinatorLease result = null;
+                    try (PreparedStatement ps = conn.prepareStatement(
+                            "SELECT epoch, owner_id, updated_at FROM spector_control_store WHERE namespace_id = ? FOR UPDATE")) {
+                        ps.setString(1, NS_COORDINATOR);
+                        try (ResultSet rs = ps.executeQuery()) {
+                            Instant now = clock.instant();
+                            if (rs.next()) {
+                                long epoch = rs.getLong("epoch");
+                                String ownerIdRaw = rs.getString("owner_id");
+                                Timestamp expiresAt = rs.getTimestamp("updated_at");
+                                
+                                String holder = ownerIdRaw != null ? ownerIdRaw.split("\\|")[0] : null;
+                                
+                                if (holder == null || expiresAt.toInstant().compareTo(now) <= 0 || candidateNodeId.equals(holder)) {
+                                    long nextEpoch = epoch + 1;
+                                    Instant newExpiresAt = now.plus(duration);
+                                    String newOwnerId = candidateNodeId + "|" + now.toEpochMilli();
+                                    
+                                    try (PreparedStatement update = conn.prepareStatement(
+                                            "UPDATE spector_control_store SET epoch = ?, owner_id = ?, updated_at = ? WHERE namespace_id = ?")) {
+                                        update.setLong(1, nextEpoch);
+                                        update.setString(2, newOwnerId);
+                                        update.setTimestamp(3, Timestamp.from(newExpiresAt));
+                                        update.setString(4, NS_COORDINATOR);
+                                        update.executeUpdate();
+                                    }
+                                    result = new CoordinatorLease(candidateNodeId, now, newExpiresAt, nextEpoch);
+                                }
+                            } else {
+                                long nextEpoch = 1L;
                                 Instant newExpiresAt = now.plus(duration);
                                 String newOwnerId = candidateNodeId + "|" + now.toEpochMilli();
                                 
-                                try (PreparedStatement update = conn.prepareStatement(
-                                        "UPDATE spector_control_store SET epoch = ?, owner_id = ?, updated_at = ? WHERE namespace_id = ?")) {
-                                    update.setLong(1, nextEpoch);
-                                    update.setString(2, newOwnerId);
-                                    update.setTimestamp(3, Timestamp.from(newExpiresAt));
-                                    update.setString(4, NS_COORDINATOR);
-                                    update.executeUpdate();
+                                try (PreparedStatement insert = conn.prepareStatement(
+                                        "INSERT INTO spector_control_store (namespace_id, epoch, owner_id, updated_at) VALUES (?, ?, ?, ?)")) {
+                                    insert.setString(1, NS_COORDINATOR);
+                                    insert.setLong(2, nextEpoch);
+                                    insert.setString(3, newOwnerId);
+                                    insert.setTimestamp(4, Timestamp.from(newExpiresAt));
+                                    insert.executeUpdate();
+                                } catch (SQLException e) {
+                                    conn.rollback();
+                                    continue;
                                 }
                                 result = new CoordinatorLease(candidateNodeId, now, newExpiresAt, nextEpoch);
                             }
-                        } else {
-                            long nextEpoch = 1L;
-                            Instant newExpiresAt = now.plus(duration);
-                            String newOwnerId = candidateNodeId + "|" + now.toEpochMilli();
-                            
-                            try (PreparedStatement insert = conn.prepareStatement(
-                                    "INSERT INTO spector_control_store (namespace_id, epoch, owner_id, updated_at) VALUES (?, ?, ?, ?)")) {
-                                insert.setString(1, NS_COORDINATOR);
-                                insert.setLong(2, nextEpoch);
-                                insert.setString(3, newOwnerId);
-                                insert.setTimestamp(4, Timestamp.from(newExpiresAt));
-                                insert.executeUpdate();
-                            }
-                            result = new CoordinatorLease(candidateNodeId, now, newExpiresAt, nextEpoch);
                         }
                     }
+                    conn.commit();
+                    return Optional.ofNullable(result);
+                } catch (SQLException ex) {
+                    conn.rollback();
+                    throw ex;
                 }
-                conn.commit();
-                return Optional.ofNullable(result);
-            } catch (SQLException ex) {
-                conn.rollback();
-                throw ex;
+            } catch (SQLException e) {
+                throw new RuntimeException("Failed to acquire/renew coordinator lease", e);
             }
-        } catch (SQLException e) {
-            throw new RuntimeException("Failed to acquire/renew coordinator lease", e);
         }
     }
 
@@ -329,44 +334,49 @@ public class JdbcControlStore implements ControlStore {
 
     @Override
     public long advanceNamespaceEpoch(String namespaceId, long expectedLeaseVersion) {
-        try (Connection conn = dataSource.getConnection()) {
-            conn.setAutoCommit(false);
-            try {
-                assertCoordinatorAuthority(conn, expectedLeaseVersion);
-                
-                long nextEpoch = 1L;
-                try (PreparedStatement ps = conn.prepareStatement(
-                        "SELECT epoch FROM spector_control_store WHERE namespace_id = ? FOR UPDATE")) {
-                    ps.setString(1, namespaceId);
-                    try (ResultSet rs = ps.executeQuery()) {
-                        if (rs.next()) {
-                            nextEpoch = rs.getLong("epoch") + 1;
-                            try (PreparedStatement update = conn.prepareStatement(
-                                    "UPDATE spector_control_store SET epoch = ?, updated_at = ? WHERE namespace_id = ?")) {
-                                update.setLong(1, nextEpoch);
-                                update.setTimestamp(2, Timestamp.from(clock.instant()));
-                                update.setString(3, namespaceId);
-                                update.executeUpdate();
-                            }
-                        } else {
-                            try (PreparedStatement insert = conn.prepareStatement(
-                                    "INSERT INTO spector_control_store (namespace_id, epoch, updated_at) VALUES (?, ?, ?)")) {
-                                insert.setString(1, namespaceId);
-                                insert.setLong(2, nextEpoch);
-                                insert.setTimestamp(3, Timestamp.from(clock.instant()));
-                                insert.executeUpdate();
+        while (true) {
+            try (Connection conn = dataSource.getConnection()) {
+                conn.setAutoCommit(false);
+                try {
+                    assertCoordinatorAuthority(conn, expectedLeaseVersion);
+                    
+                    long nextEpoch = 1L;
+                    try (PreparedStatement ps = conn.prepareStatement(
+                            "SELECT epoch FROM spector_control_store WHERE namespace_id = ? FOR UPDATE")) {
+                        ps.setString(1, namespaceId);
+                        try (ResultSet rs = ps.executeQuery()) {
+                            if (rs.next()) {
+                                nextEpoch = rs.getLong("epoch") + 1;
+                                try (PreparedStatement update = conn.prepareStatement(
+                                        "UPDATE spector_control_store SET epoch = ?, updated_at = ? WHERE namespace_id = ?")) {
+                                    update.setLong(1, nextEpoch);
+                                    update.setTimestamp(2, Timestamp.from(clock.instant()));
+                                    update.setString(3, namespaceId);
+                                    update.executeUpdate();
+                                }
+                            } else {
+                                try (PreparedStatement insert = conn.prepareStatement(
+                                        "INSERT INTO spector_control_store (namespace_id, epoch, updated_at) VALUES (?, ?, ?)")) {
+                                    insert.setString(1, namespaceId);
+                                    insert.setLong(2, nextEpoch);
+                                    insert.setTimestamp(3, Timestamp.from(clock.instant()));
+                                    insert.executeUpdate();
+                                } catch (SQLException e) {
+                                    conn.rollback();
+                                    continue; // retry on insert race
+                                }
                             }
                         }
                     }
+                    conn.commit();
+                    return nextEpoch;
+                } catch (SQLException ex) {
+                    conn.rollback();
+                    throw ex;
                 }
-                conn.commit();
-                return nextEpoch;
-            } catch (SQLException ex) {
-                conn.rollback();
-                throw ex;
+            } catch (SQLException e) {
+                throw new RuntimeException("Failed to advance namespace epoch", e);
             }
-        } catch (SQLException e) {
-            throw new RuntimeException("Failed to advance namespace epoch", e);
         }
     }
 
@@ -398,47 +408,52 @@ public class JdbcControlStore implements ControlStore {
 
     @Override
     public boolean setOverride(OverrideLeaseRecord override, long expectedLeaseVersion) {
-        try (Connection conn = dataSource.getConnection()) {
-            conn.setAutoCommit(false);
-            try {
-                assertCoordinatorAuthority(conn, expectedLeaseVersion);
-                
-                String nsId = PREFIX_OVERRIDE + override.namespaceId();
-                String ownerId = override.targetNodeId() + "|" + override.fence() + "|" + override.createdAt().toEpochMilli();
-                
-                try (PreparedStatement ps = conn.prepareStatement(
-                        "SELECT epoch FROM spector_control_store WHERE namespace_id = ? FOR UPDATE")) {
-                    ps.setString(1, nsId);
-                    try (ResultSet rs = ps.executeQuery()) {
-                        if (rs.next()) {
-                            try (PreparedStatement update = conn.prepareStatement(
-                                    "UPDATE spector_control_store SET epoch = ?, owner_id = ?, updated_at = ? WHERE namespace_id = ?")) {
-                                update.setLong(1, override.epoch());
-                                update.setString(2, ownerId);
-                                update.setTimestamp(3, Timestamp.from(override.expiresAt()));
-                                update.setString(4, nsId);
-                                update.executeUpdate();
-                            }
-                        } else {
-                            try (PreparedStatement insert = conn.prepareStatement(
-                                    "INSERT INTO spector_control_store (namespace_id, epoch, owner_id, updated_at) VALUES (?, ?, ?, ?)")) {
-                                insert.setString(1, nsId);
-                                insert.setLong(2, override.epoch());
-                                insert.setString(3, ownerId);
-                                insert.setTimestamp(4, Timestamp.from(override.expiresAt()));
-                                insert.executeUpdate();
+        while (true) {
+            try (Connection conn = dataSource.getConnection()) {
+                conn.setAutoCommit(false);
+                try {
+                    assertCoordinatorAuthority(conn, expectedLeaseVersion);
+                    
+                    String nsId = PREFIX_OVERRIDE + override.namespaceId();
+                    String ownerId = override.targetNodeId() + "|" + override.fence() + "|" + override.createdAt().toEpochMilli();
+                    
+                    try (PreparedStatement ps = conn.prepareStatement(
+                            "SELECT epoch FROM spector_control_store WHERE namespace_id = ? FOR UPDATE")) {
+                        ps.setString(1, nsId);
+                        try (ResultSet rs = ps.executeQuery()) {
+                            if (rs.next()) {
+                                try (PreparedStatement update = conn.prepareStatement(
+                                        "UPDATE spector_control_store SET epoch = ?, owner_id = ?, updated_at = ? WHERE namespace_id = ?")) {
+                                    update.setLong(1, override.epoch());
+                                    update.setString(2, ownerId);
+                                    update.setTimestamp(3, Timestamp.from(override.expiresAt()));
+                                    update.setString(4, nsId);
+                                    update.executeUpdate();
+                                }
+                            } else {
+                                try (PreparedStatement insert = conn.prepareStatement(
+                                        "INSERT INTO spector_control_store (namespace_id, epoch, owner_id, updated_at) VALUES (?, ?, ?, ?)")) {
+                                    insert.setString(1, nsId);
+                                    insert.setLong(2, override.epoch());
+                                    insert.setString(3, ownerId);
+                                    insert.setTimestamp(4, Timestamp.from(override.expiresAt()));
+                                    insert.executeUpdate();
+                                } catch (SQLException e) {
+                                    conn.rollback();
+                                    continue;
+                                }
                             }
                         }
                     }
+                    conn.commit();
+                    return true;
+                } catch (SQLException ex) {
+                    conn.rollback();
+                    throw ex;
                 }
-                conn.commit();
-                return true;
-            } catch (SQLException ex) {
-                conn.rollback();
-                throw ex;
+            } catch (SQLException e) {
+                throw new RuntimeException("Failed to set override", e);
             }
-        } catch (SQLException e) {
-            throw new RuntimeException("Failed to set override", e);
         }
     }
 
