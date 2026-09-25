@@ -98,4 +98,31 @@ public final class SimdCapability {
                 PREFERRED_SPECIES, laneCount(), vectorBitSize()
         );
     }
+
+    /**
+     * Checks if the Vector API ({@code jdk.incubator.vector}) is available and initialized.
+     *
+     * @return true if the Vector API preferred species is available and non-empty
+     */
+    public static boolean isVectorApiAvailable() {
+        try {
+            return PREFERRED_SPECIES != null && PREFERRED_SPECIES.length() > 0;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    /**
+     * Preflight validation assertion that the Vector API is available.
+     *
+     * @throws IllegalStateException if the Vector API is unavailable
+     */
+    public static void checkVectorApiPreflight() {
+        if (!isVectorApiAvailable()) {
+            throw new IllegalStateException(
+                    "SIMD Vector API (jdk.incubator.vector) is unavailable on this JVM. " +
+                    "Ensure JVM is launched with --enable-preview and --add-modules=jdk.incubator.vector."
+            );
+        }
+    }
 }

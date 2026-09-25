@@ -49,4 +49,10 @@ class SimdCapabilityTest {
         int expectedBitSize = SimdCapability.laneCount() * Float.SIZE;
         assertThat(SimdCapability.vectorBitSize()).isEqualTo(expectedBitSize);
     }
+
+    @Test
+    void vectorApiPreflightProbesSuccessfully() {
+        assertThat(SimdCapability.isVectorApiAvailable()).isTrue();
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(SimdCapability::checkVectorApiPreflight);
+    }
 }
