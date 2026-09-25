@@ -14,7 +14,7 @@
 set -euo pipefail
 
 REPO="spectrayan/spector"
-SPECTOR_HOME="${HOME}/.spector"
+SPECTOR_HOME="${DESTDIR:-}${SPECTOR_HOME:-${HOME}/.spector}"
 TARGET_VERSION="latest"
 DRY_RUN=0
 FORCE=0

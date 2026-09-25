@@ -19,6 +19,7 @@
   <a href="https://github.com/spectrayan/spector/actions"><img src="https://img.shields.io/github/actions/workflow/status/spectrayan/spector/ci.yml?branch=main&style=for-the-badge" alt="Build" /></a>
   <a href="https://spectrayan.github.io/spector/"><img src="https://img.shields.io/badge/Docs-MkDocs-blue?logo=materialformkdocs&style=for-the-badge" alt="Docs" /></a>
   <a href="ACKNOWLEDGMENTS.md#open-source-contributors"><img src="https://img.shields.io/github/contributors/spectrayan/spector?style=for-the-badge&color=blue" alt="Contributors" /></a>
+  <a href="https://www.bestpractices.dev/projects/14829"><img src="https://www.bestpractices.dev/projects/14829/badge" alt="OpenSSF Best Practices" /></a>
 </p>
 
 <p align="center">
