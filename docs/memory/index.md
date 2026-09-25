@@ -33,7 +33,7 @@ Rather than treating memory as an undifferentiated vector store, Spector organiz
     
     Time-stamped event records representing autobiographical history. Partitioned by day and backed by memory-mapped files for persistence across restarts. Supports Reflect consolidation into semantic memory.
     
-    - **Capacity**: Unbounded (time-partitioned)
+    - **Capacity**: Scalable via time-partitioning (benchmarked at 100k, 1M, 10M engrams; bounded recall fan-out)
     - **Storage**: High-performance memory-mapped partitions (persistent)
     - **Use case**: "What error did we debug yesterday?"
 
@@ -45,7 +45,7 @@ Rather than treating memory as an undifferentiated vector store, Spector organiz
     - **Partitioned Mode** (default): Rolling partition files with parallel retrieval.
     - **Single-File Mode**: In-memory slab for light deployments.
     
-    - **Capacity**: Unbounded in partitioned mode (configurable per-partition, default: 10,000 records)
+    - **Capacity**: Scalable in partitioned mode (configurable per-partition, default: 10,000 records; multi-partition scaling tested to 10M)
     - **Recall**: Parallel scan across partitions using virtual threads
     - **Compaction**: Per-partition rebuilds performed live during operation
     - **Use case**: "The user prefers dark mode."
@@ -100,7 +100,7 @@ flowchart TD
 | Tier | Substrate & Storage | Retention & Eviction | Latency (p50) | Ingestion Verb | Best-Fit Agent Scenarios |
 |:---|:---|:---|:---:|:---|:---|
 | **🧪 Working** | Volatile off-heap circular ring | FIFO eviction on capacity overflow | <span class="chip chip-latency">~100ns</span> | `rememberWorking` | Multi-turn chat context, scratchpads, intermediate plan steps |
-| **📝 Episodic** | Mapped binary partition files (`.seg`) | Unbounded, time-partitioned, Reflect consolidation | <span class="chip chip-latency">&lt;1ms</span> | `rememberEpisodic` | Interaction logs, tool execution traces, temporal user events |
+| **📝 Episodic** | Mapped binary partition files (`.seg`) | Time-partitioned (empirically benchmarked to 10M engrams), Reflect consolidation | <span class="chip chip-latency">&lt;1ms</span> | `rememberEpisodic` | Interaction logs, tool execution traces, temporal user events |
 | **🧬 Semantic** | Partitioned zero-GC off-heap slabs | Permanent, compacted during offline/online cycles | <span class="chip chip-latency">1.01ms</span> | `rememberSemantic` | User preferences, distilled facts, codebase knowledge, ontology |
 | **⚙️ Procedural** | Persistent append-only WAL segment | Permanent, deterministic ordering, high salience | <span class="chip chip-latency">&lt;200ns</span> | `rememberProcedural` | System prompt constraints, tool policies, safety guidelines |
 

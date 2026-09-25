@@ -263,6 +263,8 @@ nav:
       - Distributed Mode: architecture/distributed-mode.md
       - Event Notifications: architecture/event-notifications.md
       - Namespace Sharding: architecture/namespace-sharding.md
+      - "Single-Namespace Scale & Capacity Limits": capacity/single-namespace-scale.md
+      - "Scale Benchmark Empirical Results": capacity/scale-benchmark-results.md
       - "Salience & Importance Architecture": architecture/salience-importance.md
       - GPU Acceleration: architecture/gpu-acceleration.md
       - Performance Tuning: operations/performance-tuning.md
