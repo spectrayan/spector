@@ -573,7 +573,9 @@ public class MemoryService {
      * Returns a paginated memory table view for the Cortex UI (backward-compatible overload).
      */
     public MemoryTableResponse getMemoryTable(int page, int pageSize, String tierFilter, boolean showTombstoned) {
-        return getMemoryTable(null, page, pageSize, null, null, null, tierFilter, showTombstoned);
+        int effectivePage = Math.max(0, page);
+        int effectivePageSize = (pageSize > 0 && pageSize <= 500) ? pageSize : 50;
+        return mao.getMemoryTable(resolveMemory(), effectivePage, effectivePageSize, tierFilter, showTombstoned);
     }
 
     /**

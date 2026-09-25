@@ -261,6 +261,21 @@ class MemoryServiceTest {
         verify(mao).getMemoryTable(any(), eq(0), eq(50), isNull(), eq(false));
     }
 
+    @Test
+    @DisplayName("getMemoryTable — with cursor and filters delegates to DAO")
+    void getMemoryTable_withCursorAndFilters_delegates() {
+        var emptyResp = new MemoryTableResponse("next-cur", List.of(), 0, 1, 25,
+                Map.of(), Map.of());
+        when(mao.getMemoryTable(any(), eq("cursor123"), eq(1), eq(25), eq(1000L), eq(2000L), eq("agent"), eq("EPISODIC"), eq(true)))
+                .thenReturn(emptyResp);
+
+        var result = service.getMemoryTable("cursor123", 1, 25, 1000L, 2000L, "agent", "EPISODIC", true);
+
+        assertThat(result.totalCount()).isEqualTo(0);
+        assertThat(result.nextCursor()).isEqualTo("next-cur");
+        verify(mao).getMemoryTable(any(), eq("cursor123"), eq(1), eq(25), eq(1000L), eq(2000L), eq("agent"), eq("EPISODIC"), eq(true));
+    }
+
     // ═══════════════════════════════════════════════════
     // GRAPH API
     // ═══════════════════════════════════════════════════
