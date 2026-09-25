@@ -20,45 +20,50 @@ import java.util.Objects;
 /**
  * A state mutation the engine is about to perform, presented to {@link MutationPolicy} for approval.
  *
- * <p>Separate from {@link DeletionRequest} because it answers a different question. A deletion check asks
- * "may this data be destroyed"; a write check asks "is this node still entitled to write at all". Those have
- * different inputs and different failure modes, and merging them would mean a union-typed request and one
- * exception channel for two unrelated refusals.</p>
- *
- * <p>The immediate consumer is {@code cell-failover-fencing}: an owner must reject a write whose fence token
- * does not match its own current fence, which is what makes a resurrected old owner harmless. The engine
- * cannot see fence state, so it asks.</p>
- *
- * @param kind        what kind of mutation is about to happen
- * @param namespaceId the namespace being written to; never null
- * @param memoryId    the specific record, or {@code null} if not record-scoped
+ * @param operationType what kind of mutation is about to happen
+ * @param namespaceId   the namespace being written to; never null
+ * @param memoryId      the specific record, or {@code null} if not record-scoped
+ * @param epoch         the fence epoch
+ * @param timestamp     epoch milliseconds
  */
-public record WriteRequest(WriteKind kind, String namespaceId, String memoryId) {
+public record WriteRequest(OperationType operationType, String namespaceId, String memoryId, long epoch, long timestamp) {
 
     /** The class of mutation being attempted. */
-    public enum WriteKind {
+    public enum OperationType {
         /** A new memory is being stored. */
         REMEMBER,
+        /** An existing memory is being forgotten. */
+        FORGET,
+        /** An existing memory is being purged. */
+        PURGE,
         /** An existing memory's strength or associations are being updated. */
         REINFORCE,
         /** Consolidation is writing derived memories. */
-        CONSOLIDATE,
-        /** Graph edges are being added or rewritten. */
-        GRAPH_MUTATION
+        CONSOLIDATE
     }
 
     public WriteRequest {
-        Objects.requireNonNull(kind, "kind");
+        Objects.requireNonNull(operationType, "operationType");
         Objects.requireNonNull(namespaceId, "namespaceId");
     }
 
-    /** A request to store a new memory. */
-    public static WriteRequest remember(String namespaceId, String memoryId) {
-        return new WriteRequest(WriteKind.REMEMBER, namespaceId, memoryId);
+    public static WriteRequest remember(String namespaceId, String memoryId, long epoch, long timestamp) {
+        return new WriteRequest(OperationType.REMEMBER, namespaceId, memoryId, epoch, timestamp);
     }
 
-    /** A request to reinforce an existing memory. */
-    public static WriteRequest reinforce(String namespaceId, String memoryId) {
-        return new WriteRequest(WriteKind.REINFORCE, namespaceId, memoryId);
+    public static WriteRequest forget(String namespaceId, String memoryId, long epoch, long timestamp) {
+        return new WriteRequest(OperationType.FORGET, namespaceId, memoryId, epoch, timestamp);
+    }
+
+    public static WriteRequest purge(String namespaceId, String memoryId, long epoch, long timestamp) {
+        return new WriteRequest(OperationType.PURGE, namespaceId, memoryId, epoch, timestamp);
+    }
+
+    public static WriteRequest reinforce(String namespaceId, String memoryId, long epoch, long timestamp) {
+        return new WriteRequest(OperationType.REINFORCE, namespaceId, memoryId, epoch, timestamp);
+    }
+
+    public static WriteRequest consolidate(String namespaceId, long epoch, long timestamp) {
+        return new WriteRequest(OperationType.CONSOLIDATE, namespaceId, null, epoch, timestamp);
     }
 }

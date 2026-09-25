@@ -183,7 +183,8 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
      */
     public WalEvent append(WalEvent.EventType type, String memoryId, byte[] payload) {
         long seq = sequenceCounter.incrementAndGet();
-        WalEvent event = new WalEvent(seq, type, memoryId, Instant.now(),
+        long currentEpoch = com.spectrayan.spector.commons.concurrent.MemoryScope.fenceEpoch();
+        WalEvent event = new WalEvent(seq, type, memoryId, currentEpoch, Instant.now(),
                 payload != null ? payload : new byte[0]);
 
         writeLock.lock();
@@ -571,7 +572,7 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
         int payloadLen = payload.length;
         int totalVarLen = idLen + payloadLen;
         int paddingLen = (8 - (totalVarLen % 8)) % 8;
-        int recordSize = 40 + totalVarLen + paddingLen;
+        int recordSize = 48 + totalVarLen + paddingLen;
 
         ByteBuffer buf = ByteBuffer.allocate(recordSize);
 
@@ -589,18 +590,21 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
         // Offset 16-23: Timestamp
         buf.putLong(event.timestamp().toEpochMilli());
 
-        // Offset 24-27: Payload Length
+        // Offset 24-31: Epoch
+        buf.putLong(event.epoch());
+
+        // Offset 32-35: Payload Length
         buf.putInt(payloadLen);
 
-        // Offset 28-31: Payload CRC32
+        // Offset 36-39: Payload CRC32
         int payloadCrc = calculateCrc32(payload);
         buf.putInt(payloadCrc);
 
-        // Offset 32-35: Reserved field
+        // Offset 40-43: Reserved field
         buf.putInt(0);
 
-        // Offset 36-39: Compute Header CRC over the first 36 bytes of the header
-        int headerCrc = calculateCrc32(buf, 36);
+        // Offset 44-47: Compute Header CRC over the first 44 bytes of the header
+        int headerCrc = calculateCrc32(buf, 44);
         buf.putInt(headerCrc);
 
         // Variable segments
@@ -683,17 +687,17 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
         }
 
         long startPos = ch.position();
-        if (ch.size() - startPos < 40) {
+        if (ch.size() - startPos < 48) {
             if (ch.size() - startPos > 0) {
                 handleTornWrite(source, ch, startPos);
             }
             return null; // EOF
         }
 
-        // Read 40-byte header
-        ByteBuffer headerBuf = ByteBuffer.allocate(40);
+        // Read 48-byte header
+        ByteBuffer headerBuf = ByteBuffer.allocate(48);
         int bytesRead = ch.read(headerBuf);
-        if (bytesRead < 40) {
+        if (bytesRead < 48) {
             handleTornWrite(source, ch, startPos);
             return null;
         }
@@ -719,20 +723,23 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
         // Offset 16-23: Timestamp
         long timestampMs = headerBuf.getLong();
 
-        // Offset 24-27: Payload Length
+        // Offset 24-31: Epoch
+        long epoch = headerBuf.getLong();
+
+        // Offset 32-35: Payload Length
         int payloadLen = headerBuf.getInt();
 
-        // Offset 28-31: Payload CRC
+        // Offset 36-39: Payload CRC
         int payloadCrc = headerBuf.getInt();
 
-        // Offset 32-35: Reserved field
+        // Offset 40-43: Reserved field
         int reserved4 = headerBuf.getInt();
 
-        // Offset 36-39: Header CRC
+        // Offset 44-47: Header CRC
         int headerCrc = headerBuf.getInt();
 
         // Verify Header CRC-32C
-        int computedHeaderCrc = calculateCrc32(headerBuf, 36);
+        int computedHeaderCrc = calculateCrc32(headerBuf, 44);
         if (headerCrc != computedHeaderCrc) {
             handleMiddleLogCorruption(source, ch, startPos, "Header CRC mismatch: expected " + headerCrc + ", got " + computedHeaderCrc);
             return null;
@@ -777,7 +784,7 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
         String memoryId = new String(idBytes, StandardCharsets.UTF_8);
         Instant timestamp = Instant.ofEpochMilli(timestampMs);
 
-        return new WalEvent(sequence, type, memoryId, timestamp, payloadBytes);
+        return new WalEvent(sequence, type, memoryId, epoch, timestamp, payloadBytes);
     }
 
     /**

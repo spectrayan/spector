@@ -27,6 +27,7 @@ import java.time.Instant;
  * @param sequence   monotonically increasing event sequence number
  * @param type       the event type (REMEMBER, FORGET, REINFORCE, REFLECT)
  * @param memoryId   the memory ID this event applies to
+ * @param epoch      the fence epoch at time of write
  * @param timestamp  when the event occurred
  * @param payload    serialized event data (format depends on type)
  */
@@ -34,6 +35,7 @@ public record WalEvent(
         long sequence,
         EventType type,
         String memoryId,
+        long epoch,
         Instant timestamp,
         byte[] payload
 ) {
@@ -75,20 +77,11 @@ public record WalEvent(
         /** TemporalChain link. */
         CHAIN_LINK,
         /**
-         * HyperEntityGraph hyperedge add (ADR-0003 #460 / #417). Payload:
-         * {@code [type:4][weight:4f][memoryIdx:4][timestamp:8][vertexCount:4]
-         * [(entityId:4, roleId:4) * vertexCount]}. Appended last to keep existing ordinals stable.
+         * HyperEntityGraph hyperedge add.
          */
         HYPEREDGE_ADD,
         /**
-         * Memory was purged — payload physically zeroed, graph edges dropped. Irreversible.
-         *
-         * <p>Distinct from {@link #FORGET} and not a substitute for it. Replay has to be able to tell them
-         * apart: a {@code FORGET} only needs the tombstone reapplied, whereas a {@code PURGE} must suppress
-         * the record's earlier {@code REMEMBER} entirely. Without this opcode, replaying the log would
-         * faithfully reconstruct the content a purge destroyed — the WAL would resurrect it.</p>
-         *
-         * <p>Appended last to keep existing ordinals stable; the enum is serialised by ordinal.</p>
+         * Memory was purged.
          */
         PURGE
     }

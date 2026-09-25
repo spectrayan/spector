@@ -435,6 +435,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override
     public void remember(String id, String text, MemoryType type,
                                               MemorySource source, String... tags) {
+        mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.remember(
+            namespaceId, id, com.spectrayan.spector.commons.concurrent.MemoryScope.fenceEpoch(), System.currentTimeMillis()));
+        
         remember(id, text, type, source,
                 (com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints) null, tags);
     }
@@ -444,6 +447,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                                               MemorySource source,
                                               com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints hints,
                                               String... tags) {
+        mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.remember(
+            namespaceId, id, com.spectrayan.spector.commons.concurrent.MemoryScope.fenceEpoch(), System.currentTimeMillis()));
+        
         acquireLease();
         try {
             if (shouldChunk(text)) {
@@ -479,6 +485,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override
     public void remember(String id, String text, MemoryType type,
                                               String... tags) {
+        mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.remember(
+            namespaceId, id, com.spectrayan.spector.commons.concurrent.MemoryScope.fenceEpoch(), System.currentTimeMillis()));
+        
         remember(id, text, type, MemorySource.OBSERVED, tags);
     }
 
@@ -515,6 +524,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                                               MemorySource source,
                                               RememberContext context,
                                               String... tags) {
+        mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.remember(
+            namespaceId, id, com.spectrayan.spector.commons.concurrent.MemoryScope.fenceEpoch(), System.currentTimeMillis()));
+        
         acquireLease();
         try {
             if (shouldChunk(text)) {
@@ -554,6 +566,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                          MemorySource source,
                          RememberContext context,
                          String... tags) {
+        mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.remember(
+            namespaceId, id, com.spectrayan.spector.commons.concurrent.MemoryScope.fenceEpoch(), System.currentTimeMillis()));
+        
         acquireLease();
         try {
             String[] finalTags = tags;
@@ -1070,11 +1085,17 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public void forget(String id) {
+        mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.forget(
+            namespaceId, id, com.spectrayan.spector.commons.concurrent.MemoryScope.fenceEpoch(), System.currentTimeMillis()));
+        
         forgetWithResult(id);
     }
 
     @Override
     public com.spectrayan.spector.memory.model.ForgetResult forgetWithResult(String id) {
+        mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.forget(
+            namespaceId, id, com.spectrayan.spector.commons.concurrent.MemoryScope.fenceEpoch(), System.currentTimeMillis()));
+        
         acquireLease();
         try {
             if (id == null) { throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "id"); }
@@ -1100,6 +1121,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public com.spectrayan.spector.memory.model.PurgeResult purge(String id) {
+        mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.purge(
+            namespaceId, id, com.spectrayan.spector.commons.concurrent.MemoryScope.fenceEpoch(), System.currentTimeMillis()));
+        
         acquireLease();
         try {
             if (id == null) { throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "id"); }
@@ -1460,6 +1484,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public void reinforce(String memoryId, byte valence) {
+        mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.reinforce(
+            namespaceId, memoryId, com.spectrayan.spector.commons.concurrent.MemoryScope.fenceEpoch(), System.currentTimeMillis()));
+        
         acquireLease();
         try {
             reinforcementHandler.reinforce(memoryId, valence,
