@@ -23,7 +23,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 TIER="100k"
-BUDGET=10
+BUDGET=""
 OUTPUT=""
 RUN_K6=false
 FULL_MODE=""
@@ -40,22 +40,58 @@ Options:
   --k6                            Execute Grafana k6 REST API scenario instead of direct JVM benchmark
   -h, --help                      Show this help message
 EOF
-    exit 1
+    exit "${1:-1}"
 }
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --tier)
+            if [[ $# -lt 2 || "${2:-}" =~ ^- ]]; then
+                echo "Error: --tier requires an argument." >&2
+                usage 1
+            fi
             TIER="$2"
             shift 2
             ;;
+        --tier=*)
+            TIER="${1#*=}"
+            if [[ -z "${TIER}" ]]; then
+                echo "Error: --tier requires a non-empty argument." >&2
+                usage 1
+            fi
+            shift
+            ;;
         --budget)
+            if [[ $# -lt 2 || "${2:-}" =~ ^- ]]; then
+                echo "Error: --budget requires an argument." >&2
+                usage 1
+            fi
             BUDGET="$2"
             shift 2
             ;;
+        --budget=*)
+            BUDGET="${1#*=}"
+            if [[ -z "${BUDGET}" ]]; then
+                echo "Error: --budget requires a non-empty argument." >&2
+                usage 1
+            fi
+            shift
+            ;;
         --output)
+            if [[ $# -lt 2 || "${2:-}" =~ ^- ]]; then
+                echo "Error: --output requires an argument." >&2
+                usage 1
+            fi
             OUTPUT="$2"
             shift 2
+            ;;
+        --output=*)
+            OUTPUT="${1#*=}"
+            if [[ -z "${OUTPUT}" ]]; then
+                echo "Error: --output requires a non-empty argument." >&2
+                usage 1
+            fi
+            shift
             ;;
         --full)
             FULL_MODE="--full"
@@ -66,19 +102,20 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         -h|--help)
-            usage
+            usage 0
             ;;
         *)
             echo "Unknown argument: $1" >&2
-            usage
+            usage 1
             ;;
     esac
 done
 
 if [ "$RUN_K6" = true ]; then
-    echo "▶ Launching k6 Single-Namespace Scale Scenario (${TIER}, budget=${BUDGET})..."
+    EFFECTIVE_BUDGET="${BUDGET:-10}"
+    echo "▶ Launching k6 Single-Namespace Scale Scenario (${TIER}, budget=${EFFECTIVE_BUDGET})..."
     export SCALE_TIER="${TIER}"
-    export VISIT_BUDGET="${BUDGET}"
+    export VISIT_BUDGET="${EFFECTIVE_BUDGET}"
     k6 run "${SCRIPT_DIR}/k6/scenarios/09-single-namespace-scale.js"
     exit 0
 fi
@@ -90,12 +127,17 @@ mvn compile test-compile -pl bench/spector-bench -DskipTests -q
 CP=$(mvn -pl bench/spector-bench dependency:build-classpath -Dmdep.outputFile=/dev/stdout -q)
 CLASSPATH="${ROOT_DIR}/bench/spector-bench/target/classes:${ROOT_DIR}/bench/spector-bench/target/test-classes:${CP}"
 
+BUDGET_ARG=""
+if [ -n "$BUDGET" ]; then
+    BUDGET_ARG="--budget=${BUDGET}"
+fi
+
 OUTPUT_ARG=""
 if [ -n "$OUTPUT" ]; then
     OUTPUT_ARG="--output=${OUTPUT}"
 fi
 
-echo "▶ Executing SingleNamespaceScaleBenchmark (tier=${TIER}, budget=${BUDGET})..."
+echo "▶ Executing SingleNamespaceScaleBenchmark (tier=${TIER}${BUDGET:+, budget=${BUDGET}})..."
 java \
     --enable-preview \
     --add-modules jdk.incubator.vector \
@@ -104,6 +146,6 @@ java \
     -cp "${CLASSPATH}" \
     com.spectrayan.spector.bench.scale.SingleNamespaceScaleBenchmark \
     "--tier=${TIER}" \
-    "--budget=${BUDGET}" \
+    ${BUDGET_ARG} \
     ${OUTPUT_ARG} \
     ${FULL_MODE}

@@ -24,6 +24,12 @@ import java.util.List;
  */
 public final class PercentileTracker {
 
+    /**
+     * Tolerance epsilon to prevent IEEE 754 floating-point representation drift
+     * from causing ceiling jumps on exact integer multiples (e.g. 0.07 * 100 = 7.000000000000001).
+     */
+    private static final double EPSILON = 1e-9;
+
     private final List<Double> values = new ArrayList<>();
 
     public void record(double value) {
@@ -69,11 +75,11 @@ public final class PercentileTracker {
 
     public double percentile(double rank) {
         if (values.isEmpty()) return 0.0;
-        if (rank <= 0.0) return min();
+        if (Double.isNaN(rank) || rank <= 0.0) return min();
         if (rank >= 1.0) return max();
 
         List<Double> sorted = sortedCopy();
-        int index = (int) Math.ceil(rank * sorted.size()) - 1;
+        int index = (int) Math.ceil((rank * sorted.size()) - EPSILON) - 1;
         if (index < 0) index = 0;
         if (index >= sorted.size()) index = sorted.size() - 1;
         return sorted.get(index);

@@ -84,6 +84,52 @@ class SingleNamespaceScaleBenchmarkTest {
     }
 
     @Test
+    @DisplayName("2b. PercentileTracker resists IEEE 754 floating-point ceiling jumps across drift ranks")
+    void testPercentileTrackerFloatingPointTolerance() {
+        PercentileTracker tracker = new PercentileTracker();
+        for (int i = 1; i <= 100; i++) {
+            tracker.record(i);
+        }
+
+        // Specific IEEE 754 representation drift cases where (rank * 100) > integer:
+        // 0.07 * 100 = 7.000000000000001 -> unmitigated ceil=8.0 (index 7, value 8.0)
+        // With epsilon tolerance -> ceil=7.0 (index 6, value 7.0)
+        assertThat(tracker.percentile(0.07)).isEqualTo(7.0);
+        assertThat(tracker.percentile(0.14)).isEqualTo(14.0);
+        assertThat(tracker.percentile(0.28)).isEqualTo(28.0);
+        assertThat(tracker.percentile(0.55)).isEqualTo(55.0);
+        assertThat(tracker.percentile(0.56)).isEqualTo(56.0);
+
+        // Comprehensive sweep across 1% to 100%
+        for (int r = 1; r <= 100; r++) {
+            double rank = r / 100.0;
+            assertThat(tracker.percentile(rank))
+                    .as("Rank %.2f on 100 items should yield %.1f", rank, (double) r)
+                    .isEqualTo((double) r);
+        }
+
+        // Boundary edge cases
+        assertThat(tracker.percentile(0.0)).isEqualTo(1.0);
+        assertThat(tracker.percentile(-0.5)).isEqualTo(1.0);
+        assertThat(tracker.percentile(1.0)).isEqualTo(100.0);
+        assertThat(tracker.percentile(1.5)).isEqualTo(100.0);
+        assertThat(tracker.percentile(Double.NaN)).isEqualTo(1.0);
+    }
+
+    @Test
+    @DisplayName("2c. BenchmarkConfig withVisitBudget creates a copy with overridden budget")
+    void testBenchmarkConfigWithVisitBudget() {
+        SingleNamespaceScaleBenchmark.BenchmarkConfig cfg = SingleNamespaceScaleBenchmark.BenchmarkConfig.ofTier("smoke");
+        assertThat(cfg.visitBudget()).isEqualTo(2);
+
+        SingleNamespaceScaleBenchmark.BenchmarkConfig overridden = cfg.withVisitBudget(1);
+        assertThat(overridden.visitBudget()).isEqualTo(1);
+        assertThat(overridden.tierName()).isEqualTo(cfg.tierName());
+        assertThat(overridden.totalEngrams()).isEqualTo(cfg.totalEngrams());
+        assertThat(overridden.partitionCapacity()).isEqualTo(cfg.partitionCapacity());
+    }
+
+    @Test
     @DisplayName("3. ProcessMemoryProbe queries non-zero RSS, heap, and hardware profile")
     void testProcessMemoryProbe() {
         double rssMb = ProcessMemoryProbe.getProcessRssMb();
@@ -103,6 +149,7 @@ class SingleNamespaceScaleBenchmarkTest {
                 100_000L,
                 10,
                 10_000,
+                0.50,
                 4.25,
                 1.85,
                 3.40,
@@ -128,12 +175,14 @@ class SingleNamespaceScaleBenchmarkTest {
         assertThat(md).contains("# Single-Namespace Scale Benchmark Empirical Report")
                 .contains("Invariant V5")
                 .contains("| **100k** |")
+                .contains("Header Scan (ms)")
                 .contains("100,000")
                 .contains("macOS aarch64");
 
         String json = ScaleBenchmarkReportWriter.toJson(mockResult);
         assertThat(json).contains("\"tier\": \"100k\"")
                 .contains("\"engramCount\": 100000")
+                .contains("\"coldHeaderScanMs\": 0.500")
                 .contains("\"coldStartTimeMs\": 4.250")
                 .contains("\"truncated\": true");
     }
@@ -179,6 +228,55 @@ class SingleNamespaceScaleBenchmarkTest {
         assertThat(result1M.partitionsSkipped()).isEqualTo(90);
         assertThat(result1M.partitionsBudgeted()).isEqualTo(90);
         assertThat(result1M.truncated()).isTrue();
+    }
+
+    @Test
+    @DisplayName("5b. Scale extrapolation models affine cold start separating O(1) engine startup from O(partitions) header scans")
+    void testScaleExtrapolationWithDualColdStartMetrics() {
+        ScaleBenchmarkResult baseline = new ScaleBenchmarkResult(
+                "100k",
+                100_000L,
+                10,
+                10_000,
+                2.0,     // 0.20 ms per partition header scan
+                5002.0,  // 5000.0 ms baseline + 2.0 ms header scan
+                2.0,
+                4.0,
+                2.2,
+                10,
+                0,
+                0,
+                10,
+                false,
+                2.5,
+                4.8,
+                2.0,
+                4.0,
+                0.5,
+                200.0,
+                100.0,
+                50.0,
+                "Test HW",
+                "2026-09-24T20:00:00Z"
+        );
+
+        ScaleBenchmarkResult result1M = SingleNamespaceScaleBenchmark.extrapolateScale(
+                baseline, "1M", 1_000_000L, 10_000);
+
+        assertThat(result1M.engramCount()).isEqualTo(1_000_000L);
+        assertThat(result1M.partitionCount()).isEqualTo(100);
+        // Header scan scales linearly: 100 partitions * 0.20 ms = 20.0 ms
+        assertThat(result1M.coldHeaderScanMs()).isCloseTo(20.0, within(0.01));
+        // End-to-end cold start scales additively: 5000.0 ms baseline + 20.0 ms header scan = 5020.0 ms
+        assertThat(result1M.coldStartTimeMs()).isCloseTo(5020.0, within(0.01));
+
+        ScaleBenchmarkResult result10M = SingleNamespaceScaleBenchmark.extrapolateScale(
+                baseline, "10M", 10_000_000L, 10_000);
+        assertThat(result10M.partitionCount()).isEqualTo(1000);
+        // 1000 partitions * 0.20 ms = 200.0 ms
+        assertThat(result10M.coldHeaderScanMs()).isCloseTo(200.0, within(0.01));
+        // 5000.0 ms baseline + 200.0 ms header scan = 5200.0 ms (~5.2 seconds, NOT 7.76 minutes!)
+        assertThat(result10M.coldStartTimeMs()).isCloseTo(5200.0, within(0.01));
     }
 
     @Test

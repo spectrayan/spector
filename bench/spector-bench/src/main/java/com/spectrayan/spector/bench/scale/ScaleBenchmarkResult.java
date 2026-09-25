@@ -32,6 +32,7 @@ package com.spectrayan.spector.bench.scale;
  * @param engramCount                total synthetic engrams in the single namespace
  * @param partitionCount             total partitions active and frozen in the namespace
  * @param partitionCapacity          target engrams per partition chunk (roll threshold)
+ * @param coldHeaderScanMs           duration of pure O(partitions) partition bundle header seek and read (ms)
  * @param coldStartTimeMs            duration to reopen engine from disk and execute first query
  * @param p50RecallLatencyMs         50th percentile recall latency with visit budget (ms)
  * @param p99RecallLatencyMs         99th percentile recall latency with visit budget (ms)
@@ -57,6 +58,7 @@ public record ScaleBenchmarkResult(
         long engramCount,
         int partitionCount,
         int partitionCapacity,
+        double coldHeaderScanMs,
         double coldStartTimeMs,
         double p50RecallLatencyMs,
         double p99RecallLatencyMs,
@@ -76,4 +78,41 @@ public record ScaleBenchmarkResult(
         double diskFootprintMb,
         String hardwareProfile,
         String timestamp
-) {}
+) {
+    /**
+     * Backward-compatible 23-parameter constructor defaulting {@code coldHeaderScanMs} to 0.0.
+     */
+    public ScaleBenchmarkResult(
+            String tier,
+            long engramCount,
+            int partitionCount,
+            int partitionCapacity,
+            double coldStartTimeMs,
+            double p50RecallLatencyMs,
+            double p99RecallLatencyMs,
+            double avgRecallLatencyMs,
+            int partitionsVisited,
+            int partitionsSkipped,
+            int partitionsBudgeted,
+            int visitBudget,
+            boolean truncated,
+            double p50LatencyGraphEnabledMs,
+            double p99LatencyGraphEnabledMs,
+            double p50LatencyGraphDisabledMs,
+            double p99LatencyGraphDisabledMs,
+            double graphExpansionDeltaMs,
+            double rssMemoryMb,
+            double heapMemoryMb,
+            double diskFootprintMb,
+            String hardwareProfile,
+            String timestamp
+    ) {
+        this(tier, engramCount, partitionCount, partitionCapacity,
+             0.0,
+             coldStartTimeMs, p50RecallLatencyMs, p99RecallLatencyMs, avgRecallLatencyMs,
+             partitionsVisited, partitionsSkipped, partitionsBudgeted, visitBudget, truncated,
+             p50LatencyGraphEnabledMs, p99LatencyGraphEnabledMs, p50LatencyGraphDisabledMs,
+             p99LatencyGraphDisabledMs, graphExpansionDeltaMs, rssMemoryMb, heapMemoryMb,
+             diskFootprintMb, hardwareProfile, timestamp);
+    }
+}
