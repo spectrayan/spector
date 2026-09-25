@@ -1857,6 +1857,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     public boolean sharedPathways() { return sharedPathways; }
     @Override public CognitiveMemoryRouter cognitiveRouter() { return partitionManager.cognitiveRouter(); }
     public PartitionManager partitionManager() { return partitionManager; }
+    @Override public com.spectrayan.spector.memory.cortex.PartitionRegistry partitionRegistry() { return partitionManager; }
     @Override public MemoryIndex index() { return index; }
     @Override public LateralEvaluator lateralEvaluator() { return lateralEvaluator; }
     @Override public CognitiveGraphFacade graph() { return graphFacade; }

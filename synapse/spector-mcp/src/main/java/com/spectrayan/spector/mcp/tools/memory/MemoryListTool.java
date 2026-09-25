@@ -27,89 +27,80 @@ import com.spectrayan.spector.memory.model.CognitiveRecord;
 import io.modelcontextprotocol.spec.McpSchema;
 
 /**
- * MCP tool: {@code memory_export} — export memories as JSON with optional scoping filters.
+ * MCP tool: {@code memory_list} — list memories with safe cursor pagination, time bounds, and tier filtering without scoring.
  *
- * <p>Exports memories as a JSON array. Each memory includes its full cognitive profile:
- * text, header fields, tags, source, and physical location metadata.</p>
- *
- * <p>Supports scoping by {@code tier}, {@code source}, {@code created_from}, {@code created_to},
- * {@code limit}, and {@code cursor}. If no scoping arguments are provided, exports all
- * active memories via full export.</p>
- *
- * <p>Maps to {@link SpectorMemory#exportJson()}.</p>
+ * <p>Conforms to Milestone 5 (Requirement R5 / F18) and Interface Contract 5.</p>
  */
-public final class MemoryExportTool extends MemoryToolHandler {
+public final class MemoryListTool extends MemoryToolHandler {
 
-    public static final String NAME = "memory_export";
+    public static final String NAME = "memory_list";
 
-    public MemoryExportTool(SpectorMemory memory) {
+    public MemoryListTool(SpectorMemory memory) {
         super(NAME, memory);
     }
 
-    /** Enterprise constructor: resolves memory per-request for tenant isolation. */
-    public MemoryExportTool(Supplier<SpectorMemory> memoryResolver) {
+    public MemoryListTool(Supplier<SpectorMemory> memoryResolver) {
         super(NAME, memoryResolver);
     }
 
     @Override
-    protected McpSchema.CallToolResult executeMemory(SpectorMemory memory,
-                                                       Map<String, Object> args) throws Exception {
-        boolean hasFilters = args != null && (
-                args.containsKey("tier")
-                || args.containsKey("source")
-                || args.containsKey("created_from")
-                || args.containsKey("created_to")
-                || args.containsKey("limit")
-                || args.containsKey("cursor")
-        );
+    public String name() {
+        return NAME;
+    }
 
-        if (!hasFilters) {
-            int totalCount = memory.totalMemories();
-            if (totalCount == 0) {
-                return textResult("📭 No memories to export. The memory store is empty.");
+    @Override
+    public String description() {
+        return (spec != null && spec.description() != null)
+                ? spec.description()
+                : "List memories with safe cursor pagination, time bounds, and tier filtering without scoring.";
+    }
+
+    @Override
+    public McpToolCategory category() {
+        return McpToolCategory.MEMORY;
+    }
+
+    @Override
+    protected McpSchema.CallToolResult executeMemory(SpectorMemory memory, Map<String, Object> args) throws Exception {
+        int limit = 50;
+        if (args != null && args.containsKey("limit")) {
+            Object limitObj = args.get("limit");
+            if (limitObj instanceof Number num) {
+                limit = Math.min(Math.max(1, num.intValue()), 500);
             }
-
-            String json = memory.exportJson();
-
-            StringBuilder sb = new StringBuilder();
-            sb.append("📦 Exported ").append(totalCount).append(" memories\n\n");
-            sb.append(json);
-
-            return textResult(sb.toString());
         }
 
-        String tierFilter = (String) args.get("tier");
-        String sourceFilter = (String) args.get("source");
-        Long createdFrom = args.containsKey("created_from")
+        String tierFilter = args != null ? (String) args.get("tier") : null;
+        String sourceFilter = args != null ? (String) args.get("source") : null;
+        Long createdFrom = (args != null && args.containsKey("created_from"))
                 ? ((Number) args.get("created_from")).longValue() : null;
-        Long createdTo = args.containsKey("created_to")
+        Long createdTo = (args != null && args.containsKey("created_to"))
                 ? ((Number) args.get("created_to")).longValue() : null;
-        String cursor = (String) args.get("cursor");
-        Integer limit = args.containsKey("limit")
-                ? Math.max(1, ((Number) args.get("limit")).intValue()) : null;
+        String cursor = args != null ? (String) args.get("cursor") : null;
 
         List<CognitiveRecord> all = memory.admin().listAll();
         if (all == null || all.isEmpty()) {
-            return textResult("📭 No memories to export. The memory store is empty.");
+            return textResult("📭 No memories found matching criteria.");
         }
 
+        // Filter by tier, source, created_from, and created_to
         List<CognitiveRecord> filtered = all.stream()
-                .filter(r -> !r.isPurged() && !r.isTombstoned())
                 .filter(r -> tierFilter == null || r.memoryType().name().equalsIgnoreCase(tierFilter))
                 .filter(r -> sourceFilter == null || (r.source() != null && r.source().name().equalsIgnoreCase(sourceFilter)))
                 .filter(r -> createdFrom == null || r.timestampMs() >= createdFrom)
                 .filter(r -> createdTo == null || r.timestampMs() <= createdTo)
                 .sorted((a, b) -> {
-                    int cmp = Long.compare(b.timestampMs(), a.timestampMs());
+                    int cmp = Long.compare(b.timestampMs(), a.timestampMs()); // newest first
                     if (cmp != 0) return cmp;
-                    return b.id().compareTo(a.id());
+                    return b.id().compareTo(a.id()); // tiebreak by ID descending
                 })
                 .toList();
 
         if (filtered.isEmpty()) {
-            return textResult("📭 No memories found matching export criteria.");
+            return textResult("📭 No memories found matching criteria.");
         }
 
+        // Seek after cursor if present
         int startIdx = 0;
         if (cursor != null && !cursor.isBlank()) {
             byte[] decoded = Base64.getUrlDecoder().decode(cursor);
@@ -134,7 +125,7 @@ public final class MemoryExportTool extends MemoryToolHandler {
             }
         }
 
-        int endIdx = limit != null ? Math.min(startIdx + limit, filtered.size()) : filtered.size();
+        int endIdx = Math.min(startIdx + limit, filtered.size());
         List<CognitiveRecord> page = filtered.subList(startIdx, endIdx);
 
         String nextCursor = null;
@@ -144,17 +135,19 @@ public final class MemoryExportTool extends MemoryToolHandler {
             nextCursor = Base64.getUrlEncoder().withoutPadding().encodeToString(raw.getBytes(StandardCharsets.UTF_8));
         }
 
-        var mapper = new tools.jackson.databind.ObjectMapper();
-        var arrayNode = mapper.createArrayNode();
-        for (CognitiveRecord r : page) {
-            arrayNode.add(mapper.readTree(r.toJson()));
-        }
-
         StringBuilder sb = new StringBuilder();
-        sb.append("📦 Exported ").append(page.size()).append(" memories (scoped)\n\n");
-        sb.append(arrayNode.toString());
+        sb.append("📋 Memory List (").append(page.size()).append(" of ").append(filtered.size()).append(")\n\n");
+        sb.append("| ID | Tier | Source | Timestamp | Text |\n");
+        sb.append("|:---|:---|:---|:---|:---|\n");
+        for (CognitiveRecord r : page) {
+            sb.append("| `").append(r.id()).append("` ")
+                    .append("| ").append(r.memoryType()).append(" ")
+                    .append("| ").append(r.source()).append(" ")
+                    .append("| ").append(r.timestampMs()).append(" ")
+                    .append("| ").append(r.text()).append(" |\n");
+        }
         if (nextCursor != null) {
-            sb.append("\n\n**Next Cursor:** `").append(nextCursor).append("`\n");
+            sb.append("\n**Next Cursor:** `").append(nextCursor).append("`\n");
         }
 
         return textResult(sb.toString());

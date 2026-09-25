@@ -1,6 +1,6 @@
 {
-  "name": "memory_export",
-  "description": "Export memories as a JSON array with optional scoping filters and cursor pagination. Each entry contains the full cognitive profile: text, memory type, source, tags, importance, valence, arousal, recall counts, storage strength, synaptic tags bloom filter, flags, and physical location. Use for backup, migration to other systems, audit, or debugging.",
+  "name": "memory_list",
+  "description": "List memories with safe cursor pagination, time bounds, and tier filtering without scoring.",
   "category": "MEMORY",
   "scopes": [
     "spector:memory:read"
@@ -10,11 +10,12 @@
     "properties": {
       "cursor": {
         "type": "string",
-        "description": "Opaque cursor token for pagination from previous memory_export response."
+        "description": "Opaque cursor token for pagination from previous memory_list response."
       },
       "limit": {
         "type": "integer",
-        "description": "Maximum number of memories to return (optional; omit for full export or default)."
+        "description": "Maximum number of memories to return (default 50, max 500).",
+        "default": 50
       },
       "tier": {
         "type": "string",
@@ -31,11 +32,6 @@
       "created_to": {
         "type": "integer",
         "description": "Upper timestamp bound in epoch milliseconds (inclusive)."
-      },
-      "format": {
-        "type": "string",
-        "description": "Export format: 'json' (default). Future: 'csv', 'markdown'.",
-        "default": "json"
       },
       "namespace": {
         "type": "string",

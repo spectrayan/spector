@@ -61,7 +61,7 @@ The `namespace-scale-and-observability` capability introduces scalable partition
 | M2 | Persist Partition Summary ($O(\text{partitions})$ Cold Start) | Bundle header persistence at offset 512, CRC32C validation, cold-start optimization, scan fallback, `PartitionSummaryPersistenceTest` | M1 | DONE (commit 942f2704, Gate PASS) |
 | M3 | Partition Recall Fan-Out Budget & Recall Observability | Post-pruning visit budget in `CorticalTierScanRelay`, recency-first sort, truncation flag in REST/MCP, Micrometer counters | M2 | DONE (commit 4dd5d201, Gate PASS) |
 | M4 | Graph Memory & Headroom Telemetry | Prometheus gauges for nodes, edges, bytes, headroom in `SpectorMemoryGauges`, `GraphHealthMetricsTest` | M1 | DONE (Gate PASS) |
-| M5 | Index-Assisted Cursor Listing & MCP Parity | Opaque cursor pagination on `/table`, temporal partition seeking, query filters, MCP `memory_list`, updated `memory_export` | M2 | PLANNED |
+| M5 | Index-Assisted Cursor Listing & MCP Parity | Opaque cursor pagination on `/table`, temporal partition seeking, query filters, MCP `memory_list`, updated `memory_export` | M2 | DONE (Gate PASS) |
 | M6 | Single-Namespace Scale Benchmarks | 100k/1M/10M scale benchmark under `bench/`, cold-start & RSS measurements, capacity docs | M2, M3, M4, M5 | PLANNED |
 | M7 | Container Base Digest Pinning | Exact `@sha256:` pinning in `deploy/docker/Dockerfile`, Dependabot docker config, security verification | M1 | PLANNED |
 | M-E2E | Dual Track E2E Verification & Adversarial Hardening | Comprehensive test suite (Tiers 1-4), 100% pass verification, Tier 5 adversarial hardening, Sentinel hand-off | M1–M7 | PLANNED |

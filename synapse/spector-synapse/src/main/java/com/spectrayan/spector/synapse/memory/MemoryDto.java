@@ -296,6 +296,7 @@ public final class MemoryDto {
      * <p>Aligns with the {@code MemoryTableResponse} interface in the Angular
      * {@code MemoryTableService}.</p>
      *
+     * @param nextCursor      opaque base64 cursor token for the next page, or null if end of data
      * @param rows            paginated list of memory rows
      * @param totalCount      total matching records (before pagination)
      * @param page            current page number (0-based)
@@ -304,13 +305,19 @@ public final class MemoryDto {
      * @param tombstoneRatios tombstone ratio per tier (0.0 to 1.0)
      */
     public record MemoryTableResponse(
+            @JsonProperty("nextCursor") String nextCursor,
             @JsonProperty("rows") List<MemoryTableRow> rows,
             @JsonProperty("totalCount") int totalCount,
             @JsonProperty("page") int page,
             @JsonProperty("pageSize") int pageSize,
             @JsonProperty("tierCounts") Map<String, Integer> tierCounts,
             @JsonProperty("tombstoneRatios") Map<String, Float> tombstoneRatios
-    ) {}
+    ) {
+        public MemoryTableResponse(List<MemoryTableRow> rows, int totalCount, int page, int pageSize,
+                                   Map<String, Integer> tierCounts, Map<String, Float> tombstoneRatios) {
+            this(null, rows, totalCount, page, pageSize, tierCounts, tombstoneRatios);
+        }
+    }
 
     /**
      * Response for a single memory detail.

@@ -570,14 +570,24 @@ public class MemoryService {
     // ══════════════════════════════════════════════════════════════
 
     /**
-     * Returns a paginated memory table view for the Cortex UI.
+     * Returns a paginated memory table view for the Cortex UI (backward-compatible overload).
      */
     public MemoryTableResponse getMemoryTable(int page, int pageSize, String tierFilter, boolean showTombstoned) {
+        return getMemoryTable(null, page, pageSize, null, null, null, tierFilter, showTombstoned);
+    }
+
+    /**
+     * Returns a paginated memory table view with cursor pagination, partition gating, and scoping filters.
+     */
+    public MemoryTableResponse getMemoryTable(String cursor, int page, int pageSize,
+                                              Long createdFrom, Long createdTo,
+                                              String source, String tierFilter, boolean showTombstoned) {
         int effectivePage = Math.max(0, page);
         int effectivePageSize = (pageSize > 0 && pageSize <= 500) ? pageSize : 50;
-        log.debug("[MemoryService] getMemoryTable: page={}, pageSize={}, tier={}, tombstoned={}",
-                effectivePage, effectivePageSize, tierFilter, showTombstoned);
-        return mao.getMemoryTable(resolveMemory(), effectivePage, effectivePageSize, tierFilter, showTombstoned);
+        log.debug("[MemoryService] getMemoryTable: cursor={}, page={}, pageSize={}, createdFrom={}, createdTo={}, source={}, tier={}, tombstoned={}",
+                cursor, effectivePage, effectivePageSize, createdFrom, createdTo, source, tierFilter, showTombstoned);
+        return mao.getMemoryTable(resolveMemory(), cursor, effectivePage, effectivePageSize,
+                createdFrom, createdTo, source, tierFilter, showTombstoned);
     }
 
     // ══════════════════════════════════════════════════════════════

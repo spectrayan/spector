@@ -124,20 +124,32 @@ public class MemoryController {
      *
      * <p>Maps to: {@code MemoryTableService.getMemoryTable()} in Angular.</p>
      *
-     * @param page           page number (0-based, default 0)
+     * @param cursor         opaque base64 cursor token encoding (timestampMs, id)
+     * @param page           page number (0-based, default 0, fallback if cursor absent)
      * @param pageSize       rows per page (default 50, max 500)
+     * @param created_from   optional minimum timestamp (epoch ms)
+     * @param created_to     optional maximum timestamp (epoch ms)
+     * @param source         optional source filter
      * @param tier           optional tier filter (WORKING/EPISODIC/SEMANTIC/PROCEDURAL)
      * @param tombstoned     whether to include tombstoned records (default false)
      */
     @GetMapping("/table")
     @Operation(operationId = "getMemoryTable", summary = "Paginated memory table view for UI and exploration")
     public ResponseEntity<MemoryTableResponse> getMemoryTable(
+            @RequestParam(required = false) String cursor,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int pageSize,
+            @RequestParam(name = "created_from", required = false) Long created_from,
+            @RequestParam(name = "created_to", required = false) Long created_to,
+            @RequestParam(required = false) String source,
             @RequestParam(required = false) String tier,
             @RequestParam(defaultValue = "false") boolean tombstoned) {
         String tierFilter = (tier != null && !tier.isBlank()) ? tier : null;
-        return ResponseEntity.ok(memoryService.getMemoryTable(page, pageSize, tierFilter, tombstoned));
+        String sourceFilter = (source != null && !source.isBlank()) ? source : null;
+        if (cursor == null && created_from == null && created_to == null && sourceFilter == null) {
+            return ResponseEntity.ok(memoryService.getMemoryTable(page, pageSize, tierFilter, tombstoned));
+        }
+        return ResponseEntity.ok(memoryService.getMemoryTable(cursor, page, pageSize, created_from, created_to, sourceFilter, tierFilter, tombstoned));
     }
 
     // ══════════════════════════════════════════════════════════════
