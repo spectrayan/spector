@@ -251,3 +251,10 @@ config:
 nodeSelector: {}
 tolerations: []
 affinity: {}
+
+drExport:
+  enabled: false
+  schedule: "0 */6 * * *"  # Every 6 hours
+  objectStoreUrl: "s3://spector-backups/dr/"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
