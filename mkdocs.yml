@@ -269,6 +269,7 @@ nav:
       - GPU Acceleration: architecture/gpu-acceleration.md
       - Performance Tuning: operations/performance-tuning.md
       - Test Framework & LLM Judge: architecture/test-framework.md
+      - "Chat & Visual Test Infrastructure": architecture/test-infrastructure.md
       - Security & Data:
           - "Encryption at Rest": architecture/encryption-at-rest.md
       - "Architecture Decision Records (ADRs)":
