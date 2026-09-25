@@ -6,7 +6,7 @@
 # ═══════════════════════════════════════════════════════════════════
 
 # ── Stage 1: Build Angular Cortex Dashboard ───────────────────────────
-FROM --platform=$BUILDPLATFORM node:22.22.3-alpine AS builder-cortex
+FROM --platform=$BUILDPLATFORM node:22.22.3-alpine@sha256:e58326d0d441090181ac150dc2078d3e2cf6a0d42e809aebba3ef5880935ffdd AS builder-cortex
 
 WORKDIR /build
 COPY cortex/spector-cortex/package*.json ./
@@ -16,7 +16,7 @@ COPY cortex/spector-cortex/ ./
 RUN npm run build -- --configuration production
 
 # ── Stage 2: Build Java Synapse Backend ───────────────────────────────
-FROM --platform=$BUILDPLATFORM maven:3.9-eclipse-temurin-25 AS builder-synapse
+FROM --platform=$BUILDPLATFORM maven:3.9-eclipse-temurin-25@sha256:dd8e01b3be719853578c07b57ff8d9bbbbfe746f802226f05b19689420815221 AS builder-synapse
 
 WORKDIR /build
 
@@ -42,7 +42,7 @@ RUN --mount=type=cache,target=/root/.m2/repository \
 # ═══════════════════════════════════════════════════════════════════
 
 # ── Stage 3: Build Gateway JAR ────────────────────────────────────
-FROM --platform=$BUILDPLATFORM maven:3.9-eclipse-temurin-25 AS builder-gateway
+FROM --platform=$BUILDPLATFORM maven:3.9-eclipse-temurin-25@sha256:dd8e01b3be719853578c07b57ff8d9bbbbfe746f802226f05b19689420815221 AS builder-gateway
 
 WORKDIR /build
 
@@ -61,7 +61,7 @@ RUN --mount=type=cache,target=/root/.m2/repository \
     cp /build/synapse/spector-gateway/target/spector-gateway-*-exec.jar /build/spector-gateway.jar
 
 # ── Stage 4: Gateway Runtime (lean JRE, no data-plane deps) ──────
-FROM eclipse-temurin:25-jre AS gateway
+FROM eclipse-temurin:25-jre@sha256:bb036ed6cfdc57e3da7c22634d15f1b840d2caf76183861c80e81ca4b5104abb AS gateway
 
 LABEL maintainer="Spectrayan <team@spectrayan.com>"
 LABEL org.opencontainers.image.title="Spector Gateway"
@@ -116,7 +116,7 @@ CMD ["-Xms64m", "-Xmx256m", "-XX:+UseG1GC", "-XX:MaxGCPauseMillis=100", "-jar", 
 # ═══════════════════════════════════════════════════════════════════
 
 # ── Stage 5: Runtime (glibc Debian Bookworm base) ─────────────────────
-FROM eclipse-temurin:25-jre AS runtime
+FROM eclipse-temurin:25-jre@sha256:bb036ed6cfdc57e3da7c22634d15f1b840d2caf76183861c80e81ca4b5104abb AS runtime
 
 LABEL maintainer="Spectrayan <team@spectrayan.com>"
 LABEL org.opencontainers.image.title="Spector"

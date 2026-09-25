@@ -114,3 +114,10 @@ Configure container behavior via environment variables in `.env` or Compose:
 | `SPECTOR_DATA_DIR` | `/data` | Persistence directory for memory, index, and WAL storage |
 | `SPECTOR_DIMS` | `384` | Embedding vector dimensionality |
 | `JAVA_OPTS` | `-Xms512m -Xmx2g` | JVM memory parameters |
+
+---
+
+## Container Security & Digest Pinning
+
+All base images in `deploy/docker/Dockerfile` are cryptographically pinned using immutable `@sha256:` digests and scanned continuously for vulnerabilities. For details on image digests, automated weekly Dependabot updates, Trivy CI integration, and emergency CVE patch policies, see [Container Security & Base Image Pinning](container-security.md).
+

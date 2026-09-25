@@ -59,6 +59,7 @@ public final class SpectorMetrics {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "MeterRegistry");
         }
         SpectorMetrics.registry = registry;
+        PathwayMetrics.bind(registry);
     }
 
     /**

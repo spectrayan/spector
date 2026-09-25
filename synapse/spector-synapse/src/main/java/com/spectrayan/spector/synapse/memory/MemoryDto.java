@@ -157,8 +157,13 @@ public final class MemoryDto {
             Integer depth,
             List<String> tags,
             String scoringMode,
-            String recallMode
+            String recallMode,
+            Integer partitionVisitBudget
     ) {
+        public RecallRequest(String query, Integer topK, Integer depth, List<String> tags, String scoringMode, String recallMode) {
+            this(query, topK, depth, tags, scoringMode, recallMode, null);
+        }
+
         public RecallRequest {
             if (topK == null || topK <= 0) topK = 10;
             if (depth == null || depth <= 0) depth = 1;
@@ -291,6 +296,7 @@ public final class MemoryDto {
      * <p>Aligns with the {@code MemoryTableResponse} interface in the Angular
      * {@code MemoryTableService}.</p>
      *
+     * @param nextCursor      opaque base64 cursor token for the next page, or null if end of data
      * @param rows            paginated list of memory rows
      * @param totalCount      total matching records (before pagination)
      * @param page            current page number (0-based)
@@ -299,13 +305,19 @@ public final class MemoryDto {
      * @param tombstoneRatios tombstone ratio per tier (0.0 to 1.0)
      */
     public record MemoryTableResponse(
+            @JsonProperty("nextCursor") String nextCursor,
             @JsonProperty("rows") List<MemoryTableRow> rows,
             @JsonProperty("totalCount") int totalCount,
             @JsonProperty("page") int page,
             @JsonProperty("pageSize") int pageSize,
             @JsonProperty("tierCounts") Map<String, Integer> tierCounts,
             @JsonProperty("tombstoneRatios") Map<String, Float> tombstoneRatios
-    ) {}
+    ) {
+        public MemoryTableResponse(List<MemoryTableRow> rows, int totalCount, int page, int pageSize,
+                                   Map<String, Integer> tierCounts, Map<String, Float> tombstoneRatios) {
+            this(null, rows, totalCount, page, pageSize, tierCounts, tombstoneRatios);
+        }
+    }
 
     /**
      * Response for a single memory detail.
@@ -388,7 +400,7 @@ public final class MemoryDto {
     ) {}
 
     /**
-     * Cognitive recall result with memory type annotation.
+     * Cognitive recall result with memory type annotation and truncation status.
      */
     public record RecallResult(
             String id,
@@ -397,7 +409,23 @@ public final class MemoryDto {
             double cognitiveScore,
             String memoryType,
             String ageDescription,
-            List<String> tags
+            List<String> tags,
+            @JsonProperty("truncated") boolean truncated
+    ) {
+        public RecallResult(String id, String text, String tier, double cognitiveScore,
+                            String memoryType, String ageDescription, List<String> tags) {
+            this(id, text, tier, cognitiveScore, memoryType, ageDescription, tags, false);
+        }
+    }
+
+    /**
+     * Complete response payload for cognitive recall with truncation metadata (R3).
+     */
+    public record RecallResponse(
+            List<RecallResult> results,
+            boolean truncated,
+            int partitionsVisited,
+            int totalMemories
     ) {}
 
     /**

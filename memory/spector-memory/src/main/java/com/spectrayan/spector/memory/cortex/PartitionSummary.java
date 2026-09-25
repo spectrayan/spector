@@ -22,6 +22,7 @@ import com.spectrayan.spector.kernel.layout.EpisodicLayout;
 import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.kernel.bundle.PartitionSummaryHeader;
 
 import java.nio.file.Path;
 
@@ -69,6 +70,42 @@ public record PartitionSummary(
             boolean writable
     ) {
         this(seq, minTimestampMs, maxTimestampMs, synapticTagMask, 0L, semanticCount, episodicCount, proceduralCount, writable);
+    }
+
+    /**
+     * Converts this summary to a 64-byte {@link PartitionSummaryHeader} suitable for binary persistence
+     * at offset 512 of a partition bundle header.
+     */
+    public PartitionSummaryHeader toHeader() {
+        return new PartitionSummaryHeader(
+                seq, minTimestampMs, maxTimestampMs,
+                synapticTagMask, synapticTagMaskHi,
+                semanticCount, episodicCount, proceduralCount
+        );
+    }
+
+    /**
+     * Reconstructs a {@link PartitionSummary} from a persisted {@link PartitionSummaryHeader}.
+     *
+     * @param header the validated header read from the bundle (nullable)
+     * @param writable whether the partition is active/writable
+     * @return the partition summary, or {@code null} if header was null
+     */
+    public static PartitionSummary fromHeader(PartitionSummaryHeader header, boolean writable) {
+        if (header == null) {
+            return null;
+        }
+        return new PartitionSummary(
+                header.seq(),
+                header.minTimestampMs(),
+                header.maxTimestampMs(),
+                header.synapticTagMaskLo(),
+                header.synapticTagMaskHi(),
+                header.semanticCount(),
+                header.episodicCount(),
+                header.proceduralCount(),
+                writable
+        );
     }
 
     /**

@@ -69,6 +69,7 @@ import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryTableResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryTableRow;
 import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryVectorResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.RecallRequest;
+import com.spectrayan.spector.synapse.memory.MemoryDto.RecallResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.RecallResult;
 import com.spectrayan.spector.synapse.memory.MemoryDto.BrowseRequest;
 import com.spectrayan.spector.synapse.memory.MemoryDto.BrowseResult;
@@ -432,11 +433,15 @@ public class MemoryService {
         boolean hasCustomOptions = (request.tags() != null && !request.tags().isEmpty())
                 || request.scoringMode() != null
                 || request.recallMode() != null
+                || (request.partitionVisitBudget() != null && request.partitionVisitBudget() > 0)
                 || (reqCtx != null && (reqCtx.effectiveSalience() != null || reqCtx.primarySoul() != null));
 
         SpectorMemory memory = resolveMemory();
         if (hasCustomOptions) {
             var optionsBuilder = RecallOptions.builder().topK(request.topK() > 0 ? request.topK() : 10);
+            if (request.partitionVisitBudget() != null && request.partitionVisitBudget() > 0) {
+                optionsBuilder.partitionVisitBudget(request.partitionVisitBudget());
+            }
             if (reqCtx != null) {
                 if (reqCtx.effectiveSalience() != null) {
                     optionsBuilder.salienceProfile(reqCtx.effectiveSalience());
@@ -505,8 +510,18 @@ public class MemoryService {
                 .map(r -> new RecallResult(r.id(), r.text(), r.memoryType().name(),
                         (double) r.score(), r.memoryType().name(),
                         String.format("%.1f days", r.ageDays()),
-                        Arrays.asList(r.synapticTags())))
+                        Arrays.asList(r.synapticTags()),
+                        r.truncated()))
                 .toList();
+    }
+
+    /**
+     * Cognitive recall returning full RecallResponse with truncation metadata.
+     */
+    public RecallResponse recallWithResponse(RecallRequest request) {
+        List<RecallResult> list = recall(request);
+        boolean truncated = list.stream().anyMatch(RecallResult::truncated);
+        return new RecallResponse(list, truncated, 0, list.size());
     }
 
     /**
@@ -555,14 +570,26 @@ public class MemoryService {
     // ══════════════════════════════════════════════════════════════
 
     /**
-     * Returns a paginated memory table view for the Cortex UI.
+     * Returns a paginated memory table view for the Cortex UI (backward-compatible overload).
      */
     public MemoryTableResponse getMemoryTable(int page, int pageSize, String tierFilter, boolean showTombstoned) {
         int effectivePage = Math.max(0, page);
         int effectivePageSize = (pageSize > 0 && pageSize <= 500) ? pageSize : 50;
-        log.debug("[MemoryService] getMemoryTable: page={}, pageSize={}, tier={}, tombstoned={}",
-                effectivePage, effectivePageSize, tierFilter, showTombstoned);
         return mao.getMemoryTable(resolveMemory(), effectivePage, effectivePageSize, tierFilter, showTombstoned);
+    }
+
+    /**
+     * Returns a paginated memory table view with cursor pagination, partition gating, and scoping filters.
+     */
+    public MemoryTableResponse getMemoryTable(String cursor, int page, int pageSize,
+                                              Long createdFrom, Long createdTo,
+                                              String source, String tierFilter, boolean showTombstoned) {
+        int effectivePage = Math.max(0, page);
+        int effectivePageSize = (pageSize > 0 && pageSize <= 500) ? pageSize : 50;
+        log.debug("[MemoryService] getMemoryTable: cursor={}, page={}, pageSize={}, createdFrom={}, createdTo={}, source={}, tier={}, tombstoned={}",
+                cursor, effectivePage, effectivePageSize, createdFrom, createdTo, source, tierFilter, showTombstoned);
+        return mao.getMemoryTable(resolveMemory(), cursor, effectivePage, effectivePageSize,
+                createdFrom, createdTo, source, tierFilter, showTombstoned);
     }
 
     // ══════════════════════════════════════════════════════════════

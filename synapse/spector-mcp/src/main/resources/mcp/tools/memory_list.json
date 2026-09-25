@@ -1,0 +1,42 @@
+{
+  "name": "memory_list",
+  "description": "List memories with safe cursor pagination, time bounds, and tier filtering without scoring.",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:memory:read"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "cursor": {
+        "type": "string",
+        "description": "Opaque cursor token for pagination from previous memory_list response."
+      },
+      "limit": {
+        "type": "integer",
+        "description": "Maximum number of memories to return (default 50, max 500).",
+        "default": 50
+      },
+      "tier": {
+        "type": "string",
+        "description": "Filter by memory tier: 'WORKING', 'EPISODIC', 'SEMANTIC', 'PROCEDURAL'."
+      },
+      "source": {
+        "type": "string",
+        "description": "Filter by provenance source: e.g. 'USER_STATED', 'OBSERVED', 'SYSTEM'."
+      },
+      "created_from": {
+        "type": "integer",
+        "description": "Lower timestamp bound in epoch milliseconds (inclusive)."
+      },
+      "created_to": {
+        "type": "integer",
+        "description": "Upper timestamp bound in epoch milliseconds (inclusive)."
+      },
+      "namespace": {
+        "type": "string",
+        "description": "Target memory namespace (slug or ID). Omit to use connection or account default."
+      }
+    }
+  }
+}

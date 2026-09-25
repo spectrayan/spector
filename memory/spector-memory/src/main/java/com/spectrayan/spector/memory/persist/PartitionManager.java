@@ -32,6 +32,7 @@ import com.spectrayan.spector.kernel.id.MemoryId;
 import com.spectrayan.spector.kernel.storage.StoragePaths;
 import com.spectrayan.spector.kernel.bundle.compat.LegacyV3BundleFormat;
 import com.spectrayan.spector.kernel.bundle.PartitionBundle;
+import com.spectrayan.spector.kernel.bundle.PartitionSummaryHeader;
 import com.spectrayan.spector.kernel.region.RegionId;
 import com.spectrayan.spector.kernel.layout.StrengthLayout;
 import com.spectrayan.spector.kernel.layout.EngramLayout;
@@ -442,8 +443,21 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
 
         CognitiveMemoryRouter router = new CognitiveMemoryRouter(
                 workingStore, semantic, procedural, episodic, audit);
+
+        PartitionSummaryHeader summaryHeader = bundle.readSummary();
+        PartitionSummary summary;
+        if (summaryHeader != null) {
+            summary = PartitionSummary.fromHeader(summaryHeader, false);
+            log.debug("Loaded persisted partition summary for seq={} (records: sem={}, epi={}, proc={})",
+                    seq, summary.semanticCount(), summary.episodicCount(), summary.proceduralCount());
+        } else {
+            log.warn("Persisted partition summary header absent or CRC invalid for seq={} ({}); falling back to full scan",
+                    seq, dir.getFileName());
+            summary = PartitionSummary.fromRouter(seq, dir, router, false, null);
+        }
+
         log.info("Opened frozen bundle partition seq={} ({})", seq, dir.getFileName());
-        return new PartitionHandle(seq, dir, router, text, false, bundle);
+        return new PartitionHandle(seq, dir, router, text, false, bundle, summary);
     }
 
     /**
@@ -537,9 +551,12 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
                     CognitiveMemoryRouter frozenRouter = new CognitiveMemoryRouter(workingStore, frozenSemantic, frozenProcedural, frozenEpisodic, frozenAudit);
                     frozenSemantic.markFrozen();
                     frozenProcedural.markFrozen();
+                    PartitionSummary frozenSummary = PartitionSummary.fromRouter(
+                            oldActive.seq(), oldActive.dir(), frozenRouter, false, epochSecs);
+                    frozenBundle.writeSummary(frozenSummary.toHeader());
                     PartitionHandle frozenHandle = new PartitionHandle(
                             oldActive.seq(), oldActive.dir(), frozenRouter, frozenText, false, frozenBundle,
-                            PartitionSummary.fromRouter(oldActive.seq(), oldActive.dir(), frozenRouter, false, epochSecs));
+                            frozenSummary);
                     next.add(frozenHandle);
                     oldActive.partitionBundle().rollTo(newBundle);
                 } else {

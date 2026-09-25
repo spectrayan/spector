@@ -60,3 +60,12 @@ updates:
       - "client"
     open-pull-requests-limit: 5
 
+  - package-ecosystem: "docker"
+    directory: "/deploy/docker"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "docker"
+    open-pull-requests-limit: 5
+

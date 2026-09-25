@@ -214,32 +214,6 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
-  /api/v1/memory/{id}/purge:
-    delete:
-      tags:
-      - Memory
-      summary: Physically destroy (purge) a memory by ID
-      description: |
-        Physically overwrites payload bytes with zeros, detaches the record from all graph planes,
-        and logs the purge to the WAL. Irreversible. Discloses unreachable copies (DR exports, replica disks, cold tier).
-      operationId: purgeMemory
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        "200":
-          description: Memory purged successfully (audit report returned)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PurgeResult'
-        "404":
-          description: Memory not found
-        "409":
-          description: Namespace is under active legal hold
   /api/v1/credentials/{name}:
     get:
       tags:
@@ -1339,6 +1313,25 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/RecallResult"
+  /api/v1/memory/recall/response:
+    post:
+      tags:
+      - Memory
+      summary: Cognitive recall returning full response with truncation metadata
+      operationId: recallMemoriesWithResponse
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecallRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/RecallResponse"
   /api/v1/memory/ingest-file:
     post:
       tags:
@@ -2618,6 +2611,11 @@ paths:
       summary: Paginated memory table view for UI and exploration
       operationId: getMemoryTable
       parameters:
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
       - name: page
         in: query
         required: false
@@ -2632,6 +2630,23 @@ paths:
           type: integer
           format: int32
           default: 50
+      - name: created_from
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+      - name: created_to
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+      - name: source
+        in: query
+        required: false
+        schema:
+          type: string
       - name: tier
         in: query
         required: false
@@ -3595,6 +3610,25 @@ paths:
       responses:
         "200":
           description: OK
+  /api/v1/memory/{id}/purge:
+    delete:
+      tags:
+      - Memory
+      summary: Physically destroy (purge) a memory by ID
+      operationId: purgeMemory
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PurgeResult"
   /api/v1/auth/api-keys/{id}:
     delete:
       tags:
@@ -4673,6 +4707,9 @@ components:
           type: string
         recallMode:
           type: string
+        partitionVisitBudget:
+          type: integer
+          format: int32
     RecallResult:
       type: object
       properties:
@@ -4693,6 +4730,23 @@ components:
           type: array
           items:
             type: string
+        truncated:
+          type: boolean
+    RecallResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecallResult"
+        truncated:
+          type: boolean
+        partitionsVisited:
+          type: integer
+          format: int32
+        totalMemories:
+          type: integer
+          format: int32
     FederatedRecallRequest:
       type: object
       properties:
@@ -4815,6 +4869,8 @@ components:
         timestampMs:
           type: integer
           format: int64
+        truncated:
+          type: boolean
         simulated:
           type: boolean
         dreamed:
@@ -5424,55 +5480,6 @@ components:
         connectorCount:
           type: integer
           format: int32
-    PurgeResult:
-      type: object
-      properties:
-        memoryId:
-          type: string
-        namespaceId:
-          type: string
-        found:
-          type: boolean
-        purgedAt:
-          type: string
-          format: date-time
-        payloadBytesZeroed:
-          type: integer
-          format: int32
-        textBytesZeroed:
-          type: integer
-          format: int32
-        inlineTextDropped:
-          type: boolean
-        textRetainedShared:
-          type: integer
-          format: int32
-        textSharedWith:
-          type: integer
-          format: int32
-        hebbianEdgesRemoved:
-          type: integer
-          format: int32
-        temporalUnlinked:
-          type: boolean
-        entityLinksRemoved:
-          type: integer
-          format: int32
-        hyperedgesRemoved:
-          type: integer
-          format: int32
-        walRecorded:
-          type: boolean
-        retainedHeaderFields:
-          type: array
-          items:
-            type: string
-        unreachableCopies:
-          type: array
-          items:
-            type: string
-        disclosure:
-          type: string
     MemoryTableRow:
       type: object
       properties:
@@ -5677,6 +5684,8 @@ components:
     MemoryTableResponse:
       type: object
       properties:
+        nextCursor:
+          type: string
         rows:
           type: array
           items:
@@ -6325,6 +6334,55 @@ components:
         maxTotalMemories:
           type: integer
           format: int64
+    PurgeResult:
+      type: object
+      properties:
+        memoryId:
+          type: string
+        namespaceId:
+          type: string
+        found:
+          type: boolean
+        purgedAt:
+          type: string
+          format: date-time
+        payloadBytesZeroed:
+          type: integer
+          format: int32
+        textBytesZeroed:
+          type: integer
+          format: int32
+        inlineTextDropped:
+          type: boolean
+        textRetainedShared:
+          type: integer
+          format: int32
+        textSharedWith:
+          type: integer
+          format: int32
+        hebbianEdgesRemoved:
+          type: integer
+          format: int32
+        temporalUnlinked:
+          type: boolean
+        entityLinksRemoved:
+          type: integer
+          format: int32
+        hyperedgesRemoved:
+          type: integer
+          format: int32
+        walRecorded:
+          type: boolean
+        retainedHeaderFields:
+          type: array
+          items:
+            type: string
+        unreachableCopies:
+          type: array
+          items:
+            type: string
+        disclosure:
+          type: string
   securitySchemes:
     ApiKeyAuth:
       type: apiKey

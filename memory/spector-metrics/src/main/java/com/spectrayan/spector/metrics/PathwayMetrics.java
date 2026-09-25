@@ -171,6 +171,11 @@ public final class PathwayMetrics implements MeterBinder, PathwayObservationHook
                 .record(duration != null ? duration : Duration.ZERO);
     }
 
+    @Override
+    public void onRecallPartitionStats(final String namespace, final int visited, final int skipped, final int budgeted) {
+        com.spectrayan.spector.metrics.observation.RecallBudgetMetrics.record(registry, namespace, visited, skipped, budgeted);
+    }
+
     public MeterRegistry registry() {
         return registry;
     }

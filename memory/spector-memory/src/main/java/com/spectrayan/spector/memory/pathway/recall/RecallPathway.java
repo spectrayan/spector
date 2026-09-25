@@ -477,6 +477,9 @@ public final class RecallPathway extends AbstractPathway<RecallSignal, List<Cogn
             }
         }
 
+        if (signal != null && signal.isTruncated()) {
+            return allResults.stream().map(r -> r.withTruncated(true)).toList();
+        }
         return allResults;
     }
 

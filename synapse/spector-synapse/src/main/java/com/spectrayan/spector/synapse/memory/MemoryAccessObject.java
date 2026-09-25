@@ -19,12 +19,20 @@ import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import com.spectrayan.spector.commons.concurrent.SpectorExecutors;
 import com.spectrayan.spector.commons.concurrent.ThreadPlane;
+import com.spectrayan.spector.kernel.api.MemoryLocation;
+import com.spectrayan.spector.memory.cortex.PartitionHandle;
+import com.spectrayan.spector.memory.cortex.PartitionRegistry;
+import com.spectrayan.spector.memory.cortex.PartitionSummary;
+import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -445,61 +453,173 @@ public class MemoryAccessObject {
         }
     }
 
+    /** Total order comparator: (timestampMs DESC, id DESC). */
+    public static final Comparator<CognitiveRecord> TOTAL_ORDER_COMPARATOR = (a, b) -> {
+        int tsCmp = Long.compare(b.timestampMs(), a.timestampMs()); // newest first
+        if (tsCmp != 0) return tsCmp;
+        return b.id().compareTo(a.id()); // tiebreak by ID descending
+    };
+
     /**
-     * Returns a paginated memory table view for the Cortex UI.
+     * Returns a paginated memory table view for the Cortex UI (backward-compatible overload).
      */
     public MemoryTableResponse getMemoryTable(SpectorMemory memory, int page, int pageSize, String tierFilter, boolean showTombstoned) {
+        return getMemoryTable(memory, null, page, pageSize, null, null, null, tierFilter, showTombstoned);
+    }
+
+    /**
+     * Returns a paginated memory table view with opaque cursor pagination, partition gating, and scoping filters.
+     *
+     * <p>Adheres to Requirement R5, Interface Contract 4, and Invariant V3:
+     * <ul>
+     *   <li>Partitions outside {@code [createdFrom, createdTo]} are skipped via {@link PartitionSummary} gates without reading records.</li>
+     *   <li>Strict total ordering {@code (timestampMs DESC, id DESC)} guarantees deterministic cursor traversal under concurrent writes.</li>
+     *   <li>6-phase vector scoring is never invoked.</li>
+     * </ul>
+     * </p>
+     */
+    public MemoryTableResponse getMemoryTable(SpectorMemory memory, String cursor, int page, int pageSize,
+                                             Long createdFrom, Long createdTo, String sourceFilter,
+                                             String tierFilter, boolean showTombstoned) {
         if (!isAvailable(memory)) {
             var emptyCounts = Map.of("WORKING", 0, "EPISODIC", 0, "SEMANTIC", 0, "PROCEDURAL", 0);
             var emptyRatios = Map.of("WORKING", 0f, "EPISODIC", 0f, "SEMANTIC", 0f, "PROCEDURAL", 0f);
-            return new MemoryTableResponse(List.of(), 0, page, pageSize, emptyCounts, emptyRatios);
+            return new MemoryTableResponse(null, List.of(), 0, page, pageSize, emptyCounts, emptyRatios);
         }
 
+        if (createdFrom != null && createdTo != null && createdFrom > createdTo) {
+            var emptyCounts = Map.of("WORKING", 0, "EPISODIC", 0, "SEMANTIC", 0, "PROCEDURAL", 0);
+            var emptyRatios = Map.of("WORKING", 0f, "EPISODIC", 0f, "SEMANTIC", 0f, "PROCEDURAL", 0f);
+            return new MemoryTableResponse(null, List.of(), 0, page, pageSize, emptyCounts, emptyRatios);
+        }
+
+        CursorToken cursorToken = CursorToken.decode(cursor);
         var admin = memory.admin();
         MemoryType targetTier = MemoryTypeParser.safeMemoryType(tierFilter, null);
 
-        // Fetch all active cognitive records without loading large vector arrays into JVM memory
-        List<CognitiveRecord> allRecords = admin.listAll();
+        List<CognitiveRecord> candidateRecords = new ArrayList<>();
+        PartitionRegistry partitionRegistry = admin != null ? admin.partitionRegistry() : null;
 
-        List<MemoryTableRow> allRows = new ArrayList<>();
+        if (partitionRegistry != null && admin.index() != null) {
+            List<PartitionHandle> handles = partitionRegistry.snapshot();
+            Set<Integer> intersectingPartitions = new HashSet<>();
+            for (PartitionHandle handle : handles) {
+                PartitionSummary summary = handle.summary();
+                if (summary == null) {
+                    intersectingPartitions.add(handle.seq());
+                    continue;
+                }
+                // Check temporal gates [minTimestampMs, maxTimestampMs]
+                if (createdFrom != null && summary.maxTimestampMs() < createdFrom) {
+                    continue; // Skip out-of-range partition
+                }
+                if (createdTo != null && summary.minTimestampMs() > createdTo) {
+                    continue; // Skip out-of-range partition
+                }
+                intersectingPartitions.add(handle.seq());
+            }
+
+            MemoryIndex index = admin.index();
+            for (Map.Entry<String, MemoryLocation> entry : index.locationMap().entrySet()) {
+                MemoryLocation loc = entry.getValue();
+                if (!intersectingPartitions.contains(loc.colocatedPartition())) {
+                    continue;
+                }
+                if (targetTier != null && loc.type() != targetTier) {
+                    continue;
+                }
+                String memId = entry.getKey();
+                if (sourceFilter != null) {
+                    MemorySource src = index.source(memId);
+                    if (src == null || !src.name().equalsIgnoreCase(sourceFilter)) {
+                        continue;
+                    }
+                }
+
+                CognitiveRecord record = memory.inspect(memId);
+                if (record == null) continue;
+                if (!showTombstoned && record.isTombstoned()) continue;
+                if (createdFrom != null && record.timestampMs() < createdFrom) continue;
+                if (createdTo != null && record.timestampMs() > createdTo) continue;
+                if (targetTier != null && record.memoryType() != targetTier) continue;
+                if (sourceFilter != null && (record.source() == null || !record.source().name().equalsIgnoreCase(sourceFilter))) continue;
+
+                candidateRecords.add(record);
+            }
+        } else {
+            // Fallback when partition registry is not present (e.g. In mocks)
+            List<CognitiveRecord> allRecords = admin != null ? admin.listAll() : List.of();
+            for (CognitiveRecord record : allRecords) {
+                if (targetTier != null && record.memoryType() != targetTier) continue;
+                if (!showTombstoned && record.isTombstoned()) continue;
+                if (createdFrom != null && record.timestampMs() < createdFrom) continue;
+                if (createdTo != null && record.timestampMs() > createdTo) continue;
+                if (sourceFilter != null && (record.source() == null || !record.source().name().equalsIgnoreCase(sourceFilter))) continue;
+
+                candidateRecords.add(record);
+            }
+        }
+
+        // Strict total ordering (timestampMs DESC, id DESC)
+        candidateRecords.sort(TOTAL_ORDER_COMPARATOR);
+        int totalCount = candidateRecords.size();
+
         Map<String, Integer> tierCounts = new LinkedHashMap<>();
-
-        // Initialize tier counts
         for (MemoryType type : MemoryType.values()) {
-            tierCounts.put(type.name(), 0);
+            try {
+                tierCounts.put(type.name(), memory.memoryCount(type));
+            } catch (Exception e) {
+                tierCounts.put(type.name(), 0);
+            }
+        }
+        boolean hasAnyCount = tierCounts.values().stream().anyMatch(c -> c > 0);
+        if (!hasAnyCount) {
+            for (CognitiveRecord record : candidateRecords) {
+                String tierName = record.memoryType().name();
+                tierCounts.put(tierName, tierCounts.getOrDefault(tierName, 0) + 1);
+            }
         }
 
-        for (CognitiveRecord record : allRecords) {
-            // Track per-tier active counts
-            String tierName = record.memoryType().name();
-            tierCounts.put(tierName, tierCounts.getOrDefault(tierName, 0) + 1);
+        List<CognitiveRecord> pageRecords;
+        String nextCursor = null;
 
-            // Filter by target tier if specified
-            if (targetTier != null && record.memoryType() != targetTier) {
-                continue;
+        if (cursorToken != null) {
+            List<CognitiveRecord> afterCursor = new ArrayList<>();
+            for (CognitiveRecord r : candidateRecords) {
+                boolean isAfter = (r.timestampMs() < cursorToken.timestampMs())
+                        || (r.timestampMs() == cursorToken.timestampMs() && r.id().compareTo(cursorToken.id()) < 0);
+                if (isAfter) {
+                    afterCursor.add(r);
+                }
             }
-
-            // Filter by tombstone if specified
-            if (!showTombstoned && record.isTombstoned()) {
-                continue;
+            int toIndex = Math.min(pageSize, afterCursor.size());
+            pageRecords = afterCursor.subList(0, toIndex);
+            if (toIndex < afterCursor.size() && !pageRecords.isEmpty()) {
+                CognitiveRecord last = pageRecords.get(pageRecords.size() - 1);
+                nextCursor = CursorToken.encode(last.timestampMs(), last.id());
             }
-
-            allRows.add(toTableRow(record, true));
+        } else {
+            int fromIndex = page * pageSize;
+            int toIndex = Math.min(fromIndex + pageSize, totalCount);
+            pageRecords = fromIndex < totalCount ? candidateRecords.subList(fromIndex, toIndex) : List.of();
+            if (toIndex < totalCount && !pageRecords.isEmpty()) {
+                CognitiveRecord last = pageRecords.get(pageRecords.size() - 1);
+                nextCursor = CursorToken.encode(last.timestampMs(), last.id());
+            }
         }
 
-        // Sort by creation time (newest first)
-        allRows.sort((a, b) -> Long.compare(b.timestampMs(), a.timestampMs()));
-
-        int totalCount = allRows.size();
-        int fromIndex = page * pageSize;
-        int toIndex = Math.min(fromIndex + pageSize, totalCount);
-        List<MemoryTableRow> pageRows = fromIndex < totalCount
-                ? allRows.subList(fromIndex, toIndex) : List.of();
+        List<MemoryTableRow> pageRows = pageRecords.stream()
+                .map(r -> toTableRow(r, true))
+                .toList();
 
         Map<String, Float> tombstoneRatios = new LinkedHashMap<>();
-        admin.tombstoneRatios().forEach((k, v) -> tombstoneRatios.put(k.name(), v));
+        if (admin != null) {
+            try {
+                admin.tombstoneRatios().forEach((k, v) -> tombstoneRatios.put(k.name(), v));
+            } catch (Exception ignored) {}
+        }
 
-        return new MemoryTableResponse(pageRows, totalCount, page, pageSize,
+        return new MemoryTableResponse(nextCursor, pageRows, totalCount, page, pageSize,
                 tierCounts, tombstoneRatios);
     }
 

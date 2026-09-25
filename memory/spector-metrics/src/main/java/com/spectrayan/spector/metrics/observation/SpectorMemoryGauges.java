@@ -76,5 +76,8 @@ public class SpectorMemoryGauges implements MeterBinder {
                 b4.register(registry);
             }
         }
+
+        // Graph Telemetry Gauges (Milestone 4 / ADR-0083 / R4)
+        new GraphMetricsBinder(memory, namespaceId).bindTo(registry);
     }
 }

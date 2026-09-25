@@ -53,7 +53,7 @@ The governance hierarchy is structured into the following defined roles:
   - Java Panama Foreign Function & Memory (FFM) off-heap layouts.
   - SIMD vector acceleration and hardware kernel kernels (`jdk.incubator.vector`).
   - Off-heap zero-copy memory layouts, bundle kernels, and memory recycling.
-  - Biologically-inspired cognitive memory algorithms and mathematical kernels.
+  - Memory algorithms covering tiered retention, temporal decay, association graphs, offline consolidation, and the mathematical kernels that implement them.
   - Distributed cell clustering, consensus, and disaster recovery.
 - Authors and vets Architecture Decision Records (ADRs) and Requests for Comments (RFCs).
 
@@ -102,10 +102,16 @@ Spector provides a transparent ladder for advancement within the project:
 In recognition of outstanding contributions to Spector:
 - **Timothy Kim ([@timothytkim](https://github.com/timothytkim))** has authored 5 merged pull requests spanning vector index diagnostics (#936), kernel documentation (#939), provider architecture (#878), cognitive neuroscience taxonomy (#904), and Prometheus metrics observability (#920). Timothy Kim is explicitly recognized as **immediately eligible** for Tier 2 Committer / Reviewer appointment.
 
-### Stepping Down & Emeritus Status
+### 3.1 Stepping Down & Emeritus Status
 Community members may step down from Maintainer or TSC roles at any time:
 - Maintainers or TSC members inactive for more than 6 months without notice may be transitioned to **Emeritus** status by the TSC.
 - Emeritus members remain permanently honored in [ACKNOWLEDGMENTS.md](https://github.com/spectrayan/spector/blob/main/ACKNOWLEDGMENTS.md) and may request reactivation via a simple majority vote of the TSC.
+
+### 3.2 Project Continuity & Redundancy
+To ensure uninterrupted project operations if any single individual becomes unavailable, incapacitated, or steps down:
+- **Administrative & Organization Redundancy**: Organization ownership, domain management, and repository administration in the `@spectrayan` GitHub organization are held across multiple administrative contacts and backup credentials.
+- **Release Automation**: Release pipelines and publishing credentials (GHCR, PyPI, npm, Maven) are managed through organization-level GitHub Actions secrets and automated workflows, enabling any authorized Maintainer or TSC member to issue releases.
+- **Review & Merge Rights**: Issue triage, pull request review, and merge authority on `main` are assigned to functional team aliases (`@spectrayan/spector-maintainers`, `@spectrayan/spector-tsc`) defined in `.github/CODEOWNERS`, ensuring that issue tracking, review, and new releases can proceed within one week of any contributor departure.
 
 ---
 
@@ -138,7 +144,7 @@ A 2/3 affirmative supermajority of the Technical Steering Committee is required 
 - Accepting or superseding Architecture Decision Records (ADRs).
 - Breaking architectural changes or backwards-incompatible API removals.
 - Modifying licensing terms or license header requirements.
-- Amending this governance document.
+- Amending this `GOVERNANCE.md` document.
 - Appointing new TSC members or removing members for Code of Conduct violations.
 
 ### 4.4 Voting Process & Deadlocks
@@ -187,7 +193,7 @@ PRs lacking DCO sign-offs cannot be merged into `main`.
 
 ## 7. Security Vulnerability Reporting
 
-Security is paramount in an AI memory backbone handling sensitive agent contexts. Security disclosures must follow the coordinated process outlined in [SECURITY.md](https://github.com/spectrayan/spector/blob/main/SECURITY.md):
+Security is paramount in an AI memory engine handling sensitive agent contexts. Security disclosures must follow the coordinated process outlined in [SECURITY.md](https://github.com/spectrayan/spector/blob/main/SECURITY.md):
 - Security issues must **not** be reported on public GitHub issues.
 - Reports should be submitted privately via GitHub Security Advisories or emailed to `security@spectrayan.com`.
 - The TSC Security Taskforce will acknowledge receipt within 24 hours and issue fixes under an embargoed advisory until patches are released.

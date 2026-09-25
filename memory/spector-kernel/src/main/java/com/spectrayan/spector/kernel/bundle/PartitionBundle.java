@@ -492,6 +492,58 @@ public final class PartitionBundle implements AbstractBundle {
     }
 
     /**
+     * Persists the partition summary into the bundle header page at offset 512 (64 bytes)
+     * with CRC32C checksum and flushes the header slice to disk if file-backed.
+     *
+     * @param summary the partition summary header to persist
+     */
+    public void writeSummary(PartitionSummaryHeader summary) {
+        if (summary == null) {
+            return;
+        }
+        if (masterSegment != null && masterSegment.byteSize() >= PartitionSummaryHeader.OFFSET + PartitionSummaryHeader.SIZE) {
+            summary.write(masterSegment);
+            if (bundlePath != null && arena != null && arena.scope().isAlive()) {
+                masterSegment.asSlice(PartitionSummaryHeader.OFFSET, PartitionSummaryHeader.SIZE).force();
+            }
+        }
+    }
+
+    /**
+     * Convenience method to write summary fields directly.
+     */
+    public void writeSummary(int seq, long minTimestampMs, long maxTimestampMs,
+                             long synapticTagMaskLo, long synapticTagMaskHi,
+                             int semanticCount, int episodicCount, int proceduralCount) {
+        writeSummary(new PartitionSummaryHeader(
+                seq, minTimestampMs, maxTimestampMs,
+                synapticTagMaskLo, synapticTagMaskHi,
+                semanticCount, episodicCount, proceduralCount));
+    }
+
+    /**
+     * Reads and CRC-validates the persisted partition summary header at offset 512.
+     *
+     * @return the validated PartitionSummaryHeader, or {@code null} if absent or CRC mismatch
+     */
+    public PartitionSummaryHeader readSummary() {
+        if (masterSegment == null || masterSegment.byteSize() < PartitionSummaryHeader.OFFSET + PartitionSummaryHeader.SIZE) {
+            return null;
+        }
+        return PartitionSummaryHeader.read(masterSegment);
+    }
+
+    /**
+     * Returns true if a valid CRC32C-verified summary header is present in this bundle.
+     */
+    public boolean hasValidSummary() {
+        if (masterSegment == null || masterSegment.byteSize() < PartitionSummaryHeader.OFFSET + PartitionSummaryHeader.SIZE) {
+            return false;
+        }
+        return PartitionSummaryHeader.isValid(masterSegment);
+    }
+
+    /**
      * Flushes the directory and forces the master segment to disk.
      */
     public void flush() {

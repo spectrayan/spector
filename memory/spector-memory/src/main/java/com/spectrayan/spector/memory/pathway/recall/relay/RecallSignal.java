@@ -50,6 +50,10 @@ public final class RecallSignal extends com.spectrayan.spector.commons.pathway.A
     private boolean textSearchExecuted = false;
     private boolean rrfFused = false;
     private float effectiveTemperature = 1.0f;
+    private boolean truncated = false;
+    private int partitionsVisited = 0;
+    private int partitionsSkipped = 0;
+    private int partitionsBudgeted = 0;
 
     private final java.util.Map<String, Object> attributes = new java.util.concurrent.ConcurrentHashMap<>();
 
@@ -105,6 +109,10 @@ public final class RecallSignal extends com.spectrayan.spector.commons.pathway.A
         fork.textSearchExecuted = this.textSearchExecuted;
         fork.rrfFused = this.rrfFused;
         fork.effectiveTemperature = this.effectiveTemperature;
+        fork.truncated = this.truncated;
+        fork.partitionsVisited = this.partitionsVisited;
+        fork.partitionsSkipped = this.partitionsSkipped;
+        fork.partitionsBudgeted = this.partitionsBudgeted;
         fork.attributes.putAll(this.attributes);
         if (this.context() != null) {
             fork.bind(this.context());
@@ -135,6 +143,12 @@ public final class RecallSignal extends com.spectrayan.spector.commons.pathway.A
             if (fork.rrfFused) {
                 this.rrfFused = true;
             }
+            if (fork.truncated) {
+                this.truncated = true;
+            }
+            this.partitionsVisited += fork.partitionsVisited;
+            this.partitionsSkipped += fork.partitionsSkipped;
+            this.partitionsBudgeted += fork.partitionsBudgeted;
             final List<RelayTrace> currentTraces = this.traces();
             for (final RelayTrace trace : fork.traces()) {
                 if (!currentTraces.contains(trace)) {
@@ -328,5 +342,72 @@ public final class RecallSignal extends com.spectrayan.spector.commons.pathway.A
      */
     public void setFinalizedResults(final List<CognitiveResult> finalizedResults) {
         this.finalizedResults = List.copyOf(finalizedResults);
+    }
+
+    /**
+     * Indicates whether the candidate partitions or recall results were truncated due to visit budget capping.
+     *
+     * @return true if truncated, false otherwise
+     */
+    public boolean isTruncated() {
+        return truncated;
+    }
+
+    /**
+     * Alias for {@link #isTruncated()}.
+     */
+    public boolean truncated() {
+        return truncated;
+    }
+
+    /**
+     * Sets whether the recall results were truncated.
+     *
+     * @param truncated true if truncated
+     */
+    public void setTruncated(final boolean truncated) {
+        this.truncated = truncated;
+    }
+
+    /**
+     * Returns the count of partitions visited during recall scan.
+     */
+    public int partitionsVisited() {
+        return partitionsVisited;
+    }
+
+    /**
+     * Sets the count of partitions visited during recall scan.
+     */
+    public void setPartitionsVisited(final int partitionsVisited) {
+        this.partitionsVisited = partitionsVisited;
+    }
+
+    /**
+     * Returns the count of partitions skipped by pruning during recall scan.
+     */
+    public int partitionsSkipped() {
+        return partitionsSkipped;
+    }
+
+    /**
+     * Sets the count of partitions skipped by pruning during recall scan.
+     */
+    public void setPartitionsSkipped(final int partitionsSkipped) {
+        this.partitionsSkipped = partitionsSkipped;
+    }
+
+    /**
+     * Returns the count of partitions dropped due to visit budget capping.
+     */
+    public int partitionsBudgeted() {
+        return partitionsBudgeted;
+    }
+
+    /**
+     * Sets the count of partitions dropped due to visit budget capping.
+     */
+    public void setPartitionsBudgeted(final int partitionsBudgeted) {
+        this.partitionsBudgeted = partitionsBudgeted;
     }
 }

@@ -36,6 +36,7 @@ import com.spectrayan.spector.mcp.tools.memory.MemoryWhyNotTool;
 import com.spectrayan.spector.mcp.tools.memory.MemoryComputeImportanceTool;
 import com.spectrayan.spector.mcp.tools.memory.MemoryInspectTool;
 import com.spectrayan.spector.mcp.tools.memory.MemoryExportTool;
+import com.spectrayan.spector.mcp.tools.memory.MemoryListTool;
 import com.spectrayan.spector.mcp.tools.memory.MemoryBrowseTool;
 import com.spectrayan.spector.mcp.tools.memory.MemoryConsolidateTool;
 import com.spectrayan.spector.mcp.tools.memory.MemoryContextPackTool;
@@ -96,6 +97,7 @@ public final class SpectorToolRegistry {
             handlers.add(new MemoryComputeImportanceTool(memory));
             handlers.add(new MemoryInspectTool(memory));
             handlers.add(new MemoryExportTool(memory));
+            handlers.add(new MemoryListTool(memory));
             handlers.add(new MemoryBrowseTool(memory));
             handlers.add(new MemoryConsolidateTool(memory));
             handlers.add(new MemorySalienceTool(memory));
@@ -140,6 +142,7 @@ public final class SpectorToolRegistry {
         handlers.add(new MemoryComputeImportanceTool(memoryResolver));
         handlers.add(new MemoryInspectTool(memoryResolver));
         handlers.add(new MemoryExportTool(memoryResolver));
+        handlers.add(new MemoryListTool(memoryResolver));
         handlers.add(new MemoryBrowseTool(memoryResolver));
         handlers.add(new MemoryConsolidateTool(memoryResolver));
         handlers.add(new MemorySalienceTool(memoryResolver));

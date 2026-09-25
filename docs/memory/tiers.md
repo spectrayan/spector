@@ -19,7 +19,7 @@ graph TB
     end
     
     DISP --> WM["🧪 Working Memory<br/>Prefrontal Cortex<br/>━━━━━━━━━━━━━━━━━<br/>Volatile circular buffer<br/>~100 records<br/>runtime.bundle"]
-    DISP --> EM["📝 Episodic Memory<br/>Hippocampus<br/>━━━━━━━━━━━━━━━━━<br/>Time-partitioned bundles<br/>Unbounded history<br/>partition.bundle"]
+    DISP --> EM["📝 Episodic Memory<br/>Hippocampus<br/>━━━━━━━━━━━━━━━━━<br/>Time-partitioned bundles<br/>Empirical scale: 10M engrams<br/>partition.bundle"]
     DISP --> SE["🧬 Semantic Memory<br/>Neocortex<br/>━━━━━━━━━━━━━━━━━<br/>Crystallized knowledge<br/>Permanent storage<br/>partition.bundle"]
     DISP --> PR["⚙️ Procedural Memory<br/>Basal Ganglia<br/>━━━━━━━━━━━━━━━━━<br/>Learned rules & skills<br/>High persistence<br/>partition.bundle"]
 ```
@@ -60,7 +60,7 @@ Working memory operates as a high-speed circular buffer: when the allocated capa
 | Property | Value |
 |:---|:---|
 | **Physical Storage** | Memory-mapped partition bundles (`partitions/{seq}/partition.bundle`) |
-| **Capacity** | Unbounded across sequential partition chunks (default: 10,000 engrams per partition) |
+| **Capacity** | Scalable across sequential partition chunks (default: 10,000 engrams/partition; validated at 100k, 1M, 10M engrams) |
 | **Eviction Policy** | Logical tombstoning with background compaction |
 | **Persistence** | Full — durable across restarts via Write-Ahead Log (WAL) |
 | **Primary Use Cases** | Temporal history ("What occurred in yesterday's session?", "How did the user resolve this error last week?") |
@@ -93,7 +93,7 @@ stateDiagram-v2
 | Property | Value |
 |:---|:---|
 | **Physical Storage** | Partition bundles (`partition.bundle`) |
-| **Capacity** | Unbounded (scales across partition bundles) |
+| **Capacity** | Scalable across partition bundles (governed by visit budget and memory headroom; benchmarked to 10M engrams) |
 | **Eviction Policy** | Tombstoning with capacity-aware growth |
 | **Persistence** | Full — persistent and durable |
 | **Recall Method** | Parallel SIMD vector scan and hybrid keyword retrieval |

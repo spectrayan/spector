@@ -1,6 +1,6 @@
 {
   "name": "memory_export",
-  "description": "Export all memories as a JSON array. Each entry contains the full cognitive profile: text, memory type, source, tags, importance, valence, arousal, recall counts, storage strength, synaptic tags bloom filter, flags, and physical location. Use for backup, migration to other systems, audit, or debugging. For filtered exports, use memory_browse with tag filters first.",
+  "description": "Export memories as a JSON array with optional scoping filters and cursor pagination. Each entry contains the full cognitive profile: text, memory type, source, tags, importance, valence, arousal, recall counts, storage strength, synaptic tags bloom filter, flags, and physical location. Use for backup, migration to other systems, audit, or debugging.",
   "category": "MEMORY",
   "scopes": [
     "spector:memory:read"
@@ -8,6 +8,30 @@
   "inputSchema": {
     "type": "object",
     "properties": {
+      "cursor": {
+        "type": "string",
+        "description": "Opaque cursor token for pagination from previous memory_export response."
+      },
+      "limit": {
+        "type": "integer",
+        "description": "Maximum number of memories to return (optional; omit for full export or default)."
+      },
+      "tier": {
+        "type": "string",
+        "description": "Filter by memory tier: 'WORKING', 'EPISODIC', 'SEMANTIC', 'PROCEDURAL'."
+      },
+      "source": {
+        "type": "string",
+        "description": "Filter by provenance source: e.g. 'USER_STATED', 'OBSERVED', 'SYSTEM'."
+      },
+      "created_from": {
+        "type": "integer",
+        "description": "Lower timestamp bound in epoch milliseconds (inclusive)."
+      },
+      "created_to": {
+        "type": "integer",
+        "description": "Upper timestamp bound in epoch milliseconds (inclusive)."
+      },
       "format": {
         "type": "string",
         "description": "Export format: 'json' (default). Future: 'csv', 'markdown'.",

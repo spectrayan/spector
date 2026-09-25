@@ -17,10 +17,14 @@ package com.spectrayan.spector.memory.pathway.recall.relay;
 
 import com.spectrayan.spector.commons.concurrent.ConcurrentExecutionException;
 import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
+import com.spectrayan.spector.commons.concurrent.MemoryScope;
+import com.spectrayan.spector.commons.observation.MemoryObservationHook;
+import com.spectrayan.spector.commons.observation.PathwayObservationHooks;
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.memory.cortex.PartitionRegistry;
+import com.spectrayan.spector.memory.cortex.PartitionSummary;
 import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.kernel.api.MemoryType;
@@ -40,6 +44,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.Callable;
 
@@ -161,11 +166,24 @@ public final class CorticalTierScanRelay implements SynapticRelay<RecallSignal> 
             try {
                 final List<List<CognitiveResult>> tierResults = ConcurrentTasks.forkJoinAll(scanTasks);
                 for (final List<CognitiveResult> tier : tierResults) {
-                    allResults.addAll(tier);
+                    if (signal.isTruncated()) {
+                        for (final CognitiveResult cr : tier) {
+                            allResults.add(cr.withTruncated(true));
+                        }
+                    } else {
+                        allResults.addAll(tier);
+                    }
                 }
             } catch (final ConcurrentExecutionException e) {
                 log.error("Parallel tier scan failed: {}", e.getMessage(), e);
-                allResults.addAll(sequentialScan(signal, queryVector, rawQuery, options, nowMs, targetTypes, effectiveScoreFunc, effectiveEpisodicFunc));
+                List<CognitiveResult> fallback = sequentialScan(signal, queryVector, rawQuery, options, nowMs, targetTypes, effectiveScoreFunc, effectiveEpisodicFunc);
+                if (signal.isTruncated()) {
+                    for (final CognitiveResult cr : fallback) {
+                        allResults.add(cr.withTruncated(true));
+                    }
+                } else {
+                    allResults.addAll(fallback);
+                }
             } catch (final InterruptedException e) {
                 Thread.currentThread().interrupt();
                 log.warn("Recall interrupted during parallel scan");
@@ -173,6 +191,40 @@ public final class CorticalTierScanRelay implements SynapticRelay<RecallSignal> 
             }
         }
         return true;
+    }
+
+    /**
+     * Dedicated post-pruning visit budget stage applied strictly after {@code PartitionPruner.prune}.
+     * Enforces Interface Contract 2 (recency-first ordering and budget truncation).
+     */
+    public static final class PartitionVisitBudgetStage {
+
+        public static final Comparator<PartitionHandle> RECENCY_FIRST_COMPARATOR = (a, b) -> {
+            PartitionSummary sa = a.summary();
+            PartitionSummary sb = b.summary();
+            long tsA = sa != null ? sa.maxTimestampMs() : Long.MAX_VALUE;
+            long tsB = sb != null ? sb.maxTimestampMs() : Long.MAX_VALUE;
+            int tsCmp = Long.compare(tsB, tsA); // newest first
+            if (tsCmp != 0) return tsCmp;
+
+            int seqA = sa != null ? sa.seq() : a.seq();
+            int seqB = sb != null ? sb.seq() : b.seq();
+            return Integer.compare(seqB, seqA); // higher sequence first
+        };
+
+        public record BudgetResult(List<PartitionHandle> candidates, int visited, int skipped, int budgeted, boolean truncated) {}
+
+        public static BudgetResult apply(List<PartitionHandle> surviving, int totalPartitions, int budget) {
+            int skipped = Math.max(0, totalPartitions - surviving.size());
+            if (budget <= 0 || surviving.size() <= budget) {
+                return new BudgetResult(surviving, surviving.size(), skipped, 0, false);
+            }
+            List<PartitionHandle> sorted = new ArrayList<>(surviving);
+            sorted.sort(RECENCY_FIRST_COMPARATOR);
+            List<PartitionHandle> truncatedList = sorted.subList(0, budget);
+            int budgeted = surviving.size() - budget;
+            return new BudgetResult(truncatedList, budget, skipped, budgeted, true);
+        }
     }
 
     private void scan(final RecallSignal signal, final ScanEmitter emitter, final MemoryType[] targetTypes, final RecallOptions options, final long nowMs) {
@@ -200,7 +252,40 @@ public final class CorticalTierScanRelay implements SynapticRelay<RecallSignal> 
 
         final List<PartitionHandle> candidatePartitions = partitionPruner.prune(snapshot, options, targetTypes, nowMs);
 
-        for (final PartitionHandle handle : candidatePartitions) {
+        final int budget = options != null ? options.partitionVisitBudget() : 0;
+        final PartitionVisitBudgetStage.BudgetResult budgetResult =
+                PartitionVisitBudgetStage.apply(candidatePartitions, snapshot.size(), budget);
+        final List<PartitionHandle> effectivePartitions = budgetResult.candidates();
+
+        if (signal != null) {
+            if (budgetResult.truncated()) {
+                signal.setTruncated(true);
+            }
+            signal.setPartitionsVisited(budgetResult.visited());
+            signal.setPartitionsSkipped(budgetResult.skipped());
+            signal.setPartitionsBudgeted(budgetResult.budgeted());
+
+            String ns = null;
+            Object attrNs = signal.attributes().get(MemoryObservationHook.TAG_NAMESPACE);
+            if (attrNs instanceof String s && !s.isBlank()) {
+                ns = s;
+            } else {
+                Object altNs = signal.attributes().get("namespace");
+                if (altNs instanceof String s2 && !s2.isBlank()) {
+                    ns = s2;
+                }
+            }
+            if (ns == null || ns.isBlank()) {
+                ns = MemoryScope.namespaceId();
+            }
+            if (ns == null || ns.isBlank()) {
+                ns = "default";
+            }
+            PathwayObservationHooks.get(signal.context()).onRecallPartitionStats(
+                    ns, budgetResult.visited(), budgetResult.skipped(), budgetResult.budgeted());
+        }
+
+        for (final PartitionHandle handle : effectivePartitions) {
             for (final TierScanStrategy strategy : PER_PARTITION_SCANS) {
                 strategy.contribute(ctx, handle, emitter);
             }
@@ -213,6 +298,9 @@ public final class CorticalTierScanRelay implements SynapticRelay<RecallSignal> 
         final List<CognitiveResult> results = new ArrayList<>();
         scan(signal, new SequentialScanEmitter(results, queryVector, rawQuery, options, nowMs, scoreFunc, episodicScoreFunc, semanticRecallStrategy),
                 targetTypes, options, nowMs);
+        if (signal != null && signal.isTruncated()) {
+            return results.stream().map(r -> r.withTruncated(true)).toList();
+        }
         return results;
     }
 

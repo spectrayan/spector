@@ -2,6 +2,8 @@
 
 The Spector project takes security vulnerabilities seriously. We appreciate the responsible disclosure of vulnerabilities by the security community and are committed to addressing reported issues promptly and transparently following Linux Foundation / OpenSSF Coordinated Vulnerability Disclosure (CVD) best practices.
 
+> For our formal threat model, trust boundaries, secure design principles, and CWE countermeasure justifications, see our [Security Assurance Case](docs/architecture/security-assurance.md).
+
 ---
 
 ## Supported Versions
@@ -61,6 +63,20 @@ We adhere to the following coordinated disclosure service levels based on CVSS v
 2. **Investigation & Triage**: Maintainers validate the reproduction in a private security fork, assess severity, and assign a CVE identifier if applicable.
 3. **Remediation**: A candidate patch is prepared and shared privately with the reporter for validation.
 4. **Advisory & Release**: A coordinated release is published alongside a GitHub Security Advisory (GHSA). The reporter is credited in the advisory unless they request anonymity.
+
+## Security Guarantees & Non-Guarantees (Security Requirements)
+
+### What Users CAN Expect
+- **Physical Tenant Isolation**: Separate on-disk namespaces guarantee zero cross-tenant memory, graph, or engram leakage.
+- **At-Rest Confidentiality**: User text payloads, write-ahead logs (WAL), and entity metadata are encrypted using AES-256-GCM with per-tenant keys.
+- **Memory Safety**: Off-heap native memory operations in Java 25 Panama FFM use strictly bounded arenas that throw exceptions rather than allowing buffer overflows or use-after-free corruption.
+- **Timing Attack Resistance**: API key validation and HMAC blind index checks execute via constant-time comparisons.
+- **Supply Chain Integrity**: Every commit is signed with DCO 1.1; container release digests are pinned; dependencies are scanned continuously with CodeQL and Dependabot.
+
+### What Users CANNOT Expect (Operator Responsibilities)
+- **Application-Layer Vector Decryption**: Vector embedding slabs (`.bundle` files) are memory-mapped for microsecond SIMD search and are not encrypted at the application layer. Operators **must** enable full-disk or volume-level encryption (LUKS, BitLocker, or cloud volume encryption) and enforce strict filesystem permissions (`chmod 0600`) to protect raw vector data.
+- **Implicit Network Perimeter Security**: While TLS is supported, internal ports must not be exposed directly to the public internet without mutual TLS (mTLS), API key authentication, or an authenticating reverse proxy / API gateway.
+- **Protection Against Host Compromise**: Spector cannot defend against attacks if the host operating system, JVM runtime, or a root-privileged host user is compromised.
 
 ---
 

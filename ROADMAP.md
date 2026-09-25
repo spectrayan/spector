@@ -71,6 +71,16 @@ flowchart LR
 
 ---
 
+## 🚫 Non-Goals & Boundaries (What We Will NOT Do)
+
+To maintain architectural integrity, predictable performance, and focus as shared infrastructure:
+1. **Not an Agent Framework or Orchestrator**: Spector will not implement agent loops, prompt templates, or orchestration DAGs. It is memory infrastructure that plugs under agents via MCP and A2A, not a replacement for Goose, LangChain, or Claude Code.
+2. **Not a General-Purpose Database**: Spector will not implement SQL query engines, arbitrary relational joins, or general document store semantics. It focuses strictly on tiered cognitive memory, decay, and associative recall.
+3. **No External Framework Dependencies in Core**: The engine kernel (`spector-core`, `spector-kernel`, `spector-memory`) will remain strictly zero-dependency, rejecting additions of Spring, Netty, or third-party serialization libraries on hot paths.
+4. **No Proprietary Cloud Lock-In**: Spector will not gate engine features behind proprietary cloud backends; all storage layouts, SIMD kernels, and recall mechanics remain 100% open source under Apache 2.0.
+
+---
+
 ## 🤝 How to Participate
 
 We welcome contributions from agent developers, cognitive scientists, and systems engineers:

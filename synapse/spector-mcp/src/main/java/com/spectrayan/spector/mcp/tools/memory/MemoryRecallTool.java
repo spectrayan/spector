@@ -62,8 +62,12 @@ public final class MemoryRecallTool extends MemoryToolHandler {
                                                        Map<String, Object> args) throws Exception {
         String query = requireString(args, "query");
         int topK = optionalInt(args, "top_k", 5);
+        int partitionVisitBudget = optionalInt(args, "partition_visit_budget", 0);
 
         var builder = RecallOptions.builder().topK(topK);
+        if (partitionVisitBudget > 0) {
+            builder.partitionVisitBudget(partitionVisitBudget);
+        }
 
         // Apply cognitive profile preset (if specified)
         String profileStr = optionalString(args, "profile", "");
@@ -136,6 +140,13 @@ public final class MemoryRecallTool extends MemoryToolHandler {
         }
 
         var sb = new StringBuilder();
+        boolean truncated = results.stream().anyMatch(CognitiveResult::truncated);
+        if (truncated) {
+            int budget = options.partitionVisitBudget() > 0 ? options.partitionVisitBudget() : partitionVisitBudget;
+            sb.append("⚠️ Recall results truncated: partition visit budget capped recall to ")
+                    .append(budget)
+                    .append(" most recent partitions (⚠️ **RECALL TRUNCATED**: Partition visit budget reached. Some older candidate partitions were skipped.)\n\n");
+        }
         ConfidenceBand confidence = ConfidenceBand.classify(results);
         sb.append("🧠 Recalled ").append(results.size()).append(" memories (")
                 .append(elapsedMs).append("ms) — Confidence: ").append(confidence);

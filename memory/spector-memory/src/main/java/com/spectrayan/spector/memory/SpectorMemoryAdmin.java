@@ -125,6 +125,11 @@ public interface SpectorMemoryAdmin {
     /** Returns the memory index. */
     MemoryIndex index();
 
+    /** Returns the partition registry view, or {@code null} if unpartitioned. */
+    default com.spectrayan.spector.memory.cortex.PartitionRegistry partitionRegistry() {
+        return null;
+    }
+
     /** Returns the lateral (neurodivergent) evaluator. */
     LateralEvaluator lateralEvaluator();
 

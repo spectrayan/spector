@@ -20,6 +20,10 @@
         "description": "Number of results to return (1-50).",
         "default": 5
       },
+      "partition_visit_budget": {
+        "type": "integer",
+        "description": "Maximum number of candidate partitions to visit during recall scan. Partitions are visited recency-first. Omit or set <= 0 for unbounded."
+      },
       "profile": {
         "type": "string",
         "description": "Cognitive scoring profile preset. Controls how memories are ranked. Options: BALANCED (default), EXPLORING (creative/associative), DEBUGGING (errors/failures), RECALLING (proven solutions), CRITICAL (high-stakes), HYPERFOCUS (narrow deep-dive), SYSTEMATIZER (encyclopedic detail), DIVERGENT (cross-domain), PARANOID_SENTINEL (threat detection), THE_EXECUTOR (strict task), HIGHLY_SENSITIVE (fine detail), DEFAULT_MODE_NETWORK (deep knowledge), EXECUTIVE_DYSFUNCTION (associative context-driven recall), auto (let the system choose based on context)."
