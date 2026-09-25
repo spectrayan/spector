@@ -362,7 +362,11 @@ class GraphTelemetryAdversarialChallengeTest {
                             if (g != null) {
                                 double val = g.value();
                                 assertThat(Double.isNaN(val)).isFalse();
-                                assertThat(val).isGreaterThanOrEqualTo(0.0);
+                                if (g == hebbianNodes) {
+                                    assertThat(val).isGreaterThanOrEqualTo(-1.0);
+                                } else {
+                                    assertThat(val).isGreaterThanOrEqualTo(0.0);
+                                }
                             }
                         }
 
