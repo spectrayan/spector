@@ -129,17 +129,19 @@ public class DoctorCommand extends BaseCommand implements Callable<Integer> {
         int laneCount = 0;
         String simdInstructionSet = "None (Scalar Fallback)";
         try {
-            vectorBitSize = com.spectrayan.spector.core.simd.SimdCapability.vectorBitSize();
-            laneCount = com.spectrayan.spector.core.simd.SimdCapability.laneCount();
-            panamaVectorAvailable = true;
-            if (vectorBitSize >= 512) {
-                simdInstructionSet = "AVX-512 (" + vectorBitSize + "-bit, " + laneCount + " lanes)";
-            } else if (vectorBitSize >= 256) {
-                simdInstructionSet = "AVX2 / NEON (" + vectorBitSize + "-bit, " + laneCount + " lanes)";
-            } else if (vectorBitSize >= 128) {
-                simdInstructionSet = "SSE4.2 / NEON (" + vectorBitSize + "-bit, " + laneCount + " lanes)";
-            } else {
-                simdInstructionSet = "Vector API (" + vectorBitSize + "-bit, " + laneCount + " lanes)";
+            if (com.spectrayan.spector.core.simd.SimdCapability.isVectorApiAvailable()) {
+                vectorBitSize = com.spectrayan.spector.core.simd.SimdCapability.vectorBitSize();
+                laneCount = com.spectrayan.spector.core.simd.SimdCapability.laneCount();
+                panamaVectorAvailable = true;
+                if (vectorBitSize >= 512) {
+                    simdInstructionSet = "AVX-512 (" + vectorBitSize + "-bit, " + laneCount + " lanes)";
+                } else if (vectorBitSize >= 256) {
+                    simdInstructionSet = "AVX2 / NEON (" + vectorBitSize + "-bit, " + laneCount + " lanes)";
+                } else if (vectorBitSize >= 128) {
+                    simdInstructionSet = "SSE4.2 / NEON (" + vectorBitSize + "-bit, " + laneCount + " lanes)";
+                } else {
+                    simdInstructionSet = "Vector API (" + vectorBitSize + "-bit, " + laneCount + " lanes)";
+                }
             }
         } catch (Throwable ignored) {}
 

@@ -391,6 +391,12 @@ public class SpectorMemoryImporter {
         if ("TYPE_CONTRADICTS".equalsIgnoreCase(typeStr)) {
             return HyperEntityGraphMemory.TYPE_CONTRADICTS;
         }
+        if ("TYPE_SUPERSEDES".equalsIgnoreCase(typeStr)) {
+            return HyperEntityGraphMemory.TYPE_SUPERSEDES;
+        }
+        if ("TYPE_CONSTRAINS".equalsIgnoreCase(typeStr)) {
+            return HyperEntityGraphMemory.TYPE_CONSTRAINS;
+        }
         if ("TYPE_RELATIONSHIP".equalsIgnoreCase(typeStr)) {
             return HyperEntityGraphMemory.TYPE_RELATIONSHIP;
         }

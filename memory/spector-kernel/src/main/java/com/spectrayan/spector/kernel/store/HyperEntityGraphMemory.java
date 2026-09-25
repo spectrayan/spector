@@ -1149,6 +1149,10 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
     public static final int TYPE_RELATIONSHIP = 0;
     /** Hyperedge type for contradiction relationships (#507, #528). */
     public static final int TYPE_CONTRADICTS = 1;
+    /** Hyperedge type for supersession relationships where one memory supersedes another. */
+    public static final int TYPE_SUPERSEDES = 2;
+    /** Hyperedge type for constraint relationships where a rule or policy constrains an entity or action. */
+    public static final int TYPE_CONSTRAINS = 3;
 
     // ══════════════════════════════════════════════════════════════
     // ROLE CONSTANTS
