@@ -39,6 +39,11 @@ public final class MemoryFactAssertTool extends MemoryToolHandler {
     }
 
     @Override
+    public String name() {
+        return NAME;
+    }
+
+    @Override
     protected McpSchema.CallToolResult executeMemory(SpectorMemory memory,
                                                      Map<String, Object> args) throws Exception {
         String subject = requireString(args, "subject");

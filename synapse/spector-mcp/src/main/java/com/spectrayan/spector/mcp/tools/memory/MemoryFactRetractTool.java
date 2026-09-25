@@ -38,6 +38,11 @@ public final class MemoryFactRetractTool extends MemoryToolHandler {
     }
 
     @Override
+    public String name() {
+        return NAME;
+    }
+
+    @Override
     protected McpSchema.CallToolResult executeMemory(SpectorMemory memory,
                                                      Map<String, Object> args) throws Exception {
         int factId = requireInt(args, "fact_id");
