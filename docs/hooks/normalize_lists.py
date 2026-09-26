@@ -33,7 +33,23 @@ except ImportError:
     # Fallback inline if script directory is separated in distribution
     import re
     CODE_FENCE_PATTERN = re.compile(r'^(\s*)(`{3,}|~{3,})')
-    LIST_MARKER_PATTERN = re.compile(r'^((?:\s*>\s*)*)(\s*)([-*+]|\d+\.)\s+(.*)$')
+    ITEM_PATTERN = re.compile(r'^([ \t]*)([-*+]|\d+\.)[ \t]+(.*)$')
+
+    def parse_list_marker(line: str):
+        quote_prefix = ""
+        content = line
+        stripped = line.lstrip(" \t")
+        if stripped.startswith(">"):
+            idx = 0
+            while idx < len(line) and line[idx] in " \t>":
+                idx += 1
+            quote_prefix = line[:idx]
+            content = line[idx:]
+        m = ITEM_PATTERN.match(content)
+        if m:
+            indent, marker, rest = m.groups()
+            return quote_prefix, indent, marker, rest
+        return None
 
     def normalize_markdown_content(content: str) -> str:
         lines = content.split('\n')
@@ -61,14 +77,14 @@ except ImportError:
             if in_code_block:
                 new_lines.append(line)
                 continue
-            list_match = LIST_MARKER_PATTERN.match(line)
+            list_match = parse_list_marker(line)
             if list_match:
-                quote_prefix, indent, marker, rest = list_match.groups()
+                quote_prefix, indent, marker, rest = list_match
                 orig_indent_len = len(indent)
                 if new_lines:
                     prev_line = new_lines[-1]
                     prev_stripped = prev_line.strip()
-                    prev_list_match = LIST_MARKER_PATTERN.match(prev_line)
+                    prev_list_match = bool(parse_list_marker(prev_line))
                     prev_is_blank = (prev_stripped == '' or prev_stripped.strip('> ') == '')
                     if not prev_is_blank and not prev_list_match:
                         indent_stack = []

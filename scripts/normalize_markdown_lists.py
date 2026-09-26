@@ -29,7 +29,26 @@ import re
 import argparse
 
 CODE_FENCE_PATTERN = re.compile(r'^(\s*)(`{3,}|~{3,})')
-LIST_MARKER_PATTERN = re.compile(r'^((?:\s*>\s*)*)(\s*)([-*+]|\d+\.)\s+(.*)$')
+ITEM_PATTERN = re.compile(r'^([ \t]*)([-*+]|\d+\.)[ \t]+(.*)$')
+
+
+def parse_list_marker(line: str):
+    """Parses a line for list markers with optional blockquote prefix in linear time without regex backtracking."""
+    quote_prefix = ""
+    content = line
+    stripped = line.lstrip(" \t")
+    if stripped.startswith(">"):
+        idx = 0
+        while idx < len(line) and line[idx] in " \t>":
+            idx += 1
+        quote_prefix = line[:idx]
+        content = line[idx:]
+        
+    m = ITEM_PATTERN.match(content)
+    if m:
+        indent, marker, rest = m.groups()
+        return quote_prefix, indent, marker, rest
+    return None
 
 
 def normalize_markdown_content(content: str) -> str:
@@ -70,16 +89,16 @@ def normalize_markdown_content(content: str) -> str:
             continue
             
         # 3. Check for list marker (with optional blockquote prefix)
-        list_match = LIST_MARKER_PATTERN.match(line)
+        list_match = parse_list_marker(line)
         if list_match:
-            quote_prefix, indent, marker, rest = list_match.groups()
+            quote_prefix, indent, marker, rest = list_match
             orig_indent_len = len(indent)
             
             # Check preceding line in new_lines
             if new_lines:
                 prev_line = new_lines[-1]
                 prev_stripped = prev_line.strip()
-                prev_list_match = LIST_MARKER_PATTERN.match(prev_line)
+                prev_list_match = bool(parse_list_marker(prev_line))
                 
                 # Preceding line has content and is NOT a list item
                 prev_is_blank = (prev_stripped == '' or prev_stripped.strip('> ') == '')
