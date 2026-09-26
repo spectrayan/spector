@@ -251,16 +251,19 @@ graph TD
 ```
 
 **Training phase:**
+
 1. Split all vectors into M subspaces (e.g., 16 subspaces of 24 dims each)
 2. Run K-Means clustering on each subspace independently (K=256 centroids)
 3. Store the 16 codebooks (256 centroids × 24 dims × 4 bytes each)
 
 **Encoding phase:**
+
 1. For each vector, split into M subspaces
 2. Find the nearest centroid in each subspace's codebook
 3. Store M centroid indices (1 byte each) → **M bytes per vector**
 
 **Search phase (Asymmetric Distance Computation):**
+
 1. Compute distances from the *full-precision query* to all 256 centroids in each subspace → 256 × M lookup table
 2. For each stored code, sum up M table lookups → approximate distance
 3. Return top candidates (optionally rescore with full vectors)
@@ -398,6 +401,7 @@ When you need to search billions of vectors on commodity hardware:
 ### Configurable Rescore Strategy
 
 All quantization modes support an **oversampling-based rescore** to recover recall:
+
 1. Retrieve `oversamplingFactor × k` candidates using fast quantized distance
 2. Recompute exact float32 distances for those candidates
 3. Return the true top-K based on exact scores

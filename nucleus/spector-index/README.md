@@ -10,11 +10,13 @@
 
 ### 1. `com.spectrayan.spector.index.hnsw` 🕸️
 Implements Hierarchical Navigable Small World (HNSW) graphs. Supports:
+
 - **Standard HNSW:** Float32 exact search.
 - **Quantized HNSW:** Asymmetric Distance Computation (ADC) graph traversal using low-level bit-packed INT8, INT4, and INT2 scalar quantization strategy bindings.
 
 ### 2. `com.spectrayan.spector.index.spectrum` 🌀
 Home of **SpectorIndex**, our flagship adaptive shard index. It implements a multi-level coarse-routing structure:
+
 - **Level 1 (IVF):** centoids learned via K-Means++. Routings computed in absolute coordinate space.
 - **Level 2 (SpectorShard):** Each Voronoi cell is flat when small, automatically promoted to a local quantized HNSW graph once it exceeds a size threshold. Stores vectors as tight high-precision residual coordinates (`r = x - c`) quantized with 132-bit SVASQ.
 

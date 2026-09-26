@@ -68,6 +68,7 @@ The incident commander must verify that the primary cell has suffered an unrecov
 > Promoting a standby cell while the primary cell remains partially functional without isolating routing will result in split-brain write divergence.
 
 Checklist for confirming total cell loss:
+
 1. **Quorum Loss**: All nodes in the primary cell fail heartbeats to the external monitoring plane.
 2. **Control Store Unreachable**: Primary control store lease renewal has ceased.
 3. **Infrastructure Confirmation**: Cloud provider region status or facility telemetry reports hardware, power, or catastrophic network failure.
@@ -86,6 +87,7 @@ spectorctl dr promote --cell cell-standby-02 --reason "Primary region us-east-1 
 ```
 
 The promotion command:
+
 - Transitions the cell state from `STANDBY` to `ACTIVE_PRIMARY`.
 - Logs an immutable audit record containing operator identity, timestamp, reason, and target cell.
 - Triggers pod scaling in orchestrators (e.g. scaling cold-standby Kubernetes StatefulSets from zero).
@@ -104,6 +106,7 @@ The standby cell restores active namespaces from the remote object store (`spect
 > [!IMPORTANT]
 > **Strict Verification Before Serving**:
 > Every restored partition bundle undergoes cryptographic and structural validation before being exposed to query traffic:
+>
 > - **Preamble Magic Check**: Must equal `SMKM` (`0x534D4B4D`).
 > - **Layout Identifier Check**: Must equal `BUND` (`0x42554E44`).
 > - **SHA-256 Checksum**: Computed file digest must match the manifest checksum byte-for-byte.
@@ -131,6 +134,7 @@ spectorctl dr status
 ```
 
 Verification outputs:
+
 - **Snapshot High-Water Mark (HWM)**: Each namespace reports its restored epoch and sequence number, enabling downstream applications to reconcile any writes submitted after the snapshot timestamp.
 - **Disclosure of Unrecovered Namespaces**: Any namespace that lacked a valid snapshot or failed verification is explicitly listed as unrecovered rather than silently ignored.
 - **Cross-Cell Catalog Identity**: Identity state is rebuilt locally on the standby cell without dependencies on the lost cell's catalog.
@@ -146,6 +150,7 @@ When the disabled primary datacenter or cluster recovers, it must **NOT** be sym
 > Once the standby cell has accepted client writes, the standby is the sole source of truth. Bringing the old primary back online immediately creates a dual-writer split-brain condition.
 
 Procedure for primary cluster return:
+
 1. **Fence Dead Cell**: Before reconnecting network interfaces to the old primary, revoke its gateway credentials and demote its role to `STANDBY` in local configuration.
 2. **Inspect Divergence**: Read-only compare local state on the recovered cluster against the standby's snapshot lineage.
 3. **Reverse Sync**: Execute a scheduled data migration from the active standby back to the restored cluster during an agreed maintenance window.
@@ -182,6 +187,7 @@ Regular automated and operational drills validate recovery capability under real
 ```
 
 Drill requirements:
+
 - **Local State Destruction**: The drill physically deletes simulated local data directories rather than merely terminating a process.
 - **Wall-Clock Timing**: RTO wall-clock time is measured across all 5 stages and benchmarked against the 30-minute budget.
 - **Actual RPO Measurement**: Write sequence numbers verify that data loss does not exceed the configured export interval.

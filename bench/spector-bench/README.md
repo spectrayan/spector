@@ -9,8 +9,8 @@
 ## 🏗️ Core Architecture & Runners
 
 1. **Cognitive Memory Benchmarks:**
-   - **LoCoMo (`com.spectrayan.spector.bench.cognitive.locomo.LoCoMoBenchmarkHarness`):** Long-Term Conversation Memory benchmark evaluating multi-session dialogue recall, attribute tracking, and temporal event ordering.
-   - **LongMemEval (`com.spectrayan.spector.bench.cognitive.longmemeval.LongMemEvalBenchmarkHarness`):** Long-horizon memory evaluation testing information updates, temporal reasoning, and prompt-ready `UserContext` assembly.
+    - **LoCoMo (`com.spectrayan.spector.bench.cognitive.locomo.LoCoMoBenchmarkHarness`):** Long-Term Conversation Memory benchmark evaluating multi-session dialogue recall, attribute tracking, and temporal event ordering.
+    - **LongMemEval (`com.spectrayan.spector.bench.cognitive.longmemeval.LongMemEvalBenchmarkHarness`):** Long-horizon memory evaluation testing information updates, temporal reasoning, and prompt-ready `UserContext` assembly.
 2. **JMH Microbenchmarks (`SpectorMicrobench`):** Microsecond-level isolation checks for the Panama Vector similarity kernels (AVX2 vs. AVX-512 vs. ARM NEON).
 3. **Real-Embedding Sweeps (`RealEmbeddingScaleBench`):** Implements multi-centroid sweeps ($C \in \{32, 64, 128, 256\}$) using real Qwen3 text embeddings from local Ollama providers.
 4. **Promotion Benchmarks (`SpectorIndexPromotionBench`):** Head-to-head comparisons of Flat Shard SIMD scans vs. Promoted HNSW Shards at 100K scale.

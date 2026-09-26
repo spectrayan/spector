@@ -34,16 +34,19 @@ Traditional naive RAG approaches suffer from three severe conversational memory 
 ## 4. Considered Options
 
 ### Option 1: Document-Per-Conversation Chunking
+
 - **Description**: Group conversations into fixed-token documents (e.g. 500 tokens) and embed each chunk.
 - **Advantages**: Simple integration with conventional vector stores.
 - **Disadvantages**: Splits conversational turns arbitrarily; loses fine-grained speaker attribution and temporal trajectory.
 
 ### Option 2: External Knowledge Graph Storage (Neo4j)
+
 - **Description**: Store conversations as nodes and edges in an external graph database.
 - **Advantages**: Expressive graph query capabilities (Cypher).
 - **Disadvantages**: Heavy external infrastructure dependency; introduces network query hops incompatible with sub-millisecond SLAs.
 
 ### Option 3: Off-Heap Episodic Threading & Temporal Hyperedges (Selected)
+
 - **Description**: Represent each conversational turn as an off-heap episodic engram with explicit speaker metadata, timestamp, and forward/backward pointers (`prevEpisodeId`, `nextEpisodeId`). Group conversational sessions via temporal hyperedges in `HyperEntityGraphMemory`, enabling multi-turn context expansion during recall.
 - **Advantages**: Zero-GC off-heap layout, sub-millisecond sequential traversal, exact speaker attribution, and seamless integration with the cognitive scoring pipeline.
 - **Disadvantages**: Requires custom off-heap indexing for session-based conversational lookups.
@@ -53,11 +56,13 @@ Traditional naive RAG approaches suffer from three severe conversational memory 
 **Chosen Option**: Option 3 (Off-Heap Episodic Threading & Temporal Hyperedges).
 
 ### Positive Consequences
+
 - Retains complete conversational trajectories across hundreds of turns.
 - Traversal APIs allow the LLM to reconstruct the surrounding context window of any retrieved memory turn.
 - Integrates directly with `ReflectDaemon` to consolidate episodic conversation threads into semantic facts during idle sleep cycles.
 
 ### Negative Consequences & Trade-offs
+
 - Additional metadata overhead per conversational turn (pointers, role ordinals, timestamps).
 - Session boundaries must be detected using time-gap heuristics or explicit conversation delimiters.
 

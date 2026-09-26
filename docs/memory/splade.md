@@ -40,6 +40,7 @@ When a text is ingested, it is passed to a sparse embedding model which outputs 
 
 ### 2. Learned Sparse Indexing
 Spector indexes sparse weights in a high-performance inverted index:
+
 - **Inverted Posting Lists**: The index maps each vocabulary token to a postings list of document IDs and activations. These lists are stored in contiguous memory structures for fast traversal.
 - **Max-Score Pruning**: At query time, Spector uses threshold-gating and max-score pruning algorithms to evaluate only the most promising postings lists, achieving sub-millisecond search latencies across millions of documents.
 

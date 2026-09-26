@@ -35,16 +35,19 @@ The imperative Java builder approach created several severe maintenance and arch
 ## 4. Considered Options
 
 ### Option 1: Declarative JSON Resource Files (`mcp/tools/{tool_name}.json`) (Selected)
+
 - **Description**: Define tool metadata and JSON Schemas in dedicated `.json` resources loaded via classpath scanning and cached on startup.
 - **Advantages**: Removes ~1,500+ lines of Java boilerplate; schemas are independently validatable; prompt tuning does not touch Java code.
 - **Disadvantages**: Requires maintaining resource files alongside Java handler classes.
 
 ### Option 2: Java Annotation Processing (APT)
+
 - **Description**: Annotate tool classes with Java annotations and generate schemas during compilation.
 - **Advantages**: Keeps definitions near Java code.
 - **Disadvantages**: Complex custom annotation processor; poor multiline prompt string formatting in Java annotations.
 
 ### Option 3: Unified Single-File OpenAPI / MCP Registry
+
 - **Description**: Consolidate all 22+ tool definitions into a single massive JSON/YAML specification file.
 - **Advantages**: Single file to distribute.
 - **Disadvantages**: Merge conflicts during concurrent tool development; unwieldy file size (>2,500 lines).
@@ -99,12 +102,14 @@ Each MCP tool defines its metadata and JSON Schema in a dedicated JSON file unde
 6. **`McpToolSchemaValidationTest`**: Test suite ensuring every registered Java tool has a corresponding valid JSON schema.
 
 ### Positive Consequences
+
 - **Code Footprint**: Removed ~1,500+ lines of boilerplate builder code across 22 tools in `spector-mcp`.
 - **Maintainability**: Tool documentation, parameter hints, and agent prompt engineering can be edited directly in clean JSON files without touching Java code.
 - **Contract Verification**: JSON Schema validation runs in automated unit tests, catching typos, invalid types, or missing parameters before release.
 - **Export & Sync**: Tool definitions can be exported or converted into documentation, OpenAPI specs, or client libraries effortlessly.
 
 ### Negative Consequences & Trade-offs
+
 - Adding a new tool requires both a `src/main/resources/mcp/tools/{name}.json` and a Java class (strictly enforced by unit tests).
 - Specs are loaded into memory on startup (minimal overhead: ~50KB total JSON parsed once in <2ms).
 

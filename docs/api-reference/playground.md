@@ -11,7 +11,7 @@ description: "Interactive OpenAPI 3.1 explorer and testing sandbox for Spector C
 
 <div class="grid cards" markdown>
 
--   :material-play-box-multiple: **Live Execution Sandbox**
+- :material-play-box-multiple: **Live Execution Sandbox**
 
     ---
 
@@ -19,7 +19,7 @@ description: "Interactive OpenAPI 3.1 explorer and testing sandbox for Spector C
 
     [Open Fullscreen Explorer ↗](../scalar-playground.html){ .md-button .md-button--primary target="_blank" }
 
--   :material-code-tags-check: **Zero-Setup Code Generation**
+- :material-code-tags-check: **Zero-Setup Code Generation**
 
     ---
 
@@ -28,6 +28,7 @@ description: "Interactive OpenAPI 3.1 explorer and testing sandbox for Spector C
 </div>
 
 !!! info "💡 Local Server Sandbox Guidance"
+    
     - **Offline Browsing & Code Generation**: Inspecting parameters, request/response models, and generating client code operates completely client-side in your browser without requiring a running server.
     - **Live Endpoint Execution ("Test Request")**: When clicking **Send** or **Test Request**, your browser dispatches an HTTP request directly to your configured server (default: `http://localhost:7070`). Ensure your Spector daemon or Docker container is active (`docker run -p 7070:7070 spectrayan/spector` or `npx -y @spectrayan/spector mcp`).
 

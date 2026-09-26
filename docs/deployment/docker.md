@@ -98,6 +98,7 @@ docker run -d \
   -v spector-data:/data \
   spector:local
 ```
+
 - **Port `7700`**: Cortex Neural UI (reverse proxied via internal Nginx `8080`)
 - **Port `7070`**: Synapse REST API, MCP tools, and Actuator health check
 - **Port `9090`**: Internal node-to-node replication plane (mTLS 1.3)

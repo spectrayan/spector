@@ -78,6 +78,7 @@ ${SPECTOR_DATA_DIR}/
 The Runtime Bundle houses high-velocity, hot memory structures updated during active interaction. Because this state is frequently read and mutated, it is mapped into native memory as a unified segment.
 
 **Hosted Regions** (19 regions, `RegionId` 10–28):
+
 - **Working Memory** (`WORKING`, 10): Fixed-capacity circular buffer holding active conversation context.
 - **Co-Activation Matrix** (`COACTIVATION`, 11): Hash table storing pairwise engram co-retrieval frequencies (STDP edges).
 - **Index MIDX** (`INDEX_MIDX`, 12): Multi-dimensional index entries for SpectorIndex centroid routing.
@@ -102,6 +103,7 @@ The Runtime Bundle houses high-velocity, hot memory structures updated during ac
 Partition bundles store long-term, time-partitioned engram traces. As memory grows, old episodic traces remain frozen in sequential partitions (e.g. `000_1717430400`, `001_1719849600`), while long-term semantic knowledge and learned procedural skills reside in indexed partition blocks.
 
 **Hosted Regions** (5 regions, `RegionId` 0–4):
+
 - **Episodic Memory** (`EPISODIC`, 1): Time-ordered event records and narrative history.
 - **Semantic Memory** (`SEMANTIC`, 0): Crystallized factual knowledge and concepts.
 - **Procedural Memory** (`PROCEDURAL`, 2): Multi-step executable skills and behavioural protocols.
@@ -111,6 +113,7 @@ Partition bundles store long-term, time-partitioned engram traces. As memory gro
 ### 3. The Identity Bundle (`identity.bundle`)
 
 The **Identity Bundle** isolates core persona definitions, ethical guardrails, compliance policies, and cryptographic signatures in the dedicated **Identity Plane** (`identity/`):
+
 - **Stored Under Accounts & Tenants**: Identity bundles are not tied to an individual memory namespace. Instead, they reside under sharded account directories (`identity/accounts/{aa}/{bb}/{accountId}/identity.bundle`) or tenant hierarchies (`identity/tenants/{tt}/{uu}/{tenantId}/identity.bundle`).
 - **Polymorphic Soul Models**: A single identity bundle format accommodates four distinct persona scopes:
     - **User Soul (`UserSoul`)**: Human user persona, communication preferences, and personalized salience weights.

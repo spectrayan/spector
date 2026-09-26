@@ -104,15 +104,16 @@ sequenceDiagram
 3. **`FragmentUnpackRelay`**: Decomposes episodic traces into typed constituent semantic primitives with computed affective charges.
 4. **`HyperAssociateRelay`**: Computes pairwise anti-centroid scores:
    $$P(A, B) = w_{\text{dist}} (1 - \cos(\mathbf{v}_A, \mathbf{v}_B)) + w_{\text{rel}} \text{relOverlap}(A, B) + w_{\text{aff}} \text{affRhyme}(A, B)$$
+
 5. **`RemReplayRelay`**: Applies importance-scaled and temperature-modulated Gaussian noise to prevent model overfitting.
 6. **`SceneConstructRelay`**: Synthesizes compositional scenario descriptions and blends latent vectors.
 7. **`CounterfactualProbeRelay`**: Validates synthetic simulations against prior world models, calculating Expected Free Energy quality scores ($Q$).
 8. **`LangevinDiscoveryRelay`**: Executes stochastic gradient diffusion over the distributed memory tensor to identify unmapped concept attractors.
 9. **`EfeTriageRelay`**: Categorizes candidate simulations into four canonical outcomes:
-   - **`EPISTEMIC`**: High information gain / rule discovery $\to$ Persist as high-value semantic concept.
-   - **`PRAGMATIC`**: Goal-directed solution / strategy $\to$ Persist as procedural rule.
-   - **`IDENTITY`**: Self-model continuity reinforcement $\to$ Low-weight background reinforcement.
-   - **`NOISE`**: Incoherent simulation failure $\to$ Discard from memory and penalize connection.
+    - **`EPISTEMIC`**: High information gain / rule discovery $\to$ Persist as high-value semantic concept.
+    - **`PRAGMATIC`**: Goal-directed solution / strategy $\to$ Persist as procedural rule.
+    - **`IDENTITY`**: Self-model continuity reinforcement $\to$ Low-weight background reinforcement.
+    - **`NOISE`**: Incoherent simulation failure $\to$ Discard from memory and penalize connection.
 10. **`ConceptExtractRelay`**: Distills the core structural insight (residue) while discarding the ephemeral working-memory narrative scaffold.
 11. **`DreamJournalRelay`**: Serializes raw dream narratives and provenance metrics into off-heap audit storage.
 12. **`DreamIngestionRelay`**: Persists verified insights tagged with `FLAG_DREAMED` and applies active Hebbian synaptic inhibition ($\Delta w < 0$) to failed fragment combinations.

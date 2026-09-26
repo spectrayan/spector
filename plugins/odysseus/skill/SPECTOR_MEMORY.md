@@ -17,6 +17,7 @@ memory_remember(
 ```
 
 ### Tier Selection (maps from Odysseus categories)
+
 - **SEMANTIC** — Facts, contacts, preferences (stable knowledge)
 - **EPISODIC** — Events, conversations, time-bound experiences
 - **PROCEDURAL** — Skills, workflows, reusable patterns
@@ -35,6 +36,7 @@ memory_recall(
 ```
 
 ### Profiles for Different Situations
+
 - **BALANCED** — General recall (default)
 - **EXPLORING** — Creative/brainstorming, surfaces unexpected connections
 - **DEBUGGING** — Focus on errors and fixes

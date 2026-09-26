@@ -18,6 +18,7 @@ At query time, the similarity is calculated using the **MaxSim** operator:
 \[Score(Q, D) = \sum_{i=1}^{|Q|} \max_{j=1}^{|D|} \left( q_i \cdot d_j^T \right)\]
 
 Where:
+
 - $q_i$ is the embedding vector for the $i$-th query token.
 - $d_j$ is the embedding vector for the $j$-th document token.
 - $q_i \cdot d_j^T$ is the cosine similarity (or dot product) between the query token vector and the document token vector.

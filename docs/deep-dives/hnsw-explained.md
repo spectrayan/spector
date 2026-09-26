@@ -70,6 +70,7 @@ graph TD
 ```
 
 Think of it like navigating a city:
+
 - **Layer 2 (highway):** A few major intersections — long jumps, coarse navigation
 - **Layer 1 (main roads):** More nodes, shorter jumps
 - **Layer 0 (streets):** Every single location — fine-grained search
@@ -136,6 +137,7 @@ layer = floor(-ln(random()) × mL)
 ```
 
 Where `mL = 1 / ln(M)` and M is the max connections per node. This ensures:
+
 - Most vectors (85%) exist only at Layer 0
 - ~12% reach Layer 1
 - ~2% reach Layer 2
@@ -185,6 +187,7 @@ Higher `efConstruction` = better neighbor selection during build = higher-qualit
 | **Memory** | O(n × M) | Each vector stores M edges per layer |
 
 For reference, with 1 million 768-dim vectors and M=16:
+
 - **Search:** ~100-200 distance computations (vs 1,000,000 for brute force)
 - **Memory:** ~12 bytes per edge × 16 edges × 1M vectors ≈ **192 MB** (just for edges, plus the vectors themselves)
 

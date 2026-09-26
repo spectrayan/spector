@@ -122,6 +122,7 @@ Spector Synapse exposes all official MCP transport protocols simultaneously on p
 ## Rate Limiting & Resilience
 
 Spector Synapse features an enterprise-grade, four-pillar rate limiting engine:
+
 - **Inbound REST/MCP/SSE Throttling**: Multi-tier token bucket filtering (`anonymous`, `standard`, `premium`, `system`) with RFC 7807 429 errors and `X-RateLimit-*` headers.
 - **Outbound LLM Rate Limiting**: Dual-dimension RPM and TPM token estimation with concurrency semaphores and exponential backoff jitter.
 - **Messaging Channel Anti-Flood**: Per-channel per-sender token bucket throttling for Slack, Discord, Telegram, etc.

@@ -34,20 +34,23 @@ Previous cognitive retrieval presented critical structural gaps:
 ## 4. Considered Options
 
 ### Option 1: Client-Side Multi-Query Fusion
+
 - **Description**: Clients make separate calls to episodic, semantic, and graph endpoints and merge prompts in client SDKs.
 - **Advantages**: Keeps server-side APIs minimal.
 - **Disadvantages**: Incurs multiple network roundtrips (150–400ms); client-side prompt formatting varies across languages and lacks unified scoring.
 
 ### Option 2: Standard Graph-RAG Pipeline
+
 - **Description**: Use off-the-shelf Graph-RAG frameworks (NetworkX, external vector DBs).
 - **Advantages**: Utilizes existing open-source libraries.
 - **Disadvantages**: High GC pressure, high query latency (50–500ms), and inability to enforce biological cognitive constraints.
 
 ### Option 3: Unified Cognitive Substrate Architecture (TANGLE, GPM, MSCE) (Selected)
+
 - **Description**: Implement an off-heap cognitive substrate natively inside `spector-memory` and `spector-synapse`:
-  - **TANGLE**: Off-heap temporal associative network tracking chronological chains and entity co-activations.
-  - **GPM**: Procedural heuristics engine representing interaction cadence and behavioral rules.
-  - **MSCE**: Multi-Stage Context Extraction engine fusing working scratchpads, procedural habits, semantic axioms, and episodic anecdotes into a single coherent prompt payload.
+    - **TANGLE**: Off-heap temporal associative network tracking chronological chains and entity co-activations.
+    - **GPM**: Procedural heuristics engine representing interaction cadence and behavioral rules.
+    - **MSCE**: Multi-Stage Context Extraction engine fusing working scratchpads, procedural habits, semantic axioms, and episodic anecdotes into a single coherent prompt payload.
 - **Advantages**: Delivers end-to-end prompt synthesis in < 15ms; guarantees consistent cognitive formatting across all agent runtimes.
 - **Disadvantages**: Requires deep integration across all memory tiers and synapse gateway layers.
 
@@ -56,11 +59,13 @@ Previous cognitive retrieval presented critical structural gaps:
 **Chosen Option**: Option 3 (Unified Cognitive Substrate Architecture).
 
 ### Positive Consequences
+
 - Single atomic API call generates complete, deduplicated cognitive prompt contexts for LLM agents.
 - Procedural memory enables agents to preserve unique behavioral reflexes and interaction cadences over time.
 - TANGLE graph ensures temporal and causal continuity across multi-session interactions.
 
 ### Negative Consequences & Trade-offs
+
 - Increased complexity in synapse gateway routing to coordinate multi-tier context extraction.
 - Context pack generation requires strict token budgeting to prevent prompt overflow.
 

@@ -38,14 +38,17 @@ Automating long-term consolidation in a high-throughput memory engine introduces
 ## 4. Considered Options
 
 ### Option 1: Unregulated Background Daemon
+
 - A simple background thread running an endless loop calling summarization APIs.
 - **Verdict**: Rejected. Starves system resources, risks out-of-memory errors on large partitions, and lacks crash recovery.
 
 ### Option 2: External Cron / Spark Job
+
 - Run memory consolidation outside the Spector process via daily batch scripts.
 - **Verdict**: Rejected. Destroys real-time episodic-to-semantic lineage tracking, fails to adapt to agent idle cycles, and cannot coordinate with off-heap Panama memory locks.
 
 ### Option 3: Declarative 14-Relay ReflectRecipe with Sweep SPI & Checkpoint Store (Selected)
+
 - Implement `ReflectRecipe` with observable gate specifications (`COMPANION_RELAYS_ENABLED`).
 - Protect nested `RememberPathway` writes with shared circuit breakers.
 - Implement `ReflectSweepExecutor` SPI with persistent checkpointing.
@@ -107,6 +110,7 @@ If foreground ingestion saturates the system, the `nestedRemember` breaker trips
 ### 5.3 Resumable Checkpoints (`ReflectSweepExecutor` SPI)
 
 Reflection sweeps across large partitions run in chunks governed by `ReflectSweepSpec`. The `ReflectCheckpointStore` persists progress:
+
 - `FileReflectCheckpointStore`: Durable JSON checkpoints on disk.
 - `InMemoryReflectCheckpointStore`: Lightweight in-process state for testing.
 
@@ -121,11 +125,13 @@ graph LR
 ## 6. Pros and Cons of the Options
 
 ### Positive
+
 - **Bounded Footprint**: Exponential memory growth is prevented by continuous synaptic downscaling and temporal pruning.
 - **Emergent Semantics**: Higher-order knowledge graphs and procedural skills emerge organically from raw conversation history.
 - **Crash-Resilient**: Sweeps resume exactly from their last persisted cursor after a restart.
 
 ### Negative / Trade-offs
+
 - **Token Costs**: High-volume episodic reflection invokes LLM summarization prompts, requiring configuration of sweep frequencies and token budgets.
 
 ## 7. Implementation Plan

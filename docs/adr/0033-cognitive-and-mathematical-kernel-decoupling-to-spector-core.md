@@ -15,6 +15,7 @@
 ## 1. Context
 
 Spector is a bio-computational cognitive memory engine designed to bring human-like episodic, semantic, working, and procedural memory to autonomous AI agents. To achieve high retrieval fidelity and biological validity, Spector implements a rich suite of mathematical formulations and computational neuroscience algorithms, including:
+
 - **Anderson’s ACT-R Activation Dynamics** (base-level learning, power-law recency, spaced repetition, and associative fan effect)
 - **Wixted & Bahrick Power-Law of Forgetting** with permastore floors and amygdala-mediated arousal decay resistance
 - **Friston’s Variational Free Energy Principle** and Active Inference predictive coding
@@ -36,6 +37,7 @@ An architectural audit across the 25 modules of the Spector reactor revealed tha
    Algorithms that are mathematically pure (ACT-R base-level activation, power-law decay, mass-dilated recency, STDP weight updates, edge importance scoring) cannot be invoked without a storage handle. The coupling is structural, not incidental: **all four methods of `ActRActivation` take `HeaderCursor` as their first parameter**, so the ACT-R equation cannot be evaluated against a plain `int[]` of relative-second timestamps. The off-heap reads themselves are one layer down, interleaved with the summation in `StrengthLayout.computeActRActivation` (`seg.get(ValueLayout.JAVA_INT, …)` inside the accumulation loop, `StrengthLayout.java:441`). `ActRActivation` itself never touches `MemorySegment` — it delegates to `cursor.computeActRActivation(...)`.
 
    Two incidental defects found in the same code and to be resolved during migration:
+
    - `ActRActivation.computeBaseLevelActivation` carries a **dead `decayExponent` parameter** (Javadoc: "unused, kept for API compatibility").
    - `computeDecayWithActR` branches on a `-1.0f` **sentinel** meaning "no recall history" (`actr >= 0`). Any array-based kernel must preserve this sentinel contract, along with the `relativeSeconds == 0` empty-slot convention and the `recallAgeMs <= 0 → 1000L` floor.
 
@@ -57,17 +59,20 @@ An architectural audit across the 25 modules of the Spector reactor revealed tha
    | D9 | Welford warm-up guard | magic `>= 20` hardcoded twice vs configurable once | `DefaultImportanceProvider:62,69`, `ImportanceEstimator:114` vs `SurpriseDetector.warmupSamples` |
 
    **Important qualifications discovered during verification:**
+
    - The two `Valence` copies are **logically byte-for-byte identical**. Both operate on **signed** `byte` (`-128..127`). There is no unsigned `0..255` valence variant — the unsigned value is *arousal* (`DecayStrategy.java:263`, `Byte.toUnsignedInt`). Their only real difference was the **license header**, which is why the extraction stalled (see §1.2).
    - `SalienceProfile:196` is **semantically different** — it assumes L2-normalised inputs and deliberately returns the raw dot product ("avoids the expensive magnitude computation"). It must **not** be collapsed into D1.
    - The five D1 copies have **mutually incompatible zero-guards** (`== 0` vs `<= 0.0f` vs `> 0`; some null-check, only one checks `length == 0`). Consolidation requires agreeing one documented contract first, and will change behaviour at the boundaries.
    - `spector-providers/pom.xml` has **no `spector-core` dependency**. `DenseDerivedSparseProvider` did not ignore an available utility — it could not see one. Fixing D1 there requires a **new reactor edge**, which is an architecture change, not a refactor.
 
    **Counter-examples to hold up as the target pattern** (already correct, single-source, multi-consumer — do not disturb):
+
    - `DecayStrategy.arousalModifier` (`DecayStrategy.java:263`) — one definition, reused by `CognitiveScoreFusion:94,103` and `CognitiveScoreVisitor:154`.
    - `WelfordStats.zScore` (`WelfordStats.java:85`) — one definition, six consumers.
 
 3. **Allocation Overhead in Score-Modulation Hot Paths**:
    `TemperatureSoftmax.applySoftmaxTemperature(List<CognitiveResult>, float)` performs three passes over a `List` via `get(i)`. The dominant cost is **not** the `List` indirection:
+
    - Pass 2 calls `Math.exp`, a **non-vectorizable intrinsic**. Converting to `float[]` alone will *not* make HotSpot auto-vectorize this loop; explicit `VectorOperators.EXP` over `FloatVector` is required.
    - Pass 3 allocates a fresh 7-arg `ScoreBreakdown` **plus** a fresh 17-component `CognitiveResult` **per element**, then `results.set(i, …)`. This is the real cost and it violates the zero-allocation-in-hot-paths rule.
    - It also allocates `double[] expWeights = new double[n]` per call.
@@ -128,16 +133,19 @@ Rev 1 contained factual errors that materially under-scoped the work. Corrected 
 ## 4. Considered Options
 
 ### Option 1: Status Quo (Monolithic Coupled Modules)
+
 - **Description**: Keep mathematical utilities scattered across `spector-memory` and `spector-kernel`.
 - **Advantages**: Avoids code movement and refactoring of call sites.
 - **Disadvantages**: 12 confirmed duplication clusters; pure equations cannot be tested without off-heap Panama FFM slabs; sibling modules cannot reuse math.
 
 ### Option 2: Fine-Grained Micro-Libraries
+
 - **Description**: Split math into multiple independent Maven modules (`spector-math-actr`, `spector-math-hopfield`, `spector-math-stats`).
 - **Advantages**: Extreme modularity.
 - **Disadvantages**: Maven reactor explosion; circular dependency management overhead.
 
 ### Option 3: Unified Decoupled Foundation in `nucleus/spector-core` (Selected)
+
 - **Description**: Migrate all 34 pure mathematical and computational neuroscience algorithms into `nucleus/spector-core`, providing pure array-based signatures while higher-level modules retain storage cursor facades.
 - **Advantages**: Single source of truth; zero GC allocations; headless unit testability; unblocks sibling repo reuse (`coding-agents`).
 - **Disadvantages**: Requires coordinated migration across ~4,671 test methods and 25 reactor modules.
@@ -224,6 +232,7 @@ flowchart TD
 
 1. **Principle 1: Absolute Zero Domain Model Infiltration into `spector-core`**:
    `spector-core` **MUST NOT** import any classes from `spector-kernel`, `spector-memory`, `spector-index`, `spector-config`, `spector-events`, or any `memory/`, `synapse/` module. (Note: `spector-config` and `spector-index` are `nucleus/` siblings, not higher layers — the ban is on *any* non-`commons` module dependency, in either direction of the diagram.) Every algorithm must accept strictly:
+
    - Scalar primitives: `float`, `double`, `int`, `long`, `byte`, `boolean`.
    - Primitive arrays: `float[]`, `double[]`, `float[][]`, `int[]`, `int[][]`, `long[]`, `byte[]`.
    - `SpectorValidationException` / `ErrorCode` from `spector-commons` (see §5.3 for the weight this carries).
@@ -290,6 +299,7 @@ flowchart TD
    §5.1's `jqwik` property tests verify the *new* kernel is internally self-consistent. They do **not** verify it matches the code being replaced. Every phase ships a **parity harness**: capture the current implementation's outputs over a fixed input corpus (including boundary and degenerate cases), then assert the migrated kernel is **bit-identical**, or record a signed-off epsilon and the reason.
 
    Known precision hazards already identified:
+
    - **`DenseDerivedSparseProvider` accumulates in `double`; `core.CosineSimilarity` accumulates in `float` SIMD lanes.** Swapping changes sparse term weights → changes `weightThreshold` filtering → **changes recall results**. This is not a drop-in; it needs golden-value re-baselining.
    - `PolicyInferenceEngine:95-107` has **no max-shift stabilization**. Consolidating it onto `SoftmaxKernel` is a **deliberate behaviour change that fixes a latent overflow bug** — call it out in the changelog rather than filing it as a refactor.
    - `StrengthLayout.computeActRActivation` conventions that must survive: `relativeSeconds == 0` means empty slot; `recallAgeMs` floors at `1000L`; the initial encoding bucket is added *after* the loop; `-1.0f` is the no-history sentinel.
@@ -319,6 +329,7 @@ Rev 1's target names collide with types that already exist on `main`. Resolution
 The following 34 algorithms are cataloged across 14 computational domains, defining their exact source location, mathematical formula, proposed core class, and parameterized signature.
 
 **How to read this catalog (rev 2):**
+
 - **Purity tier** (T1 / T2 / T3) is stated per §2.1 Principle 2 wherever the kernel is not trivially pure. It determines the test strategy.
 - Entries marked **⚠** had their Rev 1 target or signature **changed** — either because the target name collides with an existing `spector-core` type (§2.2), or because the signature violated the purity contract it was filed under. Those changes are binding.
 - Kernels on a scan hot path carry a **REQUIRED batch form** per §2.1 Principle 3. The per-record form remains for correctness and unit testing.
@@ -327,9 +338,11 @@ The following 34 algorithms are cataloged across 14 computational domains, defin
 ### 3.1 Domain 1: ACT-R Activation & Spreading Dynamics (3 algorithms)
 
 #### 1. ACT-R Base-Level Activation & Spaced Practice
+
 - **Biological / Theoretical Foundation**: Anderson’s ACT-R declarative memory equation capturing recency, frequency, and spaced practice effects:
   $$B_i = \ln\left(\sum_{j=1}^n t_j^{-d}\right)$$
   Normalized via the algebraic sigmoid identity: $\sigma(B_i) = \frac{\text{sum}}{\text{sum} + 1.0f}$.
+
 - **Current Location**: `ActRActivation.java` (all 4 methods take `HeaderCursor`; delegates only) & `StrengthLayout.java:435` (the actual off-heap read loop, `seg.get` at :441). `StrengthLayout.readActRTimestamps` (:414) **already** produces the `int[]`, so extraction is mechanically straightforward.
 - **Core Target**: `com.spectrayan.spector.core.cognitive.ActRActivationKernel` — **Purity tier T1**
 - **Core Method Signature**:
@@ -340,12 +353,15 @@ The following 34 algorithms are cataloged across 14 computational domains, defin
   public static void computeBucketActivations(int[][] relativeSeconds, long[] creationMs, long nowMs,
                                              float[] decayBuckets, float[] outActivations, int count);
   ```
+
 - **Contracts that MUST be preserved (Principle 6)**: `relativeSeconds[i] == 0` means empty slot (skip, do not treat as age 0); `recallAgeMs <= 0` floors to `1000L`; the creation-time encoding bucket is added **after** the ring-buffer loop; return **`-1.0f`** when `validSlots == 0` — `computeDecayWithActR` branches on `actr >= 0` to choose between ACT-R and the `DecayStrategy.computeDecay` fallback.
 - **Cleanup during migration**: drop the dead `decayExponent` parameter from the cursor-based adapter (Javadoc already marks it unused) — or wire it through properly. Do not carry a dead parameter into a new API.
 
 #### 2. ACT-R Fan Effect & Semantic Dilution
+
 - **Biological / Theoretical Foundation**: Anderson's associative fan effect; high-degree concept hubs dilute activation spreading:
   $$\text{fanFactor}(d) = \frac{1}{\sqrt{d}}$$
+
 - **Current Location**: `CoActivationMemory.crossCaptureTraversal:723`.
 - **Core Target**: `ActRActivationKernel.fanFactor(int degree)`
 - **Core Method Signature**:
@@ -354,8 +370,10 @@ The following 34 algorithms are cataloged across 14 computational domains, defin
   ```
 
 #### 3. Attenuated Spreading Activation Diffusion
+
 - **Biological / Theoretical Foundation**: Collins & Loftus (1975) multi-hop semantic network spreading activation:
   $$W_h = W_0 \cdot \gamma^h \cdot \text{fanFactor}(d) \cdot \ln\left(1 + \frac{N}{d + 1}\right)$$
+
 - **Current Location**: `HebbianGraphMemory.activateRecursive` and `CoActivationMemory.java:725`.
 - **Core Target**: `com.spectrayan.spector.core.graph.SpreadingActivationKernel`
 - **Core Method Signature**:
@@ -368,6 +386,7 @@ The following 34 algorithms are cataloged across 14 computational domains, defin
 ### 3.2 Domain 2: Temporal Decay, Forgetting & Reconsolidation (4 algorithms)
 
 #### 4. Wixted Power-Law of Forgetting & Permastore Floor
+
 - **Biological / Theoretical Foundation**: Wixted (2004) power-law forgetting curve $R(t) = a \cdot t^{-d}$ combined with Bahrick (1984) permastore floor $\max(\text{floor}, a \cdot t^{-d})$ quantized into 12 discrete logarithmic time buckets.
 - **Current Location**: `DecayStrategy.java:89-159`.
 - **Core Target**: `com.spectrayan.spector.core.cognitive.PowerLawDecayKernel`
@@ -379,6 +398,7 @@ The following 34 algorithms are cataloged across 14 computational domains, defin
   ```
 
 #### 5. Long-Term Potentiation (LTP) Reconsolidation
+
 - **Biological / Theoretical Foundation**: Memory retrieval triggers reconsolidation, exponentially shifting the effective perceived age through half-life doubling (`rawBucket >> min(recallCount, 5)`), with gentler linear shifts for passive auto-recall.
 - **Current Location**: `DecayStrategy.adjustForReconsolidation` and `DecayStrategy.adjustForAutoRecall`.
 - **Core Target**: `PowerLawDecayKernel.adjustForReconsolidation(int rawBucket, int recallCount)`
@@ -389,6 +409,7 @@ The following 34 algorithms are cataloged across 14 computational domains, defin
   ```
 
 #### 6. Amygdala Arousal Decay Modulation
+
 - **Biological / Theoretical Foundation**: McGaugh (2000) emotional modulation of consolidation; high emotional arousal slows decay rate by up to 65%.
 - **Current Location**: `DecayStrategy.arousalModifier`.
 - **Core Target**: `PowerLawDecayKernel.arousalModifier(byte arousal)`
@@ -399,8 +420,10 @@ The following 34 algorithms are cataloged across 14 computational domains, defin
   ```
 
 #### 7. Continuous Mass-Dilated Recency Decay (ADR-0031)
+
 - **Biological / Theoretical Foundation**: Continuous log-recency decay inversely dilated by cognitive mass $M_i$:
   $$R_\lambda(\Delta t, M_i) = \frac{1}{1 + \frac{\lambda \cdot \ln(1 + \Delta t_{\text{days}})}{1 + M_i}} \cdot \text{arousalModifier}(A) \cdot \left(1 + 0.05 \cdot \min(N, 10)\right)$$
+
 - **Current Location**: `CognitiveScoreFusion.computeMassDilatedDecay`.
 - **Core Target**: `com.spectrayan.spector.core.cognitive.MassDilatedDecayKernel`
 - **Core Method Signature**:
@@ -413,8 +436,10 @@ The following 34 algorithms are cataloged across 14 computational domains, defin
 ### 3.3 Domain 3: Dynamic Cognitive Mass & Two-Factor Memory (2 algorithms)
 
 #### 8. Dynamic Cognitive Mass Computation
+
 - **Biological / Theoretical Foundation**: Relativistic information mass synthesising raw importance $I$, emotional arousal $A$, and consolidated storage strength $S$:
   $$M_i = \left(\frac{I_i}{10}\right) \cdot \left(1 + \frac{A_i \pmod{256}}{128}\right) \cdot S_i^{0.3}$$
+
 - **Current Location**: `CognitiveMass.computeCognitiveMass` & `CognitiveScoreFusion.computeCognitiveMass`.
 - **Core Target**: `com.spectrayan.spector.core.cognitive.CognitiveMassKernel`
 - **Core Method Signature**:
@@ -423,6 +448,7 @@ The following 34 algorithms are cataloged across 14 computational domains, defin
   ```
 
 #### 9. Fast Storage Strength Boost LUT (Bjork & Bjork)
+
 - **Biological / Theoretical Foundation**: Bjork & Bjork (1992) New Theory of Disuse; precomputed 64-entry LUT for $S^{0.3}$ with linear interpolation, eliminating `Math.pow()` from scan hot-paths.
 - **Current Location**: `CognitiveMass.fastStorageBoost`.
 - **Core Target**: `CognitiveMassKernel.fastStorageBoost(float storageStrength, float exponent)`
@@ -436,8 +462,10 @@ The following 34 algorithms are cataloged across 14 computational domains, defin
 ### 3.4 Domain 4: Synaptic Plasticity & Graph Centrality (3 algorithms)
 
 #### 10. Bi-Exponential Spike-Timing-Dependent Plasticity (STDP)
+
 - **Biological / Theoretical Foundation**: Bi & Poo (1998) asymmetric millisecond-scale plasticity:
   $$dW_{\text{causal}} = A_+ \cdot \exp\left(-\frac{\Delta t}{\tau_+}\right), \quad dW_{\text{anti}} = -A_- \cdot \exp\left(-\frac{\Delta t}{\tau_-}\right)$$
+
 - **Current Location**: `CoActivationMemory.recordSequentialActivation:474-478`.
 - **Core Target**: `com.spectrayan.spector.core.cognitive.StdpPlasticityKernel`
 - **Core Method Signature**:
@@ -447,8 +475,10 @@ The following 34 algorithms are cataloged across 14 computational domains, defin
   ```
 
 #### 11. Heuristic Neighbor Overlap Bridge Centrality
+
 - **Biological / Theoretical Foundation**: Jaccard-like structural edge centrality:
   $$\text{score} = \operatorname{clamp}\left(\operatorname{round}\left(\left(1 - \frac{|\Gamma(A) \cap \Gamma(B)|}{\min(d_A, d_B)}\right) \cdot 255\right), 0, 255\right)$$
+
 - **Current Location**: `BridgeDetector.computeBridgeScore`.
 - **Core Target**: `com.spectrayan.spector.core.graph.GraphCentralityKernel`
 - **Core Method Signature**:
@@ -458,6 +488,7 @@ The following 34 algorithms are cataloged across 14 computational domains, defin
   ```
 
 #### 12. Wilson’s Algorithm for Random Spanning Tree Sampling
+
 - **Biological / Theoretical Foundation**: Loop-erased random walks generating uniform random spanning trees (Wilson 1996) to compute empirical betweenness centrality across disconnected subgraphs.
 - **Current Location**: `BridgeDetector.sampleSpanningTrees` (`memory/spector-kernel/.../kernel/score/BridgeDetector.java`).
 - **Core Target**: `com.spectrayan.spector.core.graph.GraphCentralityKernel` — **Purity tier T3 (explicitly stochastic)**
@@ -468,6 +499,7 @@ The following 34 algorithms are cataloged across 14 computational domains, defin
   public static byte[] computeWilsonBridgeScores(int[][] adjacency, int nodeCount,
                                                 int sampleCount, int maxWalkSteps, long seed);
   ```
+
 - **⚠ Why the signature changed**: Rev 1 specified `long budgetMs`, which requires the kernel to read a wall clock. That makes it impure, non-deterministic, and untestable by property-based testing — directly contradicting §5.1. A **wall-clock budget is a scheduling concern and stays in the `BridgeDetector` adapter**, which may call the kernel in bounded slices and stop when its own budget expires. The kernel gets a step bound instead.
 - Wilson's algorithm requires an RNG. Rev 1's signature had no seed, so results were irreproducible run-to-run. `long seed` is mandatory.
 
@@ -476,6 +508,7 @@ The following 34 algorithms are cataloged across 14 computational domains, defin
 ### 3.5 Domain 5: Synaptic Pruning & Multi-Signal Edge Importance (1 algorithm)
 
 #### 13. 9-Signal Synaptic Pruning Scorer
+
 - **Biological / Theoretical Foundation**: 9-signal multi-factor synaptic importance combining Hebbian LTP frequency, STC early-LTP decay, Wilson betweenness centrality, synaptic competition, ACT-R base transfer, amygdala arousal, Bower mood-congruence, Bjork two-factor storage, and Zeigarnik task completion protection.
 - **Current Location**: `EdgeImportance.java:120-210`.
 - **Core Target**: `com.spectrayan.spector.core.cognitive.EdgeImportanceKernel`
@@ -493,6 +526,7 @@ The following 34 algorithms are cataloged across 14 computational domains, defin
 ### 3.6 Domain 6: Dopaminergic Novelty & Statistical Surprise (3 algorithms)
 
 #### 14. Welford’s Online Distribution Algorithm
+
 - **Biological / Theoretical Foundation**: Numerically stable online one-pass algorithm (Welford 1962) computing baseline prediction expectations (running mean, variance, stddev, and z-score).
 - **Current Location**: `WelfordStats.java:85` — **note this is already single-source with six consumers and is NOT duplicated**; it is being relocated for reuse, not deduplicated.
 - **Core Target**: `com.spectrayan.spector.core.math.WelfordAccumulator` — **Purity tier T2 (immutable accumulator)**
@@ -506,12 +540,15 @@ The following 34 algorithms are cataloged across 14 computational domains, defin
       public double zScore(double sample);              // guards stdDev < 1e-9
   }
   ```
+
 - **⚠ Why the signature changed**: Rev 1 specified `public static void update(WelfordDistribution dist, double sample)` — a static method **mutating an instance** — while Principle 2 simultaneously required "lightweight, thread-safe records". A record cannot be mutated. Resolved as an immutable record returning a new instance, matching the pattern `BanditStats.update` already uses correctly.
 - **Also migrate the warm-up guard.** The magic threshold `count() >= 20` is hardcoded at `DefaultImportanceProvider:62,69` and `ImportanceEstimator:114`, while `SurpriseDetector` uses a configurable `warmupSamples` field for the same purpose. Expose `boolean isWarm(long minSamples)` on the record and route the threshold through config — do not carry the magic number forward.
 
 #### 15. Dopaminergic Surprise Sigmoid Transfer
+
 - **Biological / Theoretical Foundation**: Dopaminergic prediction error scaling:
   $$I(z) = 0.05 + 9.95 \cdot \frac{1}{1 + \exp(-1.2 \cdot (z - 1.0))}$$
+
 - **Current Location**: `SurpriseDetector.zScoreToImportance`.
 - **Core Target**: `com.spectrayan.spector.core.cognitive.DopaminergicSurpriseKernel`
 - **Core Method Signature**:
@@ -521,6 +558,7 @@ The following 34 algorithms are cataloged across 14 computational domains, defin
   ```
 
 #### 16. Flashbulb Memory Gating Criteria
+
 - **Biological / Theoretical Foundation**: Brown & Kulik (1977) flashbulb gating triggered when prediction error exceeds $z > 3.0\sigma$.
 - **Current Location**: `FlashbulbPolicy.java`.
 - **Core Target**: `DopaminergicSurpriseKernel.isFlashbulb(double zScore, double threshold)`
@@ -530,8 +568,10 @@ The following 34 algorithms are cataloged across 14 computational domains, defin
 ### 3.7 Domain 7: Neurodivergent Cognition, Gating & Diversity (4 algorithms)
 
 #### 17. Sigmoid-Gated ICNU Salience Synthesis
+
 - **Biological / Theoretical Foundation**: Dodson (2005) ADHD dopaminergic gating requiring interest AND novelty to fire simultaneously:
   $$\text{stimulus} = w_I (I \times N) + w_C C + w_U U, \quad \text{gated} = \sigma(k \cdot (\text{stimulus} - \theta))$$
+
 - **Current Location**: `IcnuWeights.fuse`.
 - **Core Target**: `com.spectrayan.spector.core.cognitive.IcnuSalienceKernel`
 - **Core Method Signature**:
@@ -542,20 +582,26 @@ The following 34 algorithms are cataloged across 14 computational domains, defin
   ```
 
 #### 18. Sensory Habituation Diminishing Return (Repetition Suppression)
+
 - **Biological / Theoretical Foundation**: Groves & Thompson (1970) Dual-Process Theory:
   $$P(k) = \frac{1}{1 + (k - 1) \cdot \lambda_{\text{decay}}}$$
+
 - **Current Location**: `HabituationPenalty.computePenalty`.
 - **Core Target**: `com.spectrayan.spector.core.cognitive.HabituationKernel.penalty(int timesSeen, float decayRate)`
 
 #### 19. Inhibition of Return (IOR) Refractory Period Recovery
+
 - **Biological / Theoretical Foundation**: Posner & Cohen (1984) refractory linear recovery preventing activation fixation:
   $$\text{IOR}(\Delta t) = \text{floor} + (1 - \text{floor}) \cdot \min\left(1.0, \frac{\Delta t}{\text{TTL}}\right)$$
+
 - **Current Location**: `HabituationPenalty.computeInhibitionOfReturn`.
 - **Core Target**: `HabituationKernel.inhibitionOfReturn(long elapsedMs, long ttlMs, float floor)`
 
 #### 20. Lateral Thinking Evaluation & Hallucination Index
+
 - **Biological / Theoretical Foundation**: Reduced latent inhibition utility tracking:
   $$\text{LUR} = \frac{R}{N}, \quad \text{LSR} = \frac{S}{N}, \quad \text{LHI} = (1 - \text{LUR}) \cdot \text{LSR}$$
+
 - **Current Location**: `LateralEvaluator.java:136-150`.
 - **Core Target**: `com.spectrayan.spector.core.cognitive.LateralRetrievalKernel`
 - **Core Method Signature**:
@@ -570,8 +616,10 @@ The following 34 algorithms are cataloged across 14 computational domains, defin
 ### 3.8 Domain 8: Temperature Modulation & Entropy Control (3 algorithms)
 
 #### 21. Numerically Stable Softmax Temperature Scaling on Vector / Array
+
 - **Biological / Theoretical Foundation**: Maximum-subtracted Log-Sum-Exp distribution flattening/sharpening over candidate scores:
   $$\text{shift} = \max_j (s_j / T), \quad w_i = \exp(s_i / T - \text{shift}), \quad p_i = \frac{w_i}{\sum w_j}$$
+
 - **Current Location**: `TemperatureSoftmax.java:54-105`.
 - **Core Target**: `com.spectrayan.spector.core.math.SoftmaxKernel` — **Purity tier T1**
 - **Core Method Signature**:
@@ -581,23 +629,28 @@ The following 34 algorithms are cataloged across 14 computational domains, defin
   // beta-scaled logit form, for HopfieldKernel and PolicyInferenceEngine to share
   public static void computeProbabilitiesScaled(float[] logits, float beta, float[] outProbabilities);
   ```
+
 - **This kernel is a CONSOLIDATION, and it fixes a real bug.** It becomes the single softmax for **three** existing implementations (see D5):
-  1. `TemperatureSoftmax:54` — max-shift stabilized. Repoint.
-  2. `HopfieldKernel.softmax(float[], float beta, float[])` in `spector-core` — max-shift stabilized. Refactor to delegate via `computeProbabilitiesScaled`. **Do not add a second softmax next to it.**
-  3. `PolicyInferenceEngine:95-107` — Boltzmann softmax with **no max-shift stabilization**; overflows/underflows for large `gamma * totalG`. **This is a latent numerical bug, not just duplication.** Repointing it is a deliberate, changelog-worthy behaviour fix, not a neutral refactor.
+    1. `TemperatureSoftmax:54` — max-shift stabilized. Repoint.
+    2. `HopfieldKernel.softmax(float[], float beta, float[])` in `spector-core` — max-shift stabilized. Refactor to delegate via `computeProbabilitiesScaled`. **Do not add a second softmax next to it.**
+    3. `PolicyInferenceEngine:95-107` — Boltzmann softmax with **no max-shift stabilization**; overflows/underflows for large `gamma * totalG`. **This is a latent numerical bug, not just duplication.** Repointing it is a deliberate, changelog-worthy behaviour fix, not a neutral refactor.
 - **The `TemperatureSoftmax` refactor must also remove the allocation, which is the actual hot-path cost** (§1.1.3): the per-element `ScoreBreakdown` + 17-component `CognitiveResult` reallocation in pass 3, and the per-call `double[] expWeights`. An array-shaped signature alone delivers no measurable win.
 - **Vectorization note**: `Math.exp` is a non-vectorizable intrinsic. If SIMD is wanted here, use `VectorOperators.EXP` over `FloatVector` explicitly.
 - **Preserve**: the `size() <= 1` early-out, the `|T - 1.0f| < 1e-4f` identity short-circuit (also gated in `TemperatureSoftmaxRelay:59`), the `sumExp <= 0 || Double.isNaN(sumExp)` bail-out, and the total-score-redistribution semantics. `TemperatureSoftmaxRelay` re-sorts after the call — in-place mutation must be preserved or the relay updated in the same commit.
 
 #### 22. Adaptive Query Surprise Temperature Scaling
+
 - **Biological / Theoretical Foundation**: Query-side surprise scaling retrieval breadth:
   $$T = \operatorname{clamp}\left(T_{\text{base}} \cdot \left(1 + \kappa \cdot \max(0, z_{\text{surprise}})\right), T_{\text{min}}, T_{\text{max}}\right)$$
+
 - **Current Location**: `TemperatureOptions.computeEffective`.
 - **Core Target**: `SoftmaxKernel.adaptiveTemperature(float baseTemp, double zSurprise, float kappa, float minT, float maxT)`
 
 #### 23. Hopfield Inverse Temperature Modulation ($\beta$)
+
 - **Biological / Theoretical Foundation**: Norepinephrine modulation sharpening or flattening modern Hopfield energy basins based on arousal:
   $$\beta = \max(0.2, \beta_{\text{base}} \cdot (1 + 0.5 \cdot \operatorname{clamp}(A, -1, 1)))$$
+
 - **Current Location**: `PersonalityTemperature.deriveBeta` (`memory/spector-memory/.../aisme/hopfield/`).
 - **Core Target**: `com.spectrayan.spector.core.cognitive.HopfieldKernel.deriveBeta(float baseBeta, float arousal)` — **Purity tier T1**
 - **⚠ This is an EXTENSION of an existing class, not a migration to a new one.** `core.cognitive.HopfieldKernel` already exists on `main` with `computePatternProjections`, `softmax(float[], float, float[])` and attractor convergence. Add `deriveBeta` to it. Do not create a new type. See §2.2.
@@ -607,8 +660,10 @@ The following 34 algorithms are cataloged across 14 computational domains, defin
 ### 3.9 Domain 9: Affective Dynamics & Neural Differential Equations (3 algorithms)
 
 #### 24. Valence Arithmetic, Blending & Congruence
+
 - **Biological / Theoretical Foundation**: Bower (1981) associative network theory of mood congruence and exponential outcome updates:
   $$V_{\text{blend}} = \operatorname{round}(V_{\text{old}} (1 - \alpha) + V_{\text{new}} \alpha), \quad \operatorname{congruence} = 1.0 - \frac{|V_1 - V_2|}{255}$$
+
 - **Current Location**: Duplicated in `kernel.score.Valence` (Apache) and `memory.neuromod.amygdala.Valence` (BSL-1.1). **Verified logically byte-for-byte identical** — same 5 constants (`±100`, `±50`, `0`), same `clamp`, `isPositive` (`> 10`), `isNegative` (`< -10`), `blend`. The only differences were the license header and Javadoc, which is precisely why the extraction stalled. Resolved by §1.2.
 - **Both copies operate on SIGNED `byte` (`-128..127`).** There is no unsigned `0..255` valence variant anywhere in the repo — Rev 1 mistakenly attributed unsignedness to valence. The unsigned value is **arousal** (`DecayStrategy.java:263`, via `Byte.toUnsignedInt`). Do not "reconcile" a difference that does not exist.
 - A **third** `clamp` variant exists in `bench/.../MfValenceWindow:24` using `Math.clamp(min, -128, 127)` with hardcoded literals instead of `Byte.MIN_VALUE/MAX_VALUE`. Repoint it too.
@@ -623,8 +678,10 @@ The following 34 algorithms are cataloged across 14 computational domains, defin
   ```
 
 #### 25. Hypothalamic SDE Integration (Euler-Maruyama Step)
+
 - **Biological / Theoretical Foundation**: Continuous affective regulation modeled as a multi-dimensional Stochastic Differential Equation:
   $$h_{t+dt} = h_t + dt \cdot (A h_t + B u_t + C r_t) + \sqrt{dt} \cdot \sigma \odot \mathcal{N}(0, 1)$$
+
 - **Current Location**: `HomeostaticCore.step`.
 - **Core Target**: `com.spectrayan.spector.core.math.SdeEulerSolver`
 - **Core Method Signature**:
@@ -635,8 +692,10 @@ The following 34 algorithms are cataloged across 14 computational domains, defin
   ```
 
 #### 26. Personality Trait Linear Modulation Mapping
+
 - **Biological / Theoretical Foundation**: Centered trait-to-multiplier linear projection:
   $$\text{modifier} = \text{center} + \frac{\text{trait} - \text{midpoint}}{\text{range}} \cdot \text{amplitude}$$
+
 - **Current Location**: `PersonalityModifiers.derive`.
 - **Core Target**: `com.spectrayan.spector.core.cognitive.PersonalityTraitKernel`
 - **Core Method Signature**:
@@ -649,8 +708,10 @@ The following 34 algorithms are cataloged across 14 computational domains, defin
 ### 3.10 Domain 10: Reinforcement Learning & Bandit Statistics (1 algorithm)
 
 #### 27. Online Exponential Moving Average (EMA) Reinforcement Tracker
+
 - **Biological / Theoretical Foundation**: Basal ganglia temporal-difference reinforcement tracking:
   $$\text{EMA}_n = \text{EMA}_{n-1} (1 - \alpha) + v \alpha, \quad \text{winRate} = \frac{N_+}{N}$$
+
 - **Current Location**: Duplicated in `kernel.store.BanditStats` and `memory.cortex.adaptor.RunningStats`. **Verified bit-identical**: same 4 record components `(float ema, int totalSignals, int positiveSignals, long lastUpdatedMs)`, same `EMPTY` sentinel `(0f, 0, 0, 0L)`, same `update(boolean, float)` body — differing only in a local variable name (`signal` vs `value`) and float literal style (`1` vs `1.0f`, which widen identically).
 - **Core Target**: `com.spectrayan.spector.core.math.EmaTracker` — **Purity tier T2 (immutable accumulator)**
 - **Core Method Signature**:
@@ -663,6 +724,7 @@ The following 34 algorithms are cataloged across 14 computational domains, defin
       public float winRate();
   }
   ```
+
 - **⚠ Both existing copies call `System.currentTimeMillis()` inside `update()`**, making them non-deterministic and awkward to test. The migrated form **must take `long nowMs` as a parameter** (Principle 2, T2). Migrating the clock read as-is would carry the untestability into `spector-core`.
 - Neither copy is an atomic accumulator: they are immutable and safe to read concurrently, but a read-modify-write across threads can lose updates. Document that the caller owns the guard; do not silently imply thread-safety.
 
@@ -671,11 +733,13 @@ The following 34 algorithms are cataloged across 14 computational domains, defin
 ### 3.11 Domain 11: Information Retrieval & Sparse Scoring (2 algorithms)
 
 #### 28. Okapi BM25 Term Weighting & Document Frequency (IDF)
+
 - **Biological / Theoretical Foundation**: Robertson & Spärck Jones BM25 ranking function:
   $$\text{IDF}(n, N) = \ln\left(1 + \frac{N - n + 0.5}{n + 0.5}\right), \quad \text{TF}_{\text{norm}} = \frac{\text{tf} \cdot (k_1 + 1)}{\text{tf} + k_1 \cdot \left(1 - b + b \cdot \frac{L}{L_{\text{avg}}}\right)}$$
+
 - **⚠ Current Location — two distinct classes, conflated in Rev 1:**
-  1. `nucleus/spector-index/.../index/text/BM25Index.java:309-311, 396-400` — the primary index. **`spector-index/pom.xml` already declares a `spector-core` dependency**, so this refactor needs no new reactor edge and is the lowest-risk item in Phase 5.
-  2. `memory/spector-memory/.../memory/cortex/MemoryBM25Index.java` — a separate off-heap BM25 over the mmap'd region. Also needs repointing, and it is one of the `regionSegment()` growers called out in the `sealed-kernel-module` spec — coordinate (see §7).
+    1. `nucleus/spector-index/.../index/text/BM25Index.java:309-311, 396-400` — the primary index. **`spector-index/pom.xml` already declares a `spector-core` dependency**, so this refactor needs no new reactor edge and is the lowest-risk item in Phase 5.
+    2. `memory/spector-memory/.../memory/cortex/MemoryBM25Index.java` — a separate off-heap BM25 over the mmap'd region. Also needs repointing, and it is one of the `regionSegment()` growers called out in the `sealed-kernel-module` spec — coordinate (see §7).
 - **Core Target**: `com.spectrayan.spector.core.similarity.BM25Kernel` — **Purity tier T1**
 - **Core Method Signature**:
   ```java
@@ -687,8 +751,10 @@ The following 34 algorithms are cataloged across 14 computational domains, defin
   ```
 
 #### 29. ColBERT MaxSim Late-Interaction & Linear Fusion Score
+
 - **Biological / Theoretical Foundation**: Khattab & Zaharia (2020) ColBERT token-level interaction score:
   $$S = \alpha \cdot \left(\frac{1}{|Q|} \sum_{i \in Q} \max_{j \in D} (q_i \cdot d_j)\right) + (1 - \alpha) \cdot S_0$$
+
 - **Current Location**: Interface exists in `core.spi.MaxSimKernel` (with `maxSim` and `maxSimBatch`, dispatched through `AcceleratorRegistry` to `CpuSimdMaxSimKernel` / `CudaMaxSimKernel`), but the **linear fusion** formula is trapped in `ColBERTReranker.java:158` in `spector-memory`.
 - **⚠ NAME COLLISION — resolved.** Rev 1 targeted `core.similarity.MaxSimKernel`, which would shadow the existing `core.spi.MaxSimKernel` interface. Rev 1 also contradicted itself (diagram: `MaxSimScorer`; §3.11: `MaxSimKernel`).
 - **Core Target (binding)**: add `combineScores` as a **`static` method on the existing `com.spectrayan.spector.core.spi.MaxSimKernel` interface**. Any further non-SPI helpers go in `com.spectrayan.spector.core.similarity.ColbertFusion`. **Do not create a second type named `MaxSimKernel`.**
@@ -696,6 +762,7 @@ The following 34 algorithms are cataloged across 14 computational domains, defin
   // on the EXISTING core.spi.MaxSimKernel interface
   static float combineScores(float maxSimNorm, float firstStageScore, float alpha);
   ```
+
 - The `maxSim` / `maxSimBatch` compute paths already exist and are already accelerated. Only the fusion arithmetic moves.
 
 ---
@@ -703,8 +770,10 @@ The following 34 algorithms are cataloged across 14 computational domains, defin
 ### 3.12 Domain 12: Synaptic Hashing & Bloom Filters (2 algorithms)
 
 #### 30. Kirsch-Mitzenmacher Double-Hashing & Bloom Filter Math
+
 - **Biological / Theoretical Foundation**: 64-bit Bloom filter bit selection $h_i = (h_1 + i \cdot h_2) \pmod{64}$ and popcount overlap:
   $$\text{overlap} = \frac{\operatorname{popcount}(A \ \& \ B)}{\operatorname{popcount}(B)}, \quad P_{\text{fp}} = \left(1 - e^{-k n / m}\right)^k$$
+
 - **Current Location**: `SynapticTagEncoder.java:57-121`.
 - **Core Target**: `com.spectrayan.spector.core.cognitive.SynapticTagMath`
 - **Core Method Signature**:
@@ -715,12 +784,13 @@ The following 34 algorithms are cataloged across 14 computational domains, defin
   ```
 
 #### 31. xxHash64 Pure Fast Hashing
+
 - **Biological / Theoretical Foundation**: High-throughput 64-bit non-cryptographic hashing.
 - **Current Location**: `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/util/XxHash64.java`.
 - **Core Target**: `com.spectrayan.spector.core.math.XxHash64` — **Purity tier T1**
 - **⚠ NOT a Phase 1 zero-risk item. Reclassified to Phase 4.** Two reasons:
-  1. **There is exactly ONE copy in the entire repo.** It is not duplicated, so it does not belong in a deduplication phase. The only justification for moving it is availability to lower layers — which is real, but it is a relocation, not a dedup.
-  2. It sits inside `spector-kernel`, the **only JPMS-modularized module in the repo**, and **`kernel.util` is not among the packages exported by `module-info.java`**. Moving it out is a **module seal change**, policed by `KernelSealRulesTest`, `KernelNamingRulesTest` and `KernelSealBoundaryTest`. It must be sequenced against the `sealed-kernel-module` spec (§7), not slipped into a "zero-risk" batch.
+    1. **There is exactly ONE copy in the entire repo.** It is not duplicated, so it does not belong in a deduplication phase. The only justification for moving it is availability to lower layers — which is real, but it is a relocation, not a dedup.
+    2. It sits inside `spector-kernel`, the **only JPMS-modularized module in the repo**, and **`kernel.util` is not among the packages exported by `module-info.java`**. Moving it out is a **module seal change**, policed by `KernelSealRulesTest`, `KernelNamingRulesTest` and `KernelSealBoundaryTest`. It must be sequenced against the `sealed-kernel-module` spec (§7), not slipped into a "zero-risk" batch.
 - **Migration requires**: removing `kernel.util.XxHash64`, updating `module-info.java`, repointing all kernel-internal callers to `spector-core` (already a `requires transitive` dependency of the kernel module, so no new edge), and re-running the seal test suite.
 
 ---
@@ -728,8 +798,10 @@ The following 34 algorithms are cataloged across 14 computational domains, defin
 ### 3.13 Domain 13: Manifold Adaptation & Event Density (2 algorithms)
 
 #### 32. Riemannian Metric Tensor Online Adaptation
+
 - **Biological / Theoretical Foundation**: Experiential metric warping updating diagonal coordinate scales and rank-1 SVD perturbations from co-activation differences:
   $$d_k \leftarrow \max(0.1, d_k + \eta \cdot (x_k - y_k)^2)$$
+
 - **Current Location**: `ManifoldConsolidator.java:80-105`.
 - **Core Target**: `com.spectrayan.spector.core.cognitive.RiemannianManifoldKernel`
 - **Core Method Signature**:
@@ -739,8 +811,10 @@ The following 34 algorithms are cataloged across 14 computational domains, defin
   ```
 
 #### 33. Information-Theoretic Event Density Gating
+
 - **Biological / Theoretical Foundation**: Epistemic compression gating:
   $$\nu(o_t) = \alpha D_{\text{KL}}(q \parallel p) + \beta \|\nabla_s F\| + \gamma \cdot \text{Surprise}$$
+
 - **Current Location**: `EventDensityFilter.evaluate` and `DynamicSamplingRateController.computeSamplingRate`.
 - **Core Target**: `com.spectrayan.spector.core.cognitive.EventDensityKernel`
 - **Core Method Signature**:
@@ -754,6 +828,7 @@ The following 34 algorithms are cataloged across 14 computational domains, defin
 ### 3.14 Domain 14: End-to-End Cognitive Score Fusion (1 algorithm)
 
 #### 34. Unified 6-Phase Cognitive Score Fusion Formula
+
 - **Biological / Theoretical Foundation**: Spector's flagship fused scoring formula combining similarity, dynamic mass, power-law decay, Two-Factor storage boost, tag overlap, valence congruence, and associative priors in both ADDITIVE and MULTIPLICATIVE modes.
 - **Current Location**: `com.spectrayan.spector.memory.synapse.scan.CognitiveScoreFusion.computeFusedScore` (**not** `memory.score` as stated in Rev 1). Currently BSL-1.1 → Apache 2.0 per §1.2.
 - **Core Target**: `com.spectrayan.spector.core.cognitive.CognitiveScoreFusionKernel` — **Purity tier T1**
@@ -965,6 +1040,7 @@ ADR-0033 moves code **out of** `spector-kernel` while the `sealed-kernel-module`
 ---
 
 ### Code Reference & Verification Gate
+
 - **Primary Module(s)**: `nucleus/spector-core`, `memory/spector-memory`, `memory/spector-kernel`
 - **Key Packages**: `com.spectrayan.spector.core.cognitive`, `com.spectrayan.spector.core.similarity`, `com.spectrayan.spector.core.spi`
 - **Classes**: `ExpectedFreeEnergyKernel.java`, `HopfieldKernel.java`, `NeuralManifoldDistance.java`, `PredictiveCodingKernel.java`

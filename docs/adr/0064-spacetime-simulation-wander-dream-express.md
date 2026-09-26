@@ -81,14 +81,17 @@ A naive approach to forward planning simply queries `RecallPathway` with a futur
 ## 4. Considered Options
 
 ### Option 1: Overloaded `RecallPathway` with Forward Flags
+
 - Allow callers to pass `SimulationMode=PROSPECTIVE` to `RecallPathway`.
 - **Verdict**: Rejected. Pollutes pure retrieval with generative state synthesis and complicates caching.
 
 ### Option 2: External Generative LLM Rollouts
+
 - Prompt an external model to invent future scenarios without memory recombination.
 - **Verdict**: Rejected. Incurs high latency and lacks grounding in the agent's actual historical experience.
 
 ### Option 3: Dedicated Spacetime Simulation Relays on Wander, Dream, and Express Pathways (Selected)
+
 - Implement generative simulation directly on the three background and synthesis pathways.
 - Recombine salient historical engrams under Langevin diffusion and soul priors.
 - **Verdict**: Accepted. Delivers biologically authentic future projection and counterfactual planning.
@@ -210,6 +213,7 @@ flash     = top    nFlash    of shortlist with M ≥ FLASHBULB_MASS_FLOOR
 
 \[
 s'_i = s_i
+    
      + \rho_{+}\max(\psi_i,0)
      + \rho_{-}\max(-\psi_i,0)
      + \gamma\,\mathbf{1}[M_i \ge \texttt{FLASHBULB\_MASS\_FLOOR}]
@@ -352,6 +356,7 @@ v1 **does not**:
 ## 8. Code Reference & Verification
 
 All simulation pathways and diffusion relays are verified in the codebase:
+
 - **Wander Pathway**: `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/cortex/pathway/WanderPathway.java`
 - **Dream Pathway**: `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/cortex/pathway/DreamPathway.java`
 - **Express Pathway**: `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/cortex/pathway/ExpressPathway.java`

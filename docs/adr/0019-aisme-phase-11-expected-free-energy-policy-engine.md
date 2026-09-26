@@ -30,16 +30,19 @@ Prior to Phase 11, Spector's execution was entirely reactive: queries prompted m
 ## 4. Considered Options
 
 ### Option 1: Heuristic Hardcoded Rule Engine
+
 - **Description**: Use conditional thresholding over confidence scores to select exploratory vs exploitative behaviors.
 - **Advantages**: Simple to understand and quick to implement.
 - **Disadvantages**: Highly brittle; fails in edge cases; lacks unified probabilistic decision foundations.
 
 ### Option 2: Model-Free Reinforcement Learning (Q-Learning / PPO)
+
 - **Description**: Train policy value networks via external rewards.
 - **Advantages**: Standard machine learning formulation.
 - **Disadvantages**: Requires massive offline training data; lacks intrinsic epistemic motivation; introduces unpredictable neural black-box decision points.
 
 ### Option 3: Variational Active Inference with SIMD Expected Free Energy (Selected)
+
 - **Description**: Vectorized evaluation of Expected Free Energy ($G$) decomposing into KL divergence (pragmatic risk) and conditional entropy (epistemic uncertainty), combined with Boltzmann distribution policy selection.
 - **Advantages**: Mathematically unified; zero training required; intrinsic motivation to resolve ambiguity; AVX-512 SIMD accelerated.
 - **Disadvantages**: Requires careful calibration of prior preference distributions.
@@ -90,11 +93,13 @@ Where $\gamma \ge 0$ is the policy precision (action readiness), dynamically mod
 sourced from `HomeostaticCore` / `InteroceptiveState`.
 
 ### Positive Consequences
+
 - Transforms Spector agents from passive memory stores into autonomous active-inference agents.
 - Intrinsic drive to clarify ambiguities before taking high-risk actions.
 - AVX-512 SIMD acceleration guarantees sub-millisecond policy inference latency.
 
 ### Negative Consequences & Trade-offs
+
 - Setting accurate prior preferences requires well-defined `AgentSoul` configuration profiles.
 
 ## 6. Pros and Cons of the Options

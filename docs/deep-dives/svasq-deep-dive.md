@@ -152,6 +152,7 @@ $$r = x - c_{\text{nearest}}$$
 ### Why Residuals Matter
 
 Residual vectors are **much tighter** than absolute vectors:
+
 - **Absolute coordinates** might span [-3.0, 3.0] → 255 INT8 bins cover a range of 6.0
 - **Residual coordinates** span [-0.2, 0.2] → 255 INT8 bins cover a range of 0.4
 

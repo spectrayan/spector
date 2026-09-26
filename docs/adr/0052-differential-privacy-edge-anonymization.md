@@ -37,14 +37,17 @@ Cognitive memory platforms store extensive autobiographical episodes, identity m
 ## 4. Considered Options
 
 ### Option 1: Heuristic Attribute Masking & Regex Redaction
+
 - Redact recognized regex patterns (emails, phone numbers, SSNs) and strip names.
 - **Verdict**: Rejected. Inadequate against reconstruction attacks on vector embeddings and graph structural linkage attacks.
 
 ### Option 2: Heavy Homomorphic Encryption
+
 - Perform all queries and graph traversals entirely in ciphertext using fully homomorphic encryption (FHE).
 - **Verdict**: Rejected. 1000x slowdown makes interactive sub-millisecond retrieval impossible.
 
 ### Option 3: Gaussian and Laplace Differential Privacy with Salted HMAC Edge Anonymization (Selected)
+
 - Add calibrated Gaussian noise to vector embeddings and Laplace noise to scalar cognitive telemetry in `DifferentialPrivacyKernel`.
 - Apply deterministic salted HMAC pseudonymization to graph edges in `EdgeAnonymizer` and `EdgeAnonymizationRelay`.
 - **Verdict**: Accepted. Delivers provable $(\epsilon, \delta)$ privacy guarantees with negligible retrieval latency impact.
@@ -82,11 +85,13 @@ Transforms sensitive tokens into deterministic hashed identifiers that persist w
 ## 6. Pros and Cons of the Options
 
 ### Positive
+
 - **Provable Privacy Guarantees**: Formal mathematical bounds against arbitrary post-processing and side-channel linkage attacks.
 - **Preserved Utility**: Calibrated Gaussian noise maintains cosine distance fidelity for top-$k$ recall within acceptable margins.
 - **Off-Heap Speed**: SIMD-friendly Gaussian RNG evaluated in off-heap memory segments without garbage collection overhead.
 
 ### Negative / Trade-offs
+
 - **Hyperparameter Calibration**: Privacy budget $\epsilon$ must be budgeted across multiple queries to prevent budget exhaustion.
 - **Minor Vector Drift**: Noise injection slightly perturbs embedding positions, requiring a slight increase in recall expansion factor.
 
@@ -100,11 +105,12 @@ Transforms sensitive tokens into deterministic hashed identifiers that persist w
 ## 8. Code Reference & Verification
 
 All privacy kernels, anonymizers, and relays are verified in the repository:
+
 - **Core Math Kernel**:
-  - `nucleus/spector-core/src/main/java/com/spectrayan/spector/core/privacy/DifferentialPrivacyKernel.java`
-  - `nucleus/spector-core/src/test/java/com/spectrayan/spector/core/similarity/DifferentialPrivacyKernelTest.java`
+    - `nucleus/spector-core/src/main/java/com/spectrayan/spector/core/privacy/DifferentialPrivacyKernel.java`
+    - `nucleus/spector-core/src/test/java/com/spectrayan/spector/core/similarity/DifferentialPrivacyKernelTest.java`
 - **Memory Privacy Engine & Relays**:
-  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/privacy/DifferentialPrivacyEngine.java`
-  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/privacy/EdgeAnonymizer.java`
-  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/relay/DifferentialPrivacyRelay.java`
-  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/relay/EdgeAnonymizationRelay.java`
+    - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/privacy/DifferentialPrivacyEngine.java`
+    - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/privacy/EdgeAnonymizer.java`
+    - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/relay/DifferentialPrivacyRelay.java`
+    - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/relay/EdgeAnonymizationRelay.java`

@@ -49,14 +49,17 @@ Long-lived cognitive agents accumulating memories continuously face severe stora
 ## 4. Considered Options
 
 ### Option 1: Static LRU/FIFO Eviction
+
 - Discard the least-recently-used memories when storage capacity reaches 100%.
 - **Verdict**: Rejected. Evicts critical historical memories that haven't been accessed recently, destroying long-term continuity.
 
 ### Option 2: Fixed Exponential Decay TTL
+
 - Decay all memories with a single uniform half-life.
 - **Verdict**: Rejected. Erases important foundational knowledge and preferences at the same rate as mundane chitchat.
 
 ### Option 3: Lifespan-Adaptive Forgetting & Dynamic Retention Gating (Selected)
+
 - Synthesize composite importance, activation frequency, recency, and identity stratification into a continuous retention function.
 - Execute adaptive pruning during sleep consolidation sweeps (`ReflectPathway`).
 - **Verdict**: Accepted. Delivers biologically authentic memory lifecycles that scale across decades.
@@ -72,6 +75,7 @@ The dynamic retention threshold \(\tau(t)\) is formalized as:
 ```
 
 Where:
+
 - \(\tau(t)\): Retention cutoff at operational age \(t\).
 - \(\tau_0 = 0.30\): Baseline retention cutoff.
 - \(k = 0.15\): Lifespan hardening rate.
@@ -86,16 +90,19 @@ Where:
 ### Component Specification & Subsystem Architecture
 
 ### 3.1 Kernel (`LifespanThresholdKernel.java`)
+
 - Pure, branchless mathematical evaluation of \(\tau(t)\).
 - Singularity protection for non-positive \(t\) or \(V(t)\).
 - Strict bounds clamping to \([0.0, 1.0]\).
 
 ### 3.2 Lifespan Retention Controller (`LifespanRetentionController.java`)
+
 - Maintains epoch counter and interfaces with `PartitionManager` to sample \(V(t)\).
 - Implements `evaluateRetentionDecision(RememberSignal signal)` returning `RETAIN`, `CONSOLIDATE`, or `PRUNE`.
 - Ensures `signal.flashbulb() == true` or \(I(o_t) \ge 0.85\) unconditionally maps to `RETAIN`.
 
 ### 3.3 Sleep Consolidation Relay (`LifespanAdaptivePruningRelay.java`)
+
 - Integrated into `ReflectPathway` as `lifespan_adaptive_pruning`.
 - Replaces static decay thresholds with dynamically evaluated \(\tau(t)\).
 - Emits telemetry on total milestones preserved, flavour consolidated, and ephemeral memories pruned.
@@ -103,11 +110,13 @@ Where:
 ## 6. Pros and Cons of the Options
 
 ### Positive
+
 - **Bounded Storage Footprint**: Keeps memory growth bounded within provisioned storage tiers while preserving essential knowledge.
 - **Sharper Retrieval Quality**: Removing stale, low-salience noise improves top-$k$ recall precision and semantic clarity.
 - **Lifelong Continuity**: Foundational facts and high-importance milestones persist indefinitely.
 
 ### Negative / Trade-offs
+
 - **Pruning Sweep Scheduling**: Requires periodic offline or idle background sweeps (`ReflectPathway`) to execute decay calculations.
 - **Irreversible Deletion Safeguards**: Must maintain safety guards ensuring memories flagged as core identity anchors are never pruned.
 
@@ -121,9 +130,10 @@ Where:
 ## 8. Code Reference & Verification
 
 All lifespan controllers, score models, and consolidation components are verified in the repository:
+
 - **Lifespan Retention Controller**:
-  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/lifespan/LifespanRetentionController.java`
+    - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/lifespan/LifespanRetentionController.java`
 - **Consolidation & Reflect Wiring**:
-  - `synapse/spector-batch/src/main/java/com/spectrayan/spector/batch/ReflectConsolidationJobConfig.java`
+    - `synapse/spector-batch/src/main/java/com/spectrayan/spector/batch/ReflectConsolidationJobConfig.java`
 - **Kernel Storage Scores**:
-  - `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/score/EdgeImportance.java`
+    - `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/score/EdgeImportance.java`

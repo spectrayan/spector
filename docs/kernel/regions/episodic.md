@@ -59,5 +59,6 @@ Log-structured append-only operations. Writes are locked via `ReentrantLock`. Re
 Acts as the episodic log of conversation turns. Every interaction is recorded sequentially. These experiences are later processed during offline consolidation and promoted into semantic and procedural stores.
 
 ## Related
+
 - [`EpisodicMemory.java`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/EpisodicMemory.java)
 - [`EpisodicLayout.java`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/EpisodicLayout.java)

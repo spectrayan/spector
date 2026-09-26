@@ -23,9 +23,9 @@ In response, Titan proposed an extensive hand-crafted custom Java SDK featuring:
 1. Handwritten Java records for all requests and responses.
 2. A custom `Transport` abstraction (`send(String operation, Object payload, Class<T> responseType)`).
 3. Three distinct transports:
-   - `RestTransport` (calling `/api/v1/memory/*` via `java.net.http.HttpClient`)
-   - `McpTransport` (calling JSON-RPC 2.0 over HTTP/SSE)
-   - `ProcessTransport` (launching `spector.jar` as a local child process via `ProcessBuilder`)
+    - `RestTransport` (calling `/api/v1/memory/*` via `java.net.http.HttpClient`)
+    - `McpTransport` (calling JSON-RPC 2.0 over HTTP/SSE)
+    - `ProcessTransport` (launching `spector.jar` as a local child process via `ProcessBuilder`)
 
 Project Lead Project Lead raised two critical strategic questions:
 
@@ -87,12 +87,13 @@ graph TD
 
 1. **Agents are already MCP Clients**: Claude Desktop, Cursor, Antigravity, OpenDevin, and agent SDKs (Spring AI, LangChain, Semantic Kernel) already implement generic MCP clients. They read configuration files (e.g. `claude_desktop_config.json`, `antigravity.json`) and dynamically discover tools (`tools/list`) and invoke them (`tools/call`).
 2. **Proprietary MCP Client SDKs Break the Abstraction**: If Spector provides a proprietary `SpectorMcpClient` library, what is it for?
-   - If an agent uses it, the agent is abandoning standard MCP discovery in favor of a vendor-locked library.
-   - If a normal application (non-agent) uses it, the application is tunneling structured database operations through an untyped JSON-RPC `tools/call` envelope rather than using standard REST endpoints.
+    - If an agent uses it, the agent is abandoning standard MCP discovery in favor of a vendor-locked library.
+    - If a normal application (non-agent) uses it, the application is tunneling structured database operations through an untyped JSON-RPC `tools/call` envelope rather than using standard REST endpoints.
 
 3. **Loss of HTTP Semantics**: Tunnelling application calls through MCP strips away HTTP status codes (404, 401, 429), path routing, standard HTTP caching, standard load balancers, rate limiters, and OpenAPI schema validation.
 
 ### 3.2 Verdict on MCP
+
 - Spector **MUST NOT** build, publish, or maintain a proprietary "Spector MCP Client SDK".
 - Spector's MCP responsibility is strictly **Server-Side**: provide a robust, high-performance, compliant **MCP Server** (`synapse/spector-mcp`) that any standard MCP host or agent can consume as a drop-in plugin.
 
@@ -101,22 +102,24 @@ graph TD
 ## 5. Design Options for REST Client SDKs
 
 ### Option 1: Pure OpenAPI Auto-Generation (Automated & Hands-Off)
+
 - **Mechanism**:
-  - `springdoc-openapi-starter-webmvc-ui` in `spector-synapse` generates `openapi.yaml`.
-  - `openapi-generator-cli` runs during CI/CD to generate complete client libraries for Java (`java.net.http.HttpClient`), Python (`httpx`), and TypeScript (`fetch`).
-  - Output is published directly to Maven Central, PyPI, and npm.
+    - `springdoc-openapi-starter-webmvc-ui` in `spector-synapse` generates `openapi.yaml`.
+    - `openapi-generator-cli` runs during CI/CD to generate complete client libraries for Java (`java.net.http.HttpClient`), Python (`httpx`), and TypeScript (`fetch`).
+    - Output is published directly to Maven Central, PyPI, and npm.
 - **Strengths**:
-  - 100% automated; zero code maintenance across all languages.
-  - Covers all 40+ endpoints (Memory, Agents, Connectors, Namespaces, Config, System).
-  - Guarantees zero schema drift between server and client.
+    - 100% automated; zero code maintenance across all languages.
+    - Covers all 40+ endpoints (Memory, Agents, Connectors, Namespaces, Config, System).
+    - Guarantees zero schema drift between server and client.
 - **Weaknesses**:
-  - Raw generated methods can feel robotic (e.g. `api.apiV1MemoryRememberPost(request)`).
-  - Exceptions are generic HTTP wrapper errors (`ApiException`).
+    - Raw generated methods can feel robotic (e.g. `api.apiV1MemoryRememberPost(request)`).
+    - Exceptions are generic HTTP wrapper errors (`ApiException`).
 
 ### Option 2: OpenAPI Core + Thin Ergonomic Facade (Recommended) ⭐
+
 - **Mechanism**:
-  - OpenAPI generates all DTOs/records, JSON serialization, and underlying API client classes.
-  - A small, handwritten facade layer (~150–200 LOC per language) provides a fluent, ergonomic interface:
+    - OpenAPI generates all DTOs/records, JSON serialization, and underlying API client classes.
+    - A small, handwritten facade layer (~150–200 LOC per language) provides a fluent, ergonomic interface:
     ```java
     // Java Developer Experience
     try (SpectorClient client = SpectorClient.builder()
@@ -128,25 +131,27 @@ graph TD
         List<CognitiveResult> results = client.memory().recall("ui preferences");
     }
     ```
+
   - The facade catches generated `ApiException` and translates to clean domain exceptions (`MemoryNotFoundException`, `SpectorAuthException`).
   - Provides convenience overloads with sensible defaults.
 - **Strengths**:
-  - Eliminates 95% of maintenance toil (all models, endpoints, schemas auto-generated).
-  - Delivers world-class developer ergonomics (fluent builders, idiomatic types, auto-closable).
-  - Easy to maintain across Java, Python, and TypeScript because the facade is ultra-thin.
+    - Eliminates 95% of maintenance toil (all models, endpoints, schemas auto-generated).
+    - Delivers world-class developer ergonomics (fluent builders, idiomatic types, auto-closable).
+    - Easy to maintain across Java, Python, and TypeScript because the facade is ultra-thin.
 - **Weaknesses**:
-  - Requires maintaining the thin facade wrapper across supported tier-1 languages.
+    - Requires maintaining the thin facade wrapper across supported tier-1 languages.
 
 ### Option 3: Bespoke Hand-Crafted SDK (Titan's Proposal in #738)
+
 - **Mechanism**:
-  - Manually write all request/response models, custom `Transport` interfaces, custom HTTP dispatchers, and custom serialization in Java.
-  - Repeat the entire manual process for Python, TypeScript, and Go.
+    - Manually write all request/response models, custom `Transport` interfaces, custom HTTP dispatchers, and custom serialization in Java.
+    - Repeat the entire manual process for Python, TypeScript, and Go.
 - **Strengths**:
-  - Full control over every line of Java code.
+    - Full control over every line of Java code.
 - **Weaknesses**:
-  - Massive maintenance burden; extreme risk of schema drift.
-  - Conflates REST, MCP, and Subprocess management.
-  - Requires redundant manual work every time an endpoint or DTO field evolves.
+    - Massive maintenance burden; extreme risk of schema drift.
+    - Conflates REST, MCP, and Subprocess management.
+    - Requires redundant manual work every time an endpoint or DTO field evolves.
 
 ---
 
@@ -168,12 +173,14 @@ graph TD
 ## 7. Consequences & Trade-offs
 
 ### Positive
+
 - **Single Source of Truth**: The REST API in `spector-synapse` is the authoritative specification for all client libraries.
 - **Multi-Language Parity**: Java, Python, TypeScript, and Go SDKs stay synchronized automatically.
 - **Clean Architectural Separation**: Clear distinction between embedded library (`spector-memory`), REST client SDK (`spector-client`), and agent MCP server (`spector-mcp`).
 - **Zero Process Leakage**: No fragile child JVM orchestration in application code.
 
 ### Negative / Mitigation
+
 - **Controller Annotation Hygiene**: Spring MVC controllers must maintain clean `@Operation` and schema annotations to ensure generated code has clean method names and types. (Mitigation: Enforce in code review via `Test Strategy Working Group` and `Architecture Working Group`).
 - **Initial Setup**: Requires configuring `springdoc-openapi` and OpenAPI generator tooling in the build pipeline. (Mitigation: One-time DevOps investment by `Platform Engineering` and `Development Maintainers`).
 
@@ -182,26 +189,27 @@ graph TD
 ## 6. Action Plan for Issue #738 and SDK Strategy
 
 1. **Refocus Issue #738**:
-   - Scope `synapse/spector-client` as an OpenAPI-driven Java Client SDK (Option 2: Generated Models + Fluent Facade).
-   - Remove `McpTransport` and `ProcessTransport` from the issue scope.
+    - Scope `synapse/spector-client` as an OpenAPI-driven Java Client SDK (Option 2: Generated Models + Fluent Facade).
+    - Remove `McpTransport` and `ProcessTransport` from the issue scope.
 
 2. **Standardize OpenAPI Spec in `spector-synapse`**:
-   - Add `springdoc-openapi-starter-webmvc-ui` to `synapse/spector-synapse/pom.xml`.
-   - Annotate key controllers with clean `@Operation(operationId = "...")` and `@Tag` descriptors.
-   - Configure build plugin or CI step to emit `docs/openapi.yaml`.
+    - Add `springdoc-openapi-starter-webmvc-ui` to `synapse/spector-synapse/pom.xml`.
+    - Annotate key controllers with clean `@Operation(operationId = "...")` and `@Tag` descriptors.
+    - Configure build plugin or CI step to emit `docs/openapi.yaml`.
 
 3. **Align Python SDK (`sdks/python`)**:
-   - Transition `sdks/python` from its legacy stdio `spector.jar` launcher to an OpenAPI-generated REST client targeting Spector Synapse.
-   - Document standard MCP configuration for Python agent frameworks (e.g. LangChain, CrewAI) to connect to `spector-mcp` directly without the Python SDK.
+    - Transition `sdks/python` from its legacy stdio `spector.jar` launcher to an OpenAPI-generated REST client targeting Spector Synapse.
+    - Document standard MCP configuration for Python agent frameworks (e.g. LangChain, CrewAI) to connect to `spector-mcp` directly without the Python SDK.
 
 4. **Publishing Pipeline**:
-   - Create GitHub Actions workflow `.github/workflows/generate-sdks.yml` to trigger client generation whenever `openapi.yaml` changes.
+    - Create GitHub Actions workflow `.github/workflows/generate-sdks.yml` to trigger client generation whenever `openapi.yaml` changes.
 
 ---
 
 ## 8. Code Reference & Verification
 
 All SDK and MCP components are verified in the repository:
+
 - **Python Client SDK**: `sdks/python/src/spector_client/`
 - **TypeScript Client SDK**: `sdks/typescript/spector-client/src/`
 - **Model Context Protocol Server**: `synapse/spector-mcp/src/main/java/com/spectrayan/spector/mcp/`

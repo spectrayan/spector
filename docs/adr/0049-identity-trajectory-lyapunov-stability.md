@@ -59,14 +59,17 @@ For $T = 36,500$ (100 years), $\lim_{T \to \infty} \|\boldsymbol{\mu}_T - \bolds
 ## 4. Considered Options
 
 ### Option 1: Static Frozen Personality Model
+
 - Hardcode persona weights and priors permanently, disabling parameter updates.
 - **Verdict**: Rejected. Eliminates adaptive personalization, experiential learning, and conversational rapport.
 
 ### Option 2: Unconstrained Online Plasticity
+
 - Allow unrestricted continuous SGD / Hebbian updates across all identity dimensions.
 - **Verdict**: Rejected. Inevitably suffers from the Divergence Theorem, where unbounded perturbations cause the agent to wander arbitrarily far from its baseline character.
 
 ### Option 3: Soft Identity Anchor Control Law with Lyapunov Stability (Selected)
+
 - Introduce a restoring control force parameterized by core identity anchors and adaptive elasticity.
 - Mathematically guarantee asymptotic stability via Lyapunov function analysis.
 - **Verdict**: Accepted. Balances plastic adaptation with rigorous identity homeostasis.
@@ -79,6 +82,7 @@ For $T = 36,500$ (100 years), $\lim_{T \to \infty} \|\boldsymbol{\mu}_T - \bolds
 Let the full cognitive state of an agent at epoch $t$ be represented by:
 $$\boldsymbol{s}_t = \bigl(\boldsymbol{q}_t, \boldsymbol{m}_t, \boldsymbol{p}_t, \boldsymbol{n}_t\bigr) \in \mathcal{S}$$
 where:
+
 - $\boldsymbol{q}_t \in \mathbb{R}^d$: Expectation mean of `MentalStatePosterior`
 - $\boldsymbol{m}_t \in \mathbb{R}^{d \times d}$: Tangent space centroid of `PersonalMetricTensor` $G(\boldsymbol{s})$
 - $\boldsymbol{p}_t \in \mathbb{R}^d$: Generative self-model prior mean
@@ -122,6 +126,7 @@ The continuity coefficient $C(t, t+\Delta) \in [0, 1]$ is computed as:
 $$C(t, t+\Delta) = \exp\bigl(-\lambda \cdot d_M(\boldsymbol{s}_t, \boldsymbol{s}_{t+\Delta})\bigr)$$
 
 where:
+
 - $d_M(\boldsymbol{s}_a, \boldsymbol{s}_b) = \sqrt{(\boldsymbol{p}_a - \boldsymbol{p}_b)^T G(\boldsymbol{s})(\boldsymbol{p}_a - \boldsymbol{p}_b)}$
 - $\lambda = 1.0$ (decay sensitivity)
 
@@ -133,11 +138,13 @@ $$C(0, 10000) \ge 0.90$$
 ## 6. Pros and Cons of the Options
 
 ### Positive
+
 - **Proven Mathematical Safety**: Lyapunov proof guarantees that trajectory deviations decay exponentially to bounded equilibria.
 - **Graceful Adaptation**: Agents adapt to local conversational nuances while preserving their authentic soul identity.
 - **Observability**: Continuity scores provide automated telemetry for monitoring persona degradation or drift.
 
 ### Negative / Trade-offs
+
 - **Restoring Torque Tuning**: Requires careful tuning of restoring coefficients ($\lambda$) to balance agility against stiffness.
 - **State Vector Overhead**: Tracking identity trajectory snapshots adds minor computational overhead during reflective consolidation cycles.
 
@@ -167,11 +174,12 @@ flowchart LR
 ## 8. Code Reference & Verification
 
 All identity stability mechanisms and simulation suites are verified in the codebase:
+
 - **Core Identity Anchor**:
-  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/continuity/CoreIdentityAnchor.java`
+    - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/continuity/CoreIdentityAnchor.java`
 - **Soft Identity Anchor Relay**:
-  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/relay/SoftIdentityAnchorRelay.java`
+    - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/relay/SoftIdentityAnchorRelay.java`
 - **Trajectory Snapshot Telemetry**:
-  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/continuity/IdentityTrajectorySnapshot.java`
+    - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/continuity/IdentityTrajectorySnapshot.java`
 - **Multi-Decade Drift Simulation Test**:
-  - `memory/spector-memory/src/test/java/com/spectrayan/spector/memory/aisme/simulation/MultiDecadeIdentityDriftSimulationTest.java`
+    - `memory/spector-memory/src/test/java/com/spectrayan/spector/memory/aisme/simulation/MultiDecadeIdentityDriftSimulationTest.java`

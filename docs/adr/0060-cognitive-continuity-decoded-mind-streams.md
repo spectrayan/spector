@@ -21,6 +21,7 @@ This record documents exploratory research into hypothetical brain-computer inte
 This document is an **internal speculative ladder**, not a partnership pitch, medical claim, or product roadmap commitment.
 
 **We do NOT claim that Spector or Neuralink (or any public BCI) can today:**
+
 - Read or dump autobiographical “brain memories” as biological engrams
 - Transfer thoughts or identity between brains
 - Write memories back into neural tissue
@@ -72,10 +73,12 @@ During exploratory design sprints, theoretical proposals suggested extending Spe
 ## 4. Considered Options
 
 ### Option 1: Implement Dedicated BCI Mind-Stream Module
+
 - Build custom ingestion pipelines for continuous neural telemetry.
 - **Verdict**: Rejected and Withdrawn. Out of scope and scientifically premature.
 
 ### Option 2: Standard Multimodal Episodic Ingestion (Selected)
+
 - Restrict Spector's production scope to concrete multimodal streams: conversational text, acoustic prosody, visual embeddings, tool executions, and internal active inference dynamics.
 - **Verdict**: Accepted. Maintains sharp focus on high-impact production capabilities.
 
@@ -150,24 +153,28 @@ Reuse, don’t reinvent:
 Phases are **gates**, not calendar promises. Each gate requires evidence before the next is funded as more than paper RnD.
 
 ### Phase A — Intent continuity log (0–18 months) · **Engineering**
+
 - Ingest decoded events only (synthetic + public BCI *feature* datasets, or assistive HID streams).
 - Spector stores episodes; user can “resume context.”
 - **Success:** measurable assistive UX gain vs key-value prefs; zero neural PHI in multi-tenant cloud by default (on-device first).
 - **Exit anti-pattern:** any marketing that says “brain memory backup.”
 
 ### Phase B — Latent mind-stream store (1–3 years) · **Research + product-adjacent**
+
 - Persist decoder latents `z_t` with model provenance; reactivation = feed latents to *software* agents (not brains).
 - Study stability: does the same “thought neighborhood” reappear under decoder drift?
 - **Success:** latent neighborhoods remain meaningful across decoder versions via adapters; export/import works across machines.
 - **Blocker:** decoder drift, non-identifiability of latents, consent for continuous capture.
 
 ### Phase C — Cross-agent / cross-device continuity (2–5 years) · **Platform**
+
 - Transfer continuity bundles between Spector instances (user-controlled).
 - Optional: “digital twin” agent that speaks/acts with user’s stored prefs + episodic context.
 - **Success:** user recognizes continuity; revocation and selective amnesia work.
 - **Still not:** biological write-back.
 
 ### Phase D — Hypothetical write-back research (5–10+ years) · **Science fiction until proven**
+
 - Only with academic/clinical partners: can patterned stimulation (or future write BCIs) bias recall or percepts in a controlled task?
 - Spector’s role would be **policy + content sequencing** for stimulation recipes derived from stored latents — never unsupervised “memory injection.”
 - **Hard blockers:** inverse problem (latent → safe stim), specificity of memory circuits, adverse effects, ethics, FDA/device pathway, irreversibility.

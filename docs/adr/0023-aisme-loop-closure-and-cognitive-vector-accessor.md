@@ -34,16 +34,19 @@ Leaking low-level layout details into factory classes violates the Single Respon
 ## 4. Considered Options
 
 ### Option 1: Inline Lookups in Relays
+
 - **Description**: Let each relay perform its own raw segment slicing and dequantization.
 - **Advantages**: No new classes required.
 - **Disadvantages**: Massive code duplication across `ConstructiveSimulationRelay`, `PolicyInferenceRelay`, and `EpistemicLearningRelay`.
 
 ### Option 2: Full Entity Object Hydration
+
 - **Description**: Hydrate full Java domain objects for every vector lookup.
 - **Advantages**: Standard object-oriented access.
 - **Disadvantages**: Heavy heap allocation and GC churn on hot cognitive traversal paths.
 
 ### Option 3: Dedicated `CognitiveVectorAccessor` + Binary Header Gating (Selected)
+
 - **Description**: Introduce a functional `CognitiveVectorAccessor` component encapsulated in cortex, wire `CognitiveIngestionTarget` into `AismeBuilder`, and standardize on `FLAG_SIMULATED`.
 - **Advantages**: Zero-allocation point lookup; clean separation of concerns; completes the active-inference loop.
 - **Disadvantages**: Adds a new cortex component to maintain.
@@ -56,30 +59,36 @@ Leaking low-level layout details into factory classes violates the Single Respon
 
 #### D1: Dedicated `CognitiveVectorAccessor` Component
 Create `com.spectrayan.spector.memory.cortex.CognitiveVectorAccessor` implementing `Function<String, float[]>`:
+
 - Encapsulates point vector retrieval and scalar dequantization from partitioned off-heap memory (`MemoryIndex` $\rightarrow$ `PartitionRegistry` $\rightarrow$ `CognitiveRecordLayout` $\rightarrow$ `ScalarQuantizer`).
 - Removes all byte decoding and offset arithmetic from factory classes.
 - Provides zero-allocation, reusable vector retrieval across recall rerankers, epistemic learning, and constructive simulation.
 
 #### D2: Elimination of String Prefixing in Favor of `FLAG_SIMULATED`
+
 - Eliminate `"sim-"` string prefix conventions for memory identification.
 - In `ConstructiveSimulationRelay`, mark synthesized `CognitiveResult` instances using `SynapticHeaderConstants.FLAG_SIMULATED` in `consolidationFlags`.
 - In `ConstructiveMemoryPersistenceRelay`, gate persistence using `SynapticHeaderConstants.isSimulated(result.consolidationFlags())`.
 - Assign standard Crockford Base32 `TsidGenerator` IDs to all persisted memories while writing `FLAG_SIMULATED` to the off-heap cognitive header.
 
 #### D3: Full Production Wiring of `CognitiveIngestionTarget` in `AismeBuilder`
+
 - Update `AismeBuilder.build(...)` to accept `CognitiveIngestionTarget`.
 - Pass `cognitiveTarget` from `SpectorMemoryFactory`, completing the durable counterfactual self-model loop.
 
 #### D4: Expressive Somatic Feedback Loop
+
 - Provide an optional somatic feedback mechanism from `ExpressPathway` into `MentalStateTracker`, simulating the biological facial feedback hypothesis and autonomic catharsis.
 
 ### Positive Consequences
+
 - Closes the active-inference loop for durable constructive memory persistence.
 - Eliminates code duplication and factory pollution for vector lookups.
 - Standardizes all simulation metadata on off-heap bitmask flags rather than fragile string prefixes.
 - Maintains 100% backward compatibility.
 
 ### Negative Consequences & Trade-offs
+
 - Adds one new class in cortex (`CognitiveVectorAccessor`).
 
 ## 6. Pros and Cons of the Options

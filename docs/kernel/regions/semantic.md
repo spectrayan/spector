@@ -82,5 +82,6 @@ Written via SWMR (Single Writer Multiple Reader) with a ReentrantLock during sto
 The durable knowledge tier. Stores permanent, deduplicated facts consolidated from episodic memories during offline consolidation. Self-contained storage holds the 64-byte encoding header followed by the INT8 quantized vector payload in a single tier store file.
 
 ## Related
+
 - [`SemanticMemory.java`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/SemanticMemory.java)
 - [`EncodingHeaderFields.java`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/engram/field/EncodingHeaderFields.java)

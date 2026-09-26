@@ -4,7 +4,7 @@
 
 <div class="grid cards" markdown>
 
--   :material-file-document-outline: **spector.yml Master Reference**
+- :material-file-document-outline: **spector.yml Master Reference**
 
     ---
 
@@ -12,7 +12,7 @@
 
     [Explore YAML Reference ↗](spector-yml.md){ .md-button .md-button--primary }
 
--   :material-variable: **Environment Variables & Secrets**
+- :material-variable: **Environment Variables & Secrets**
 
     ---
 
@@ -20,7 +20,7 @@
 
     [View Environment Guide ↗](environment-variables.md){ .md-button }
 
--   :material-cloud-outline: **Deployment & Cloud Config**
+- :material-cloud-outline: **Deployment & Cloud Config**
 
     ---
 
@@ -28,7 +28,7 @@
 
     [Explore Cloud Config ↗](deployment-config.md){ .md-button }
 
--   :material-api: **REST API & Runtime Parameters**
+- :material-api: **REST API & Runtime Parameters**
 
     ---
 
@@ -36,7 +36,7 @@
 
     [Browse API Parameters ↗](api-parameters.md){ .md-button }
 
--   :material-tune: **Engine & Algorithmic Tuning**
+- :material-tune: **Engine & Algorithmic Tuning**
 
     ---
 

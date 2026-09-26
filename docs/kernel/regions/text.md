@@ -43,4 +43,5 @@ Standard variable append log writes.
 Acts as a storage pool for text chunks, documents, and other varying length text elements linked from semantic records or indexes.
 
 ## Related
+
 - [`TextBlobLayout.java`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/TextBlobLayout.java)

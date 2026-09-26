@@ -31,11 +31,13 @@ Prior channel implementations in `spector-synapse` relied on ad-hoc HTTP client 
 ## 4. Considered Options
 
 ### Option 1: Ad-hoc Spring HTTP Clients & Custom Webhook Controllers
+
 - **Description**: Maintain independent Spring controllers and HTTP client beans for each messaging provider.
 - **Advantages**: Simple initial prototyping per platform.
 - **Disadvantages**: High boilerplate; independent rate limiters and error handlers needed per platform; no centralized audit trail; duplicate infrastructure.
 
 ### Option 2: Universal Apache Camel Connector Engine (Selected)
+
 - **Description**: Unify all messaging channels on Apache Camel route definitions (`direct:channel-inbound` and `direct:channel-outbound-${channel}`), delegating lifecycle and retry management to `spector-connector`.
 - **Advantages**: Reuses existing Camel engine; built-in connectors for Slack, Telegram, Mail; unified webhook ingestion; automated metrics and audit via `ConnectorExecutionAuditNotifier`; dynamic route lifecycle.
 - **Disadvantages**: Requires defining route templates and normalizers.
@@ -52,11 +54,13 @@ Prior channel implementations in `spector-synapse` relied on ad-hoc HTTP client 
 4. **Agent Notification Tool**: Implement `NotificationTool` for agent-driven alerts across registered channels.
 
 ### Positive Consequences
+
 - Single integration architecture across data ingestion, outbound alerts, and messaging channels.
 - All channels gain automated MDC tracing, metrics, and lifecycle controls.
 - Compile-time type safety across all webhook payloads.
 
 ### Negative Consequences & Trade-offs
+
 - Requires defining Apache Camel route templates and normalizers for new channels.
 
 ## 6. Pros and Cons of the Options

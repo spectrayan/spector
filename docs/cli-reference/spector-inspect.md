@@ -90,13 +90,13 @@ Last Flush:       Wed May 27 10:30:00 UTC 2026 (1777285800000)
 
 #### Field Details
 
-*   **Magic:** The SMK file identifier signature (`0x534D4B4D` which translates to ASCII string `"SMKM"`).
-*   **Schema Version:** Stamped layout version used for compatibility checks.
-*   **Memory Shape:** The structural shape of this file (e.g., `RECORD`, `APPEND`, `REGISTRY`, `GRAPH`, `CHAIN`, `HASH_TABLE`, `INSULAR`, `BUNDLE`).
-*   **Flags:** Shape-specific bitwise flag markers.
-*   **Capacity:** Bounded limit of records/slots allocated for this segment.
-*   **Count:** Number of active, non-tombstoned entries currently materialized.
-*   **Record Stride:** Byte stride of each record in the segment (header + payload size).
-*   **Layout ID:** The 4-character ASCII layout signature code (e.g., `"COGN"` for cognitive records, `"STRG"` for strength records, `"ENTT"` for entities, `"HEBB"` for Hebbian weights).
-*   **Created At:** Time the memory region segment was initialized.
-*   **Last Flush:** Monotonic timestamp of the last durable checkpoint flush.
+* **Magic:** The SMK file identifier signature (`0x534D4B4D` which translates to ASCII string `"SMKM"`).
+* **Schema Version:** Stamped layout version used for compatibility checks.
+* **Memory Shape:** The structural shape of this file (e.g., `RECORD`, `APPEND`, `REGISTRY`, `GRAPH`, `CHAIN`, `HASH_TABLE`, `INSULAR`, `BUNDLE`).
+* **Flags:** Shape-specific bitwise flag markers.
+* **Capacity:** Bounded limit of records/slots allocated for this segment.
+* **Count:** Number of active, non-tombstoned entries currently materialized.
+* **Record Stride:** Byte stride of each record in the segment (header + payload size).
+* **Layout ID:** The 4-character ASCII layout signature code (e.g., `"COGN"` for cognitive records, `"STRG"` for strength records, `"ENTT"` for entities, `"HEBB"` for Hebbian weights).
+* **Created At:** Time the memory region segment was initialized.
+* **Last Flush:** Monotonic timestamp of the last durable checkpoint flush.

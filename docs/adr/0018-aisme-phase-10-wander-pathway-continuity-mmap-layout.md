@@ -30,16 +30,19 @@ Biological intelligence maintains continuous spontaneous activity during quiet r
 ## 4. Considered Options
 
 ### Option 1: File-Per-Snapshot JSON / Parquet Logging
+
 - **Description**: Serialize trajectory snapshots as JSON or Parquet files on disk.
 - **Advantages**: Simple inspection with command-line tools.
 - **Disadvantages**: Heavy GC allocations; file descriptor proliferation; slow point-lookup during live introspective querying.
 
 ### Option 2: Generic Engram Storage Slabs
+
 - **Description**: Store continuity metrics as standard unstructured engrams in `spector-memory`.
 - **Advantages**: Reuses existing memory partitions.
 - **Disadvantages**: High per-record overhead (64B header + vector + text) for simple 32-byte numerical telemetry vectors; pollutes semantic memory spaces.
 
 ### Option 3: Dedicated `ContinuityLayout` in `RuntimeBundle` + 6-Relay `WanderPathway` (Selected)
+
 - **Description**: Design a specialized 32-byte fixed-stride binary memory layout (`ContinuityLayout`) in `RegionId.CONTINUITY(25)` paired with a dedicated `WanderPathway`.
 - **Advantages**: Zero GC; sub-microsecond stride lookups; bounded storage footprint; clean separation between telemetry and cognitive memories.
 - **Disadvantages**: Requires dedicated layout implementation in `spector-kernel`.
@@ -62,6 +65,7 @@ Structured as a sequential 6-relay pipeline over `WanderSignal`:
 
 #### 2. Zero-Copy Kernel Mmap Continuity Layout (`ContinuityLayout`)
 To maintain zero-copy, off-heap performance and prevent file descriptor proliferation, longitudinal trajectory snapshots are persisted in binary mmap format:
+
 - **`RegionId.CONTINUITY(25)`**: Dedicated region in `RuntimeBundle` (and standalone `continuity.smd`).
 - **`ContinuityLayout`**: Implements `MemoryLayout` (`LAYOUT_ID = 0x434F4E54` / `'CONT'`, `SCHEMA_VERSION = 1`, `recordStride = 32`).
 - **Binary Structure**: 64B standard `MemoryHeader` + 32B Sub-header + 32B fixed-stride records ($\text{timestamp}$, $\Phi_{\text{CC}}$, $\text{Trace}(G)$, $\|\boldsymbol{\mu}_t - \boldsymbol{\mu}_0\|$, $\text{valence}$, $\text{arousal}$, $\text{energy}$, $\text{soulVersion}$).
@@ -70,11 +74,13 @@ To maintain zero-copy, off-heap performance and prevent file descriptor prolifer
 `DmnSpontaneousDaemon` is registered with `DaemonSupervisor` under `DaemonPolicy.DEFAULT`, scheduling periodic execution on Java 25 virtual threads during cognitive rest intervals.
 
 ### Positive Consequences
+
 - Realizes spontaneous biological resting-state cognition without user prompt triggers.
 - Compact, durable off-heap persistence for consciousness and affective telemetry.
 - Seamless coordination with `DaemonSupervisor` and virtual thread infrastructure.
 
 ### Negative Consequences & Trade-offs
+
 - Adds background CPU activity during idle periods (gated by configurable quiescence thresholds).
 
 ## 6. Pros and Cons of the Options

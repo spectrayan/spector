@@ -10,8 +10,8 @@
 
 1. **Auto-Configuration (`SpectorAutoConfiguration`):** Reads environment configurations from `application.yml` and instantiates the `SpectorEngine` lifecycle beans automatically.
 2. **Spring AI Integration (`SpectorVectorStore`):** Implements Spring AI's standard `VectorStore` contract:
-   - `add(List<Document> documents)`
-   - `similaritySearch(SearchRequest request)`
+    - `add(List<Document> documents)`
+    - `similaritySearch(SearchRequest request)`
 
 ---
 

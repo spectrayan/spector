@@ -165,11 +165,11 @@ Phases overlap on purpose: contract and JDBC land first so streaming and UI have
 - Java unit tests for sequencing (`seq` monotonic per turn)
 - TypeScript `ChatTurn` / `reduceChatEvents()` in Cortex (no Angular UI yet)
 - Golden SSE fixtures under `cortex/spector-cortex/e2e/fixtures/`
-  - `empty-suggestions.json`
-  - `thinking-then-tokens.sse`
-  - `tool-interleave.sse`
-  - `error-mid-stream.sse`
-  - `history-replay.json`
+    - `empty-suggestions.json`
+    - `thinking-then-tokens.sse`
+    - `tool-interleave.sse`
+    - `error-mid-stream.sse`
+    - `history-replay.json`
 
 ### Exit
 

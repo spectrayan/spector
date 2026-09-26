@@ -9,6 +9,7 @@
 ## 1. Executive Summary
 
 This document presents the formal **Security Assurance Case** for Spector, justifying how and why its security requirements are satisfied. The assurance argument is structured across four pillars:
+
 1. Formal Threat Model and Attacker Personas
 2. Rigorous Trust Boundary Identification
 3. Architectural Verification of Secure Design Principles

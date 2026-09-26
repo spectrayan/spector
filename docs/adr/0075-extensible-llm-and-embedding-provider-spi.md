@@ -15,6 +15,7 @@
 ## 1. Context
 
 Spector requires high-throughput neural representations and generative models for cognitive operations:
+
 - Query and document vectorization (dense embeddings)
 - Lexical learned sparse representations (SPLADE / BM25-hybrid sparse vectors)
 - Multi-vector late interaction representations (ColBERT token-level embeddings)
@@ -41,14 +42,17 @@ The provider integration layer must fulfill several strict architectural criteri
 ## 4. Considered Options
 
 ### Option 1: Direct Framework Binding (Spring AI / LangChain4j Direct)
+
 - Standardize all embedding and LLM calls on Spring AI or LangChain4j core classes.
 - **Verdict**: Rejected for core modules. Introduces massive transitive dependency graphs, Jackson version conflicts, and prevents lightweight embedded use cases.
 
 ### Option 2: Hardcoded HTTP REST Clients per Vendor
+
 - Implement custom HTTP clients inside `spector-memory` for each vendor.
 - **Verdict**: Rejected. Inflexible, causes code duplication, and breaks whenever vendor APIs evolve.
 
 ### Option 3: Lightweight Extensible SPI (`spector-provider-api`) (Selected)
+
 - Introduce a dedicated, standalone reactor module `memory/spector-provider-api`.
 - Provide abstract contracts for dense, sparse, and token embeddings, along with multimodal LLM generation.
 - Implement vendor bridges in downstream extension modules (`memory/spector-providers`).
@@ -92,18 +96,18 @@ graph TD
 ### 5.2 Key Contract Interfaces
 
 1. **`EmbeddingProvider` Hierarchy**:
-   - `EmbeddingProvider`: Computes fixed-dimension dense vector embeddings for input text.
-   - `SparseEmbeddingProvider`: Generates sparse lexical weight vectors (SPLADE style) for hybrid inverted indexes.
-   - `TokenEmbeddingProvider`: Produces multi-vector token embeddings for ColBERT late-interaction reranking.
-   - `ParallelEmbeddingPipeline`: Manages asynchronous queue dispatch, batching inputs up to `batchSize` before issuing vectorized network/SIMD calls.
-   - `CachingEmbeddingProvider`: Thread-safe caching wrapper eliminating redundant embedding calls for identical text gists.
+    - `EmbeddingProvider`: Computes fixed-dimension dense vector embeddings for input text.
+    - `SparseEmbeddingProvider`: Generates sparse lexical weight vectors (SPLADE style) for hybrid inverted indexes.
+    - `TokenEmbeddingProvider`: Produces multi-vector token embeddings for ColBERT late-interaction reranking.
+    - `ParallelEmbeddingPipeline`: Manages asynchronous queue dispatch, batching inputs up to `batchSize` before issuing vectorized network/SIMD calls.
+    - `CachingEmbeddingProvider`: Thread-safe caching wrapper eliminating redundant embedding calls for identical text gists.
 
 2. **`LlmProvider` Hierarchy**:
-   - `LlmProvider`: Handles synchronous and streaming completions with `LlmRequest` containing structured `ChatMessage` records.
-   - `GenerationOptions`: Parameterizes temperature, top-P, frequency penalty, presence penalty, and max output tokens.
+    - `LlmProvider`: Handles synchronous and streaming completions with `LlmRequest` containing structured `ChatMessage` records.
+    - `GenerationOptions`: Parameterizes temperature, top-P, frequency penalty, presence penalty, and max output tokens.
 
 3. **Multimodal Data Model**:
-   - Content blocks encapsulate polymorphic modalities: `TextContent`, `ImageContent` (MIME type + base64/URL), `AudioContent`, and `DocumentContent`.
+    - Content blocks encapsulate polymorphic modalities: `TextContent`, `ImageContent` (MIME type + base64/URL), `AudioContent`, and `DocumentContent`.
 
 ### 5.3 Provider Registry & Health Lifecycle
 
@@ -123,11 +127,13 @@ if (!health.isAvailable()) {
 ## 6. Pros and Cons of the Options
 
 ### Positive
+
 - **Modular Purity**: Foundation modules build fast and remain free from third-party client dependency churn.
 - **Pluggability**: End users can swap from cloud models (Claude/GPT-4) to entirely local, air-gapped models (Ollama/Llama 3/vLLM) with a single configuration flag.
 - **Resilience**: Client-side caching and parallel pipelining significantly reduce external API costs and latency.
 
 ### Negative / Trade-offs
+
 - **Adapter Maintenance**: Requires maintaining adapter bridges in `spector-providers` to translate between `spector-provider-api` models and vendor-specific wire formats.
 
 ## 7. Implementation Plan

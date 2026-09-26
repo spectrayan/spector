@@ -1131,12 +1131,15 @@ Delivered:
   it *used* the composer but had no recipe, so the M6.4 parity gate could not see the shape of the
   pathway with the most delicate wiring in the system — an `ABORT` gate, a budgeted LLM stage, and a
   nested-Remember stage that must have breaker and bulkhead but deliberately no timeout.
+
 - Relay names for all four moved into `RelayNames` with values preserved verbatim. Relay names are
   load-bearing: they key traces, outcome scopes and the parity assertions. Express keeps its
   CamelCase names for that reason, inconsistent though they look next to everything else.
+
 - Production code no longer routes through the `@Deprecated` factories. `RememberPathway` and
   `ReflectPathway` now call `PathwayComposer` + recipe directly; `RememberPathwayFactory`,
   `ReflectPathwayFactory` and `RecallPathwayFactory` remain solely as external-caller shims.
+
 - `RecipeShapeParityTest` pins shape and policy for the four new recipes, plus Dream's decorator
   placement. With the existing `PathwayParityTest.RecipeRelayParity` covering Remember/Recall/Reflect
   against their factories, all seven pathways now have an asserted shape.
@@ -1321,6 +1324,7 @@ Error handling, isolation, retries, timeouts, bulkheads, and the circuit-breaker
 ---
 
 ### Code Reference & Verification Gate
+
 - **Primary Module(s)**: `nucleus/spector-commons`, `memory/spector-memory`
 - **Key Packages**: `com.spectrayan.spector.commons.pathway`, `com.spectrayan.spector.memory.pathway`
 - **Classes**: `CognitivePathway.java`, `RecallPathway.java`, `RememberPathway.java`, `ReflectPathway.java`, `DreamPathway.java`, `WanderPathway.java`, `ExpressPathway.java`

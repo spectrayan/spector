@@ -41,14 +41,17 @@ Standard approaches to conversational voice synthesis suffer from a fundamental 
 ## 4. Considered Options
 
 ### Option 1: In-Process Neural Vocoder
+
 - Bundle an end-to-end neural TTS engine inside Spector.
 - **Verdict**: Rejected. Infeasible operational footprint (multi-gigabyte models, dedicated GPU dependencies).
 
 ### Option 2: Static Heuristic Rules
+
 - Use simple lookup tables mapping discrete emotions (happy, sad, angry) to fixed pitch adjustments.
 - **Verdict**: Rejected. Unnatural transitions and failure to handle blended emotional states.
 
 ### Option 3: Continuous Affective Transfer Function & Parameter Vector Emission (Selected)
+
 - Implement continuous transfer functions mapping internal VAD vectors to acoustic parameters (pitch $\Delta F_0$, rate $\Delta R$, volume $\Delta V$, breathiness $\beta$).
 - Emit standardized SSML prosody tags or metadata JSON vectors alongside text chunks.
 - **Verdict**: Accepted. Delivers rich expressive prosody with zero heavy model dependencies.
@@ -61,6 +64,7 @@ Standard approaches to conversational voice synthesis suffer from a fundamental 
 Place the persona models (`IdiolectProfile`, `VocalProsodyDNA`, `StylometricAnalyzer`, `VocalProsodyTransferEngine`) directly within `com.spectrayan.spector.memory.model.persona` in the `spector-memory` module rather than creating a separate top-level Maven artifact.
 
 **Rationale**:
+
 - `PersonaContext` and `UserSoul` already reside in `spector-memory` and are persisted zero-copy in the `INSULA` mmap partition.
 - Co-locating maintains high coherence and avoids redundant cross-module serialization overhead.
 
@@ -68,11 +72,13 @@ Place the persona models (`IdiolectProfile`, `VocalProsodyDNA`, `StylometricAnal
 Spector produces **standardized parameter vectors** (`ProsodyParameterVector`, SSML attribute deltas) and **stylometric prompt directives** rather than hosting heavy neural TTS or voice cloning models directly in the Java kernel.
 
 **Rationale**:
+
 - Keeps Spector lean, high-throughput, and sub-millisecond in latency.
 - External rendering engines (ElevenLabs, XTTS, FishSpeech, StyleTTS2, WebRTC audio streamers) consume these vectors natively.
 
 ### D3: Mathematical Transfer Function for Affective Prosody
 Define deterministic transfer functions mapping AISME `InteroceptiveState` $(V, A, D) \rightarrow \text{ProsodyModulation}$:
+
 - **Pitch Shift ($\Delta F_0$)**: $\Delta F_0 = \alpha \cdot A + \beta \cdot V$
 - **Tempo Multiplier**: $\text{Tempo} = \text{Tempo}_0 \cdot (1 + \gamma \cdot A)$
 - **Pitch Variance**: $\sigma_{\text{pitch}} = \sigma_0 \cdot (1 + \delta \cdot A)$
@@ -86,12 +92,14 @@ Enrich `PersonaContext` with optional `IdiolectProfile` and `VocalProsodyDNA` fi
 ### Consequences & Trade-offs
 
 ### Positive
+
 - Captures idiosyncratic language patterns and acoustic profiles for sovereign digital relics.
 - Connects internal emotional states dynamically to vocal delivery.
 - Zero-copy persistence within existing mmap `INSULA` region.
 - Completely decoupled from external TTS vendors.
 
 ### Negative / Trade-offs
+
 - Adds new classes to the `spector-memory` model package.
 - Minor heap overhead when compiling rich stylometric profiles.
 
@@ -105,5 +113,6 @@ Enrich `PersonaContext` with optional `IdiolectProfile` and `VocalProsodyDNA` fi
 ## 8. Code Reference & Verification
 
 All prosody formulations and pathway integrations are verified in the repository:
+
 - **Express Pathway**: `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/cortex/pathway/ExpressPathway.java`
 - **Affective & Soul Context**: `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/model/SoulContext.java`

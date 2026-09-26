@@ -50,14 +50,17 @@ Standard conversational memory frameworks assign flat or simplistic heuristic im
 ## 4. Considered Options
 
 ### Option 1: Single Scalar Heuristic (e.g., TF-IDF / Length Weighting)
+
 - Score memory importance based on lexical rarity or sentence length.
 - **Verdict**: Rejected. Incapable of distinguishing critical emotional commitments from verbose filler text.
 
 ### Option 2: Synchronous LLM Importance Evaluator
+
 - Call an external LLM on every turn to output an integer score (1-10).
 - **Verdict**: Rejected. Introduces 300–800ms latency, high cost, and severe variance.
 
 ### Option 3: Vectorized Multimodal Composite Importance Fusion (Selected)
+
 - Synthesize 5 orthogonal normalized signal components into a composite score using vectorized dot-product weighting and nonlinear flashbulb gating.
 - Implement in `nucleus/spector-core` and bridge to `spector-memory` via `CompositeImportanceScorer`.
 - **Verdict**: Accepted. Combines cognitive fidelity with sub-millisecond execution.
@@ -137,6 +140,7 @@ I(o_t) = \sum_{i=1}^{5} w_i \cdot s_i(o_t), \quad \text{subject to } \sum_{i=1}^
 
 ### 2.3 Flashbulb Memory Gating
 If \(I(o_t) \ge \theta_{\text{flashbulb}}\) (default \(0.85\)):
+
 - Signal is tagged with `flashbulb = true`.
 - Synaptic consolidation bypasses standard decay queues and writes immediately to permanent episodic tiers.
 
@@ -160,11 +164,13 @@ public static float computeImportance(float[] signals, float[] weights) {
 ## 6. Pros and Cons of the Options
 
 ### Positive
+
 - **High Cognitive Precision**: Multi-axis evaluation ensures critical interactions are accurately identified and preserved.
 - **Sub-50us Evaluation**: Panama Vector API implementation provides near-instantaneous dot-product calculations off-heap.
 - **Soul Customization**: Adapts smoothly to different agent personalities and domain requirements.
 
 ### Negative / Trade-offs
+
 - **Signal Coordination**: Upstream pathways must supply calibrated input features (affective VAD scores, surprise values, goal matches).
 - **SIMD Architecture Dependency**: Requires fallback paths when running on hardware architectures without vector acceleration.
 
@@ -181,12 +187,13 @@ The implementation must pass:
 ## 8. Code Reference & Verification
 
 All importance kernels, signal models, and relays are verified in the codebase:
+
 - **Core Math Kernel**:
-  - `nucleus/spector-core/src/main/java/com/spectrayan/spector/core/cognitive/CompositeImportanceKernel.java`
-  - `nucleus/spector-core/src/test/java/com/spectrayan/spector/core/similarity/CompositeImportanceKernelTest.java`
+    - `nucleus/spector-core/src/main/java/com/spectrayan/spector/core/cognitive/CompositeImportanceKernel.java`
+    - `nucleus/spector-core/src/test/java/com/spectrayan/spector/core/similarity/CompositeImportanceKernelTest.java`
 - **Memory Importance Models & Scorer**:
-  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/importance/CompositeImportanceSignals.java`
-  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/importance/CompositeImportanceScorer.java`
-  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/relay/CompositeImportanceRelay.java`
-  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/model/ImportanceEstimate.java`
-  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/model/ImportanceBreakdown.java`
+    - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/importance/CompositeImportanceSignals.java`
+    - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/importance/CompositeImportanceScorer.java`
+    - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/relay/CompositeImportanceRelay.java`
+    - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/model/ImportanceEstimate.java`
+    - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/model/ImportanceBreakdown.java`

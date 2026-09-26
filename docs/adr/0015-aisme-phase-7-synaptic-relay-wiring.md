@@ -30,14 +30,17 @@ Individual cognitive kernels remained isolated without an end-to-end wiring harn
 ## 4. Considered Options
 
 ### Option 1: Java Reflection & Dynamic Invocation
+
 - **Description**: Configure pipeline stages via reflection using class names specified in properties.
 - **Advantages**: Fully decoupled dynamic loading.
 - **Disadvantages**: High invocation overhead, lack of compiler type-safety, and issues with native image compilation.
 
 ### Option 2: Pre-Compiled Direct Relay Chain (Selected)
+
 - **Description**: Implement a statically typed, array-indexed pipeline runner executing pre-compiled relay chains:
   $$\text{Input} \xrightarrow{\text{Transduce}} \text{HomeostaticBias} \xrightarrow{\text{Scan}} \text{ManifoldDistance} \xrightarrow{\text{HopfieldAssociator}} \text{FreeEnergyRerank} \rightarrow \text{Output}$$
   Configured declaratively in `spector-config` using immutable builder records.
+
 - **Advantages**: Zero reflection overhead; branch-predicted sequential execution; JIT inlining; sub-microsecond step transitions.
 - **Disadvantages**: Adding new relays requires registering them in the canonical relay catalog.
 
@@ -46,11 +49,13 @@ Individual cognitive kernels remained isolated without an end-to-end wiring harn
 **Chosen Option**: Option 2 (Pre-Compiled Direct Relay Chain).
 
 ### Positive Consequences
+
 - End-to-end cognitive memory execution in < 0.5ms.
 - Clean separation of concerns between individual relay logic and pipeline orchestration.
 - Declarative configuration via `spector-config` property trees.
 
 ### Negative Consequences & Trade-offs
+
 - Modifying relay sequence requires updating the pipeline configuration builder.
 
 ## 6. Pros and Cons of the Options

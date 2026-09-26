@@ -7,6 +7,7 @@ The `spector-cpu` module provides the standard CPU SIMD Hardware Acceleration La
 `spector-cpu` compiles and executes hardware-accelerated vector and matrix operations utilizing the Java Vector API (`jdk.incubator.vector`) across AVX-512, AVX2, and ARM NEON instruction sets.
 
 Key features:
+
 - **`CpuSimdAccelerator`**: Implements `ComputeAccelerator` SPI for CPU compute targets.
 - **`CpuSimdSimilarityKernel`**: Vectorized dot product, cosine distance, and Euclidean distance kernels with zero allocations.
 - **`CpuSimdMaxSimKernel`**: Vectorized late-interaction MaxSim operations for ColBERT-style retrieval.

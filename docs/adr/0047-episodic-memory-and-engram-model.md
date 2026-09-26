@@ -108,6 +108,7 @@ A robust cognitive architecture requires clean conceptual boundaries between dom
 ## 4. Considered Options
 
 ### Facade Decomposition: Inheritance vs. Delegation
+
 - **Inheritance (`DefaultSpectorMemory extends DefaultMemoryRemember...`)**: Rejected. Deep inheritance hierarchies create brittle coupling, diamond-dependency issues, and violate composition principles.
 - **Delegation (`DefaultSpectorMemory` composing focused delegate classes)**: Selected. Allows each delegate (`DefaultMemoryRemember`, `DefaultMemoryRecall`, `DefaultMemoryReflection`) to be independently instantiated, mocked, and tested.
 
@@ -610,11 +611,13 @@ Facts stay in `SemanticMemory`. Skills stay in `ProceduralMemory`. Episode vecto
 ## 6. Pros and Cons of the Options
 
 ### Positive
+
 - **High Cohesion**: Each store and delegate has a single, well-defined operational responsibility.
 - **Clear Execution Flow**: Sequences clearly demarcate WAL append, vector projection, graph expansion, and strength updates.
 - **Type Safety**: Specialized engram types prevent misinterpreting semantic facts as episodic dialogue turns.
 
 ### Negative / Trade-offs
+
 - **Class Count**: Introduces multiple specialized classes and delegates across `com.spectrayan.spector.memory`.
 - **Indirection**: Public facade methods involve a lightweight forwarding hop to delegate instances.
 
@@ -712,15 +715,16 @@ Kernel types not renamed in this pass: `Memory`, `AbstractMemory`, `MemoryHeader
 ## 8. Code Reference & Verification
 
 All structural contracts, memory offsets, and class hierarchies are verified against the codebase:
+
 - **Unified Facade**: `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/core/SpectorMemory.java`
 - **Delegate Implementations**:
-  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/core/DefaultMemoryRemember.java`
-  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/core/DefaultMemoryRecall.java`
-  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/core/DefaultMemoryReflection.java`
+    - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/core/DefaultMemoryRemember.java`
+    - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/core/DefaultMemoryRecall.java`
+    - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/core/DefaultMemoryReflection.java`
 - **Engram Storage Implementations**:
-  - `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/record/EpisodicMemory.java`
-  - `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/record/SemanticMemory.java`
+    - `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/record/EpisodicMemory.java`
+    - `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/record/SemanticMemory.java`
 - **Cognitive Pathway Invocations**:
-  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/cortex/pathway/RememberPathway.java`
-  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/cortex/pathway/RecallPathway.java`
-  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/cortex/pathway/ReflectPathway.java`
+    - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/cortex/pathway/RememberPathway.java`
+    - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/cortex/pathway/RecallPathway.java`
+    - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/cortex/pathway/ReflectPathway.java`

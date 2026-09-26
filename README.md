@@ -180,10 +180,11 @@ Similarity is dense retrieval. Decay and importance change what remains reachabl
 ## System Architecture & Data Flow
 
 Spector is structured as a modular four-tier engine: a sealed off-heap kernel, graph-backed association, and in-process MCP between the SIMD path and the agent runtime:
-*   **Nucleus (Foundation)**: Core configurations, off-heap storage layouts (Panama MemorySegment), and standard utilities.
-*   **Memory (Cognitive Engine)**: The flagship hybrid retrieval and cognitive memory system combining dense vector, sparse (SPLADE/Li-LSR), keyword (BM25), association graphs, and consolidation pipelines.
-*   **Synapse (Gateway & APIs)**: Spring Boot entry points, Armeria-based REST/gRPC gateways, and stdio/HTTP Model Context Protocol (MCP) servers.
-*   **Cortex (UI)**: Three.js and Angular-powered observability dashboard for real-time visualization of memory graphs, decay, and search metrics.
+
+* **Nucleus (Foundation)**: Core configurations, off-heap storage layouts (Panama MemorySegment), and standard utilities.
+* **Memory (Cognitive Engine)**: The flagship hybrid retrieval and cognitive memory system combining dense vector, sparse (SPLADE/Li-LSR), keyword (BM25), association graphs, and consolidation pipelines.
+* **Synapse (Gateway & APIs)**: Spring Boot entry points, Armeria-based REST/gRPC gateways, and stdio/HTTP Model Context Protocol (MCP) servers.
+* **Cortex (UI)**: Three.js and Angular-powered observability dashboard for real-time visualization of memory graphs, decay, and search metrics.
 
 For a comprehensive analysis of the system architecture, data flows, thread scheduling model, and detailed Mermaid diagrams, see the **[Architecture Overview Docs](https://spectrayan.github.io/spector/architecture/overview/)**.
 

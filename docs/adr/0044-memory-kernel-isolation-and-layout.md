@@ -185,15 +185,18 @@ AISME+PCMN still adds ~7 MB × hot N at 768-d.
 ## 4. Considered Options
 
 ### Option 1: Status Quo (Leaky MMAP and Per-Bind Manager Allocation)
+
 - Keep off-heap `MemorySegment` and Panama FFM interactions dispersed across `spector-memory` pathways and indices.
 - Re-allocate `SpectorNamespaceManager` and `NamespaceRegistry` on every cold tenant bind.
 - **Verdict**: Rejected. Causes severe memory fragmentation, thread-local allocation churn, and breaches namespace isolation boundaries.
 
 ### Option 2: Immediate Multi-Module Maven Split
+
 - Carve out `spector-kernel` as an independent Maven artifact immediately, decoupling all build configurations.
 - **Verdict**: Deferred. Maven boundaries do not prevent leaky public method calls without JPMS module descriptors. Enforcing package-private sealing and ArchUnit architecture tests within the existing repository layout delivers immediate safety without build overhead.
 
 ### Option 3: Package Sealing, Process Composition Root, and Visitor Scans (Selected)
+
 - Enforce strict package boundary (`com.spectrayan.spector.kernel`) containing low-level off-heap layouts, stores, and index structures.
 - Restrict `java.lang.foreign.*` imports strictly to the kernel and bootstrap layers via ArchUnit.
 - Hoist `SpectorNamespaceManager`, shared thread pools, and scheduler to a process-level `SpectorRuntime` composition root.
@@ -413,14 +416,15 @@ Fail-fast if `aisme.enabled && enablePredictiveCoding && maxNamespaces > 8` unti
 ## 6. Pros and Cons of the Options
 
 ### Option 3 (Selected Approach)
+
 - **Positive**:
-  - Eliminates redundant directory scans and `NamespaceRegistry` allocations on every tenant access.
-  - Zero Panama `MemorySegment` leakage into cognitive pathways or evaluation logic.
-  - Visitor pattern (`SlotVisitor`) prevents unneeded heap object allocations during high-throughput scans.
-  - Clear architectural lifecycle: process-level singletons (`SpectorRuntime`) vs. tenant-scoped state (`NamespaceKernel`).
+    - Eliminates redundant directory scans and `NamespaceRegistry` allocations on every tenant access.
+    - Zero Panama `MemorySegment` leakage into cognitive pathways or evaluation logic.
+    - Visitor pattern (`SlotVisitor`) prevents unneeded heap object allocations during high-throughput scans.
+    - Clear architectural lifecycle: process-level singletons (`SpectorRuntime`) vs. tenant-scoped state (`NamespaceKernel`).
 - **Negative / Trade-offs**:
-  - Requires updating all pathway callers to pass visitor instances rather than expecting materialized lists.
-  - Requires audit of token caches (`ColBERTTokenCache`) to prevent cross-tenant key leakage when sharing engines.
+    - Requires updating all pathway callers to pass visitor instances rather than expecting materialized lists.
+    - Requires audit of token caches (`ColBERTTokenCache`) to prevent cross-tenant key leakage when sharing engines.
 
 ## 7. Implementation Plan
 
@@ -547,6 +551,7 @@ Then Phase 1–3 as above.
 ## 8. Code Reference & Verification
 
 All structural contracts, memory offsets, and lifecycle boundaries have been cross-checked directly against the codebase:
+
 - **Off-Heap Storage & Bundle Alignment**: Verified in `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/bundle/MmapBundle.java` and `MmapBundleV4.java`.
 - **Abstract Engram Records**: Verified in `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/record/AbstractEngramMemory.java` and `IndexRecordMemory.java`.
 - **Namespace Lifecycle & Registry**: Verified in `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/namespace/SpectorNamespaceManager.java` and `NamespaceRegistry.java`.

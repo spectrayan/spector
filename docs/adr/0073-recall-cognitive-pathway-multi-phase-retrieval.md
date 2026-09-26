@@ -41,14 +41,17 @@ Cognitive recall requires solving several interdependent challenges:
 ## 4. Considered Options
 
 ### Option 1: Monolithic Multi-Index Query Handler
+
 - A single God-class querying vector indexes, graph databases, and BM25 tables sequentially.
 - **Verdict**: Rejected. Impossible to benchmark individual stages, unobservable, and tightly couples unrelated retrieval algorithms.
 
 ### Option 2: Microservice Reranking Mesh
+
 - Separate vector retrieval, graph expansion, and lexical scoring into independent HTTP/gRPC microservices.
 - **Verdict**: Rejected. Incurs multi-millisecond network hop penalties and JSON serialization overhead, destroying real-time agent responsiveness.
 
 ### Option 3: Declarative 22-Relay Synaptic Pathway Recipe (Selected)
+
 - Composed via `RecallRecipe` implementing `PathwayRecipe<RecallSignal>`.
 - Gated relays dynamically execute based on query specifications (`RecallGates`).
 - Integrated resilience boundaries (circuit breakers, bulkheads, timeouts).
@@ -116,19 +119,22 @@ flowchart TD
           .breaker(PathwayResilience.embedProviderFailFast())
           .add();
   ```
+
 - **Conditional AISME Gating**:
-  - `HOMEOSTATIC_BIAS` only conducts if `RecallGates.HOMEOSTASIS_ENABLED` is true.
-  - `FREE_ENERGY_GUIDED` only conducts if `RecallGates.FREE_ENERGY_ENABLED` is true.
-  - `BM25_SEARCH` and `RRF_RESCORE` only conduct when hybrid search is requested.
+    - `HOMEOSTATIC_BIAS` only conducts if `RecallGates.HOMEOSTASIS_ENABLED` is true.
+    - `FREE_ENERGY_GUIDED` only conducts if `RecallGates.FREE_ENERGY_ENABLED` is true.
+    - `BM25_SEARCH` and `RRF_RESCORE` only conduct when hybrid search is requested.
 
 ## 6. Pros and Cons of the Options
 
 ### Positive
+
 - **Deep Cognitive Plausibility**: Accurately reproduces the multi-stage associative retrieval dynamics of mammalian memory.
 - **Bulletproof Resilience**: Remote embedding failures are isolated with circuit breakers, while in-memory stages execute deterministically off-heap.
 - **Extensible Relay Hooks**: New neural rerankers or neurodivergent filters plug in via `RecallRecipe.Builder` without altering existing stages.
 
 ### Negative / Trade-offs
+
 - **High Configuration Surface**: Fine-tuning 22 relays requires curated defaults, provided via standard `CognitiveProfile` presets.
 
 ## 7. Implementation Plan

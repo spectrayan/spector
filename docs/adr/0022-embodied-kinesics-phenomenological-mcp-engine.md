@@ -33,16 +33,19 @@ Prior to this decision, persona expression was limited to text and SSML acoustic
 ## 4. Considered Options
 
 ### Option 1: Client-Side Avatar Heuristics
+
 - **Description**: Expose only emotional valence/arousal numbers and let external client applications interpret avatar animations.
 - **Advantages**: Minimal server-side compute.
 - **Disadvantages**: Inconsistent character behavior across different client frontends; disconnects micro-expressions from memory recall cognitive load.
 
 ### Option 2: Server-Side Proprietary 3D Mesh Deformation
+
 - **Description**: Generate full 3D vertex meshes in Spector.
 - **Advantages**: Extreme control over 3D geometry.
 - **Disadvantages**: Massive payload sizes; heavy server GPU load; incompatible with client-side game engines.
 
 ### Option 3: 52-Blendshape ARKit/FACS Standard + `ExpressPathway` Relays + MCP Exporters (Selected)
+
 - **Description**: Standardize on the 52 Apple ARKit / FACS Action Unit blendshape specification calculated via `KinesicBlendshapeKernel` in `spector-core`, orchestrated through `ExpressPathway` and exported via `spector-mcp`.
 - **Advantages**: Lightweight payload (52 floats); universal avatar engine support; coupled to internal cognitive state.
 - **Disadvantages**: Clients must support standard blendshape targeting.
@@ -55,6 +58,7 @@ Prior to this decision, persona expression was limited to text and SSML acoustic
 
 #### D1: 52 ARKit / FACS Blendshape Standard
 Standardize kinesic output on the 52 Apple ARKit / FACS Action Unit blendshape specification:
+
 - Universal compatibility with Unreal Engine MetaHuman, Unity, MediaPipe, Live2D, Ready Player Me, and WebGL avatar pipelines.
 - Vectorized computation in `KinesicBlendshapeKernel` (`spector-core`) utilizing Java 25 Panama Vector API (`FloatVector`).
 
@@ -68,15 +72,18 @@ Structure `ExpressPathway` with 4 sequential gated relays:
 
 #### D3: MCP Tool Endpoints in `synapse/spector-mcp`
 Introduce two dedicated MCP tools:
+
 - `memory_express`: Single-call multi-modal expression endpoint returning prompts, prosody parameters, blendshapes, and introspective monologues.
 - `memory_persona_context`: Exposes the stored `PersonaContext` (`IdiolectProfile`, `VocalProsodyDNA`, `EmbodiedKinesicsDNA`) for inspection and tooling.
 
 ### Positive Consequences
+
 - Completes the 4-pillar Persona & Expression Architecture.
 - Enables rich 3D avatar animation and affective TTS streaming directly from Spector's cognitive state.
 - Exposes clean, structured MCP tools for modern LLM clients and frontend renderers.
 
 ### Negative Consequences & Trade-offs
+
 - Adds new classes to `spector-core`, `spector-memory`, and `spector-mcp`.
 - Minor heap overhead during multi-modal context pack assembly.
 

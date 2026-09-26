@@ -7,6 +7,7 @@ Implements issue #359.
 ## Overview
 Hyperdimensional Computing (HDC) uses high-dimensional boolean vectors to represent and compare data. 
 This library provides:
+
 - **`Hypervector`**: Core representation of an HD vector.
 - **`HdcAlgebra`**: Core HDC operations: bind, bundle, permute.
 - **`TextEncoder`**: Encodes strings into hypervectors using n-grams.
@@ -20,10 +21,12 @@ Text -> N-Grams -> HypervectorFactory (Seed) -> HdcAlgebra (Permute) -> HdcAlgeb
 ```
 
 ## Performance
+
 - **SIMD**: Accelerates Hamming distance computations via Java 25 Vector API and `VectorOperators.BIT_COUNT`.
 - **Off-heap Memory**: Panama FFM is used in `BinaryVectorStorage` to bypass GC and guarantee 64-byte cache-line alignment.
 
 ## Limitations
+
 - This calculates **lexical similarity** (based on n-grams) rather than deep semantic embeddings. Suitable for fuzzy matching or fast screening.
 
 ## Quick Start

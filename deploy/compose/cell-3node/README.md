@@ -8,9 +8,9 @@ This harness runs a local 3-node Spector Cell cluster demonstrating **ADR-0034 P
 
 - **Cell ID**: `cell-us-east-1`
 - **Nodes**:
-  - `spector-owner-1` (port `7071`)
-  - `spector-owner-2` (port `7072`)
-  - `spector-owner-3` (port `7073`)
+    - `spector-owner-1` (port `7071`)
+    - `spector-owner-2` (port `7072`)
+    - `spector-owner-3` (port `7073`)
 - **Membership**: Static list mounted from `members.txt`.
 - **Ring Algorithm**: Ketama consistent hash ring with 160 virtual nodes per member, big-endian truncated 64-bit SHA-256 digest.
 
@@ -39,6 +39,7 @@ docker compose -f deploy/compose/cell-3node/docker-compose.yml down -v
 ## Verifying Invariant J1 & J3 (Single Writer Ownership)
 
 When a request targeting a namespace is sent to a node that is **not** the ring owner, the node returns:
+
 - HTTP Status: `421 Misdirected Request`
 - Header / Body: Names the authoritative `ownerId` and ring `epoch`
 - Behavior: Zero file access or memory mapping on the non-owner (`runtime.attach` never invoked).

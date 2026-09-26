@@ -4,7 +4,7 @@
 
 <div class="grid cards" markdown>
 
--   :material-layers-outline: **Configuration Architecture**
+- :material-layers-outline: **Configuration Architecture**
 
     ---
 
@@ -12,7 +12,7 @@
 
     [View Architecture Guide ↗](index.md){ .md-button }
 
--   :material-file-document-outline: **spector.yml Master Reference**
+- :material-file-document-outline: **spector.yml Master Reference**
 
     ---
 
@@ -20,7 +20,7 @@
 
     [Explore spector.yml ↗](spector-yml.md){ .md-button }
 
--   :material-variable: **Environment Variables & Secrets**
+- :material-variable: **Environment Variables & Secrets**
 
     ---
 
@@ -28,7 +28,7 @@
 
     [Browse Environment Guide ↗](environment-variables.md){ .md-button }
 
--   :material-cloud-outline: **Deployment & Cloud Config**
+- :material-cloud-outline: **Deployment & Cloud Config**
 
     ---
 
@@ -36,7 +36,7 @@
 
     [View Cloud Config ↗](deployment-config.md){ .md-button }
 
--   :material-api: **REST API & Runtime Parameters**
+- :material-api: **REST API & Runtime Parameters**
 
     ---
 
@@ -269,6 +269,7 @@ SPECTOR_API_KEY=my-secret-key mvn -Psynapse -pl synapse/spector-synapse spring-b
 
 > [!NOTE]
 > **Data Plane vs. Identity Plane Root Distinction**:
+>
 > - `spector.data-dir`: The node-level data directory holding `db/synapse.mv.db` (catalog) and `identity/` (character-prefix sharded soul & salience bundles).
 > - `spector.memory.persistence-path` (or `persistence-path`): The rememberer persistence root (defaults to `${spector.data-dir}/cognitive` in Synapse, or `.spector/memory` in embedded kernel). All data plane rememberers (`NamespacePathResolver`) resolve relative to this directory.
 
@@ -405,6 +406,7 @@ Spector Synapse supports multi-node Cell High Availability via a Ketama consiste
 
 > [!IMPORTANT]
 > **Cell Topology Semantics & Single-Writer Invariants**:
+>
 > - **Dynamic Reload**: Membership and ring configuration can be loaded at startup or reloaded dynamically without restart via control store updates.
 > - **Ownership vs. Placement**: Namespace **ownership** (which server process is the authoritative single writer) is decided purely in-memory by the Ketama ring prior to namespace open. **Placement** (which filesystem directory holds the partition bundle) is determined by storage tenant paths (`StoragePaths`) and remains completely invariant to cluster routing changes (Invariant J6).
 > - **Fail-Closed**: Non-owner nodes refuse both writes and recall with HTTP `421 Misdirected Request` (`NamespaceNotOwnedException`) identifying the authoritative owner node and ring epoch. Non-owner nodes **never** invoke `runtime.attach` or map files into memory.
@@ -427,6 +429,7 @@ Spector Synapse accelerates routing resolution via a three-tier waterfall (`L1 C
 
 > [!NOTE]
 > **Operational Note — Redis Outage Behavior (Req R9.2)**:
+>
 > - **What breaks when Redis is down**: Latency increases slightly as lookups fall back to local pure-computation Ketama ring evaluation. Failover overrides are temporarily masked until the control store republishes.
 > - **What does NOT break**: **Single-writer correctness and write availability never break.** The cell functions continuously as a single-writer system even if Redis crashes entirely (Invariant K1). Zero dual-writers, zero data loss. Operators should not page on transient Redis hiccups.
 > - **Production Topology (Req R9.3, R9.4)**: Managed cloud offerings (AWS ElastiCache, GCP Memorystore, Azure Cache for Redis) are recommended for production; containerized Redis is for local testing. Redis instances **must be provisioned per cell**, never shared across multi-region cells.
@@ -451,6 +454,7 @@ Spector Synapse enables high-throughput asynchronous namespace replication from 
 
 > [!IMPORTANT]
 > **Replication Plane Invariants & Consistency Contracts**:
+>
 > - **Default OFF & Opt-In Reads (Req R10.3)**: Replica reads default OFF. A client that does not explicitly pass `X-Spector-Allow-Replica: true` will never receive stale reads, even if replica infrastructure is healthy.
 > - **Three Simultaneous Conditions (Req R10.1, N7)**: A replica serves recall if and only if: (1) namespace is locally mapped, (2) $(\text{now} - \text{snapshotTime}) \le \text{maxReplicaLagSeconds}$, and (3) incoming request permits replica reads. If staleness bound is violated, the replica **refuses rather than serves** stale data (`ReplicaStalenessExceededException`).
 > - **Unconditional Write Refusal (Req R10.6, Invariant N2)**: A replica **never** writes. Any write operation dispatched to a replica is rejected immediately with HTTP 405 (`ReplicaWriteRefusedException`). The `X-Spector-Allow-Replica` header widens read consistency, never write routing.
@@ -476,6 +480,7 @@ Spector Synapse provides lease coordinator election, monotonic write fence token
 
 > [!IMPORTANT]
 > **Fencing, Single-Writer Invariance & Recovery Guarantees**:
+>
 > - **Monotonic Fence Tokens**: Every write request carries the current namespace fence token (`X-Spector-Fence`). Writing to a partitioned, stale, or superseded owner node is rejected with HTTP 409 Conflict (`FENCED`). Validation is in-memory, allocation-free, and I/O-free.
 > - **Precedence Over Hash**: Active override leases in the control store strictly supersede consistent hash ring resolution. Hash ring resolution resumes only after safe lease expiration or explicit release.
 > - **Verify Before Promote**: Survivor candidate data is cryptographically and structurally validated before promotion. If validation fails, promotion is refused to prevent defect propagation into data loss.
@@ -497,6 +502,7 @@ Spector cells separate cluster responsibilities into three distinct roles: **own
 
 > [!IMPORTANT]
 > **Host Kernel & Operating System Prerequisites**:
+>
 > - **Filesystem Selection**: Local storage directories must be formatted with **XFS** or **ext4**. Off-heap memory-mapped (`mmap`) page cache flushing and durability guarantees are strictly validated on these filesystems. Non-standard filesystems trigger startup warnings.
 > - **Map Count Arithmetic**: Required memory mappings are calculated using layout arithmetic: $\approx (\text{hotCap} \times 2) + \text{WAL segments} + \text{overhead}$. Each open namespace utilizes ~2 maps (the runtime bundle and the active partition bundle).
 > - **Kernel Tuning Parameters**:
@@ -525,6 +531,7 @@ Disaster recovery provides cross-cell resilience and snapshot exports to S3-comp
 
 > [!IMPORTANT]
 > **Disaster Recovery, Integrity & Compliance Invariants**:
+>
 > - **Atomic Manifest Publication**: Partition bundles and payload files are transferred to object storage first. The `manifest.json` descriptor is uploaded strictly last to guarantee atomic visibility. Restorations ignore partial or unmanifested epochs.
 > - **Strict Verification Before Serving**: Restoring nodes validate bundle preamble magic (`0x534D4B4D`), layout identifiers (`0x42554E44`), and SHA-256 payload checksums. Corrupted or mismatched snapshots are strictly rejected and refuse to serve.
 > - **Explicit Standby Promotion**: Standby cell activation requires human decision-making with mandatory `--force` acknowledgment and audit trail logging. Automatic failover across cell boundaries is forbidden to eliminate split-brain write corruption.

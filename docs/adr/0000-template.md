@@ -30,16 +30,19 @@
 ## 4. Considered Options
 
 ### Option 1: [Option Name]
+
 - **Description**: [Brief description of the approach]
 - **Advantages**: [Key strengths]
 - **Disadvantages**: [Key weaknesses]
 
 ### Option 2: [Option Name]
+
 - **Description**: [Brief description of the approach]
 - **Advantages**: [Key strengths]
 - **Disadvantages**: [Key weaknesses]
 
 ### Option 3: [Option Name]
+
 - **Description**: [Brief description of the approach]
 - **Advantages**: [Key strengths]
 - **Disadvantages**: [Key weaknesses]
@@ -51,10 +54,12 @@
 [Explain why this option was selected over the alternatives. Summarize the architectural consensus, mathematical justification, or benchmark evidence supporting this choice.]
 
 ### Positive Consequences
+
 - [Positive consequence 1]
 - [Positive consequence 2]
 
 ### Negative Consequences & Trade-offs
+
 - [Trade-off or additional operational complexity 1]
 - [Trade-off 2]
 

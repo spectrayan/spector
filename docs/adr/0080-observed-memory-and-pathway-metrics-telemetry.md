@@ -40,16 +40,19 @@ Instrumenting a cognitive memory engine introduces three major architectural cha
 ## 4. Considered Options
 
 ### Option 1: Ad-Hoc Logging and Atomic Counters
+
 - **Description**: Add SLF4J debug logs and `AtomicLong` counters directly within pathway classes.
 - **Advantages**: Simple to write initially, no additional library dependencies.
 - **Disadvantages**: Unstructured, difficult to scrape, lacks histogram percentiles, and provides no distributed tracing correlation across services.
 
 ### Option 2: Direct OpenTelemetry SDK and Prometheus Client Binding
+
 - **Description**: Hard-code OpenTelemetry tracer and Prometheus meter calls throughout all memory classes.
 - **Advantages**: Direct access to vendor-specific APIs.
 - **Disadvantages**: Pollutes core cognitive packages with third-party SDK dependencies, creates divergent metric tag schemas, and duplicates instrumentation across metrics and spans.
 
 ### Option 3: Micrometer Observation API Decorators and MeterBinders (Selected)
+
 - **Description**: Implement an isolated observability module (`memory/spector-metrics`) utilizing the Micrometer Observation API. Wrap `SpectorMemory` in `ObservedSpectorMemory`, intercept pathway relays via `PathwayMetrics`, and bind task queues via `TaskQueueMetricsBinder`.
 - **Advantages**: Complete architectural decoupling, single-call duality (one observation produces both metrics and OpenTelemetry trace spans), zero dependencies added to core kernel, and full compatibility with Prometheus, Grafana, OpenTelemetry Collector, and Datadog.
 
@@ -108,38 +111,38 @@ flowchart TD
 ### 5.2 Core Telemetry Components
 
 1. **`ObservedSpectorMemory` (Decorator)**:
-   - Implements `SpectorMemory`, wrapping the underlying memory instance.
-   - Encloses every cognitive operation (`remember`, `recall`, `reflect`, `forget`, `reinforce`, `sync`) inside a Micrometer `Observation`.
-   - Uses `DefaultSpectorObservationConvention` to attach standardized contextual tags: `operation`, `tier`, `status`, `user`, and `tenant`.
-   - Emits both timing histograms to the `MeterRegistry` and distributed trace spans with parent-child hierarchy to the OpenTelemetry bridge.
+    - Implements `SpectorMemory`, wrapping the underlying memory instance.
+    - Encloses every cognitive operation (`remember`, `recall`, `reflect`, `forget`, `reinforce`, `sync`) inside a Micrometer `Observation`.
+    - Uses `DefaultSpectorObservationConvention` to attach standardized contextual tags: `operation`, `tier`, `status`, `user`, and `tenant`.
+    - Emits both timing histograms to the `MeterRegistry` and distributed trace spans with parent-child hierarchy to the OpenTelemetry bridge.
 
 2. **`PathwayMetrics` (Relay Telemetry)**:
-   - Implements `MeterBinder` and `PathwayObservationHook`.
-   - Exports 8 standardized cognitive meters:
-     - `spector.pathway.conduct` (Timer) — Total latency per pathway execution (tags: `pathway`, `finish`).
-     - `spector.pathway.relay` (Timer) — Execution latency per individual synaptic relay (tags: `pathway`, `relay`, `status`).
-     - `spector.pathway.degraded` (Counter) — Count of graceful degradation events (tags: `pathway`, `relay`, `kind`).
-     - `spector.pathway.circuit` (Counter) — Circuit breaker state changes (tags: `breaker`, `event=trip|probe|close|reject`).
-     - `spector.pathway.bulkhead.reject` (Counter) — Bulkhead concurrency rejections (tags: `bulkhead`).
-     - `spector.pathway.timeout` (Counter) — Relay timeouts (tags: `pathway`, `relay`).
-     - `spector.pathway.retry` (Counter) — Transient fault retries (tags: `pathway`, `relay`).
-     - `spector.pathway.nested` (Timer) — Latency of nested child pathways (tags: `from`, `to`).
+    - Implements `MeterBinder` and `PathwayObservationHook`.
+    - Exports 8 standardized cognitive meters:
+        - `spector.pathway.conduct` (Timer) — Total latency per pathway execution (tags: `pathway`, `finish`).
+        - `spector.pathway.relay` (Timer) — Execution latency per individual synaptic relay (tags: `pathway`, `relay`, `status`).
+        - `spector.pathway.degraded` (Counter) — Count of graceful degradation events (tags: `pathway`, `relay`, `kind`).
+        - `spector.pathway.circuit` (Counter) — Circuit breaker state changes (tags: `breaker`, `event=trip|probe|close|reject`).
+        - `spector.pathway.bulkhead.reject` (Counter) — Bulkhead concurrency rejections (tags: `bulkhead`).
+        - `spector.pathway.timeout` (Counter) — Relay timeouts (tags: `pathway`, `relay`).
+        - `spector.pathway.retry` (Counter) — Transient fault retries (tags: `pathway`, `relay`).
+        - `spector.pathway.nested` (Timer) — Latency of nested child pathways (tags: `from`, `to`).
 
 3. **`TaskQueueMetricsBinder` (Concurrency Telemetry)**:
-   - Implements `MeterBinder`, observing an active `SpectorTaskQueue<?>`.
-   - Exports real-time queue health gauges and counters:
-     - `spector.taskqueue.size`: Current backlog depth.
-     - `spector.taskqueue.capacity`: Configured maximum queue capacity.
-     - `spector.taskqueue.parallelism`: Active virtual worker thread count.
-     - `spector.taskqueue.submitted`: Monotonic counter of submitted tasks.
-     - `spector.taskqueue.processed`: Monotonic counter of completed tasks.
-     - `spector.taskqueue.failed`: Monotonic counter of rejected/failed tasks.
-     - `spector.taskqueue.retried`: Retry attempts.
-     - `spector.taskqueue.latency.avg.ms`: Rolling average task execution duration.
-     - `spector.taskqueue.running`: Operational status gauge (1 = running, 0 = closed).
+    - Implements `MeterBinder`, observing an active `SpectorTaskQueue<?>`.
+    - Exports real-time queue health gauges and counters:
+        - `spector.taskqueue.size`: Current backlog depth.
+        - `spector.taskqueue.capacity`: Configured maximum queue capacity.
+        - `spector.taskqueue.parallelism`: Active virtual worker thread count.
+        - `spector.taskqueue.submitted`: Monotonic counter of submitted tasks.
+        - `spector.taskqueue.processed`: Monotonic counter of completed tasks.
+        - `spector.taskqueue.failed`: Monotonic counter of rejected/failed tasks.
+        - `spector.taskqueue.retried`: Retry attempts.
+        - `spector.taskqueue.latency.avg.ms`: Rolling average task execution duration.
+        - `spector.taskqueue.running`: Operational status gauge (1 = running, 0 = closed).
 
 4. **`ObservableRelay` & `PathwayRelayMetricsInterceptor`**:
-   - Functional interceptor (`Function<SynapticRelay<S>, SynapticRelay<S>>`) decorating relays transparently without modifying their algorithmic code.
+    - Functional interceptor (`Function<SynapticRelay<S>, SynapticRelay<S>>`) decorating relays transparently without modifying their algorithmic code.
 
 ### 5.3 Distributed Tracing & Span Hierarchy
 
@@ -189,20 +192,20 @@ sequenceDiagram
 
 - **Primary Module**: `memory/spector-metrics`
 - **Key Packages**:
-  - `com.spectrayan.spector.metrics`
-  - `com.spectrayan.spector.metrics.observation`
+    - `com.spectrayan.spector.metrics`
+    - `com.spectrayan.spector.metrics.observation`
 - **Key Classes**:
-  - `ObservedSpectorMemory.java`
-  - `PathwayMetrics.java`
-  - `TaskQueueMetricsBinder.java`
-  - `SpectorJvmMetrics.java`
-  - `DefaultSpectorObservationConvention.java`
-  - `MemoryObservationContext.java`
-  - `PathwayRelayMetricsInterceptor.java`
-  - `ObservableRelay.java`
+    - `ObservedSpectorMemory.java`
+    - `PathwayMetrics.java`
+    - `TaskQueueMetricsBinder.java`
+    - `SpectorJvmMetrics.java`
+    - `DefaultSpectorObservationConvention.java`
+    - `MemoryObservationContext.java`
+    - `PathwayRelayMetricsInterceptor.java`
+    - `ObservableRelay.java`
 - **Verification Test Suites**:
-  - `ObservedSpectorMemoryTest.java`
-  - `PathwayMetricsTest.java`
-  - `TaskQueueMetricsBinderTest.java`
-  - `SpectorMetricsTest.java`
-  - `ObservableRelayTest.java`
+    - `ObservedSpectorMemoryTest.java`
+    - `PathwayMetricsTest.java`
+    - `TaskQueueMetricsBinderTest.java`
+    - `SpectorMetricsTest.java`
+    - `ObservableRelayTest.java`

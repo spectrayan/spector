@@ -109,6 +109,7 @@ helm install spector-cell ./deploy/helm/spector \
 ```
 
 This profile sets:
+
 - **Soft Anti-Affinity**: Allows co-scheduling multiple owners and replicas on a single local node.
 - **Lightweight Memory Limits**: 512Mi request / 1Gi limit per node with `-Xms256m -Xmx512m`.
 - **Standard Storage**: Uses `hostpath` persistence.
@@ -120,6 +121,7 @@ Forward the service ports to your machine:
 ```bash
 kubectl port-forward -n spector-cell svc/spector-cell 7700:7700 7070:7070
 ```
+
 - **Cortex Neural Dashboard**: [`http://localhost:7700`](http://localhost:7700)
 - **Synapse REST API**: [`http://localhost:7070/actuator/health`](http://localhost:7070/actuator/health)
 

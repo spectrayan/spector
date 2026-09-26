@@ -34,16 +34,19 @@ A naive replacement of `EntityGraphMemory` with `HyperEntityGraphMemory` created
 ## 4. Considered Options
 
 ### Option 1: Immediate Binary Graph Deletion
+
 - **Description**: Drop `EntityGraphMemory` immediately and point all graph interfaces to `HyperEntityGraphMemory`.
 - **Advantages**: Fast codebase cleanup.
 - **Disadvantages**: Severe regression: loses entity naming indices, drops single-entity memories, and breaks WAL recovery.
 
 ### Option 2: Permanent Dual-Graph Architecture
+
 - **Description**: Maintain both binary `EntityGraphMemory` and `HyperEntityGraphMemory` simultaneously in production.
 - **Advantages**: Minimal refactoring of legacy consumers.
 - **Disadvantages**: Doubles disk I/O and off-heap memory usage; synchronizing binary and hyperedge mutations introduces race conditions.
 
 ### Option 3: Phased Identity Extraction & Hypergraph Graduation (Selected)
+
 - **Description**: Extract entity identity management (`EntityNameIndex`, `EntityTypeRegistry`) into a dedicated off-heap identity component. Permit unary hyperedges (1 vertex) for single-entity memories. Bind `HyperEntityGraphMemory` to the WAL dispatcher, and safely retire the legacy binary adjacency store.
 - **Advantages**: Retains 100% entity and link fidelity, provides crash-consistent WAL durability, and achieves representation elegance.
 - **Disadvantages**: Requires updating 23 production call sites across reflection and consolidation pipelines.
@@ -53,11 +56,13 @@ A naive replacement of `EntityGraphMemory` with `HyperEntityGraphMemory` created
 **Chosen Option**: Option 3 (Phased Identity Extraction & Hypergraph Graduation).
 
 ### Positive Consequences
+
 - Hypergraph graduation achieves representation compression without losing single-entity associations.
 - Crash durability guaranteed by binding hyperedge mutations to `MemoryWalRecovery`.
 - Unary hyperedges provide uniform representation for both atomic mentions and complex n-ary relationships.
 
 ### Negative Consequences & Trade-offs
+
 - Legacy binary graph methods (`decayAdjacencyWeights`, `compactAdjacency`) must be reimplemented as hyperedge weight updates.
 - Historical binary graph files require automated migration or re-ingestion.
 

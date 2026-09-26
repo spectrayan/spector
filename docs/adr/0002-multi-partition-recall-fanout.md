@@ -35,16 +35,19 @@ Prior to this decision, multi-partition operation suffered from four core archit
 ## 4. Considered Options
 
 ### Option 1: Monolithic Partition Re-Indexing
+
 - **Description**: Merge frozen partition records into a single global index and rebuild HNSW graphs on roll.
 - **Advantages**: Simple single-point query interface.
 - **Disadvantages**: Prohibitive write amplification and compaction pauses during rolls; breaks append-only storage immutability.
 
 ### Option 2: Active-Only Search with Background Compaction
+
 - **Description**: Keep only the active partition queryable; asynchronously compact frozen partitions into cold archives.
 - **Advantages**: Minimal changes to active query routing.
 - **Disadvantages**: Destroys episodic continuity; memories in recently frozen partitions become invisible until cold compaction completes.
 
 ### Option 3: Two-Tier Multi-Partition Recall Routing (Selected)
+
 - **Description**: Maintain an active partition for writes and concurrent reads, and a registry of read-only frozen partitions with distinct partition IDs. Multi-partition recall fans out across active and frozen stores using virtual threads, resolving reverse-key collisions by embedding the partition index into global memory addresses.
 - **Advantages**: Instant partition rolls (zero compaction pause), complete historical recall visibility, bounded descriptor pools, and deterministic off-heap memory management.
 - **Disadvantages**: Requires parallel fan-out aggregation across multiple memory-mapped slabs.
@@ -54,12 +57,14 @@ Prior to this decision, multi-partition operation suffered from four core archit
 **Chosen Option**: Option 3 (Two-Tier Multi-Partition Recall Routing).
 
 ### Positive Consequences
+
 - Bounded partition files with zero data loss across rolls.
 - Fully parallel recall scans across active and frozen stores.
 - Global memory addressing incorporates partition identifiers, eliminating reverse-key collisions.
 - Explicit resource tracking guarantees that frozen partition arenas are closed upon namespace unload.
 
 ### Negative Consequences & Trade-offs
+
 - Query fan-out requires score normalization and top-$K$ merging across multiple partition results.
 - File descriptor usage scales with partition count, requiring file descriptor pooling and LRU partition mapping under high tenant density.
 

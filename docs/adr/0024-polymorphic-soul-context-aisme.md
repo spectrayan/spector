@@ -15,6 +15,7 @@
 ## 1. Context
 
 Spector's domain model defines a rich, polymorphic sealed soul hierarchy in `com.spectrayan.spector.memory.model`:
+
 - **`UserSoul`**: Human digital twin and persona continuity (`PersonaContext`, `IdiolectProfile`, `VocalProsodyDNA`, `EmbodiedKinesicsDNA`, `identityEmbedding`).
 - **`AgentSoul`**: Autonomous AI assistant persona, tools, and system prompt.
 - **`TenantSoul`**: Enterprise compliance and domain focus policies.
@@ -36,11 +37,13 @@ Restricting AISME to `AgentSoul` prevented `UserSoul` (digital twin and ancestra
 ## 4. Considered Options
 
 ### Option 1: Parallel Model Implementations
+
 - **Description**: Create separate `UserGenerativeSelfModel`, `AgentGenerativeSelfModel`, and `TenantGenerativeSelfModel` classes.
 - **Advantages**: Avoids modifying existing classes.
 - **Disadvantages**: Massive code duplication; fails to support blended multi-soul hierarchies.
 
 ### Option 2: Polymorphic `SoulContext` Hierarchy Integration (Selected)
+
 - **Description**: Upgrade `GenerativeSelfModel` and `AismeBundle` to operate on the sealed `SoulContext` interface, supporting polymorphic prior computation and multi-soul blending while providing backward-compatible adaptors.
 - **Advantages**: Universal support for all soul types; supports multi-tier composite blending; 100% backward compatible.
 - **Disadvantages**: Requires updating constructor signatures in internal builders.
@@ -52,24 +55,29 @@ Restricting AISME to `AgentSoul` prevented `UserSoul` (digital twin and ancestra
 ### Architectural Decisions:
 
 #### D1: Polymorphic `SoulContext` in `GenerativeSelfModel`
+
 - Replace `AgentSoul soul` with `SoulContext soul` in `GenerativeSelfModel`.
 - Support polymorphic prior mean initialization via `SoulContext.identityEmbedding()`.
 - Add `fromSoulsAndProfile(List<SoulContext> soulContexts, CognitiveProfile profile, int dimensions)` to compute a composite, blended generative prior $\boldsymbol{\mu}_0$.
 
 #### D2: Polymorphic `AismeBundle`
+
 - Update `AismeBundle` to hold `SoulContext primarySoul` and `List<SoulContext> soulContexts`.
 - Provide backward-compatible accessor `public AgentSoul agentSoul()` which returns `(AgentSoul) primarySoul` if applicable, else `null`.
 
 #### D3: Builder Alignment (`SpectorMemoryBuilder` & `AismeBuilder`)
+
 - Expose `soul(SoulContext soul)` and `soulContexts(List<SoulContext> contexts)` in `SpectorMemoryBuilder`.
 - Pass polymorphic `soul` and `soulContexts` to `AismeBuilder.build(...)`.
 
 ### Positive Consequences
+
 - Closes the architectural gap for human digital twin persona storage (Homo Digitalis) by allowing `UserSoul` to directly drive active-inference self-models.
 - Supports multi-tenant enterprise and departmental policy integration.
 - 100% backward compatible with existing code expecting `AgentSoul`.
 
 ### Negative Consequences & Trade-offs
+
 - Internal bundle structures hold a collection of souls, requiring null-safe checks when casting to specific concrete types.
 
 ## 6. Pros and Cons of the Options

@@ -122,6 +122,7 @@ graph TB
 **Rejected:** multi-leader R/W + round-robin with local disks (split-brain).
 
 **Accepted alternatives (ops trade-off):**
+
 - Single primary per cell + N read replicas (simpler; less write scale)
 - Per-shard follower sets (better isolation; more pods)
 

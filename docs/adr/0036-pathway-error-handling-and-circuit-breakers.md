@@ -61,16 +61,19 @@ These are necessary and insufficient.
 ## 4. Considered Options
 
 ### Option 1: Status Quo (Binary ErrorPolicy)
+
 - **Description**: Rely solely on `FAIL_FAST` vs `DEGRADE_GRACEFULLY` with a naive consecutive-failure counter.
 - **Advantages**: Minimal code surface.
 - **Disadvantages**: Treats validation errors as breaker trips; lacks timeouts, retries, and bulkheads; silent bypasses look like success.
 
 ### Option 2: Monolithic Per-Relay Try/Catch Blocks
+
 - **Description**: Implement custom error handling and retry loops individually inside every `SynapticRelay`.
 - **Advantages**: Localized logic.
 - **Disadvantages**: Extreme code duplication across ~40 relays; non-uniform metrics; unmaintainable resilience posture.
 
 ### Option 3: Composable Resilience Decorator Pipeline (Selected)
+
 - **Description**: Decouple resilience into reusable stage decorators (`TimeoutStage`, `RetryStage`, `CircuitBreakerStage`, `BulkheadStage`) orchestrated in strict mathematical order with an extensible `FaultKind` taxonomy and `ConductionOutcome` reporting.
 - **Advantages**: Zero duplication; composable via fluent `StageBuilder`; transparent metrics; fail-closed defaults.
 - **Disadvantages**: Modest increase in call-stack depth per stage.
@@ -1099,6 +1102,7 @@ Do not flip `OnOpen` defaults from BYPASS to FAIL on existing `circuitBreaker(..
 ---
 
 ### Code Reference & Verification Gate
+
 - **Primary Module(s)**: `nucleus/spector-commons`, `memory/spector-memory`
 - **Key Packages**: `com.spectrayan.spector.commons.pathway`, `com.spectrayan.spector.commons.error`
 - **Classes**: `ErrorPolicy.java`, `CircuitBreakerRelay.java`, `CognitivePathway.java`, `CognitivePathwayException.java`

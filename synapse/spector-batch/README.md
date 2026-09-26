@@ -37,6 +37,7 @@ High-throughput, chunk-oriented **Spring Batch migration engine** for Spector Me
 ## Exported Artifact Structure (`.smb` - Spector Memory Bundle)
 
 Exported archives are compressed `.smb` (`tar.zst` / zip) bundles containing:
+
 - `manifest.json`: Schema version, entity count, vector dimensions, CRC32 checksums.
 - `nodes/`: Full memory items (texts, tags, key-values, salience, decay, importance scores).
 - `vectors/`: Contiguous float array embeddings and index state metadata.
@@ -47,11 +48,13 @@ Exported archives are compressed `.smb` (`tar.zst` / zip) bundles containing:
 ## Usage
 
 ### REST API Integration (Synapse)
+
 - `POST /api/v1/migration/export?namespace=default&outputPath=/tmp/backup.smb`
 - `POST /api/v1/migration/import?bundlePath=/tmp/backup.smb&targetNamespace=migrated_ns`
 - `GET /api/v1/migration/jobs/{executionId}`
 
 ### CLI Integration (`spector`)
+
 - Remote export: `spector memory export --namespace=default --output=/tmp/backup.smb`
 - Offline export: `spector memory export --namespace=default --output=/tmp/backup.smb --offline`
 - Remote import: `spector memory import --input=/tmp/backup.smb --target-namespace=migrated_ns`

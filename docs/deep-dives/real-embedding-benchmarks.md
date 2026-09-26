@@ -119,10 +119,12 @@ A total of 32 coarse centroids were used, resulting in an average of 3,125 vecto
 
 #### 1. Recall Equivalence
 The promoted HNSW shards achieve **almost identical recall** to the exhaustive float32 Flat Shards (e.g., `0.9870` HNSW vs `1.0000` Flat at `nProbe = 32`). This confirms that:
+
 - The translation of internal HNSW contiguous graph node indices (`nodeIdx`) to external global `storeIndex` values is correct.
 - Forcing `SimilarityFunction.EUCLIDEAN` for all residual operations inside the promoted HNSW index prevents mathematical similarity mismatches with the IVF boundaries.
 
 #### 2. Trade-Off: Ingestion vs. Search Speed
+
 - **Ingestion:** Flat Shards ingest at an astronomical **632K docs/sec** because adding a vector requires only subtracting the centroid and appending to a float32 array. Quantized HNSW construction ingests at **7.6K docs/sec** because it performs O(N log N) graph traversals and builds indexing structures on heap.
 - **Shallow Searches (nProbe <= 16):** Flat Shard mode remains slightly faster for small queries. Contiguous SIMD memory scans have zero graph traversal or pointer-chasing overhead, and the hardware prefetcher is highly efficient at low sizes.
 - **Deep Searches (nProbe = 32):** Promoted HNSW Shards win at deep lookups (where all centroids are searched), achieving **346 QPS** (2.89ms) vs. **321 QPS** (3.11ms) for Flat mode. As the search space increases, the graph's logarithmic traversal complexity bypasses exhaustive scans.

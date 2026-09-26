@@ -431,6 +431,7 @@ Recorded so they are not rediscovered as bugs:
 ---
 
 ### Code Reference & Verification Gate
+
 - **Primary Module(s)**: `memory/spector-memory`, `memory/spector-ingestion`, `synapse/spector-connector`
 - **Key Packages**: `com.spectrayan.spector.memory.pathway.remember`, `com.spectrayan.spector.ingestion`
 - **Classes**: `RememberPathway.java`, `SpectorMemory.java`, `SpectorMemoryBuilder.java`

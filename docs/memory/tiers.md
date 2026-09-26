@@ -29,6 +29,7 @@ graph TB
 ## Tier Dispatch & Kernel Backing
 
 All four memory stores are backed directly by the off-heap `spector-kernel`:
+
 - **Working Memory**: Hosted in `runtime.bundle` as a contiguous circular buffer for active working context.
 - **Episodic, Semantic, and Procedural Memories**: Hosted in sequential partition bundles (`partitions/{seq}/partition.bundle`) with dedicated 96-byte strength regions (`RegionId.STRENGTH`).
 - **Engram Storage**: All tiers utilize the unified 64-byte pure encoding header with 128-bit Synaptic Bloom tags for fast candidate pre-screening.
@@ -102,6 +103,7 @@ stateDiagram-v2
 ### Semantic Memory Creation
 
 Semantic memories enter the system through two primary pathways:
+
 1. **Remember Pathway**: Client applications directly store verified facts into the semantic tier (`tier: SEMANTIC`).
 2. **Reflect Pathway (Sleep Consolidation)**: The hippocampal sleep consolidation engine analyzes clusters of repeated episodic memories, synthesizes generalized summaries, and promotes them to permanent semantic engrams.
 

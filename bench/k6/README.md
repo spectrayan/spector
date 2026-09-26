@@ -37,6 +37,7 @@ bench/k6/
 ## ⚡ Prerequisites
 
 Install **Grafana k6**:
+
 - **Windows**: `winget install k6` or `choco install k6`
 - **macOS**: `brew install k6`
 - **Linux**: `sudo apt-get install k6`

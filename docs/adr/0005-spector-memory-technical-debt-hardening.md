@@ -35,16 +35,19 @@ Key technical debt issues compromised system stability and maintainability:
 ## 4. Considered Options
 
 ### Option 1: Incremental Opportunistic Cleanup
+
 - **Description**: Fix issues opportunistically as new features touch existing classes.
 - **Advantages**: Minimal immediate sprint disruption.
 - **Disadvantages**: High risk of leaving subtle concurrency bugs and resource leaks in untouched legacy paths.
 
 ### Option 2: Full Rewrite of spector-memory
+
 - **Description**: Redesign the entire cognitive memory module from scratch.
 - **Advantages**: Total clean slate.
 - **Disadvantages**: Extremely high risk of introducing behavioral regressions into production memory pipelines.
 
 ### Option 3: Dedicated Hardening & Stabilization Sprint (Selected)
+
 - **Description**: Execute a focused hardening milestone targeting locking migration (`synchronized` -> `ReentrantLock`), typed exception refactoring, `Arena` lifecycle unification, and naming standardization.
 - **Advantages**: Eliminates systemic technical debt, preserves tested algorithmic logic, and establishes clear quality baselines.
 - **Disadvantages**: Requires dedicated QA validation and regression test coverage across all cognitive stores.
@@ -54,11 +57,13 @@ Key technical debt issues compromised system stability and maintainability:
 **Chosen Option**: Option 3 (Dedicated Hardening & Stabilization Sprint).
 
 ### Positive Consequences
+
 - Virtual thread pinning eliminated across all memory stores.
 - Consistent error handling via `SpectorException` and standardized error registries.
 - Deterministic off-heap resource release prevents memory leaks across partition rolls.
 
 ### Negative Consequences & Trade-offs
+
 - Refactoring locking primitives required comprehensive concurrency re-benchmarking under heavy contention.
 
 ## 6. Pros and Cons of the Options

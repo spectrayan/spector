@@ -30,10 +30,11 @@ Spector Synapse models agentic interactions through two distinct, complementary 
 
 ### The Agent Soul
 The **Agent Soul** represents the persistent identity and character of the AI agent. It defines the agent's baseline model of self, including:
-*   **Purpose & Mission**: The primary objective or goal the agent is designed to achieve.
-*   **Personality & Tone**: The behavioral characteristics, communication style, and emotional baseline.
-*   **Expertise Domains**: Specific areas of knowledge where the agent has specialized capability.
-*   **Core Values & Ethical Guardrails**: Guiding principles and strict safety boundaries that cannot be bypassed or self-modified.
+
+* **Purpose & Mission**: The primary objective or goal the agent is designed to achieve.
+* **Personality & Tone**: The behavioral characteristics, communication style, and emotional baseline.
+* **Expertise Domains**: Specific areas of knowledge where the agent has specialized capability.
+* **Core Values & Ethical Guardrails**: Guiding principles and strict safety boundaries that cannot be bypassed or self-modified.
 
 ### The User Salience Profile
 The [User Salience Profile](../memory/salience-importance.md) represents the personalization filter configured for the human interacting with the system. It defines what concepts, topics, and rules matter to that user. It is expressed in natural language interests (boosts) and disinterests (dampeners) that modify memory importance scores dynamically at recall and ingestion time.
@@ -50,8 +51,8 @@ graph LR
     AgentBehavior --> AgentResponse[Character-Aligned Response]:::info
 ```
 
-1.  **The User Salience Profile acts as the Retrieval Filter (What to remember)**: It determines *which* memories are retrieved from the cognitive store by boosting topics the user cares about and suppressing noise.
-2.  **The Agent Soul acts as the Response Governor (How to behave)**: Once the relevant memories are surfaced, the Agent Soul shapes the reasoning process, tool usage, and tone to generate a response that remains consistent with the agent's persona.
+1. **The User Salience Profile acts as the Retrieval Filter (What to remember)**: It determines *which* memories are retrieved from the cognitive store by boosting topics the user cares about and suppressing noise.
+2. **The Agent Soul acts as the Response Governor (How to behave)**: Once the relevant memories are surfaced, the Agent Soul shapes the reasoning process, tool usage, and tone to generate a response that remains consistent with the agent's persona.
 
 Together, they ensure the agent's actions are highly personalized to the user's focus areas while remaining character-consistent and ethically bounded.
 
@@ -60,15 +61,15 @@ Together, they ensure the agent's actions are highly personalized to the user's 
 Moving beyond shallow prompt-wrapping, Spector Synapse implements **Persona Enactment** grounded in Dual-Process Cognitive Appraisal Theory and Continuous Hopfield Attractor Networks:
 
 1. **System 1 (Automatic Stance Synthesis, sub-10ms)**:
-   - **Intuitive Pre-Appraisal**: Evaluates initial Valence, Arousal, and Dominance (VAD) deltas and agency attribution (Lazarus & Scherer) by reading `HomeostaticCore.currentState()` purely functionally without in-place SDE mutation (SDE stepping occurs post-turn in episodic learning).
-   - **Intensity-Gated Self-Recall**: Gathers constitution invariants, dogmas, scars, and playbooks, with low-urgency situations gating retrieval to lightweight queries.
-   - **Refined Cognitive Appraisal**: Re-evaluates VAD and coping potential with recalled scars, dogmas, and playbooks as the primary driver.
-   - **Hopfield Attractor Basin**: Relaxes emotional-sensory state into the persona's nearest associative attractor (`ContinuousHopfieldNetwork`).
-   - **Active Policy Selection**: Evaluates Expected Free Energy (EFE) $G(\pi)$ across candidate policies (`PolicyInferenceEngine`).
+    - **Intuitive Pre-Appraisal**: Evaluates initial Valence, Arousal, and Dominance (VAD) deltas and agency attribution (Lazarus & Scherer) by reading `HomeostaticCore.currentState()` purely functionally without in-place SDE mutation (SDE stepping occurs post-turn in episodic learning).
+    - **Intensity-Gated Self-Recall**: Gathers constitution invariants, dogmas, scars, and playbooks, with low-urgency situations gating retrieval to lightweight queries.
+    - **Refined Cognitive Appraisal**: Re-evaluates VAD and coping potential with recalled scars, dogmas, and playbooks as the primary driver.
+    - **Hopfield Attractor Basin**: Relaxes emotional-sensory state into the persona's nearest associative attractor (`ContinuousHopfieldNetwork`).
+    - **Active Policy Selection**: Evaluates Expected Free Energy (EFE) $G(\pi)$ across candidate policies (`PolicyInferenceEngine`).
 2. **System 2 (Bounded Deliberation & Embodiment)**:
-   - Evaluates active dogma, dynamic trade-off matrix (prioritized vs sacrificed), blind spots, and tactical first move (with low-intensity skip for routine conditions).
-   - Enforces Epistemic Tense gating (`FACT` vs `SIM`) and ancestral PEP guardrail vetoes.
-   - Accessible via the `ENACT` node in LangGraph4j state graphs and the `persona_enact` MCP tool.
+    - Evaluates active dogma, dynamic trade-off matrix (prioritized vs sacrificed), blind spots, and tactical first move (with low-intensity skip for routine conditions).
+    - Enforces Epistemic Tense gating (`FACT` vs `SIM`) and ancestral PEP guardrail vetoes.
+    - Accessible via the `ENACT` node in LangGraph4j state graphs and the `persona_enact` MCP tool.
 
 ---
 
@@ -126,11 +127,11 @@ sequenceDiagram
     Chat->>MB: Reflect & reinforce memories (async)
 ```
 
-1.  **Recall**: Surfacing relevant semantic, episodic, and working memories via the Memory Bridge.
-2.  **Thought**: Deciding whether the user query can be answered directly or if tools are required.
-3.  **Action**: Executing approved tools and returning results back into the agent's state as observations.
-4.  **Evaluate / Generate**: Iterating until a satisfying response is compiled, then returning the response to the user.
-5.  **Consolidate**: Recording the interaction to episodic memory and strengthening related neural pathways.
+1. **Recall**: Surfacing relevant semantic, episodic, and working memories via the Memory Bridge.
+2. **Thought**: Deciding whether the user query can be answered directly or if tools are required.
+3. **Action**: Executing approved tools and returning results back into the agent's state as observations.
+4. **Evaluate / Generate**: Iterating until a satisfying response is compiled, then returning the response to the user.
+5. **Consolidate**: Recording the interaction to episodic memory and strengthening related neural pathways.
 
 ---
 
@@ -216,14 +217,16 @@ Because agent loops are non-deterministic, understanding why an agent made a dec
 
 ### State Tracing Elements
 When an agent executes, it populates three core structures in the state log:
-*   **`AgentThought`**: The internal reasoning path generated by the LLM prior to taking action.
-*   **`AgentAction`**: The tool selected for execution, including its input parameters.
-*   **`AgentObservation`**: The raw output returned by the tool, which is fed back into the reasoning loop.
+
+* **`AgentThought`**: The internal reasoning path generated by the LLM prior to taking action.
+* **`AgentAction`**: The tool selected for execution, including its input parameters.
+* **`AgentObservation`**: The raw output returned by the tool, which is fed back into the reasoning loop.
 
 ### Inspecting Traces
-1.  **Cortex UI Integration**: The Cortex Dashboard displays these steps in real-time as an interactive neural timeline, highlighting scoring weights, tool execution steps, and memory activation.
-2.  **API Log Access**: Developers can query the session history endpoint `/api/v1/chat/sessions/{id}/messages` to retrieve the full step-by-step trace of thoughts, actions, and observations.
-3.  **Spring Logging System**: Synapse outputs detailed execution spans via SLF4J, allowing external tracing tools (like OpenTelemetry or Jaeger) to monitor latency and routing across agent steps.
+
+1. **Cortex UI Integration**: The Cortex Dashboard displays these steps in real-time as an interactive neural timeline, highlighting scoring weights, tool execution steps, and memory activation.
+2. **API Log Access**: Developers can query the session history endpoint `/api/v1/chat/sessions/{id}/messages` to retrieve the full step-by-step trace of thoughts, actions, and observations.
+3. **Spring Logging System**: Synapse outputs detailed execution spans via SLF4J, allowing external tracing tools (like OpenTelemetry or Jaeger) to monitor latency and routing across agent steps.
 
 ---
 
@@ -235,9 +238,10 @@ Synapse implements strict guardrails to guarantee the reliability and safety of 
 To prevent an agent from entering infinite reasoning loops, the `AgenticChatGraph` enforces a hard limit on maximum iterations per turn (default: `10` iterations). If the agent fails to compile a final answer within this limit, the loop is terminated, and a graceful fallback message is returned.
 
 ### 2. Tool Execution Fail-Safes
-*   **Sandboxing**: System and Shell execution tools (`shell_execute`) require explicit user authorization tokens or must be disabled via configuration.
-*   **Fallback Prompts**: If a tool fails (e.g., a network timeout or file access error), the exception is parsed, formatted into a structured `AgentObservation`, and returned to the LLM. The agent is trained to recognize the error and attempt a workaround or report the failure cleanly.
-*   **Write-Protection**: Synapse enforces read-only access on default connectors and file configurations to prevent unauthorized modifications by the agent.
+
+* **Sandboxing**: System and Shell execution tools (`shell_execute`) require explicit user authorization tokens or must be disabled via configuration.
+* **Fallback Prompts**: If a tool fails (e.g., a network timeout or file access error), the exception is parsed, formatted into a structured `AgentObservation`, and returned to the LLM. The agent is trained to recognize the error and attempt a workaround or report the failure cleanly.
+* **Write-Protection**: Synapse enforces read-only access on default connectors and file configurations to prevent unauthorized modifications by the agent.
 
 ### 3. Provider Failover and Timeouts
 Synapse virtual threads manage LLM calls independently. If a provider endpoint goes offline or times out (configured via `SPECTOR_OLLAMA_TIMEOUT`), the registry intercepts the failure, reports it to the agent's runner, and switches to the designated fallback model automatically.

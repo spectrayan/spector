@@ -29,8 +29,8 @@ Designing an event notification bus for Spector presents several hard constraint
 1. **Zero Impact on Hot Path**: Memory operations (remember, recall, reflect) execute on high-frequency threads. Event dispatch must never stall the engine, block on slow HTTP/SSE subscribers, or propagate unhandled consumer exceptions back into the memory pipeline.
 2. **Multi-Tenant Scope Isolation**: Spector operates in multi-tenant enterprise environments. Events contain sensitive metadata (e.g., query traces, memory keys, session transcripts). Delivery must enforce strict scope-based authorization (`NotificationScope` vs. `SubscriberIdentity`) to prevent data leakage across tenant or user boundaries.
 3. **Topology Agnosticism**: Spector deploys in two distinct operational topologies:
-   - **Single-pod / Embedded**: Running inside an agent microservice where in-memory dispatch is sufficient.
-   - **Distributed Clustered**: Running across multiple pods where events published on Pod A must reach subscribers connected to Pod B via distributed brokers (Redis Streams, NATS, Kafka).
+    - **Single-pod / Embedded**: Running inside an agent microservice where in-memory dispatch is sufficient.
+    - **Distributed Clustered**: Running across multiple pods where events published on Pod A must reach subscribers connected to Pod B via distributed brokers (Redis Streams, NATS, Kafka).
 
 4. **Deprecation of Fragmented Legacy Busses**: Prior releases maintained separate static or singleton busses (such as `TelemetryBus`), which lacked generic type safety, scope filtering, and multi-transport capabilities.
 
@@ -45,16 +45,19 @@ Designing an event notification bus for Spector presents several hard constraint
 ## 4. Considered Options
 
 ### Option 1: Third-Party Messaging Frameworks (Guava EventBus / Spring ApplicationEvents)
+
 - **Description**: Adopt off-the-shelf in-memory event busses like Guava or Spring Events.
 - **Advantages**: Pre-built library code, widely known APIs.
 - **Disadvantages**: Heavy reflection, lacks multi-tenant scope filtering, introduces unnecessary third-party dependencies into the core `nucleus` module, and does not support multi-pod transport fan-out.
 
 ### Option 2: Mandatory External Distributed Broker (Kafka / Redis Streams)
+
 - **Description**: Route all events directly through an external distributed broker.
 - **Advantages**: Native multi-pod clustering, durable message persistence.
 - **Disadvantages**: Prohibitive infrastructure overhead for embedded, edge, or local developer testing; unacceptable network round-trip overhead on high-frequency internal telemetry.
 
 ### Option 3: Pluggable Dual-Dispatch EventBus with NotificationTransport SPI (Selected)
+
 - **Description**: Implement a lightweight, zero-dependency generic `EventBus<E extends SpectorEvent>` supporting both in-process broadcast consumers and scope-aware `NotificationTransport` plugins, with optional virtual-thread asynchronous dispatch.
 - **Advantages**: Zero third-party dependencies, single-pod and multi-pod compatibility, strict multi-tenant scope gating, fail-safe exception isolation, and seamless migration from legacy `TelemetryBus`.
 
@@ -105,36 +108,36 @@ flowchart TD
 ### 5.2 Core Components & Contracts
 
 1. **`SpectorEvent` & `SpectorTelemetryEvent`**:
-   - Base domain interfaces for all event signals.
-   - Requires `Instant timestamp()` and `NotificationScope scope()`.
-   - Concrete implementations include `GraphPulseTelemetry`, `MemorySnapshotTelemetry`, `QueryTraceTelemetry`, `ReflectCycleTelemetry`, `SimdKernelTelemetry`, and `ClusterTopologyTelemetry`.
+    - Base domain interfaces for all event signals.
+    - Requires `Instant timestamp()` and `NotificationScope scope()`.
+    - Concrete implementations include `GraphPulseTelemetry`, `MemorySnapshotTelemetry`, `QueryTraceTelemetry`, `ReflectCycleTelemetry`, `SimdKernelTelemetry`, and `ClusterTopologyTelemetry`.
 
 2. **`EventBus<E extends SpectorEvent>`**:
-   - Central generic hub managing two consumer registries:
-     - `subscribers`: List of `Consumer<E>` receiving all events without scope filtering (used for metrics, diagnostics, and audit logs).
-     - `transports`: List of `NotificationTransport<E>` instances handling scope-filtered delivery.
-   - Configurable dispatch modes:
-     - **Synchronous** (default): Delivered on publisher thread for low-latency in-memory scenarios.
-     - **Asynchronous** (opt-in via `-Dspector.events.async=true`): Dispatched on virtual threads via `ConcurrentTasks.fireAndForget()` to guarantee zero latency on the publishing thread.
-   - Strict error isolation: Consumer exceptions are caught and logged at `DEBUG` level, preventing external failures from affecting the engine.
+    - Central generic hub managing two consumer registries:
+        - `subscribers`: List of `Consumer<E>` receiving all events without scope filtering (used for metrics, diagnostics, and audit logs).
+        - `transports`: List of `NotificationTransport<E>` instances handling scope-filtered delivery.
+    - Configurable dispatch modes:
+        - **Synchronous** (default): Delivered on publisher thread for low-latency in-memory scenarios.
+        - **Asynchronous** (opt-in via `-Dspector.events.async=true`): Dispatched on virtual threads via `ConcurrentTasks.fireAndForget()` to guarantee zero latency on the publishing thread.
+    - Strict error isolation: Consumer exceptions are caught and logged at `DEBUG` level, preventing external failures from affecting the engine.
 
 3. **`NotificationScope` & `SubscriberIdentity`**:
-   - Granular multi-tenant authorization matrix:
-     - `NotificationScope.global()`: System-wide broadcast (node lifecycle, health).
-     - `NotificationScope.tenant(tenantId)`: Tenant-wide operational telemetry.
-     - `NotificationScope.user(tenantId, userId)`: User-specific recall or session events.
-     - `NotificationScope.topic(topic)`: Domain-specific event categories.
-   - `SubscriberIdentity.matches(NotificationScope)` validates permissions prior to event dispatch.
+    - Granular multi-tenant authorization matrix:
+        - `NotificationScope.global()`: System-wide broadcast (node lifecycle, health).
+        - `NotificationScope.tenant(tenantId)`: Tenant-wide operational telemetry.
+        - `NotificationScope.user(tenantId, userId)`: User-specific recall or session events.
+        - `NotificationScope.topic(topic)`: Domain-specific event categories.
+    - `SubscriberIdentity.matches(NotificationScope)` validates permissions prior to event dispatch.
 
 4. **`NotificationTransport<E>` SPI**:
-   - Standard interface for pluggable delivery mechanics:
-     - `LocalNotificationTransport`: Pure Java in-memory delivery with scope matching.
-     - `RedisStreamTransport` / `KafkaTransport`: Distributed multi-pod publication and consumption.
-     - `AutoCloseable` lifecycle for clean resource reclamation during node shutdown.
+    - Standard interface for pluggable delivery mechanics:
+        - `LocalNotificationTransport`: Pure Java in-memory delivery with scope matching.
+        - `RedisStreamTransport` / `KafkaTransport`: Distributed multi-pod publication and consumption.
+        - `AutoCloseable` lifecycle for clean resource reclamation during node shutdown.
 
 5. **Deprecation of `TelemetryBus`**:
-   - `TelemetryBus` is formally deprecated (since version 2.0.0).
-   - All telemetry and event streams unify under `EventBus<SpectorTelemetryEvent>`.
+    - `TelemetryBus` is formally deprecated (since version 2.0.0).
+    - All telemetry and event streams unify under `EventBus<SpectorTelemetryEvent>`.
 
 ### 5.3 Sequence Flow
 
@@ -181,17 +184,17 @@ sequenceDiagram
 
 - **Primary Module**: `nucleus/spector-events`
 - **Key Packages**:
-  - `com.spectrayan.spector.events`
+    - `com.spectrayan.spector.events`
 - **Key Classes**:
-  - `EventBus.java`
-  - `NotificationTransport.java`
-  - `LocalNotificationTransport.java`
-  - `NotificationScope.java`
-  - `SubscriberIdentity.java`
-  - `SpectorEvent.java`
-  - `SpectorTelemetryEvent.java`
-  - `TelemetryBus.java` (deprecated)
+    - `EventBus.java`
+    - `NotificationTransport.java`
+    - `LocalNotificationTransport.java`
+    - `NotificationScope.java`
+    - `SubscriberIdentity.java`
+    - `SpectorEvent.java`
+    - `SpectorTelemetryEvent.java`
+    - `TelemetryBus.java` (deprecated)
 - **Verification Test Suites**:
-  - `TelemetryBusTest.java`
-  - `TelemetryEventTest.java`
-  - `TelemetryScopeTest.java`
+    - `TelemetryBusTest.java`
+    - `TelemetryEventTest.java`
+    - `TelemetryScopeTest.java`

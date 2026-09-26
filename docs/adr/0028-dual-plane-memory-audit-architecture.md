@@ -29,6 +29,7 @@ A deep architectural analysis across the Spectrayan portfolio reveals **two fund
 In Spector Memory, every cognitive memory record in off-heap Panama FFM storage (`spector-memory`) consists of a 64-byte `SynapticHeader` (`HeaderLayout64`) followed by a quantized vector payload (INT8 scalar quantized float vector).
 
 The 64-byte header was designed to match a single CPU cache line (64 bytes). However, as cognitive capabilities evolved (emotional gating, Zeigarnik effect, Two-Factor Bjork memory decay, auto-LTP cooldowns, adaptive cognitive profile learning, and soul-state tracking), the 64-byte header became a **mixed-tenancy cache line** containing two fundamentally opposing classes of data:
+
 - **Immutable Encoding Identity**: `header_version`, `flags`, `valence`, `arousal`, `base_importance`, `timestamp_ms`, `exact_norm`, `synaptic_tags` (Bloom filter), `centroid_id`, `consolidation_flags`, `encoding_profile`, `encoding_alpha/beta`, `soul_version`, `encoding_surprise`. (Written once during ingestion).
 - **Mutable Recall Audit Telemetry**: `agent_recall_count`, `storage_strength` ($S(t)$), `spector_recall_cnt`, `last_auto_ltp`, `last_recall_profile`, `effective_importance`. (Mutated on every query retrieval and reinforcement).
 
@@ -42,16 +43,19 @@ The 64-byte header was designed to match a single CPU cache line (64 bytes). How
 ## 4. Considered Options
 
 ### Option 1: Monolithic 128-Byte Expanded Header
+
 - **Description**: Expand `HeaderLayout64` to 128 bytes, putting both identity and audit telemetry on adjacent cache lines.
 - **Advantages**: Single contiguous allocation per record.
 - **Disadvantages**: Doubling header footprint severely impairs vector scan cache residency; false sharing across threads.
 
 ### Option 2: External Relational / JDBC Audit Logging
+
 - **Description**: Direct all recall counters and timestamp updates to an external RDBMS or embedded H2 database.
 - **Advantages**: Rich SQL querying.
 - **Disadvantages**: Introduces multi-millisecond disk I/O and transaction serialization onto the sub-millisecond recall hot path.
 
 ### Option 3: Dual-Plane Separate Region Architecture (Selected)
+
 - **Description**: Physically split immutable encoding headers (in data slabs) from mutable recall telemetry (in dedicated fixed-stride mmap regions: `RegionId.STRENGTH` / `RECALL_AUDIT`), while recording engine-level provenance in append-only chronicle regions (`RegionId.PROVENANCE_CHRONICLE`, superseded by ADR-0029).
 - **Advantages**: 100% L1/L2 cache isolation; zero-allocation point updates; unblocks ACT-R 8-slot power-law calculations.
 - **Disadvantages**: Requires managing an additional mmap region per partition.
@@ -158,6 +162,7 @@ $$B_i = \ln \left( \sum_{j=1}^{8} t_j^{-d} \right)$$
 where $t_j = \text{nowMs} - (\text{creationMs} + \Delta t_j \times 1000)$.
 
 #### Evaluation:
+
 - Stored as `uint32` seconds elapsed since `creationMs` ($\approx 136$ years range).
 - Evaluated in $O(1)$ via precomputed decay table lookup (`DecayStrategy#ageToBucket`) and algebraic sigmoid normalization $\sigma(\ln x) = \frac{x}{x + 1}$ — zero `Math.pow`, zero `Math.log`, zero `Math.exp` at query time.
 
@@ -168,8 +173,8 @@ To fulfill **MF-001 (Memory Model Algebra & Conformance Rules)** and **Issue #17
 
 1. **Dedicated Append-Only Region**: `RuntimeBundle` and `PartitionBundle` support `RegionId.PROVENANCE_LOG(26)`.
 2. **Binary Provenance Record (`ProvenanceEntry`)**:
-   - `timestamp_ms` (8B), `target_memory_id` (16B TSID), `operation_code` (1B: `INGEST`, `CONSOLIDATE`, `RECONSOLIDATE`, `REINFORCE`, `FORGET`, `RETRACT`, `SIMULATE_COMMIT`).
-   - `source_uri_hash` (8B), `parent_trace_count` (2B), `parent_trace_ids` (variable array of parent TSIDs collapsed during semantic reflection), `lineage_diff` (text/binary delta).
+    - `timestamp_ms` (8B), `target_memory_id` (16B TSID), `operation_code` (1B: `INGEST`, `CONSOLIDATE`, `RECONSOLIDATE`, `REINFORCE`, `FORGET`, `RETRACT`, `SIMULATE_COMMIT`).
+    - `source_uri_hash` (8B), `parent_trace_count` (2B), `parent_trace_ids` (variable array of parent TSIDs collapsed during semantic reflection), `lineage_diff` (text/binary delta).
 
 3. **Difference from `MemoryWal`**: While `MemoryWal` is a short-lived, rolling recovery log compacted during checkpoints, the `PROVENANCE_LOG` is an **immutable longitudinal audit chronicle** that guarantees full explainability: *"Why does the agent know this fact, which raw episodes were synthesized to form it, and when was it modified?"*
 
@@ -263,6 +268,7 @@ classDiagram
 ## 8. Code Reference & Verification
 
 ### Positive
+
 - **100% Cache Isolation**: Read-mostly encoding headers remain pristine in CPU caches during intense concurrent recall and reinforcement.
 - **Unified Region Efficiency**: Exactly 1 strength region (`RegionId.STRENGTH`, formerly `RegionId.AUDIT`) per partition bundle simplifies directory structure, allocations, and OS paging.
 - **Unblocks ACT-R Cognitive Modeling**: Provides 8 dedicated timestamp slots for full Anderson (1993) power-law decay and spacing effect calculations.
@@ -270,12 +276,14 @@ classDiagram
 - **Full MF-001 Provenance Conformance**: Cleanly separates fast slot-indexed recall telemetry from long-term immutable provenance logs.
 
 ### Negative / Trade-Offs
+
 - **Disk Footprint Growth**: +96 bytes per allocated record in the partition bundle (~91 MB per 1M records). Mitigated by fixed-size bundle provisioning and sparse allocation.
 - **Migration Requirement**: Existing V1 persistent shards require a one-time migration step via `BundleMigrationCli`.
 
 ---
 
 ### Code Reference & Verification Gate
+
 - **Primary Module(s)**: `memory/spector-kernel`, `memory/spector-memory`, `bench/spector-bench`
 - **Key Packages**: `com.spectrayan.spector.kernel.layout`, `com.spectrayan.spector.memory.scheduler`
 - **Classes**: `EncodingHeaderLayout.java`, `TaskRunAuditRecord.java`, `MindSpanStrengthAndAuditInspectionTest.java`

@@ -159,6 +159,7 @@ public record JudgeVerdict(
 ### `LlmJudgeConfig`
 
 Configuration loaded from environment variables with sensible defaults. Supports:
+
 - System property override: `-DLLM_JUDGE_MODEL=qwen3:0.6b`
 - Environment variable: `export LLM_JUDGE_MODEL=qwen3:0.6b`
 - Programmatic: `LlmJudgeConfig.localDefaults()`

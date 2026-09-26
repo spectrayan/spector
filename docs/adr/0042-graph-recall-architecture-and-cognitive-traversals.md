@@ -19,6 +19,7 @@ Spector's Model Context Protocol (MCP) server in `synapse/spector-mcp` exposes c
 ## 2. Problem Statement
 
 An architectural audit of the MCP layer revealed a severe module boundary violation in `MemoryGraphRecallTool`:
+
 - The class contained **570 lines of traversal engine code** directly importing six internal memory subsystem classes: `EntityDirectory`, `HyperEntityGraphMemory`, `HyperEdge`, `HyperEdgeVertex`, `TemporalFact`, and `TemporalKnowledgeGraph`.
 - It bypassed the public `SpectorMemory` API, drilling directly into raw subsystems via `memory.admin().entityDirectory()`, `memory.admin().hyperEntityGraph()`, and `memory.admin().temporalKnowledgeGraph()`.
 - It implemented its own ad-hoc Breadth-First Search (BFS) traversal engine, duplicating logic that already existed in `CognitiveGraphFacade`.
@@ -34,16 +35,19 @@ An architectural audit of the MCP layer revealed a severe module boundary violat
 ## 4. Considered Options
 
 ### Option 1: Status Quo (Keep Traversal in `MemoryGraphRecallTool`)
+
 - **Description**: Leave BFS traversal engine inside the MCP tool class.
 - **Advantages**: No immediate refactoring required.
 - **Disadvantages**: Module boundary violation; logic inaccessible to non-MCP consumers; requires duplicate implementation for temporal supersession.
 
 ### Option 2: Expose Raw Subsystems Publicly
+
 - **Description**: Promote `HyperEntityGraphMemory`, `EntityDirectory`, and `TemporalKnowledgeGraph` to the public API of `SpectorMemory`.
 - **Advantages**: Allows external callers to inspect graph structures directly.
 - **Disadvantages**: Leaks off-heap storage and threading details; breaks encapsulation; severely limits internal storage refactoring.
 
 ### Option 3: Dedicated `graphRecall()` Service in `CognitiveGraphFacade` (Selected)
+
 - **Description**: Relocate multi-hop BFS traversal into `CognitiveGraphFacade.graphRecall(...)`, expose a thin delegation method on `SpectorMemory`, reduce `MemoryGraphRecallTool` to an 80-line adapter, and enforce boundaries via ArchUnit tests.
 - **Advantages**: Clean encapsulation; reusable across all presentation layers; leverages internal caching; single location for temporal supersession logic.
 - **Disadvantages**: Requires updating MCP tool call sites and tests.
@@ -99,16 +103,19 @@ protected McpSchema.CallToolResult executeMemory(SpectorMemory memory,
 ```
 
 #### Step 3: Restrict Internal Class Visibility and Enforce ArchUnit Rules
+
 - Internal graph structures (`HyperEdge`, `HyperEdgeVertex`) restricted to package-private visibility where feasible.
 - Automated ArchUnit architectural test ensures no classes in `com.spectrayan.spector.mcp` import internal packages (`..memory.graph..`, `..memory.temporal..`, `..memory.hebbian..`, `..memory.index..`).
 
 ### Positive Consequences
+
 - Restores clean hexagonal architecture: MCP layer is strictly an adapter.
 - Graph traversal logic is reusable by REST endpoints, CLI tools, and autonomous agent loops.
 - Unblocks temporal supersession features with zero changes required in the MCP layer.
 - Traversal gains transparent acceleration and caching via `SpectorCache`.
 
 ### Negative Consequences & Trade-offs
+
 - One-time refactoring of existing MCP graph recall integration tests.
 
 ## 6. Pros and Cons of the Options

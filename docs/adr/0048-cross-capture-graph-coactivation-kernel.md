@@ -99,20 +99,24 @@ Prior to this architecture, Spector relied primarily on isolated vector similari
 | Ingestion overhead (index update) | < 10 µs per memory | 8 tags × ConcurrentHashMap.put() |
 
 ---
+
 - **Deterministic Storage Layout**: Use fixed-stride hashing layouts compatible with Panama Foreign Function & Memory (FFM) memory segments.
 - **Seamless Migration**: Support transparent backward compatibility and automated upgrade from layout v2 to v3.
 
 ## 4. Considered Options
 
 ### Option 1: Embedded Relational / Graph Database (e.g. SQLite, Neo4j Embedded)
+
 - Persist edges and coactivation pairs in an embedded database.
 - **Verdict**: Rejected. Incurs significant JNI/IPC boundary crossing overhead, unpredictable thread contention, and memory footprint exceeding the 100μs lookup latency target.
 
 ### Option 2: JVM Heap Graph Collections (e.g. JGraphT, ConcurrentHashMap)
+
 - Maintain graph edges in JVM heap data structures.
 - **Verdict**: Rejected. Prohibitive GC overhead at multimillion-edge scale; risks JVM OutOfMemory errors and lacks unified memory-mapped persistence.
 
 ### Option 3: Panama FFM Open-Addressing Hash Table with CoActivation Layout v3 (Selected)
+
 - Introduce `MemoryShape.HASHTABLE` and `AbstractHashTableMemory<L>` in `spector-kernel`.
 - Implement a cache-aligned, off-heap open-addressing hash table layout with linear probing.
 - Integrate step 5f into `RecallPathway` and temporal coactivation into `RememberPathway`.
@@ -282,6 +286,7 @@ if (coActivation != null && queryTags != null && !queryTags.isEmpty()) {
 ```
 
 **Constants**:
+
 - `CROSS_CAPTURE_ATTENUATION = 0.25f` (same order as entity graph, intentionally conservative to start)
 - `CROSS_CAPTURE_FAN_FACTOR = 1/√(tagDegree)` (ACT-R spreading activation dilution)
 
@@ -314,11 +319,13 @@ for (String tag : extractedTags) {
 ## 6. Pros and Cons of the Options
 
 ### Positive
+
 - **Predictable Real-Time Performance**: Fixed-stride open addressing achieves ~20–40μs lookup times with zero heap allocations.
 - **Cognitive Fidelity**: Implements biologically plausible Hebbian learning and spike-timing-dependent plasticity (STDP) across episodic memories.
 - **Seamless Dual-Pathway Integration**: Integrates directly into `RememberPathway` (for write-time coactivation edge updates) and `RecallPathway` (for associative graph fanout).
 
 ### Negative / Trade-offs
+
 - **Fixed Capacity Probing**: Open-addressing hash tables require rehashing and capacity headroom (typically load factor < 0.7) to prevent probe cluster degradation.
 - **Migration Overhead**: Upgrading on-disk layout v2 to v3 requires golden-file testing and explicit table recreation.
 
@@ -378,11 +385,12 @@ Before any code changes:
 ## 8. Code Reference & Verification
 
 All hash table shapes, memory layouts, and pathway integrations are verified in the codebase:
+
 - **Hash Table Shape & Abstraction**:
-  - `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/shape/AbstractHashTableMemory.java`
+    - `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/shape/AbstractHashTableMemory.java`
 - **CoActivation Layout & Off-Heap Store**:
-  - `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/CoActivationLayout.java`
-  - `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/CoActivationMemory.java`
-  - `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/field/CoActivationMetadataFields.java`
+    - `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/CoActivationLayout.java`
+    - `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/CoActivationMemory.java`
+    - `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/field/CoActivationMetadataFields.java`
 - **Associative Recall & Prior Integration**:
-  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/graph/hebbian/CoActivationAssociativePriorProvider.java`
+    - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/graph/hebbian/CoActivationAssociativePriorProvider.java`

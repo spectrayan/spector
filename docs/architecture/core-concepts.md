@@ -38,6 +38,7 @@ graph TD
 ```
 
 **Search algorithm:**
+
 1. Enter at the top layer's entry point
 2. Greedily traverse to the closest node at each layer
 3. Drop to the next layer, using the found node as the new entry

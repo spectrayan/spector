@@ -78,5 +78,6 @@ Highly concurrent. Telemetry fields use `VarHandle CAS` and `VarHandle Add` for 
 Separates mutable recall telemetry, Long-Term Potentiation (LTP) counters, Two-Factor storage strength, and ACT-R recall timestamp ring buffers from the read-mostly 64-byte encoding headers in other tiers. This prevents false sharing and CPU cache invalidation during sequential SIMD scoring, mapping all tiers (Semantic, Episodic, Procedural) via deterministic deterministic offsets.
 
 ## Related
+
 - [`StrengthLayout.java`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/StrengthLayout.java)
 - [`StrengthMemory.java`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/StrengthMemory.java)

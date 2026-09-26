@@ -21,17 +21,17 @@ Configuration across Spector's 24 modules was unified under the aggregate root `
 Despite the introduction of `SpectorProperties`, an architectural audit across the 24 modules of Spector revealed three critical defects:
 
 1. **Dual Defaulting & Disconnected Builders**:
-   - `SpectorMemoryBuilder` declared 44 fields initialized to static constants (`DEFAULT_*`).
-   - When instantiated via `SpectorMemoryBuilder.create()`, YAML configurations and environment variables were completely ignored unless `.fromProperties(SpectorProperties.load())` was manually called.
-   - `MemoryProperties` omitted ~15 properties present in `spector-defaults.yml` (tier capacities, segment sizes, WAL chunk sizes, vacuum thresholds, and session buffers).
-   - Sub-domains such as `DreamConfig` (22 parameters) and `TwoFactorConfig` (4 parameters) lacked POJO representation in `spector-config`, forcing runtime classes to fall back to hardcoded constants.
+    - `SpectorMemoryBuilder` declared 44 fields initialized to static constants (`DEFAULT_*`).
+    - When instantiated via `SpectorMemoryBuilder.create()`, YAML configurations and environment variables were completely ignored unless `.fromProperties(SpectorProperties.load())` was manually called.
+    - `MemoryProperties` omitted ~15 properties present in `spector-defaults.yml` (tier capacities, segment sizes, WAL chunk sizes, vacuum thresholds, and session buffers).
+    - Sub-domains such as `DreamConfig` (22 parameters) and `TwoFactorConfig` (4 parameters) lacked POJO representation in `spector-config`, forcing runtime classes to fall back to hardcoded constants.
 
 2. **Runtime System Property & Environment Variable Bypasses**:
-   - 14 production locations directly accessed JVM system properties or environment variables post-bootstrap (`System.getProperty("spector.*")`, `Long.getLong("spector.*")`, `System.getenv(...)`).
-   - Bypasses created an untracked, invisible configuration shadow plane inaccessible to telemetry and admin auditing.
+    - 14 production locations directly accessed JVM system properties or environment variables post-bootstrap (`System.getProperty("spector.*")`, `Long.getLong("spector.*")`, `System.getenv(...)`).
+    - Bypasses created an untracked, invisible configuration shadow plane inaccessible to telemetry and admin auditing.
 
 3. **Synapse UI & Engine Disconnect**:
-   - Synapse's `ConfigResolutionService.systemDefaults()` declared conflicting hardcoded defaults (`chunk-size: 800/100` vs memory engine's `2500/200`, `top-k: 5` vs engine's `10`).
+    - Synapse's `ConfigResolutionService.systemDefaults()` declared conflicting hardcoded defaults (`chunk-size: 800/100` vs memory engine's `2500/200`, `top-k: 5` vs engine's `10`).
 
 ## 3. Decision Drivers
 
@@ -43,16 +43,19 @@ Despite the introduction of `SpectorProperties`, an architectural audit across t
 ## 4. Considered Options
 
 ### Option 1: Ad-Hoc Post-Bootstrap System Property Lookups
+
 - **Description**: Allow components to read `-Dspector.*` properties whenever needed at runtime.
 - **Advantages**: Easy to hack one-off toggles.
 - **Disadvantages**: Creates untracked hidden state; untestable; breaks runtime telemetry and UI management.
 
 ### Option 2: Spring Boot `@ConfigurationProperties` Exclusively
+
 - **Description**: Rely solely on Spring's dependency injection container.
 - **Advantages**: Standard Spring idiom.
 - **Disadvantages**: Inoperable in standalone CLI, embedded MCP server, lightweight unit tests, and non-Spring environments.
 
 ### Option 3: Standalone Aggregate Root `SpectorProperties` with Post-Bootstrap Sysprop Ban (Selected)
+
 - **Description**: Load all sources at bootstrap into an immutable, typed `SpectorProperties` aggregate tree; pass typed POJOs to consumers; strictly enforce zero runtime bypasses via automated tests.
 - **Advantages**: Deterministic; operates identically in Spring and non-Spring runtimes; zero configuration drift; verified by CI tests.
 - **Disadvantages**: Requires comprehensive POJO modeling for all sub-domains.
@@ -108,26 +111,30 @@ flowchart TD
 ### Architectural Decisions:
 
 #### D1: Single Source of Truth & Bootstrap Boundary
+
 - `SpectorProperties.load()` and `SpectorConfigFactory.spectorProperties()` serve as the exclusive source of truth across all Spector modules.
 - **Allowed**: `SpectorConfigSource` reading `-D` system properties and `SPECTOR_*` environment variables during initial snapshot assembly; standard JVM/OS inspections (`user.home`, `os.name`, `java.version`); Credential SPI resolving named secret references.
 - **Prohibited**: Any component reading `System.getProperty("spector.*")`, `Integer.getInteger("spector.*")`, `Long.getLong("spector.*")`, `Boolean.getBoolean("spector.*")`, or ad-hoc environment variables after the configuration snapshot has been assembled.
 - Enforced via an automated regression test (`PostBootstrapSyspropBanTest`) scanning production sources.
 
 #### D2: Complete Aggregate Root & Sub-Domain Hierarchy
+
 - Model all unmapped properties in `spector-defaults.yml` into typed JavaBeans under `com.spectrayan.spector.config.properties`:
-  - `DreamProperties`: encapsulates all 22 generative dreaming parameters.
-  - `TwoFactorProperties`: encapsulates Bjork & Bjork retrieval and storage strength parameters (`sGain`, `sMax`, `sExponent`, `enabled`).
-  - `WalProperties`, `VacuumProperties`, `SessionProperties`.
-  - `EventsProperties` (`async`), `ConcurrencyProperties` (`structured`), `HardwareProperties` (`gpuBatchThreshold`).
+    - `DreamProperties`: encapsulates all 22 generative dreaming parameters.
+    - `TwoFactorProperties`: encapsulates Bjork & Bjork retrieval and storage strength parameters (`sGain`, `sMax`, `sExponent`, `enabled`).
+    - `WalProperties`, `VacuumProperties`, `SessionProperties`.
+    - `EventsProperties` (`async`), `ConcurrencyProperties` (`structured`), `HardwareProperties` (`gpuBatchThreshold`).
 - Expand `MemoryProperties` to hold all tier capacities, segment sizes, and operational settings.
 - Refactor `TelemetryProperties` to accept `SpectorConfigSource` rather than reading `-D` directly in its constructor.
 
 #### D3: Config-Driven `SpectorMemoryBuilder`
+
 - `SpectorMemoryBuilder.create()` and `SpectorMemory.builder()` seed configuration from `SpectorProperties.load()` by default.
 - Provide `SpectorMemoryBuilder.createEmpty()` for minimal unseeded instances in unit testing.
 - `SpectorMemoryBuilder.fromProperties(MemoryProperties)` and `fromProperties(SpectorProperties)` exhaustively copy all configuration fields.
 
 #### D4: Elimination of Runtime Bypasses
+
 - Replace `Long.getLong` in `CognitiveCortexBuilder`, `PartitionManager`, and `TextBlobMemory` with values passed from `SpectorMemoryBuilder` / `MemoryProperties`.
 - Remove ad-hoc `geminiApiKey` fallback in `SpectorMemoryConfigurator`; rely strictly on canonical `props.provider().getGeneration().getApiKey()`.
 - Replace `Boolean.getBoolean("spector.embedding.sequential")` in `ParallelEmbeddingPipeline` with `EmbeddingProperties.isSequential()`.
@@ -135,16 +142,19 @@ flowchart TD
 - Provide `EventBus(boolean asyncMode)` constructor and wire from `EventsProperties.isAsync()`.
 
 #### D5: Synapse UI Defaults Alignment
+
 - Update Synapse's `ConfigResolutionService.systemDefaults()` to project defaults directly from `SpectorProperties.load()`.
 - Align chunking (2500/200), RAG top-k (10), and provider settings between the frontend administration interface and the core memory engine.
 
 ### Positive Consequences
+
 - **Determinism**: Configuration is fully inspectable, reproducible, and strictly bounded by the `SpectorProperties` snapshot.
 - **Zero Configuration Drift**: Setting a property in YAML or via an environment variable reliably propagates to all subsystems.
 - **Architectural Hygiene**: Complete elimination of hidden JVM system property backchannels and duplicate hardcoded magic constants.
 - **Automated Guardrails**: CI fails if post-bootstrap `spector.*` system property lookups are reintroduced.
 
 ### Negative Consequences & Trade-offs
+
 - Modest increase in POJO surface area within `spector-config`.
 - Subsystems require explicit parameter or configuration injection.
 

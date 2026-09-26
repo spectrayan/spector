@@ -431,32 +431,32 @@ Metrics (ADR-0080 / `spector-metrics`):
 ## 7. Implementation Plan
 
 1. **Phase 0 — contract without new regions**
-   - Introduce `ManagedIndex`, `IndexKind`, `IndexStats`, `IndexPlaneCoordinator` in `memory/spector-memory`.
-   - Wrap existing graph instances with `GraphStoreAdapter`.
-   - Move `rebuildReverseIndex()` behind `EntityReverseIndexAdapter`; keep the CHM and incremental link updates.
-   - Restart-parity tests: ingest N → checkpoint → new process → `entitiesForMemory` and BM25 `totalDocuments()` match.
-   - Register zeroed drift gauges.
+    - Introduce `ManagedIndex`, `IndexKind`, `IndexStats`, `IndexPlaneCoordinator` in `memory/spector-memory`.
+    - Wrap existing graph instances with `GraphStoreAdapter`.
+    - Move `rebuildReverseIndex()` behind `EntityReverseIndexAdapter`; keep the CHM and incremental link updates.
+    - Restart-parity tests: ingest N → checkpoint → new process → `entitiesForMemory` and BM25 `totalDocuments()` match.
+    - Register zeroed drift gauges.
 
 2. **Phase 1 — expensive derived persist & #428 abstraction**
-   - Introduce `AbstractMemoryIndex` in `spector-memory` resolving `#428`, extracting shared partition management, COW partition swapping, generation validation, and bundle region serialization across BM25 and SPLADE.
-   - Add `RegionId.SPLADE(27)` and reserve `RegionId.ENTITY_REVERSE_INDEX(28)` (grow `LOOKUP` to 32).
-   - Implement `SpladeIndex.saveToRegion` / `loadFromRegion`, `MemorySpladeIndex.persistToBundle` / `loadFromBundle`.
-   - Stamp BM25 and SPLADE snapshots with composite generation token: `hash(MemoryIndex.HWM, Model/Tokenizer ID, SchemaVersion)`.
-   - Hook both into `CheckpointEngine` after graph saves.
+    - Introduce `AbstractMemoryIndex` in `spector-memory` resolving `#428`, extracting shared partition management, COW partition swapping, generation validation, and bundle region serialization across BM25 and SPLADE.
+    - Add `RegionId.SPLADE(27)` and reserve `RegionId.ENTITY_REVERSE_INDEX(28)` (grow `LOOKUP` to 32).
+    - Implement `SpladeIndex.saveToRegion` / `loadFromRegion`, `MemorySpladeIndex.persistToBundle` / `loadFromBundle`.
+    - Stamp BM25 and SPLADE snapshots with composite generation token: `hash(MemoryIndex.HWM, Model/Tokenizer ID, SchemaVersion)`.
+    - Hook both into `CheckpointEngine` after graph saves.
 
 3. **Phase 2 — reconcile job**
-   - `IndexReconcileEngine` + `IndexReconcileJob` (`@OnPlane(PLATFORM_WRITER)`, `@DisallowConcurrentExecution`), registered from `QuartzMemoryScheduler`.
-   - Implement cooperative time-slicing (`max-repairs-per-cycle = 500`, `max-cycle-duration-ms = 50ms`).
-   - Ship detect+metrics first; then enable incremental repair for reverse-view dangling ids and BM25 orphans only.
+    - `IndexReconcileEngine` + `IndexReconcileJob` (`@OnPlane(PLATFORM_WRITER)`, `@DisallowConcurrentExecution`), registered from `QuartzMemoryScheduler`.
+    - Implement cooperative time-slicing (`max-repairs-per-cycle = 500`, `max-cycle-duration-ms = 50ms`).
+    - Ship detect+metrics first; then enable incremental repair for reverse-view dangling ids and BM25 orphans only.
 
 4. **Phase 3 — optional reverse cache**
-   - Implement `RegionId.ENTITY_REVERSE_INDEX(28)` backing only if Phase 0 tests show `rebuildReverseIndex` exceeds the cold-start budget (e.g. > 5 ms) at target scale.
-   - Generation must equal `(adjHighWaterMark << 32) | (entityCount & 0xFFFFFFFFL)`. Mismatch discards the region.
+    - Implement `RegionId.ENTITY_REVERSE_INDEX(28)` backing only if Phase 0 tests show `rebuildReverseIndex` exceeds the cold-start budget (e.g. > 5 ms) at target scale.
+    - Generation must equal `(adjHighWaterMark << 32) | (entityCount & 0xFFFFFFFFL)`. Mismatch discards the region.
 
 5. **Phase 4 — budgets and admin COW rebuild**
-   - Config keys under `spector.memory.indexes.<name>.*`.
-   - Admin "rebuild index X" uses existing partition swap.
-   - Docs: this ADR, kernel region catalog, memory architecture page.
+    - Config keys under `spector.memory.indexes.<name>.*`.
+    - Admin "rebuild index X" uses existing partition swap.
+    - Docs: this ADR, kernel region catalog, memory architecture page.
 
 ---
 
@@ -467,8 +467,8 @@ Metrics (ADR-0080 / `spector-metrics`):
 - **Classes (today)**: `RegionId.java`, `EntityDirectory.java`, `HebbianGraphMemory.java`, `HyperEntityGraphMemory.java`, `TemporalChainMemory.java`, `MemoryBM25Index.java`, `MemorySpladeIndex.java`, `RetrievalIndexBuilder.java`, `CognitiveGraphBuilder.java`, `CheckpointEngine.java`, `CheckpointJob.java`, `GraphStructureHealthSnapshot.java`, `CognitiveGraphFacade.java`
 - **Classes (this ADR)**: `ManagedIndex`, `IndexKind`, `IndexStats`, `IndexContext`, `IndexPlaneCoordinator`, `GraphStoreAdapter`, `EntityReverseIndexAdapter`, `IndexReconcileEngine`, `IndexReconcileJob`
 - **Verification Tests**:
-  - `EntityDirectoryTest` / `EntityDirectoryAdjacencyTest` — reverse view after reopen
-  - new `IndexPlaneCoordinatorTest` — hydrate order, PRIMARY no-op, generation mismatch rebuilds
-  - new `IndexRestartParityTest` — checkpoint → new process → entity projection + BM25 + SPLADE sizes
-  - new `IndexReconcileEngineTest` — dangling reverse id, stale BM25 posting, missing posting with text
-  - `RuntimeBundleTest` — unknown/absent optional regions do not fail open
+    - `EntityDirectoryTest` / `EntityDirectoryAdjacencyTest` — reverse view after reopen
+    - new `IndexPlaneCoordinatorTest` — hydrate order, PRIMARY no-op, generation mismatch rebuilds
+    - new `IndexRestartParityTest` — checkpoint → new process → entity projection + BM25 + SPLADE sizes
+    - new `IndexReconcileEngineTest` — dangling reverse id, stale BM25 posting, missing posting with text
+    - `RuntimeBundleTest` — unknown/absent optional regions do not fail open

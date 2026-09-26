@@ -116,6 +116,7 @@ flowchart LR
 ```
 
 ### Why 128 Bits Instead of 64 Bits?
+
 - **Capacity**: A 64-bit filter begins experiencing severe false positive degradation beyond 3–4 tags. At 8 tags, a 64-bit filter exhibits a false positive rate exceeding $15\%$.
 - **Precision**: Expanding the filter to 128 bits (16 bytes, spanning `synaptic_tags_lo` and `synaptic_tags_hi`) slashes the false positive probability by approximately **60×** across typical tag sets ($k=4$ hash functions).
 - **Sub-Microsecond Screening**: During candidate retrieval, thousands of memories can be pre-screened using two 64-bit CPU register bitwise `AND` instructions. Non-matching engrams are discarded immediately without loading dense vector embeddings into SIMD registers.
@@ -167,8 +168,8 @@ Mutable telemetry is isolated in an independent 96-byte record within partition 
    where $t_k$ represents the elapsed time since the $k$-th retrieval and $d$ is the decay exponent.
 
 3. **Dual Recall Counters**:
-   - `agent_recall_count`: Incremented when an external agent or user explicitly reinforces an engram (`client.memory.reinforce(...)`).
-   - `spector_recall_cnt`: Incremented passively by the system when the engram is retrieved as relevant context during a query, subject to cooldown timers to prevent runaway reinforcement loops.
+    - `agent_recall_count`: Incremented when an external agent or user explicitly reinforces an engram (`client.memory.reinforce(...)`).
+    - `spector_recall_cnt`: Incremented passively by the system when the engram is retrieved as relevant context during a query, subject to cooldown timers to prevent runaway reinforcement loops.
 
 ---
 

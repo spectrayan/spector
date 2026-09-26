@@ -30,11 +30,13 @@ Cognitive recall in autonomous agents frequently retrieves redundant engrams tha
 ## 4. Considered Options
 
 ### Option 1: Iterative Gradient Descent over Latent Representations
+
 - **Description**: Optimize free energy via gradient steps in embedding space during query time.
 - **Advantages**: Exact variational approximation.
 - **Disadvantages**: Prohibitive query latency (10–50ms); violates sub-millisecond retrieval SLAs.
 
 ### Option 2: Analytical Free-Energy Ranking Kernel (Selected)
+
 - **Description**: Formulate a closed-form approximation of free energy combining Gaussian prediction error (accuracy) and empirical entropy penalization (complexity): $\text{Score}(m) = S_{\text{semantic}}(q, m) - \lambda \cdot D_{\text{prior}}(m \parallel \mu_{\text{context}})$. Implemented as an off-heap SIMD scoring stage.
 - **Advantages**: Sub-microsecond execution (< 1µs per candidate); direct SIMD vectorization; fully deterministic.
 - **Disadvantages**: Requires maintaining running context centroids ($\mu_{	ext{context}}$).
@@ -44,11 +46,13 @@ Cognitive recall in autonomous agents frequently retrieves redundant engrams tha
 **Chosen Option**: Option 2 (Analytical Free-Energy Ranking Kernel).
 
 ### Positive Consequences
+
 - Cognitive recall actively balances relevant information with epistemic novelty.
 - Eliminates repetitive echo-chamber retrieval in conversational memory.
 - Sub-microsecond execution preserves real-time response budgets.
 
 ### Negative Consequences & Trade-offs
+
 - Requires calibrating the complexity weighting parameter $\lambda$.
 - Context centroid updates require running exponential moving average calculations.
 

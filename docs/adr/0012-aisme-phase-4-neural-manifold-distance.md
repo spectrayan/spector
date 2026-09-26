@@ -30,11 +30,13 @@ Cosine distance produces uniform distance metrics regardless of the agent's curr
 ## 4. Considered Options
 
 ### Option 1: Full Geodesic Integration (Dijkstra over k-NN Graph)
+
 - **Description**: Construct a k-nearest-neighbor manifold graph and compute shortest path lengths via Dijkstra's algorithm.
 - **Advantages**: Accurate geodesic estimation along discrete manifold samples.
 - **Disadvantages**: High computational overhead ($O(N \log N)$); graph construction latency unacceptable during query evaluation.
 
 ### Option 2: Mahalanobis Metric Tensor Deformation (Selected)
+
 - **Description**: Approximate the Riemannian metric tensor via a context-conditioned diagonal or low-rank precision matrix: $d_G^2(x, y) = (x - y)^T G (x - y) = \sum_i g_i (x_i - y_i)^2$. The metric tensor elements $g_i$ deform in real time based on the agent's active cognitive profile and emotional valence.
 - **Advantages**: Vectorized via Java Panama Vector API; executes in < 0.5µs; dynamic domain adaptation with zero graph traversal overhead.
 - **Disadvantages**: Captures local ellipsoidal deformation rather than arbitrary global topological holes.
@@ -44,11 +46,13 @@ Cosine distance produces uniform distance metrics regardless of the agent's curr
 **Chosen Option**: Option 2 (Mahalanobis Metric Tensor Deformation).
 
 ### Positive Consequences
+
 - Context-sensitive recall: semantic distance dynamically expands or contracts based on cognitive task relevance.
 - Ultra-low latency: SIMD-accelerated tensor contraction executes at near-cosine throughput.
 - Full compatibility with existing vector index candidates.
 
 ### Negative Consequences & Trade-offs
+
 - Requires maintaining and updating the metric tensor diagonal ($G$) per cognitive namespace.
 
 ## 6. Pros and Cons of the Options

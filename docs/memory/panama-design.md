@@ -122,9 +122,10 @@ sequenceDiagram
 ```
 
 ### LRU Eviction & Resource Protection
-*   **Active Capacity Limits:** Defines the maximum number of concurrent active namespaces mapped in RAM.
-*   **Lease Gating:** Threads call `.acquireLease()` when executing queries. Lease-locked namespaces are guaranteed **never** to be evicted mid-query, even if capacity is exceeded.
-*   **Warming Cache Replay:** When a namespace is reopened, the kernel maps segments and processes the local WAL events via the `WalRecoveryDispatcher` to restore exact state before query dispatch.
+
+* **Active Capacity Limits:** Defines the maximum number of concurrent active namespaces mapped in RAM.
+* **Lease Gating:** Threads call `.acquireLease()` when executing queries. Lease-locked namespaces are guaranteed **never** to be evicted mid-query, even if capacity is exceeded.
+* **Warming Cache Replay:** When a namespace is reopened, the kernel maps segments and processes the local WAL events via the `WalRecoveryDispatcher` to restore exact state before query dispatch.
 
 ---
 
@@ -154,6 +155,7 @@ For complete byte-level offsets and specifications of the 64-byte encoding heade
 ## Bundle Storage Containers
  
 Rather than fragmenting data across dozens of flat files, Spector uses the unified **Bundle Architecture**:
+
 - **`runtime.bundle`**: Single memory-mapped container within a cognitive namespace hosting working memory, live graphs, and the dynamic somatic self-model (`InsulaMemory`).
 - **`partition.bundle`**: Time-partitioned bundles (`partitions/{seq}/partition.bundle`) hosting long-term semantic, procedural, and episodic engrams.
 - **`identity.bundle`**: Resides in the decoupled Identity Plane (`identity/accounts/` and `identity/tenants/`), storing user, agent, tenant, and organizational unit personas (`SoulContext`) outside volatile memory churn.

@@ -34,16 +34,19 @@ Spreading a single cognitive partition across 8–12 distinct disk files created
 ## 4. Considered Options
 
 ### Option 1: Multi-File Directory Layout with File Pooling
+
 - **Description**: Retain individual files per tier and implement an LRU cache of open file descriptors.
 - **Advantages**: Simple isolation between stores; individual file sizes remain small.
 - **Disadvantages**: Severe concurrency bottlenecks on LRU eviction; frequent `mmap`/`munmap` system calls on query paths; does not resolve cross-file crash inconsistency.
 
 ### Option 2: Embedded Relational / LSM-Tree Engine (SQLite/RocksDB)
+
 - **Description**: Embed an existing storage engine to manage binary blobs.
 - **Advantages**: Mature file handle and crash consistency management.
 - **Disadvantages**: Introduces heavy foreign JNI boundaries, on-heap serialization overhead, and destroys Spector's sub-microsecond SIMD direct memory access capabilities.
 
 ### Option 3: Unified Single-File Mmap Bundle Architecture (Selected)
+
 - **Description**: Consolidate all partition regions into a single contiguous bundle file (`bundle.mem`). A single file descriptor is opened and mapped into a root `MemorySegment`, which is sliced into typed region arenas (`HEADER`, `INDEX`, `EPISODIC`, `SEMANTIC`, `GRAPH`, `TEXT`) using fixed, aligned byte offsets.
 - **Advantages**: Reduces file descriptors per partition from 8 to 1. Single atomic `msync` flush for crash consistency. Zero-copy sub-slicing via `MemorySegment.asSlice()`.
 - **Disadvantages**: Requires pre-allocating or expanding contiguous file spans with careful segment alignment.
@@ -53,11 +56,13 @@ Spreading a single cognitive partition across 8–12 distinct disk files created
 **Chosen Option**: Option 3 (Unified Single-File Mmap Bundle Architecture).
 
 ### Positive Consequences
+
 - Reduces file descriptor consumption by 87.5%, enabling 10x higher namespace density on standard Linux kernels.
 - Eliminates cross-file desynchronization during crashes.
 - Sub-segment slicing via Panama FFM provides zero-overhead, type-safe access to individual cognitive stores.
 
 ### Negative Consequences & Trade-offs
+
 - Bundle file expansion requires managing spare capacity and handling sparse allocation headers.
 - Corrupted file headers affect the entire partition bundle rather than an isolated tier file.
 
