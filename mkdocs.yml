@@ -67,6 +67,10 @@ plugins:
   - minify:                         # Minify HTML for faster page loads
       minify_html: true
 
+hooks:
+  - docs/hooks/normalize_lists.py
+
+
 markdown_extensions:
   - pymdownx.arithmatex:
       generic: true
