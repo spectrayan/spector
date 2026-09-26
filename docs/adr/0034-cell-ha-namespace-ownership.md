@@ -524,6 +524,7 @@ Note that `{REMEMBERER_ROOT}` is a **configuration-derived placeholder** (e.g. `
 ```
 
 By design, the data plane and identity plane shard differently:
+
 - **Data plane**: 2-level SHA-256 hex sharding (`StoragePaths.shard2`) under `{REMEMBERER_ROOT}/tenants/.../namespaces/...`
 - **Identity plane**: 2-level character-prefix sharding (`IdentityPaths.shard2`) under `{SPECTOR_DATA_DIR}/identity/...`
 
@@ -653,6 +654,7 @@ sequenceDiagram
 >
 > - The checkpoint participant was drawn as `CheckpointDaemon`. No such class exists; the real one is
 >   **`CheckpointEngine`**. (§15.1's module map carried the same wrong name and is corrected there too.)
+>
 > - The event was drawn as `CheckpointCompleted(ns, hwm, epoch)`. The real `CheckpointCompletedEvent`
 >   **carries no epoch.** It does carry a context map with `TENANT` and `NAMESPACE` keys plus
 >   `walHighWaterMark`, `indexSize`, `elapsedMs`, and `timestamp` — everything the coordinator needs except
@@ -1314,10 +1316,12 @@ Phase 4 and Phase 6 measure them; where measurement disagrees, this document is 
 > - `NamespaceController.deleteNamespace` (`:127-132`) calls `catalog.tombstone(...)`.
 > - `FileAccountCatalog.tombstone` (`:844+`) sets `NamespaceStatus.TOMBSTONED` and removes the slug
 >   mapping. **The data bytes remain on disk.**
+>
 > - `NamespaceStatus`'s own javadoc describes TOMBSTONED as "marked for asynchronous garbage collection and
 >   cleanup" — but **nothing performs that collection.** Every other reference to the status is a *reader*
 >   refusing access: `MemoryRequestBinder:119`, `NamespaceResolver:257`, `FederatedRecallService:118,142`,
 >   `JdbcAccountCatalog:333,348`, `CatalogSnapshot:159`.
+>
 > - There is no object storage to delete a prefix from (see §9.6's correction), and **no encryption, DEK, or
 >   envelope-encryption code exists anywhere**, so "DEK destroy" has nothing to invoke.
 >
@@ -1337,8 +1341,10 @@ Phase 4 and Phase 6 measure them; where measurement disagrees, this document is 
 >    cannot see ownerless namespaces or namespaces owned by accounts with no tenant, so its report must name
 >    the classes of data it did not inspect. `NamespaceRecord.tenantId` is recorded as the structural fix,
 >    the same shape of gap as the `Account.tenantId` finding in §1.1 KI-1.
+>
 > 2. **A DR export left in place is not an erasure.** Deleting only the fast copy erases nothing;
 >    §11.2's export target is in scope for every tenant erase.
+>
 > 3. **No crypto-erase language without a key.** Until DEKs exist, saying "crypto-erased" when the key never
 >    existed would be the worst version of this class of error.
 >
@@ -1361,6 +1367,7 @@ Phase 4 and Phase 6 measure them; where measurement disagrees, this document is 
 ---
 
 ### Code Reference & Verification Gate
+
 - **Primary Module(s)**: `synapse/spector-synapse`, `cluster/spector-cluster` (roadmapped)
 - **Key Packages**: `com.spectrayan.spector.synapse.cluster.failover`, `com.spectrayan.spector.synapse.dr`
 - **Classes**: `FailoverAuditRecord.java`, `ErasureAuditReport.java`

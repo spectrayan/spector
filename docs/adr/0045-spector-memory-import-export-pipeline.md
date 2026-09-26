@@ -17,6 +17,7 @@
 ### 0.1 Resolution — 2026-09-24 (issue #981, memory-portability Groups 1–4)
 
 This ADR returned to `Accepted (Implemented)` upon successful implementation and verification of Groups 1–4 of the `memory-portability` specification:
+
 1. **Container & Format Reconciliation**: Standard ZIP archive with per-entry DEFLATE; `manifest.json` at root; `nodes/chunk-NNNNN.jsonl` streaming chunks; `vectors/chunk-NNNNN.bin` ordinal-aligned IEEE 754 float vectors; `graph/edges.jsonl`, `graph/hyperedges.jsonl`, and `graph/facts.jsonl`.
 2. **Export Engine**: `SpectorMemoryExporter` reads live memory via `SpectorMemoryResolver` cursor-stable enumeration, streaming chunks, Hebbian graph edges, typed hyperedges (`HyperEntityGraphMemory`), and temporal facts.
 3. **Import Engine**: `SpectorMemoryImporter` decodes multi-chunks, resolves graph IDs to new slot indices, reconstructs Hebbian associations, typed hyperedges (`TYPE_CONTRADICTS`), temporal facts, reconciles derived indexes per ADR-0082, and executes within an atomic staging namespace lifecycle.
@@ -76,6 +77,7 @@ members by directory presence must account for that.
 ## 1. Context
 
 Spector Memory stores rich cognitive state across multiple heterogeneous tiers:
+
 - Memory text contents, tags, key-value attributes, salience scores, decay values, and importance estimates
 - High-dimensional vector embeddings (HNSW indices and raw float arrays)
 - Cognitive hypergraphs (entities, hyperedges, and Hebbian synaptic coactivation weights)
@@ -103,14 +105,17 @@ Migrating or backing up multi-gigabyte cognitive memory states introduces critic
 ## 4. Considered Options
 
 ### Option 1: Custom Ad-Hoc Streaming Scripts
+
 - Implement bespoke file-streaming threads and socket serializers within `spector-synapse`.
 - **Verdict**: Rejected. Fragile, difficult to maintain, lacks standardized job tracking, metrics, retry semantics, and checkpointing.
 
 ### Option 2: Apache Camel Route-Based Data Flow
+
 - Leverage Camel enterprise integration routes to marshal and unmarshal components.
 - **Verdict**: Rejected for batch migrations. Camel excels at real-time message exchange and streaming endpoints, but lacks native chunk-step-job transaction coordination and job-repository semantics.
 
 #### Option 3: Spring Batch in `synapse/spector-batch` with Dual-Mode CLI (Selected)
+
 - Locate the core batch migration engine within `synapse/spector-batch` using Spring Batch's battle-tested `ItemReader`, `ItemProcessor`, and `ItemWriter` abstractions.
 - Adopt a dual-mode CLI where `spectorctl` delegates to Synapse REST APIs by default, but provides an embedded `--offline` mode for standalone maintenance.
 - Bundle exports into a standardized `.smb` (ZIP container with per-entry DEFLATE compression).
@@ -120,23 +125,26 @@ Migrating or backing up multi-gigabyte cognitive memory states introduces critic
 
 ### 5.1 Spring Batch Engine Location & Scoping
 The batch processing engine is isolated in **`synapse/spector-batch`**:
+
 - **Chunk Processing Pipeline**: `ItemReader`, `ItemProcessor`, and `ItemWriter` abstractions stream nodes, memory texts, tags, vectors, and graph edges in configurable chunk sizes (default 1,000 items/chunk).
 - **Execution Persistence**: `JobRepository` backed by H2 (in-memory or file-based for CLI) or Spring JDBC tracks step progress, execution parameters, and failure checkpoints.
 - **Auto-Configuration**: Packaged as `SpectorBatchAutoConfiguration` with explicit export (`SpectorExportJobConfig`) and import (`SpectorImportJobConfig`) pipelines.
 
 ### 5.2 Dual-Mode CLI Architecture
 We adopt a split execution model:
+
 1. **Online Mode (Default)**:
-   - `spectorctl memory export` connects to `spector-synapse` REST API (`/api/v1/migration/export`).
-   - Synapse executes the Spring Batch job asynchronously.
-   - `spectorctl` streams progress via Server-Sent Events (SSE) or polls job execution status. Startup time remains <100ms.
+    - `spectorctl memory export` connects to `spector-synapse` REST API (`/api/v1/migration/export`).
+    - Synapse executes the Spring Batch job asynchronously.
+    - `spectorctl` streams progress via Server-Sent Events (SSE) or polls job execution status. Startup time remains <100ms.
 
 2. **Offline / Standalone Mode (`--offline`)**:
-   - `spectorctl memory export --offline` launches an embedded Spring Batch context directly inside the CLI using `picocli-spring-boot-starter`.
-   - Used for air-gapped environments or emergency disaster recovery when Synapse is down.
+    - `spectorctl memory export --offline` launches an embedded Spring Batch context directly inside the CLI using `picocli-spring-boot-starter`.
+    - Used for air-gapped environments or emergency disaster recovery when Synapse is down.
 
 ### 5.3 Spector Memory Bundle (`.smb`) Container Format
 Exports are archived into a compressed `.smb` (standard ZIP container with per-entry DEFLATE compression) containing structured partitions:
+
 - `manifest.json`: Schema version 3.0.0, embedding descriptor (`model`, `dimensions`, `quantizer`), `namespaceId`, `counts` (records, edges, hyperedges, facts), per-member SHA-256 checksums, and `sourceBuildVersion`.
 - `nodes/chunk-NNNNN.jsonl`: Full memory items (node IDs, text, tags, key-values, salience, importance, decay).
 - `vectors/chunk-NNNNN.bin`: Raw float arrays, ordinal-aligned to nodes and described by manifest.
@@ -180,39 +188,42 @@ flowchart LR
 ## 6. Pros and Cons of the Options
 
 ### Positive
+
 - **Bounded Memory Footprint**: Chunked streaming guarantees that heap consumption remains flat even when processing multimillion-node memory bundles.
 - **Comprehensive Preservation**: Full fidelity preservation of vectors, graphs, and affective biological states without data degradation.
 - **Fast CLI Interaction**: Online mode keeps the CLI startup latency under 100ms by avoiding JVM Spring context initialization.
 - **Resilient Recovery**: In-flight job states are committed incrementally to `JobRepository`, enabling automated resume after network hiccups or JVM restarts.
 
 ### Negative / Trade-offs
+
 - **Packaging Footprint**: Including embedded batch dependencies in `spector-cli` increases the binary JAR distribution size.
 - **Archive Extraction Bounds**: While ZIP per-entry DEFLATE provides fast random-access inspection of `manifest.json` prior to disk writes, chunk extraction must be bounded and monitored to avoid I/O bottlenecks on low-throughput disk volumes.
 
 ## 7. Implementation Plan
 
 1. **Batch Core Implementation (`synapse/spector-batch`)**:
-   - Implement `SpectorBundleCodec` supporting `.smb` archive packaging with ZIP per-entry DEFLATE and SHA-256 member verification.
-   - Implement `SpectorExportJobConfig` and `SpectorImportJobConfig` defining readers, processors, and writers.
-   - Implement `ReflectConsolidationJobConfig` and `SpringBatchReflectSweepExecutor` for background consolidation sweeps.
+    - Implement `SpectorBundleCodec` supporting `.smb` archive packaging with ZIP per-entry DEFLATE and SHA-256 member verification.
+    - Implement `SpectorExportJobConfig` and `SpectorImportJobConfig` defining readers, processors, and writers.
+    - Implement `ReflectConsolidationJobConfig` and `SpringBatchReflectSweepExecutor` for background consolidation sweeps.
 
 2. **REST Integration (`synapse/spector-synapse`)**:
-   - Expose asynchronous endpoints `/api/v1/migration/export` and `/api/v1/migration/import`.
-   - Expose Server-Sent Events (SSE) stream for real-time progress monitoring.
+    - Expose asynchronous endpoints `/api/v1/migration/export` and `/api/v1/migration/import`.
+    - Expose Server-Sent Events (SSE) stream for real-time progress monitoring.
 
 3. **CLI Integration (`synapse/spector-cli`)**:
-   - Wire Picocli command tree for `spectorctl memory export` and `spectorctl memory import`.
-   - Support `--offline` flag to trigger embedded batch executor when running out-of-band.
+    - Wire Picocli command tree for `spectorctl memory export` and `spectorctl memory import`.
+    - Support `--offline` flag to trigger embedded batch executor when running out-of-band.
 
 ## 8. Code Reference & Verification
 
 All batch components and pipelines are implemented and verified in the repository:
+
 - **Batch Core & Auto-Configuration**: `synapse/spector-batch/src/main/java/com/spectrayan/spector/batch/SpectorBatchAutoConfiguration.java`
 - **Bundle Codec & Archive Formatting**: `synapse/spector-batch/src/main/java/com/spectrayan/spector/batch/SpectorBundleCodec.java`
 - **Batch Service & Lifecycle**: `synapse/spector-batch/src/main/java/com/spectrayan/spector/batch/SpectorBatchService.java`
 - **Import & Export Job Configurations**:
-  - `synapse/spector-batch/src/main/java/com/spectrayan/spector/batch/SpectorExportJobConfig.java`
-  - `synapse/spector-batch/src/main/java/com/spectrayan/spector/batch/SpectorImportJobConfig.java`
+    - `synapse/spector-batch/src/main/java/com/spectrayan/spector/batch/SpectorExportJobConfig.java`
+    - `synapse/spector-batch/src/main/java/com/spectrayan/spector/batch/SpectorImportJobConfig.java`
 - **Reflective Consolidation Pipeline**:
-  - `synapse/spector-batch/src/main/java/com/spectrayan/spector/batch/ReflectConsolidationJobConfig.java`
-  - `synapse/spector-batch/src/main/java/com/spectrayan/spector/batch/SpringBatchReflectSweepExecutor.java`
+    - `synapse/spector-batch/src/main/java/com/spectrayan/spector/batch/ReflectConsolidationJobConfig.java`
+    - `synapse/spector-batch/src/main/java/com/spectrayan/spector/batch/SpringBatchReflectSweepExecutor.java`

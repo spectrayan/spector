@@ -4,7 +4,7 @@
 
 <div class="grid cards" markdown>
 
--   :material-play-box-multiple: **Interactive API Playground**
+- :material-play-box-multiple: **Interactive API Playground**
 
     ---
 

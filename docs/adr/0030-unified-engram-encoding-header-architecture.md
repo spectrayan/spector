@@ -62,6 +62,7 @@ The 64-byte `EncodingHeader` record is shared across all tiers, but episodic use
 | `agentRecallCount` (2B recall counter) | Recall counter | `modelId` (registry ID) |
 
 This means:
+
 - `EpisodicHeaderAccessor.readSessionId()` reads from `OFFSET_SYNAPTIC_TAGS_LO`
 - `EpisodicHeaderAccessor.readModelId()` reads from `OFFSET_RECALL_COUNT`
 - A scan over `synapticTags` across all tiers returns garbage for episodic records
@@ -576,6 +577,7 @@ The following questions were raised during review and resolved by the Project Le
 ### 9.1 Working memory header — **Keep full 64B, cache-aligned**
 
 Working memory carries the full 64-byte encoding header, same as all other tiers. Even though NF6 exempts working tier from emotional completeness, keeping a uniform 64B header:
+
 - Maintains cache-line alignment across all tier scans
 - Leaves room for future fields without a format migration
 - Allows `EngramMemory.readHeader()` to return a uniform type
@@ -776,6 +778,7 @@ Every tier is symmetric. Every tier is an engram. Physical shape (fixed vs varia
 ---
 
 ### Acceptance Criteria
+
 - [ ] `EngramMemory` interface exists; all four tier stores implement it
 - [ ] `CognitiveMemoryRouter` holds a single `Map<MemoryType, EngramMemory>` (no separate `episodicStore` field)
 - [ ] Per-tier `RegionLayout` classes: `SemanticLayout`, `ProceduralLayout`, `WorkingLayout`, `EpisodicLayout`
@@ -806,12 +809,14 @@ Every tier is symmetric. Every tier is an engram. Physical shape (fixed vs varia
 ---
 
 ### Code Reference & Verification Gate
+
 - **Primary Module(s)**: `memory/spector-kernel`, `memory/spector-memory`
 - **Key Packages**: `com.spectrayan.spector.kernel.engram`, `com.spectrayan.spector.kernel.engram.field`
 - **Classes**: `EncodingHeaderLayout.java`, `EncodingHeader.java`, `EncodingHeaderFields.java`, `LegacyEncodingHeaderReader.java`
 - **Verification Tests**: `EncodingHeaderLayoutTest.java`, `EncodingHeaderProvenanceRoundTripTest.java`, `EncodingHeaderFieldsTest.java`, `SynapticTagGating128Test.java`
 
 ### Amendment (Issue #795 — 128-Bit Synaptic Tag Gating & Storage)
+
 - **Status**: Implemented & Verified
 - **Date**: 2026-09-17
 - **Resolution**: Resolved the 64-of-128-bit synaptic tag gating gap where `readSynapticTags()` previously discarded the high 64 bits (`synaptic_tags_hi` at offset 24..31). Added zero-allocation bitwise container `SynapticTag128`, 128-bit filter evaluation across `RecordGates.isTagGated128`, `SlabScanner`, `SlotVisitor`, and dual-mask support (`synapticTagMask(lo, hi)` and `hyperfocusMask(lo, hi)`) throughout `RecallOptions`, `RecallPathway`, `CognitiveScorer`, and `CognitiveScoreVisitor`.

@@ -74,9 +74,9 @@ The setup wizard handles everything:
 
 1. **Java 25+** — Auto-downloads Eclipse Temurin JDK if not found
 2. **Embedding Provider** — Choose from:
-   - 🦙 **Ollama** (local, free, recommended)
-   - 🔑 **OpenAI API**
-   - 🌐 **Any OpenAI-compatible endpoint** (Together, Groq, vLLM, etc.)
+    - 🦙 **Ollama** (local, free, recommended)
+    - 🔑 **OpenAI API**
+    - 🌐 **Any OpenAI-compatible endpoint** (Together, Groq, vLLM, etc.)
 3. **spector.jar** — Auto-downloads from GitHub Releases
 4. **Configuration** — Generates optimized `spector.yml`
 5. **OpenClaw config** — Updates `openclaw.json` automatically
@@ -247,6 +247,7 @@ openclaw logs --filter spector
 ```
 
 Common issues:
+
 - **Port 11434 in use**: Another process is using Ollama's port
 - **Out of memory**: Increase `jvmArgs` to `-Xms512m -Xmx2g`
 - **Dimension mismatch**: Ensure `dimensions` matches your embedding model

@@ -30,11 +30,13 @@ Standard nearest-neighbor vector search in HNSW indexes retrieves individual iso
 ## 4. Considered Options
 
 ### Option 1: Iterative Recurrent Neural Network (RNN)
+
 - **Description**: Train and deploy an external recurrent neural network for auto-associative memory.
 - **Advantages**: Flexible nonlinear attractor landscapes.
 - **Disadvantages**: Heavy GPU/PyTorch runtime dependency; high inference latency; uninterpretable energy landscape.
 
 ### Option 2: Continuous Modern Hopfield Energy Kernel (Selected)
+
 - **Description**: Implement continuous modern Hopfield associative dynamics: $\xi^{t+1} = X \cdot \text{softmax}(\beta X^T \xi^t)$ with energy function $E = -\text{lse}(\beta, X^T \xi) + \frac{1}{2} \|\xi\|^2$. Evaluated directly off-heap in `nucleus/spector-core` using SIMD dot products and numerically stabilized Log-Sum-Exp kernels.
 - **Advantages**: Guaranteed monotonic energy minimization, exponential memory capacity, exact closed-form update rule, executes in < 50µs for 1,024-dimensional vectors.
 - **Disadvantages**: Requires off-heap memory staging for attractor prototype matrices.
@@ -44,11 +46,13 @@ Standard nearest-neighbor vector search in HNSW indexes retrieves individual iso
 **Chosen Option**: Option 2 (Continuous Modern Hopfield Energy Kernel).
 
 ### Positive Consequences
+
 - Native pattern completion: partial cues retrieve holistic, denoised memory engrams.
 - Mathematically provable convergence and exponential storage capacity.
 - Zero-GC SIMD implementation directly integrated into Spector's off-heap kernel.
 
 ### Negative Consequences & Trade-offs
+
 - Prototype memory matrix $X$ requires contiguous off-heap memory allocation in `spector-kernel`.
 - Temperature parameter $eta$ must be tuned to control attractor basin sharpness.
 

@@ -49,15 +49,18 @@ Continuous multimodal agent perception streams vast amounts of high-bandwidth ob
 ## 4. Considered Options
 
 ### Option 1: Uniform Fixed-Frequency Downsampling
+
 - Sample sensory inputs at a lower, uniform rate (e.g., 1 Hz).
 - **Verdict**: Rejected. Incurred significant information loss during rapid burst events and retained redundant data during long quiescent pauses.
 
 ### Option 2: Simple L2/Cosine Difference Gating
+
 - Gate writes purely on embedding vector distance exceeding a static threshold $\epsilon$.
 - **Verdict**: Rejected. Fails to account for prior expectation uncertainty, sensory precision, or task-relevant variational free energy.
 
 ### Option 3: Unified Information-Theoretic Event Density Function $
 u(o_t)$ (Selected)
+
 - Dynamically modulate sampling rates and ingestion gating using a continuous density function combining analytical KL divergence, free energy gradients, and surprisal.
 - **Verdict**: Accepted. Automatically scales temporal resolution from quiescent idle states to maximal burst capture during unexpected state transitions.
 
@@ -113,12 +116,15 @@ flowchart TD
 ## 6. Pros and Cons of the Options
 
 ### Positive
+
 - **Theoretical Elegance**: Unified function $
 u(o_t)$ provides principled epistemic compression grounded in active inference.
+
 - **Resource Efficiency**: Drastically reduces IOPS, vector allocations, and storage tier growth while improving recall signal-to-noise ratio.
 - **Adaptive Ingestion**: Dynamically allocates attention and compute to surprising phenomena.
 
 ### Negative / Trade-offs
+
 - **Matrix Precision Operations**: Requires efficient vectorized linear algebra for Gaussian KL evaluations.
 - **Hyperparameter Sensitivity**: Weights $lpha, eta, \gamma$ require calibration to avoid over-suppressing subtle domain-specific signals.
 
@@ -136,11 +142,12 @@ u(o_t)$ provides principled epistemic compression grounded in active inference.
 ## 8. Code Reference & Verification
 
 All mathematical kernels, relays, and unit tests are verified in the repository:
+
 - **Core Cognitive Kernel**:
-  - `nucleus/spector-core/src/main/java/com/spectrayan/spector/core/cognitive/EventDensityKernel.java`
-  - `nucleus/spector-core/src/test/java/com/spectrayan/spector/core/cognitive/EventDensityKernelTest.java`
+    - `nucleus/spector-core/src/main/java/com/spectrayan/spector/core/cognitive/EventDensityKernel.java`
+    - `nucleus/spector-core/src/test/java/com/spectrayan/spector/core/cognitive/EventDensityKernelTest.java`
 - **Memory Sensory Filtering & Relay**:
-  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/fegr/EventDensityFilter.java`
-  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/fegr/EventDensityMetrics.java`
-  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/relay/EventDensityGatingRelay.java`
-  - `memory/spector-memory/src/test/java/com/spectrayan/spector/memory/aisme/fegr/EventDensityFilterTest.java`
+    - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/fegr/EventDensityFilter.java`
+    - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/fegr/EventDensityMetrics.java`
+    - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/relay/EventDensityGatingRelay.java`
+    - `memory/spector-memory/src/test/java/com/spectrayan/spector/memory/aisme/fegr/EventDensityFilterTest.java`

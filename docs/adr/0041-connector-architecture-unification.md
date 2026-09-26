@@ -37,16 +37,19 @@ Currently, Spector's connector ecosystem is in an inconsistent state:
 ## 4. Considered Options
 
 ### Option 1: Custom Standalone Java Connectors
+
 - **Description**: Implement custom network clients and polling loops for each external SaaS service.
 - **Advantages**: Tailored to each protocol.
 - **Disadvantages**: Massive maintenance burden; bespoke retry and connection pooling; no unified lifecycle.
 
 ### Option 2: External Ingestion Service (Airbyte / Singer)
+
 - **Description**: Require users to deploy an external ingestion tool to write into Spector.
 - **Advantages**: Large catalog of existing community connectors.
 - **Disadvantages**: Heavy operational dependencies; no in-process embedded execution; cannot be triggered synchronously by LLM agents.
 
 ### Option 3: Unified Apache Camel 4 Connector Engine with YAML Templates (Selected)
+
 - **Description**: Port and embed `spector-connector-engine` with Apache Camel 4.11 into the open-source reactor, driven by declarative YAML route templates and exposed to agents via `CamelRouteInvoker`.
 - **Advantages**: Battle-tested 300+ Camel components; zero external services; dynamic route lifecycle; agent callable.
 - **Disadvantages**: Camel dependency surface in connector module.
@@ -57,35 +60,38 @@ We establish a unified, two-tiered connector architecture:
 
 ### 2.1 Core OSS Tier (`spector` -> `connectors/spector-connector-engine`)
 The open-source core will include:
+
 - **`CamelConnectorEngine`**: Standalone, non-Spring `DefaultCamelContext` manager capable of dynamically deploying, updating, starting, stopping, and removing route templates.
 - **`RouteLifecycleService`**: Orchestrates template validation, parameter resolution, connectivity probing, and engine deployment.
 - **`TemplateRegistry` & `YamlTemplateLoader`**: Loads route template definitions and descriptors from YAML specifications (`src/main/resources/templates/connectors/*.yaml`) with runtime validation via `TemplateDescriptorValidator`.
 - **`SpectorIngestionSink`**: High-throughput Camel `Processor` bridging incoming exchange payloads directly into Spector's `IngestionTarget` and `EmbeddingProvider`, with PII scrubbing, chunk change detection, and Cognitive DLQ error handling.
 - **`ConnectionProbers`**: Pre-flight connectivity testing for all supported connector protocols (Local Filesystem, HTTP REST, S3, JDBC, Kafka, MongoDB).
 - **Standard Connector Catalog**:
-  - `file-watch`: Local directory watcher with recursive glob filters.
-  - `rest-api-poll`: Periodic REST HTTP polling with JSONPath extraction.
-  - `github-ingest`: Git repository clone and markdown/code ingestion.
-  - `s3-poll`: AWS S3 bucket polling with prefix filtering.
-  - `webhook-receiver`: Generic HTTP webhook ingestion endpoint.
-  - `db-query`: JDBC polling with incremental timestamp/ID tracking.
-  - `notion-pages`: Notion API page and block ingestion.
-  - `slack-ingest` & `slack-notify`: Inbound Slack events and outbound alert dispatching.
-  - `kafka-consumer`: Streaming Apache Kafka event ingestion.
-  - `mongodb-poll`: MongoDB query and change stream ingestion.
-  - `email-notify`: SMTP notification dispatch.
-  - `rss`: RSS/Atom feed polling with GUID deduplication.
-  - `web-scraper`: Recursive web crawler with Jsoup HTML-to-Markdown extraction.
-  - `confluence`, `jira`, `google-drive`, `sharepoint`, `salesforce`: Extended enterprise templates.
+    - `file-watch`: Local directory watcher with recursive glob filters.
+    - `rest-api-poll`: Periodic REST HTTP polling with JSONPath extraction.
+    - `github-ingest`: Git repository clone and markdown/code ingestion.
+    - `s3-poll`: AWS S3 bucket polling with prefix filtering.
+    - `webhook-receiver`: Generic HTTP webhook ingestion endpoint.
+    - `db-query`: JDBC polling with incremental timestamp/ID tracking.
+    - `notion-pages`: Notion API page and block ingestion.
+    - `slack-ingest` & `slack-notify`: Inbound Slack events and outbound alert dispatching.
+    - `kafka-consumer`: Streaming Apache Kafka event ingestion.
+    - `mongodb-poll`: MongoDB query and change stream ingestion.
+    - `email-notify`: SMTP notification dispatch.
+    - `rss`: RSS/Atom feed polling with GUID deduplication.
+    - `web-scraper`: Recursive web crawler with Jsoup HTML-to-Markdown extraction.
+    - `confluence`, `jira`, `google-drive`, `sharepoint`, `salesforce`: Extended enterprise templates.
 
 ### 2.2 Enterprise Tier (`spector-enterprise` -> `connectors/spector-connector-engine`)
 The enterprise tier extends OSS `spector-connector-engine` by layering enterprise-only capabilities:
+
 - **`TenantMemoryRegistry`**: Per-tenant workspace routing, JIT paging of memory instances, and LRU memory cache eviction under memory constraints.
 - **Tenant Resource Quotas**: Hard rate-limits, chunk quotas, and tenant isolation policies.
 - **Enterprise Credential Providers**: HashiCorp Vault, AWS Secrets Manager, and Azure Key Vault resolvers.
 - **Cross-Cluster Replication**: Streaming change data capture (CDC) to secondary Spector clusters.
 
 ### 2.3 Synapse & Agent Tooling (`spector-synapse`)
+
 - **`ConnectorController`**: Refactored to delegate directly to `RouteLifecycleService` and `TemplateRegistry`.
 - **`CamelRouteInvoker`**: Registered as an `AgentTool` (`@Component`) allowing LLM agents in Spector to discover running routes and invoke connector jobs on demand with parameters.
 
@@ -163,6 +169,7 @@ graph TD
 ---
 
 ### Code Reference & Verification Gate
+
 - **Primary Module(s)**: `synapse/spector-connector`, `synapse/spector-synapse`
 - **Key Packages**: `com.spectrayan.spector.connector.core`, `com.spectrayan.spector.synapse.tools`
 - **Classes**: `CamelConnectorEngine.java`, `RouteLifecycleService.java`, `TemplateRegistry.java`, `SpectorIngestionSink.java`, `CamelRouteInvoker.java`

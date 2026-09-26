@@ -64,18 +64,21 @@ graph TB
 
 ### 1. Zero Garbage Collection Pressure
 All cognitive memory records—including high-dimensional vector embeddings, associative graphs, 128-bit Bloom synaptic tags, and recall strength states—are held in off-heap memory segments. Because these buffers reside outside the managed JVM heap, the garbage collector never inspects, traces, or moves them, providing:
+
 - **Predictable Latency**: Zero GC stop-the-world pauses, even under multi-gigabyte memory footprints.
 - **Cache-Line Alignment**: Records are strictly aligned to 64-byte hardware cache lines, optimizing CPU prefetchers and memory bus saturation.
 - **Direct OS Paging**: Operating system page cache mechanisms handle paging and eviction transparently through memory-mapped I/O (`mmap`).
 
 ### 2. Sealed Kernel Boundary
 The Memory Kernel maintains a strict architectural seal. Native memory segments, raw virtual addresses, and arena lifecycles are fully encapsulated within `spector-kernel`. Higher cognitive layers (`spector-memory`) interact solely through typed memory shapes and domain value objects. This design:
+
 - Prevents unsafe memory access or off-heap memory leaks across upper subsystems.
 - Guarantees thread-safe resource scoping across concurrent Virtual Threads.
 - Allows the underlying storage layout to evolve without impacting client APIs.
 
 ### 3. Pure Encoding Identity & Telemetry Separation
 Every stored engram cleanly decouples its immutable creation metadata from high-frequency mutable recall dynamics:
+
 - **Encoding Header (64 Bytes)**: Contains immutable properties recorded at memory formation (initial valence, arousal, base importance, timestamp, and 128-bit synaptic Bloom tags).
 - **Strength State (96 Bytes)**: Resides in the dedicated **Strength Region** (`RegionId.STRENGTH`). Tracks mutable access counters, long-term potentiation cooldowns, storage strength, and ACT-R recall timestamp history.
 
@@ -83,6 +86,7 @@ This complete physical separation prevents CPU cache-line false sharing during p
 
 ### 4. Somatic Self-Modeling & The Identity Plane
 The agent's self-model sits in an `identity.bundle`, while the live runtime state mutates a separate `InsulaMemory` region in `runtime.bundle`. Spector separates persistent persona invariants from dynamic runtime state:
+
 - **The Identity Plane (`identity.bundle`)**: Houses the agent's persistent soul invariants, ethical axioms, compliance rules, and baseline salience weights outside volatile memory operations, requiring only a single lightweight file descriptor per identity hierarchy.
 - **The Somatic Self-Model (`InsulaMemory`)**: Embedded within `runtime.bundle` (`RegionId.INSULA`), this dedicated memory container tracks the agent's live, instantiated self-model—including dynamic confidence, task uncertainty, and affective homeostasis—as a versioned, CRC-32C validated state updated in sub-microsecond cycles during active reasoning.
 
@@ -119,23 +123,23 @@ Explore the architectural components of the Spector Memory Kernel:
 
 <div class="grid cards" markdown>
 
--   :material-package-variant-closed: **[Bundle Architecture](bundles.md)**
+- :material-package-variant-closed: **[Bundle Architecture](bundles.md)**
     
     Learn how single-mmap bundle files organize memory regions with growable capacity and cache-line alignment.
 
--   :material-shape-outline: **[Memory Shapes](shapes.md)**
+- :material-shape-outline: **[Memory Shapes](shapes.md)**
     
     Discover the ten typed shape abstractions providing clean access patterns across all memory stores.
 
--   :material-binary: **[Binary Record Layouts](layouts.md)**
+- :material-binary: **[Binary Record Layouts](layouts.md)**
     
     Examine the 64-byte pure encoding header, 128-bit Synaptic Bloom tags, and 96-byte strength state.
 
--   :material-shield-check-outline: **[WAL & Durability](wal-recovery.md)**
+- :material-shield-check-outline: **[WAL & Durability](wal-recovery.md)**
     
     Understand crash-resilient write-ahead logging, dual CRC-32 integrity verification, and recovery warming.
 
--   :material-map-marker-multiple-outline: **[Region Reference](regions/index.md)**
+- :material-map-marker-multiple-outline: **[Region Reference](regions/index.md)**
     
     Per-region binary layout documentation covering all 30 memory regions across Runtime, Partition, and Identity bundles.
 

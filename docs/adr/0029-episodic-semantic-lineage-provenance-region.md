@@ -293,6 +293,7 @@ have multiple distinct semantic memories generated at different points in time.
 ### D14: System-wide IdStrategy and MemoryIdGenerator
 
 Memory IDs must be consistent across the entire system rather than relying on disparate ad-hoc generators.
+
 - Removed private static `TsidGenerator TSID` from `EpisodicLogConsolidationRelay`.
 - `ReflectSignal` now passes the system-configured `MemoryIdGenerator` (`signal.idGenerator()`).
 - `TsidGenerator.decodeCrockford(memoryId)` decodes string IDs to raw 64-bit TSIDs for compact binary storage in `target_tsid`.
@@ -371,6 +372,7 @@ All phases of ADR-0029 implementation completed in [spectrayan/spector#731](http
 ---
 
 ### Code Reference & Verification Gate
+
 - **Primary Module(s)**: `memory/spector-memory`, `memory/spector-kernel`
 - **Key Packages**: `com.spectrayan.spector.memory.pathway.reflect.relay`, `com.spectrayan.spector.kernel.bundle`
 - **Classes**: `EpisodicLogConsolidationRelay.java`, `RegionId.java`, `PartitionBundle.java`

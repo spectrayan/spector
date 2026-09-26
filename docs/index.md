@@ -140,7 +140,7 @@ Connect your agent or application to Spector in seconds:
 
 <div class="grid cards" markdown>
 
--   :material-memory:{ .lg .middle } **Sealed Memory Kernel**
+- :material-memory:{ .lg .middle } **Sealed Memory Kernel**
 
     ---
 
@@ -148,7 +148,7 @@ Connect your agent or application to Spector in seconds:
 
     [:octicons-arrow-right-24: Memory Kernel Guide](kernel/index.md)
 
--   :material-brain:{ .lg .middle } **Cognitive Pathways**
+- :material-brain:{ .lg .middle } **Cognitive Pathways**
 
     ---
 
@@ -156,7 +156,7 @@ Connect your agent or application to Spector in seconds:
 
     [:octicons-arrow-right-24: Cognitive Memory](memory/index.md)
 
--   :material-robot:{ .lg .middle } **37+ Agent MCP Tools**
+- :material-robot:{ .lg .middle } **37+ Agent MCP Tools**
 
     ---
 
@@ -164,7 +164,7 @@ Connect your agent or application to Spector in seconds:
 
     [:octicons-arrow-right-24: MCP Server Guide](sdk-usage/mcp-server.md)
 
--   :material-code-tags:{ .lg .middle } **Multi-SDK Ecosystem**
+- :material-code-tags:{ .lg .middle } **Multi-SDK Ecosystem**
 
     ---
 
@@ -172,7 +172,7 @@ Connect your agent or application to Spector in seconds:
 
     [:octicons-arrow-right-24: Quick Start](getting-started/quickstart.md)
 
--   :material-lightning-bolt:{ .lg .middle } **Spector Synapse**
+- :material-lightning-bolt:{ .lg .middle } **Spector Synapse**
 
     ---
 
@@ -180,7 +180,7 @@ Connect your agent or application to Spector in seconds:
 
     [:octicons-arrow-right-24: Synapse Overview](synapse/index.md)
 
--   :material-eye:{ .lg .middle } **Cortex Dashboard**
+- :material-eye:{ .lg .middle } **Cortex Dashboard**
 
     ---
 
@@ -188,7 +188,7 @@ Connect your agent or application to Spector in seconds:
 
     [:octicons-arrow-right-24: Cortex Dashboard](cortex/index.md)
 
--   :material-speedometer:{ .lg .middle } **Vector Nucleus**
+- :material-speedometer:{ .lg .middle } **Vector Nucleus**
 
     ---
 
@@ -196,7 +196,7 @@ Connect your agent or application to Spector in seconds:
 
     [:octicons-arrow-right-24: Architecture Overview](architecture/overview.md)
 
--   :material-shield-lock:{ .lg .middle } **Physical Isolation & Security**
+- :material-shield-lock:{ .lg .middle } **Physical Isolation & Security**
 
     ---
 

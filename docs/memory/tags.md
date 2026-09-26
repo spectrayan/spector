@@ -80,11 +80,13 @@ Because matching requires only two 64-bit CPU register bitwise `AND` instruction
 
 ### 1. Zeigarnik Effect (Active Task Accessibility)
 In psychology, the **Zeigarnik Effect** describes the phenomenon where unresolved tasks remain more accessible in memory than completed ones. Spector models this in the `flags` bitfield:
+
 - **Unresolved Engram**: The memory resists normal temporal decay, keeping active action items and open questions immediately available.
 - **Resolved Engram**: When the task is completed (`client.memory.resolve(id)`), the flag is toggled and standard time-decay resumes.
 
 ### 2. Arousal-Modulated Retention
 Emotionally intense experiences resist forgetting. Spector uses an unsigned `arousal` byte ($0$ to $255$) to modulate the power-law forgetting curve:
+
 - High arousal (e.g. critical production failure, major milestone) slows decay by up to **$1.65\times$**.
 - Neutral engrams (routine conversational exchanges) decay according to baseline retention curves.
 - When omitted, arousal is automatically derived from emotional valence:

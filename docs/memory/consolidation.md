@@ -75,16 +75,22 @@ flowchart LR
 
 1. **Census & Threshold Evaluation**:
    The store's tombstone ratio is evaluated against `spector.memory.vacuum.threshold` (default `0.20`). If the ratio is below threshold and `force=false`, a census report (`CompactionResult.census`) is returned without moving records.
+
 2. **Dense In-Place Relocation**:
    Live records are copied sequentially to lower offsets within each partition slab (`compactFixed` for fixed-stride semantic/procedural engrams, `compactEpisodic` for variable-length append logs). Abandoned trailing slots are zeroed out in-place.
+
 3. **Atomic Counter Updates**:
    Header prologues (`visibleCount` and `usedBytes`) are atomically updated and published to readers via Panama MemorySegment stores.
+
 4. **Index Offset Remapping Under Lock**:
    Under `PartitionManager.withRollLock` (the same lock coordinating partition roll), `IndexEntryMemory` updates record locations to their new offsets, guaranteeing continuous ID-to-record resolution across concurrent reads.
+
 5. **Graph Edge Reconciliation**:
    Surviving records maintain stable `graphSlot` mappings, keeping Hebbian associations, temporal chains, and hyperedges intact. Dead records have their `graphSlot`s detached across all four cognitive graph planes (Hebbian CSR, temporal chain, entity directory, hypergraph).
+
 6. **Derived Index Reconciliation**:
    Derived indexes (HNSW, BM25, SPLADE) are re-synchronized via `IndexReconcileEngine.reconcile()`.
+
 7. **Measured Space Reclamation**:
    Reclaimed space is measured directly from the physical difference (`beforeUsedBytes - afterUsedBytes`) rather than computed via an unverified multiplication.
 

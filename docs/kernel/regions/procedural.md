@@ -82,5 +82,6 @@ Written sequentially with SWMR via `ReentrantLock`. Lookups are flat scans using
 Stores multi-step executable action sequences, habits, and behavioral policies. Crystallized from repeated episodic success sequences during consolidation. Built for microsecond lookups of "when X happens, do Y".
 
 ## Related
+
 - [`ProceduralMemory.java`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/ProceduralMemory.java)
 - [`EncodingHeaderFields.java`](https://github.com/spectrayan/spector/blob/main/memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/engram/field/EncodingHeaderFields.java)

@@ -30,16 +30,19 @@ Without an explicit graph compression strategy, entity-graph growth degrades que
 ## 4. Considered Options
 
 ### Option 1: Hypergraphs (`HyperEntityGraphMemory`)
+
 - **Description**: Model n-ary relations directly as hyperedges rather than cliques of binary edges ($C(n,2)$ combinations).
 - **Advantages**: Representation complexity reduction is exact and lossless with respect to the underlying relation; already graduated and integrated into `PostIngestSync`, `ReflectionOrchestrator`, and `PersistenceManager`.
 - **Disadvantages**: Does not prune redundant binary edges between independent entities.
 
 ### Option 2: Spectral Sparsification
+
 - **Description**: Prune edges while preserving the graph Laplacian spectrum and effective resistances within a bounded error.
 - **Advantages**: Directly targets edge count (the primary explosion vector) and integrates naturally into the asynchronous `ReflectDaemon` consolidation cycle.
 - **Disadvantages**: Requires periodic background spectral analysis.
 
 ### Option 3: Kron-Reduction Coarsening (Issue #71)
+
 - **Description**: Eliminate low-degree nodes by folding them into hub clusters via Schur-complement reduction.
 - **Advantages**: Reduces total node count.
 - **Disadvantages**: Evaluated prototype in `feat/kron-reduction-coarsening-issue-71` was lossy, operated on legacy binary graphs instead of hypergraphs, dropped multi-hop paths, leaked edge weight, and produced a reduced Laplacian that no part of the recall path consumes.
@@ -49,11 +52,13 @@ Without an explicit graph compression strategy, entity-graph growth degrades que
 **Chosen Option**: Adopt **Hypergraphs + Spectral Sparsification** as the canonical entity-graph compression path. Shelve Kron-reduction coarsening (#71) and reject the prototype branch.
 
 ### Positive Consequences
+
 - Unifies graph compression under a single, coherent spectral strategy (sparsification during sleep reflection).
 - Protects rare, informative entities from arbitrary degree-based eviction.
 - Avoids shipping dead-end code or allocating 100 MB dense matrices on recall paths.
 
 ### Negative Consequences & Trade-offs
+
 - Spector does not gain hierarchical multi-resolution recall ("zoom out to hub clusters") in this release. That capability is deferred until explicitly required by product specifications.
 
 ## 6. Pros and Cons of the Options

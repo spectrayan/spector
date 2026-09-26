@@ -48,14 +48,17 @@ Even with off-heap Panama memory structures, JVM object layout overhead imposes 
 ## 4. Considered Options
 
 ### Option 1: Freeze Permanently on Java 25 LTS
+
 - Disregard post-25 JDK advancements and maintain Java 25 indefinitely.
 - **Verdict**: Rejected. Misses generational memory density improvements from Valhalla and finalization of vector SIMD APIs.
 
 ### Option 2: Immediate Early-Access JDK 27 Adoption
+
 - Migrate production build to JDK 27 early-access builds immediately.
 - **Verdict**: Rejected. Bleeding-edge EA builds are unstable for production enterprise deployments.
 
 ### Option 3: Planned Java 27 Migration Roadmap with Value Architecture (Selected)
+
 - Maintain Java 25 LTS as the production build baseline.
 - Architect value-ready records and abstraction boundaries in anticipation of JEP 401 value classes and JDK 27 LTS release.
 - **Verdict**: Accepted (Proposed status). Establishes architectural readiness with zero disruption to current stability.
@@ -109,33 +112,34 @@ graph TD
 ```
 
 1. **Value-Based Class Certification (JEP 390)**:
-   - Audit candidate entities: `Hypervector`, `ScoredResult`, `Chunk`, `MemoryUnitId`, `SimilarityScore`, `GraphEdge`, `Vector3D`, `DistanceContext`.
-   - Ensure complete compliance with JEP 390 value-based constraints:
-     - No synchronization on instance references (`synchronized(this)`).
-     - Equality and hash codes strictly derived from field values.
-     - No identity assumption or `==` reference comparison.
+    - Audit candidate entities: `Hypervector`, `ScoredResult`, `Chunk`, `MemoryUnitId`, `SimilarityScore`, `GraphEdge`, `Vector3D`, `DistanceContext`.
+    - Ensure complete compliance with JEP 390 value-based constraints:
+        - No synchronization on instance references (`synchronized(this)`).
+        - Equality and hash codes strictly derived from field values.
+        - No identity assumption or `==` reference comparison.
 
 2. **Compact Object Headers (JEP 534)**:
-   - Enabled by default in JDK 27 on 64-bit architectures.
-   - Reduces standard object headers from 16 bytes down to 8 bytes.
-   - For an HNSW graph or Spector memory store containing 10,000,000 nodes/records, this frees up **80 MB to 160 MB** of pure header overhead without application code changes.
+    - Enabled by default in JDK 27 on 64-bit architectures.
+    - Reduces standard object headers from 16 bytes down to 8 bytes.
+    - For an HNSW graph or Spector memory store containing 10,000,000 nodes/records, this frees up **80 MB to 160 MB** of pure header overhead without application code changes.
 
 3. **Off-Heap Flat Memory via FFM**:
-   - Use `java.lang.foreign.MemorySegment` and `ValueLayout` for contiguous flat vector arrays, providing cache-line density identical to Valhalla flattened arrays today.
+    - Use `java.lang.foreign.MemorySegment` and `ValueLayout` for contiguous flat vector arrays, providing cache-line density identical to Valhalla flattened arrays today.
 
 4. **Experimental Valhalla Profile**:
-   - Maintain a dedicated Maven profile `<id>valhalla-preview</id>` allowing developers with Valhalla EA builds to compile and benchmark `value record` declarations ahead of JDK 28.
+    - Maintain a dedicated Maven profile `<id>valhalla-preview</id>` allowing developers with Valhalla EA builds to compile and benchmark `value record` declarations ahead of JDK 28.
 
 ---
 
 ## 4. Deep-Dive Feature Implementations for Spector
 
 ### 4.1 Feature 1: HTTP/3 QUIC Transport for Spector Client and Model Adapters (JEP 517)
+
 - **Target Files**:
-  - `sdks/java/spector-client/src/main/java/com/spectrayan/spector/client/SpectorClient.java`
-  - `memory/spector-providers/src/main/java/com/spectrayan/spector/provider/langchain4j/LangChain4jHelper.java`
-  - `synapse/spector-synapse/src/main/java/com/spectrayan/spector/synapse/agent/chat/service/ChatService.java`
-  - `bench/spector-bench/src/main/java/com/spectrayan/spector/bench/cognitive/generator/OllamaCompletionClient.java`
+    - `sdks/java/spector-client/src/main/java/com/spectrayan/spector/client/SpectorClient.java`
+    - `memory/spector-providers/src/main/java/com/spectrayan/spector/provider/langchain4j/LangChain4jHelper.java`
+    - `synapse/spector-synapse/src/main/java/com/spectrayan/spector/synapse/agent/chat/service/ChatService.java`
+    - `bench/spector-bench/src/main/java/com/spectrayan/spector/bench/cognitive/generator/OllamaCompletionClient.java`
 - **Implementation**:
   ```java
   // Configurable HTTP/3 with graceful fallback to HTTP/2
@@ -145,16 +149,18 @@ graph TD
       .connectTimeout(Duration.ofSeconds(10))
       .build();
   ```
+
 - **Benefits**:
-  - Streams tokens and embeddings over QUIC (UDP), preventing head-of-line blocking when packet loss occurs over mobile or distributed agent networks.
-  - Zero-RTT connection re-establishment for frequent agent-to-Spector requests.
+    - Streams tokens and embeddings over QUIC (UDP), preventing head-of-line blocking when packet loss occurs over mobile or distributed agent networks.
+    - Zero-RTT connection re-establishment for frequent agent-to-Spector requests.
 
 ### 4.2 Feature 2: Lazy Constants (`LazyConstant`) for Zero-Overhead Kernel Dispatch (JEP 531)
+
 - **Target Files**:
-  - `nucleus/spector-core/src/main/java/com/spectrayan/spector/core/spi/AcceleratorRegistry.java`
-  - `nucleus/spector-core/src/main/java/com/spectrayan/spector/core/simd/SimdCapability.java`
-  - `nucleus/spector-gpu/src/main/java/com/spectrayan/spector/gpu/GpuCapability.java`
-  - `nucleus/spector-hdc/src/main/java/com/spectrayan/spector/hdc/HdcAlgebra.java`
+    - `nucleus/spector-core/src/main/java/com/spectrayan/spector/core/spi/AcceleratorRegistry.java`
+    - `nucleus/spector-core/src/main/java/com/spectrayan/spector/core/simd/SimdCapability.java`
+    - `nucleus/spector-gpu/src/main/java/com/spectrayan/spector/gpu/GpuCapability.java`
+    - `nucleus/spector-hdc/src/main/java/com/spectrayan/spector/hdc/HdcAlgebra.java`
 - **Implementation**:
   ```java
   // Replace volatile / double-checked locking with JIT-foldable LazyConstant
@@ -168,18 +174,20 @@ graph TD
       return FLOAT_SPECIES.get(); // C2 JIT compiles to constant direct value after resolution
   }
   ```
+
 - **Benefits**:
-  - Completely eliminates volatile reads, memory fences, and synchronized blocks on hot vector scoring paths.
-  - Improves benchmark query throughput by 5–12% in flat vector and HDC operations.
+    - Completely eliminates volatile reads, memory fences, and synchronized blocks on hot vector scoring paths.
+    - Improves benchmark query throughput by 5–12% in flat vector and HDC operations.
 
 ### 4.3 Feature 3: Structured Concurrency Alignment (JEP 533)
+
 - **Target Files**:
-  - `nucleus/spector-commons/src/main/java/com/spectrayan/spector/commons/concurrent/ConcurrentTasks.java`
-  - `nucleus/spector-index/src/main/java/com/spectrayan/spector/index/hnsw/ParallelHnswBuilder.java`
+    - `nucleus/spector-commons/src/main/java/com/spectrayan/spector/commons/concurrent/ConcurrentTasks.java`
+    - `nucleus/spector-index/src/main/java/com/spectrayan/spector/index/hnsw/ParallelHnswBuilder.java`
 - **Implementation**:
-  - Update `StructuredTaskScope.open(...)` with `UnaryOperator<Configuration>`.
-  - Adopt `Joiner.allSuccessfulOrThrow()` returning direct `List<T>`.
-  - Migrate SLA deadlines to **`Joiner.timeout(Duration)`** (JDK 27 syntax replacing JDK 26 `onTimeout`):
+    - Update `StructuredTaskScope.open(...)` with `UnaryOperator<Configuration>`.
+    - Adopt `Joiner.allSuccessfulOrThrow()` returning direct `List<T>`.
+    - Migrate SLA deadlines to **`Joiner.timeout(Duration)`** (JDK 27 syntax replacing JDK 26 `onTimeout`):
   ```java
   try (var scope = StructuredTaskScope.open(Joiner.timeout(Duration.ofMillis(250)))) {
       Subtask<EpisodicResult> episodic = scope.fork(() -> episodicRecall(query));
@@ -190,14 +198,16 @@ graph TD
       return fallbackPartialRecall(query);
   }
   ```
+
 - **Benefits**:
-  - Eliminates thread leaks and provides deterministic timeout enforcement on multi-tier memory fan-out.
+    - Eliminates thread leaks and provides deterministic timeout enforcement on multi-tier memory fan-out.
 
 ### 4.4 Feature 4: Multi-Precision Quantization with Primitive Pattern Matching (JEP 532)
+
 - **Target Files**:
-  - `nucleus/spector-core/src/main/java/com/spectrayan/spector/core/quantization/*`
-  - `nucleus/spector-core/src/main/java/com/spectrayan/spector/core/quantization/svasq/*`
-  - `nucleus/spector-hdc/src/main/java/com/spectrayan/spector/hdc/HammingDistance.java`
+    - `nucleus/spector-core/src/main/java/com/spectrayan/spector/core/quantization/*`
+    - `nucleus/spector-core/src/main/java/com/spectrayan/spector/core/quantization/svasq/*`
+    - `nucleus/spector-hdc/src/main/java/com/spectrayan/spector/hdc/HammingDistance.java`
 - **Implementation**:
   ```java
   // Pattern matching directly on primitive values with exactness validation
@@ -211,20 +221,22 @@ graph TD
       };
   }
   ```
+
 - **Benefits**:
-  - Direct primitive pattern matching without boxing to `Number`/`Float`.
-  - Compile-time exhaustiveness and exactness verification for crumb (2-bit), nibble (4-bit), and int8 quantization formats.
+    - Direct primitive pattern matching without boxing to `Number`/`Float`.
+    - Compile-time exhaustiveness and exactness verification for crumb (2-bit), nibble (4-bit), and int8 quantization formats.
 
 ### 4.5 Feature 5: AOT Object Caching with ZGC for Instant MCP Boot (JEP 516)
+
 - **Target Files**:
-  - `packaging/homebrew/spector.rb`, `packaging/scoop/spector.json`, `deploy/docker/Dockerfile`
+    - `packaging/homebrew/spector.rb`, `packaging/scoop/spector.json`, `deploy/docker/Dockerfile`
 - **Implementation**:
-  - Add AOT training command: `java -XX:AOTMode=record -XX:AOTConfiguration=spector.aot -jar spector.jar mcp --test-run`.
-  - Generate GC-agnostic AOT cache: `java -XX:AOTMode=create -XX:AOTConfiguration=spector.aot -XX:AOTCache=spector.aotcache -jar spector.jar`.
-  - Run MCP server with low-pause ZGC + AOT cache: `java -XX:AOTCache=spector.aotcache -XX:+UseZGC -jar spector.jar mcp`.
+    - Add AOT training command: `java -XX:AOTMode=record -XX:AOTConfiguration=spector.aot -jar spector.jar mcp --test-run`.
+    - Generate GC-agnostic AOT cache: `java -XX:AOTMode=create -XX:AOTConfiguration=spector.aot -XX:AOTCache=spector.aotcache -jar spector.jar`.
+    - Run MCP server with low-pause ZGC + AOT cache: `java -XX:AOTCache=spector.aotcache -XX:+UseZGC -jar spector.jar mcp`.
 - **Benefits**:
-  - Reduces cold startup from ~1.2s to <120ms.
-  - Combines instant boot with ZGC's <1ms GC pauses during agent tool calls.
+    - Reduces cold startup from ~1.2s to <120ms.
+    - Combines instant boot with ZGC's <1ms GC pauses during agent tool calls.
 
 ---
 
@@ -257,11 +269,13 @@ The upgrade is tracked under master Epic [#802](https://github.com/spectrayan/sp
 ### Phased Execution Sequence
 
 #### Phase 1: Immediate Unblocked Foundation (Days -2 to -1)
+
 - **Branch Cut**: Cut `epic/802-jdk27-upgrade` from `main`.
 - **Issue #808 (Partial)**: Audit 370+ records for JEP 390 value-based class compliance. Validate `-XX:+UseCompactObjectHeaders` heap savings.
 - **Spec Sync**: Finalize RND-2026-022 in `spectrayan/RnD/`.
 
 #### Phase 2: EA/RC Implementation & Preview Alignment (Days -2 to 0)
+
 - **Issue #803**: Update `pom.xml` (`<java.version>27</java.version>`), compiler/surefire flags, and setup EA toolchain.
 - **Issue #804**: Implement HTTP/3 client builder and provider connectors.
 - **Issue #805**: Migrate `SimdCapability` and `AcceleratorRegistry` to `LazyConstant`.
@@ -269,6 +283,7 @@ The upgrade is tracked under master Epic [#802](https://github.com/spectrayan/sp
 - **Issue #807**: Implement primitive pattern switches in quantization codecs.
 
 #### Phase 3: GA Cutover & Release Packaging (Sept 15, Day 0)
+
 - **Issue #803 (Finalize)**: Pin official `eclipse-temurin:27-jdk` Docker base images and GitHub Actions GA runner matrices.
 - **Issue #808 (Finalize)**: Build and package ZGC AOT cache (`spector.aotcache`).
 - **Testing & Benchmarks**: Run full Sentinel test suite and JMH benchmarks (`spector-bench`).

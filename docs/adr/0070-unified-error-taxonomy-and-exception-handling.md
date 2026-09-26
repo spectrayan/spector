@@ -40,14 +40,17 @@ Error handling in Spector must satisfy four strict operational criteria:
 ## 4. Considered Options
 
 ### Option 1: Standard Java Runtime Exceptions with String Messages
+
 - Use `IllegalArgumentException`, `NoSuchElementException`, `IllegalStateException`.
 - **Verdict**: Rejected. Inconsistent messages, zero machine-parseability, breaks internationalization and automated monitoring.
 
 ### Option 2: Module-Local Error Enums
+
 - Each Maven module defines its own error enum (`CoreError`, `MemoryError`, `SynapseError`).
 - **Verdict**: Rejected. Causes number collisions across modules, duplicate error classifications, and prevents a unified REST/gRPC error mapping layer.
 
 ### Option 3: Centralized `SPE-XXX-YYY` ErrorCode Enum & Typed Hierarchy (Selected)
+
 - A single authoritative enum in `spector-commons` categorizing all error codes into domain blocks with immutable integer values and parameterized message templates.
 - **Verdict**: Accepted. Complete diagnostic clarity and zero-overhead deferred string rendering.
 
@@ -148,11 +151,13 @@ if (vector.length != expectedDimensions) {
 ## 6. Pros and Cons of the Options
 
 ### Positive
+
 - **Deterministic Alerting**: Infrastructure monitoring (Prometheus/Grafana) binds directly to `errorCode.name()` or `errorCode.getCode()`.
 - **API Cleanliness**: REST controllers and MCP servers cleanly map error codes to RFC 7807 Problem Details without string scraping.
 - **Zero Drift**: A single compilation failure occurs if an error code is renamed or modified incorrectly.
 
 ### Negative / Trade-offs
+
 - **Centralized Dependency**: All modules throwing domain exceptions depend on `spector-commons` (which is already part of the foundation BOM).
 - **Discipline Required**: Developers must check `ErrorCode.java` before adding new errors instead of throwing generic runtime exceptions.
 

@@ -40,6 +40,7 @@ Spector's AISME Phase 3 currently utilizes a **Continuous Modern Hopfield Networ
 3. **Candidate-Scoping Bottleneck ($\mathcal{O}(D \cdot K)$)**: Attractor dynamics can only be evaluated over pre-filtered candidate sets (e.g., top-50 vectors from HNSW/BM25). Spector cannot compute whole-brain associative resonance across the agent's entire multi-million memory history in real time.
 
 This specification introduces a **Dual-Engine Associative Memory Substrate** that resolves all three bottlenecks:
+
 - **Engine 1: Log-Sum-ReLU (LSR) Epanechnikov Kernel** for candidate-level pattern settlement: Achieves **exact single-step ($T=1$) retrieval**, compact finite support (zero long-tail noise), and eliminates all transcendental CPU instructions.
 - **Engine 2: Positive Random Feature (PRF/RFF) Distributed Holographic Tensor** for whole-brain associative memory: Compresses $K$ lifetime memories into an off-heap tensor $\mathbf{T} \in \mathbb{R}^Y$ of fixed size, enabling **$\mathcal{O}(Y)$ constant-time global energy evaluation and subconscious DMN wandering** without candidate pre-filtering.
 
@@ -55,14 +56,17 @@ This specification introduces a **Dual-Engine Associative Memory Substrate** tha
 ## 4. Considered Options
 
 ### Option 1: Classical Discrete Hopfield Networks
+
 - Binary spin states with quadratic Hebbian storage matrix.
 - **Verdict**: Rejected. Severely limited storage capacity, prone to spurious minima and inability to handle continuous embeddings.
 
 ### Option 2: Modern Continuous Hopfield Networks (Dense Softmax)
+
 - Continuous state vectors with exponential energy functions (Demircigil / Krotov / Hopfield / Ramsauer).
 - **Verdict**: Incomplete. While capacity scales exponentially, computing attention over all $N$ memories scales linearly with corpus size, and softmax normalization causes non-zero cross-talk across distant memories.
 
 ### Option 3: Log-Sum-ReLU (LSR) and Positive Random Features (PRF) Holographic Memory (Selected)
+
 - Epanechnikov compact-support kernel ensuring exact single-step settlement with zero cross-talk outside the active support set.
 - Positive Random Features mapping yielding a constant-size distributed memory tensor for global energy evaluation and continuous mind-wandering.
 - **Verdict**: Accepted. Delivers mathematical exactness and constant-time scalability.
@@ -271,11 +275,13 @@ DEFAULT_MODE_NETWORK   0.25      2.828                        Panoramic: global 
 ## 6. Pros and Cons of the Options
 
 ### Positive
+
 - **Exact Single-Step Convergence**: Epanechnikov energy guarantees zero cross-talk outside support and single-step convergence.
 - **Constant-Time Global Operations**: Background mind-wandering and dreaming evaluate against the memory tensor in constant time independent of total memory count.
 - **Hardware Efficiency**: Tailored for AVX-512 / ARM Neon vector instructions.
 
 ### Negative / Trade-offs
+
 - **Bandwidth Tuning**: Support radius $R$ and margin $\Delta$ require careful calibration based on embedding normalization.
 - **Tensor Dimensionality**: Holographic feature dimension requires sufficient capacity to prevent approximation error.
 
@@ -286,13 +292,13 @@ DEFAULT_MODE_NETWORK   0.25      2.828                        Panoramic: global 
 ### 6.1 Mathematical & Unit Test Gates
 
 1. **$T=1$ Single-Step Settlement Verification**:
-   - Given an isolated memory vector $\boldsymbol{\xi}$ and a corrupted query $\mathbf{v} = \boldsymbol{\xi} + \boldsymbol{\epsilon}$ (where $\|\boldsymbol{\epsilon}\| < \sqrt{2/\beta}$), verify that `LsrAttractorEngine.settle()` returns $\boldsymbol{\xi}$ with L2 error $< 10^{-6}$ in exactly 1 iteration.
+    - Given an isolated memory vector $\boldsymbol{\xi}$ and a corrupted query $\mathbf{v} = \boldsymbol{\xi} + \boldsymbol{\epsilon}$ (where $\|\boldsymbol{\epsilon}\| < \sqrt{2/\beta}$), verify that `LsrAttractorEngine.settle()` returns $\boldsymbol{\xi}$ with L2 error $< 10^{-6}$ in exactly 1 iteration.
 
 2. **Compact Support Strictness**:
-   - For any vector with $\|\mathbf{v} - \boldsymbol{\xi}\|^2 \ge 2/\beta$, assert that `attentionWeight == 0.0f` exactly.
+    - For any vector with $\|\mathbf{v} - \boldsymbol{\xi}\|^2 \ge 2/\beta$, assert that `attentionWeight == 0.0f` exactly.
 
 3. **RFF Unbiased Density Estimation**:
-   - Verify that $|\langle \mathbf{\Phi}(\mathbf{x}), \mathbf{\Phi}(\mathbf{y})\rangle - \exp(-\beta/2 \|\mathbf{x}-\mathbf{y}\|^2)| < 0.05$ across 10,000 random vectors with $Y=2048$.
+    - Verify that $|\langle \mathbf{\Phi}(\mathbf{x}), \mathbf{\Phi}(\mathbf{y})\rangle - \exp(-\beta/2 \|\mathbf{x}-\mathbf{y}\|^2)| < 0.05$ across 10,000 random vectors with $Y=2048$.
 
 ### 6.2 Performance Benchmark Targets (`spector-bench`)
 
@@ -314,12 +320,13 @@ DEFAULT_MODE_NETWORK   0.25      2.828                        Panoramic: global 
 ## 8. Code Reference & Verification
 
 All associative memory kernels and test suites are verified in the repository:
+
 - **LSR Hopfield Kernel**:
-  - `nucleus/spector-core/src/main/java/com/spectrayan/spector/core/cognitive/LsrHopfieldKernel.java`
-  - `nucleus/spector-core/src/test/java/com/spectrayan/spector/core/similarity/LsrHopfieldKernelTest.java`
+    - `nucleus/spector-core/src/main/java/com/spectrayan/spector/core/cognitive/LsrHopfieldKernel.java`
+    - `nucleus/spector-core/src/test/java/com/spectrayan/spector/core/similarity/LsrHopfieldKernelTest.java`
 - **Modern Continuous Hopfield Engine**:
-  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/hopfield/ContinuousHopfieldNetwork.java`
-  - `memory/spector-memory/src/test/java/com/spectrayan/spector/memory/aisme/hopfield/LsrContinuousHopfieldNetworkTest.java`
+    - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/hopfield/ContinuousHopfieldNetwork.java`
+    - `memory/spector-memory/src/test/java/com/spectrayan/spector/memory/aisme/hopfield/LsrContinuousHopfieldNetworkTest.java`
 - **Wander Pathway Mind-Wandering Relays**:
-  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/pathway/wander/relay/RffMindWanderingRelay.java`
-  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/pathway/wander/relay/HopfieldMindWanderingRelay.java`
+    - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/pathway/wander/relay/RffMindWanderingRelay.java`
+    - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/pathway/wander/relay/HopfieldMindWanderingRelay.java`

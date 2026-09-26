@@ -45,14 +45,17 @@ Standard approaches to conversational episode boundaries suffer from severe prac
 ## 4. Considered Options
 
 ### Option 1: Fixed-Window Chunking (e.g., Every N Dialogue Turns)
+
 - Cut episodes strictly every $N$ turns or when idle timeouts occur.
 - **Verdict**: Rejected. Slices cohesive semantic dialogues mid-thought and obscures episodic narrative structure.
 
 ### Option 2: Heavy LLM Prompt-Based Segmentation
+
 - Prompt an external LLM after every turn to decide if an episode ended.
 - **Verdict**: Rejected. Incurs prohibitive token costs, network round-trip latencies (>500ms), and unpredictable nondeterminism.
 
 ### Option 3: Bayesian Online Change-Point Detection (BOCPD) with Dual-Criteria Surprisal Gating (Selected)
+
 - Execute a recursive Bayesian update of the run-length distribution using Gaussian hazard functions in off-heap math kernels.
 - Trigger boundary consolidation when change-point probability crosses threshold or predictive surprisal spikes.
 - **Verdict**: Accepted. Achieves sub-millisecond real-time boundary cuts with high semantic cohesion.
@@ -71,6 +74,7 @@ $$P(r_t = 0, x_{1:t}) = \sum_{r_{t-1}} P(r_{t-1}, x_{1:t-1}) \cdot \pi(x_t \mid 
 $$P(r_t = r_{t-1} + 1, x_{1:t}) = P(r_{t-1}, x_{1:t-1}) \cdot \pi(x_t \mid \theta_{r_{t-1}}) \cdot (1 - H(r_{t-1}))$$
 
 where:
+
 - $H(r) = \frac{1}{\lambda_{\text{hazard}}}$ is the constant hazard function with expected segment length $\lambda_{\text{hazard}}$.
 - $\pi(x_t \mid \theta_r)$ is the predictive probability under conjugate Gaussian hyperparameters.
 - The change-point posterior probability at step $t$ is given by:
@@ -85,6 +89,7 @@ To ensure robust segmentation under both gradual narrative shifts (tracked by BO
 $$\text{IsBoundary}(o_t) = \left( P(r_t = 0 \mid x_{1:t}) \ge \tau_{\text{bocpd}} \right) \lor \left( S(o_t) \ge \tau_{\text{surprisal\_cut}} \right) \lor \left( N_{\text{buffered}} \ge N_{\text{max\_frames}} \right)$$
 
 where:
+
 - $\tau_{\text{bocpd}} = 0.65$ (default change-point threshold)
 - $\tau_{\text{surprisal\_cut}} = 1.50$ (default surprisal threshold)
 - $N_{\text{max\_frames}} = 200$ (maximum frame timeout)
@@ -102,11 +107,13 @@ The segment is decorated with start timestamp $t_1$, end timestamp $t_K$, frame 
 ## 6. Pros and Cons of the Options
 
 ### Positive
+
 - **High Cohesion**: Automatically identifies natural topic transitions, task completions, and context shifts.
 - **Sub-Millisecond Speed**: Bounded BOCPD evaluates in <50us in Java off-heap memory, enabling per-turn execution.
 - **Enhanced Vector Recall**: Consolidated episodes have clean, coherent centroid embeddings that dramatically improve retrieval precision.
 
 ### Negative / Trade-offs
+
 - **Prior Calibration**: Requires tuning prior hyperparameters for the target embedding space.
 - **Truncation Pruning**: Keeping run-length tracking bounded requires pruning low-probability hypotheses at each step.
 
@@ -120,8 +127,9 @@ The segment is decorated with start timestamp $t_1$, end timestamp $t_K$, frame 
 ## 8. Code Reference & Verification
 
 All mathematical kernels and segmentation controllers are verified in the repository:
+
 - **Mathematical Kernel**:
-  - `nucleus/spector-core/src/main/java/com/spectrayan/spector/core/cognitive/BocpdKernel.java`
-  - `nucleus/spector-core/src/test/java/com/spectrayan/spector/core/similarity/BocpdKernelTest.java`
+    - `nucleus/spector-core/src/main/java/com/spectrayan/spector/core/cognitive/BocpdKernel.java`
+    - `nucleus/spector-core/src/test/java/com/spectrayan/spector/core/similarity/BocpdKernelTest.java`
 - **Memory Segmentation Engine**:
-  - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/segmentation/BayesianOnlineChangePointDetector.java`
+    - `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/segmentation/BayesianOnlineChangePointDetector.java`

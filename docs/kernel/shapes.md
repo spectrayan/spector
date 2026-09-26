@@ -61,10 +61,10 @@ graph TD
 - **Access Pattern**: Random read/write access via direct slot offset calculations: $\text{Offset} = \text{Base} + (\text{Index} \times \text{Stride})$.
 - **Concurrency**: Lock-free concurrent reads across Virtual Threads using hardware atomic primitives (`VarHandle` compare-and-swap and volatile loads).
 - **Backed Subsystems**:
-  - `WorkingMemory` (circular buffer)
-  - `SemanticMemory` (crystallized concepts)
-  - `ProceduralMemory` (learned operational skills)
-  - `StrengthMemory` (96-byte recall dynamics and Bjork storage strength)
+    - `WorkingMemory` (circular buffer)
+    - `SemanticMemory` (crystallized concepts)
+    - `ProceduralMemory` (learned operational skills)
+    - `StrengthMemory` (96-byte recall dynamics and Bjork storage strength)
 
 ---
 
@@ -74,9 +74,9 @@ graph TD
 - **Access Pattern**: Unidirectional sequential appends with monotonic sequence counters.
 - **Concurrency**: Single-writer or lock-coordinated sequential writes; concurrent non-blocking sequential reads.
 - **Backed Subsystems**:
-  - `WalMemory` (Write-Ahead Log event records)
-  - `TextBlobMemory` (raw document text payloads)
-  - `TemporalFactMemory` (bi-temporal assertion streams)
+    - `WalMemory` (Write-Ahead Log event records)
+    - `TextBlobMemory` (raw document text payloads)
+    - `TemporalFactMemory` (bi-temporal assertion streams)
 
 ---
 
@@ -86,8 +86,8 @@ graph TD
 - **Access Pattern**: Traversal of outgoing and incoming edges, weight adjustments, and neighbor queries without creating heap objects.
 - **Concurrency**: Read-mostly graph traversals optimized for SIMD operations, with thread-safe atomic edge weight updates.
 - **Backed Subsystems**:
-  - `HebbianMemory` (associative synaptic connections between memory engrams)
-  - `HyperGraphMemory` ($n$-ary hyperedges linking entities, roles, and contexts)
+    - `HebbianMemory` (associative synaptic connections between memory engrams)
+    - `HyperGraphMemory` ($n$-ary hyperedges linking entities, roles, and contexts)
 
 ---
 
@@ -97,7 +97,7 @@ graph TD
 - **Access Pattern**: Forward and backward traversals along causal chains: "what happened immediately before?" and "what occurred next?".
 - **Characteristics**: Compact pointer offsets linking prior and subsequent engram indices across session boundaries.
 - **Backed Subsystems**:
-  - `TemporalChainMemory` (episodic narrative sequencing)
+    - `TemporalChainMemory` (episodic narrative sequencing)
 
 ---
 
@@ -107,7 +107,7 @@ graph TD
 - **Access Pattern**: $O(1)$ key lookup and increment operations using open addressing with linear probing.
 - **Characteristics**: Eliminates Java heap Map overhead (which typically incurs 32–48 bytes per entry in object headers and references).
 - **Backed Subsystems**:
-  - `CoActivationMemory` (tracks pairwise co-retrieval frequencies between engrams to dynamically reinforce associative bonds)
+    - `CoActivationMemory` (tracks pairwise co-retrieval frequencies between engrams to dynamically reinforce associative bonds)
 
 ---
 
@@ -117,8 +117,8 @@ graph TD
 - **Access Pattern**: Fast bidirectional resolution: String $\rightarrow$ Integer ID and Integer ID $\rightarrow$ String.
 - **Characteristics**: Enables open-schema architectures where new entity types, relation names, and tags are registered dynamically without storing repetitive string tokens across the hot off-heap memory path.
 - **Backed Subsystems**:
-  - `EntityTypeMemory` (interned entity categories: person, organization, location, etc.)
-  - `RelationTypeMemory` (interned relationship predicates: causes, depends_on, works_at, etc.)
+    - `EntityTypeMemory` (interned entity categories: person, organization, location, etc.)
+    - `RelationTypeMemory` (interned relationship predicates: causes, depends_on, works_at, etc.)
 
 ---
 
@@ -127,7 +127,7 @@ graph TD
 
 - **Access Pattern**: Fast entity lookup, type resolution, and association mapping.
 - **Backed Subsystems**:
-  - Inter-agent entity resolution, cross-session participant identification, and structured hypergraph entity registries.
+    - Inter-agent entity resolution, cross-session participant identification, and structured hypergraph entity registries.
 
 ---
 
@@ -137,10 +137,10 @@ graph TD
 - **Access Pattern**: Single-entry atomic read/write (`put()`, `get()`, `clear()`) of a variable-length JSON self-model payload.
 - **Design Rationale**: A single, versioned JSON document holds the agent's confidence, uncertainty, and affective state — updated in sub-microsecond cycles during active reasoning, without scanning or indexing.
 - **Integrity & Concurrency**:
-  - Sub-header tracks a monotonic version counter, payload byte length, epoch timestamp, and a hardware-computed CRC-32C checksum.
-  - Concurrency is protected by a thread-safe write lock with zero-copy unaligned read semantics across concurrent Virtual Threads.
+    - Sub-header tracks a monotonic version counter, payload byte length, epoch timestamp, and a hardware-computed CRC-32C checksum.
+    - Concurrency is protected by a thread-safe write lock with zero-copy unaligned read semantics across concurrent Virtual Threads.
 - **Backed Subsystems**:
-  - `InsulaMemory` (active self-model, task confidence, dynamic stress level, and salience posture within `runtime.bundle` at `RegionId.INSULA`).
+    - `InsulaMemory` (active self-model, task confidence, dynamic stress level, and salience posture within `runtime.bundle` at `RegionId.INSULA`).
 
 ---
 

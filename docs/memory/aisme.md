@@ -28,6 +28,7 @@ flowchart TD
 
 ### 1.1 `SoulContext` Polymorphism & Identity Plane Storage
 `SoulContext` provides polymorphic, versioned persona definitions persisted within dedicated **Identity Bundles** (`identity.bundle`) under the sharded Identity Plane (`identity/accounts/` and `identity/tenants/`):
+
 - **Agent Soul (`AgentSoul`):** Personality traits, core values, system prompt baseline, ethical guardrails, and registered tools.
 - **User Soul (`UserSoul`):** Human interaction preferences, personalized memory salience, and custom ICNU parameters.
 - **Tenant Soul (`TenantSoul`):** Enterprise organizational isolation, RBAC governance flags, and compliance retention windows.
@@ -64,6 +65,7 @@ AISME relays are registered in `RecallPathway` and `ReflectPathway`:
 ## 3. Engine Selection
 
 Engine routing is governed by `spector.memory.recall.engine`:
+
 - `auto`: Uses `PathwayEngine` when AISME, lateral inhibition, or dynamic regimes are active; falls back to legacy direct scan for zero-configuration throughput.
 - `pathway`: Enforces full pipeline execution through `RecallPathway`.
 - `direct`: Forces minimal direct scanner for microsecond benchmarks.

@@ -34,6 +34,7 @@ To rigorously validate how Spector's closed recall algebra, 6-phase scoring path
 Academic chat benchmarks like LongMemEval test short-term buffer retrieval under scraped internet noise: their target facts average only **16.4 days old**, 88% are under a month old, and sessions are artificially compressed into 16 sessions per calendar day. 
 
 MindSpan evaluates true **lifelong episodic and semantic recall**:
+
 - Can an agent recall a 20-year-old childhood memory subjected to power-law decay?
 - Can it disambiguate between soccer practices in May 2024 vs. September 2025?
 - Can it traverse a 4-generation family tree to deduce that an antique heirloom was inherited through marriage?
@@ -41,6 +42,7 @@ MindSpan evaluates true **lifelong episodic and semantic recall**:
 ### 1.2. The Persona: Mike Thompson
 
 The entire corpus follows a single, longitudinal persona:
+
 - **Mike Thompson**: 36→38 years old (2024–2026), Principal Product Manager at Vertex Health in Frisco, Texas.
 - **Family**: Wife **Sarah** (Lead UX Designer), son **Ethan** (8→10), daughter **Lily** (3→5), Golden Retriever **Cooper**.
 - **AI Companion**: **Jarvis** (powered by Spector Memory).
@@ -139,6 +141,7 @@ On the full LongMemEval suite, Spector Memory achieved **91.0% – 94.0% Overall
 Dumping dozens of conversational turns (12,000+ tokens) into large context windows causes the well-documented **"Lost in the Middle"** failure mode, where dates, names, and numbers are drowned in conversational chatter.
 
 Empirical citation analysis showed that **91.9% of all winning evidence resides in the Top 15 retrieved candidates**. By focusing synthesis on these Top-15 high-confidence candidates:
+
 - LLM prompt context is constrained to **~1,500 tokens**.
 - Token consumption and API billing drop by **~88%**.
 - Hallucinations from distractor noise are virtually eliminated.
@@ -198,15 +201,17 @@ Spector's multi-layer cognitive architecture dynamically activates specialized s
 
 ### 4.1. Balanced-Baseline (50,041 Records / 517 Queries)
 Stress-testing the off-heap engine against 50,000 synthetic life-history records and noise distractors:
+
 - **Zero GC Overhead**: 50K off-heap memory segments scanned on a single core in $p_{50} = \mathbf{53.38\text{ ms}}$ and $p_{99} = \mathbf{58.51\text{ ms}}$.
 - **Throughput**: Sustained **20.8 QPS** single-threaded with zero heap allocation.
 
 ### 4.2. Interest-Diversified 365-Day Evaluation
+
 - **Persona Context**: Mike Thompson with enriched hobby graphs (astrophotography, local LLM hacking, smart home APIs).
 - **Scale**: 12,879 records, 115 entity relations, 1,824 temporal chains, 4,576 Hebbian edges.
 - **Results with Specialized Profiles**:
-  - `HYPERFOCUS` Profile: **79.30% nDCG@10**, **84.50% MRR@10**, **78.10% Recall@10** (time decay clamped to zero for active focus domains).
-  - `CRITICAL` Profile: **79.30% nDCG@10**, **84.50% MRR@10** (exponential boost for high-importance episodic milestones).
+    - `HYPERFOCUS` Profile: **79.30% nDCG@10**, **84.50% MRR@10**, **78.10% Recall@10** (time decay clamped to zero for active focus domains).
+    - `CRITICAL` Profile: **79.30% nDCG@10**, **84.50% MRR@10** (exponential boost for high-importance episodic milestones).
 
 ---
 
@@ -248,6 +253,7 @@ flowchart LR
 ```
 
 ### 6.1. Why Standalone IR Recall (57%–61%) Yields 83%–85%+ Downstream Accuracy
+
 1. **Partial Evidence Sufficiency**: Dialogue turns frequently contain conversational redundancy. Retrieving 1 out of 2 ground-truth turns is almost always 100% sufficient for an LLM to formulate the correct answer.
 2. **LLM Deductive Reasoning**: Modern models (`gemini-3.1-flash-lite`, `gpt-4o-mini`) synthesize subtle clues across retrieved context chunks.
 3. **Extreme Token Efficiency**: Injecting ~1,250 to 1,730 tokens keeps context dense and high-signal, preventing distraction and hallucinations.

@@ -11,6 +11,7 @@ description: "Comprehensive index of all 30 memory regions across Spector Kernel
 ## Overview
 
 The Spector Memory Kernel distributes memory structures across three distinct bundle types:
+
 1. **Partition Bundle** (`partition.bundle`): Contains read-heavy, often historical or static semantic/episodic records.
 
 2. **Runtime Bundle** (`runtime.bundle`): Contains highly dynamic, volatile, or short-term operational state (e.g., working memory, temporal chains).

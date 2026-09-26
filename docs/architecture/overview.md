@@ -493,6 +493,7 @@ The pathway execution subsystem provides zero-dependency instrumentation in `spe
 ### Domain Telemetry & ConductionOutcome
 
 All domain reports (`DreamReport`, `DecideReport`, `ExpressReport`, `WanderReport`, `ReflectReport`, `RememberResult`) encapsulate an immutable `ConductionOutcome`. Consumers can inspect:
+
 - `finish()`: Terminal disposition (`COMPLETED`, `SHORT_CIRCUITED`, `FAILED`).
 - `degraded()` & `isDegraded(scope)`: Whether any stage completed in a degraded fallback state.
 - `bypassed()` & `isBypassed(scope)`: Whether any stages were skipped due to gate predicates or circuit state.

@@ -30,11 +30,13 @@ Previous cognitive recall in Spector lacked homeostatic regulation and affective
 ## 4. Considered Options
 
 ### Option 1: Full High-Order Neural ODE (Runge-Kutta RK4)
+
 - **Description**: Implement a 4th-order Runge-Kutta numerical integrator for high-dimensional nonlinear emotional dynamics.
 - **Advantages**: Higher mathematical precision for stiff systems.
 - **Disadvantages**: Significant computational overhead (multiple function evaluations per step) unnecessary for 10-dimensional VAD dynamics.
 
 ### Option 2: Explicit Euler Integration with Off-Heap Insular Storage (Selected)
+
 - **Description**: Use explicit Euler step integration for the 10-dimensional affective state $h(t+dt) = h(t) + dt \cdot (A \cdot h(t) + B \cdot u(t) + C \cdot 	ext{recall}(t) + \sigma \cdot w(t))$ stored in `InsularCortex`.
 - **Advantages**: Executes in < 1µs, numerically stable with state clamping to $[-1, 1]$, lightweight and deterministic.
 - **Disadvantages**: First-order approximation requiring bounded time-steps ($dt$).
@@ -44,11 +46,13 @@ Previous cognitive recall in Spector lacked homeostatic regulation and affective
 **Chosen Option**: Option 2 (Explicit Euler Integration with Off-Heap Insular Storage).
 
 ### Positive Consequences
+
 - Real-time emotional modulation of memory recall without latency penalty (< 0.1ms at 10K candidates).
 - Mood-congruent scoring via SIMD Gaussian kernel in `nucleus/spector-core`.
 - Clean backward compatibility: `HomeostaticBiasRelay` acts as a no-op if no `HomeostaticCore` is configured.
 
 ### Negative Consequences & Trade-offs
+
 - The 10×10 personal dynamics matrix ($A_{	ext{person}}$) requires off-heap space in the Insular region (400 bytes).
 - State clamping is required after each step to prevent ODE divergence under extreme inputs.
 
@@ -70,13 +74,13 @@ Previous cognitive recall in Spector lacked homeostatic regulation and affective
 
 - **Primary Module(s)**: `memory/spector-memory`, `nucleus/spector-core`
 - **Key Packages**:
-  - `com.spectrayan.spector.memory.aisme.homeostasis`
-  - `com.spectrayan.spector.core.similarity`
+    - `com.spectrayan.spector.memory.aisme.homeostasis`
+    - `com.spectrayan.spector.core.similarity`
 - **Classes**:
-  - `InteroceptiveState.java`
-  - `HomeostaticCore.java`
-  - `EmotionalRegulator.java`
-  - `AffectiveResonanceScorer.java`
-  - `HomeostaticBiasRelay.java`
-  - `AffectiveDistance.java`
+    - `InteroceptiveState.java`
+    - `HomeostaticCore.java`
+    - `EmotionalRegulator.java`
+    - `AffectiveResonanceScorer.java`
+    - `HomeostaticBiasRelay.java`
+    - `AffectiveDistance.java`
 - **Verification Tests**: `HomeostaticCoreTest.java`, `AffectiveDistanceTest.java`

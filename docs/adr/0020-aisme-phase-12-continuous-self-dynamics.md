@@ -34,11 +34,13 @@ A truly continuous cognitive entity cannot freeze its subjective state between e
 ## 4. Considered Options
 
 ### Option 1: Separate "Imagination" Memory Partition
+
 - **Description**: Create a dedicated off-heap store strictly for simulated and counterfactual memories.
 - **Advantages**: Physical isolation between real and simulated data.
 - **Disadvantages**: Prevents natural associative resonance during recall; requires duplicating index structures; breaks unified engram access.
 
 ### Option 2: Unified Engram Storage with Binary Provenance Flags & Dedicated Decay Daemon (Selected)
+
 - **Description**: Store high-alignment simulations in standard EPISODIC/SEMANTIC stores marked with `FLAG_SIMULATED` in `consolidation_flags`; bias DMN sampling by soul prior cosine similarity; run background `HomeostaticDecayDaemon`.
 - **Advantages**: Natural cognitive resonance during future recall; zero overhead for dual storage engines; continuous interoceptive dynamics.
 - **Disadvantages**: Requires consumers to inspect bitmask flags if they require strict factual filtering.
@@ -51,6 +53,7 @@ A truly continuous cognitive entity cannot freeze its subjective state between e
 
 #### D1: Durable Constructive Memory with SIMULATED Flag
 Add a `FLAG_SIMULATED` bit (bit 5, `0x20`) to the `consolidation_flags` byte in `SynapticHeaderConstants`. High-alignment constructive simulations (narrative alignment > configurable threshold, default 0.70) are persisted to the same EPISODIC/SEMANTIC memory stores with this provenance flag set.
+
 - Stored in primary memory stores rather than a separate partition so imagination naturally surfaces during associative recall.
 - `FLAG_SIMULATED` enables clean, zero-cost filtering for callers requiring verified factual ground-truth.
 
@@ -65,11 +68,13 @@ Create `HomeostaticDecayDaemon` (independent of `DmnSpontaneousDaemon`) that per
 Operates as a separate daemon to decouple relaxation schedules from spontaneous mind-wandering intervals.
 
 ### Positive Consequences
+
 - Agent imagination becomes part of long-term autobiographical identity.
 - DMN mind-wandering reflects the agent's characteristic thought patterns and core values.
 - Emotional and cognitive state naturally relaxes toward equilibrium during quiet periods.
 
 ### Negative Consequences & Trade-offs
+
 - Persisted simulations increase storage footprint (mitigated by high alignment threshold gating).
 - Background decay daemon adds one lightweight scheduled task to `DaemonSupervisor`.
 

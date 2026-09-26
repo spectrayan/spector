@@ -53,6 +53,7 @@ bus.onAny(event -> logger.debug("Telemetry: {}", event));
 ```
 
 **Design decisions:**
+
 - **Instance-based** (not static) — supports HA environments with multiple engine instances
 - **Thread-safe** — uses `CopyOnWriteArrayList` for lock-free reads during hot path
 - **No circular dependencies** — events module depends only on `spector-commons`

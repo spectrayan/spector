@@ -30,16 +30,19 @@ Treating episodic memory solely as a passive recording prevents the agent from s
 ## 4. Considered Options
 
 ### Option 1: Static Generative Priors with Ephemeral LLM Prompts
+
 - **Description**: Leave internal priors unchanged; instruct downstream LLMs via prompts to invent alternative scenarios.
 - **Advantages**: No changes to mathematical kernels or storage models.
 - **Disadvantages**: Fails to provide architectural grounding; simulations cannot be recalled or evaluated against active-inference objectives.
 
 ### Option 2: Full Online Real-Time Prior Plasticity
+
 - **Description**: Mutate $\boldsymbol{\mu}_0$ on every conversation turn using gradient steps.
 - **Advantages**: Rapid adaptation to immediate dialogue.
 - **Disadvantages**: Highly unstable; vulnerable to adversarial manipulation and rapid catastrophic forgetting of core identity.
 
 ### Option 3: Sleep-Consolidated Prior Plasticity & Constructive Simulation Relay (Selected)
+
 - **Description**: Integrate constructive simulation during recall and perform slow, bounded prior adaptation during sleep reflection.
 - **Advantages**: Stable identity maintenance; bio-mimetic consolidation; safe provenance tracking.
 - **Disadvantages**: Requires coordination between recall simulation and reflection pathways.
@@ -51,20 +54,22 @@ Treating episodic memory solely as a passive recording prevents the agent from s
 ### Key Architectural Mechanisms:
 
 1. **Constructive Episodic Simulation & Counterfactual Recombination**:
-   - Enhanced `ConstructiveSimulationRelay` to detect complementary, high-salience memories aligned with the persona's autobiographical narrative prior.
-   - Recombines complementary episodes into synthesized counterfactual scenario representations tagged `[simulated, counterfactual, constructive]` (`MemoryType.EPISODIC`, `MemorySource.REFLECTED`).
+    - Enhanced `ConstructiveSimulationRelay` to detect complementary, high-salience memories aligned with the persona's autobiographical narrative prior.
+    - Recombines complementary episodes into synthesized counterfactual scenario representations tagged `[simulated, counterfactual, constructive]` (`MemoryType.EPISODIC`, `MemorySource.REFLECTED`).
 
 2. **Generative Prior Mean Plasticity During Sleep Consolidation**:
-   - Added `withAdaptedPriorMean` in `GenerativeSelfModel` and thread-safe `adaptPriorMean` in `MentalStateTracker`.
-   - During REM sleep reflection (`SoulDriftRefusionRelay` / `ReflectPathway`), computes the moving centroid of autobiographical memories $\mathbf{c}_{\text{autobio}}$ and adapts the generative prior mean:
+    - Added `withAdaptedPriorMean` in `GenerativeSelfModel` and thread-safe `adaptPriorMean` in `MentalStateTracker`.
+    - During REM sleep reflection (`SoulDriftRefusionRelay` / `ReflectPathway`), computes the moving centroid of autobiographical memories $\mathbf{c}_{\text{autobio}}$ and adapts the generative prior mean:
      $$\boldsymbol{\mu}_0 \leftarrow (1 - \eta)\boldsymbol{\mu}_0 + \eta \mathbf{c}_{\text{autobio}}, \quad \eta = 0.005$$
 
 ### Positive Consequences
+
 - Enables counterfactual reasoning and prospective memory simulation grounded in actual past experience.
 - Generative identity drifts gracefully with life experience without abrupt personality jumps.
 - Strict provenance tags prevent confusion between factual and imagined memories.
 
 ### Negative Consequences & Trade-offs
+
 - Synthesized episodes consume storage and vector index space if persisted.
 
 ## 6. Pros and Cons of the Options

@@ -14,6 +14,7 @@ The `spector-hdc` module is an experimental module providing the first purpose-b
 
 Hyperdimensional Computing (HDC) uses high-dimensional binary vectors (typically 10,000+ bits). In this space, randomly chosen vectors are nearly orthogonal. 
 The core operations include:
+
 - **Bind**: XOR operation to combine vectors.
 - **Bundle**: Majority vote to aggregate vectors.
 - **Permute**: Cyclic shift to encode sequences.
@@ -82,6 +83,7 @@ graph TD
 ## Limitations
 
 !!! info "Limitations"
+    
     - **Lexical, not semantic**: HDC currently measures lexical overlap (like character n-grams) rather than deep semantic meaning.
     - **Experimental**: This is a labs feature and is not yet integrated into the core engine pipeline.
 

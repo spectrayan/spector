@@ -51,11 +51,13 @@ graph LR
 **Idea:** Recursively split the vector space into regions. At search time, only explore the regions near the query.
 
 **Example: KD-Trees**
+
 - Split along one dimension at each level (like cutting a map into quadrants)
 - Works well up to ~20 dimensions
 - Falls apart in high dimensions (the "curse" again)
 
 **Example: Annoy (Spotify)**
+
 - Builds random projection trees
 - Each tree splits space with random hyperplanes
 - Uses multiple trees and merges results for better recall
@@ -79,6 +81,7 @@ graph TD
 **Idea:** Cluster vectors into groups (using K-Means). At search time, only search the closest clusters.
 
 **How it works:**
+
 1. **Training:** Run K-Means to find cluster centers (centroids)
 2. **Ingestion:** Assign each vector to its nearest centroid
 3. **Search:** Find the `nprobe` closest centroids to the query, then brute-force search only those clusters
@@ -97,6 +100,7 @@ graph TD
 **Speed:** With 1000 clusters and `nprobe=10`, you search only 1% of the data.
 
 **Recall control:** The `nprobe` parameter is your recall/speed knob:
+
 - `nprobe=1` → Fast but ~30% recall (might miss neighbors in adjacent clusters)
 - `nprobe=10` → Balanced, ~85% recall
 - `nprobe=50` → Slower but ~98% recall
@@ -112,6 +116,7 @@ graph TD
 This is the most important ANN algorithm today. See our [HNSW Deep Dive](hnsw-explained.md) for the full story.
 
 **Key properties:**
+
 - **High recall** (95-99%) out of the box
 - **Fast search** — O(log n) comparisons
 - **Slow build** — each insertion requires graph updates

@@ -21,18 +21,18 @@ In the Spector Memory architecture, low-level off-heap data structures (`Abstrac
 While previous initiatives (e.g. Issue #435 / Epic #431) migrated entity and CSR graph layouts into the `kernel/layout/*` package, a comprehensive audit revealed significant tech debt in `CoActivationRecordMemory` and `HebbianGraphMemory`:
 
 1. **Leaked Byte Arithmetic & Slicing**:
-   - `CoActivationRecordMemory` frequently calculates total buffer sizing with hardcoded manual arithmetic: `8 + 32L * pairCap + 40L * edgeCap`.
-   - Slicing relies on manual offset arithmetic (`dataOffset + 8`, `dataOffset + 8 + 32L * pairCap`), bypassing `CoActivationLayout` and `AbstractHashTableMemory.tableSlice()`.
+    - `CoActivationRecordMemory` frequently calculates total buffer sizing with hardcoded manual arithmetic: `8 + 32L * pairCap + 40L * edgeCap`.
+    - Slicing relies on manual offset arithmetic (`dataOffset + 8`, `dataOffset + 8 + 32L * pairCap`), bypassing `CoActivationLayout` and `AbstractHashTableMemory.tableSlice()`.
 
 2. **Ad-Hoc Checkpoint Region & Metadata Framing**:
-   - Serialization to V4 bundle `CHECKPOINT` regions and `.meta` sidecar files uses raw offsets (`16`, `20`, `24`, `28`, `32`) and un-modeled 32-byte bandit record structs without a formal layout descriptor.
+    - Serialization to V4 bundle `CHECKPOINT` regions and `.meta` sidecar files uses raw offsets (`16`, `20`, `24`, `28`, `32`) and un-modeled 32-byte bandit record structs without a formal layout descriptor.
 
 3. **Cognitive Hyperparameter & Scoring Divergence**:
-   - `HebbianGraphMemory` field `sessionBoundaryMs` defaults to `30 * 60 * 1000L` (30 mins), directly contradicting `SpectorPropertyConstants.DEFAULT_MEMORY_HEBBIAN_SESSION_BOUNDARY_MS = 300_000L` (5 mins).
-   - Core scoring thresholds (decay retention floor `0.1f`, neutral bridge score `128`, spreading activation cutoff `0.01f`, per-hop attenuation `0.5f`) are hardcoded literals rather than configuration-backed constants.
+    - `HebbianGraphMemory` field `sessionBoundaryMs` defaults to `30 * 60 * 1000L` (30 mins), directly contradicting `SpectorPropertyConstants.DEFAULT_MEMORY_HEBBIAN_SESSION_BOUNDARY_MS = 300_000L` (5 mins).
+    - Core scoring thresholds (decay retention floor `0.1f`, neutral bridge score `128`, spreading activation cutoff `0.01f`, per-hop attenuation `0.5f`) are hardcoded literals rather than configuration-backed constants.
 
 4. **Magic Constants in Sub-Tables**:
-   - Open-addressing hash table parameters (`0.5` load factor, `10%` prune fraction, Fibonacci/SplitMix hash multipliers) in `OffHeapPairTable` and `OffHeapEdgeTable` lack centralized definitions.
+    - Open-addressing hash table parameters (`0.5` load factor, `10%` prune fraction, Fibonacci/SplitMix hash multipliers) in `OffHeapPairTable` and `OffHeapEdgeTable` lack centralized definitions.
 
 ---
 
@@ -54,14 +54,17 @@ Prior to this architectural remediation, several memory-mapped stores (notably `
 ## 4. Considered Options
 
 ### Option 1: Ad-Hoc Literal Offsets with Code Comments
+
 - Retain literal integer offsets with explanatory comments.
 - **Verdict**: Rejected. Fails to prevent regressions when fields are added, reordered, or padded.
 
 ### Option 2: Dynamic Reflection over Schema Objects
+
 - Compute layout offsets dynamically at startup using reflection.
 - **Verdict**: Rejected. Incurs startup latency overhead and prevents JIT compiler constant-folding optimizations.
 
 ### Option 3: Declarative Layout Records & Constant Classes (Selected)
+
 - Introduce strongly-typed constant classes (`CoActivationLayout`, `CoActivationMetadataLayout`, `CoActivationMetadataFields`) deriving all offsets systematically.
 - **Verdict**: Accepted. Enables full JIT inlining, guarantees alignment, and prevents schema drift.
 
@@ -225,11 +228,13 @@ public final class CoActivationMetadataLayout {
 ## 6. Pros and Cons of the Options
 
 ### Positive
+
 - **Elimination of Magic Numbers**: 100% of memory offsets centralized in declarative layout classes.
 - **Architecture Portability**: Enforced 8-byte alignment ensures fault-free execution across x86-64 and AArch64 systems.
 - **JIT Optimization**: Static final layout constants fold directly into machine code instructions.
 
 ### Negative / Trade-offs
+
 - **Refactoring Scope**: Required updating all direct memory segment getter/setter calls to use the new constant accessors.
 
 ## 7. Implementation Plan
@@ -237,16 +242,16 @@ public final class CoActivationMetadataLayout {
 ### Implementation & Migration Strategy
 
 1. **Strict Bit-for-Bit Backward Compatibility**:
-   - No binary on-disk serialization format is changed. All field offsets and strides match existing byte layouts.
-   - All existing test suites (`CoActivationRecordMemoryTest`, `HebbianGraphMemoryTest`, `HebbianGraphMemoryMigrationTest`) must pass without modifications.
+    - No binary on-disk serialization format is changed. All field offsets and strides match existing byte layouts.
+    - All existing test suites (`CoActivationRecordMemoryTest`, `HebbianGraphMemoryTest`, `HebbianGraphMemoryMigrationTest`) must pass without modifications.
 
 2. **Clean Table Delegation**:
-   - `CoActivationRecordMemory` leverages `tableSlice(layout.pairTableOffset(), ...)` and `tableSlice(layout.edgeTableOffset(pairCap), ...)`.
-   - `OffHeapPairTable` and `OffHeapEdgeTable` import field offsets from `CoActivationLayout`.
+    - `CoActivationRecordMemory` leverages `tableSlice(layout.pairTableOffset(), ...)` and `tableSlice(layout.edgeTableOffset(pairCap), ...)`.
+    - `OffHeapPairTable` and `OffHeapEdgeTable` import field offsets from `CoActivationLayout`.
 
 3. **Hyperparameter Unification**:
-   - `HebbianGraphMemory` resolves default session boundary directly from `SpectorPropertyConstants.DEFAULT_MEMORY_HEBBIAN_SESSION_BOUNDARY_MS`.
-   - Scoring parameters are tied to central constants.
+    - `HebbianGraphMemory` resolves default session boundary directly from `SpectorPropertyConstants.DEFAULT_MEMORY_HEBBIAN_SESSION_BOUNDARY_MS`.
+    - Scoring parameters are tied to central constants.
 
 ---
 
@@ -258,6 +263,7 @@ public final class CoActivationMetadataLayout {
 ## 8. Code Reference & Verification
 
 All layout constants and alignment invariants are verified in the codebase:
+
 - **Layout Definition**: `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/layout/CoActivationLayout.java`
 - **Metadata Fields Constant Class**: `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/store/field/CoActivationMetadataFields.java`
 - **Alignment Verification Suite**: `memory/spector-kernel/src/test/java/com/spectrayan/spector/kernel/layout/CoActivationLayoutTest.java`

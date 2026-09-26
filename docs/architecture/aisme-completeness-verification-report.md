@@ -17,6 +17,7 @@
 This document records the comprehensive architectural verification and implementation audit of the **Active Inference Self-Model Engine (AISME)** across all 11 foundational phases in Spector, cross-referencing mathematical specifications from ADRs 0009 through 0020 against production implementations on `main`.
 
 ### Audit Summary & Verdict
+
 - **Audit Date**: 2026-08-22
 - **Auditors**: Architecture Working Group & Test Strategy Team (cross-referenced against initial gap analysis and Technical Steering Committee Review)
 - **Verdict**: **AISME is fully implemented across all 11 phases in `spector-core` and `spector-memory`**
@@ -24,6 +25,7 @@ This document records the comprehensive architectural verification and implement
 ## 2. Problem Statement
 
 During rapid development of Spector's cognitive neuroscience substrate, complex active inference models (Friston free energy, predictive self-attunement, continuous Hopfield networks, interoceptive somatic loops, counterfactual priors) were introduced across multiple modules. A rigorous audit was necessary to ensure:
+
 1. Every mathematical formulation in ADRs 0009 through 0020 has a concrete, tested implementation in code.
 2. No orphaned stubs, ungrounded abstractions, or mock pathways remain in production JARs.
 3. The five canonical cognitive pathways (`RecallPathway`, `RememberPathway`, `ReflectPathway`, `WanderPathway`, `DreamPathway`) correctly wire and sequence their respective active inference relays.
@@ -37,10 +39,12 @@ During rapid development of Spector's cognitive neuroscience substrate, complex 
 ## 4. Considered Options
 
 ### Option 1: Partial / Gradual Verification
+
 - Verify phases piecemeal as individual bugs arise.
 - **Verdict**: Rejected. Fails to guarantee closed-loop epistemic stability or identify cross-phase state coupling bugs.
 
 ### Option 2: Comprehensive End-to-End Architectural Verification Audit (Selected)
+
 - Systematically cross-reference every phase, class, relay, and test case against the formal specification.
 - Document resolved gaps and delineate explicit future work boundaries.
 - **Verdict**: Accepted. Establishes the authoritative architectural baseline for AISME.
@@ -130,11 +134,13 @@ graph LR
 ## 6. Pros and Cons of the Options
 
 ### Positive
+
 - **Proven Architectural Completeness**: 100% of mathematical kernels and active inference relays verified in source.
 - **Subsystem Cohesion**: Clear documentation of how sensory inputs flow through episodic gating, associative pattern completion, and homeostatic regulation.
 - **Zero Technical Debt in AISME Core**: All identified gaps resolved and backed by automated unit and integration tests.
 
 ### Negative / Trade-offs
+
 - **High Architectural Surface**: 11 interacting phases require strict discipline to prevent future regressions during refactoring.
 
 ## 7. Implementation Plan
@@ -149,6 +155,7 @@ graph LR
 ## 8. Code Reference & Verification
 
 All verified classes and relays reside in production modules:
+
 - **Core Math Kernels**: `nucleus/spector-core/src/main/java/com/spectrayan/spector/core/cognitive/`
 - **Memory Relays & Pathways**: `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/` and `cortex/pathway/`
 - **Test Matrix**: Over 40 unit and simulation suites across `spector-core` and `spector-memory`.

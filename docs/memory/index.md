@@ -186,7 +186,7 @@ Spector Memory collapses the entire cognitive stack onto a **zero-overhead, off-
 
 <div class="grid cards" markdown>
 
--   :material-brain:{ .lg .middle } **System Architecture**
+- :material-brain:{ .lg .middle } **System Architecture**
 
     ---
 
@@ -194,7 +194,7 @@ Spector Memory collapses the entire cognitive stack onto a **zero-overhead, off-
 
     [:octicons-arrow-right-24: Architecture](architecture.md)
 
--   :material-lightning-bolt:{ .lg .middle } **Recall Pathway & 6-Phase Scoring**
+- :material-lightning-bolt:{ .lg .middle } **Recall Pathway & 6-Phase Scoring**
 
     ---
 
@@ -202,7 +202,7 @@ Spector Memory collapses the entire cognitive stack onto a **zero-overhead, off-
 
     [:octicons-arrow-right-24: Scoring Engine](scoring-pipeline.md)
 
--   :material-share-variant:{ .lg .middle } **3-Layer Cognitive Graph**
+- :material-share-variant:{ .lg .middle } **3-Layer Cognitive Graph**
 
     ---
 
@@ -210,7 +210,7 @@ Spector Memory collapses the entire cognitive stack onto a **zero-overhead, off-
 
     [:octicons-arrow-right-24: Cognitive Graph](association-graph.md)
 
--   :material-head-cog:{ .lg .middle } **Cognitive Subsystems**
+- :material-head-cog:{ .lg .middle } **Cognitive Subsystems**
 
     ---
 
@@ -218,7 +218,7 @@ Spector Memory collapses the entire cognitive stack onto a **zero-overhead, off-
 
     [:octicons-arrow-right-24: Start with Cortex](tiers.md)
 
--   :material-speedometer:{ .lg .middle } **Performance & SIMD**
+- :material-speedometer:{ .lg .middle } **Performance & SIMD**
 
     ---
 
@@ -226,7 +226,7 @@ Spector Memory collapses the entire cognitive stack onto a **zero-overhead, off-
 
     [:octicons-arrow-right-24: Performance](performance.md)
 
--   :material-memory:{ .lg .middle } **Off-Heap Panama Design**
+- :material-memory:{ .lg .middle } **Off-Heap Panama Design**
 
     ---
 
@@ -234,7 +234,7 @@ Spector Memory collapses the entire cognitive stack onto a **zero-overhead, off-
 
     [:octicons-arrow-right-24: Panama Design](panama-design.md)
 
--   :material-chart-bar:{ .lg .middle } **Cognitive Evaluation**
+- :material-chart-bar:{ .lg .middle } **Cognitive Evaluation**
 
     ---
 
@@ -242,7 +242,7 @@ Spector Memory collapses the entire cognitive stack onto a **zero-overhead, off-
 
     [:octicons-arrow-right-24: Evaluation & Results](evaluation.md)
 
--   :material-api:{ .lg .middle } **API Reference**
+- :material-api:{ .lg .middle } **API Reference**
 
     ---
 

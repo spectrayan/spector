@@ -44,14 +44,17 @@ Standard associative recall mechanisms face severe limitations in production cog
 ## 4. Considered Options
 
 ### Option 1: Iterative Softmax Continuous Hopfield Network
+
 - Maintain standard Demircigil/Hopfield exponential energy formulations.
 - **Verdict**: Rejected for real-time inference due to variable loop iterations and $O(N)$ energy evaluation overhead.
 
 ### Option 2: Approximate Nearest Neighbor (ANN) HNSW Probing
+
 - Rely purely on vector index traversal.
 - **Verdict**: Incomplete. ANN does not reconstruct missing features or perform holographic state synthesis.
 
 ### Option 3: Two-Tier LSR Settlement and PRF Holographic Tensor (Selected)
+
 - Use Log-Sum-ReLU (LSR) Epanechnikov energy for single-step pattern completion.
 - Maintain Positive Random Features (PRF) holographic tensor for constant-time global energy evaluation.
 - **Verdict**: Accepted. Delivers deterministic sub-100us settlement and constant-time mind-wandering.
@@ -92,11 +95,13 @@ memory/spector-memory/src/main/java/com/spectrayan/spector/memory/
 
 #### 1. Log-Sum-ReLU (LSR) Candidate Settlement:
 $$E_{\text{LSR}}(\mathbf{v}; \mathbf{X}) = -\log \sum_{i=1}^N \text{ReLU}\left(1 - \frac{\beta}{2} \|\mathbf{v} - \mathbf{x}_i\|^2\right)$$
+
 - **Exact Convergence**: Single-step ($T=1$) gradient descent reaches the exact pattern when inside its basin radius $r_c = \sqrt{2/\beta}$.
 - **Zero Transcendental CPU Cost**: Evaluated using SIMD `fma` and `FloatVector.max(0.0f)` without computing `Math.exp()`.
 
 #### 2. Positive Random Features (PRF) Holographic Memory:
 $$\mathbf{\Phi}(\mathbf{x}) = \frac{\exp\left(-\frac{\beta \|\mathbf{x}\|^2}{2}\right)}{\sqrt{Y}} \begin{bmatrix} \exp(\sqrt{\beta} \boldsymbol{\omega}_1^T \mathbf{x}) \\ \vdots \\ \exp(\sqrt{\beta} \boldsymbol{\omega}_Y^T \mathbf{x}) \end{bmatrix}, \quad \mathbf{T} = \sum_{\mu=1}^K \mathbf{\Phi}(\boldsymbol{\xi}^\mu) \in \mathbb{R}^Y$$
+
 - **Constant Time $\mathcal{O}(Y)$**: Global associative energy $\tilde{E}(\mathbf{v}; \mathbf{T}) = -\log \langle \mathbf{\Phi}(\mathbf{v}), \mathbf{T}\rangle$ is evaluated in $< 10\,\mu\text{s}$ independent of memory count $K$.
 
 ---
@@ -104,6 +109,7 @@ $$\mathbf{\Phi}(\mathbf{x}) = \frac{\exp\left(-\frac{\beta \|\mathbf{x}\|^2}{2}\
 ### 2.3 Off-Heap Memory Layout (`MemoryShape.HOLOGRAPHIC`)
 
 `DistributedMemoryTensor` allocates an off-heap Panama `MemorySegment` with a 64-byte aligned header followed by $Y$ 32-bit floating-point accumulator lanes ($Y = 2048$, 8KB footprint):
+
 - **Magic**: `0x5350454354` (`SPECT`)
 - **Version**: `0x00000001`
 - **Projection Dim ($Y$)**: 2048
@@ -115,11 +121,13 @@ $$\mathbf{\Phi}(\mathbf{x}) = \frac{\exp\left(-\frac{\beta \|\mathbf{x}\|^2}{2}\
 ## 6. Pros and Cons of the Options
 
 ### Positive
+
 - **Guaranteed Single-Step Settlement**: Mathematical proof guarantees exact retrieval in one vectorized step.
 - **Strict Energy Bounding**: Epanechnikov kernel eliminates floating-point softmax underflow and overflow.
 - **Sub-100us Execution**: Highly optimized SIMD kernel executes directly on off-heap memory segments.
 
 ### Negative / Trade-offs
+
 - **Radius Parameterization**: Requires calibrating support radius $R$ and threshold $\Delta$ according to embedding dimension.
 - **Pre-computed Random Projections**: PRF requires generating and caching orthogonal Gaussian projection matrices.
 
@@ -145,6 +153,7 @@ $$\mathbf{\Phi}(\mathbf{x}) = \frac{\exp\left(-\frac{\beta \|\mathbf{x}\|^2}{2}\
 ## 8. Code Reference & Verification
 
 All associative memory components are implemented and verified in the repository:
+
 - **Core Math Kernel**: `nucleus/spector-core/src/main/java/com/spectrayan/spector/core/cognitive/LsrHopfieldKernel.java`
 - **Memory Network Engine**: `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/hopfield/ContinuousHopfieldNetwork.java`
 - **Unit and Benchmark Verification**: `nucleus/spector-core/src/test/java/com/spectrayan/spector/core/similarity/LsrHopfieldKernelTest.java`

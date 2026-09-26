@@ -141,13 +141,13 @@ JVM-global gauges (pinned bytes, page faults, process CPU) stay untagged. They a
 - Delete `getAndReset*()` as a global scheduler API.
 - **Replace `similarityScores` `ConcurrentLinkedQueue<Double>`** with a Micrometer `DistributionSummary` (`spector.memory.recall.similarity`) tagged with `spector.namespace`. `getScoringStats()` reads the distribution snapshot from the registry instead of a hand-rolled rolling queue.
 - `getStats()` / `getScoringStats()`:
-  - resolve the bound engine
-  - cache under `memory-stats:{namespaceId}` / `scoring-stats:{namespaceId}` via existing `SpectorCache` (ADR-0076)
-  - **cache TTL is configurable** via `spector.memory.stats.cache-ttl` property (default `5s`)
-  - pull activity from `MeterRegistry` filtered by `spector.namespace`
-  - **safe fallback to zero on cold start**: if `registry.find(...)` returns `null` (no recall/remember yet), all activity fields default to `0` / `0.0` — no `NullPointerException`
-  - pull census / scoring / decay from the engine
-  - last consolidation from engine-local state (reflect report / admin), not a singleton volatile
+    - resolve the bound engine
+    - cache under `memory-stats:{namespaceId}` / `scoring-stats:{namespaceId}` via existing `SpectorCache` (ADR-0076)
+    - **cache TTL is configurable** via `spector.memory.stats.cache-ttl` property (default `5s`)
+    - pull activity from `MeterRegistry` filtered by `spector.namespace`
+    - **safe fallback to zero on cold start**: if `registry.find(...)` returns `null` (no recall/remember yet), all activity fields default to `0` / `0.0` — no `NullPointerException`
+    - pull census / scoring / decay from the engine
+    - last consolidation from engine-local state (reflect report / admin), not a singleton volatile
 - Growth queries hit the snapshot table **only if history is enabled** (see §5.5); otherwise omit the series or document "history requires Prometheus."
 
 ### 5.4.1 Changes in `TelemetryBroadcasterService`
@@ -162,6 +162,7 @@ JVM-global gauges (pinned bytes, page faults, process CPU) stay untagged. They a
       .tag("spector.namespace", namespaceId)
       .timer().map(t -> t.count() - lastRecallSnapshot) / dtSec;
   ```
+
 - The heartbeat broadcast should resolve the current namespace from `MemoryScope` or iterate cached namespaces to broadcast per-namespace telemetry.
 
 ### 5.5 Property-gated snapshot table
@@ -237,28 +238,28 @@ Stats, scoring, and growth endpoints read `MemoryBinding.current()` and return o
 
 - **Primary Module(s)**: `memory/spector-metrics`, `synapse/spector-synapse`
 - **Key Packages**:
-  - `com.spectrayan.spector.metrics`
-  - `com.spectrayan.spector.metrics.observation`
-  - `com.spectrayan.spector.synapse.memory`
-  - `com.spectrayan.spector.synapse.platform.events`
+    - `com.spectrayan.spector.metrics`
+    - `com.spectrayan.spector.metrics.observation`
+    - `com.spectrayan.spector.synapse.memory`
+    - `com.spectrayan.spector.synapse.platform.events`
 - **Classes (current, to change)**:
-  - `ObservedSpectorMemory.java` / `ObservableComponent.java` — namespace tag source
-  - `SpectorMemoryGauges.java` — bind per engine with `spector.namespace`
-  - `MemoryService.java` — delete global counters; namespace cache keys; configurable TTL
-  - `TelemetryBroadcasterService.java` — delete duplicate `AtomicLong` counters; read from `MeterRegistry`
-  - `MemoryAnalyticsScheduler.java` — `@ConditionalOnProperty`, namespace iteration
-  - `MemoryRegistry.java` / `NamespaceResolver.java` — gauge lifecycle + `cachedEntries()`
-  - `MemoryBinding.java` / `MemoryScope.java` — request vs scoped identity
+    - `ObservedSpectorMemory.java` / `ObservableComponent.java` — namespace tag source
+    - `SpectorMemoryGauges.java` — bind per engine with `spector.namespace`
+    - `MemoryService.java` — delete global counters; namespace cache keys; configurable TTL
+    - `TelemetryBroadcasterService.java` — delete duplicate `AtomicLong` counters; read from `MeterRegistry`
+    - `MemoryAnalyticsScheduler.java` — `@ConditionalOnProperty`, namespace iteration
+    - `MemoryRegistry.java` / `NamespaceResolver.java` — gauge lifecycle + `cachedEntries()`
+    - `MemoryBinding.java` / `MemoryScope.java` — request vs scoped identity
 - **Schema**: `V2__memory_analytics.sql` (baseline); next migration for namespace composite PK
 - **Related records**: ADR-0026, ADR-0034, ADR-0062, ADR-0076, ADR-0079, ADR-0080
 - **Related issues**: #355 (close), #923 (reopen — `HnswIndexMetricsBinder` not implemented)
 - **Verification Tests** (to add or extend):
-  - Two-namespace Observation series (`spector.namespace` distinct)
-  - Gauge unbind on registry eviction
-  - `getStats()` for namespace A does not return B's cache or census
-  - `MeterRegistry` activity matches remember/recall on that engine
-  - `TelemetryBroadcasterService` ops/sec reads from `MeterRegistry` (no manual counters)
-  - Snapshot query filters `namespace_id` when history enabled
-  - Snapshot scheduler does not start when `history.enabled=false`
-  - Cold-start: `getStats()` returns zeros before any remember/recall calls
+    - Two-namespace Observation series (`spector.namespace` distinct)
+    - Gauge unbind on registry eviction
+    - `getStats()` for namespace A does not return B's cache or census
+    - `MeterRegistry` activity matches remember/recall on that engine
+    - `TelemetryBroadcasterService` ops/sec reads from `MeterRegistry` (no manual counters)
+    - Snapshot query filters `namespace_id` when history enabled
+    - Snapshot scheduler does not start when `history.enabled=false`
+    - Cold-start: `getStats()` returns zeros before any remember/recall calls
 

@@ -38,16 +38,19 @@ GitHub Issue #120 originally proposed basic API rate limiting with Bucket4j. Thi
 ## 4. Considered Options
 
 ### Option 1: Ad-Hoc In-Memory Guava Rate Limiters
+
 - **Description**: Add `RateLimiter.create()` directly inside individual controllers and provider clients.
 - **Advantages**: Fast to prototype.
 - **Disadvantages**: Fragile, unconfigurable, no cluster synchronization, missing token/RPM differentiation.
 
 ### Option 2: Infrastructure / API Gateway Exclusively (Kong / Envoy)
+
 - **Description**: Delegate rate limiting entirely to external ingress proxies.
 - **Advantages**: Offloads JVM compute.
 - **Disadvantages**: Fails to protect outbound LLM API budgets, Camel ingestion polling, or internal agent execution loops.
 
 ### Option 3: Unified 5-Pillar Architecture with Bucket4j & Resilience4j (Selected)
+
 - **Description**: Standardize on a cohesive 5-pillar architecture covering inbound HTTP/SSE/MCP, outbound LLMs (RPM + TPM), Camel connectors, messaging webhooks, and pluggable Redis/Caffeine storage.
 - **Advantages**: Complete protection across all surfaces; configurable via YAML; cluster-ready; Actuator metrics integration.
 - **Disadvantages**: Requires maintaining multi-surface filter infrastructure.
@@ -130,12 +133,13 @@ Different routes require different rate-limiting envelopes:
 
 ### 3.3 HTTP 429 Response Protocol
 When a limit is violated:
+
 - **HTTP Status**: `429 Too Many Requests`
 - **Response Headers**:
-  - `Retry-After: <seconds>` (calculated from `ConsumptionProbe.getNanosToWaitForRefill()`)
-  - `X-RateLimit-Limit: <capacity>`
-  - `X-RateLimit-Remaining: 0`
-  - `X-RateLimit-Reset: <epoch-seconds>`
+    - `Retry-After: <seconds>` (calculated from `ConsumptionProbe.getNanosToWaitForRefill()`)
+    - `X-RateLimit-Limit: <capacity>`
+    - `X-RateLimit-Remaining: 0`
+    - `X-RateLimit-Reset: <epoch-seconds>`
 - **Response Body**: RFC 7807 Problem Details
   ```json
   {
@@ -154,13 +158,15 @@ When a limit is violated:
 
 ### 4.1 Dual-Dimension Token Bucket (RPM + TPM)
 Cloud LLMs enforce both Request rates and Token consumption rates:
+
 - **RPM Bucket**: Consumes 1 unit per request.
 - **TPM Bucket (Tokens Per Minute)**:
-  1. **Pre-flight Estimation**: Heuristic tokenizer calculates `estimatedTokens = (prompt.length() / 4) + options.maxTokens()`.
-  2. **Token Reservation**: Probe bucket for `estimatedTokens`. If insufficient tokens remain, queue request up to `queueTimeoutMs` (e.g. 5000ms).
-  3. **Post-call Reconciliation**: Upon receiving `LlmResponse`, extract actual `promptTokens + completionTokens`. Credit over-reserved tokens or debit under-reserved tokens against the bucket.
+    1. **Pre-flight Estimation**: Heuristic tokenizer calculates `estimatedTokens = (prompt.length() / 4) + options.maxTokens()`.
+    2. **Token Reservation**: Probe bucket for `estimatedTokens`. If insufficient tokens remain, queue request up to `queueTimeoutMs` (e.g. 5000ms).
+    3. **Post-call Reconciliation**: Upon receiving `LlmResponse`, extract actual `promptTokens + completionTokens`. Credit over-reserved tokens or debit under-reserved tokens against the bucket.
 
 ### 4.2 Concurrency Bulkhead & Backoff Failover
+
 - **Bulkhead**: `Semaphore` per provider limiting concurrent in-flight HTTP connections (e.g., max 10 concurrent requests to Claude 3.5 Sonnet).
 - **Retry with Jitter**: On upstream HTTP 429 or transient 503, parse upstream `Retry-After` header and execute full-jitter exponential backoff (up to 3 retries).
 - **Dynamic Provider Failover**: If primary provider quota is exhausted, fail over to registered secondary provider (e.g., `openai` &rarr; `anthropic` &rarr; local `ollama`).
@@ -195,6 +201,7 @@ All Camel route templates in `synapse/spector-connector` are upgraded with decla
 ```
 
 ### 5.2 Ingestion Backpressure & Circuit Breakers
+
 - Camel `Resilience4jConfiguration` applied to routes with error thresholds.
 - When `SpectorIngestionSink` detects kernel indexing queue pressure, it signals route controllers to temporarily suspend polling rather than risking out-of-memory errors.
 
@@ -203,16 +210,18 @@ All Camel route templates in `synapse/spector-connector` are upgraded with decla
 ## 6. Pillar 4: Multi-Channel Messaging Throttling
 
 ### 6.1 Inbound User Anti-Flood
+
 - Implemented in `ChannelRouter`:
-  - Token bucket keyed by `(channelId + ":" + senderId)` (e.g., `slack:U123456`).
-  - Limits message processing to 30 msgs/min per user with burst of 5.
-  - Exceeding limit triggers an in-channel notice: *"You are sending messages faster than I can process. Please wait a moment."* without invoking LLM cognition.
+    - Token bucket keyed by `(channelId + ":" + senderId)` (e.g., `slack:U123456`).
+    - Limits message processing to 30 msgs/min per user with burst of 5.
+    - Exceeding limit triggers an in-channel notice: *"You are sending messages faster than I can process. Please wait a moment."* without invoking LLM cognition.
 
 ### 6.2 Outbound Platform Pacing
+
 - Platform rate limits enforced in `CamelChannelAdapter`:
-  - **Telegram**: 30 msgs/s global, 1 msg/s per specific chat.
-  - **Slack**: 1 msg/s per webhook / bot token.
-  - **Discord**: 50 msgs/s global, 5 msgs/s per channel.
+    - **Telegram**: 30 msgs/s global, 1 msg/s per specific chat.
+    - **Slack**: 1 msg/s per webhook / bot token.
+    - **Discord**: 50 msgs/s global, 5 msgs/s per channel.
 
 ---
 
@@ -230,12 +239,12 @@ public interface RateLimitStateStore {
 Implementations:
 
 1. **`CaffeineRateLimitStateStore` (In-Memory Default)**:
-   - Uses `Bucket4j` with local `Caffeine` cache with TTL eviction (e.g. expire buckets after 10 minutes of inactivity).
-   - Zero external dependency, sub-microsecond latency, ideal for single-node deployments.
+    - Uses `Bucket4j` with local `Caffeine` cache with TTL eviction (e.g. expire buckets after 10 minutes of inactivity).
+    - Zero external dependency, sub-microsecond latency, ideal for single-node deployments.
 
 2. **`RedisRateLimitStateStore` (Distributed Cloud)**:
-   - Uses `bucket4j-redis` (Lettuce / Redisson) with atomic Redis EVAL scripts.
-   - Enables multiple Spector Synapse nodes behind AWS ALB / Kubernetes Ingress to share atomic rate limits.
+    - Uses `bucket4j-redis` (Lettuce / Redisson) with atomic Redis EVAL scripts.
+    - Enables multiple Spector Synapse nodes behind AWS ALB / Kubernetes Ingress to share atomic rate limits.
 
 ---
 
@@ -304,6 +313,7 @@ spector:
 ---
 
 ### Consequences
+
 - **Positive**: Complete defense against DoS, LLM quota exhaustion, upstream SaaS banning, and webhook floods; transparent Actuator metrics.
 - **Negative / Trade-offs**: Minor latency overhead (~10–20µs per HTTP request) for atomic token bucket deduction.
 
@@ -329,6 +339,7 @@ spector:
 ## 8. Code Reference & Verification
 
 ### 9.1 Micrometer Metrics
+
 - `spector.ratelimit.requests.total{tier="...", key_type="...", status="allowed|rejected"}`
 - `spector.ratelimit.tokens.remaining{tier="..."}`
 - `spector.ratelimit.llm.tpm.usage{provider="..."}`
@@ -336,6 +347,7 @@ spector:
 - `spector.ratelimit.wait_time.seconds`
 
 ### 9.2 Management Endpoints
+
 - `GET /actuator/ratelimits`: Returns status of all rate limiting policies, backend type, and summary statistics.
 - `POST /actuator/ratelimits/reset?key=<key>`: Allows admins to clear a throttled IP, user, or API key immediately.
 
@@ -344,6 +356,7 @@ spector:
 ---
 
 ### Code Reference & Verification Gate
+
 - **Primary Module(s)**: `synapse/spector-synapse`, `synapse/spector-connector`, `memory/spector-providers`
 - **Key Packages**: `com.spectrayan.spector.synapse.ratelimit`, `com.spectrayan.spector.connector.core`
 - **Classes**: `RateLimitFilter.java`, `RateLimitProperties.java`, `ConnectorExecutionAuditNotifier.java`

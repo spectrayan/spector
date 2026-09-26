@@ -172,6 +172,7 @@ classDiagram
 ## 2. Problem Statement
 
 Under V3 storage architecture, every cognitive partition and store opened dedicated file descriptors and distinct `MemorySegment` mappings:
+
 - 10+ open file descriptors per active namespace.
 - Inability to share a single contiguous Virtual Memory Area (VMA) across related stores.
 - High TLB overhead and memory fragmentation when scaling to thousands of concurrent tenants.
@@ -187,16 +188,19 @@ Under V3 storage architecture, every cognitive partition and store opened dedica
 ## 4. Considered Options
 
 ### Option 1: Status Quo (Individual `.smd` files per store)
+
 - **Description**: Maintain independent files for Working, Episodic, Semantic, Procedural, and Hebbian stores.
 - **Advantages**: Simple isolated file format.
 - **Disadvantages**: Severe file descriptor proliferation; TLB miss amplification; uncoordinated I/O flushing.
 
 ### Option 2: Archive Container (Tar/Zip)
+
 - **Description**: Package `.smd` files inside an uncompressed container archive.
 - **Advantages**: Single file on disk.
 - **Disadvantages**: Lacks random-access zero-copy Panama FFM slicing; requires unpacking or custom seekable I/O.
 
 ### Option 3: Single-VMA Binary Bundle Layout with Sub-Region Index (Selected)
+
 - **Description**: Multiplex multiple named regions (`RegionId`) within a single contiguous off-heap file mapping governed by a 4KB bundle header and dynamic region allocation table.
 - **Advantages**: Exactly 1 file descriptor per bundle; zero-copy sub-segment slicing; unified flush and close lifecycle.
 - **Disadvantages**: Requires region resizing protocol and internal alignment padding.
@@ -859,6 +863,7 @@ graph TB
 ---
 
 ### Code Reference & Verification Gate
+
 - **Primary Module(s)**: `memory/spector-kernel`
 - **Key Packages**: `com.spectrayan.spector.kernel.bundle`, `com.spectrayan.spector.kernel.layout`
 - **Classes**: `RuntimeBundle.java`, `PartitionBundle.java`, `RegionId.java`, `PersistenceManager.java`

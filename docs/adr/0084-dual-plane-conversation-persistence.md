@@ -348,28 +348,28 @@ classDiagram
 
 - **Primary Module(s)**: `synapse/spector-synapse`, `memory/spector-memory` (policy only)
 - **Key Packages**:
-  - `com.spectrayan.spector.synapse.agent.chat.service`
-  - `com.spectrayan.spector.synapse.agent.chat.infrastructure`
-  - `com.spectrayan.spector.synapse.agent.cognitive`
-  - `com.spectrayan.spector.kernel.api` (`MemorySource`, `MemoryType`)
+    - `com.spectrayan.spector.synapse.agent.chat.service`
+    - `com.spectrayan.spector.synapse.agent.chat.infrastructure`
+    - `com.spectrayan.spector.synapse.agent.cognitive`
+    - `com.spectrayan.spector.kernel.api` (`MemorySource`, `MemoryType`)
 - **Current classes this ADR changes**:
-  - `SpectorMemoryChatAdapter.java` — remove transcript writes
-  - `ChatMemoryPort.java` — split / deprecate
-  - `ChatService.java` — dual ports
-  - `ConversationReflector.java` — provenance + allowlist
-  - `AgentMemoryBridge.java` — detach from chat
-  - `ChatController.java` — session mutate + structured GET
+    - `SpectorMemoryChatAdapter.java` — remove transcript writes
+    - `ChatMemoryPort.java` — split / deprecate
+    - `ChatService.java` — dual ports
+    - `ConversationReflector.java` — provenance + allowlist
+    - `AgentMemoryBridge.java` — detach from chat
+    - `ChatController.java` — session mutate + structured GET
 - **New classes**:
-  - `JdbcChatTranscriptAdapter`, `JdbcCheckpointSaver`
-  - `SpectorSalientMemoryAdapter`, `MemoryTagPolicy`
-  - Flyway `Vxxx__chat_operational_plane.sql`
+    - `JdbcChatTranscriptAdapter`, `JdbcCheckpointSaver`
+    - `SpectorSalientMemoryAdapter`, `MemoryTagPolicy`
+    - Flyway `Vxxx__chat_operational_plane.sql`
 - **Verification Tests**:
-  - `JdbcChatTranscriptAdapterTest` — CRUD + event order
-  - `MemoryTagPolicyTest` — reject `session:` / tool JSON
-  - `ConversationReflectorProvenanceTest` — sources and denylist
-  - `ChatSessionApiIT` — list / rename / delete / messages
-  - `NoSessionTagsInMemoryIT` — browse after a chat turn finds zero `session:` tags
-  - `CheckpointResumeIT` — interrupt and resume a compiled graph thread
+    - `JdbcChatTranscriptAdapterTest` — CRUD + event order
+    - `MemoryTagPolicyTest` — reject `session:` / tool JSON
+    - `ConversationReflectorProvenanceTest` — sources and denylist
+    - `ChatSessionApiIT` — list / rename / delete / messages
+    - `NoSessionTagsInMemoryIT` — browse after a chat turn finds zero `session:` tags
+    - `CheckpointResumeIT` — interrupt and resume a compiled graph thread
 
 ### Invariants (must remain true)
 

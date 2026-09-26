@@ -3,6 +3,7 @@
 > **Multi-function Command-line interface (`spector`) and standalone MCP server runner for Spector.**
 
 `spector-cli` implements **`spector`**, a unified CLI packaged as the standalone runnable `spector.jar` that supports:
+
 - **MCP server** — run the Model Context Protocol server over STDIO (`spector mcp`)
 - **Local batch mode** — discover and ingest files directly into `SpectorMemory` (`spector ingest --root`)
 - **Remote mode** — manage a running Spector server via REST API (search, status, memory inspect/recall)

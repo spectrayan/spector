@@ -34,16 +34,19 @@ Without a background consolidation mechanism, cognitive memory systems encounter
 ## 4. Considered Options
 
 ### Option 1: Synchronous Ingestion-Time Abstraction
+
 - **Description**: Trigger LLM summarization and entity extraction immediately upon memory ingestion.
 - **Advantages**: Abstractions are immediately available in the semantic store.
 - **Disadvantages**: Drastically slows down ingestion throughput (adding 500–2,000ms LLM latency per write); fails to observe cross-episode patterns over time.
 
 ### Option 2: Periodic Cron-Based Batch Jobs
+
 - **Description**: Run external batch scripts once daily to process raw episodic memories.
 - **Advantages**: Simple scheduled execution.
 - **Disadvantages**: Rigid scheduling; fails to adapt to agent idle cycles; requires external job orchestration.
 
 ### Option 3: Event-Driven Cognitive Reflection Daemon (Selected)
+
 - **Description**: An internal asynchronous daemon (`ReflectDaemon`) that monitors cognitive load, queue depth, and idle intervals. During low-activity windows, it triggers the `ReflectPathway`, which selects salience-weighted episodic memories, runs counterfactual replay, updates Hebbian synaptic weights, extracts generalized semantic records, and applies power-law decay to episodic stores.
 - **Advantages**: Adapts dynamically to system load, executes biological sleep replay, extracts deep semantic associations, and maintains bounded episodic footprint.
 - **Disadvantages**: Requires state machine coordination to avoid lock contention with concurrent active writes.
@@ -53,11 +56,13 @@ Without a background consolidation mechanism, cognitive memory systems encounter
 **Chosen Option**: Option 3 (Event-Driven Cognitive Reflection Daemon).
 
 ### Positive Consequences
+
 - Zero ingestion latency overhead for complex memory abstraction.
 - Automatic extraction of long-term semantic knowledge from raw conversation streams.
 - Continuous pruning of low-importance memories ensures stable long-term storage requirements.
 
 ### Negative Consequences & Trade-offs
+
 - Background LLM API calls incur token and computational costs during reflection phases.
 - Requires optimistic read-concurrency (`StampedLock`) to safely read memories undergoing background consolidation.
 

@@ -39,14 +39,17 @@ The Remember pipeline must satisfy three core architectural requirements:
 ## 4. Considered Options
 
 ### Option 1: Monolithic Ingestion Service
+
 - A single synchronous Java service executing deduplication, vector embedding, disk append, and entity extraction sequentially.
 - **Verdict**: Rejected. Fragile, untestable in isolation, and fails completely if LLM entity extraction times out.
 
 ### Option 2: Event-Driven SEDA (Staged Event-Driven Architecture)
+
 - Place every ingestion step behind independent message queues.
 - **Verdict**: Rejected. Incurs excessive serialization overhead, complicates synchronous caller feedback (`MemoryRemember.remember()` returning the newly assigned `MemoryId`), and introduces race conditions on fast recall.
 
 ### Option 3: Declarative Synaptic Relay Pathway with Strict Resilience Contracts (Selected)
+
 - Implement the Remember pathway using the `PathwayRecipe<RememberSignal>` pattern (`RememberRecipe.java`).
 - Enforce strict error policies per relay: `FAIL_FAST` for validation and cortical writes, and `DEGRADE_GRACEFULLY` with bulkheads and circuit breakers for external enrichment.
 - **Verdict**: Accepted. Provides optimal low-latency throughput with rock-solid storage invariants.
@@ -82,40 +85,42 @@ flowchart TD
 ### 5.2 The Six Constituent Relays
 
 1. **`DEDUP_GUARD` (Deduplication Guard Relay)**:
-   - Evaluates content hashes and sliding temporal windows to detect redundant inputs.
-   - Error Policy: `FAIL_FAST` / `BYPASS`.
+    - Evaluates content hashes and sliding temporal windows to detect redundant inputs.
+    - Error Policy: `FAIL_FAST` / `BYPASS`.
 
 2. **`TAG_TRANSDUCTION` (Synaptic Tag Transduction Relay)**:
-   - Encodes string tags into 64-bit Bloom filter bitmasks and stores them directly into the 64-byte `EncodingHeader`.
-   - Error Policy: `FAIL_FAST`.
+    - Encodes string tags into 64-bit Bloom filter bitmasks and stores them directly into the 64-byte `EncodingHeader`.
+    - Error Policy: `FAIL_FAST`.
 
 3. **`DOPAMINERGIC_SURPRISE` (Dopaminergic Surprise & Novelty Relay)**:
-   - Computes temporal difference prediction error $\delta = |r - V(s)|$ and novelty salience.
-   - Adjusts initial memory importance and emotional valence before persistence.
-   - Error Policy: `FAIL_FAST`.
+    - Computes temporal difference prediction error $\delta = |r - V(s)|$ and novelty salience.
+    - Adjusts initial memory importance and emotional valence before persistence.
+    - Error Policy: `FAIL_FAST`.
 
 4. **`CORTICAL_WRITE` (Transactional Cortical Write Relay)**:
-   - Allocates memory offsets in the active partition slab, appends to `MemoryWal`, and writes to `MemorySegment`.
-   - **Resilience Contract**: Deliberately carries **NO timeout** and **NO retry**. It writes directly to mmap memory and the WAL. Neither can observe an interrupt without risking partial unmapped writes.
-   - Error Policy: `FAIL_FAST`.
+    - Allocates memory offsets in the active partition slab, appends to `MemoryWal`, and writes to `MemorySegment`.
+    - **Resilience Contract**: Deliberately carries **NO timeout** and **NO retry**. It writes directly to mmap memory and the WAL. Neither can observe an interrupt without risking partial unmapped writes.
+    - Error Policy: `FAIL_FAST`.
 
 5. **`GRAPH_LINKING` (Associative Graph & Temporal Chain Linking Relay)**:
-   - Updates Hebbian co-activation weights (`CoActivationMemory`) and links preceding episode IDs in temporal chains.
-   - Error Policy: `DEGRADE_GRACEFULLY`.
+    - Updates Hebbian co-activation weights (`CoActivationMemory`) and links preceding episode IDs in temporal chains.
+    - Error Policy: `DEGRADE_GRACEFULLY`.
 
 6. **`KG_ENRICHMENT` (Knowledge Graph & Entity Extraction Relay)**:
-   - Submits task to virtual worker pool for asynchronous NER (Named Entity Recognition).
-   - Enveloped by an **8-second timeout**, the shared `llm-provider` circuit breaker, and a **2-permit bulkhead** to prevent LLM saturation.
-   - Error Policy: `DEGRADE_GRACEFULLY`.
+    - Submits task to virtual worker pool for asynchronous NER (Named Entity Recognition).
+    - Enveloped by an **8-second timeout**, the shared `llm-provider` circuit breaker, and a **2-permit bulkhead** to prevent LLM saturation.
+    - Error Policy: `DEGRADE_GRACEFULLY`.
 
 ## 6. Pros and Cons of the Options
 
 ### Positive
+
 - **Guaranteed Durability**: Memories are safely committed to off-heap storage and the WAL before any non-deterministic external LLM calls occur.
 - **Resource Protection**: The 2-permit bulkhead prevents a burst of remember requests from exhausting LLM API limits or worker memory.
 - **Traceability**: Every relay records its execution time, status (`COMPLETED`, `SKIPPED`, `DEGRADED`), and diagnostic telemetry in `RememberResult`.
 
 ### Negative / Trade-offs
+
 - **Entity Extraction Lag**: Because KG enrichment is decoupled and bounded, deep entity graph links may appear a few hundred milliseconds after the raw memory is queryable via vector search.
 
 ## 7. Implementation Plan

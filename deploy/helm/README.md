@@ -62,6 +62,7 @@ kubectl get pods,pvc,svc,lease -n spector-cell
 # 4. Access Cortex UI and API
 kubectl port-forward -n spector-cell svc/spector-cell 7700:7700 7070:7070
 ```
+
 - **Cortex Neural Dashboard**: [`http://localhost:7700`](http://localhost:7700)
 - **Synapse API / Health**: [`http://localhost:7070/actuator/health`](http://localhost:7070/actuator/health)
 
@@ -97,6 +98,7 @@ bash deploy/helm/tests/test-manifests.sh
 ```
 
 Tests verify:
+
 - Default-deny network policies and isolation of replication port `:9090`
 - Cgroup memory symmetry (`requests.memory == limits.memory`)
 - Kernel tuning container generation (`vm.max_map_count`, `fs.file-max`)

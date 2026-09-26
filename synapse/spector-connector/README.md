@@ -27,6 +27,7 @@ All connectors are defined as declarative Apache Camel YAML route templates, dyn
 ## Supported Connectors & Protocols
 
 ### Tier 1: Direct, Local & Streaming Protocols
+
 - **`direct`**: In-memory direct route dispatch for high-throughput programmatic ingestion.
 - **`file-watch`**: Directory file watcher streaming `.txt`, `.md`, PDF, and DOCX documents with delta hashing and deduplication.
 - **`db-query`**: SQL database poller supporting H2, PostgreSQL, MySQL, and Oracle with row-level splitting and dynamic cognitive record generation.
@@ -37,6 +38,7 @@ All connectors are defined as declarative Apache Camel YAML route templates, dyn
 - **`email-notify`**: SMTP notification dispatcher for alert delivery.
 
 ### Tier 2: Enterprise SaaS Integrations
+
 - **`jira`**: Jira Cloud REST API poller with JQL filtering and `$.issues[*]` JSONPath splitting.
 - **`confluence`**: Confluence Cloud space documentation poller with `$.results[*]` JSONPath splitting.
 - **`github-ingest`**: GitHub commit and pull request stream ingestion via `$.[*]` JSONPath splitting.
@@ -47,6 +49,7 @@ All connectors are defined as declarative Apache Camel YAML route templates, dyn
 - **`slack-ingest` / `slack-notify`**: Bi-directional Slack conversation ingestion and outbound channel alerting.
 
 ### Tier 3: Event Streaming & NoSQL
+
 - **`kafka-consumer`**: Apache Kafka topic consumer for real-time event streaming.
 - **`mongodb-poll`**: MongoDB change stream & document poller.
 - **`s3-poll`**: AWS S3 bucket file poller.

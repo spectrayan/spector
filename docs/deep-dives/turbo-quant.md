@@ -115,6 +115,7 @@ TurboQuantizer tq = TurboQuantizer.calibrate(sampleVectors, 384, 4, 42L);
 ```
 
 The calibration:
+
 1. Generates a random orthogonal matrix from the seed
 2. Rotates all sample vectors
 3. Computes per-dimension min/max in the rotated space (with 5% margin)

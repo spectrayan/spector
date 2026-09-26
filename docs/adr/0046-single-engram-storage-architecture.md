@@ -97,6 +97,7 @@ Prior to this architectural decision, the transition from fixed-size legacy reco
 ---
 
 ### Option Comparison
+
 - **Option 1: Central Document Database Engine**: Replace low-level off-heap stores with a document store (e.g. SQLite/RocksDB/CBOR engine). Rejected due to query latency overhead and lack of zero-copy vector/token scans.
 - **Option 2: Standalone Header Slab (`HEADER_SLAB`)**: Maintain a central global table of all engram headers. Rejected because it introduces a second source of truth and write-synchronization bottleneck.
 - **Option 3: Four Dedicated Stores with On-Record Headers & Facade Delegation (Selected)**: Treat memories as unified engrams across 4 distinct physical stores (`EpisodicMemory`, `SemanticMemory`, `ProceduralMemory`, `WorkingMemory`), with the encoding header embedded directly on the record.
@@ -107,10 +108,10 @@ Prior to this architectural decision, the transition from fixed-size legacy reco
 
 1. Treat every durable memory as one **engram**: id + `MemoryType` + encoding header + payload + location. Faces (text, vector, strength, associations) are projections of that id. They must not be independently authoritative (MF-001 NF0 / M1).
 2. Keep **four stores**, one payload schema each. Do **not** put facts and skills in the conversation file.
-   - `EpisodicMemory` — episodes (rename of `EpisodicLogMemory`)
-   - `SemanticMemory` — facts
-   - `ProceduralMemory` — skills
-   - `WorkingMemory` — evictable thoughts
+    - `EpisodicMemory` — episodes (rename of `EpisodicLogMemory`)
+    - `SemanticMemory` — facts
+    - `ProceduralMemory` — skills
+    - `WorkingMemory` — evictable thoughts
 
 3. Place the **encoding header** on the record itself (episode prefix or fact/skill slot). Do not invent `HEADER_SLAB` as a source of truth. A derived header scan file is allowed later if walks show up in p99.
 4. Keep **strength** (`D`, `S`, use counts) off the episode record. Rename `RegionId.AUDIT` → `RegionId.STRENGTH` (keep numeric id 4) and `AuditRecordMemory` → `StrengthRecordMemory`.
@@ -343,12 +344,14 @@ The kernel already has `RECORD`, `APPEND`, `GRAPH`, `BUNDLE`. This ADR changes c
 ## 6. Pros and Cons of the Options
 
 ### Positive
+
 - **Single Source of Truth**: Eliminates index-without-payload anomalies; the engram record is the sole authority.
 - **Clean Cognitive Model**: Four dedicated stores match cognitive taxonomy without schema contamination.
 - **Predictable Performance**: Fixed-stride scans for facts/skills and streaming chunking for episodic payloads.
 - **Decoupled Facade**: `DefaultSpectorMemory` becomes a pure coordinator delegating to pathway implementations.
 
 ### Negative / Trade-offs
+
 - **Store Migration**: Existing v1 records require migration tooling to adopt the new on-record header layouts.
 - **Variable Length Record Parsing**: Requires explicit byte-length validation on reading episodic payloads to prevent buffer overflows.
 
@@ -435,11 +438,12 @@ Physical design remains outside MF-001. This ADR succeeds if the algebra closes 
 ## 8. Code Reference & Verification
 
 The single-engram, four-store architecture is verified across the codebase:
+
 - **Engram Storage Base**: `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/record/AbstractEngramMemory.java`
 - **Physical Stores**:
-  - `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/record/EpisodicMemory.java`
-  - `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/record/SemanticMemory.java`
-  - `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/record/ProceduralMemory.java`
-  - `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/record/WorkingMemory.java`
+    - `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/record/EpisodicMemory.java`
+    - `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/record/SemanticMemory.java`
+    - `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/record/ProceduralMemory.java`
+    - `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/record/WorkingMemory.java`
 - **Strength Region**: `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/record/StrengthRecordMemory.java`
 - **Ingestion & Inverted Pathways**: `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/cortex/pathway/RememberPathway.java`

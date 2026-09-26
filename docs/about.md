@@ -198,6 +198,7 @@ Drop Spector into existing Java applications without infrastructure changes. Per
 
 > [!NOTE]
 > **Choose Spector when:**
+>
 > - You want AI agents to autonomously manage their memories (MCP integration)
 > - You want sub-millisecond hybrid recall without infrastructure complexity
 > - You work in any language — connect over MCP or REST/gRPC, drive it from the Python SDK, or embed it natively in the JVM
@@ -207,6 +208,7 @@ Drop Spector into existing Java applications without infrastructure changes. Per
 
 > [!WARNING]
 > **Consider alternatives when:**
+>
 > - You need a managed cloud service with zero ops
 > - You need multi-modal retrieval across images, audio, and video out of the box
 > - You need built-in ML model serving

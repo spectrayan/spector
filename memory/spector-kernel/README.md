@@ -147,6 +147,7 @@ Synaptic tags utilize an expanded 128-bit Bloom filter occupying offsets `0x18` 
 ### 96-Byte Strength State (Strength Region)
 
 Mutable dynamics are stored in an independent 96-byte record aligned to 32 bytes within partition bundles (`RegionId.STRENGTH`):
+
 - Two-Factor storage strength $S(t) \in [1.0, 5.0]$ (Bjork & Bjork learning model)
 - ACT-R activation ring buffer: 8 relative-second timestamp history slots
 - Explicit agent reinforcement counter vs. passive auto-LTP retrieval counter

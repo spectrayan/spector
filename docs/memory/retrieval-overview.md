@@ -65,6 +65,7 @@ The RRF score for a candidate document $d$ is calculated as:
 \[RRF(d) = \sum_{m \in M} \frac{1}{k + r_m(d)}\]
 
 Where:
+
 - $M$ is the set of active retrieval modes (e.g., Vector, BM25, SPLADE).
 - $r_m(d)$ is the rank of document $d$ in retrieval mode $m$ (1-indexed). If the document is not retrieved by mode $m$, $r_m(d) = \infty$.
 - $k$ is a constant smoothing parameter (defaults to $60$).

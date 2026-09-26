@@ -30,11 +30,13 @@ Autonomous agents lack a cohesive self-model that persists and adapts across int
 ## 4. Considered Options
 
 ### Option 1: Static Prompt Injection
+
 - **Description**: Hardcode agent identity in system prompts and inject fixed persona text.
 - **Advantages**: Simple configuration.
 - **Disadvantages**: Static and brittle; cannot learn from interactions or adapt to evolving user relationships.
 
 ### Option 2: Hierarchical Predictive Coding Self-Engine (Selected)
+
 - **Description**: Maintain an off-heap `NarrativeSelfState` vector representing core beliefs, personality traits, and autobiographical milestones. At each turn, generate top-down predictions of user responses. Compute prediction error $\epsilon = y - g(\theta)$; when precision-weighted error exceeds an epistemic threshold, update narrative traits via Kalman-filtered Bayesian updates.
 - **Advantages**: Produces organic, authentic behavioral evolution; mathematically grounded in predictive coding; highly compact off-heap footprint (2 KB).
 - **Disadvantages**: Requires calibrating prediction error learning rates to avoid identity oscillations.
@@ -44,11 +46,13 @@ Autonomous agents lack a cohesive self-model that persists and adapts across int
 **Chosen Option**: Option 2 (Hierarchical Predictive Coding Self-Engine).
 
 ### Positive Consequences
+
 - Consistent autobiographical memory and character voice across long-horizon interactions.
 - Quantitative measurement of conversational surprise via prediction error tracking.
 - Self-model updates occur out-of-band without degrading dialogue response latency.
 
 ### Negative Consequences & Trade-offs
+
 - Extreme conversational shocks require dampening to prevent personality instability.
 
 ## 6. Pros and Cons of the Options

@@ -263,6 +263,7 @@ graph LR
 
 > [!WARNING]
 > Several tools mutate memory state — `memory_remember`, `memory_forget`, `memory_suppress`, `memory_reinforce`, `memory_resolve`, and `memory_scratchpad`. In production environments, consider:
+>
 > - Restricting write tools via OAuth 2.1 scopes (`memory:write`) — Spector Enterprise filters tools at `list_tools` time and enforces them per request
 > - Implementing namespace/tenant-level access control
 > - Rate limiting write operations

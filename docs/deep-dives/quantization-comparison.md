@@ -27,6 +27,7 @@ Every vector search engine faces the same fundamental problem: vectors are too b
 BBQ is Elasticsearch's answer to vector compression, introduced in version 8.16. It's a **1-bit quantization** method — each float32 dimension becomes a single bit — enhanced with asymmetric rescoring to recover lost accuracy.
 
 **How BBQ works:**
+
 1. **Quantize:** Convert each vector to binary (sign bit extraction) — 32× compression
 2. **Store metadata:** Keep per-vector correction factors (norm, mean)
 3. **First-pass search:** Use Hamming distance on binary codes (very fast)

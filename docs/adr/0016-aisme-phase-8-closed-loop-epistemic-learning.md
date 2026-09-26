@@ -30,11 +30,13 @@ Operating active inference in an open loop prevents dynamic learning. When incom
 ## 4. Considered Options
 
 ### Option 1: Asynchronous Post-Processing Worker
+
 - **Description**: Queue observations for background belief updates outside the recall request path.
 - **Advantages**: Completely isolates query latency from belief updating.
 - **Disadvantages**: Belief updates lag behind subsequent conversation turns, causing incoherence during rapid turn-taking; introduces cross-thread synchronization overhead.
 
 ### Option 2: Synchronous Epistemic Learning Relay in `RecallPathway` (Selected)
+
 - **Description**: Integrate an explicit `EpistemicLearningRelay` as Stage 16 in `RecallPathway`, executing synchronous sub-microsecond belief updates and coupling with `HomeostaticCore`.
 - **Advantages**: Immediate belief consistency across sequential turns; zero-allocation in-memory arithmetic; deterministic execution order.
 - **Disadvantages**: Adds ~0.02ms to the tail of `RecallPathway`.
@@ -46,26 +48,29 @@ Operating active inference in an open loop prevents dynamic learning. When incom
 ### Architectural Additions:
 
 1. **Epistemic Learning Relay (`EpistemicLearningRelay`)**:
-   - Integrated as Stage 16 in `RecallPathway`.
-   - Extracts the fused observation vector from retrieved candidate memories and query vectors.
-   - Updates the live variational belief state $q(s)$ via `MentalStateTracker.updateWithObservation(observation, timestamp)`.
-   - Applies exponential temporal belief decay $\boldsymbol{\mu}_t \to \boldsymbol{\mu}_0$ when idle time exceeds threshold.
-   - Numerically advances `HomeostaticCore.step(stimulus, reward, dt)` to couple sensory stimuli and memory retrieval with affective state.
+    - Integrated as Stage 16 in `RecallPathway`.
+    - Extracts the fused observation vector from retrieved candidate memories and query vectors.
+    - Updates the live variational belief state $q(s)$ via `MentalStateTracker.updateWithObservation(observation, timestamp)`.
+    - Applies exponential temporal belief decay $\boldsymbol{\mu}_t \to \boldsymbol{\mu}_0$ when idle time exceeds threshold.
+    - Numerically advances `HomeostaticCore.step(stimulus, reward, dt)` to couple sensory stimuli and memory retrieval with affective state.
 
 2. **Hebbian Co-Activation Supplier in Sleep Reflection**:
-   - Wired a dynamic supplier in `ReflectPathway.Builder` providing top co-activated Hebbian memory edge vector differences:
+    - Wired a dynamic supplier in `ReflectPathway.Builder` providing top co-activated Hebbian memory edge vector differences:
      `() -> hebbianGraph.findTopCoActivatedPairs(50, 0.4f).stream().map(edge -> vectorDifference(edge)).toList()`
-   - Enables `ManifoldConsolidationRelay` to adapt the Riemannian metric tensor $G(s)$ on each circadian sleep consolidation cycle.
+
+    - Enables `ManifoldConsolidationRelay` to adapt the Riemannian metric tensor $G(s)$ on each circadian sleep consolidation cycle.
 
 3. **System-Wide `AismeProperties` Integration**:
-   - Added first-class `AismeProperties` to `spector-config`, `spector-spring`, and `spector-synapse` for system-level YAML and environment variable configuration.
+    - Added first-class `AismeProperties` to `spector-config`, `spector-spring`, and `spector-synapse` for system-level YAML and environment variable configuration.
 
 ### Positive Consequences
+
 - True closed-loop active inference: perceptions continuously adapt internal beliefs and affective states.
 - Long-term cognitive manifold geometry dynamically reflects learned associations through sleep consolidation.
 - Fully declarative configuration via Spring Boot and standalone configuration profiles.
 
 ### Negative Consequences & Trade-offs
+
 - Slight latency addition (~20 microseconds) at the conclusion of recall pipeline execution.
 
 ## 6. Pros and Cons of the Options

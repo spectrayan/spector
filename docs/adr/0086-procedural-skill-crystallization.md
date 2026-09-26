@@ -545,36 +545,36 @@ Configuration (names illustrative): `spector.memory.skill.min-sessions`, `specto
 
 - **Primary Module(s)**: `memory/spector-memory`, `memory/spector-kernel` (provenance enum / reserved bytes only), `synapse/spector-mcp`, `synapse/spector-synapse` (formatter + MCP tool)
 - **Key Packages**:
-  - `com.spectrayan.spector.memory.pathway.skill` *(new)*
-  - `com.spectrayan.spector.memory.pathway.reflect.relay`
-  - `com.spectrayan.spector.memory.pathway.remember`
-  - `com.spectrayan.spector.commons.pathway` (`PathwayCatalog`, `PathwayComposer`)
-  - `com.spectrayan.spector.kernel.store` / `kernel.layout`
-  - `com.spectrayan.spector.mcp.util` (`ContextPackFormatter`)
+    - `com.spectrayan.spector.memory.pathway.skill` *(new)*
+    - `com.spectrayan.spector.memory.pathway.reflect.relay`
+    - `com.spectrayan.spector.memory.pathway.remember`
+    - `com.spectrayan.spector.commons.pathway` (`PathwayCatalog`, `PathwayComposer`)
+    - `com.spectrayan.spector.kernel.store` / `kernel.layout`
+    - `com.spectrayan.spector.mcp.util` (`ContextPackFormatter`)
 - **Current classes this ADR changes**:
-  - `ProceduralCrystallizationRelay.java` — dispatcher only
-  - `ReflectRecipe.java` / `ReflectPathway.java` — still lists the relay; nested SkillPathway via catalog
-  - `SpectorRuntime.java` / `DefaultSpectorMemory.java` — register `SkillPathway`
-  - `EfeTriageRelay` Dream persist path — candidates only
-  - `ContextPackFormatter.java` — compiled skill rendering
-  - `ProvenanceLayout` — `source_kind` + reserved `source_tsid`
+    - `ProceduralCrystallizationRelay.java` — dispatcher only
+    - `ReflectRecipe.java` / `ReflectPathway.java` — still lists the relay; nested SkillPathway via catalog
+    - `SpectorRuntime.java` / `DefaultSpectorMemory.java` — register `SkillPathway`
+    - `EfeTriageRelay` Dream persist path — candidates only
+    - `ContextPackFormatter.java` — compiled skill rendering
+    - `ProvenanceLayout` — `source_kind` + reserved `source_tsid`
 - **New classes** (names illustrative):
-  - `SkillPathway`, `SkillSignal`, `SkillReport`, `SkillRecipe`
-  - `ClusterAdmitRelay`, `SkillExtractRelay`, `SkillDedupRelay`, `SkillPersistRelay`, `SkillLineageRelay`, `SkillUtilityRelay`
-  - `SkillBody`, `SkillMeta`, `SkillKind`
-  - MCP spec `memory_compile_skill.json` + handler
+    - `SkillPathway`, `SkillSignal`, `SkillReport`, `SkillRecipe`
+    - `ClusterAdmitRelay`, `SkillExtractRelay`, `SkillDedupRelay`, `SkillPersistRelay`, `SkillLineageRelay`, `SkillUtilityRelay`
+    - `SkillBody`, `SkillMeta`, `SkillKind`
+    - MCP spec `memory_compile_skill.json` + handler
 - **Verification Tests**:
-  - `SkillBodyParseTest` — legacy prose, v1 fence, nested `parents`, corrupt YAML fails open
-  - `ClusterAdmitRelayTest` — k-session, valence, working-only reject, denylist
-  - `SkillDedupRelayTest` — second cluster bumps Strength, no second slot
-  - `SkillPathwayNestedRememberTest` — breaker/bulkhead; Reflect dispatcher does not Remember itself
-  - `SemanticSkillCrystallizationTest` — semantic-only heuristic + `source_kind=SEMANTIC`
-  - `MixedSkillProvenanceTest` — two rows, one `target_tsid`
-  - `DreamPragmaticDoesNotPinTest`
-  - `MemoryCompileSkillToolTest` — `DRY_RUN` vs `COMPILE`
-  - `SkillUtilityRelayTest` — no-op without outcome; delta update with reward
-  - Layout: `ProceduralLayout.SCHEMA_VERSION == 1`; header stride 64; provenance stride 72
-  - `SkillImportanceViaCalculatorTest` should assert signal.header() is null at entry to DopaminergicSurpriseRelay and FLAG_CRYSTALLIZED is set on the written header — that pins both halves of the invariant.
+    - `SkillBodyParseTest` — legacy prose, v1 fence, nested `parents`, corrupt YAML fails open
+    - `ClusterAdmitRelayTest` — k-session, valence, working-only reject, denylist
+    - `SkillDedupRelayTest` — second cluster bumps Strength, no second slot
+    - `SkillPathwayNestedRememberTest` — breaker/bulkhead; Reflect dispatcher does not Remember itself
+    - `SemanticSkillCrystallizationTest` — semantic-only heuristic + `source_kind=SEMANTIC`
+    - `MixedSkillProvenanceTest` — two rows, one `target_tsid`
+    - `DreamPragmaticDoesNotPinTest`
+    - `MemoryCompileSkillToolTest` — `DRY_RUN` vs `COMPILE`
+    - `SkillUtilityRelayTest` — no-op without outcome; delta update with reward
+    - Layout: `ProceduralLayout.SCHEMA_VERSION == 1`; header stride 64; provenance stride 72
+    - `SkillImportanceViaCalculatorTest` should assert signal.header() is null at entry to DopaminergicSurpriseRelay and FLAG_CRYSTALLIZED is set on the written header — that pins both halves of the invariant.
 
 ### Invariants (must remain true)
 

@@ -34,6 +34,7 @@ flowchart LR
 ### Graceful Signal Draining
 
 On `docker stop` or Kubernetes pod eviction (`SIGTERM`), `entrypoint.sh` traps the signal to guarantee zero data loss:
+
 1. Nginx is ordered to quit (`nginx -s quit`), immediately closing external client ingress.
 2. `SIGTERM` is forwarded to the Java PID, triggering Spector's internal JVM shutdown hook.
 3. Spector finishes in-flight requests, flushes all dirty off-heap Panama memory pages (`vectors.mmap`), closes open WAL chunk files, and exits cleanly.

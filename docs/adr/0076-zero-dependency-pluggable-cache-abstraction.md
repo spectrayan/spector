@@ -15,6 +15,7 @@
 ## 1. Context
 
 Across Spector subsystems, caching is essential for microsecond latency:
+
 - In `spector-index`, tokenized BM25 query terms and HNSW entry points require fast lookups.
 - In `spector-memory`, ColBERT multi-vector token embeddings and episodic deduplication hashes must avoid repeated computation.
 - In `spector-cluster`, namespace lease ownership and routing tables require sub-millisecond resolution with TTL invalidation.
@@ -38,14 +39,17 @@ Spector requires a caching architecture that meets three strict criteria:
 ## 4. Considered Options
 
 ### Option 1: Direct Dependency on Caffeine
+
 - Add `com.github.ben-manes.caffeine:caffeine` to `spector-commons`.
 - **Verdict**: Rejected for the foundation module. While Caffeine is exceptionally fast, adding third-party bytecode to `spector-commons` violates zero-dependency architectural rules and complicates Panama FFM integration on non-standard JVM builds.
 
 ### Option 2: Java Standard Map (`ConcurrentHashMap`) Directly
+
 - Use raw `ConcurrentHashMap` instances wherever caching is needed.
 - **Verdict**: Rejected. Lacks TTL expiration, has no eviction policies, creates memory leaks in long-running daemons, and cannot be monitored or swapped for Redis.
 
 ### Option 3: Zero-Dependency `SpectorCache` SPI with Built-in TTL Concurrent Engine (Selected)
+
 - Define a lightweight SPI (`SpectorCache`, `SpectorCacheManager`).
 - Ship a native, zero-dependency `TtlConcurrentMapCache` in `spector-commons`.
 - Allow downstream enterprise modules (`spector-cluster`, `spector-synapse`) to provide Redis or Caffeine implementations.
@@ -90,6 +94,7 @@ graph TD
 ### 5.2 The Built-in `TtlConcurrentMapCache`
 
 The default implementation (`TtlConcurrentMapCache.java`) delivers thread-safe TTL caching using pure Java SE:
+
 - Backed by `ConcurrentHashMap<String, CacheEntry>`.
 - Entries record a creation timestamp and monotonic millisecond expiration point ($t_{\\text{expire}} = t_{\\text{now}} + \\text{TTL}$).
 - Reads verify expiration non-blockingly; expired entries are lazily removed upon access.
@@ -109,11 +114,13 @@ List<float[]> tokenVectors = cache.get(
 ## 6. Pros and Cons of the Options
 
 ### Positive
+
 - **Zero Transitive Baggage**: Applications embedding `spector-core` or `spector-commons` bring zero third-party JARs.
 - **Predictable Garbage Collection**: Standalone caches avoid complex background eviction threads unless explicitly configured.
 - **Uniform Key Generation**: `SpectorCacheKeyGenerator` provides consistent hashing across parameters, arrays, and complex records.
 
 ### Negative / Trade-offs
+
 - **Simpler Eviction**: The default `TtlConcurrentMapCache` implements TTL expiration but not W-TinyLFU eviction. High-churn working sets requiring advanced frequency eviction use the Caffeine adapter in `spector-synapse`.
 
 ## 7. Implementation Plan

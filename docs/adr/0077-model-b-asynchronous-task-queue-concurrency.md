@@ -15,6 +15,7 @@
 ## 1. Context
 
 Spector coordinates diverse background workloads:
+
 - Asynchronous knowledge graph entity extraction and Hebbian link updates
 - Write-Ahead Log truncation and background memory segment synchronization
 - Sleep reflection sweeps and episodic gist abstraction
@@ -44,14 +45,17 @@ Spector requires an enterprise-grade concurrency and task execution model that s
 ## 4. Considered Options
 
 ### Option 1: Unmanaged Global Virtual Thread Pool
+
 - Use `Executors.newVirtualThreadPerTaskExecutor()` as a library singleton.
 - **Verdict**: Rejected. Incompatible with container shutdown, leaks threads in test harnesses, and lacks backpressure bounds.
 
 ### Option 2: Raw Java `ThreadPoolExecutor` Instances per Subsystem
+
 - Instantiate dedicated fixed thread pools for ingestion, reflection, and indexing.
 - **Verdict**: Rejected. Pins OS carrier threads on blocking I/O, creates thread explosion across multiple tenants, and ignores modern Java 25 virtual thread capabilities.
 
 ### Option 3: Model B `SpectorTaskQueue` with Scoped Context Propagation (Selected)
+
 - Implement `SpectorTaskQueue<T>` adhering to Model B (submit-only).
 - Enforce priority and FIFO sequence ordering.
 - Propagate Java 25 `ScopedValue` context via `ScopedTask<T>`.
@@ -92,31 +96,33 @@ flowchart TD
 ### 5.2 Key Capabilities of `SpectorTaskQueue`
 
 1. **Model B Executor Integration**:
-   - The queue never invokes `new Thread()`. On startup, it submits its processing loop onto the configured `Executor`.
+    - The queue never invokes `new Thread()`. On startup, it submits its processing loop onto the configured `Executor`.
 
 2. **Dual Ordering (Priority + Monotonic FIFO)**:
-   - Tasks are prioritized by `TaskPriority` (`CRITICAL`, `HIGH`, `NORMAL`, `LOW`).
-   - Monotonic 64-bit sequence counters ensure strict FIFO tiebreaking within the same priority level, eliminating thread starvation.
+    - Tasks are prioritized by `TaskPriority` (`CRITICAL`, `HIGH`, `NORMAL`, `LOW`).
+    - Monotonic 64-bit sequence counters ensure strict FIFO tiebreaking within the same priority level, eliminating thread starvation.
 
 3. **Scoped Context Propagation (`ScopedTask<T>`)**:
-   - When a task is queued, `MemoryScope.snapshot()` captures current `ScopedValue` bindings (tenant, namespace, authorization).
-   - The worker executes inside `MemoryScope.runWithSnapshot()`, guaranteeing complete isolation and restoration.
+    - When a task is queued, `MemoryScope.snapshot()` captures current `ScopedValue` bindings (tenant, namespace, authorization).
+    - The worker executes inside `MemoryScope.runWithSnapshot()`, guaranteeing complete isolation and restoration.
 
 4. **Batch Drain Lock Amortization**:
-   - Instead of locking per task, workers drain up to `batchDrainSize` (default: 32) tasks in a single operation, drastically reducing synchronization contention on shared memory segments.
+    - Instead of locking per task, workers drain up to `batchDrainSize` (default: 32) tasks in a single operation, drastically reducing synchronization contention on shared memory segments.
 
 5. **Transient Retries & Graceful Drain**:
-   - Configurable exponential backoff retries for transient IO failures.
-   - `close()` pauses new submissions and drains remaining tasks up to `drainTimeoutMs`.
+    - Configurable exponential backoff retries for transient IO failures.
+    - `close()` pauses new submissions and drains remaining tasks up to `drainTimeoutMs`.
 
 ## 6. Pros and Cons of the Options
 
 ### Positive
+
 - **Host Harmony**: Fully compliant with enterprise application servers and container orchestrators.
 - **Security & Multi-Tenancy**: Context propagation prevents cross-tenant data contamination.
 - **High Throughput**: Batch drain amortization yields up to 4.2x higher throughput under burst conditions compared to single-task locking.
 
 ### Negative / Trade-offs
+
 - **Caller Coordination**: The embedding application must provide an `Executor` (though a sensible virtual thread fallback is provided if omitted).
 
 ## 7. Implementation Plan

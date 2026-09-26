@@ -132,11 +132,11 @@ spector-memory/
 
 Spector Memory uses a unified **Memory Kernel** abstraction (`Memory<Layout>`) that standardizes all persistent and volatile storage structures using Project Panama's Foreign Function & Memory API. Rather than implementing individual binary layouts from scratch, every subsystem maps to a standardized kernel **Shape**:
 
-*   **`RecordMemory`**: Fixed-size contiguous slots used by the cognitive tiers (`Working`, `Semantic`, and `Procedural` stores) and `CoActivationTracker`. Partitioning across episodic bundles is managed by `PartitionManager` (the legacy monolithic `PartitionedRecordMemory` shape was retired in favor of modular `PartitionBundle` files per ADR-0002).
-*   **`AppendMemory`**: Append-only log arrays with cursor offsets, backing `TextDataStore` and the Write-Ahead Log.
-*   **`RegistryMemory`**: Open-schema string-to-int mapping used for metadata serialization (`TypeRegistry`).
-*   **`GraphMemory`**: CSR (Compressed Sparse Row) and slab-allocated structures backing the `EntityGraph` and `HebbianGraph`.
-*   **`ChainMemory`**: Causal sequence structures backing the `TemporalChain`.
+* **`RecordMemory`**: Fixed-size contiguous slots used by the cognitive tiers (`Working`, `Semantic`, and `Procedural` stores) and `CoActivationTracker`. Partitioning across episodic bundles is managed by `PartitionManager` (the legacy monolithic `PartitionedRecordMemory` shape was retired in favor of modular `PartitionBundle` files per ADR-0002).
+* **`AppendMemory`**: Append-only log arrays with cursor offsets, backing `TextDataStore` and the Write-Ahead Log.
+* **`RegistryMemory`**: Open-schema string-to-int mapping used for metadata serialization (`TypeRegistry`).
+* **`GraphMemory`**: CSR (Compressed Sparse Row) and slab-allocated structures backing the `EntityGraph` and `HebbianGraph`.
+* **`ChainMemory`**: Causal sequence structures backing the `TemporalChain`.
 
 All memory operations are journaled to the WAL at the kernel shape level, enabling complete state reconstruction on startup via `WalRecoveryDispatcher`.
 
@@ -201,6 +201,7 @@ Phase 6: Fused Score         (~7 cycles)   → α·similarity + β·importance·
 
 **The math:**
 If an agent has 1,000,000 episodic memories but only 10,000 match the active synaptic tags:
+
 - Phases 1-4 eliminate 990,000 memories in ~990µs (cheap header reads)
 - Phase 5 computes SIMD distance on only ~10,000 candidates
 - **Total: Ultra-fast in-process scan vs ~200ms without gating**

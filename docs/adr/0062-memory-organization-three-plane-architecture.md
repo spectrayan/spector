@@ -441,6 +441,7 @@ The product change is N rememberers per login. The architectural change is that 
 ---
 
 ### Evaluated Alternatives
+
 - **Option 1: Single Flat Directory Structure**: Store all tenant databases directly in a single root directory. Rejected due to severe filesystem inode exhaustion and directory lock contention.
 - **Option 2: Monolithic Centralized Database**: Store all tenant memories, identities, and metadata in a central relational database. Rejected because it eliminates off-heap Panama zero-copy performance and introduces a single point of failure.
 - **Option 3: Formal Three-Plane Architecture with Hashed Directory Sharding (Selected)**: Catalog Plane (global registration), Identity Plane (persona definitions), and Data Plane (memory-mapped bundle files in sharded directories). Accepted.
@@ -1490,6 +1491,7 @@ This section is the revision log for reviewers (Claude / Forge / Project Lead). 
 ## 8. Code Reference & Verification
 
 All three planes and resolution algorithms are implemented and verified across the codebase:
+
 - **Namespace Resolution & Sharding**: `synapse/spector-synapse/src/main/java/com/spectrayan/spector/synapse/identity/IdentityPaths.java`
 - **Identity Plane**: `synapse/spector-synapse/src/main/java/com/spectrayan/spector/synapse/identity/IdentityPlane.java`
 - **Memory Namespace Management**: `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/namespace/SpectorNamespaceManager.java`

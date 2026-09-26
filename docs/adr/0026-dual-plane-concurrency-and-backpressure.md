@@ -102,11 +102,11 @@ Adopt **revised Option 3**.
 2. **Every unit of work is classified onto exactly one `ThreadPlane` before submission.** Mixed-plane methods are split at the call site.
 3. **Hosts implement `SpectorExecutorProvider`.** Spring, standalone, MCP, and tests each ship one. Discovery: explicit install, then `ServiceLoader`, then `DefaultExecutorProvider`.
 4. **Provisioning, queuing, scheduling, and monitoring do not share types.**
-   - Provisioning → `SpectorExecutorProvider`
-   - Queuing → `SpectorTaskQueue` / `TaskQueueManager`
-   - Scheduling → `QuartzMemoryScheduler` + `SpectorQuartzThreadPool`
-   - Task observability → `QueueMetrics` / `DaemonStatus` (library)
-   - Pool observability → Micrometer / `ThreadMonitor` (host)
+    - Provisioning → `SpectorExecutorProvider`
+    - Queuing → `SpectorTaskQueue` / `TaskQueueManager`
+    - Scheduling → `QuartzMemoryScheduler` + `SpectorQuartzThreadPool`
+    - Task observability → `QueueMetrics` / `DaemonStatus` (library)
+    - Pool observability → Micrometer / `ThreadMonitor` (host)
 
 5. **One close budget. One happens-before list. Arenas close last.**
 6. **Backpressure lives on one layer per path**, not on both the queue and the executor.
@@ -716,6 +716,7 @@ The library does not grow a watchdog for host pools. The host does not reimpleme
 Not "~15 memory call sites." Treat this list as the definition of done.
 
 ### `spector-commons`
+
 - `ConcurrentTasks` — remove global executor; route fire-and-forget; delete process-global `shutdown`
 - `SpectorTaskQueue` — Model B, bounded buffer, `BLOCK`, correct `DROP_OLDEST`, batch drain, plane on config
 - `TaskQueueConfig` / `BackpressurePolicy`
@@ -725,9 +726,11 @@ Not "~15 memory call sites." Treat this list as the definition of done.
 - New: `ThreadPlane`, `SpectorExecutorProvider`, `AbstractExecutorProvider`, `DefaultExecutorProvider`, `SpectorExecutors`, `DrainResult`, `@OnPlane`
 
 ### `spector-events`
+
 - `EventBus` async path → `VIRTUAL`
 
 ### `spector-memory`
+
 - `AsyncEntityExtractionQueue` — split extract / sync
 - `EagerConsolidator` — `PLATFORM_WRITER`, `ofBatched`, `BLOCK`
 - `DefaultSpectorMemory` circadian trigger — writer executor, not `fireAndForget(reflect)`
@@ -738,16 +741,19 @@ Not "~15 memory call sites." Treat this list as the definition of done.
 - `DaemonSupervisorBuilder` — pass provider + planes
 
 ### `spector-synapse`
+
 - `SynapseExecutorConfig` beans + `SpectorExecutors.install`
 - Remove extra VT executors in `MemoryService`, `MemoryAccessObject`, `ConversationReflector`
 - Quartz `Scheduler` bean uses `SpectorQuartzThreadPool`
 - Actuator gauges for writer queue depth and Quartz `inFlight`
 
 ### `spector-bench` / CLI / MCP kernel
+
 - Install `DefaultExecutorProvider` or `StandaloneExecutorProvider` at process start
 - Optional `ThreadMonitor`
 
 ### Tests
+
 - `SpectorTaskQueueTest`, stress tests, `VirtualThreadPoolTest`, `QuartzMemorySchedulerTest`, `MemoryScopeTest` fire-and-forget scope propagation
 - New: drain-before-arena test that fails if a writer touches a segment after step 5
 - New: plane-routing test for Quartz jobs
@@ -778,6 +784,7 @@ Not "~15 memory call sites." Treat this list as the definition of done.
 ## 8. Code Reference & Verification
 
 ### Positive
+
 - Spring, standalone, MCP, and tests share one contract. New hosts implement one interface.
 - Writer serialization is structural (single-thread executor + batch lock), not accidental (`DisallowConcurrentExecution` on one job key).
 - Quartz can no longer schedule a checkpoint `force()` onto a virtual carrier while extract workers hold the same slab.
@@ -786,6 +793,7 @@ Not "~15 memory call sites." Treat this list as the definition of done.
 - Pool sizing and graceful shutdown become host configuration — where they belong.
 
 ### Negative
+
 - Real migration across commons, events, memory, synapse, bench — larger than the original estimate.
 - Hosts can still mis-map planes. Mitigation: writer queues reject `VIRTUAL` executors when `config.plane() == PLATFORM_WRITER` if the provider exposes `Thread.currentThread().isVirtual()` on a probe task at bind time (debug/assert mode).
 - SPI growth still requires host updates. Mitigation: `AbstractExecutorProvider` default methods.
@@ -793,6 +801,7 @@ Not "~15 memory call sites." Treat this list as the definition of done.
 - Fail-open unmap after a drain timeout can still throw if a leaked task ignores the façade closed flag. Mitigation: segment access checks a generation stamp on `RuntimeBundle`.
 
 ### Risks and non-goals
+
 - **Non-goal:** replacing Quartz. We route its execution; we do not rewrite scheduling.
 - **Non-goal:** a library-level thread dump / watchdog UI.
 - **Risk:** `BLOCK` on a writer queue invoked from the writer thread → deadlock. Rule: writer-plane tasks never submit `BLOCK` work to the same writer pool. Extract→sync handoff uses `REJECT_FAST` or an internal unbounded handoff bounded by extract parallelism.
@@ -818,6 +827,7 @@ Not "~15 memory call sites." Treat this list as the definition of done.
 ---
 
 ### Code Reference & Verification Gate
+
 - **Primary Module(s)**: `nucleus/spector-commons`, `memory/spector-memory`, `synapse/spector-synapse`
 - **Key Packages**: `com.spectrayan.spector.commons.concurrent`, `com.spectrayan.spector.memory.scheduler`
 - **Classes**: `SpectorExecutorProvider.java`, `TaskQueueManager.java`, `SpectorTaskQueue.java`, `SpectorQuartzThreadPool.java`, `DefaultSpectorMemory.java`

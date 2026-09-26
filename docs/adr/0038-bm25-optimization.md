@@ -36,16 +36,19 @@ Detailed code analysis of `BM25Index` and `StandardAnalyzer` surfaced five prima
 ## 4. Considered Options
 
 ### Option 1: External Lucene Integration
+
 - **Description**: Delegate lexical indexing and search to Apache Lucene.
 - **Advantages**: Battle-tested open-source search engine.
 - **Disadvantages**: Heavy dependency weight; complex off-heap memory coordination with Panama FFM; significant heap churn during score fusion.
 
 ### Option 2: Dense-Only Retrieval (Deprecate BM25)
+
 - **Description**: Rely purely on vector embeddings and ColBERT MaxSim reranking.
 - **Advantages**: Eliminates lexical index maintenance.
 - **Disadvantages**: Severe regression on exact identifiers, function names, and rare lexical tokens (e.g. error codes, hash prefixes).
 
 ### Option 3: Zero-Allocation Fast-Path BM25 Architecture (Selected)
+
 - **Description**: Precompute length normalization at index time, use thread-local sparse accumulators, implement a single-pass zero-regex tokenizer, and adaptively bypass virtual-thread scheduling on small-to-medium corpora.
 - **Advantages**: Drops latency from 3.0ms to < 0.35ms; zero heap allocation; 100% score identicality.
 - **Disadvantages**: Custom tokenizer maintenance for non-Latin character sets.
@@ -95,6 +98,7 @@ This eliminates document length array lookups, inner multiplications, and divisi
 
 #### Decision 2: Zero-Allocation `ThreadLocal<SparseScoreAccumulator>`
 We implement a thread-local reusable accumulator structure:
+
 - Pre-allocated `float[] scores` (grown dynamically as corpus expands).
 - `int[] touchedIndices` tracking actively scored document indices.
 - `int touchedCount` for $O(\text{hits})$ top-K extraction and $O(\text{hits})$ buffer resetting.
@@ -102,6 +106,7 @@ We implement a thread-local reusable accumulator structure:
 
 #### Decision 3: Single-Pass Fast Tokenizer & Zero-Regex Parsing
 Replace `StandardAnalyzer`'s `Pattern.compile("[\\p{L}\\p{N}]+");` with an optimized single-pass ASCII/UTF-8 char walker:
+
 - In-place case normalization (`c |= 0x20` for ASCII A-Z).
 - Compact static set / switch filter for common English stop words.
 - Emits tokens with minimal heap allocations.
@@ -113,11 +118,13 @@ Eliminate virtual thread `forkJoinAll` overhead when the corpus size is under 50
 Streamline rank assignment during lexical-vector fusion in `RecallCandidateGatherer` to eliminate unnecessary intermediate map instantiations.
 
 ### Positive Consequences
+
 - BM25 search latency drops from **~3.0 ms to < 0.35 ms** (~8.5× speedup).
 - Completely eliminates GC allocations during lexical search.
 - Exact parity with canonical BM25 scoring rankings.
 
 ### Negative Consequences & Trade-offs
+
 - In-memory `docLenNorm` array consumes 4 bytes per indexed document (~4 MB per 1M docs).
 
 ## 6. Pros and Cons of the Options

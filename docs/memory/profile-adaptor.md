@@ -44,11 +44,13 @@ When a query is received with `profile=auto`, the system extracts the search tag
 
 ### 2. Epsilon-Greedy Selection
 To balance utilizing known successful profiles (exploitation) with discovering potentially better ones (exploration), the system uses an **Epsilon-Greedy** strategy with $\epsilon = 10\%$:
+
 * **Exploitation (90% of the time):** The system selects the profile that currently has the highest Exponential Moving Average (EMA) positive rate for this context.
 * **Exploration (10% of the time):** The system selects a random profile to gather new data.
 
 ### 3. Cold Start Fallback
 Before the system has sufficient data to make statistical decisions, it uses a fallback mechanism:
+
 * If a context hash has fewer than **10 reinforcement signals**, the system falls back to the default profile configured in the `SalienceProfile`, and finally to `BALANCED`.
 
 ### 4. Reinforcement Learning
@@ -61,6 +63,7 @@ $$
 $$
 
 Where:
+
 * $\alpha = 0.15$ is the learning rate blending factor.
 * $\text{reward} = 1.0$ for positive reinforcement, and $0.0$ for negative reinforcement.
 

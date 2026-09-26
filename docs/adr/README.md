@@ -9,6 +9,7 @@ Spector operates a **Living ADR Framework** governed under transparent, open-sou
 ## 1. What is an Architecture Decision Record (ADR)?
 
 An **Architecture Decision Record (ADR)** is a lightweight, version-controlled document that captures a single significant architectural decision, including:
+
 - The context and problem statement.
 - The forces and constraints driving the choice.
 - The alternative designs and technologies considered.
@@ -51,20 +52,20 @@ Not every code change requires an ADR. Routine bug fixes, minor refactorings, te
 An ADR is **strictly mandatory** for any change that impacts:
 
 1. **Storage Layouts & Binary Serialization**:
-   - Off-heap memory layouts (Panama FFM `MemoryLayout`, struct offsets, cache-line alignment).
-   - Bundle formats, serialization headers, file descriptors, or index codecs (`.smkm`, `.hnsw`, `.ivf`).
+    - Off-heap memory layouts (Panama FFM `MemoryLayout`, struct offsets, cache-line alignment).
+    - Bundle formats, serialization headers, file descriptors, or index codecs (`.smkm`, `.hnsw`, `.ivf`).
 2. **Network Protocols & Wire Contracts**:
-   - Distributed cluster protocols, waterfall routing algorithms, leader leases, and fencing tokens.
-   - REST/SSE wire formats, streaming chunker protocols, or Anthropic Model Context Protocol (MCP) tool schemas.
+    - Distributed cluster protocols, waterfall routing algorithms, leader leases, and fencing tokens.
+    - REST/SSE wire formats, streaming chunker protocols, or Anthropic Model Context Protocol (MCP) tool schemas.
 3. **Public APIs & Subsystem Boundaries**:
-   - Additions or breaking changes to public interfaces in `nucleus/spector-commons`, `nucleus/spector-core`, or `memory/spector-kernel`.
-   - New cognitive pathways (`Pathway<I, O>`), kernel shapes (`MemoryShape`), or accelerator SPIs (`ComputeAccelerator`).
+    - Additions or breaking changes to public interfaces in `nucleus/spector-commons`, `nucleus/spector-core`, or `memory/spector-kernel`.
+    - New cognitive pathways (`Pathway<I, O>`), kernel shapes (`MemoryShape`), or accelerator SPIs (`ComputeAccelerator`).
 4. **Major Dependencies & Platform Evolution**:
-   - Java platform runtime upgrades (e.g., Project Valhalla, Panama Vector incubator updates).
-   - Major framework introductions or replacements (Spring AI, Apache Camel, Armeria).
+    - Java platform runtime upgrades (e.g., Project Valhalla, Panama Vector incubator updates).
+    - Major framework introductions or replacements (Spring AI, Apache Camel, Armeria).
 5. **Security, Privacy & Multi-Tenant Isolation Models**:
-   - Differential privacy kernels, PII redaction engines, prompt injection filters.
-   - Namespace boundary enforcement, cell-level isolation, or authentication/authorization mechanics.
+    - Differential privacy kernels, PII redaction engines, prompt injection filters.
+    - Namespace boundary enforcement, cell-level isolation, or authentication/authorization mechanics.
 
 ---
 
@@ -85,6 +86,7 @@ cp docs/adr/0000-template.md docs/adr/XXXX-my-new-architectural-decision.md
 
 ### Step 3: Populate All Required Sections
 Fill out the document completely:
+
 - Prepend the standardized open-source metadata table:
   ```markdown
   | Field | Value |
@@ -97,6 +99,7 @@ Fill out the document completely:
   | **Superseded By** | None |
   | **Last Verified** | YYYY-MM-DD |
   ```
+
 - Strictly use **vendor-neutral open-source roles** (*Project Lead*, *Technical Lead*, *Architecture Working Group*, *TSC*, *Maintainers*, *Committers*). Never include corporate or commercial executive titles.
 - Articulate the Problem Statement, Decision Drivers, Evaluated Options, Decision Outcome, and Concrete Code References.
 

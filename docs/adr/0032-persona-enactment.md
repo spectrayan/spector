@@ -67,16 +67,19 @@ Despite these state-of-the-art memory physics, previous persona enactment suffer
 ## 4. Considered Options
 
 ### Option 1: Cosmetic System Prompt Injection ("Prompt Engineering")
+
 - **Description**: Inject descriptive personality adjectives and tone instructions into the LLM system prompt.
 - **Advantages**: Fast to prototype; zero cognitive architecture required.
 - **Disadvantages**: The Cosmetic Prompt Fallacy — the LLM caricatures the persona's vocabulary while its underlying decision-making defaults to the generic, agreeable base model prior.
 
 ### Option 2: Discrete Behavioral State Machine ("Skinnerian Lookup Table")
+
 - **Description**: Reduce situations to a fixed enum (`situation.kind`) and dispatch hardcoded moves (`ASK | FIX | CONTAIN...`).
 - **Advantages**: Deterministic branching.
 - **Disadvantages**: The Skinnerian Behaviorist Fallacy — real human decisions are not discrete lookup tables; two people choosing `FIX` act completely differently depending on underlying mental models and risk tolerances.
 
 ### Option 3: AISME-Conditioned Dual-Process Bounded Deliberation (Selected)
+
 - **Description**: Fast sub-millisecond memory physics (Hopfield attractors, VAD affective SDE, Expected Free Energy policy evaluation) establish non-negotiable boundaries, cognitive dogmas, and affective state. The LLM then performs bounded System 2 deliberation within those bounds under explicit epistemic tense (`FACT`, `SIM`, `REPLAY`).
 - **Advantages**: Deep cognitive fidelity; authentic personal decision-making; fail-closed tool gating; slow consolidation prevents identity drift.
 - **Disadvantages**: Multi-stage pipeline execution across Synapse and Memory.
@@ -155,6 +158,7 @@ flowchart TD
 
 ### D1. Soul is Policy over Memory, Powered by AISME
 A soul document is not a prompt string. It is a generative specification comprising:
+
 - Top-down prior preferences $p(o)$ in embedding space (`GenerativeSelfModel`).
 - Inherent emotional baseline and SDE regulation rates (`HomeostaticCore`, `EmotionalRegulator`).
 - Content-addressable attractor basins representing core dogma (`ContinuousHopfieldNetwork`).
@@ -190,12 +194,14 @@ public record CognitiveAppraisal(
 ```
 Cognitive appraisal is a **pure, thread-safe functional evaluation** of `(situation, soul, recallOutput)`. It does **NOT** mutate the shared `HomeostaticCore` SDE in place during the turn; the homeostatic SDE is stepped post-turn during Step 8 (Episodic Learning). The appraisal output computes dynamic policy precision:
 $$\gamma = \gamma_0 \cdot \left(1.0 + 0.5 \cdot \text{arousal} + 0.3 \cdot \text{dominance}\right)$$
+
 - High Urgency + High Dominance $\rightarrow$ decisive, proactive stance (high $\gamma$, focused policy distribution).
 - High Urgency + Low Dominance $\rightarrow$ defensive, anxious stance (lower $\gamma$, heightened sensitivity to risk, shifting toward `NARRATIVE_REFRAMING` or `HOMEOSTATIC_REST`).
 - Low Urgency ($A < 0.15$) $\rightarrow$ low-intensity fast path: gates retrieval to lightweight top-K queries and skips System 2 deliberation overhead.
 
 #### B. Continuous Hopfield Attractor Convergence
 The incoming problem is fed into the persona's `ContinuousHopfieldNetwork`. The network relaxes through the energy landscape into the nearest `AttractorState`:
+
 - An attractor represents a **Causal Mental Model / Dogma** (e.g., *"Data structures over algorithms"*, *"Contain the blast radius before fixing root cause"*, *"Never deploy without full test coverage"*).
 - The converged attractor injects non-negotiable trade-off weights into the deliberation step.
 
@@ -225,6 +231,7 @@ public record PersonaDeliberation(
 ) {}
 ```
 This deliberation:
+
 - Must adhere strictly to the active Hopfield dogma and winning `PolicyType`.
 - Is stored in `enactment.deliberation` and made fully inspectable in Cortex.
 - Bridges unconscious cognitive physics into rich, context-aware human reasoning.
@@ -243,6 +250,7 @@ When internal signals disagree, resolution proceeds in strict order:
 
 ### D5. Fail-Closed Action Gating
 Before any tool is executed in `decide` mode:
+
 - The tool must belong to `intended_acts` authorized by the winning `CognitivePolicy`.
 - The tool must belong to `AgentSoul.tools`.
 - The tool must NOT match any condition in `stance.refuse[]` or `ethicalGuardrails`.
@@ -261,6 +269,7 @@ Verbalization is handled by the `Express` subsystem (ADR-0031 Part E):
 | `replay` | `REPLAY` | Spacetime search restricted to state as of $\tau$ | Historical framing ("As of version X, my stance was..."). |
 
 Tone is modulated by `AgentSoul.communicationStyle` and the active VAD `InteroceptiveState`:
+
 - High arousal / low dominance $\rightarrow$ concise, guarded syntax.
 - High dominance / positive valence $\rightarrow$ expansive, authoritative syntax.
 Tone modulation affects style only; it cannot alter facts or bypass stance invariants.
@@ -277,6 +286,7 @@ After a waking `react` or `decide` turn that executed:
 3. `MentalStateTracker` updates its continuous posterior $q(s_t)$.
 
 #### Slow Consolidation (Offline / Sleep Pathway)
+
 - **Procedural Crystallization:** When an action pattern is observed $\ge N$ times ($N=3$ default) with positive outcome valence, it is compiled into a Procedural playbook tagged `habit`, `playbook`.
 - **Attractor Deepening:** Repeated successful lived traces adjust the energy basin depths of the `ContinuousHopfieldNetwork`.
 - **Soul Document Versioning:** `AgentSoul` and `UserSoul` documents mutate **only** during consolidation. Single-turn updates cannot alter `soulVersion`.
@@ -334,11 +344,13 @@ flowchart TD
 ## 7. Implementation Plan
 
 ### Phase 0 — Spec & Domain Contracts Lock
+
 - Finalize `CognitiveAppraisal`, `PersonaDeliberation`, and `Enactment` records.
 - Standardize reserved Bloom tags (`dogma`, `scar`, `playbook`, `habit`).
 - Build unit test fixtures for Invariants I1–I6 using a stubbed LLM.
 
 ### Phase 1 — Memory & AISME Integration (System 1)
+
 - Wire `PersonaRecall` profile into `SpectorMemory` with `GlobalWorkspace` conscious bottleneck.
 - Connect `ContinuousHopfieldNetwork` to retrieve dominant `AttractorState` for a query.
 - Wire `HomeostaticCore` to compute `CognitiveAppraisal` and update dynamic policy precision $\gamma$.
@@ -346,22 +358,26 @@ flowchart TD
 - Expose `persona_enact` MCP tool in `simulate` and `react` modes.
 
 ### Phase 2 — System 2 Bounded Deliberation & Gating
+
 - Implement Synapse `DeliberationNode` generating structured `PersonaDeliberation`.
 - Implement fail-closed `ToolGate` intersecting winning policy actions with `AgentSoul.tools`.
 - Integrate Synapse `approval` package for gate overrides.
 - Enable `decide` mode.
 
 ### Phase 3 — Lived Learning & Sleep Consolidation
+
 - Implement `EnactmentLearner` writing episodic `lived` traces.
 - Connect sleep reflection daemon (`ReflectPathway`) to consolidate playbooks at $N \ge 3$ and deepen Hopfield attractors.
 - Ensure `ConversationReflector` (facts about user) and `EnactmentLearner` (facts about persona behavior) operate without cross-talk.
 
 ### Phase 4 — Express & Cortex Observability
+
 - Route embodied utterances through `Express` with strict `ExpressTense` enforcement.
 - Build Cortex Enactment Dashboard: VAD emotional gauge, active Hopfield dogma card, EFE policy distribution chart, internal monologue drawer, and memory citations.
 - Implement `replay` mode via spacetime search (`as_of`).
 
 ### Phase 5 — Empirical Benchmark & Evaluation
+
 - Benchmark cognitive fidelity against **TwinVoice** and **PersonaGym** protocols.
 - Run LongMemEval with persona isolation enabled to confirm zero regression on recall accuracy.
 - Verify p95 latency against baseline chat.
@@ -409,6 +425,7 @@ A pull request or implementation that violates any invariant is rejected:
 ---
 
 ### Code Reference & Verification Gate
+
 - **Primary Module(s)**: `synapse/spector-synapse`, `memory/spector-memory`
 - **Key Packages**: `com.spectrayan.spector.synapse.graph`, `com.spectrayan.spector.memory.aisme.policy`, `com.spectrayan.spector.memory.model`
 - **Classes**: `SoulContext.java`, `GenerativeSelfModel.java`, `PolicyInferenceEngine.java`, `ContinuousHopfieldNetwork.java`, `InteroceptiveState.java`

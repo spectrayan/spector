@@ -113,12 +113,12 @@ ADR-0031 banned post-bootstrap `spector.*` lookups so defaults could not drift. 
 ### Option 3: Hierarchical overlays with generated schemas, apply-mode classification, and typed namespace dispatch (Selected)
 
 - **Description**:
-  1. Keep `scoped_config` JSON documents per `(scope, category)` with atomic `MERGE`.
-  2. Resolve `system → tenant → user` from the ADR-0031 snapshot plus overlays.
-  3. Classify every key with `applyMode` ∈ { `LIVE`, `POLICY`, `REBUILD`, `BOOT` }.
-  4. Generate schemas from `spector-config` beans; do not hand-write field lists in `ConfigController`.
-  5. Dispatch live/policy patches through `MemoryRegistry` onto typed kernel hooks. Queue rebuild jobs for `REBUILD`. Persist-only for `BOOT`.
-  6. Keep `ConfigOverridePolicy.DEFAULT` conservative; do not silently become `OPEN`.
+    1. Keep `scoped_config` JSON documents per `(scope, category)` with atomic `MERGE`.
+    2. Resolve `system → tenant → user` from the ADR-0031 snapshot plus overlays.
+    3. Classify every key with `applyMode` ∈ { `LIVE`, `POLICY`, `REBUILD`, `BOOT` }.
+    4. Generate schemas from `spector-config` beans; do not hand-write field lists in `ConfigController`.
+    5. Dispatch live/policy patches through `MemoryRegistry` onto typed kernel hooks. Queue rebuild jobs for `REBUILD`. Persist-only for `BOOT`.
+    6. Keep `ConfigOverridePolicy.DEFAULT` conservative; do not silently become `OPEN`.
 - **Advantages**: Cloud-native; multi-scope; UI-complete; engine-honest; compatible with ADR-0031 and the namespace plane.
 - **Disadvantages**: Requires a mutability catalog and generated schema metadata. Rebuild/boot keys need explicit operator UX. Slightly more control-plane code than a KV bag.
 
@@ -464,77 +464,77 @@ sequenceDiagram
 ## 7. Implementation Plan
 
 1. **Phase 1 — Catalog and typed SPI (no new live lies)**
-   - Add `applyMode` / `secret` / category annotations on `spector-config` beans.
-   - Introduce `ConfigSchemaRegistry` and `LiveMemoryPatch`.
-   - Add `updateRecallOptions(RecallOptions)` and `applyLiveMemoryPatch(LiveMemoryPatch)` to `SpectorMemory` with volatile/AR swap in `DefaultSpectorMemory`.
-   - Add `updateHnswEfSearch(int)` only. Do **not** add `updateMemoryConfig(Map)`.
-   - Unit tests: snapshot swap is visible to the next recall; in-flight recall is stable; unknown keys rejected.
+    - Add `applyMode` / `secret` / category annotations on `spector-config` beans.
+    - Introduce `ConfigSchemaRegistry` and `LiveMemoryPatch`.
+    - Add `updateRecallOptions(RecallOptions)` and `applyLiveMemoryPatch(LiveMemoryPatch)` to `SpectorMemory` with volatile/AR swap in `DefaultSpectorMemory`.
+    - Add `updateHnswEfSearch(int)` only. Do **not** add `updateMemoryConfig(Map)`.
+    - Unit tests: snapshot swap is visible to the next recall; in-flight recall is stable; unknown keys rejected.
 
 2. **Phase 2 — Policy, merge, persistence hygiene**
-   - Expand `ConfigCategory` from the registry (keep `rag` as alias).
-   - Retarget `ConfigOverridePolicy.DEFAULT` as specified in §5.5. Leave `OPEN` alone.
-   - Switch resolver merge from shallow to deep; store sparse patches; add `version`.
-   - Add `scoped_config_audit`; fix cache eviction to the document key.
-   - Credential-SPI wrap for `api-key`.
-   - `PUT` returns the status enum in §5.8. Delete the decorative pending queue.
+    - Expand `ConfigCategory` from the registry (keep `rag` as alias).
+    - Retarget `ConfigOverridePolicy.DEFAULT` as specified in §5.5. Leave `OPEN` alone.
+    - Switch resolver merge from shallow to deep; store sparse patches; add `version`.
+    - Add `scoped_config_audit`; fix cache eviction to the document key.
+    - Credential-SPI wrap for `api-key`.
+    - `PUT` returns the status enum in §5.8. Delete the decorative pending queue.
 
 3. **Phase 3 — Namespace-correct applicator**
-   - `ConfigApplicator` depends on `MemoryRegistry`, not only `ObjectProvider<SpectorMemory>`.
-   - Handlers: recall → `updateRecallOptions`; memory LIVE subset → `applyLiveMemoryPatch`; ingestion → existing `updateChunkConfig`; providers / salience / soul as today; `ef-search` → `updateHnswEfSearch`.
-   - `REBUILD` enqueues a job and marks the namespace dirty. `BOOT` persists only.
-   - `ConfigBootstrapper` applies default namespace + registers `NamespaceOpenListener`.
+    - `ConfigApplicator` depends on `MemoryRegistry`, not only `ObjectProvider<SpectorMemory>`.
+    - Handlers: recall → `updateRecallOptions`; memory LIVE subset → `applyLiveMemoryPatch`; ingestion → existing `updateChunkConfig`; providers / salience / soul as today; `ef-search` → `updateHnswEfSearch`.
+    - `REBUILD` enqueues a job and marks the namespace dirty. `BOOT` persists only.
+    - `ConfigBootstrapper` applies default namespace + registers `NamespaceOpenListener`.
 
 4. **Phase 4 — Schema API and Cortex**
-   - Replace `ConfigController.schema()` switch with the registry. Fix the chunk-size default drift as a side effect.
-   - Cortex fetches schema + annotated values for every registered category.
-   - `DynamicConfigSection` renders applyMode, disables user writes the policy forbids, and shows `persisted_rebuild_required` / `persisted_reboot_required` instead of a green “applied.”
-   - Debounced autosave sends sparse patches with `If-Match`.
+    - Replace `ConfigController.schema()` switch with the registry. Fix the chunk-size default drift as a side effect.
+    - Cortex fetches schema + annotated values for every registered category.
+    - `DynamicConfigSection` renders applyMode, disables user writes the policy forbids, and shows `persisted_rebuild_required` / `persisted_reboot_required` instead of a green “applied.”
+    - Debounced autosave sends sparse patches with `If-Match`.
 
 5. **Phase 5 — Verification**
-   - `ConfigResolutionServiceTest`: deep merge, null-inherit, provenance leaves, unknown-key reject.
-   - `ConfigApplicatorTest`: apply hits `resolveFor(userId)`, not the shared bean, when auth is on.
-   - `SpectorMemoryConfiguratorTest` / new `LiveMemoryPatchTest`: runtime swap.
-   - `ConfigAndObservabilityTest`: HTTP status matrix in §5.8.
-   - Policy tests: user cannot write `hnsw.m` or `concurrency.*` under DEFAULT.
-   - Full Maven reactor for `spector-config`, `spector-memory`, `spector-synapse`; Vitest + production bundle for Cortex.
+    - `ConfigResolutionServiceTest`: deep merge, null-inherit, provenance leaves, unknown-key reject.
+    - `ConfigApplicatorTest`: apply hits `resolveFor(userId)`, not the shared bean, when auth is on.
+    - `SpectorMemoryConfiguratorTest` / new `LiveMemoryPatchTest`: runtime swap.
+    - `ConfigAndObservabilityTest`: HTTP status matrix in §5.8.
+    - Policy tests: user cannot write `hnsw.m` or `concurrency.*` under DEFAULT.
+    - Full Maven reactor for `spector-config`, `spector-memory`, `spector-synapse`; Vitest + production bundle for Cortex.
 
 ---
 
 ## 8. Code Reference & Verification
 
 - **Primary Module(s)**:
-  - `synapse/spector-synapse` — control plane, policy, repository, applicator, bootstrap
-  - `memory/spector-memory` — typed runtime hooks
-  - `nucleus/spector-config` — aggregate + schema annotations + `LiveMemoryPatch`
-  - `nucleus/spector-index` — `ef-search` live path only
-  - `cortex/spector-cortex` — schema-driven settings
+    - `synapse/spector-synapse` — control plane, policy, repository, applicator, bootstrap
+    - `memory/spector-memory` — typed runtime hooks
+    - `nucleus/spector-config` — aggregate + schema annotations + `LiveMemoryPatch`
+    - `nucleus/spector-index` — `ef-search` live path only
+    - `cortex/spector-cortex` — schema-driven settings
 - **Key Packages**:
-  - `com.spectrayan.spector.synapse.config.api`
-  - `com.spectrayan.spector.synapse.config.model`
-  - `com.spectrayan.spector.synapse.config.service`
-  - `com.spectrayan.spector.synapse.config.repository`
-  - `com.spectrayan.spector.synapse.memory` (`MemoryRegistry`, `NamespaceResolver`)
-  - `com.spectrayan.spector.memory`
-  - `com.spectrayan.spector.config.properties`
+    - `com.spectrayan.spector.synapse.config.api`
+    - `com.spectrayan.spector.synapse.config.model`
+    - `com.spectrayan.spector.synapse.config.service`
+    - `com.spectrayan.spector.synapse.config.repository`
+    - `com.spectrayan.spector.synapse.memory` (`MemoryRegistry`, `NamespaceResolver`)
+    - `com.spectrayan.spector.memory`
+    - `com.spectrayan.spector.config.properties`
 - **Classes (current `main`, to be extended — not replaced wholesale)**:
-  - `ConfigCategory.java`
-  - `ConfigOverridePolicy.java`
-  - `ConfigResolutionService.java`
-  - `ConfigApplicator.java`
-  - `ConfigController.java`
-  - `ConfigRepository.java`
-  - `ConfigBootstrapper.java`
-  - `MemoryRegistry.java`
-  - `SpectorMemory.java`
-  - `DefaultSpectorMemory.java`
-  - `RecallOptions.java`
-  - `HnswProperties.java` / `HnswIndex.java`
-  - `SpectorProperties.java`
+    - `ConfigCategory.java`
+    - `ConfigOverridePolicy.java`
+    - `ConfigResolutionService.java`
+    - `ConfigApplicator.java`
+    - `ConfigController.java`
+    - `ConfigRepository.java`
+    - `ConfigBootstrapper.java`
+    - `MemoryRegistry.java`
+    - `SpectorMemory.java`
+    - `DefaultSpectorMemory.java`
+    - `RecallOptions.java`
+    - `HnswProperties.java` / `HnswIndex.java`
+    - `SpectorProperties.java`
 - **Verification Tests**:
-  - `ConfigResolutionServiceTest.java`
-  - `ConfigAndObservabilityTest.java`
-  - `SpectorMemoryConfiguratorTest.java`
-  - new: `LiveMemoryPatchTest.java`, `ConfigSchemaRegistryTest.java`, `ConfigApplicatorNamespaceTest.java`
+    - `ConfigResolutionServiceTest.java`
+    - `ConfigAndObservabilityTest.java`
+    - `SpectorMemoryConfiguratorTest.java`
+    - new: `LiveMemoryPatchTest.java`, `ConfigSchemaRegistryTest.java`, `ConfigApplicatorNamespaceTest.java`
 
 ---
 

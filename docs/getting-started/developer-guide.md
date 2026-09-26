@@ -144,6 +144,7 @@ Before opening a pull request:
 - Create a branch with a focused name, for example `docs/getting-started-developer-guide`.
 - Keep the change small enough to review in one pass.
 - Add or update tests/docs for behavior changes.
+- Ensure all markdown lists include a preceding blank line and 4-space nesting (`python3 scripts/validate_docs_lists.py`).
 - Run the narrowest useful check, then the broader Maven check when the change warrants it.
 - Commit with a conventional message and sign off: `git commit -s -m "docs: add developer getting started guide"`.
 

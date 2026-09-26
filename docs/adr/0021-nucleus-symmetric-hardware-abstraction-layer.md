@@ -29,11 +29,11 @@ Prior to this architectural change, Spector suffered from severe hardware coupli
 
 - **Dependency Inversion Principle (DIP)**: High-level indexing and memory modules must depend on pure abstractions (SPIs), not on CPU SIMD or GPU CUDA implementations.
 - **Single Responsibility Principle (SRP)**:
-  - `spector-core` owns contracts, math formulations, cognitive abstractions, and registry routing.
-  - `spector-cpu` owns CPU SIMD vector execution (AVX-512, AVX2, ARM Neon) via Java 25 Panama Vector API.
-  - `spector-gpu` owns GPU CUDA execution (PTX kernels, Panama FFM, VRAM manager).
-  - `spector-index` owns graph topologies, disk paging, and ANN data structures (HNSW, IVF, BM25, SPLADE), residing purely in `nucleus/`.
-  - `spector-memory` owns cognitive memory models, episodic/semantic/procedural partitions, and high-level reranker pipelines (`ColBERTReranker`, `MmrReranker`, `CognitiveReranker`).
+    - `spector-core` owns contracts, math formulations, cognitive abstractions, and registry routing.
+    - `spector-cpu` owns CPU SIMD vector execution (AVX-512, AVX2, ARM Neon) via Java 25 Panama Vector API.
+    - `spector-gpu` owns GPU CUDA execution (PTX kernels, Panama FFM, VRAM manager).
+    - `spector-index` owns graph topologies, disk paging, and ANN data structures (HNSW, IVF, BM25, SPLADE), residing purely in `nucleus/`.
+    - `spector-memory` owns cognitive memory models, episodic/semantic/procedural partitions, and high-level reranker pipelines (`ColBERTReranker`, `MmrReranker`, `CognitiveReranker`).
 - **Interface Segregation Principle (ISP)**: Separate compute capabilities into fine-grained SPI interfaces (`SimilarityKernel`, `HnswCandidateKernel`, `SvasqDistanceKernel`, `QuantizedDistanceKernel`, `MaxSimKernel`).
 - **Strict Downward Layering**: $\text{Synapse} \longrightarrow \text{Memory} \longrightarrow \text{Nucleus}$. No module in `nucleus/` may depend on `memory/` or `synapse/`.
 - **Zero-Exception Degradation**: Runtime failures or hardware absence on GPU must transparently fall back to CPU SIMD with zero latency penalty or user disruption.
@@ -42,16 +42,19 @@ Prior to this architectural change, Spector suffered from severe hardware coupli
 ## 4. Considered Options
 
 ### Option 1: Status Quo (Keep SIMD in `spector-core`, GPU in `spector-gpu`, Index in `memory/`)
+
 - **Description**: Maintain existing package placement without introducing new SPI abstractions.
 - **Advantages**: No new modules required.
 - **Disadvantages**: `spector-core` remains polluted with incubator vector code; GPU HNSW/SVASQ kernels remain orphans; non-symmetric architecture; `spector-index` incorrectly depends on `spector-provider-api`.
 
 ### Option 2: Merge `spector-index` into `spector-cpu`
+
 - **Description**: Combine indexing structures and CPU vector code into a unified engine module.
 - **Advantages**: Reduces total reactor module count by 1.
 - **Disadvantages**: Severe SRP violation. Conflates graph algorithms with CPU vector intrinsics. Makes HNSW index unable to run cleanly on GPU without depending on CPU SIMD module.
 
 ### Option 3: Symmetric Nucleus HAL with Dedicated `spector-cpu`, `nucleus/spector-index`, and Cognitive Reranker Extraction (Selected)
+
 - **Description**: Establish pure SPIs in `spector-core`, place hardware implementations into symmetric `spector-cpu` and `spector-gpu` peer modules, relocate `spector-index` to `nucleus/`, and split `ColBERTReranker` into hardware MaxSim SPI and memory reranker.
 - **Advantages**: 100% pure standard Java `spector-core`; symmetric accelerator discovery via `ServiceLoader`; clean downward layering.
 - **Disadvantages**: Increases total module count in reactor.
@@ -143,6 +146,7 @@ public interface MaxSimKernel extends ComputeKernel {
 ```
 
 ### Positive Consequences
+
 - **Architectural Cleanliness**: `spector-core` is 100% standard Java 25 without incubator compiler flags.
 - **Strict Downward Layering**: `nucleus/spector-index` only depends on `nucleus/*` modules; zero leakage of provider APIs into the foundation layer.
 - **Orphan Kernels Resolved**: CUDA kernels for HNSW, SVASQ, and MaxSim are directly wired to index traversal and reranking pipelines.
@@ -150,6 +154,7 @@ public interface MaxSimKernel extends ComputeKernel {
 - **Safe Fallback**: Zero downtime or exceptions on machines without CUDA GPUs.
 
 ### Negative Consequences & Trade-offs
+
 - Total module count in `nucleus/` increases to accommodate `nucleus/spector-cpu` and `nucleus/spector-index`.
 - Relocation of `ColBERTReranker` requires updated import statements in `spector-memory` recall pipelines.
 

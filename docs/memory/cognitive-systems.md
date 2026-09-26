@@ -166,7 +166,7 @@ Where $n$ is the number of times the memory appeared in recent results and $\gam
 
 <div class="grid cards" markdown>
 
--   :material-brain:{ .lg .middle } **Cortex — Tier Stores**
+- :material-brain:{ .lg .middle } **Cortex — Tier Stores**
 
     ---
 
@@ -174,7 +174,7 @@ Where $n$ is the number of times the memory appeared in recent results and $\gam
 
     [:octicons-arrow-right-24: Cortex](tiers.md)
 
--   :material-flash:{ .lg .middle } **Synapse — Tags & Scoring**
+- :material-flash:{ .lg .middle } **Synapse — Tags & Scoring**
 
     ---
 
@@ -182,7 +182,7 @@ Where $n$ is the number of times the memory appeared in recent results and $\gam
 
     [:octicons-arrow-right-24: Synapse](tags.md)
 
--   :material-head-lightning-bolt:{ .lg .middle } **Dopamine — Surprise**
+- :material-head-lightning-bolt:{ .lg .middle } **Dopamine — Surprise**
 
     ---
 
@@ -190,7 +190,7 @@ Where $n$ is the number of times the memory appeared in recent results and $\gam
 
     [:octicons-arrow-right-24: Dopamine](novelty.md)
 
--   :material-heart:{ .lg .middle } **Amygdala — Valence**
+- :material-heart:{ .lg .middle } **Amygdala — Valence**
 
     ---
 
@@ -198,7 +198,7 @@ Where $n$ is the number of times the memory appeared in recent results and $\gam
 
     [:octicons-arrow-right-24: Amygdala](valence.md)
 
--   :material-share-variant:{ .lg .middle } **4-Layer Cognitive Graph**
+- :material-share-variant:{ .lg .middle } **4-Layer Cognitive Graph**
 
     ---
 
@@ -206,7 +206,7 @@ Where $n$ is the number of times the memory appeared in recent results and $\gam
 
     [:octicons-arrow-right-24: Cognitive Graph](association-graph.md)
 
--   :material-sleep:{ .lg .middle } **Hippocampus — Consolidation**
+- :material-sleep:{ .lg .middle } **Hippocampus — Consolidation**
 
     ---
 

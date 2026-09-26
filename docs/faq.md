@@ -25,6 +25,7 @@ Instead of an undifferentiated flat vector store, Spector organizes memory acros
 ### What is the "Truncation Trap" in traditional vector databases?
 
 When an agent queries a standard vector database with post-filtering:
+
 1. The database retrieves the top-$K$ (e.g. 100) nearest vectors by cosine distance.
 2. The application layer filters or re-ranks candidates by recency, importance, or user tags.
 
@@ -52,6 +53,7 @@ Memory wrappers are orchestration layers built on top of external databases (suc
 ### What is the Memory Fundamentals Specification (MF-001)?
 
 [MF-001](https://github.com/spectrayan/memory-fundamentals) is an open specification establishing the mathematical and operational foundations of artificial cognitive memory. It formalizes:
+
 - **Trace Durability**: Distinction between volatile working buffers and consolidated semantic structures.
 - **Recall Algebra**: Unified scoring functions that bind spatial distance, power-law retention decay, and affective valence.
 - **Associative Spreading**: Hebbian co-activation dynamics where recalled engrams prime adjacent concept nodes.
@@ -80,6 +82,7 @@ flowchart LR
 ### Why four separate tiers instead of one flat index?
 
 Different types of knowledge operate on radically different timescales, access frequencies, and eviction semantics:
+
 - **Working Memory**: Sub-microsecond circular buffer for active prompt context and turn state. Automatically evicts the oldest items on capacity overflow.
 - **Episodic Memory**: Partitioned by date, backed by memory-mapped files. Preserves autobiographical agent interactions, tool calls, and user queries with chronological fidelity.
 - **Semantic Memory**: Distilled, enduring world knowledge, codebase architecture, and user preferences. Compacted and consolidated across sessions.
@@ -97,6 +100,7 @@ Different types of knowledge operate on radically different timescales, access f
 In high-concurrency AI systems, JVM Garbage Collection pauses can degrade recall latency from 1ms to hundreds of milliseconds. 
 
 Spector achieves **Zero-GC execution** using Java 25's **Foreign Function & Memory (FFM) API (Project Panama)**:
+
 - Memory engrams, 128-bit Bloom filters, valence headers, and vector payloads reside strictly **off-heap** in native memory segments (`java.lang.foreign.MemorySegment`).
 - Search kernels read raw memory addresses directly via hardware SIMD instructions without allocating intermediate Java heap objects.
 - High-throughput scans operate with zero garbage collector invocation, maintaining flat $p99$ latency profiles.
@@ -106,6 +110,7 @@ Spector achieves **Zero-GC execution** using Java 25's **Foreign Function & Memo
 ### What are V4 Bundles and how does persistence work?
 
 Spector stores memories in **V4 Bundles** (`.seg` files) using a page-aligned native binary format:
+
 - **Zero-Copy Loading**: Partitions are mapped into the process virtual address space via `mmap`. The engine boots in under **50 milliseconds**, regardless of whether the index contains 10,000 or 10,000,000 records.
 - **Write-Ahead Log (WAL)**: Ingestion appends to a memory-mapped journal, ensuring crash consistency and immediate durability.
 - **Atomic Compaction**: Live background compaction rebuilds sparse partitions without blocking ongoing read queries.
@@ -142,6 +147,7 @@ flowchart TD
 ### Does Spector require a dedicated GPU?
 
 **No.** Spector is engineered to deliver sub-millisecond search on commodity CPUs:
+
 - On modern x86_64 CPUs, the Java Vector API compiles to **AVX2** (256-bit) and **AVX-512** (512-bit) vector instructions.
 - On Apple Silicon and ARM servers, it compiles to **ARM NEON** (128-bit) vector operations.
 - A GPU (NVIDIA CUDA) is completely optional and primarily beneficial for high-concurrency batch ingestion ($>32$ concurrent streams).
@@ -153,6 +159,7 @@ flowchart TD
 ### How many tools does the Spector MCP server provide?
 
 The Spector MCP server exposes **37 specialized cognitive tools** organized into functional clusters:
+
 - **Core Memory Operations**: `memory_remember`, `memory_recall`, `memory_forget`, `memory_reinforce`, `memory_suppress`.
 - **Cognitive Introspection**: `memory_introspect`, `memory_why_not`, `memory_salience`, `memory_fact_history`, `memory_status`.
 - **Associative Graphs**: `memory_graph_recall`, `memory_multi_evidence_recall`, `vector_search`.
@@ -198,6 +205,7 @@ The `npx -y @spectrayan/spector mcp` launcher automatically connects to your loc
 ### How does Spector isolate memory between multiple users or agents?
 
 Every memory engram belongs to an isolated **Namespace**:
+
 - **Strict Cryptographic Isolation**: Queries in `namespace_A` cannot see or scan records in `namespace_B` unless explicit cross-namespace grants exist.
 - **Granular Permissions**: Namespaces support read/write delegation via `namespace_grant` with specific access modes (`READ`, `WRITE`, `ADMIN`).
 - **Audit Trails**: Ingestion and recall operations log cryptographically verifiable provenance traces (stating author, timestamp, and source).
@@ -220,7 +228,7 @@ Spector has been evaluated across the industry-standard AI long-term memory benc
 
 <div class="grid cards" markdown>
 
--   :material-bullseye-arrow: **LoCoMo Benchmark**
+- :material-bullseye-arrow: **LoCoMo Benchmark**
 
     ---
 
@@ -228,7 +236,7 @@ Spector has been evaluated across the industry-standard AI long-term memory benc
 
     **85% Precision** <span class="chip chip-benchmark">State-of-the-Art</span>
 
--   :material-timer-sand-complete: **LongMemEval Benchmark**
+- :material-timer-sand-complete: **LongMemEval Benchmark**
 
     ---
 
@@ -236,7 +244,7 @@ Spector has been evaluated across the industry-standard AI long-term memory benc
 
     **94% Recall Accuracy** <span class="chip chip-benchmark">Top Performance</span>
 
--   :material-brain: **MindSpan Benchmark**
+- :material-brain: **MindSpan Benchmark**
 
     ---
 
@@ -257,6 +265,7 @@ Traditional vector databases drop to 40–60% accuracy on multi-session benchmar
 ### What Java version do I need?
 
 **OpenJDK 25 or later** is required for running the Spector server or embedded core JAR. This is because Spector leverages:
+
 - Java Vector API (`jdk.incubator.vector`) for SIMD acceleration.
 - Foreign Function & Memory API (`java.lang.foreign`) for off-heap Zero-GC storage.
 

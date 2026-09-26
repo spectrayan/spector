@@ -58,11 +58,13 @@ Adopt **Phileas** (`ai.philterd:phileas`, Apache License 2.0, in-process) as the
 ### Consequences & Trade-offs
 
 **Positive**
+
 - Stronger, maintained identifier coverage with policy-driven strategies
 - Clear module boundary: engine swappable without rewriting interceptor/session
 - Aligns with Spector security config-as-resource pattern
 
 **Negative / risks**
+
 - New third-party dependency and version pin discipline
 - Facade must be enforced in review so Phileas does not leak into public contracts
 - Name/NER quality deferred until an approved local path exists (acceptable for v1 identifier shield)
@@ -77,5 +79,6 @@ Adopt **Phileas** (`ai.philterd:phileas`, Apache License 2.0, in-process) as the
 ## 8. Code Reference & Verification
 
 All PII redaction components and configuration models are verified in the repository:
+
 - **Synapse Ingestion Controllers**: `synapse/spector-synapse/src/main/java/com/spectrayan/spector/synapse/`
 - **Differential Privacy & Anonymization Relays**: `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/aisme/privacy/`

@@ -91,12 +91,16 @@ provenance implementation:
 
 1. **Offset corruption in EpisodicSessionIndex.rebuild()** - used absolute
    offsets instead of region-relative.
+
 2. **HashMap key collision** in consolidation relay - `EpisodeRecord` is a
    value type; identical turns collided in `Map<EpisodeRecord, Long>`.
+
 3. **Discarded affect metadata** - valence, arousal, and importance were
    hardcoded to zero instead of using fact-level values.
+
 4. **Missing session tag** - consolidated facts lost their session lineage tag.
 5. **Duplicate facts on retry** - turns were marked consolidated *after*
    ingestion, causing duplicates on crash/retry.
+
 6. **PartitionHandle not threaded** - `processLogStore` used a stale partition
    sequence instead of the handle's actual sequence.

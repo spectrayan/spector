@@ -17,6 +17,7 @@ We present **SVASQ** (Vectorized Affine Scalar Quantization), a novel vector com
 Vector similarity search is the computational backbone of modern AI applications — retrieval-augmented generation (RAG), semantic search, recommendation systems, and multimodal retrieval all depend on finding the K nearest neighbors of a query vector among millions or billions of stored embeddings.
 
 The fundamental tension in ANN search is the **recall–speed–memory triangle**:
+
 - **HNSW** [[1]](#references) achieves excellent recall (95–99%) with O(log n) search, but suffers from slow O(n log n) construction and high memory consumption (graph edges consume 50–100% of vector storage).
 - **IVF** [[2]](#references) enables fast ingestion and cache-friendly search through spatial partitioning, but standalone flat IVF has limited recall at low probe depths.
 - **Product Quantization** [[3]](#references) provides aggressive compression (32–96×) but requires expensive codebook training, complex lookup-table-based distance computation, and suffers from significant recall degradation.

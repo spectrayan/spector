@@ -38,14 +38,17 @@ Modeling cognitive attention in AI agents introduces three concrete engineering 
 ## 4. Considered Options
 
 ### Option 1: Rule-Based Keyword Scoring
+
 - Use regex rules and string matching to boost memory importance.
 - **Verdict**: Rejected. Fragile, misses synonyms and paraphrases, and fails across multilingual or technical contexts.
 
 ### Option 2: Monolithic LLM Gating Call
+
 - Prompt an LLM on every write and recall to evaluate relevance and attention.
 - **Verdict**: Rejected. Prohibitively slow (adding 500–1,500ms per operation) and incurs massive token costs.
 
 ### Option 3: Two-Tier Salience & Thalamic Profile Architecture (Selected)
+
 - Implement `SalienceProfile` for entity-level interest vectors, ICNU motivation weights, and flashbulb thresholds.
 - Implement `CognitiveProfile` for thalamic gating parameters ($\\alpha$ similarity, $\\beta$ decay/importance, valence windows, decay damping).
 - **Verdict**: Accepted. Delivers microsecond semantic attention modulation directly inside off-heap memory scans.
@@ -84,6 +87,7 @@ graph TD
 ### 5.2 SalienceProfile: Semantic Interest Matching
 
 Interests and disinterests are defined in natural language and resolved into dense vector embeddings:
+
 - `InterestLevel.CRITICAL`: 2.0x boost
 - `InterestLevel.HIGH`: 1.5x boost
 - `InterestLevel.MEDIUM`: 1.2x boost
@@ -121,11 +125,13 @@ CognitiveProfile detected = CognitiveProfile.detect("bug", "exception", "databas
 ## 6. Pros and Cons of the Options
 
 ### Positive
+
 - **Human-Like Focus**: Enables agents to emulate human selective attention, focusing deeply on mission tasks without memory pollution.
 - **Fast Execution**: Pre-computed embeddings ensure salience scoring adds negligible overhead (< 2 microseconds) to off-heap scans.
 - **Neurodiversity Representation**: First-class computational models of monotropic hyperfocus and bottom-up systematizing.
 
 ### Negative / Trade-offs
+
 - **Profile Tuning**: Advanced custom profiles require understanding the interaction between $\\alpha$, $\\beta$, and temporal decay parameters.
 
 ## 7. Implementation Plan

@@ -50,6 +50,7 @@ When a `SoulContext` or AISME bundle is present on the `RecallSignal`, Spector a
 $$\text{Score} = \alpha \cdot \text{Sim} + \beta \cdot \sigma(\Delta F) + \gamma \cdot \text{Resonance}$$
 
 Where:
+
 - $\text{Sim}$ is the INT8 / SVASQ vector similarity.
 - $\sigma(\Delta F) = \frac{1}{1 + e^{-\Delta F}}$ is the logistic sigmoid squashing variational free energy delta.
 - $\text{Resonance}$ is affective and goal resonance with the persona's active mental state.
@@ -57,6 +58,7 @@ Where:
 ### 2.2 Dynamic Weight Modulation & Hysteresis Damping
 
 $\alpha, \beta, \gamma$ are dynamically computed per query by `SoulConditionedWeightProvider` from:
+
 1. **Goal Relevance** — active task alignment.
 2. **Value / Purpose Alignment** — core persona drives.
 3. **Cognitive Profile** — modulates precision (e.g. `HYPERFOCUS`, `DIVERGENT`).

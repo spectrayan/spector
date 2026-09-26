@@ -30,11 +30,13 @@ System operators have no quantitative metric to evaluate whether an AI agent ret
 ## 4. Considered Options
 
 ### Option 1: Exact Minimum Information Partition (MIP) Calculation
+
 - **Description**: Exhaustively partition the cognitive graph into all possible bipartitions to compute true IIT $\Phi$.
 - **Advantages**: Mathematically rigorous adherence to full IIT specifications.
 - **Disadvantages**: NP-hard combinatorial explosion ($O(2^N)$); completely intractable for graphs with > 20 nodes.
 
 ### Option 2: Spectral & Temporal Information Integration Approximation (Selected)
+
 - **Description**: Approximate continuity using spectral graph Cheeger constants and temporal auto-correlation across consecutive self-model embeddings: $\Phi_{\text{CC}} = \alpha \cdot \lambda_2(L_{\text{norm}}) + \beta \cdot \text{Corr}(S_t, S_{t-1}) + \gamma \cdot (1 - D_{\text{KL}}(P_t \parallel P_{t-1}))$.
 - **Advantages**: Computable in polynomial time ($O(N \log N)$) using sparse Laplacian eigensolvers; highly correlated with qualitative behavioral consistency; runs in < 10ms during background audits.
 - **Disadvantages**: Provides an approximation bound rather than exact IIT $\Phi$.
@@ -44,11 +46,13 @@ System operators have no quantitative metric to evaluate whether an AI agent ret
 **Chosen Option**: Option 2 (Spectral & Temporal Information Integration Approximation).
 
 ### Positive Consequences
+
 - First quantitative SLA for cognitive identity continuity in autonomous agents.
 - Automated Prometheus export (`spector_cognitive_continuity_phi`) enables real-time monitoring of identity drift.
 - Protects memory systems from over-aggressive pruning or destructive migrations.
 
 ### Negative Consequences & Trade-offs
+
 - Computing spectral eigenvalues requires periodic background CPU cycles during sleep reflection.
 
 ## 6. Pros and Cons of the Options

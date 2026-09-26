@@ -67,14 +67,17 @@ Standard approaches to conversational memory search treat space and time as inde
 ## 4. Considered Options
 
 ### Option 1: Post-Retrieval Metadata Filter
+
 - Run standard vector search, then discard memories failing hard time/location predicates.
 - **Verdict**: Rejected. Suffers from the Orthogonality Trap and false-negative recall drops.
 
 ### Option 2: High-Dimensional Composite Spacetime Embeddings
+
 - Concatenate normalized temporal and spatial coordinates directly onto the semantic vector.
 - **Verdict**: Rejected. Incurred significant semantic distortion; vector dot products do not naturally model Minkowski-like spacetime intervals.
 
 ### Option 3: Continuous Unified Spacetime Scoring Relay (Selected)
+
 - Implement a dedicated synaptic relay (`SpacetimeVectorRelay`) that modulates candidate activation energies using a mathematically principled spacetime decay kernel.
 - **Verdict**: Accepted. Delivers smooth, continuous situational recall without cliff effects.
 
@@ -292,5 +295,6 @@ v1 **does not** solve the orthogonality trap when candidate generation is HNSW-o
 ## 8. Code Reference & Verification
 
 All spacetime scoring mechanisms and pathway relays are verified in the codebase:
+
 - **Recall Pathway Integration**: `memory/spector-memory/src/main/java/com/spectrayan/spector/memory/cortex/pathway/RecallPathway.java`
 - **Spacetime Coordinate Storage**: `memory/spector-kernel/src/main/java/com/spectrayan/spector/kernel/bundle/MmapBundleV4.java`

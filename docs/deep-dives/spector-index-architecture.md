@@ -60,6 +60,7 @@ Each Voronoi cell contains a **SpectorShard** — an adaptive data structure tha
 ### Layer 3: SVASQ Residual Quantization
 
 Vectors are stored as **residuals** (`r = x − centroid`), then compressed with SVASQ:
+
 1. Apply FWHT (Fast Walsh-Hadamard Transform) to spread variance
 2. Quantize to INT8 with calibrated min/max per dimension
 3. Store: `[4-byte L2 norm | D bytes of INT8 codes]`
@@ -90,6 +91,7 @@ index.add("doc-1", 0, vector);  // ~100K-250K docs/s
 ```
 
 For each vector:
+
 1. Find nearest centroid (`KMeans.nearestCentroid`)
 2. Compute residual: `r = vector - centroid`
 3. Store in the centroid's shard (flat buffer, no graph construction)
@@ -150,6 +152,7 @@ This identity holds exactly in floating-point arithmetic (the centroid terms can
 ### Ingestion: 100K–250K docs/s
 
 SpectorIndex's ingestion is **28-160× faster** than standalone HNSW because:
+
 - No graph construction during add (flat buffer append)
 - Residual computation is O(D) — just subtraction
 - Memory-mapped flat arrays with sequential writes
@@ -256,12 +259,14 @@ Promotion holds the write-lock exclusively. The sequence ensures correctness:
 When combining FWHT with IVF, the order matters:
 
 **Ingestion:**
+
 1. Find nearest centroid `c` (using original vector in absolute space)
 2. Compute residual `r = x - c`
 3. Apply FWHT to `r` (not to `x` — FWHT before centroid assignment breaks clustering)
 4. Quantize to INT8
 
 **Search:**
+
 1. Find nProbe closest centroids
 2. For each centroid `c`: compute `q_res = q - c`
 3. Apply FWHT to `q_res`
