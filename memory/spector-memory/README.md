@@ -82,7 +82,7 @@ spector-memory/
 │
 ├── hippocampus/                    ← "Hippocampus" — consolidation & cleanup
 │     ├── ReflectPathway.java           (sleep consolidation & reflection)
-│     └── TombstoneCompactor.java       (partition rebuild)
+│     └── VacuumCompactor.java         (physical tombstone compaction)
 │
 ├── habituation/                    ← "Habituation" — anti-filter bubble
 │     └── HabituationPenalty.java       (frequency-based score decay)
@@ -120,7 +120,7 @@ spector-memory/
 | 🔄 Hebbian Learning | `hebbian/` | `CoActivationTracker`, `HebbianGraph` | "Neurons that fire together wire together" |
 | 🔗 Entity Knowledge | `graph/` | `EntityGraph`, `TypeRegistry`, `LlmEntityExtractor` | LLM-powered entity-relationship graph with open-schema types |
 | ⏳ Temporal Chain | `graph/` | `TemporalChain` | Session-linked causal sequences ("what happened next?") |
-| 🛏️ Hippocampus | `hippocampus/` | `ReflectDaemon`, `TombstoneCompactor` | Sleep consolidation, synaptic pruning, partition rebuild |
+| 🛏️ Hippocampus | `hippocampus/` | `ReflectDaemon`, `VacuumCompactor` | Sleep consolidation, synaptic pruning, tombstone compaction |
 | 😴 Habituation | `habituation/` | `HabituationPenalty` | Anti-filter bubble — penalizes repetitive recall |
 | 🚫 Inhibition | `inhibition/` | `SuppressionSet` | Explicit memory suppression (user redaction) |
 | 🔮 Prospective Memory | `prospective/` | `ProspectiveScheduler`, `Reminder` | Future-oriented intent reminders |

@@ -98,6 +98,9 @@ public final class MemoryRegistry implements AutoCloseable {
         this.resolver = new NamespaceResolver(
                 passthrough, synapseProps, embedderProvider, textGenProvider, salienceProvider,
                 objectMapperProvider, null, null, null, null, null, maxInstances);
+        log.warn("[MemoryRegistry] *** PassthroughCatalog active — this constructor is for tests only, "
+                + "NOT for production use. Mutation operations (reset, grant revocation, legal hold, "
+                + "tombstone) will throw UnsupportedOperationException. ***");
         log.info("[MemoryRegistry] initialized (test mode): authEnabled={}, maxInstances={}",
                 synapseProps.auth().enabled(), maxInstances);
     }

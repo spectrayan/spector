@@ -1,15 +1,22 @@
-# Single-Namespace Scale Benchmark Empirical Report
+# Single-Namespace Scale Benchmark Report
 
 > **Specification**: Milestone 6 (R6) / Requirements R5.1–R5.3
 > **Invariant V5**: Every published scale claim cites a measurement with stated conditions.
 
-## 1. Scale Tiers Empirical Matrix
+## 1. Scale Tiers Matrix
 
-| Scale Tier | Engrams | Partitions | Header Scan (ms) | Cold Start (ms) | Recall p50 (ms) | Recall p99 (ms) | Budget (Visited / Skipped) | Graph ON p50 (ms) | Graph OFF p50 (ms) | Graph Δ (ms) | RSS (MB) |
-|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| **100k** | 100,000 | 11 | 1.96 | 5122.61 | 43.70 | 78.83 | 10 / 1 | 44.66 | 39.12 | +5.53 | 1062.5 |
-| **1M** | 1,000,000 | 100 | 17.80 | 5138.45 | 50.25 | 90.66 | 10 / 90 | 51.36 | 44.99 | +6.36 | 1212.5 |
-| **10M** | 10,000,000 | 1,000 | 178.00 | 5298.65 | 56.81 | 102.48 | 10 / 990 | 58.05 | 50.86 | +7.19 | 1362.5 |
+| Scale Tier | Method | Engrams | Partitions | Header Scan (ms) | Cold Start (ms) | Recall p50 (ms) | Recall p99 (ms) | Budget (Visited / Skipped) | Graph ON p50 (ms) | Graph OFF p50 (ms) | Graph Δ (ms) | RSS (MB) |
+|:---|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **100k** | Measured | 100,000 | 11 | 1.96 | 5122.61 | 43.70 | 78.83 | 10 / 1 | 44.66 | 39.12 | +5.53 | 1062.5 |
+| **1M** | Extrapolated¹ | 1,000,000 | 100 | 17.80 | 5138.45 | 50.25 | 90.66 | 10 / 90 | 51.36 | 44.99 | +6.36 | 1212.5 |
+| **10M** | Extrapolated¹ | 10,000,000 | 1,000 | 178.00 | 5298.65 | 56.81 | 102.48 | 10 / 990 | 58.05 | 50.86 | +7.19 | 1362.5 |
+
+> ¹ **Extrapolation methodology**: The 1M and 10M tiers are projected from the 100k empirical
+> baseline using `SingleNamespaceScaleBenchmark.extrapolateScale()`. Cold start is modeled as
+> affine: O(1) engine startup + O(partitions) header scan at 0.178 ms/partition. Recall p50/p99
+> is modeled as sub-linear: `base × (1.0 + 0.15 × log₁₀(scaleRatio))`. RSS is modeled as
+> `base + 150.0 × log₁₀(scaleRatio)`. These are projections, not measurements — actual
+> performance at 1M and 10M scale has not been empirically validated.
 
 ## 2. Test Execution Conditions & Hardware Profile
 
