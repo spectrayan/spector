@@ -35,5 +35,8 @@ spec:
           volumes:
             - name: data
               persistentVolumeClaim:
-                claimName: {{ include "spector.fullname" . }}-data
+                # StatefulSet VCTs produce PVCs named <vct-name>-<sts-name>-<ordinal>.
+                # The owner StatefulSet's VCT is named "data", so the PVC for replica 0
+                # is data-<owner-fullname>-0.
+                claimName: data-{{ include "spector.owner.fullname" . }}-{{ .Values.drExport.ownerOrdinal | default 0 }}
 {{- end }}
