@@ -270,6 +270,7 @@ nav:
       - "Single-Namespace Scale & Capacity Limits": capacity/single-namespace-scale.md
       - "Scale Benchmark Empirical Results": capacity/scale-benchmark-results.md
       - "Writer Quiesce Pause Empirical Results": capacity/quiesce-pause-benchmark-results.md
+      - "Kill-Owner Failover Empirical Results": capacity/kill-owner-recovery-results.md
       - "Salience & Importance Architecture": architecture/salience-importance.md
       - GPU Acceleration: architecture/gpu-acceleration.md
       - Performance Tuning: operations/performance-tuning.md

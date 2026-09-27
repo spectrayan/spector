@@ -3,6 +3,10 @@
 > **Specification**: ADR-0034 (Cell HA & Ownership) §4.1 / Snapshot Replication Requirements  
 > **Key Invariant**: Snapshots are cut under a bounded writer quiesce window; write pauses must remain sub-5ms under concurrent load without dropping in-flight mutations.
 
+> [!CAUTION]
+> **Snapshot Quiesce Pause vs. Cluster Failover RTO:**  
+> The 4.8 ms quiesce pause documented below is the **local memory snapshot writer holdoff duration** for atomic mmap slab copying. It is **NOT** cluster failover RTO. Cluster failover RTO is governed by coordinator lease expiry, failure detection intervals, and survivor epoch advance; see [kill-owner-recovery-results.md](kill-owner-recovery-results.md) for empirical RTO and RPO benchmarks.
+
 ---
 
 ## 1. Empirical Latency & Throughput Matrix

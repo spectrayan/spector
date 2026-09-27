@@ -112,6 +112,49 @@ Spector provides two distinct deletion verbs with documented semantics:
 
 When memories are `forget()`'d, they are tombstoned (bit 0 of flags byte set to 1). The scorer skips them in Phase 1 (~1 cycle). When records must be permanently destroyed for privacy or compliance (e.g. GDPR erasure), `purge()` must be used. In either case, `vacuum()` subsequently compacts the partition to physically reclaim disk space.
 
+#### 3.1 Unreachable Copies Disclosure (`PurgeResult.UNREACHABLE_COPIES`)
+
+A `purge()` physically overwrites bytes in the active local memory store. However, an honest erasure report must acknowledge the operational boundaries of the engine. Spector's `PurgeResult.unreachableCopies` explicitly enumerates the six storage domains outside the scope of a local memory purge:
+
+| Unreachable Copy Domain | Explanation & Operational Boundary |
+|:---|:---|
+| `dr_exports` | Offline archive tarballs and disaster recovery bundles generated prior to the purge. Purging the active store cannot mutate external archive media. |
+| `replica_disks` | Passive or unlinked physical replica disks not participating in synchronous WAL replication during the purge window. |
+| `cold_tier_objects` | Read-only object-store blobs (e.g. S3 / GCS tiers) containing archived historical partitions. |
+| `filesystem_snapshots_and_backups` | Point-in-time filesystem or volume snapshots (e.g. ZFS, EBS, LVM) created before the purge executed. |
+| `wal_segments_prior_to_the_last_checkpoint` | Rotated or archived WAL log segments written prior to the latest checkpoint. Active replay is bounded, but raw byte remnants may persist on disk until WAL log reaping. |
+| `os_page_cache_and_ssd_wear_levelling_remnants` | Unflushed OS dirty pages or physical NAND flash blocks preserved by SSD wear-leveling algorithms prior to block trimming. |
+
+Every purge audit report includes `PurgeResult.DISCLOSURE_TEXT`, ensuring downstream compliance tooling is explicitly notified that external archives and snapshots require separate lifecycle management.
+
+#### 3.2 Content-Addressable Dedup Text Retention (`hasLocalRetention`)
+
+Spector employs content-addressable storage deduplication for record text bodies in `text.dat`. When multiple memories share identical text content, they reference the same physical byte range:
+
+```mermaid
+flowchart TD
+    M1["Memory 1 (live)<br/>textOffset: 0x1000"] --> TEXT["Shared text bytes<br/>'System initialized'"]
+    M2["Memory 2 (purged)<br/>textOffset: 0x1000"] -.-> TEXT
+
+    style TEXT fill:#e67e22,color:white
+```
+
+- When `Memory 2` is purged, its off-heap vector, norm, Bloom filter, centroid reference, and graph edges are zeroed/detached immediately.
+- If live co-tenants (such as `Memory 1`) still reference the shared text, zeroing `text.dat` would corrupt the surviving records.
+- Consequently, the shared text is preserved until the final co-tenant is purged.
+- In this scenario, `PurgeResult.hasLocalRetention()` evaluates to `true`, `textRetainedShared` reports the exact retained byte count, `textSharedWith` indicates the count of surviving co-tenants, and `textDestroyed()` returns `false`.
+- Once the remaining co-tenants are purged, the shared byte range is zeroed, and `hasLocalRetention()` returns `false`.
+
+#### 3.3 Retained Audit Header Fields (`PurgeResult.RETAINED_HEADER_FIELDS`)
+
+To ensure that the act of erasure itself remains verifiable and auditable without preserving identifying information or reconstructed text, `PurgeResult` retains structural metadata headers:
+
+- `header_version`, `flags` (with `FLAG_PURGED = 0x40` set and `FLAG_TOMBSTONE` preserved)
+- `timestamp_ms`, `importance`, `valence`, `arousal`
+- `encoding_profile`, `encoding_alpha`, `encoding_beta`, `soul_version`
+
+No vector payload, embedding, or text body survives in the record slot after a successful purge.
+
 ---
 
 ## Circadian Trigger
