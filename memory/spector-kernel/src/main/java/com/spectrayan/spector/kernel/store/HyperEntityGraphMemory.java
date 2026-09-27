@@ -162,6 +162,15 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
     private int nextVertexOffset;
     private int totalHyperedges;
 
+    // ── Capacity monitoring (#1015, matching HebbianGraphMemory #983 pattern) ──
+
+    /** Hyperedges dropped because the slab was full. */
+    private final java.util.concurrent.atomic.LongAdder rejectedAtCapacity =
+            new java.util.concurrent.atomic.LongAdder();
+    /** Throttle so an exhausted graph logs periodically rather than once per ingest. */
+    private volatile long lastCapacityWarnMs = 0L;
+    private static final long CAPACITY_WARN_INTERVAL_MS = 60_000L;
+
     /**
      * Optional quarantine filter injected by the memory layer to exclude quarantined
      * hyperedges from traversal. When set, traversal methods ({@link #findHyperedgesForEntityLocked},
@@ -506,6 +515,43 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
      */
     public int totalHyperedges() { return totalHyperedges; }
 
+    /** Maximum hyperedge capacity. */
+    public int hyperedgeCapacity() { return hyperedgeCapacity; }
+
+    /**
+     * Fraction of hyperedge capacity remaining, in [0.0, 1.0].
+     * A value below 0.20 warrants investigation; below 0.05 is critical.
+     */
+    public double headroom() {
+        return hyperedgeCapacity == 0 ? 0.0 : 1.0 - ((double) totalHyperedges / hyperedgeCapacity);
+    }
+
+    /** Hyperedges rejected because the slab or vertex segment was full (#1015). */
+    public long rejectedAtCapacityCount() {
+        return rejectedAtCapacity.sum();
+    }
+
+    /**
+     * Logs capacity exhaustion at most once per {@link #CAPACITY_WARN_INTERVAL_MS}.
+     *
+     * <p>Throttled rather than logged per rejection: once the slab high-water mark
+     * passes capacity, <i>every</i> subsequent ingest is refused, so an unthrottled
+     * warning would emit per remember call forever.</p>
+     */
+    private void warnCapacityExhausted(String reason, int cap) {
+        long now = System.currentTimeMillis();
+        if (now - lastCapacityWarnMs < CAPACITY_WARN_INTERVAL_MS) {
+            return;
+        }
+        lastCapacityWarnMs = now;
+        log.warn("HyperEntityGraphMemory capacity exhausted: {} (capacity={}). "
+                        + "totalHyperedges={}, nextVertexOffset={}, totalRejected={}. "
+                        + "Hyperedge slots are never reused (delete tombstones only), so all "
+                        + "further hyperedge additions will be dropped until capacity is raised. "
+                        + "Raise spector.memory.entity-graph-capacity and restart.",
+                reason, cap, totalHyperedges, nextVertexOffset, rejectedAtCapacity.sum());
+    }
+
     /**
      * Adds a hyperedge connecting multiple entities.
      *
@@ -536,17 +582,15 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
         long stamp = lock.writeLock();
         try {
             if (nextHyperedgeId >= hyperedgeCapacity) {
-                if (log.isTraceEnabled()) {
-                    log.trace("HyperEntityGraphMemory full: {} hyperedges at capacity", hyperedgeCapacity);
-                }
+                rejectedAtCapacity.increment();
+                warnCapacityExhausted("hyperedge slab full", hyperedgeCapacity);
                 return -1;
             }
 
             int vertexCount = vertexEntities.length;
             if (nextVertexOffset + vertexCount > vertexCapacity) {
-                if (log.isTraceEnabled()) {
-                    log.trace("Vertex segment full: {} at capacity {}", nextVertexOffset, vertexCapacity);
-                }
+                rejectedAtCapacity.increment();
+                warnCapacityExhausted("vertex segment full", vertexCapacity);
                 return -1;
             }
 

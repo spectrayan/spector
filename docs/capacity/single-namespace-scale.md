@@ -156,6 +156,29 @@ Benchmarking recall with Hebbian graph expansion enabled (`graphExpansionThresho
 
 This empirical delta represents an incremental overhead of only ~12–14% relative to base recall latency. The multi-hop traversal traverses fixed-width CSR structures in off-heap memory, activating associative synaptic pathways with bounded compute overhead and zero garbage collection churn.
 
+### 4.4 HyperEntityGraph Capacity & Tombstone Behavior
+
+The `HyperEntityGraphMemory` stores typed, N-ary relationship hyperedges connecting entities. Like the Hebbian graph, it is a namespace-global structure hosted in `runtime.bundle` and is **not** partitioned when mmap bundles roll.
+
+- **Capacity Configuration**: Controlled by `MemoryProperties.entityGraphCapacity`. The hyperedge slab is allocated as `entityGraphCapacity` hyperedge slots, with vertex capacity at `2 × entityGraphCapacity`.
+- **Monotonic Allocation**: Hyperedge IDs and vertex offsets increment monotonically. Unlike the Hebbian graph which uses CSR compaction, the HyperEntityGraph appends to flat slabs.
+- **Tombstone-Only Deletion**: `deleteHyperedge()` zeros the vertex count in the header (tombstones the slot) but does **not** reclaim the slab space. There is no hyperedge compaction — deleted slots are permanently consumed. This means the effective capacity is the total number of hyperedges ever _created_, not just the currently active count.
+- **Slab Exhaustion**: When `nextHyperedgeId >= hyperedgeCapacity` or the vertex segment is full, `addHyperedge()` returns `-1` and logs a throttled WARN (at most once per 60 seconds) to prevent log spam. All subsequent hyperedge additions are silently dropped until capacity is raised and the namespace is restarted.
+
+**Prometheus Metrics** (via `GraphMetricsBinder`):
+
+| Metric Name | Type | Tags | Description |
+|:---|:---:|:---|:---|
+| `spector.graph.edges` | Gauge | `graph="hypergraph"` | Total active hyperedges |
+| `spector.graph.headroom` | Gauge | `graph="hypergraph"` | Remaining hyperedge capacity fraction $[0.0, 1.0]$: $1.0 - (\text{totalHyperedges} / \text{hyperedgeCapacity})$ |
+| `spector.graph.rejected` | Gauge | `graph="hypergraph"` | Cumulative count of hyperedge additions rejected due to capacity exhaustion |
+
+**Operational Alerting Policy**:
+
+- **Warning Alert**: `spector.graph.headroom{graph="hypergraph"} < 0.20`
+- **Critical Alert**: `spector.graph.headroom{graph="hypergraph"} < 0.05`
+- **Rejection Alert**: `rate(spector.graph.rejected{graph="hypergraph"}[5m]) > 0` — any non-zero rejection rate indicates capacity exhaustion
+
 ---
 
 ## 5. Partition Roll Policies & Headroom Limits

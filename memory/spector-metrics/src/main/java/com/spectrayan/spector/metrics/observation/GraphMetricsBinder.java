@@ -16,6 +16,7 @@
 package com.spectrayan.spector.metrics.observation;
 
 import com.spectrayan.spector.kernel.store.HebbianGraphMemory;
+import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import io.micrometer.core.instrument.Gauge;
@@ -23,15 +24,17 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.binder.MeterBinder;
 
 /**
- * Exports Prometheus gauges for Hebbian and Entity graph structural telemetry and node-space headroom (R4 / F11, F12).
+ * Exports Prometheus gauges for Hebbian, HyperEntity, and Entity graph structural telemetry
+ * and node-space headroom (R4 / F11, F12).
  *
  * <p>Metrics exported:
  * <ul>
  *   <li>{@code spector.graph.nodes} (tags: {@code graph="hebbian"|"entity"}, {@code spector.namespace})</li>
- *   <li>{@code spector.graph.edges} (tags: {@code graph="hebbian"|"entity"}, {@code spector.namespace})</li>
+ *   <li>{@code spector.graph.edges} (tags: {@code graph="hebbian"|"entity"|"hypergraph"}, {@code spector.namespace})</li>
  *   <li>{@code spector.graph.bytes} (tags: {@code graph="hebbian"|"entity"}, {@code spector.namespace})</li>
  *   <li>{@code spector.graph.live_bytes} (tags: {@code graph="hebbian"|"entity"}, {@code spector.namespace})</li>
- *   <li>{@code spector.graph.headroom} (tags: {@code graph="hebbian"}, {@code spector.namespace})</li>
+ *   <li>{@code spector.graph.headroom} (tags: {@code graph="hebbian"|"hypergraph"}, {@code spector.namespace})</li>
+ *   <li>{@code spector.graph.rejected} (tags: {@code graph="hypergraph"}, {@code spector.namespace})</li>
  * </ul>
  */
 public class GraphMetricsBinder implements MeterBinder {
@@ -128,6 +131,29 @@ public class GraphMetricsBinder implements MeterBinder {
             if (namespaceId != null) liveBytesBuilder.tag("spector.namespace", namespaceId);
             liveBytesBuilder.register(registry);
         }
+
+        // ── HyperEntityGraph metrics (#1015) ──
+
+        HyperEntityGraphMemory hyper = resolveHyperEntityGraph();
+        if (hyper != null) {
+            var edgesBuilder = Gauge.builder("spector.graph.edges", hyper, h -> (double) h.totalHyperedges())
+                    .tag("graph", "hypergraph")
+                    .description("Total active hyperedges in HyperEntityGraph");
+            if (namespaceId != null) edgesBuilder.tag("spector.namespace", namespaceId);
+            edgesBuilder.register(registry);
+
+            var headroomBuilder = Gauge.builder("spector.graph.headroom", hyper, HyperEntityGraphMemory::headroom)
+                    .tag("graph", "hypergraph")
+                    .description("Remaining hyperedge capacity fraction [0..1]");
+            if (namespaceId != null) headroomBuilder.tag("spector.namespace", namespaceId);
+            headroomBuilder.register(registry);
+
+            var rejectedBuilder = Gauge.builder("spector.graph.rejected", hyper, h -> (double) h.rejectedAtCapacityCount())
+                    .tag("graph", "hypergraph")
+                    .description("Total hyperedge additions rejected due to capacity exhaustion");
+            if (namespaceId != null) rejectedBuilder.tag("spector.namespace", namespaceId);
+            rejectedBuilder.register(registry);
+        }
     }
 
     private HebbianGraphMemory resolveHebbianGraph() {
@@ -155,6 +181,17 @@ public class GraphMetricsBinder implements MeterBinder {
             try {
                 if (memory.admin() != null) {
                     return memory.admin().entityDirectory();
+                }
+            } catch (Exception ignored) {}
+        }
+        return null;
+    }
+
+    private HyperEntityGraphMemory resolveHyperEntityGraph() {
+        if (memory != null) {
+            try {
+                if (memory.admin() != null && memory.admin().hyperEntityGraph() != null) {
+                    return memory.admin().hyperEntityGraph();
                 }
             } catch (Exception ignored) {}
         }
