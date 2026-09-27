@@ -19,6 +19,7 @@ import com.spectrayan.spector.kernel.bundle.BundleFileLayout;
 
 import com.spectrayan.spector.kernel.region.RegionId;
 import com.spectrayan.spector.kernel.region.RegionEntry;
+import com.spectrayan.spector.kernel.region.RegionVersionRegistry;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorServerException;
@@ -131,7 +132,14 @@ public final class BundleDirectory {
         for (int i = 0; i < maxRegions; i++) {
             entries.add(RegionEntry.read(masterSegment, ENTRIES_OFFSET + (long) i * RegionEntry.ENTRY_BYTES));
         }
-        
+
+        // Region-level version gate (#1015): validates that each region slice's own preamble
+        // schema version agrees with its directory entry and is within range. Closes the
+        // known limitation documented in docs/memory/bundle-format-compatibility.md:77-86
+        // where only the directory-level version was checked (PR #995) but the 5+ per-region
+        // versions were not.
+        RegionVersionRegistry.validateRegionVersions(masterSegment, entries);
+
         return new BundleDirectory(bundleMagic, maxRegions, entries,
                 RegionPreamble.readSchemaVersion(masterSegment, HEADER_OFFSET));
     }

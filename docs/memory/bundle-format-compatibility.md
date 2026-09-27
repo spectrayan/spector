@@ -74,16 +74,19 @@ A bundle stores its format version twice, and both copies are checked:
 They are written together, so a disagreement means one was rewritten independently — corruption worth
 refusing rather than silently resolving.
 
-## Region versions are not yet gated
+## Region versions are now validated (resolved in #1015)
 
 Beyond the bundle-level version, **each region carries its own version**, also stored twice — once in its
 `RegionEntry` in the directory and once in the region's own preamble. A partition bundle has five such regions
 (`SEMANTIC`, `EPISODIC`, `PROCEDURAL`, `TEXT`, `STRENGTH`); runtime bundles have more.
 
-Those versions are **written and validated for CRC, but not range-checked**. Doing so needs a registry
-declaring which region-layout versions each reader accepts, which does not exist yet. Until it does, a region
-written by a future layout at the same *bundle* version will be accepted. This is a known limitation, recorded
-here rather than left to be discovered.
+As of PR #1015, `RegionVersionRegistry.validateRegionVersions()` is called during `BundleDirectory.read()` to
+validate that each region slice's preamble schema version agrees with its directory entry and is at least 1.
+Regions whose preambles use non-SMKM magic (e.g., graph regions with custom headers) are skipped rather than
+rejected, preserving backward compatibility.
+
+When the first layout version bump occurs, `RegionVersionRegistry` should be extended with explicit per-`RegionId`
+acceptable version ranges (currently all layouts declare `schemaVersion() == 1`).
 
 ## The V3 → V4 migration
 
