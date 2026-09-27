@@ -251,15 +251,15 @@ class ColdStartExtrapolationAdversarialChallengeTest {
         // 2. Verify Table 2 figures are synchronized across both docs
         // 100k
         assertThat(singleNamespaceText).contains("| **100k** | 100,000 | 11 | 1.96 | 5,122.61 | 43.70 | 78.83 | 10 / 1 | 44.66 | 39.12 | +5.53 | 1,062.5 |");
-        assertThat(resultsText).contains("| **100k** | 100,000 | 11 | 1.96 | 5122.61 | 43.70 | 78.83 | 10 / 1 | 44.66 | 39.12 | +5.53 | 1062.5 |");
+        assertThat(resultsText).contains("| **100k** | Measured | 100,000 | 11 | 1.96 | 5122.61 | 43.70 | 78.83 | 10 / 1 | 44.66 | 39.12 | +5.53 | 1062.5 |");
 
         // 1M
         assertThat(singleNamespaceText).contains("| **1M** | 1,000,000 | 100 | 17.80 | 5,138.45 | 50.25 | 90.66 | 10 / 90 | 51.36 | 44.99 | +6.36 | 1,212.5 |");
-        assertThat(resultsText).contains("| **1M** | 1,000,000 | 100 | 17.80 | 5138.45 | 50.25 | 90.66 | 10 / 90 | 51.36 | 44.99 | +6.36 | 1212.5 |");
+        assertThat(resultsText).contains("| **1M** | Extrapolated¹ | 1,000,000 | 100 | 17.80 | 5138.45 | 50.25 | 90.66 | 10 / 90 | 51.36 | 44.99 | +6.36 | 1212.5 |");
 
         // 10M
         assertThat(singleNamespaceText).contains("| **10M** | 10,000,000 | 1,000 | 178.00 | 5,298.65 | 56.81 | 102.48 | 10 / 990 | 58.05 | 50.86 | +7.19 | 1,362.5 |");
-        assertThat(resultsText).contains("| **10M** | 10,000,000 | 1,000 | 178.00 | 5298.65 | 56.81 | 102.48 | 10 / 990 | 58.05 | 50.86 | +7.19 | 1362.5 |");
+        assertThat(resultsText).contains("| **10M** | Extrapolated¹ | 10,000,000 | 1,000 | 178.00 | 5298.65 | 56.81 | 102.48 | 10 / 990 | 58.05 | 50.86 | +7.19 | 1362.5 |");
 
         // 3. Verify Section 3.1 narrative & ASCII diagram
         assertThat(singleNamespaceText)
