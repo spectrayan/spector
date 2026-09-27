@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — Bundle Format Version Gating (#995)
+- **spector-kernel:** Added `BundleDirectory.requireReadableVersion()` to refuse bundles whose format version this binary cannot read. Validates preamble version against sub-header, rejects bundles outside `[MIN_READABLE_SCHEMA_VERSION, SCHEMA_VERSION]` range. Prevents silent data reinterpretation on version mismatch.
+- **docs:** Published `docs/memory/bundle-format-compatibility.md` documenting the version gate, known limitation on region-level versions, and upgrade path.
+
+### Added — Purge (R1) and Physical Tombstone Compaction (R2) (#996)
+- **spector-memory:** Implemented `SpectorMemory.purge(id)` with zero-overwrite erasure of payload, text, and vector bytes; graph detachment across Hebbian, temporal, entity, and hyperedge planes; and WAL-recorded audit trail.
+- **spector-memory:** Implemented `VacuumCompactor` for physical tombstone compaction with configurable policy hooks.
+- **spector-memory:** `PurgeResult` honestly discloses unreachable copies (DR exports, replicas, backups) and retained deduped text. No false claims of crypto-erasure.
+- **spector-mcp:** Added `memory_purge` MCP tool with full disclosure output.
+
+### Added — Memory Portability: Export, Import, and Golden Test (#997)
+- **spector-batch:** Implemented `SpectorMemoryExporter` and `SpectorMemoryImporter` with manifest-based portability format including engrams, graphs, hyperedges, and metadata.
+- **spector-batch:** Added golden-file roundtrip test (`SpectorMemoryPortabilityGoldenTest`) verifying export → import fidelity across all memory tiers.
+
+### Added — Namespace Scale and Observability (#999)
+- **spector-memory:** Implemented persisted namespace summaries, visit budget partition pruning, and cursor-based namespace listing.
+- **spector-metrics:** Added Prometheus gauges for partition count, engram count, recall latency percentiles, and graph headroom.
+- **bench:** Published single-namespace scale benchmark with 100k empirical measurements and extrapolated 1M/10M projections.
+
+### Added — Cell-HA Engine-Level Fencing, Writer Quiesce, ControlStore, and DR Drill (#1008, #1009)
+- **spector-cluster:** Implemented `FenceTokenManager`, `CoordinatorLeaseManager`, and `JdbcControlStore` for epoch-based fencing.
+- **spector-memory:** Implemented `QuiesceGuard` (ReentrantReadWriteLock) and `CheckpointEngine` integration for snapshot-consistent quiesce windows.
+- **spector-synapse:** Implemented `FailoverOrchestrator`, `KillOwnerRecoveryBenchmarkTest`, and `CellHa3NodeRedisComposeIntegrationTest`.
+- **deploy:** Added `dr-drill.sh` runbook script and Helm DR CronJob template.
+- **docs:** Published `docs/operations/failover-runbook.md` and `docs/operations/disaster-recovery.md`.
+
+### Added — Typed Hyperedges, Catalog Hardening, Vector Preflight, and Quiesce Benchmarks (#1010, #1011)
+- **spector-kernel:** Added `TYPE_SUPERSEDES` and `TYPE_CONSTRAINS` hyperedge types to `HyperEntityGraphMemory`.
+- **spector-synapse:** Hardened `PassthroughCatalog` mutation stubs to throw `UnsupportedOperationException` (fail-closed).
+- **spector-core:** Added `SimdCapability.isVectorApiAvailable()` and `checkVectorApiPreflight()` for aarch64/x86 Vector API shape detection.
+- **spector-memory:** Published quiesce pause benchmark (max 4.864ms across 308k concurrent writes, 8 threads).
+- **deploy:** Added topology mode and node role documentation to Helm README.
+
+### Fixed — Security Remediation (#1012)
+- **spector-synapse:** Remediated 24 Code Scanning alerts including CodeQL relative-path command injection, Junrar CVE, and libexpat1 CVEs.
+
+### Fixed — Documentation Normalization (#1013, #1014)
+- **docs:** Normalized MkDocs list formatting to 4-space nesting, fixed build hook compatibility, and resolved strict-mode warnings.
+
 ## [0.1.0-alpha.2] - 2026-09-11
 
 ### Added & Enhanced — Multi-Provider Docker & Production Infrastructure (#812)
