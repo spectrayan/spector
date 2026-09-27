@@ -379,6 +379,117 @@ class PurgeEndToEndTest {
                 assertThat(result.disclosure()).isNotBlank();
             }
         }
+
+        @Test
+        @DisplayName("UNREACHABLE_COPIES lists every known copy class — not just a subset (#1015)")
+        void unreachableCopiesContainsExactSet() {
+            // P1-1: The reviewer flagged that the purge "does not follow copies". That is by design,
+            // but the disclosure must list ALL six copy classes, not just some of them. Using
+            // containsExactlyInAnyOrder ensures that if a new class is added to the constant it is
+            // also expected here, and if one is silently removed the test catches the regression.
+            assertThat(PurgeResult.UNREACHABLE_COPIES).containsExactlyInAnyOrder(
+                    "dr_exports",
+                    "replica_disks",
+                    "cold_tier_objects",
+                    "filesystem_snapshots_and_backups",
+                    "wal_segments_prior_to_the_last_checkpoint",
+                    "os_page_cache_and_ssd_wear_levelling_remnants"
+            );
+            // The disclosure text must mention these reachability limits — it is not just a list
+            // for code consumers, it is the text returned to operators and audit logs.
+            assertThat(PurgeResult.DISCLOSURE_TEXT)
+                    .contains("does NOT reach")
+                    .contains("DR exports")
+                    .contains("replica disks")
+                    .contains("cold-tier objects")
+                    .contains("filesystem snapshots")
+                    .contains("No cryptographic erasure");
+        }
+    }
+
+    @Nested
+    @DisplayName("Dedup-text purge retention (#1015)")
+    class DedupTextRetention {
+
+        @Test
+        @DisplayName("purging a record whose text is shared with a live co-tenant reports local retention")
+        void sharedTextIsRetainedOnPurge(@TempDir Path dir) {
+            String sharedText = "Identical text that two records share via content-addressable dedup.";
+            FakeEmbeddingProvider embedProvider = new FakeEmbeddingProvider();
+            var memProps = new com.spectrayan.spector.config.properties.MemoryProperties()
+                    .setDimensions(embedProvider.dimensions())
+                    .setWorkingCapacity(20)
+                    .setEpisodicPartitionCapacity(100)
+                    .setSemanticCapacity(50)
+                    .setProceduralCapacity(20);
+            try (SpectorMemory memory = DefaultSpectorMemory.builder(memProps)
+                    .embeddingProvider(embedProvider)
+                    .namespaceId("purge-dedup")
+                    .persistence(dir)
+                    .persistenceMode(MemoryPersistenceMode.DISK)
+                    .build()) {
+
+                // Two records with identical text → dedup engine stores text once, both point to same offset
+                memory.remember("original", sharedText, MemoryType.SEMANTIC, "t");
+                memory.remember("cotenant", sharedText, MemoryType.SEMANTIC, "t");
+
+                // Purge 'original'. Since 'cotenant' still references the same text bytes, they cannot
+                // be zeroed without destroying cotenant's data.
+                PurgeResult result = memory.purge("original");
+
+                assertThat(result.found()).isTrue();
+                // P3-2: The dedup-text limitation must be surfaced to callers.
+                // hasLocalRetention() == true means some content bytes survive locally.
+                assertThat(result.hasLocalRetention())
+                        .as("text shared with a live co-tenant must report local retention")
+                        .isTrue();
+                assertThat(result.textRetainedShared())
+                        .as("textRetainedShared must be non-zero when text is shared")
+                        .isGreaterThan(0);
+                assertThat(result.textSharedWith())
+                        .as("textSharedWith should be >= 1 (at least the cotenant)")
+                        .isGreaterThanOrEqualTo(1);
+                // textDestroyed() should be false because the shared bytes survive
+                assertThat(result.textDestroyed())
+                        .as("text was NOT fully destroyed because dedup prevents it")
+                        .isFalse();
+            }
+        }
+
+        @Test
+        @DisplayName("when the co-tenant is purged too, the last purge can zero the text")
+        void afterCotenantPurgedTextIsDestroyed(@TempDir Path dir) {
+            String sharedText = "Text shared until both records are purged.";
+            FakeEmbeddingProvider embedProvider = new FakeEmbeddingProvider();
+            var memProps = new com.spectrayan.spector.config.properties.MemoryProperties()
+                    .setDimensions(embedProvider.dimensions())
+                    .setWorkingCapacity(20)
+                    .setEpisodicPartitionCapacity(100)
+                    .setSemanticCapacity(50)
+                    .setProceduralCapacity(20);
+            try (SpectorMemory memory = DefaultSpectorMemory.builder(memProps)
+                    .embeddingProvider(embedProvider)
+                    .namespaceId("purge-dedup-both")
+                    .persistence(dir)
+                    .persistenceMode(MemoryPersistenceMode.DISK)
+                    .build()) {
+
+                memory.remember("a", sharedText, MemoryType.SEMANTIC, "t");
+                memory.remember("b", sharedText, MemoryType.SEMANTIC, "t");
+
+                // First purge: retained because 'b' is still live
+                PurgeResult first = memory.purge("a");
+                assertThat(first.hasLocalRetention()).isTrue();
+
+                // Second purge: 'b' was the last reference, so text should now be fully destroyed
+                PurgeResult second = memory.purge("b");
+                assertThat(second.found()).isTrue();
+                // With no remaining co-tenants, the text bytes can finally be zeroed
+                assertThat(second.hasLocalRetention())
+                        .as("last reference purge should fully destroy text")
+                        .isFalse();
+            }
+        }
     }
 
     private static boolean isAllZero(byte[] bytes) {
