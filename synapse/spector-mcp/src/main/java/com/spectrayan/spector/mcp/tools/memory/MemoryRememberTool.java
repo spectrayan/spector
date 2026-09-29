@@ -50,13 +50,26 @@ public final class MemoryRememberTool extends MemoryToolHandler {
     private static final Logger log = LoggerFactory.getLogger(MemoryRememberTool.class);
     public static final String NAME = "memory_remember";
 
+    private final boolean strictWriteDestination;
+
     public MemoryRememberTool(SpectorMemory memory) {
+        this(memory, false);
+    }
+
+    public MemoryRememberTool(SpectorMemory memory, boolean strictWriteDestination) {
         super(NAME, memory);
+        this.strictWriteDestination = strictWriteDestination;
     }
 
     /** Enterprise constructor: resolves memory per-request for tenant isolation. */
     public MemoryRememberTool(Supplier<SpectorMemory> memoryResolver) {
+        this(memoryResolver, false);
+    }
+
+    /** Enterprise constructor with strict write destination policy. */
+    public MemoryRememberTool(Supplier<SpectorMemory> memoryResolver, boolean strictWriteDestination) {
         super(NAME, memoryResolver);
+        this.strictWriteDestination = strictWriteDestination;
     }
 
     @Override
@@ -66,12 +79,22 @@ public final class MemoryRememberTool extends MemoryToolHandler {
         String text = requireString(args, "text");
         String[] tags = optionalTags(args, "tags");
         String sourceName = optionalString(args, "source", "OBSERVED");
-        String tierName = optionalString(args, "tier", "SEMANTIC");
+        String tierName = optionalString(args, "tier", "");
 
-        // Parse tier
+        // Strict write destination: enforce explicit tier
+        boolean tierExplicit = !tierName.isBlank();
+        if (strictWriteDestination && !tierExplicit) {
+            throw new com.spectrayan.spector.commons.error.SpectorValidationException(
+                    com.spectrayan.spector.commons.error.ErrorCode.DESTINATION_SCOPE_REQUIRED,
+                    "tier (WORKING, EPISODIC, SEMANTIC, or PROCEDURAL)",
+                    "caller must specify an explicit memory tier when strict write destination policy is active"
+            );
+        }
+
+        // Parse tier — default to SEMANTIC when not in strict mode
         MemoryType type;
         try {
-            type = MemoryType.valueOf(tierName.toUpperCase());
+            type = MemoryType.valueOf((tierExplicit ? tierName : "SEMANTIC").toUpperCase());
         } catch (IllegalArgumentException e) {
             type = MemoryType.SEMANTIC;
         }

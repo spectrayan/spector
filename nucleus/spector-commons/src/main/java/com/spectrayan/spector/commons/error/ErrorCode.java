@@ -120,6 +120,10 @@ public enum ErrorCode {
     EMBEDDING_PROVIDER_MISSING(100_018, ErrorCategory.VALIDATION,
             "No EmbeddingProvider configured — use builder().embeddingProvider() or supply vectors manually"),
 
+    /** Write rejected: destination scope must be explicitly specified when strict write destination policy is enabled. */
+    DESTINATION_SCOPE_REQUIRED(100_019, ErrorCategory.VALIDATION,
+            "Strict write destination policy requires explicit {}: {}"),
+
     // ══════════════════════════════════════════════════════════════════════
     // CONFIG (SPE-110-xxx)
     // ══════════════════════════════════════════════════════════════════════

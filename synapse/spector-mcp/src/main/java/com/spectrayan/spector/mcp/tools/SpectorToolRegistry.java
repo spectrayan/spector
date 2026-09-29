@@ -80,10 +80,23 @@ public final class SpectorToolRegistry {
      * @return list of tool handlers
      */
     public static List<McpToolHandler> handlers(String serverVersion, SpectorMemory memory) {
+        return handlers(serverVersion, memory, false);
+    }
+
+    /**
+     * Returns tool handlers including memory tools with strict write destination enforcement.
+     *
+     * @param serverVersion            the server version string
+     * @param memory                   optional SpectorMemory instance
+     * @param strictWriteDestination   when true, require explicit namespace and tier on writes
+     * @return list of tool handlers
+     */
+    public static List<McpToolHandler> handlers(String serverVersion, SpectorMemory memory,
+                                                 boolean strictWriteDestination) {
         var handlers = new ArrayList<McpToolHandler>();
 
         if (memory != null) {
-            handlers.add(new MemoryRememberTool(memory));
+            handlers.add(new MemoryRememberTool(memory, strictWriteDestination));
             handlers.add(new MemoryScratchpadTool(memory));
             handlers.add(new MemoryRecallTool(memory));
             handlers.add(new MemoryGraphRecallTool(memory));
@@ -125,12 +138,25 @@ public final class SpectorToolRegistry {
      * @return list of tool handlers
      */
     public static List<McpToolHandler> handlers(String serverVersion, Supplier<SpectorMemory> memoryResolver) {
+        return handlers(serverVersion, memoryResolver, false);
+    }
+
+    /**
+     * Returns tool handlers with supplier-based memory and strict write destination enforcement.
+     *
+     * @param serverVersion            the server version string
+     * @param memoryResolver           per-request memory resolver for tenant isolation
+     * @param strictWriteDestination   when true, require explicit namespace and tier on writes
+     * @return list of tool handlers
+     */
+    public static List<McpToolHandler> handlers(String serverVersion, Supplier<SpectorMemory> memoryResolver,
+                                                 boolean strictWriteDestination) {
         if (memoryResolver == null) {
             return handlers(serverVersion);
         }
         var handlers = new ArrayList<McpToolHandler>();
 
-        handlers.add(new MemoryRememberTool(memoryResolver));
+        handlers.add(new MemoryRememberTool(memoryResolver, strictWriteDestination));
         handlers.add(new MemoryScratchpadTool(memoryResolver));
         handlers.add(new MemoryRecallTool(memoryResolver));
         handlers.add(new MemoryGraphRecallTool(memoryResolver));

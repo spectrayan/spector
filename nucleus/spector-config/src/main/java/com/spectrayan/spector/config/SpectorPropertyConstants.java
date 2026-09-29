@@ -1646,5 +1646,10 @@ public final class SpectorPropertyConstants {
 
     public static final String MEMORY_SKILL_UTILITY_ALPHA = "spector.memory.skill.utility-alpha";
     public static final float DEFAULT_MEMORY_SKILL_UTILITY_ALPHA = 0.1f;
+
+    // ── Governance (ADR-0088) ─────────────────────────────────────
+    /** When true, reject writes where namespace or memory tier was not explicitly supplied. */
+    public static final String GOVERNANCE_STRICT_WRITE_DESTINATION = "spector.governance.strict-write-destination";
+    public static final boolean DEFAULT_GOVERNANCE_STRICT_WRITE_DESTINATION = false;
 }
 
