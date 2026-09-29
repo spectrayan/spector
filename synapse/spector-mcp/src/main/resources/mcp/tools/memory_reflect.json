@@ -1,0 +1,25 @@
+{
+  "name": "memory_reflect",
+  "description": "Trigger a sleep consolidation (reflection) cycle. Reflection runs the full 14-relay cognitive pathway: episodic log consolidation, soul drift re-fusion, Hebbian homeostasis, synaptic pruning, temporal pruning, cross-layer promotion, procedural crystallization, entity maintenance, idiolect learning, and WAL journaling. Returns a detailed report of all work performed. Use this periodically (e.g., end of session) to promote episodic traces into long-term semantic memory and prune stale connections.",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:memory:write"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "namespace": {
+        "type": "string",
+        "description": "Target memory namespace (slug or ID). Omit to use connection or account default."
+      },
+      "session_limit": {
+        "type": "integer",
+        "description": "Maximum number of episodic sessions to process. Omit for unbounded full cycle."
+      },
+      "consolidation_only": {
+        "type": "boolean",
+        "description": "If true, only run consolidation relays (skip companion maintenance like graph decay, entity cleanup). Faster but less thorough. Default: false."
+      }
+    }
+  }
+}

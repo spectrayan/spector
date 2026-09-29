@@ -1,0 +1,29 @@
+💤 Sleep Consolidation (Reflection) Complete
+=============================================
+
+Duration: {{durationMs}} ms
+
+Consolidation:
+  Episodic → Semantic promotions: {{consolidatedCount}}
+  Log turns consolidated:         {{logTurnsConsolidated}}
+
+Pruning:
+  Tombstoned memories:    {{tombstonedCount}}
+  Compacted partitions:   {{compactedPartitions}}
+  Temporal nodes pruned:  {{temporalPrunedCount}}
+
+{{#if hasSoulDrift}}
+Soul Drift Re-Fusion:
+  Drifted memories detected: {{soulDriftedCount}}
+  Re-fused with new weights: {{soulRefusedCount}}
+  Avg importance delta:      {{formatDecimal averageImportanceDelta "%.3f"}}
+
+{{/if}}
+{{#if hasGraphHealth}}
+Graph Health:
+  {{graphHealthSummary}}
+
+{{/if}}
+{{#unless hadActivity}}
+ℹ️ No activity — memory store is already up to date.
+{{/unless}}
