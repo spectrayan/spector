@@ -27,11 +27,24 @@ import com.spectrayan.spector.kernel.api.MemoryType;
 /**
  * Formats multi-tier cognitive memory into structured, token-budgeted markdown context packs.
  *
- * <p>Allocates token budgets across cognitive dimensions:</p>
+ * <h3>Dual-Plane Rendering</h3>
+ * <p>This formatter supports two rendering modes for LLM prompt prefix cache efficiency:</p>
  * <ul>
- *   <li><b>Working Memory & Intent</b> (~20% budget): active conversational goals and scratchpad</li>
- *   <li><b>Procedural Heuristics & Cadence</b> (~25% budget): crystallized decision rules and skills</li>
- *   <li><b>Core Semantic Facts & Axioms</b> (~30% budget): beliefs, facts, and world models</li>
+ *   <li><b>{@link #formatStaticPrefix}</b>: Stable content (persona, procedural skills, semantic axioms)
+ *       that remains byte-identical across turns within a session. Designed for the system prompt,
+ *       above the cache boundary.</li>
+ *   <li><b>{@link #formatDynamicTail}</b>: Volatile content (working scratchpad, episodic memories,
+ *       turn-specific semantic matches, fact transitions) that varies per turn. Designed for the
+ *       user message or tool response, below the cache boundary.</li>
+ * </ul>
+ *
+ * <p>The original {@link #format} method is preserved for backward compatibility and concatenates both.</p>
+ *
+ * <h3>Token Budget Allocation</h3>
+ * <ul>
+ *   <li><b>Working Memory &amp; Intent</b> (~20% budget): active conversational goals and scratchpad</li>
+ *   <li><b>Procedural Heuristics &amp; Cadence</b> (~25% budget): crystallized decision rules and skills</li>
+ *   <li><b>Core Semantic Facts &amp; Axioms</b> (~30% budget): beliefs, facts, and world models</li>
  *   <li><b>Chrono-Episodic Memories</b> (~25% budget): episodic stories and experiences</li>
  * </ul>
  */
@@ -39,10 +52,29 @@ public final class ContextPackFormatter {
 
     private static final int CHARS_PER_TOKEN = 4;
 
+    /**
+     * Default importance threshold for classifying semantic memories as static axioms.
+     * Memories with importance &ge; this value are rendered in the static prefix;
+     * those below go to the dynamic tail. Based on a 0–10 importance scale.
+     */
+    public static final float DEFAULT_STATIC_IMPORTANCE_THRESHOLD = 5.0f;
+
     private ContextPackFormatter() {}
 
     /**
      * Input data bundle for context pack generation.
+     *
+     * @param query                       the recall query for this turn
+     * @param workingIntent               active intent / scratchpad note
+     * @param recalledMemories            all recalled memories across tiers
+     * @param factHistories               bitemporal fact transition histories
+     * @param tokenBudget                 total token budget for the context pack
+     * @param profileName                 cognitive recall profile name
+     * @param personaId                   active persona identifier
+     * @param staticImportanceThreshold   importance threshold for static/dynamic semantic split;
+     *                                    semantic memories with {@code importance >= threshold}
+     *                                    go to the static prefix, others to the dynamic tail.
+     *                                    Defaults to {@value #DEFAULT_STATIC_IMPORTANCE_THRESHOLD}.
      */
     public record ContextPackInput(
             String query,
@@ -51,13 +83,30 @@ public final class ContextPackFormatter {
             List<FactHistory> factHistories,
             int tokenBudget,
             String profileName,
-            String personaId
+            String personaId,
+            float staticImportanceThreshold
     ) {
+        /**
+         * Backward-compatible constructor without staticImportanceThreshold.
+         */
+        public ContextPackInput(String query, String workingIntent,
+                                List<CognitiveResult> recalledMemories,
+                                List<FactHistory> factHistories,
+                                int tokenBudget, String profileName,
+                                String personaId) {
+            this(query, workingIntent, recalledMemories, factHistories,
+                    tokenBudget, profileName, personaId,
+                    DEFAULT_STATIC_IMPORTANCE_THRESHOLD);
+        }
+
         public ContextPackInput {
             recalledMemories = recalledMemories != null ? List.copyOf(recalledMemories) : List.of();
             factHistories = factHistories != null ? List.copyOf(factHistories) : List.of();
             if (tokenBudget <= 0) {
                 tokenBudget = 3000;
+            }
+            if (staticImportanceThreshold < 0) {
+                staticImportanceThreshold = DEFAULT_STATIC_IMPORTANCE_THRESHOLD;
             }
         }
     }
@@ -65,37 +114,56 @@ public final class ContextPackFormatter {
     /**
      * Formats a complete hierarchical context pack adhering to the token budget.
      *
+     * <p>Backward-compatible: produces the same output as before by concatenating
+     * {@link #formatStaticPrefix} and {@link #formatDynamicTail}.</p>
+     *
      * @param input the context pack inputs
      * @return structured markdown string ready for LLM injection
      */
     public static String format(ContextPackInput input) {
         Objects.requireNonNull(input, "input cannot be null");
+        return formatStaticPrefix(input) + formatDynamicTail(input);
+    }
+
+    /**
+     * Renders the <b>static prefix</b> — content stable across turns within a session.
+     *
+     * <p>Includes:</p>
+     * <ul>
+     *   <li>Context pack header with persona and profile metadata</li>
+     *   <li>Procedural heuristics and crystallized skills (tier {@code PROCEDURAL})</li>
+     *   <li>High-importance semantic axioms (tier {@code SEMANTIC}, importance &ge; threshold)</li>
+     * </ul>
+     *
+     * <p>This block is designed to be placed in the system prompt, above the LLM provider's
+     * cache boundary, and remain byte-identical across consecutive conversational turns
+     * (provided persona, skills, and high-importance facts haven't changed).</p>
+     *
+     * @param input the context pack inputs
+     * @return stable markdown prefix for system prompt caching
+     */
+    public static String formatStaticPrefix(ContextPackInput input) {
+        Objects.requireNonNull(input, "input cannot be null");
 
         int totalCharBudget = input.tokenBudget() * CHARS_PER_TOKEN;
-        int workingBudget = (int) (totalCharBudget * 0.20);
         int proceduralBudget = (int) (totalCharBudget * 0.25);
         int semanticBudget = (int) (totalCharBudget * 0.30);
-        int episodicBudget = (int) (totalCharBudget * 0.25);
 
-        // Separate recalled memories by tier
-        List<CognitiveResult> workingMemories = new ArrayList<>();
         List<CognitiveResult> proceduralMemories = new ArrayList<>();
-        List<CognitiveResult> semanticMemories = new ArrayList<>();
-        List<CognitiveResult> episodicMemories = new ArrayList<>();
+        List<CognitiveResult> staticSemanticMemories = new ArrayList<>();
 
         for (CognitiveResult result : input.recalledMemories()) {
-            if (result.memoryType() == MemoryType.WORKING) {
-                workingMemories.add(result);
-            } else if (result.memoryType() == MemoryType.PROCEDURAL) {
+            if (result.memoryType() == MemoryType.PROCEDURAL) {
                 proceduralMemories.add(result);
-            } else if (result.memoryType() == MemoryType.SEMANTIC) {
-                semanticMemories.add(result);
-            } else if (result.memoryType() == MemoryType.EPISODIC) {
-                episodicMemories.add(result);
+            } else if (result.memoryType() == MemoryType.SEMANTIC
+                    && result.importance() >= input.staticImportanceThreshold()) {
+                staticSemanticMemories.add(result);
             }
         }
 
         var sb = new StringBuilder();
+
+        // Header
         sb.append("# === SPECTOR COGNITIVE CONTEXT PACK ===\n");
         if (input.personaId() != null && !input.personaId().isBlank()) {
             sb.append("**Persona:** `").append(input.personaId()).append("` | ");
@@ -103,7 +171,68 @@ public final class ContextPackFormatter {
         sb.append("**Profile:** `").append(input.profileName() != null ? input.profileName() : "BALANCED")
           .append("` | **Budget:** ").append(input.tokenBudget()).append(" tokens\n\n");
 
-        // 1. Working Intent & Scratchpad
+        // Procedural Heuristics & Cadence
+        sb.append("## 2. PROCEDURAL HEURISTICS & DECISION CADENCE\n");
+        int procCharsUsed = renderProceduralMemories(sb, proceduralMemories, proceduralBudget);
+        if (procCharsUsed == 0) {
+            sb.append("- _No specialized procedural skill triggered for current context._\n");
+        }
+        sb.append("\n");
+
+        // Static Semantic Axioms (high importance)
+        sb.append("## 3. CORE SEMANTIC FACTS & AXIOMS\n");
+        int semCharsUsed = renderSemanticMemories(sb, staticSemanticMemories, semanticBudget);
+        if (semCharsUsed == 0) {
+            sb.append("- _No high-confidence semantic axioms in static prefix._\n");
+        }
+        sb.append("\n");
+
+        return sb.toString();
+    }
+
+    /**
+     * Renders the <b>dynamic tail</b> — content that varies per turn.
+     *
+     * <p>Includes:</p>
+     * <ul>
+     *   <li>Working memory intent and scratchpad (tier {@code WORKING})</li>
+     *   <li>Turn-specific semantic matches (tier {@code SEMANTIC}, importance &lt; threshold)</li>
+     *   <li>Chrono-episodic memories and anecdotes (tier {@code EPISODIC})</li>
+     *   <li>Bitemporal fact transitions and conflicts</li>
+     * </ul>
+     *
+     * <p>This block is designed to be appended to the user message or tool response,
+     * below the LLM provider's cache boundary.</p>
+     *
+     * @param input the context pack inputs
+     * @return volatile markdown tail for user-turn injection
+     */
+    public static String formatDynamicTail(ContextPackInput input) {
+        Objects.requireNonNull(input, "input cannot be null");
+
+        int totalCharBudget = input.tokenBudget() * CHARS_PER_TOKEN;
+        int workingBudget = (int) (totalCharBudget * 0.20);
+        int semanticBudget = (int) (totalCharBudget * 0.30);
+        int episodicBudget = (int) (totalCharBudget * 0.25);
+
+        List<CognitiveResult> workingMemories = new ArrayList<>();
+        List<CognitiveResult> dynamicSemanticMemories = new ArrayList<>();
+        List<CognitiveResult> episodicMemories = new ArrayList<>();
+
+        for (CognitiveResult result : input.recalledMemories()) {
+            if (result.memoryType() == MemoryType.WORKING) {
+                workingMemories.add(result);
+            } else if (result.memoryType() == MemoryType.SEMANTIC
+                    && result.importance() < input.staticImportanceThreshold()) {
+                dynamicSemanticMemories.add(result);
+            } else if (result.memoryType() == MemoryType.EPISODIC) {
+                episodicMemories.add(result);
+            }
+        }
+
+        var sb = new StringBuilder();
+
+        // Working Intent & Scratchpad
         sb.append("## 1. ACTIVE WORKING INTENT & SCRATCHPAD\n");
         int workingCharsUsed = 0;
         if (input.workingIntent() != null && !input.workingIntent().isBlank()) {
@@ -123,10 +252,66 @@ public final class ContextPackFormatter {
         }
         sb.append("\n");
 
-        // 2. Procedural Heuristics & Cadence
-        sb.append("## 2. PROCEDURAL HEURISTICS & DECISION CADENCE\n");
-        int procCharsUsed = 0;
-        for (CognitiveResult r : proceduralMemories) {
+        // Dynamic Semantic Matches (lower importance, turn-specific)
+        if (!dynamicSemanticMemories.isEmpty()) {
+            sb.append("## 3b. TURN-RELEVANT SEMANTIC MATCHES\n");
+            renderSemanticMemories(sb, dynamicSemanticMemories, semanticBudget);
+            sb.append("\n");
+        }
+
+        // Chrono-Episodic Memories
+        sb.append("## 4. CHRONO-EPISODIC MEMORIES & EXPERIENCES\n");
+        int epiCharsUsed = 0;
+        for (CognitiveResult r : episodicMemories) {
+            StringBuilder item = new StringBuilder();
+            item.append("- [Episode #").append(r.id()).append("]: ").append(r.text()).append("\n");
+            item.append("  - Confidence: ").append(String.format("%.2f", r.ltpAdjustedDecay()))
+                .append(" | Age: ").append(String.format("%.1f", r.ageDays())).append("d\n");
+            if (epiCharsUsed + item.length() <= episodicBudget) {
+                sb.append(item);
+                epiCharsUsed += item.length();
+            }
+        }
+        if (epiCharsUsed == 0) {
+            sb.append("- _No episodic memories recalled for prompt._\n");
+        }
+        sb.append("\n");
+
+        // Bitemporal Fact Transitions
+        if (!input.factHistories().isEmpty()) {
+            sb.append("## 5. BITEMPORAL EVIDENCE TRANSITIONS & CONFLICTS\n");
+            for (FactHistory fh : input.factHistories()) {
+                sb.append("- [Timeline: `").append(fh.subject()).append("` -> `").append(fh.predicate()).append("`]:\n");
+                if (fh.activeFact() != null) {
+                    sb.append("  - Active Consensus: `").append(fh.activeFact().object())
+                      .append("` (conf: ").append(String.format("%.2f", fh.activeFact().confidence()))
+                      .append(", validFrom: ").append(fh.activeFact().validFrom()).append(")\n");
+                }
+                for (FactHistory.FactSnapshot s : fh.supersededFacts()) {
+                    sb.append("  - Historical: `").append(s.object())
+                      .append("` (conf: ").append(String.format("%.2f", s.confidence()))
+                      .append(", supersededBy: #").append(s.supersededByFactId()).append(")\n");
+                }
+            }
+            sb.append("\n");
+        }
+
+        sb.append("# === END COGNITIVE CONTEXT PACK ===\n");
+        return sb.toString();
+    }
+
+    // ──────────────── Shared rendering helpers ────────────────
+
+    /**
+     * Renders procedural memories into the given StringBuilder.
+     *
+     * @return total characters used
+     */
+    private static int renderProceduralMemories(StringBuilder sb,
+                                                 List<CognitiveResult> memories,
+                                                 int charBudget) {
+        int charsUsed = 0;
+        for (CognitiveResult r : memories) {
             SkillBody skillBody = SkillBody.parse(r.text());
             StringBuilder item = new StringBuilder();
 
@@ -155,7 +340,6 @@ public final class ContextPackFormatter {
                 }
             } else {
                 String cleanText = r.text();
-                // Strip raw frontmatter fences if corrupt
                 if (cleanText.stripLeading().startsWith("---")) {
                     int secondFence = cleanText.indexOf("---", 3);
                     if (secondFence != -1) {
@@ -167,74 +351,35 @@ public final class ContextPackFormatter {
 
             item.append("  - Score: ").append(String.format(java.util.Locale.ROOT, "%.2f", r.score()));
             item.append(" | Valence: ").append(r.valence()).append("\n");
-            if (procCharsUsed + item.length() <= proceduralBudget) {
+            if (charsUsed + item.length() <= charBudget) {
                 sb.append(item);
-                procCharsUsed += item.length();
+                charsUsed += item.length();
             }
         }
-        if (procCharsUsed == 0) {
-            sb.append("- _No specialized procedural skill triggered for current context._\n");
-        }
-        sb.append("\n");
+        return charsUsed;
+    }
 
-        // 3. Core Semantic Facts & Moral Axioms
-        sb.append("## 3. CORE SEMANTIC FACTS & AXIOMS\n");
-        int semCharsUsed = 0;
-        for (CognitiveResult r : semanticMemories) {
+    /**
+     * Renders semantic memories into the given StringBuilder.
+     *
+     * @return total characters used
+     */
+    private static int renderSemanticMemories(StringBuilder sb,
+                                               List<CognitiveResult> memories,
+                                               int charBudget) {
+        int charsUsed = 0;
+        for (CognitiveResult r : memories) {
             StringBuilder item = new StringBuilder();
             item.append("- [Fact #").append(r.id()).append("]: ").append(r.text()).append("\n");
             if (r.synapticTags() != null && r.synapticTags().length > 0) {
                 item.append("  - Tags: [").append(String.join(", ", r.synapticTags())).append("]\n");
             }
-            if (semCharsUsed + item.length() <= semanticBudget) {
+            if (charsUsed + item.length() <= charBudget) {
                 sb.append(item);
-                semCharsUsed += item.length();
+                charsUsed += item.length();
             }
         }
-        if (semCharsUsed == 0) {
-            sb.append("- _No matching semantic beliefs retrieved._\n");
-        }
-        sb.append("\n");
-
-        // 4. Chrono-Episodic Memories & Anecdotes
-        sb.append("## 4. CHRONO-EPISODIC MEMORIES & EXPERIENCES\n");
-        int epiCharsUsed = 0;
-        for (CognitiveResult r : episodicMemories) {
-            StringBuilder item = new StringBuilder();
-            item.append("- [Episode #").append(r.id()).append("]: ").append(r.text()).append("\n");
-            item.append("  - Confidence: ").append(String.format("%.2f", r.ltpAdjustedDecay()))
-                .append(" | Age: ").append(String.format("%.1f", r.ageDays())).append("d\n");
-            if (epiCharsUsed + item.length() <= episodicBudget) {
-                sb.append(item);
-                epiCharsUsed += item.length();
-            }
-        }
-        if (epiCharsUsed == 0) {
-            sb.append("- _No episodic memories recalled for prompt._\n");
-        }
-        sb.append("\n");
-
-        // 5. Multi-Evidence Transitions & Conflicts (if present)
-        if (!input.factHistories().isEmpty()) {
-            sb.append("## 5. BITEMPORAL EVIDENCE TRANSITIONS & CONFLICTS\n");
-            for (FactHistory fh : input.factHistories()) {
-                sb.append("- [Timeline: `").append(fh.subject()).append("` -> `").append(fh.predicate()).append("`]:\n");
-                if (fh.activeFact() != null) {
-                    sb.append("  - Active Consensus: `").append(fh.activeFact().object())
-                      .append("` (conf: ").append(String.format("%.2f", fh.activeFact().confidence()))
-                      .append(", validFrom: ").append(fh.activeFact().validFrom()).append(")\n");
-                }
-                for (FactHistory.FactSnapshot s : fh.supersededFacts()) {
-                    sb.append("  - Historical: `").append(s.object())
-                      .append("` (conf: ").append(String.format("%.2f", s.confidence()))
-                      .append(", supersededBy: #").append(s.supersededByFactId()).append(")\n");
-                }
-            }
-            sb.append("\n");
-        }
-
-        sb.append("# === END COGNITIVE CONTEXT PACK ===\n");
-        return sb.toString();
+        return charsUsed;
     }
 
     private static String formatStructuredSkill(final String body) {

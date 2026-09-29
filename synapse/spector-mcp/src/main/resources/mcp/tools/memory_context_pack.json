@@ -41,6 +41,11 @@
       "namespace": {
         "type": "string",
         "description": "Target memory namespace (slug or ID). Omit to use connection or account default."
+      },
+      "mode": {
+        "type": "string",
+        "description": "Rendering mode: 'unified' (default) returns a single pack, 'split' returns static prefix and dynamic tail separated by a SPECTOR_CACHE_BOUNDARY comment for prompt prefix cache optimization.",
+        "default": "unified"
       }
     }
   }

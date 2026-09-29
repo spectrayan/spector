@@ -61,6 +61,7 @@ public final class MemoryContextPackTool extends MemoryToolHandler {
         String profileStr = optionalString(args, "profile", "BALANCED");
         String personaId = optionalString(args, "persona_id", "");
         String asOf = optionalString(args, "as_of", "");
+        String mode = optionalString(args, "mode", "unified");
 
         // Build recall options
         int candidateTopK = Math.max(10, Math.min(50, tokenBudget / 100));
@@ -109,6 +110,16 @@ public final class MemoryContextPackTool extends MemoryToolHandler {
                 profileStr,
                 personaId
         );
+
+        if ("split".equalsIgnoreCase(mode)) {
+            // Split mode: return static prefix and dynamic tail separated for cache-aware injection
+            String staticPrefix = ContextPackFormatter.formatStaticPrefix(input);
+            String dynamicTail = ContextPackFormatter.formatDynamicTail(input);
+            String splitOutput = staticPrefix
+                    + "<!-- SPECTOR_CACHE_BOUNDARY -->\n"
+                    + dynamicTail;
+            return textResult(splitOutput);
+        }
 
         String contextPack = ContextPackFormatter.format(input);
         return textResult(contextPack);
