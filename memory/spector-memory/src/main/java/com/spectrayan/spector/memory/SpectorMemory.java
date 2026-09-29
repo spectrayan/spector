@@ -571,6 +571,19 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
         reinforce(memoryId, valence); // default: delegate to simple reinforce
     }
 
+    /**
+     * Pure strength rehearsal (MF-001 §5 {@code rehearse} operation).
+     *
+     * <p>Updates storage strength S via ΔS = s_gain(1-D) and retrieval
+     * strength D without returning content or modifying valence.</p>
+     *
+     * @param memoryId the memory ID to rehearse
+     */
+    default void rehearse(String memoryId) {
+        throw new UnsupportedOperationException(
+                "rehearse is not supported by " + getClass().getName());
+    }
+
     /** Suppresses a memory from future recall with a reason. */
     void suppress(String memoryId, String reason);
 

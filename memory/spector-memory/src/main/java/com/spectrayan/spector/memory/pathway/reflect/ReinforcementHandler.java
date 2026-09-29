@@ -206,4 +206,33 @@ public final class ReinforcementHandler {
             }
         }
     }
+
+    /**
+     * Pure strength rehearsal: updates S and D without valence or lateral feedback (MF-001 §5).
+     *
+     * @param memoryId          the memory to rehearse
+     * @param partitionRegistry the live partition registry
+     * @param index             the memory index
+     */
+    public void rehearse(String memoryId,
+                         PartitionRegistry partitionRegistry, MemoryIndex index) {
+        if (memoryId == null) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "memoryId");
+        }
+        MemoryLocation loc = index.locate(memoryId);
+        if (loc == null) {
+            log.warn("Rehearse: memory '{}' not found", memoryId);
+            return;
+        }
+
+        CognitiveMemoryRouter cognitiveRouter = partitionRegistry.routerFor(loc.colocatedPartition());
+        if (cognitiveRouter != null) {
+            cognitiveRouter.rehearse(loc,
+                    twoFactorConfig != null ? twoFactorConfig.sGain() : 1.0f,
+                    twoFactorConfig != null ? twoFactorConfig.sMax() : 100.0f);
+        }
+
+        wal.appendRehearse(memoryId);
+        log.debug("Rehearse: '{}' — S/D updated, valence unchanged", memoryId);
+    }
 }

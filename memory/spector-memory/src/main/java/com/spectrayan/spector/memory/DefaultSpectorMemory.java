@@ -1538,6 +1538,18 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     }
 
     @Override
+    public void rehearse(String memoryId) {
+        try (var permit = quiesceGuard.acquireWritePermit()) {
+        acquireLease();
+        try {
+            reinforcementHandler.rehearse(memoryId, partitionManager, index);
+        } finally {
+            releaseLease();
+        }
+            }
+    }
+
+    @Override
     public void suppress(String memoryId, String reason) {
         acquireLease();
         try {
