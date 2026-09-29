@@ -48,6 +48,7 @@ public final class RelayNames {
 
     // Ingestion Pathway Relays
     public static final String DEDUP_GUARD           = "dedup_guard";
+    public static final String TOMBSTONE_GUARD       = "tombstone_guard";
     public static final String TAG_TRANSDUCTION      = "tag_transduction";
     public static final String DOPAMINERGIC_SURPRISE = "dopaminergic_surprise";
     public static final String SCALAR_QUANTIZATION   = "scalar_quantization";

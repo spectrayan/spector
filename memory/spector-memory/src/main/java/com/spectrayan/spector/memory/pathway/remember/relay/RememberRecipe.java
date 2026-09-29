@@ -35,6 +35,7 @@ public final class RememberRecipe implements PathwayRecipe<RememberSignal> {
 
     private final SynapticRelay<RememberSignal> dedup;
     private final SynapticRelay<RememberSignal> tags;
+    private final SynapticRelay<RememberSignal> tombstone;
     private final SynapticRelay<RememberSignal> surprise;
     private final SynapticRelay<RememberSignal> write;
     private final SynapticRelay<RememberSignal> graph;
@@ -42,6 +43,34 @@ public final class RememberRecipe implements PathwayRecipe<RememberSignal> {
 
     /**
      * Creates a new Remember recipe from its constituent relays.
+     *
+     * @param dedup     deduplication guard relay
+     * @param tags      synaptic tag transduction relay
+     * @param tombstone tombstone guard relay (nullable — skipped if null)
+     * @param surprise  dopaminergic surprise and novelty relay
+     * @param write     transactional cortical write and index sync relay
+     * @param graph     associative graph and temporal chain linking relay
+     * @param kg        knowledge graph and entity enrichment relay
+     */
+    public RememberRecipe(
+            final SynapticRelay<RememberSignal> dedup,
+            final SynapticRelay<RememberSignal> tags,
+            final SynapticRelay<RememberSignal> tombstone,
+            final SynapticRelay<RememberSignal> surprise,
+            final SynapticRelay<RememberSignal> write,
+            final SynapticRelay<RememberSignal> graph,
+            final SynapticRelay<RememberSignal> kg) {
+        this.dedup = Objects.requireNonNull(dedup, "dedup cannot be null");
+        this.tags = Objects.requireNonNull(tags, "tags cannot be null");
+        this.tombstone = tombstone; // nullable — tombstone guard is optional
+        this.surprise = Objects.requireNonNull(surprise, "surprise cannot be null");
+        this.write = Objects.requireNonNull(write, "write cannot be null");
+        this.graph = Objects.requireNonNull(graph, "graph cannot be null");
+        this.kg = Objects.requireNonNull(kg, "kg cannot be null");
+    }
+
+    /**
+     * Creates a Remember recipe without a tombstone guard relay (backward compatibility).
      *
      * @param dedup    deduplication guard relay
      * @param tags     synaptic tag transduction relay
@@ -57,12 +86,7 @@ public final class RememberRecipe implements PathwayRecipe<RememberSignal> {
             final SynapticRelay<RememberSignal> write,
             final SynapticRelay<RememberSignal> graph,
             final SynapticRelay<RememberSignal> kg) {
-        this.dedup = Objects.requireNonNull(dedup, "dedup cannot be null");
-        this.tags = Objects.requireNonNull(tags, "tags cannot be null");
-        this.surprise = Objects.requireNonNull(surprise, "surprise cannot be null");
-        this.write = Objects.requireNonNull(write, "write cannot be null");
-        this.graph = Objects.requireNonNull(graph, "graph cannot be null");
-        this.kg = Objects.requireNonNull(kg, "kg cannot be null");
+        this(dedup, tags, null, surprise, write, graph, kg);
     }
 
     @Override
@@ -75,8 +99,16 @@ public final class RememberRecipe implements PathwayRecipe<RememberSignal> {
         // IdempotentRelay nor InterruptibleRelay, so the composer rejects both at build
         // time — this comment documents the intent, the type system enforces it.
         composer.relay(RelayNames.DEDUP_GUARD,           dedup,    ErrorPolicy.FAIL_FAST)
-                .relay(RelayNames.TAG_TRANSDUCTION,      tags,     ErrorPolicy.FAIL_FAST)
-                .relay(RelayNames.DOPAMINERGIC_SURPRISE, surprise, ErrorPolicy.FAIL_FAST)
+                .relay(RelayNames.TAG_TRANSDUCTION,      tags,     ErrorPolicy.FAIL_FAST);
+
+        // Tombstone guard (#1019): placed after tag transduction (vector is L2-normalized)
+        // and before dopaminergic surprise (to avoid wasting novelty computation on
+        // candidates that match a previously forgotten memory).
+        if (tombstone != null) {
+            composer.relay(RelayNames.TOMBSTONE_GUARD, tombstone, ErrorPolicy.FAIL_FAST);
+        }
+
+        composer.relay(RelayNames.DOPAMINERGIC_SURPRISE, surprise, ErrorPolicy.FAIL_FAST)
                 .relay(RelayNames.CORTICAL_WRITE,        write,    ErrorPolicy.FAIL_FAST)
                 .relay(RelayNames.GRAPH_LINKING,         graph,    ErrorPolicy.DEGRADE_GRACEFULLY);
 

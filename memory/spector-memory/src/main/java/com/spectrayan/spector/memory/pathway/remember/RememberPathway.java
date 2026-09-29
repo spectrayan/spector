@@ -45,6 +45,7 @@ import com.spectrayan.spector.memory.pathway.remember.relay.CorticalWriteTransac
 import com.spectrayan.spector.memory.pathway.remember.relay.DedupGuardRelay;
 import com.spectrayan.spector.memory.pathway.remember.relay.DopaminergicSurpriseRelay;
 import com.spectrayan.spector.memory.pathway.remember.relay.KnowledgeGraphEnrichmentRelay;
+import com.spectrayan.spector.memory.pathway.remember.relay.TombstoneGuardRelay;
 import com.spectrayan.spector.commons.pathway.PathwayComposer;
 import com.spectrayan.spector.memory.pathway.remember.relay.RememberRecipe;
 import com.spectrayan.spector.memory.pathway.remember.relay.RememberSignal;
@@ -147,6 +148,10 @@ public final class RememberPathway extends AbstractPathway<RememberSignal, Remem
                     builder.dataEncryptor,
                     builder.normalizeAtIngest
             );
+            final TombstoneGuardRelay tombstoneGuardRelay = new TombstoneGuardRelay(
+                    builder.cortex.cognitiveRouter(),
+                    quantizer
+            );
             final DopaminergicSurpriseRelay surpriseRelay = new DopaminergicSurpriseRelay(
                     surpriseDetector,
                     importanceProvider,
@@ -181,6 +186,7 @@ public final class RememberPathway extends AbstractPathway<RememberSignal, Remem
             new RememberRecipe(
                     dedupGuardRelay,
                     tagTransductionRelay,
+                    tombstoneGuardRelay,
                     surpriseRelay,
                     this.corticalWriteRelay,
                     graphLinkingRelay,

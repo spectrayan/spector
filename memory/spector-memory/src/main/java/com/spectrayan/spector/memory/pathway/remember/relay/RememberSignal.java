@@ -56,6 +56,7 @@ public final class RememberSignal extends com.spectrayan.spector.commons.pathway
     private int graphSlot = -1;
     private boolean duplicate = false;
     private boolean successful = false;
+    private boolean tombstoneBlocked = false;
     private boolean gated = false;
     private byte consolidationFlagsOverlay;
     private com.spectrayan.spector.memory.aisme.fegr.EventDensityMetrics eventDensityMetrics;
@@ -203,6 +204,9 @@ public final class RememberSignal extends com.spectrayan.spector.commons.pathway
 
     public boolean isSuccessful() { return successful; }
     public void successful(final boolean successful) { this.successful = successful; }
+
+    public boolean isTombstoneBlocked() { return tombstoneBlocked; }
+    public void tombstoneBlocked(final boolean tombstoneBlocked) { this.tombstoneBlocked = tombstoneBlocked; }
 
     public com.spectrayan.spector.memory.aisme.fegr.EventDensityMetrics eventDensityMetrics() { return eventDensityMetrics; }
     public void eventDensityMetrics(final com.spectrayan.spector.memory.aisme.fegr.EventDensityMetrics metrics) { this.eventDensityMetrics = metrics; }
