@@ -50,6 +50,7 @@ import com.spectrayan.spector.mcp.tools.memory.MemoryCompileSkillTool;
 import com.spectrayan.spector.mcp.tools.memory.PersonaEnactTool;
 import com.spectrayan.spector.mcp.tools.memory.MemoryFactAssertTool;
 import com.spectrayan.spector.mcp.tools.memory.MemoryFactRetractTool;
+import com.spectrayan.spector.mcp.tools.memory.MemoryReflectTool;
 
 import io.modelcontextprotocol.server.McpServerFeatures;
 
@@ -115,6 +116,7 @@ public final class SpectorToolRegistry {
             handlers.add(new MemoryListTool(memory));
             handlers.add(new MemoryBrowseTool(memory));
             handlers.add(new MemoryConsolidateTool(memory));
+            handlers.add(new MemoryReflectTool(memory));
             handlers.add(new MemorySalienceTool(memory));
             handlers.add(new MemoryContextPackTool(memory));
             handlers.add(new MemoryFactHistoryTool(memory));
@@ -175,6 +177,7 @@ public final class SpectorToolRegistry {
         handlers.add(new MemoryListTool(memoryResolver));
         handlers.add(new MemoryBrowseTool(memoryResolver));
         handlers.add(new MemoryConsolidateTool(memoryResolver));
+        handlers.add(new MemoryReflectTool(memoryResolver));
         handlers.add(new MemorySalienceTool(memoryResolver));
         handlers.add(new MemoryContextPackTool(memoryResolver));
         handlers.add(new MemoryFactHistoryTool(memoryResolver));
