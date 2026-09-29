@@ -1,0 +1,36 @@
+# === SPECTOR COGNITIVE CONTEXT PACK ===
+{{#if personaId}}**Persona:** `{{personaId}}` | {{/if}}**Profile:** `{{profileName}}` | **Budget:** {{tokenBudget}} tokens
+
+## 2. PROCEDURAL HEURISTICS & DECISION CADENCE
+{{#if hasProceduralMemories}}
+{{#each proceduralMemories}}
+{{#if isLegacy}}
+- [Skill #{{id}}]: {{legacyText}}
+{{else}}
+{{#if structured}}
+- [Skill #{{id}}] {{name}}  ({{kind}}, conf {{formatDecimal confidence "%.2f"}})
+{{{structured}}}{{else}}
+- [Skill #{{id}}] {{name}}  ({{kind}}, conf {{formatDecimal confidence "%.2f"}}){{#if summary}}: {{summary}}{{/if}}
+{{/if}}
+{{#if hasTools}}
+  - Tools: [{{join tools ", "}}]
+{{/if}}
+{{/if}}
+  - Score: {{formatDecimal score "%.2f"}} | Valence: {{valence}}
+{{/each}}
+{{else}}
+- _No specialized procedural skill triggered for current context._
+{{/if}}
+
+## 3. CORE SEMANTIC FACTS & AXIOMS
+{{#if hasStaticSemanticMemories}}
+{{#each staticSemanticMemories}}
+- [Fact #{{id}}]: {{text}}
+{{#if hasTags}}
+  - Tags: [{{join synapticTags ", "}}]
+{{/if}}
+{{/each}}
+{{else}}
+- _No high-confidence semantic axioms in static prefix._
+{{/if}}
+

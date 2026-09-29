@@ -112,13 +112,8 @@ public final class MemoryContextPackTool extends MemoryToolHandler {
         );
 
         if ("split".equalsIgnoreCase(mode)) {
-            // Split mode: return static prefix and dynamic tail separated for cache-aware injection
-            String staticPrefix = ContextPackFormatter.formatStaticPrefix(input);
-            String dynamicTail = ContextPackFormatter.formatDynamicTail(input);
-            String splitOutput = staticPrefix
-                    + "<!-- SPECTOR_CACHE_BOUNDARY -->\n"
-                    + dynamicTail;
-            return textResult(splitOutput);
+            // Split mode: return static prefix and dynamic tail separated by cache boundary template
+            return textResult(ContextPackFormatter.formatSplit(input));
         }
 
         String contextPack = ContextPackFormatter.format(input);

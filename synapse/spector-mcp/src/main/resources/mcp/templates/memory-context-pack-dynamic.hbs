@@ -1,0 +1,49 @@
+## 1. ACTIVE WORKING INTENT & SCRATCHPAD
+{{#if hasWorkingIntent}}
+- [Turn Intent]: {{workingIntent}}
+{{/if}}
+{{#if hasWorkingMemories}}
+{{#each workingMemories}}
+- [Working #{{id}}]: {{text}}
+{{/each}}
+{{/if}}
+{{#unless hasWorkingIntent}}
+{{#unless hasWorkingMemories}}
+- _No active working scratchpad note._
+{{/unless}}
+{{/unless}}
+
+{{#if hasDynamicSemanticMemories}}
+## 3b. TURN-RELEVANT SEMANTIC MATCHES
+{{#each dynamicSemanticMemories}}
+- [Fact #{{id}}]: {{text}}
+{{#if hasTags}}
+  - Tags: [{{join synapticTags ", "}}]
+{{/if}}
+{{/each}}
+
+{{/if}}
+## 4. CHRONO-EPISODIC MEMORIES & EXPERIENCES
+{{#if hasEpisodicMemories}}
+{{#each episodicMemories}}
+- [Episode #{{id}}]: {{text}}
+  - Confidence: {{formatDecimal ltpAdjustedDecay "%.2f"}} | Age: {{formatDecimal ageDays "%.1f"}}d
+{{/each}}
+{{else}}
+- _No episodic memories recalled for prompt._
+{{/if}}
+
+{{#if hasFactHistories}}
+## 5. BITEMPORAL EVIDENCE TRANSITIONS & CONFLICTS
+{{#each factHistories}}
+- [Timeline: `{{subject}}` -> `{{predicate}}`]:
+{{#if activeFact}}
+  - Active Consensus: `{{activeFact.object}}` (conf: {{formatDecimal activeFact.confidence "%.2f"}}, validFrom: {{activeFact.validFrom}})
+{{/if}}
+{{#each supersededFacts}}
+  - Historical: `{{object}}` (conf: {{formatDecimal confidence "%.2f"}}, supersededBy: #{{supersededByFactId}})
+{{/each}}
+{{/each}}
+
+{{/if}}
+# === END COGNITIVE CONTEXT PACK ===

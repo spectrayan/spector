@@ -304,4 +304,44 @@ class ContextPackFormatterDualPlaneTest {
         assertThat(tail).contains("_No active working scratchpad note._");
         assertThat(tail).contains("_No episodic memories recalled");
     }
+
+    @Test
+    @DisplayName("formatSplit() renders static and dynamic planes separated by cache boundary")
+    void formatSplitSeparatesPlanesWithBoundaryMarker() {
+        var input = new ContextPackInput(
+                "query",
+                "active intent",
+                List.of(
+                        proceduralMemory("p-1", "Always run tests"),
+                        semanticMemory("s-1", "Core axiom", 9.0f),
+                        workingMemory("w-1", "Scratch note"),
+                        episodicMemory("e-1", "Episode text")
+                ),
+                List.of(),
+                2000, "BALANCED", "persona-dev"
+        );
+
+        String split = ContextPackFormatter.formatSplit(input);
+
+        assertThat(split).contains("# === SPECTOR COGNITIVE CONTEXT PACK ===");
+        assertThat(split).contains("<!-- SPECTOR_CACHE_BOUNDARY -->");
+        assertThat(split).contains("## 1. ACTIVE WORKING INTENT & SCRATCHPAD");
+        assertThat(split).contains("# === END COGNITIVE CONTEXT PACK ===");
+
+        String[] parts = split.split("<!-- SPECTOR_CACHE_BOUNDARY -->\\n?");
+        assertThat(parts).hasSize(2);
+        assertThat(parts[0]).contains("Always run tests");
+        assertThat(parts[0]).contains("Core axiom");
+        assertThat(parts[1]).contains("Scratch note");
+        assertThat(parts[1]).contains("Episode text");
+    }
+
+    @Test
+    @DisplayName("McpTemplateEngine has compiled templates for context pack planes")
+    void templatesExistInMcpTemplateEngine() {
+        assertThat(McpTemplateEngine.engine().hasTemplate("memory-context-pack-static")).isTrue();
+        assertThat(McpTemplateEngine.engine().hasTemplate("memory-context-pack-dynamic")).isTrue();
+        assertThat(McpTemplateEngine.engine().hasTemplate("memory-context-pack")).isTrue();
+        assertThat(McpTemplateEngine.engine().hasTemplate("memory-context-pack-split")).isTrue();
+    }
 }
