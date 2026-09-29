@@ -88,6 +88,8 @@ public record WalEvent(
         /**
          * Memory was purged.
          */
-        PURGE
+        PURGE,
+        /** Memory storage strength was rehearsed without valence change. */
+        REHEARSE
     }
 }

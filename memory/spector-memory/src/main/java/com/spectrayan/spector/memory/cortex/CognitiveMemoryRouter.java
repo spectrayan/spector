@@ -440,6 +440,32 @@ public final class CognitiveMemoryRouter implements com.spectrayan.spector.kerne
     }
 
     /**
+     * Pure strength rehearsal (MF-001 §5): updates storage strength S
+     * via ΔS = s_gain(1-D) and retrieval strength D without modifying valence.
+     */
+    public void rehearse(MemoryLocation loc, float sGain, float sMax) {
+        try (var cursor = cursor(loc.type())) {
+            if (cursor == null) return;
+            cursor.seekOffset(loc.offset());
+
+            if (loc.type() != MemoryType.EPISODIC) {
+                long creationTs = cursor.timestampMs();
+                long nowMs = System.currentTimeMillis();
+
+                cursor.addActivationCount(1);
+                cursor.recordActRRecall(creationTs, nowMs);
+
+                int rawBucket = DecayStrategy.ageToBucket(creationTs, nowMs);
+                float currentR = DecayStrategy.decay(rawBucket);
+                float deltaS = sGain * (1.0f - currentR);
+                cursor.updateStorageStrength(currentS -> Math.min(sMax,
+                        Math.max(SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_S_MIN,
+                                 currentS + deltaS)));
+            }
+        }
+    }
+
+    /**
      * Reads the importance value for the record at the given location.
      */
     public float readImportance(MemoryLocation loc) {

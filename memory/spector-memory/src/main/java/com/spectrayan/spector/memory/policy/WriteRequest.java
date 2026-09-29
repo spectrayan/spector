@@ -39,7 +39,9 @@ public record WriteRequest(OperationType operationType, String namespaceId, Stri
         /** An existing memory's strength or associations are being updated. */
         REINFORCE,
         /** Consolidation is writing derived memories. */
-        CONSOLIDATE
+        CONSOLIDATE,
+        /** An existing memory's strength is being rehearsed. */
+        REHEARSE
     }
 
     public WriteRequest {
@@ -65,5 +67,9 @@ public record WriteRequest(OperationType operationType, String namespaceId, Stri
 
     public static WriteRequest consolidate(String namespaceId, long epoch, long timestamp) {
         return new WriteRequest(OperationType.CONSOLIDATE, namespaceId, null, epoch, timestamp);
+    }
+
+    public static WriteRequest rehearse(String namespaceId, String memoryId, long epoch, long timestamp) {
+        return new WriteRequest(OperationType.REHEARSE, namespaceId, memoryId, epoch, timestamp);
     }
 }

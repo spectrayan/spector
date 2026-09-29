@@ -258,6 +258,13 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
     }
 
     /**
+     * Appends a REHEARSE event (strength update without valence change).
+     */
+    public WalEvent appendRehearse(String memoryId) {
+        return append(WalEvent.EventType.REHEARSE, memoryId, new byte[0]);
+    }
+
+    /**
      * Appends a RECORD_WRITE event.
      */
     public WalEvent appendRecordWrite(String memoryId, long recordId, byte[] recordBytes) {
