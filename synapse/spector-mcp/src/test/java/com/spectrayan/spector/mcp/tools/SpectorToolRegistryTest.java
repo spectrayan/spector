@@ -48,7 +48,7 @@ class SpectorToolRegistryTest {
 
     @Test
     void shouldRegister29Tools() {
-        assertThat(specs).hasSize(30);
+        assertThat(specs).hasSize(31);
     }
 
     @Test
@@ -77,6 +77,7 @@ class SpectorToolRegistryTest {
                 "memory_browse",
                 "memory_consolidate",
                 "memory_reflect",
+                "memory_rehearse",
                 "memory_salience",
                 "memory_context_pack",
                 "memory_fact_history",
