@@ -249,7 +249,8 @@ jobs:
   nightly-benchmark:
     runs-on: ubuntu-latest
     name: Nightly Cognitive Benchmark
-    if: github.event_name == 'schedule'
+    # Temporarily disabled: spectrayan/spector-datasets checkout fails in scheduled CI (repo inaccessible without PAT) (#1032)
+    if: false # github.event_name == 'schedule'
     timeout-minutes: 60
 
     steps:
