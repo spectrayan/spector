@@ -76,9 +76,9 @@ spector-mcp/
 | `memory_multi_evidence_recall` | Surfaces competing hypothesis clusters, epistemic confidence spread, and action policies |
 | `memory_status` | Memory tier counts and persistence info |
 | `memory_reinforce` | Report positive/negative outcome for a memory |
-| `memory_forget` | Tombstone a memory by ID |
-| `memory_introspect` | Metamemory self-analysis on a topic |
-| `memory_scratchpad` | Quick-write to working memory |
+| `memory_reflect` | Trigger a sleep consolidation (reflection) cycle |
+| `memory_dream` | Trigger a generative replay (dream) cycle across episodic and semantic memory |
+| `memory_rehearse` | Pure strength rehearsal without changing emotional valence |
 | `persona_enact` | Enacts persona cognitive stance, Hopfield attractor, and EFE policy over memory |
 
 ## Quick Start

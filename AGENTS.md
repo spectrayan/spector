@@ -63,6 +63,7 @@ Spector exposes its cognitive memory directly to agents via the **Model Context 
 | `memory_remember` | Ingest an observation or fact into memory with cognitive tags | `content`, `tags`, `importance`, `valence`, `domain` |
 | `memory_recall` | Query memory using fused 6-phase cognitive scoring scan | `query`, `limit`, `profile`, `min_score`, `domain` |
 | `memory_reinforce` | Strengthen Hebbian associations or increment engram recall count | `memory_id`, `delta` |
+| `memory_dream` | Trigger generative replay rest cycle across memory tiers | `mode`, `namespace` |
 | `memory_introspect` | Retrieve cognitive state, salience distribution, and memory statistics | `namespace`, `include_distribution` |
 | `memory_why_not` | Explain why a specific candidate engram was dropped during retrieval | `memory_id`, `query` |
 | `memory_status` | Health check, active mmap slab capacity, and off-heap allocations | None |

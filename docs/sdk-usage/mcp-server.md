@@ -237,11 +237,11 @@ curl -X POST http://localhost:7070/mcp \
 
 ---
 
-## MCP Tools Overview (39+ Tools)
+## MCP Tools Overview (40+ Tools)
 
-Once connected, your agent has access to Spector's comprehensive suite of 39+ tools across memory, graph context, multi-tenancy, and persona governance:
+Once connected, your agent has access to Spector's comprehensive suite of 40+ tools across memory, graph context, multi-tenancy, and persona governance:
 
-### 1. Memory Tier Operations (19 Tools)
+### 1. Memory Tier Operations (20 Tools)
 
 | Tool | Description |
 |:---|:---|
@@ -262,6 +262,7 @@ Once connected, your agent has access to Spector's comprehensive suite of 39+ to
 | `memory_status` | Memory tier counts, off-heap bundle capacity, and health |
 | `memory_consolidate` | Trigger a manual consolidation cycle (required MF-001 operation) |
 | `memory_reflect` | Trigger a full sleep consolidation cycle (14-relay cognitive pathway) |
+| `memory_dream` | Trigger a generative replay cycle (REM, DAYDREAM, THOUGHT_EXPERIMENT) |
 | `memory_rehearse` | Pure strength rehearsal — update S and D without changing valence |
 | `memory_salience` | Inspect and tune the active salience profile (topics/boosts) |
 
