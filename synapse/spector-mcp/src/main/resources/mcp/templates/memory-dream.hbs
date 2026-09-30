@@ -1,0 +1,20 @@
+🌌 Generative Dream Replay Cycle Complete
+=========================================
+
+Mode:     {{mode}}
+Duration: {{durationMs}} ms
+{{#if outcome}}
+Outcome:  {{outcome}}
+{{/if}}
+
+Generative Activity:
+  Seeds sampled:           {{seedsSampled}}
+  Scenes constructed:      {{scenesConstructed}}
+  Scenes triaged:          {{scenesTriaged}}
+  Novel insights ingested: {{insightsIngested}}
+  Journal entries written: {{journalEntriesWritten}}
+  Failed pairs inhibited:  {{failedPairsInhibited}}
+
+{{#unless hadActivity}}
+ℹ️ No active traces met salience threshold for generative replay.
+{{/unless}}

@@ -1,0 +1,26 @@
+{
+  "name": "memory_dream",
+  "description": "Trigger a generative memory replay (dream) cycle across episodic and semantic memory. Recombines salient engrams, simulates hypothetical trajectories, ingests novel synthesized insights, and inhibits inconsistent counter-associations. Supports REM (weak constraint associative replay, default), DAYDREAM (moderate constraint wandering), and THOUGHT_EXPERIMENT (tight constraint counterfactual simulation). Returns telemetry metrics including scenes constructed, insights ingested, and journal entries written.",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:memory:write"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "mode": {
+        "type": "string",
+        "enum": [
+          "REM",
+          "DAYDREAM",
+          "THOUGHT_EXPERIMENT"
+        ],
+        "description": "Dream mode determining generative temperature and constraint relaxation: 'REM' (default, weak constraints, temp 2.0), 'DAYDREAM' (moderate constraints, temp 1.0), 'THOUGHT_EXPERIMENT' (tight constraints, temp 0.5)."
+      },
+      "namespace": {
+        "type": "string",
+        "description": "Target memory namespace (slug or ID). Omit to use connection or account default."
+      }
+    }
+  }
+}
