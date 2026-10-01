@@ -20,7 +20,7 @@
     "@angular/forms": "^22.1.6",
     "@angular/material": "^22.1.6",
     "@angular/platform-browser": "^22.1.6",
-    "@angular/router": "^22.1.6",
+    "@angular/router": "^22.2.0",
     "chart.js": "^4.4.0",
     "dompurify": "^3.4.15",
     "marked": "^18.0.5",
