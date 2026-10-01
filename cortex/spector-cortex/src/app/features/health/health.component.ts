@@ -17,6 +17,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Subscription, interval, startWith, switchMap } from 'rxjs';
 import { Chart, registerables } from 'chart.js';
 import { MemoryTableService, MemoryStats, ScoringStats } from '../../core/services/memory-table.service';
+import { DecayForecastComponent } from './components/decay-forecast/decay-forecast.component';
 
 Chart.register(...registerables);
 
@@ -29,6 +30,7 @@ Chart.register(...registerables);
     MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
+    DecayForecastComponent,
   ],
   templateUrl: './health.component.html',
   styleUrl: './health.component.scss',
@@ -36,7 +38,6 @@ Chart.register(...registerables);
 export class HealthComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('tierCanvas') private tierCanvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('growthCanvas') private growthCanvas!: ElementRef<HTMLCanvasElement>;
-  @ViewChild('decayCanvas') private decayCanvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('scoringCanvas') private scoringCanvas!: ElementRef<HTMLCanvasElement>;
 
   private readonly memoryService = inject(MemoryTableService);
@@ -50,7 +51,6 @@ export class HealthComponent implements OnInit, OnDestroy, AfterViewInit {
   private pollSubscription!: Subscription;
   private tierChart?: Chart;
   private growthChart?: Chart;
-  private decayChart?: Chart;
   private scoringChart?: Chart;
 
   ngOnInit(): void {
@@ -176,33 +176,6 @@ export class HealthComponent implements OnInit, OnDestroy, AfterViewInit {
       },
     });
 
-    // 3. Decay Projection (Line/Area)
-    this.decayChart = new Chart(this.decayCanvas.nativeElement, {
-      type: 'line',
-      data: {
-        labels: ['Current', '7 Days Proj', '30 Days Proj'],
-        datasets: [{
-          label: 'Projected Retention',
-          data: [0, 0, 0],
-          borderColor: '#f87171',
-          backgroundColor: 'rgba(248, 113, 113, 0.1)',
-          fill: true,
-          tension: 0.3,
-        }],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          x: { grid: { color: gridColor }, ticks: { color: textColor } },
-          y: { grid: { color: gridColor }, ticks: { color: textColor } },
-        },
-        plugins: {
-          legend: { display: false },
-        },
-      },
-    });
-
     // 4. Scoring Radar
     this.scoringChart = new Chart(this.scoringCanvas.nativeElement, {
       type: 'radar',
@@ -262,17 +235,6 @@ export class HealthComponent implements OnInit, OnDestroy, AfterViewInit {
       this.growthChart.data.datasets[0].data = sortedKeys.map(k => data.growthOverTime[k]);
       this.growthChart.update();
     }
-
-    // Decay Update
-    if (this.decayChart && data.decayForecast) {
-      const forecast = [
-        data.decayForecast['current'] || 0,
-        data.decayForecast['day7'] || 0,
-        data.decayForecast['day30'] || 0,
-      ];
-      this.decayChart.data.datasets[0].data = forecast;
-      this.decayChart.update();
-    }
   }
 
   private updateScoringChart(): void {
@@ -300,7 +262,6 @@ export class HealthComponent implements OnInit, OnDestroy, AfterViewInit {
   private destroyCharts(): void {
     if (this.tierChart) this.tierChart.destroy();
     if (this.growthChart) this.growthChart.destroy();
-    if (this.decayChart) this.decayChart.destroy();
     if (this.scoringChart) this.scoringChart.destroy();
   }
 }

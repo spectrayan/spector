@@ -1,0 +1,77 @@
+<!-- Decay Forecast Simulation — Interactive stacked area chart -->
+<mat-card class="stats-card chart-card forecast-card double-width">
+  <mat-card-header>
+    <mat-card-title>
+      <mat-icon>waves</mat-icon>
+      <span>Decay Forecast Simulation</span>
+    </mat-card-title>
+    <span class="status-badge" [class.danger]="inDangerZone()">
+      {{ inDangerZone() ? '⚠ Below threshold' : '✓ Healthy' }}
+    </span>
+  </mat-card-header>
+
+  <mat-card-content>
+    <!-- Chart -->
+    <div class="canvas-container forecast-canvas">
+      <canvas #forecastCanvas></canvas>
+    </div>
+
+    <!-- Controls -->
+    <div class="forecast-controls">
+      <!-- Decay Rate Slider -->
+      <div class="control-group">
+        <div class="control-label">
+          <mat-icon matTooltip="Multiplier for base Ebbinghaus decay rates across all tiers">speed</mat-icon>
+          <span>Decay Rate</span>
+          <span class="control-value">{{ decayRateMultiplier() | number:'1.1-1' }}×</span>
+        </div>
+        <mat-slider min="0.2" max="3.0" step="0.1" [discrete]="true" [displayWith]="formatDecayRate">
+          <input matSliderThumb [value]="decayRateMultiplier()" (valueChange)="onDecayRateChange($event)">
+        </mat-slider>
+      </div>
+
+      <!-- What-If Toggle -->
+      <div class="control-group">
+        <div class="control-label">
+          <mat-icon matTooltip="Simulate adding new memories each day">science</mat-icon>
+          <span>What-If: Daily Additions</span>
+        </div>
+        <div class="what-if-row">
+          <mat-slide-toggle
+            [checked]="whatIfEnabled()"
+            (change)="onWhatIfToggle($event.checked)">
+          </mat-slide-toggle>
+          @if (whatIfEnabled()) {
+            <mat-slider min="1" max="50" step="1" [discrete]="true" class="what-if-slider">
+              <input matSliderThumb [value]="whatIfDailyCount()" (valueChange)="onWhatIfCountChange($event)">
+            </mat-slider>
+            <span class="control-value">{{ whatIfDailyCount() }}/day</span>
+          }
+        </div>
+      </div>
+
+      <!-- Danger Zone Threshold -->
+      <div class="control-group">
+        <div class="control-label">
+          <mat-icon matTooltip="Alert threshold — warn when projected total drops below this count">warning</mat-icon>
+          <span>Danger Threshold</span>
+          <span class="control-value">{{ dangerThreshold() }} memories</span>
+        </div>
+        <mat-slider min="5" max="500" step="5" [discrete]="true">
+          <input matSliderThumb [value]="dangerThreshold()" (valueChange)="onDangerThresholdChange($event)">
+        </mat-slider>
+      </div>
+    </div>
+
+    <!-- Projection Summary -->
+    <div class="projection-summary" [class.danger]="inDangerZone()">
+      <mat-icon>{{ inDangerZone() ? 'warning' : 'trending_down' }}</mat-icon>
+      <p>
+        Projected <strong>{{ projectedTotal90d() }}</strong> accessible memories at 90 days
+        @if (inDangerZone()) {
+          — <strong>below danger threshold</strong> of {{ dangerThreshold() }}. Consider reducing decay rate or increasing reinforcement.
+        }
+      </p>
+    </div>
+  </mat-card-content>
+</mat-card>
