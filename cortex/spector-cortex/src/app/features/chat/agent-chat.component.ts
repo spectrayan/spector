@@ -331,11 +331,15 @@ export class AgentChatComponent {
     this.userScrolledUp.set(false);
     this.scrollToBottom();
 
+    const file = this.attachedFile();
     const requestBody: AgentChatRequest = {
       message: prompt,
       sessionId: currentSessionId || undefined,
       model: this.selectedModel() || undefined,
       contextDepth: this.contextDepth(),
+      attachment: file
+        ? { name: file.name, content: file.content }
+        : undefined,
     };
 
     if (this.chatSubscription) {

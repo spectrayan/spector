@@ -206,6 +206,11 @@ export interface AgentChatRequest {
   readonly enableTextSearch?: boolean;
   readonly enableTrace?: boolean;
   readonly messages?: readonly { role: string; content: string }[];
+  readonly attachment?: {
+    readonly name: string;
+    readonly content: string;
+    readonly mimeType?: string;
+  };
 }
 
 export interface ChatConfig {
