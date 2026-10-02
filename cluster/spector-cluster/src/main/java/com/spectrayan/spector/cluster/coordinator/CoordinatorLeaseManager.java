@@ -62,6 +62,7 @@ public class CoordinatorLeaseManager implements AutoCloseable {
     private final AtomicLong timeWithoutCoordinatorMs = new AtomicLong(0L);
     private final AtomicReference<Instant> lastLeaderSeen = new AtomicReference<>();
     private final AtomicBoolean running = new AtomicBoolean(false);
+    private final AtomicBoolean closed = new AtomicBoolean(false);
 
     public CoordinatorLeaseManager(
             ControlStore controlStore,
@@ -85,6 +86,9 @@ public class CoordinatorLeaseManager implements AutoCloseable {
      * Starts the background lease acquisition and heartbeat renewal task.
      */
     public void start() {
+        if (closed.get()) {
+            throw new IllegalStateException("CoordinatorLeaseManager has already been closed");
+        }
         if (running.compareAndSet(false, true)) {
             scheduler.scheduleWithFixedDelay(
                     this::heartbeat,
@@ -101,6 +105,9 @@ public class CoordinatorLeaseManager implements AutoCloseable {
      * Executes a single heartbeat cycle to acquire, renew, or monitor the coordinator lease.
      */
     public void heartbeat() {
+        if (closed.get() || Thread.currentThread().isInterrupted()) {
+            return;
+        }
         try {
             Instant now = controlStore.now();
             java.util.Optional<CoordinatorLease> validLease = controlStore.getValidCoordinatorLease();
@@ -147,6 +154,10 @@ public class CoordinatorLeaseManager implements AutoCloseable {
                 }
             }
         } catch (Exception e) {
+            if (closed.get() || Thread.currentThread().isInterrupted()) {
+                log.debug("[CoordinatorLeaseManager] Heartbeat cancelled during shutdown for node '{}'", nodeId);
+                return;
+            }
             log.error("[CoordinatorLeaseManager] Error during coordinator heartbeat for node '{}'", nodeId, e);
             handleLeaseLoss("Exception during heartbeat: " + e.getMessage());
         }
@@ -239,17 +250,30 @@ public class CoordinatorLeaseManager implements AutoCloseable {
 
     @Override
     public void close() {
-        if (running.compareAndSet(true, false)) {
-            log.info("[CoordinatorLeaseManager] Shutting down coordinator lease manager for node '{}'", nodeId);
-            if (isCoordinator.get()) {
-                try {
-                    controlStore.releaseCoordinatorLease(nodeId);
-                } catch (Exception e) {
-                    log.warn("[CoordinatorLeaseManager] Failed to explicitly release coordinator lease for node '{}'", nodeId, e);
-                }
-                isCoordinator.set(false);
-            }
-            scheduler.shutdownNow();
+        if (!closed.compareAndSet(false, true)) {
+            return;
         }
+        running.set(false);
+        log.info("[CoordinatorLeaseManager] Shutting down coordinator lease manager for node '{}'", nodeId);
+        scheduler.shutdownNow();
+        try {
+            if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                log.warn("[CoordinatorLeaseManager] Scheduler did not terminate cleanly within 5s for node '{}'", nodeId);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        if (isCoordinator.get()) {
+            try {
+                controlStore.releaseCoordinatorLease(nodeId);
+            } catch (Exception e) {
+                log.warn("[CoordinatorLeaseManager] Failed to explicitly release coordinator lease for node '{}'", nodeId, e);
+            }
+            isCoordinator.set(false);
+        }
+    }
+
+    boolean isTerminated() {
+        return scheduler.isTerminated();
     }
 }
