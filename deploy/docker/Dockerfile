@@ -16,7 +16,7 @@ COPY cortex/spector-cortex/ ./
 RUN npm run build -- --configuration production
 
 # ── Stage 2: Build Java Synapse Backend ───────────────────────────────
-FROM --platform=$BUILDPLATFORM maven:3.9-eclipse-temurin-25@sha256:dd8e01b3be719853578c07b57ff8d9bbbbfe746f802226f05b19689420815221 AS builder-synapse
+FROM --platform=$BUILDPLATFORM maven:3-eclipse-temurin-26@sha256:c30718f442eb39c55b2d45440bb849d8755ad8d9d6ef67aadefcce150267116f AS builder-synapse
 
 WORKDIR /build
 
@@ -42,7 +42,7 @@ RUN --mount=type=cache,target=/root/.m2/repository \
 # ═══════════════════════════════════════════════════════════════════
 
 # ── Stage 3: Build Gateway JAR ────────────────────────────────────
-FROM --platform=$BUILDPLATFORM maven:3.9-eclipse-temurin-25@sha256:dd8e01b3be719853578c07b57ff8d9bbbbfe746f802226f05b19689420815221 AS builder-gateway
+FROM --platform=$BUILDPLATFORM maven:3-eclipse-temurin-26@sha256:c30718f442eb39c55b2d45440bb849d8755ad8d9d6ef67aadefcce150267116f AS builder-gateway
 
 WORKDIR /build
 
