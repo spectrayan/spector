@@ -2226,6 +2226,80 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     }
 
     @Override
+    public boolean associateHebbian(String sourceMemoryId, String targetMemoryId, float weight) {
+        try (var permit = quiesceGuard.acquireWritePermit()) {
+            acquireLease();
+            try {
+                if (index == null || graphFacade == null) {
+                    return false;
+                }
+                var locA = index.locate(sourceMemoryId);
+                var locB = index.locate(targetMemoryId);
+                if (locA == null || locB == null) {
+                    return false;
+                }
+                int slotA = locA.graphSlot() >= 0 ? locA.graphSlot() : (int) (locA.offset() / 164);
+                int slotB = locB.graphSlot() >= 0 ? locB.graphSlot() : (int) (locB.offset() / 164);
+                return graphFacade.associateHebbian(slotA, slotB, weight);
+            } finally {
+                releaseLease();
+            }
+        }
+    }
+
+    @Override
+    public boolean associateTemporal(String sourceMemoryId, String targetMemoryId, int sessionId) {
+        try (var permit = quiesceGuard.acquireWritePermit()) {
+            acquireLease();
+            try {
+                if (index == null || graphFacade == null) {
+                    return false;
+                }
+                var locA = index.locate(sourceMemoryId);
+                var locB = index.locate(targetMemoryId);
+                if (locA == null || locB == null) {
+                    return false;
+                }
+                int slotA = locA.graphSlot() >= 0 ? locA.graphSlot() : (int) (locA.offset() / 164);
+                int slotB = locB.graphSlot() >= 0 ? locB.graphSlot() : (int) (locB.offset() / 164);
+                return graphFacade.associateTemporal(slotA, slotB, sessionId);
+            } finally {
+                releaseLease();
+            }
+        }
+    }
+
+    @Override
+    public int associateHyperedge(List<String> entityNames, String memoryId, float weight) {
+        try (var permit = quiesceGuard.acquireWritePermit()) {
+            acquireLease();
+            try {
+                if (entityNames == null || entityNames.size() < 2 || entityDirectory == null || graphFacade == null) {
+                    return -1;
+                }
+                int memorySlot = -1;
+                if (memoryId != null && !memoryId.isBlank() && index != null) {
+                    var loc = index.locate(memoryId);
+                    if (loc != null) {
+                        memorySlot = loc.graphSlot() >= 0 ? loc.graphSlot() : (int) (loc.offset() / 164);
+                    }
+                }
+                int[] entityIds = new int[entityNames.size()];
+                for (int i = 0; i < entityNames.size(); i++) {
+                    int eid = entityDirectory.intern(entityNames.get(i), "UNKNOWN");
+                    entityIds[i] = eid;
+                    if (memorySlot >= 0) {
+                        entityDirectory.linkEntityToMemory(eid, memorySlot);
+                    }
+                }
+                return graphFacade.associateHyperedge(entityIds, memorySlot, weight);
+            } finally {
+                releaseLease();
+            }
+        }
+    }
+
+    @Override
     public List<TemporalFact> factsAbout(String entityName, Instant asOf) {
         acquireLease();
         try {

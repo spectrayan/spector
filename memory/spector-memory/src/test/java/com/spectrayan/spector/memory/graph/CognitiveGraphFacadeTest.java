@@ -150,4 +150,69 @@ class CognitiveGraphFacadeTest {
         assertThat(neighborhood.edges().getFirst().sourceId()).isEqualTo(memA);
         assertThat(neighborhood.edges().getFirst().targetId()).isEqualTo(memB);
     }
+
+    @Test
+    @DisplayName("associateHebbian strengthens edge and invalidates cache")
+    void associateHebbian_strengthensEdge() {
+        var hebbianGraph = mock(HebbianGraph.class);
+        var temporalChain = mock(TemporalChainMemory.class);
+        var entityDirectory = mock(EntityDirectory.class);
+        var hyperEntityGraph = mock(HyperEntityGraphMemory.class);
+        var index = mock(MemoryIndex.class);
+
+        var facade = new CognitiveGraphFacade(
+                hebbianGraph, temporalChain, entityDirectory, hyperEntityGraph, index
+        );
+
+        boolean result = facade.associateHebbian(1, 2, 3.5f);
+        assertThat(result).isTrue();
+        verify(hebbianGraph).strengthen(1, 2, 3.5f);
+
+        assertThat(facade.associateHebbian(-1, 2, 1.0f)).isFalse();
+        assertThat(facade.associateHebbian(1, 1, 1.0f)).isFalse();
+    }
+
+    @Test
+    @DisplayName("associateTemporal links sequence and invalidates cache")
+    void associateTemporal_linksNodes() {
+        var hebbianGraph = mock(HebbianGraph.class);
+        var temporalChain = mock(TemporalChainMemory.class);
+        var entityDirectory = mock(EntityDirectory.class);
+        var hyperEntityGraph = mock(HyperEntityGraphMemory.class);
+        var index = mock(MemoryIndex.class);
+
+        var facade = new CognitiveGraphFacade(
+                hebbianGraph, temporalChain, entityDirectory, hyperEntityGraph, index
+        );
+
+        boolean result = facade.associateTemporal(3, 4, 10);
+        assertThat(result).isTrue();
+        verify(temporalChain).linkNodes(eq(3), eq(4), eq(10), anyInt());
+
+        assertThat(facade.associateTemporal(-1, 4, 10)).isFalse();
+        assertThat(facade.associateTemporal(3, 3, 10)).isFalse();
+    }
+
+    @Test
+    @DisplayName("associateHyperedge adds hyperedge and invalidates cache")
+    void associateHyperedge_addsEdge() {
+        var hebbianGraph = mock(HebbianGraph.class);
+        var temporalChain = mock(TemporalChainMemory.class);
+        var entityDirectory = mock(EntityDirectory.class);
+        var hyperEntityGraph = mock(HyperEntityGraphMemory.class);
+        var index = mock(MemoryIndex.class);
+
+        var facade = new CognitiveGraphFacade(
+                hebbianGraph, temporalChain, entityDirectory, hyperEntityGraph, index
+        );
+
+        when(hyperEntityGraph.addHyperedge(any(), any(), eq(0), eq(2.0f), eq(5), anyLong()))
+                .thenReturn(77);
+
+        int edgeId = facade.associateHyperedge(new int[]{1, 2, 3}, 5, 2.0f);
+        assertThat(edgeId).isEqualTo(77);
+
+        assertThat(facade.associateHyperedge(new int[]{1}, 5, 2.0f)).isEqualTo(-1);
+        assertThat(facade.associateHyperedge(null, 5, 2.0f)).isEqualTo(-1);
+    }
 }

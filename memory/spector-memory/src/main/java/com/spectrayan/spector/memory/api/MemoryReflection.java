@@ -112,6 +112,42 @@ public interface MemoryReflection {
 
     int retractFact(int factId);
 
+    /**
+     * Strengthens or creates an explicit bidirectional Hebbian co-activation edge between two memories.
+     *
+     * @param sourceMemoryId first memory ID
+     * @param targetMemoryId second memory ID
+     * @param weight association weight delta
+     * @return true if both memories were found and edge was strengthened
+     */
+    default boolean associateHebbian(String sourceMemoryId, String targetMemoryId, float weight) {
+        return false;
+    }
+
+    /**
+     * Links two memories in a temporal sequence (predecessor -&gt; successor).
+     *
+     * @param sourceMemoryId predecessor memory ID
+     * @param targetMemoryId successor memory ID
+     * @param sessionId session identifier
+     * @return true if both memories were found and linked
+     */
+    default boolean associateTemporal(String sourceMemoryId, String targetMemoryId, int sessionId) {
+        return false;
+    }
+
+    /**
+     * Creates an explicit n-ary entity hyperedge connecting 2 or more entities, optionally grounded in a memory.
+     *
+     * @param entityNames list of entity names (at least 2)
+     * @param memoryId optional memory ID grounding the hyperedge (may be null)
+     * @param weight hyperedge weight
+     * @return created hyperedge ID, or -1 on failure
+     */
+    default int associateHyperedge(java.util.List<String> entityNames, String memoryId, float weight) {
+        return -1;
+    }
+
     // ── Provenance ──
 
     /**

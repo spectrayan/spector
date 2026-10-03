@@ -275,6 +275,64 @@ public final class CognitiveGraphFacade {
     }
 
     // ══════════════════════════════════════════════════════════════
+    // EXPLICIT ASSOCIATION & WIRING (#969)
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Strengthens or creates a bidirectional Hebbian co-activation edge between two memory graph slots.
+     *
+     * @param slotA first memory graph slot
+     * @param slotB second memory graph slot
+     * @param weight edge weight delta
+     * @return true if successfully strengthened, false if hebbianGraph not available or slots invalid
+     */
+    public boolean associateHebbian(int slotA, int slotB, float weight) {
+        if (hebbianGraph == null || slotA < 0 || slotB < 0 || slotA == slotB) {
+            return false;
+        }
+        hebbianGraph.strengthen(slotA, slotB, weight);
+        invalidateCache();
+        return true;
+    }
+
+    /**
+     * Links two memory graph slots in a temporal sequence (predecessor -> successor).
+     *
+     * @param predSlot predecessor memory graph slot
+     * @param succSlot successor memory graph slot
+     * @param sessionId session identifier
+     * @return true if successfully linked, false if temporalChain not available or slots invalid
+     */
+    public boolean associateTemporal(int predSlot, int succSlot, int sessionId) {
+        if (temporalChain == null || predSlot < 0 || succSlot < 0 || predSlot == succSlot) {
+            return false;
+        }
+        temporalChain.linkNodes(predSlot, succSlot, sessionId, (int) (System.currentTimeMillis() / 1000));
+        invalidateCache();
+        return true;
+    }
+
+    /**
+     * Creates an n-ary entity hyperedge connecting 2 or more entities, optionally anchored to a memory slot.
+     *
+     * @param entityIds array of entity IDs
+     * @param memorySlot memory graph slot anchoring the hyperedge (-1 if ungrounded)
+     * @param weight hyperedge weight
+     * @return created hyperedge ID, or -1 if hyperEntityGraph not available or inputs invalid
+     */
+    public int associateHyperedge(int[] entityIds, int memorySlot, float weight) {
+        if (hyperEntityGraph == null || entityIds == null || entityIds.length < 2) {
+            return -1;
+        }
+        int[] roles = new int[entityIds.length];
+        int edgeId = hyperEntityGraph.addHyperedge(entityIds, roles, 0, weight, memorySlot, System.currentTimeMillis());
+        if (edgeId >= 0) {
+            invalidateCache();
+        }
+        return edgeId;
+    }
+
+    // ══════════════════════════════════════════════════════════════
     // HIGH-LEVEL GRAPH QUERIES
     // ══════════════════════════════════════════════════════════════
 
