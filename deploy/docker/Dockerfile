@@ -61,7 +61,7 @@ RUN --mount=type=cache,target=/root/.m2/repository \
     cp /build/synapse/spector-gateway/target/spector-gateway-*-exec.jar /build/spector-gateway.jar
 
 # ── Stage 4: Gateway Runtime (lean JRE, no data-plane deps) ──────
-FROM eclipse-temurin:25-jre@sha256:bb036ed6cfdc57e3da7c22634d15f1b840d2caf76183861c80e81ca4b5104abb AS gateway
+FROM eclipse-temurin:25-jre@sha256:8da0490fa9a3c26867012019565948eef0ee69438f5c75ac28146967bae984b5 AS gateway
 
 LABEL maintainer="Spectrayan <team@spectrayan.com>"
 LABEL org.opencontainers.image.title="Spector Gateway"
@@ -75,7 +75,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tini \
     curl \
     ca-certificates \
-    && apt-get --only-upgrade install -y perl-base gpgv libexpat1 \
+    && apt-get --only-upgrade install -y perl-base gpgv libexpat1 openssl libssl3t64 openssl-provider-legacy \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user spector (UID/GID 1000)
@@ -116,7 +116,7 @@ CMD ["-Xms64m", "-Xmx256m", "-XX:+UseG1GC", "-XX:MaxGCPauseMillis=100", "-jar", 
 # ═══════════════════════════════════════════════════════════════════
 
 # ── Stage 5: Runtime (glibc Debian Bookworm base) ─────────────────────
-FROM eclipse-temurin:25-jre@sha256:bb036ed6cfdc57e3da7c22634d15f1b840d2caf76183861c80e81ca4b5104abb AS runtime
+FROM eclipse-temurin:25-jre@sha256:8da0490fa9a3c26867012019565948eef0ee69438f5c75ac28146967bae984b5 AS runtime
 
 LABEL maintainer="Spectrayan <team@spectrayan.com>"
 LABEL org.opencontainers.image.title="Spector"
@@ -132,7 +132,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     wget \
     ca-certificates \
-    && apt-get --only-upgrade install -y perl-base gpgv libexpat1 \
+    && apt-get --only-upgrade install -y perl-base gpgv libexpat1 openssl libssl3t64 openssl-provider-legacy \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user spector (UID/GID 1000) and purge unused pebble binary

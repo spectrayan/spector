@@ -21,6 +21,15 @@
 
     <dependencyManagement>
         <dependencies>
+            <!-- Jackson 2.x BOM (must precede Spring Boot BOM to override 2.21.5 default with 2.22.3) -->
+            <dependency>
+                <groupId>com.fasterxml.jackson</groupId>
+                <artifactId>jackson-bom</artifactId>
+                <version>${jackson2.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
             <!-- Spring Boot BOM -->
             <dependency>
                 <groupId>org.springframework.boot</groupId>
