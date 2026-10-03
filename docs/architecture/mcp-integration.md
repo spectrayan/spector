@@ -129,7 +129,8 @@ spector-mcp/src/main/java/com/spectrayan/spector/mcp/
 │       ├── MemoryInspectTool.java
 │       ├── MemoryExportTool.java
 │       ├── MemoryBrowseTool.java
-│       └── MemorySalienceTool.java
+│       ├── MemorySalienceTool.java
+│       └── MemoryAssociateTool.java
 ├── resources/
 │   └── SpectorResourceProvider.java   ← Resource definitions & handlers
 ├── prompts/
@@ -142,7 +143,7 @@ spector-mcp/src/main/java/com/spectrayan/spector/mcp/
 
 ## Tool Reference
 
-The MCP server exposes **16 cognitive memory tools**. All are registered when cognitive memory is enabled (`spector.memory.enabled: true`). Memory tools embed text to store and recall memories, so an embedding provider (e.g., Ollama) must be configured.
+The MCP server exposes **17 cognitive memory tools**. All are registered when cognitive memory is enabled (`spector.memory.enabled: true`). Memory tools embed text to store and recall memories, so an embedding provider (e.g., Ollama) must be configured.
 
 | Tool | Key parameters | Description |
 |:---|:---|:---|
@@ -150,6 +151,7 @@ The MCP server exposes **16 cognitive memory tools**. All are registered when co
 | `memory_recall` | `query` (req), `top_k`, `profile`, `synaptic_filter`, `min_importance`, `point_in_time` | Fused cognitive recall across all tiers |
 | `memory_scratchpad` | `text` (req) | Quick-write a short-lived note to working memory |
 | `memory_reinforce` | `memory_id` (req), `valence` (req) | Report a positive/negative outcome for a memory |
+| `memory_associate` | `source_id`, `target_id`, `type` (`hebbian`/`temporal`/`hyperedge`), `weight`, `session_id`, `entities`, `memory_id` | Explicitly create associations (Hebbian, temporal, hyperedge) |
 | `memory_forget` | `memory_id` (req) | Tombstone a memory by ID |
 | `memory_status` | *(none)* | Memory tier counts and persistence info |
 | `memory_introspect` | `topic` (req) | Metamemory self-analysis on a topic |

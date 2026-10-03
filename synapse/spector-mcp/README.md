@@ -79,6 +79,7 @@ spector-mcp/
 | `memory_reflect` | Trigger a sleep consolidation (reflection) cycle |
 | `memory_dream` | Trigger a generative replay (dream) cycle across episodic and semantic memory |
 | `memory_rehearse` | Pure strength rehearsal without changing emotional valence |
+| `memory_associate` | Explicitly create associations (Hebbian co-activation, temporal sequence, or multi-entity hyperedge) |
 | `persona_enact` | Enacts persona cognitive stance, Hopfield attractor, and EFE policy over memory |
 
 ## Quick Start

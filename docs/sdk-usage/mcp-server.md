@@ -48,6 +48,7 @@ With cognitive memory enabled (`spector.memory.enabled: true`), your AI agent no
 - *"Walk the associative graph to find related concepts"* → `memory_graph_recall`
 - *"That answer was wrong — downgrade it"* → `memory_reinforce`
 - *"Jot this down while I think it through"* → `memory_scratchpad`
+- *"Link these two memories or associate related concepts"* → `memory_associate`
 - *"What do you actually know about this project?"* → `memory_introspect`
 - *"Forget what I told you about the old API key"* → `memory_forget`
 - *"Consolidate what you've learned into long-term memory"* → `memory_consolidate`

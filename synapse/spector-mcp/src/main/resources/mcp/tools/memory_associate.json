@@ -1,0 +1,56 @@
+{
+  "name": "memory_associate",
+  "description": "Explicitly create an association between memories or entities in the cognitive graph. Supports three association types: 'hebbian' (associative co-activation edge between two memories, default), 'temporal' (predecessor -> successor sequential/causal link), and 'hyperedge' (n-ary association connecting multiple entities, optionally grounded in a memory).",
+  "category": "MEMORY",
+  "scopes": [
+    "spector:memory:write"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "type": {
+        "type": "string",
+        "description": "Association type: 'hebbian' (bidirectional co-activation edge, default), 'temporal' (predecessor -> successor link), or 'hyperedge' (n-ary multi-entity relation).",
+        "enum": [
+          "hebbian",
+          "temporal",
+          "hyperedge"
+        ],
+        "default": "hebbian"
+      },
+      "source_id": {
+        "type": "string",
+        "description": "Source or predecessor memory ID (required for 'hebbian' and 'temporal')."
+      },
+      "target_id": {
+        "type": "string",
+        "description": "Target or successor memory ID (required for 'hebbian' and 'temporal')."
+      },
+      "weight": {
+        "type": "number",
+        "description": "Association weight increment (positive float, defaults to 1.0). Modulates Hebbian edge strength or hyperedge weight.",
+        "default": 1.0
+      },
+      "session_id": {
+        "type": "integer",
+        "description": "Session identifier for temporal sequence linking (defaults to 0).",
+        "default": 0
+      },
+      "entities": {
+        "type": "array",
+        "description": "List of 2 or more entity names to connect in a hyperedge. Used when type is 'hyperedge'.",
+        "items": {
+          "type": "string"
+        }
+      },
+      "memory_id": {
+        "type": "string",
+        "description": "Optional grounding memory ID anchoring a hyperedge association."
+      },
+      "namespace": {
+        "type": "string",
+        "description": "Target memory namespace (slug or ID). Omit to use connection or account default."
+      }
+    }
+  }
+}

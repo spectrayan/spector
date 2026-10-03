@@ -1,0 +1,27 @@
+{{#if isHebbian}}
+🔗 **Hebbian Association Created**
+
+  - **Source Memory:** `{{sourceId}}`
+  - **Target Memory:** `{{targetId}}`
+  - **Weight:** {{weight}}
+  - **Status:** Bidirectional co-activation edge strengthened in Hebbian graph. Spreading activation will link these memories during recall.
+{{/if}}
+{{#if isTemporal}}
+⏳ **Temporal Association Created**
+
+  - **Predecessor Memory:** `{{sourceId}}`
+  - **Successor Memory:** `{{targetId}}`
+  - **Session ID:** {{sessionId}}
+  - **Status:** Sequential causal link established in temporal chain.
+{{/if}}
+{{#if isHyperedge}}
+🕸️ **Hyperedge Association Created**
+
+  - **Hyperedge ID:** `{{edgeId}}`
+  - **Entities:** {{entitiesStr}}
+{{#if memoryId}}
+  - **Grounding Memory:** `{{memoryId}}`
+{{/if}}
+  - **Weight:** {{weight}}
+  - **Status:** N-ary entity co-occurrence relationship established in HyperEntityGraph.
+{{/if}}
