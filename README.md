@@ -292,7 +292,7 @@ Identity, cognitive state (importance/valence/arousal), synaptic tags, and full 
 
 | Component | Minimum JDK | Notes |
 |:----------|:-----------:|:------|
-| **Client SDK** (`spector-client`) | **21** | Thin HTTP client; no engine dependencies |
+| **Client SDK** (`spector-client`) | **25** | Thin HTTP client; Java 25 reactor aligned |
 | **Server image** (`deploy/docker`) | **25** | Ships with `--enable-preview --add-modules=jdk.incubator.vector` |
 | **Embedded engine** (`spector-memory`) | **25** + Vector API | Requires `--add-modules jdk.incubator.vector --enable-native-access=ALL-UNNAMED --enable-preview` |
 

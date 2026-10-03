@@ -92,7 +92,7 @@ jobs:
           echo "Testing data-plane: remember + recall..."
           REMEMBER_RESPONSE=$(curl -sf -X POST http://127.0.0.1:7070/api/v1/memory/remember \
             -H 'Content-Type: application/json' \
-            -d '{"id":"smoke-test-1","text":"CI smoke test memory","type":"SEMANTIC","tags":["ci","smoke"]}' \
+            -d '{"id":"smoke-test-1","text":"CI smoke test memory","tier":"SEMANTIC","tags":"ci,smoke"}' \
             || echo "FAILED")
 
           if [ "$REMEMBER_RESPONSE" = "FAILED" ]; then
