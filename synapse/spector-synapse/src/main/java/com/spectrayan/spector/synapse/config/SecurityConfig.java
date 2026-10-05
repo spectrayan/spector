@@ -97,6 +97,11 @@ public class SecurityConfig {
      */
     public SecurityConfig(SynapseProperties properties) {
         this.authEnabled = properties.auth().enabled();
+        if (properties.auth() != null && properties.auth().oidc() != null
+                && properties.auth().oidc().tenantClaim() != null
+                && !properties.auth().oidc().tenantClaim().isBlank()) {
+            com.spectrayan.spector.synapse.security.SecurityUtils.setOidcTenantClaim(properties.auth().oidc().tenantClaim().trim());
+        }
     }
 
     /**

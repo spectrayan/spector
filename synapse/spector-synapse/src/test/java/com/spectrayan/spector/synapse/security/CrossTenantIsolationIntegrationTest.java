@@ -231,4 +231,50 @@ class CrossTenantIsolationIntegrationTest {
         assertThat(MemoryScope.isTenantActive()).isFalse();
         assertThat(SecurityUtils.getTenantId()).isEqualTo("default");
     }
+
+    @Test
+    @DisplayName("MemoryRequestBinder correctly resolves numeric and nested JSON tenant claims")
+    void testBinderResolvesNumericAndNestedTenantClaims() {
+        String numTenant = "999";
+        String numAccount = "0195500000099";
+        catalog.getOrCreateAccount(numAccount, AccountProfile.HUMAN_SOLO, PrincipalKind.HUMAN, numTenant);
+        NamespaceRecord ns = catalog.createNamespace(numAccount, "num-slug", NamespaceType.PROJECT);
+        when(mockResolver.resolve(numAccount, ns.namespaceId())).thenReturn(mockMemory);
+
+        // Numeric tenant in JWT claim (e.g. integer 999)
+        Jwt jwtNum = Jwt.withTokenValue("mock-jwt-num")
+                .header("alg", "none")
+                .subject(numAccount)
+                .claim("tenant_id", 999)
+                .build();
+        var authNum = new JwtAuthenticationToken(jwtNum, List.of());
+        MemoryBinding bindingNum = binder.bind(authNum, Optional.of("num-slug"));
+        assertThat(bindingNum.context().tenantId()).isEqualTo("999");
+
+        // Nested OIDC claim in JWT (e.g. realm_access.tenant_id)
+        try {
+            SecurityUtils.setOidcTenantClaim("realm_access.tenant_id");
+            Jwt jwtNested = Jwt.withTokenValue("mock-jwt-nested")
+                    .header("alg", "none")
+                    .subject(numAccount)
+                    .claim("realm_access", java.util.Map.of("tenant_id", "999"))
+                    .build();
+            var authNested = new JwtAuthenticationToken(jwtNested, List.of());
+            MemoryBinding bindingNested = binder.bind(authNested, Optional.of("num-slug"));
+            assertThat(bindingNested.context().tenantId()).isEqualTo("999");
+        } finally {
+            SecurityUtils.setOidcTenantClaim(null);
+        }
+    }
+
+    @Test
+    @DisplayName("CrossTenantAccessException message contains both SPE-820-001 and SPE-SEC-001 taxonomy codes")
+    void testTaxonomyMessageIncludesBothCodes() {
+        var ex = new CrossTenantAccessException(ACCOUNT_ALPHA, "ns-1", TENANT_BETA);
+        assertThat(ex.getMessage()).contains("SPE-820-001");
+        assertThat(ex.getMessage()).contains("SPE-SEC-001");
+        assertThat(ex.errorCode()).isEqualTo(ErrorCode.CROSS_TENANT_ACCESS_DENIED);
+        assertThat(ErrorCode.fromId("SPE-SEC-001")).isEqualTo(ErrorCode.CROSS_TENANT_ACCESS_DENIED);
+        assertThat(ErrorCode.fromId("SPE-820-001")).isEqualTo(ErrorCode.CROSS_TENANT_ACCESS_DENIED);
+    }
 }

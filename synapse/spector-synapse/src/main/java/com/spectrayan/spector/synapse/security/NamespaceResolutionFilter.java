@@ -113,10 +113,14 @@ public class NamespaceResolutionFilter extends OncePerRequestFilter {
             log.warn("[NamespaceResolutionFilter] Cross-tenant access denied: {}", e.getMessage());
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            String errorCodeId = e.errorCode() != null ? e.errorCode().id() : "SPE-820-001";
+            String alias = CrossTenantAccessException.ERROR_CODE_ALIAS;
+            String msg = e.getMessage() != null
+                    ? e.getMessage().replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r")
+                    : "Cross-tenant access denied";
             String json = String.format(
-                    "{\"status\":403,\"code\":\"%s\",\"message\":\"%s\"}",
-                    e.errorCode() != null ? e.errorCode().id() : CrossTenantAccessException.ERROR_CODE_ALIAS,
-                    e.getMessage() != null ? e.getMessage().replace("\"", "\\\"") : "Cross-tenant access denied"
+                    "{\"status\":403,\"error\":\"%s\",\"code\":\"%s\",\"alias\":\"%s\",\"message\":\"%s\"}",
+                    errorCodeId, errorCodeId, alias, msg
             );
             response.getWriter().write(json);
         } catch (RuntimeException e) {

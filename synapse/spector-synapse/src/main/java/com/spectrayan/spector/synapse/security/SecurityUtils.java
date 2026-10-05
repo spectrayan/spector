@@ -228,26 +228,79 @@ public final class SecurityUtils {
         return DEFAULT_USER_ID;
     }
 
-    private static String extractTenantFromJwt(Jwt jwt) {
+    /**
+     * Extracts the tenant identifier from a {@link Jwt} token.
+     *
+     * <p>Inspects the configured OIDC claim (from {@link #getOidcTenantClaim()}) if present,
+     * followed by default claims ({@code tenant_id}, {@code tid}, {@code tenantId},
+     * {@code realm_access.tenant_id}). Supports numeric claim values and dot-delimited
+     * nested JSON path traversal (e.g. {@code realm_access.tenant_id}).</p>
+     *
+     * @param jwt the JWT token to inspect
+     * @return the resolved tenant ID, or {@code null} if no tenant claim is found
+     */
+    public static String extractTenantFromJwt(Jwt jwt) {
+        if (jwt == null) {
+            return null;
+        }
         String configuredClaim = getOidcTenantClaim();
         if (configuredClaim != null && !configuredClaim.isBlank()) {
-            String val = jwt.getClaimAsString(configuredClaim.trim());
+            String val = getClaimValueAsString(jwt, configuredClaim.trim());
             if (val != null && !val.isBlank()) {
                 return val.trim();
             }
         }
-        String tid = jwt.getClaimAsString("tenant_id");
-        if (tid != null && !tid.isBlank()) {
-            return tid.trim();
+        for (String candidate : new String[] {"tenant_id", "tid", "tenantId", "realm_access.tenant_id"}) {
+            String val = getClaimValueAsString(jwt, candidate);
+            if (val != null && !val.isBlank()) {
+                return val.trim();
+            }
         }
-        tid = jwt.getClaimAsString("tid");
-        if (tid != null && !tid.isBlank()) {
-            return tid.trim();
+        return null;
+    }
+
+    /**
+     * Resolves a claim value from a {@link Jwt}, supporting direct keys and dot-separated
+     * nested paths (e.g. {@code "realm_access.tenant_id"}). Supports numeric values.
+     *
+     * @param jwt the JWT token
+     * @param claimName the claim name or nested path
+     * @return string representation of the claim, or {@code null} if absent or blank
+     */
+    public static String getClaimValueAsString(Jwt jwt, String claimName) {
+        if (jwt == null || claimName == null || claimName.isBlank()) {
+            return null;
         }
-        tid = jwt.getClaimAsString("tenantId");
-        if (tid != null && !tid.isBlank()) {
-            return tid.trim();
+        claimName = claimName.trim();
+        Map<String, Object> claims = jwt.getClaims();
+        if (claims == null || claims.isEmpty()) {
+            return null;
         }
+
+        // 1. Direct match in claims map
+        Object direct = claims.get(claimName);
+        if (direct != null) {
+            String str = direct.toString().trim();
+            return str.isEmpty() ? null : str;
+        }
+
+        // 2. Dot-separated path traversal for nested JSON objects
+        if (claimName.contains(".")) {
+            String[] parts = claimName.split("\\.");
+            Object current = claims;
+            for (String part : parts) {
+                if (current instanceof Map<?, ?> map) {
+                    current = map.get(part);
+                } else {
+                    return null;
+                }
+            }
+            if (current != null) {
+                String str = current.toString().trim();
+                return str.isEmpty() ? null : str;
+            }
+        }
+
         return null;
     }
 

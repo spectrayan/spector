@@ -282,6 +282,64 @@ class SecurityUtilsTest {
     }
 
     @Test
+    void getTenantIdResolvesFromNumericClaim() {
+        var jwt = org.springframework.security.oauth2.jwt.Jwt.withTokenValue("mock-token")
+                .header("alg", "none")
+                .claim("sub", TSID)
+                .claim("tenant_id", 1001)
+                .build();
+        var jwtAuth = new org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken(jwt, List.of());
+        bind(jwtAuth);
+
+        assertThat(SecurityUtils.getTenantId()).isEqualTo("1001");
+    }
+
+    @Test
+    void getTenantIdResolvesFromNestedJsonClaim() {
+        try {
+            SecurityUtils.setOidcTenantClaim("realm_access.tenant_id");
+            var jwt = org.springframework.security.oauth2.jwt.Jwt.withTokenValue("mock-token")
+                    .header("alg", "none")
+                    .claim("sub", TSID)
+                    .claim("realm_access", java.util.Map.of("tenant_id", "tenant-nested"))
+                    .build();
+            var jwtAuth = new org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken(jwt, List.of());
+            bind(jwtAuth);
+
+            assertThat(SecurityUtils.getTenantId()).isEqualTo("tenant-nested");
+        } finally {
+            SecurityUtils.setOidcTenantClaim(null);
+        }
+    }
+
+    @Test
+    void getTenantIdResolvesFromWhitespacePaddedClaim() {
+        var jwt = org.springframework.security.oauth2.jwt.Jwt.withTokenValue("mock-token")
+                .header("alg", "none")
+                .claim("sub", TSID)
+                .claim("tenant_id", "   tenant-spaced   ")
+                .build();
+        var jwtAuth = new org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken(jwt, List.of());
+        bind(jwtAuth);
+
+        assertThat(SecurityUtils.getTenantId()).isEqualTo("tenant-spaced");
+    }
+
+    @Test
+    void getTenantIdFallsBackWhenCandidateClaimIsBlank() {
+        var jwt = org.springframework.security.oauth2.jwt.Jwt.withTokenValue("mock-token")
+                .header("alg", "none")
+                .claim("sub", TSID)
+                .claim("tenant_id", "   ")
+                .claim("tid", "tenant-tid-fallback")
+                .build();
+        var jwtAuth = new org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken(jwt, List.of());
+        bind(jwtAuth);
+
+        assertThat(SecurityUtils.getTenantId()).isEqualTo("tenant-tid-fallback");
+    }
+
+    @Test
     void unknownAuthorityShapesAreIgnoredByScopeExtraction() {
         // Non-SCOPE_ authorities (roles, bare strings) never leak into getScopes().
         bind(authenticated(TSID, "ROLE_ADMIN", "memory:read", "SCOPE_memory:write"));

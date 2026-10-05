@@ -122,6 +122,10 @@ public class JdbcAccountCatalog implements AccountCatalog {
                     throw new TenantReassignmentException(accountId, account.tenantId(), tenantId);
                 }
             }
+            if (account.tenantId() == null && tenantId != null) {
+                assignTenant(accountId, tenantId);
+                account = findAccountById(accountId).orElse(account);
+            }
             ensureDefaultNamespaceExists(account);
             return account;
         }

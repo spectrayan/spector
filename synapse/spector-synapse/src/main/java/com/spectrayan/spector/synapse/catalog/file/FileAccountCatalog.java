@@ -168,6 +168,10 @@ public class FileAccountCatalog implements AccountCatalog {
                         throw new TenantReassignmentException(accountId, account.tenantId(), tenantId);
                     }
                 }
+                if (account.tenantId() == null && tenantId != null) {
+                    assignTenant(accountId, tenantId);
+                    account = objectMapper.readValue(accountFile.toFile(), Account.class);
+                }
                 return account;
             }
 
@@ -288,7 +292,49 @@ public class FileAccountCatalog implements AccountCatalog {
         } catch (NamespaceNotFoundException e) {
             return Optional.empty();
         }
-        return snapshot.resolveNamespace(slugOrId);
+        Optional<NamespaceRecord> recordOpt = snapshot.resolveNamespace(slugOrId);
+        if (recordOpt.isPresent()) {
+            NamespaceRecord record = recordOpt.get();
+            if (record.status() == NamespaceStatus.TOMBSTONED) {
+                return Optional.empty();
+            }
+            if (!record.ownerAccountId().equals(accountId)) {
+                Account caller = snapshot.account();
+                try {
+                    Account owner = getAccount(record.ownerAccountId());
+                    if (caller != null && owner != null && caller.tenantId() != null && owner.tenantId() != null
+                            && !caller.tenantId().equals(owner.tenantId())) {
+                        throw new CrossTenantAccessException(accountId, record.namespaceId(), owner.tenantId());
+                    }
+                } catch (NamespaceNotFoundException ignored) {}
+            }
+            return recordOpt;
+        }
+
+        // Check if there is an active grant for this namespace ID on the caller's account
+        Optional<Grant> grantOpt = snapshot.findGrant(accountId, slugOrId, GrantRole.READER);
+        if (grantOpt.isPresent()) {
+            String ownerAccountId = grantOpt.get().grantedBy();
+            if (ownerAccountId != null && !ownerAccountId.equals(accountId)) {
+                Account caller = snapshot.account();
+                Account owner = null;
+                try {
+                    owner = getAccount(ownerAccountId);
+                } catch (NamespaceNotFoundException ignored) {}
+                if (caller != null && owner != null && caller.tenantId() != null && owner.tenantId() != null
+                        && !caller.tenantId().equals(owner.tenantId())) {
+                    throw new CrossTenantAccessException(accountId, slugOrId, owner.tenantId());
+                }
+                if (owner != null) {
+                    try {
+                        CatalogSnapshot ownerSnapshot = loadSnapshot(ownerAccountId);
+                        return ownerSnapshot.resolveNamespace(slugOrId);
+                    } catch (Exception ignored) {}
+                }
+            }
+        }
+
+        return Optional.empty();
     }
 
     @Override
@@ -299,7 +345,22 @@ public class FileAccountCatalog implements AccountCatalog {
         } catch (NamespaceNotFoundException e) {
             return Optional.empty();
         }
-        return snapshot.findGrant(accountId, namespaceId, minimum);
+        Optional<Grant> grantOpt = snapshot.findGrant(accountId, namespaceId, minimum);
+        if (grantOpt.isPresent()) {
+            Account caller = snapshot.account();
+            String ownerAccountId = grantOpt.get().grantedBy();
+            if (ownerAccountId != null && !ownerAccountId.equals(accountId)) {
+                try {
+                    Account owner = getAccount(ownerAccountId);
+                    if (caller != null && owner != null && caller.tenantId() != null && owner.tenantId() != null
+                            && !caller.tenantId().equals(owner.tenantId())) {
+                        throw new CrossTenantAccessException(accountId, namespaceId, owner.tenantId());
+                    }
+                } catch (NamespaceNotFoundException ignored) {}
+            }
+            return grantOpt;
+        }
+        return Optional.empty();
     }
 
     @Override
@@ -840,6 +901,13 @@ public class FileAccountCatalog implements AccountCatalog {
 
         if (callerGrant.get().role() != GrantRole.OWNER && callerGrant.get().role().ordinal() > role.ordinal()) {
             throw new NamespaceAccessDeniedException(record.namespaceId(), callerAccountId);
+        }
+
+        Account callerAccount = getAccount(callerAccountId);
+        Account granteeAccount = getAccount(granteeAccountId);
+        if (callerAccount.tenantId() != null && granteeAccount.tenantId() != null
+                && !callerAccount.tenantId().equals(granteeAccount.tenantId())) {
+            throw new CrossTenantAccessException(granteeAccountId, record.namespaceId(), callerAccount.tenantId());
         }
 
         Grant grant = new Grant(

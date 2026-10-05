@@ -40,6 +40,7 @@ import com.spectrayan.spector.synapse.catalog.NamespaceBias;
 import com.spectrayan.spector.synapse.catalog.NamespaceRecord;
 import com.spectrayan.spector.synapse.catalog.NamespaceStatus;
 import com.spectrayan.spector.synapse.catalog.NamespaceType;
+import com.spectrayan.spector.synapse.catalog.exception.CrossTenantAccessException;
 import com.spectrayan.spector.synapse.catalog.exception.DefaultNamespaceProtectedException;
 import com.spectrayan.spector.synapse.catalog.exception.NamespaceNotFoundException;
 import com.spectrayan.spector.synapse.catalog.exception.TenantReassignmentException;
@@ -254,5 +255,54 @@ class FileAccountCatalogTest {
         // Idempotent assignment succeeds
         catalog.assignTenant(ACCOUNT_ID, "acme");
         assertThat(catalog.getAccount(ACCOUNT_ID).tenantId()).isEqualTo("acme");
+    }
+
+    @Test
+    @DisplayName("grantNamespace rejects cross-tenant grants with CrossTenantAccessException")
+    void testCrossTenantGrantRejectedInFileCatalog() {
+        catalog.getOrCreateAccount(ACCOUNT_ID);
+        catalog.assignTenant(ACCOUNT_ID, "acme");
+        NamespaceRecord ns = catalog.createNamespace(ACCOUNT_ID, "proj-acme", NamespaceType.PROJECT);
+
+        String granteeId = "01955000000B2";
+        catalog.getOrCreateAccount(granteeId);
+        catalog.assignTenant(granteeId, "globex");
+
+        assertThatThrownBy(() -> catalog.grantNamespace(ACCOUNT_ID, ns.namespaceId(), granteeId,
+                GrantRole.READER, null, null))
+                .isInstanceOf(CrossTenantAccessException.class)
+                .hasMessageContaining("SPE-820-001");
+    }
+
+    @Test
+    @DisplayName("resolve rejects foreign tenant namespaces with CrossTenantAccessException")
+    void testCrossTenantResolveRejectedInFileCatalog() {
+        catalog.getOrCreateAccount(ACCOUNT_ID);
+        catalog.assignTenant(ACCOUNT_ID, "acme");
+        NamespaceRecord ns = catalog.createNamespace(ACCOUNT_ID, "proj-acme2", NamespaceType.PROJECT);
+
+        String foreignUser = "01955000000C3";
+        catalog.getOrCreateAccount(foreignUser);
+        catalog.assignTenant(foreignUser, "globex");
+
+        // Manually place a grant to simulate stale grant or direct query attempt
+        Grant grant = new Grant(
+                "grant-123",
+                com.spectrayan.spector.synapse.catalog.GrantObjectType.NAMESPACE,
+                ns.namespaceId(),
+                foreignUser,
+                com.spectrayan.spector.synapse.catalog.PrincipalType.ACCOUNT,
+                GrantRole.READER,
+                null,
+                ACCOUNT_ID,
+                java.time.Instant.now(),
+                null,
+                null
+        );
+        catalog.addGrant(grant);
+
+        assertThatThrownBy(() -> catalog.resolve(foreignUser, ns.namespaceId()))
+                .isInstanceOf(CrossTenantAccessException.class)
+                .hasMessageContaining("SPE-820-001");
     }
 }

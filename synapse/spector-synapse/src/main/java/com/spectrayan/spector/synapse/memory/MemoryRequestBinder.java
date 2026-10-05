@@ -351,15 +351,18 @@ public class MemoryRequestBinder {
             throw new CrossTenantAccessException(accountId, targetNamespaceId, account.tenantId());
         }
 
-        if (record != null && effectiveTenantId != null && !record.ownerAccountId().equals(accountId)) {
+        if (record != null && !record.ownerAccountId().equals(accountId)) {
             Account ownerAccount = null;
             try {
                 ownerAccount = catalog.getAccount(record.ownerAccountId());
             } catch (Exception ignored) {}
-            if (ownerAccount != null && ownerAccount.tenantId() != null && !effectiveTenantId.equals(ownerAccount.tenantId())) {
-                log.warn("[MemoryRequestBinder] Cross-tenant access denied: account={} (tenant={}) attempted access to namespace={} owned by account={} (tenant={})",
-                        accountId, effectiveTenantId, targetNamespaceId, record.ownerAccountId(), ownerAccount.tenantId());
-                throw new CrossTenantAccessException(accountId, targetNamespaceId, ownerAccount.tenantId());
+            if (ownerAccount != null && ownerAccount.tenantId() != null) {
+                String callerTenant = effectiveTenantId != null ? effectiveTenantId : (account != null ? account.tenantId() : "default");
+                if (!java.util.Objects.equals(callerTenant, ownerAccount.tenantId())) {
+                    log.warn("[MemoryRequestBinder] Cross-tenant access denied: account={} (tenant={}) attempted access to namespace={} owned by account={} (tenant={})",
+                            accountId, callerTenant, targetNamespaceId, record.ownerAccountId(), ownerAccount.tenantId());
+                    throw new CrossTenantAccessException(accountId, targetNamespaceId, ownerAccount.tenantId());
+                }
             }
         }
 
@@ -375,9 +378,10 @@ public class MemoryRequestBinder {
 
         NamespaceResolver resolver = registry.namespaceResolver();
         String ownerAccountId = record != null ? record.ownerAccountId() : accountId;
-        String routingTenantId = (resolver != null)
+        String resolvedTenant = (resolver != null)
                 ? resolver.placementTenantIdFor(targetNamespaceId, ownerAccountId, accountId, account)
-                : effectiveTenantId;
+                : null;
+        String routingTenantId = resolvedTenant != null ? resolvedTenant : effectiveTenantId;
 
         String cellId = synapseProps != null && synapseProps.cell() != null ? synapseProps.cell().getId() : null;
         RoutingKey routingKey = new RoutingKey(cellId, routingTenantId, targetNamespaceId);
@@ -505,30 +509,9 @@ public class MemoryRequestBinder {
         }
 
         if (jwt != null) {
-            String configuredClaim = SecurityUtils.getOidcTenantClaim();
-            if (configuredClaim != null && !configuredClaim.isBlank()) {
-                String val = jwt.getClaimAsString(configuredClaim.trim());
-                if (val != null && !val.isBlank()) {
-                    tenantId = val.trim();
-                }
-            }
-            if (tenantId == null || tenantId.isBlank()) {
-                String tid = jwt.getClaimAsString("tenant_id");
-                if (tid != null && !tid.isBlank()) {
-                    tenantId = tid.trim();
-                }
-            }
-            if (tenantId == null || tenantId.isBlank()) {
-                String tid = jwt.getClaimAsString("tid");
-                if (tid != null && !tid.isBlank()) {
-                    tenantId = tid.trim();
-                }
-            }
-            if (tenantId == null || tenantId.isBlank()) {
-                String tid = jwt.getClaimAsString("tenantId");
-                if (tid != null && !tid.isBlank()) {
-                    tenantId = tid.trim();
-                }
+            String extracted = SecurityUtils.extractTenantFromJwt(jwt);
+            if (extracted != null && !extracted.isBlank()) {
+                tenantId = extracted;
             }
         }
 

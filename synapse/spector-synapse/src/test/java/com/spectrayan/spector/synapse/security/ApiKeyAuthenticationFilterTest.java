@@ -378,4 +378,38 @@ class ApiKeyAuthenticationFilterTest {
             assertThat(currentAuth()).isNull();
         }
     }
+
+    @Nested
+    @DisplayName("tenant resolution")
+    class TenantResolution {
+
+        @Test
+        @DisplayName("API key authentication attaches ApiKeyAuthenticationDetails and resolves tenant")
+        void apiKeyResolvesTenant() throws Exception {
+            String rawKey = "raw-user-key-tenant";
+            String userId = "01955000000X1";
+            String hash = ApiKeyStore.sha256Hex(rawKey);
+
+            when(apiKeyStore.findActiveByHash(hash))
+                    .thenReturn(Optional.of(activeRow(userId, Set.of("memory:read"))));
+
+            UserAccountStore userAccountStore = mock(UserAccountStore.class);
+            UserRow userRow = mock(UserRow.class);
+            when(userRow.tenantId()).thenReturn("tenant-key-org");
+            when(userAccountStore.findByUserId(userId)).thenReturn(Optional.of(userRow));
+
+            var filterWithStore = new ApiKeyAuthenticationFilter(props(true), apiKeyStore, userAccountStore);
+
+            MockHttpServletRequest request = request("/api/v1/memory/status");
+            request.addHeader(AUTHORIZATION, BEARER + rawKey);
+
+            run(filterWithStore, request);
+
+            assertThat(currentAuth()).isNotNull();
+            assertThat(currentAuth().getDetails()).isInstanceOf(ApiKeyAuthenticationDetails.class);
+            var details = (ApiKeyAuthenticationDetails) currentAuth().getDetails();
+            assertThat(details.tenantId()).isEqualTo("tenant-key-org");
+            assertThat(SecurityUtils.getTenantId()).isEqualTo("tenant-key-org");
+        }
+    }
 }

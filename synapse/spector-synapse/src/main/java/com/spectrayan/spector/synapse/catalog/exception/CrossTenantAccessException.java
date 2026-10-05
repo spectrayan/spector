@@ -39,7 +39,7 @@ public class CrossTenantAccessException extends NamespaceAccessDeniedException {
 
     @Override
     public String getMessage() {
-        return "[" + ErrorCode.CROSS_TENANT_ACCESS_DENIED.id() + "] Cross-tenant access denied: account '"
+        return "[" + ErrorCode.CROSS_TENANT_ACCESS_DENIED.id() + " / " + ERROR_CODE_ALIAS + "] Cross-tenant access denied: account '"
                 + getPrincipalId() + "' cannot access namespace '" + getNamespaceId()
                 + "' belonging to tenant '" + targetTenantId + "'";
     }
