@@ -361,6 +361,12 @@ public class JdbcAccountCatalog implements AccountCatalog {
             if (record.status() == NamespaceStatus.TOMBSTONED) {
                 return Optional.empty();
             }
+            Account caller = findAccountById(accountId).orElse(null);
+            Account owner = findAccountById(record.ownerAccountId()).orElse(null);
+            if (caller != null && owner != null && caller.tenantId() != null && owner.tenantId() != null
+                    && !caller.tenantId().equals(owner.tenantId())) {
+                throw new CrossTenantAccessException(accountId, record.namespaceId(), owner.tenantId());
+            }
             // Check if accessible to this account (owned or granted)
             if (record.ownerAccountId().equals(accountId) || hasActiveGrant(accountId, record.namespaceId())) {
                 return Optional.of(record);
@@ -636,6 +642,13 @@ public class JdbcAccountCatalog implements AccountCatalog {
             throw new NamespaceAccessDeniedException(record.namespaceId(), callerAccountId);
         }
 
+        Account callerAccount = getAccount(callerAccountId);
+        Account granteeAccount = getAccount(granteeAccountId);
+        if (callerAccount.tenantId() != null && granteeAccount.tenantId() != null
+                && !callerAccount.tenantId().equals(granteeAccount.tenantId())) {
+            throw new CrossTenantAccessException(granteeAccountId, record.namespaceId(), callerAccount.tenantId());
+        }
+
         Grant grant = new Grant(
                 tsid.generate(),
                 GrantObjectType.NAMESPACE,
@@ -750,6 +763,14 @@ public class JdbcAccountCatalog implements AccountCatalog {
 
         for (Grant grant : grants) {
             if (grant.role() != null && grant.role().ordinal() <= minimumRole.ordinal()) {
+                if (ns.isPresent()) {
+                    Account caller = findAccountById(accountId).orElse(null);
+                    Account owner = findAccountById(ns.get().ownerAccountId()).orElse(null);
+                    if (caller != null && owner != null && caller.tenantId() != null && owner.tenantId() != null
+                            && !caller.tenantId().equals(owner.tenantId())) {
+                        throw new CrossTenantAccessException(accountId, namespaceId, owner.tenantId());
+                    }
+                }
                 if (cache != null) {
                     cache.put(cacheKey, grant);
                 }

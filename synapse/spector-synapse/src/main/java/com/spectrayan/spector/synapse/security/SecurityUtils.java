@@ -17,12 +17,18 @@ package com.spectrayan.spector.synapse.security;
 
 import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+
+import com.spectrayan.spector.commons.concurrent.MemoryScope;
+import com.spectrayan.spector.config.SpectorPropertyConstants;
 
 /**
  * Resolves the current principal and its authorities from Spring Security's
@@ -120,14 +126,129 @@ public final class SecurityUtils {
         return currentAuthentication() != null;
     }
 
+    private static volatile String oidcTenantClaim;
+
     /**
-     * Retained for source compatibility only. Spector OSS is single-tenant, so
-     * this always returns {@code "default"} and carries no isolation meaning.
+     * Configures the OIDC tenant claim name (e.g. from {@code spector.auth.oidc.tenant-claim}).
      *
-     * @return the literal {@code "default"}
+     * @param claim the custom JWT claim name to inspect for tenant resolution
+     */
+    public static void setOidcTenantClaim(String claim) {
+        oidcTenantClaim = claim;
+    }
+
+    /**
+     * Returns the configured OIDC tenant claim name, checking property cache or system properties.
+     *
+     * @return the configured claim name or {@code null}
+     */
+    public static String getOidcTenantClaim() {
+        if (oidcTenantClaim != null && !oidcTenantClaim.isBlank()) {
+            return oidcTenantClaim;
+        }
+        return System.getProperty(SpectorPropertyConstants.AUTH_OIDC_TENANT_CLAIM);
+    }
+
+    /**
+     * Resolves the current tenant identifier.
+     *
+     * <p>Checks the following sources in order:
+     * <ol>
+     *   <li>{@link MemoryScope#tenantId()} when bound to the current thread</li>
+     *   <li>{@link Authentication#getDetails()} if holding {@link ApiKeyAuthenticationDetails} or map</li>
+     *   <li>JWT claims if the authentication is token-based (configured OIDC claim, {@code tenant_id}, {@code tid}, {@code tenantId})</li>
+     *   <li>Principal reflection if the principal object exposes tenant information</li>
+     *   <li>Literal {@code "default"} when unauthenticated, auth is disabled, or no tenant is present</li>
+     * </ol>
+     *
+     * @return the active tenant id, never {@code null}
      */
     public static String getTenantId() {
+        if (MemoryScope.isTenantActive()) {
+            String scoped = MemoryScope.tenantId();
+            if (scoped != null && !scoped.isBlank()) {
+                return scoped;
+            }
+        }
+
+        Authentication auth = currentAuthentication();
+        if (auth == null) {
+            return DEFAULT_USER_ID;
+        }
+
+        if (auth.getDetails() instanceof ApiKeyAuthenticationDetails apiKeyDetails) {
+            if (apiKeyDetails.tenantId() != null && !apiKeyDetails.tenantId().isBlank()) {
+                return apiKeyDetails.tenantId();
+            }
+        }
+
+        if (auth.getDetails() instanceof Map<?, ?> detailsMap) {
+            Object tid = detailsMap.get("tenant_id");
+            if (tid == null) tid = detailsMap.get("tenantId");
+            if (tid == null) tid = detailsMap.get("tid");
+            if (tid != null && !tid.toString().isBlank()) {
+                return tid.toString().trim();
+            }
+        }
+
+        Jwt jwt = null;
+        if (auth instanceof JwtAuthenticationToken jwtAuth) {
+            jwt = jwtAuth.getToken();
+        } else if (auth.getPrincipal() instanceof Jwt principalJwt) {
+            jwt = principalJwt;
+        } else if (auth.getCredentials() instanceof Jwt credJwt) {
+            jwt = credJwt;
+        }
+
+        if (jwt != null) {
+            String tenant = extractTenantFromJwt(jwt);
+            if (tenant != null && !tenant.isBlank()) {
+                return tenant;
+            }
+        }
+
+        Object principal = auth.getPrincipal();
+        if (principal != null && !(principal instanceof String)) {
+            try {
+                var method = principal.getClass().getMethod("tenantId");
+                Object res = method.invoke(principal);
+                if (res != null && !res.toString().isBlank()) {
+                    return res.toString().trim();
+                }
+            } catch (ReflectiveOperationException ignored) {}
+            try {
+                var method = principal.getClass().getMethod("getTenantId");
+                Object res = method.invoke(principal);
+                if (res != null && !res.toString().isBlank()) {
+                    return res.toString().trim();
+                }
+            } catch (ReflectiveOperationException ignored) {}
+        }
+
         return DEFAULT_USER_ID;
+    }
+
+    private static String extractTenantFromJwt(Jwt jwt) {
+        String configuredClaim = getOidcTenantClaim();
+        if (configuredClaim != null && !configuredClaim.isBlank()) {
+            String val = jwt.getClaimAsString(configuredClaim.trim());
+            if (val != null && !val.isBlank()) {
+                return val.trim();
+            }
+        }
+        String tid = jwt.getClaimAsString("tenant_id");
+        if (tid != null && !tid.isBlank()) {
+            return tid.trim();
+        }
+        tid = jwt.getClaimAsString("tid");
+        if (tid != null && !tid.isBlank()) {
+            return tid.trim();
+        }
+        tid = jwt.getClaimAsString("tenantId");
+        if (tid != null && !tid.isBlank()) {
+            return tid.trim();
+        }
+        return null;
     }
 
     /**

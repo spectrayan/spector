@@ -109,6 +109,20 @@ public class ServerAccessTokenMinter {
      */
     public MintedAccessToken mintFromAuthorities(String userId,
                                                  Collection<? extends GrantedAuthority> authorities) {
+        return mintFromAuthorities(userId, authorities, null);
+    }
+
+    /**
+     * Mints an access token for a login with explicit tenant ID.
+     *
+     * @param userId      the authenticated User_Id (TSID principal name); never {@code null}/blank
+     * @param authorities the authenticated principal's authorities
+     * @param tid         tenant ID (nullable)
+     * @return the minted token together with its {@code jti} and expiry
+     */
+    public MintedAccessToken mintFromAuthorities(String userId,
+                                                 Collection<? extends GrantedAuthority> authorities,
+                                                 String tid) {
         Set<String> scopes = new LinkedHashSet<>();
         Set<String> roles = new LinkedHashSet<>();
         if (authorities != null) {
@@ -127,7 +141,7 @@ public class ServerAccessTokenMinter {
                 }
             }
         }
-        return mint(userId, scopes, roles);
+        return mintScoped(userId, scopes, roles, null, null, tid, null);
     }
 
     /**
@@ -140,6 +154,19 @@ public class ServerAccessTokenMinter {
      */
     public MintedAccessToken mint(String userId, Collection<String> scopes, Collection<String> roles) {
         return mintScoped(userId, scopes, roles, null, null, null, null);
+    }
+
+    /**
+     * Mints an access token with the given scopes, roles, and tenant ID.
+     *
+     * @param userId the User_Id (TSID)
+     * @param scopes scope names
+     * @param roles  role names
+     * @param tid    tenant ID
+     * @return the minted token together with its {@code jti} and expiry
+     */
+    public MintedAccessToken mint(String userId, Collection<String> scopes, Collection<String> roles, String tid) {
+        return mintScoped(userId, scopes, roles, null, null, tid, null);
     }
 
     /**
@@ -187,6 +214,7 @@ public class ServerAccessTokenMinter {
         }
         if (tid != null && !tid.isBlank()) {
             builder.claim("tid", tid.trim());
+            builder.claim("tenant_id", tid.trim());
         }
         if (org != null && !org.isEmpty()) {
             builder.claim("org", sanitize(org));

@@ -173,8 +173,11 @@ public class AuthController {
         }
 
         String userId = authentication.getName();
+        String tenantId = userAccountStore.findByUserId(userId).map(UserRow::tenantId).orElse(null);
         // codeql[java/user-controlled-bypass]
-        MintedAccessToken access = tokenMinter.mintFromAuthorities(userId, authentication.getAuthorities());
+        MintedAccessToken access = (tenantId != null && !tenantId.isBlank())
+                ? tokenMinter.mintFromAuthorities(userId, authentication.getAuthorities(), tenantId)
+                : tokenMinter.mintFromAuthorities(userId, authentication.getAuthorities());
 
         Instant refreshExpiresAt = Instant.now().plus(auth.refresh().ttl());
         String refreshToken = refreshTokenStore.create(userId, refreshExpiresAt);
@@ -222,7 +225,10 @@ public class AuthController {
             return unauthorized("Invalid refresh token");
         }
 
-        MintedAccessToken access = tokenMinter.mint(userId, user.get().scopes(), user.get().roles());
+        String tenantId = user.get().tenantId();
+        MintedAccessToken access = (tenantId != null && !tenantId.isBlank())
+                ? tokenMinter.mint(userId, user.get().scopes(), user.get().roles(), tenantId)
+                : tokenMinter.mint(userId, user.get().scopes(), user.get().roles());
         log.debug("[Auth] Refreshed access token for user {}", userId);
         return ResponseEntity.ok(new RefreshResponse(access.token(), AuthDto.BEARER, access.expiresInSeconds()));
     }

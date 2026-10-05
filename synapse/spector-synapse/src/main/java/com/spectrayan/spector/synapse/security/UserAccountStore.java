@@ -118,6 +118,13 @@ public class UserAccountStore {
     public String createUser(String username, String plainPassword, String email,
                              String displayName, Set<String> roles, Set<String> scopes,
                              boolean mustChangePassword) {
+        return createUser(username, plainPassword, email, displayName, roles, scopes, mustChangePassword, null);
+    }
+
+    @CacheEvict(value = SynapseCacheConstants.CACHE_USER_ACCOUNTS, allEntries = true)
+    public String createUser(String username, String plainPassword, String email,
+                             String displayName, Set<String> roles, Set<String> scopes,
+                             boolean mustChangePassword, String tenantId) {
         if (username == null || username.isBlank()) {
             throw new IllegalArgumentException("username must not be blank");
         }
@@ -142,7 +149,7 @@ public class UserAccountStore {
                     .param("roles", toCsv(roles))
                     .param("scopes", toCsv(scopes))
                     .param("mustChange", mustChangePassword)
-                    .param("tenantId", (String) null)
+                    .param("tenantId", tenantId)
                     .param("now", now)
                     .update();
         } catch (org.springframework.dao.DuplicateKeyException e) {
@@ -153,7 +160,7 @@ public class UserAccountStore {
             throw new SynapseDatabaseException("createUser", "users", e);
         }
 
-        log.info("Created user id={} (roles={})", userId, roles);
+        log.info("Created user id={} (roles={}, tenant={})", userId, roles, tenantId);
         return userId;
     }
 
@@ -480,6 +487,11 @@ public class UserAccountStore {
     }
 
     private static UserRow mapRow(ResultSet rs, int rowNum) throws SQLException {
+        String tenantId = null;
+        try {
+            tenantId = rs.getString("tenant_id");
+        } catch (SQLException ignored) {}
+
         return new UserRow(
                 rs.getString("user_id"),
                 rs.getString("username"),
@@ -494,7 +506,8 @@ public class UserAccountStore {
                 toInstant(rs, "locked_until"),
                 toInstant(rs, "last_login_at"),
                 toInstant(rs, "created_at"),
-                toInstant(rs, "updated_at"));
+                toInstant(rs, "updated_at"),
+                tenantId);
     }
 
     private static Instant toInstant(ResultSet rs, String column) throws SQLException {

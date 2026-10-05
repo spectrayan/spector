@@ -133,20 +133,28 @@ public class AuthProperties implements Serializable {
         private static final long serialVersionUID = 1L;
         private String jwksUrl = DEFAULT_AUTH_OIDC_JWKS_URL;
         private String issuer = DEFAULT_AUTH_OIDC_ISSUER;
+        private String tenantClaim = DEFAULT_AUTH_OIDC_TENANT_CLAIM;
 
         public OidcProperties() {}
         public OidcProperties(String jwksUrl, String issuer) {
+            this(jwksUrl, issuer, DEFAULT_AUTH_OIDC_TENANT_CLAIM);
+        }
+        public OidcProperties(String jwksUrl, String issuer, String tenantClaim) {
             if (jwksUrl != null) this.jwksUrl = jwksUrl;
             if (issuer != null) this.issuer = issuer;
+            if (tenantClaim != null) this.tenantClaim = tenantClaim;
         }
 
         public String getJwksUrl() { return jwksUrl; }
         public void setJwksUrl(String jwksUrl) { this.jwksUrl = jwksUrl; }
         public String getIssuer() { return issuer; }
         public void setIssuer(String issuer) { this.issuer = issuer; }
+        public String getTenantClaim() { return tenantClaim; }
+        public void setTenantClaim(String tenantClaim) { this.tenantClaim = tenantClaim; }
 
         public String jwksUrl() { return getJwksUrl(); }
         public String issuer() { return getIssuer(); }
+        public String tenantClaim() { return getTenantClaim(); }
     }
 
     public static class DefaultAdminProperties implements Serializable {

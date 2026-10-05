@@ -46,6 +46,7 @@ import java.util.Set;
  * @param lastLoginAt        last successful login instant, or {@code null}
  * @param createdAt          row creation instant
  * @param updatedAt          row last-modification instant
+ * @param tenantId           optional tenant identifier (nullable)
  */
 public record UserRow(
         String userId,
@@ -61,7 +62,28 @@ public record UserRow(
         Instant lockedUntil,
         Instant lastLoginAt,
         Instant createdAt,
-        Instant updatedAt) {
+        Instant updatedAt,
+        String tenantId) {
+
+    public UserRow(
+            String userId,
+            String username,
+            String passwordHash,
+            String email,
+            String displayName,
+            Set<String> roles,
+            Set<String> scopes,
+            boolean mustChangePassword,
+            boolean active,
+            int failedLoginCount,
+            Instant lockedUntil,
+            Instant lastLoginAt,
+            Instant createdAt,
+            Instant updatedAt) {
+        this(userId, username, passwordHash, email, displayName, roles, scopes,
+                mustChangePassword, active, failedLoginCount, lockedUntil, lastLoginAt,
+                createdAt, updatedAt, null);
+    }
 
     /**
      * Whether the account is currently locked relative to the supplied instant.

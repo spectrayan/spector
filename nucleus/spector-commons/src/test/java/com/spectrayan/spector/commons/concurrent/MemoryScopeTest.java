@@ -32,11 +32,54 @@ class MemoryScopeTest {
     @Test
     @DisplayName("unbound scope returns null and false")
     void unboundScope() {
+        assertThat(MemoryScope.tenantId()).isNull();
         assertThat(MemoryScope.sessionId()).isNull();
         assertThat(MemoryScope.namespaceId()).isNull();
+        assertThat(MemoryScope.isTenantActive()).isFalse();
         assertThat(MemoryScope.isSessionActive()).isFalse();
         assertThat(MemoryScope.isNamespaceActive()).isFalse();
         assertThat(MemoryScope.isActive()).isFalse();
+    }
+
+    @Test
+    @DisplayName("runWithScope binds tenant, session, and namespace")
+    void runWithAllScopes() {
+        AtomicReference<String> seenTenant = new AtomicReference<>();
+        AtomicReference<String> seenSession = new AtomicReference<>();
+        AtomicReference<String> seenNamespace = new AtomicReference<>();
+        AtomicBoolean seenActive = new AtomicBoolean(false);
+
+        MemoryScope.runWithScope("tenant-001", "sess-123", "ns-456", () -> {
+            seenTenant.set(MemoryScope.tenantId());
+            seenSession.set(MemoryScope.sessionId());
+            seenNamespace.set(MemoryScope.namespaceId());
+            seenActive.set(MemoryScope.isTenantActive() && MemoryScope.isSessionActive() && MemoryScope.isNamespaceActive());
+        });
+
+        assertThat(seenTenant.get()).isEqualTo("tenant-001");
+        assertThat(seenSession.get()).isEqualTo("sess-123");
+        assertThat(seenNamespace.get()).isEqualTo("ns-456");
+        assertThat(seenActive.get()).isTrue();
+
+        assertThat(MemoryScope.tenantId()).isNull();
+        assertThat(MemoryScope.sessionId()).isNull();
+        assertThat(MemoryScope.namespaceId()).isNull();
+    }
+
+    @Test
+    @DisplayName("callWithScope binds tenant, session, and namespace and returns value")
+    void callWithTenantScope() throws Exception {
+        String result = MemoryScope.callWithScope("tenant-abc", "sess-abc", "ns-xyz", () -> {
+            assertThat(MemoryScope.tenantId()).isEqualTo("tenant-abc");
+            assertThat(MemoryScope.sessionId()).isEqualTo("sess-abc");
+            assertThat(MemoryScope.namespaceId()).isEqualTo("ns-xyz");
+            return MemoryScope.tenantId() + ":" + MemoryScope.sessionId() + ":" + MemoryScope.namespaceId();
+        });
+
+        assertThat(result).isEqualTo("tenant-abc:sess-abc:ns-xyz");
+        assertThat(MemoryScope.tenantId()).isNull();
+        assertThat(MemoryScope.sessionId()).isNull();
+        assertThat(MemoryScope.namespaceId()).isNull();
     }
 
     @Test

@@ -80,11 +80,28 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
     private final SynapseProperties props;
     private final AuthProperties auth;
     private final ApiKeyStore apiKeyStore;
+    private final UserAccountStore userAccountStore;
 
-    public ApiKeyAuthenticationFilter(SynapseProperties props, ApiKeyStore apiKeyStore) {
+    @org.springframework.beans.factory.annotation.Autowired
+    public ApiKeyAuthenticationFilter(
+            SynapseProperties props,
+            ApiKeyStore apiKeyStore,
+            org.springframework.beans.factory.ObjectProvider<UserAccountStore> userAccountStoreProvider) {
         this.props = props;
         this.auth = props.auth();
         this.apiKeyStore = apiKeyStore;
+        this.userAccountStore = userAccountStoreProvider != null ? userAccountStoreProvider.getIfAvailable() : null;
+    }
+
+    public ApiKeyAuthenticationFilter(SynapseProperties props, ApiKeyStore apiKeyStore) {
+        this(props, apiKeyStore, (UserAccountStore) null);
+    }
+
+    public ApiKeyAuthenticationFilter(SynapseProperties props, ApiKeyStore apiKeyStore, UserAccountStore userAccountStore) {
+        this.props = props;
+        this.auth = props.auth();
+        this.apiKeyStore = apiKeyStore;
+        this.userAccountStore = userAccountStore;
     }
 
     @Override
@@ -140,10 +157,18 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
         Optional<ApiKeyStore.ApiKeyRow> match = apiKeyStore.findActiveByHash(hash);
         if (match.isPresent()) {
             ApiKeyStore.ApiKeyRow row = match.get();
+            String tenantId = null;
+            if (userAccountStore != null) {
+                tenantId = userAccountStore.findByUserId(row.userId())
+                        .map(UserRow::tenantId)
+                        .orElse(null);
+            }
             var authentication = new UsernamePasswordAuthenticationToken(
                     row.userId(), null, scopeAuthorities(row.scopes()));
+            authentication.setDetails(new ApiKeyAuthenticationDetails(row.keyId(), tenantId));
             SecurityContextHolder.getContext().setAuthentication(authentication);
-            log.debug("[Auth] API key {} authenticated user {} for {}", row.keyId(), row.userId(), path);
+            log.debug("[Auth] API key {} authenticated user {} (tenant={}) for {}",
+                    row.keyId(), row.userId(), tenantId, path);
         }
     }
 

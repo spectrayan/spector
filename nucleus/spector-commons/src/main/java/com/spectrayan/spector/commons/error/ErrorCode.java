@@ -657,7 +657,15 @@ public enum ErrorCode {
 
     /** Soul stack could not be assembled for the request. */
     SOUL_STACK_UNAVAILABLE        (800_013, ErrorCategory.NAMESPACE,
-            "Soul stack unavailable for account '{}': {}");
+            "Soul stack unavailable for account '{}': {}"),
+
+    // ══════════════════════════════════════════════════════════════════════
+    // SECURITY (SPE-820-xxx)
+    // ══════════════════════════════════════════════════════════════════════
+
+    /** Cross-tenant access denied: operation attempted across tenant boundaries. */
+    CROSS_TENANT_ACCESS_DENIED    (820_001, ErrorCategory.SECURITY,
+            "Cross-tenant access denied: account '{}' cannot access namespace '{}' belonging to tenant '{}'");
 
     // ══════════════════════════════════════════════════════════════════════
 
@@ -759,12 +767,18 @@ public enum ErrorCode {
      * @return the matching {@link ErrorCode}, or {@code null} if malformed or not found
      */
     public static ErrorCode fromId(String id) {
-        if (id == null || id.length() < 11) {
+        if (id == null) {
+            return null;
+        }
+        String normalized = id.toUpperCase();
+        if ("SPE-SEC-001".equals(normalized)) {
+            return CROSS_TENANT_ACCESS_DENIED;
+        }
+        if (id.length() < 11) {
             return null;
         }
         try {
             // Parse "SPE-XXX-YYY" → category * 1000 + specific
-            String normalized = id.toUpperCase();
             if (!normalized.startsWith("SPE-")) {
                 return null;
             }

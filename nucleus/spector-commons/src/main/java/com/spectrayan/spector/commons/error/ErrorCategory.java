@@ -80,7 +80,10 @@ public enum ErrorCategory {
     INTERNAL    ("Internal",       900, 909),
 
     /** Namespace catalog, identity, and authorization errors. */
-    NAMESPACE   ("Namespace",      800, 809);
+    NAMESPACE   ("Namespace",      800, 809),
+
+    /** Authentication, tenant isolation, and security policy errors. */
+    SECURITY    ("Security",       820, 829);
 
     private final String displayName;
     private final int rangeStart;

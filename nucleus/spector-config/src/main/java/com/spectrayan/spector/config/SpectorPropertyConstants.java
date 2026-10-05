@@ -1521,6 +1521,8 @@ public final class SpectorPropertyConstants {
 
     public static final Duration DEFAULT_AUTH_JWT_TTL = Duration.ofHours(1);
     public static final Duration DEFAULT_AUTH_REFRESH_TTL = Duration.ofDays(30);
+    public static final String AUTH_OIDC_TENANT_CLAIM = "spector.auth.oidc.tenant-claim";
+    public static final String DEFAULT_AUTH_OIDC_TENANT_CLAIM = "";
     public static final String DEFAULT_AUTH_OIDC_JWKS_URL = "";
     public static final String DEFAULT_AUTH_OIDC_ISSUER = "";
     public static final int DEFAULT_AUTH_PBKDF2_ITERATIONS = 310_000;

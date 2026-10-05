@@ -103,6 +103,8 @@ class ErrorCodeTest {
         assertThat(ErrorCode.INGESTION_FORMAT_UNSUPPORTED.id()).isEqualTo("SPE-600-001");
         assertThat(ErrorCode.SHARD_UNAVAILABLE.id()).isEqualTo("SPE-700-001");
         assertThat(ErrorCode.INTERNAL_ERROR.id()).isEqualTo("SPE-900-001");
+        assertThat(ErrorCode.CROSS_TENANT_ACCESS_DENIED.id()).isEqualTo("SPE-820-001");
+        assertThat(ErrorCode.fromId("SPE-SEC-001")).isSameAs(ErrorCode.CROSS_TENANT_ACCESS_DENIED);
     }
 
     // ─────────────── Lookup ───────────────

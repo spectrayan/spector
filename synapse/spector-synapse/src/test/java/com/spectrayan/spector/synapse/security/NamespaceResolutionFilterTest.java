@@ -137,4 +137,62 @@ class NamespaceResolutionFilterTest {
 
         assertThat(request.getAttribute(MemoryBinding.ATTRIBUTE_KEY)).isNull();
     }
+
+    @Test
+    @DisplayName("Filter binds tenant into MemoryScope for downstream execution")
+    void testTenantBoundIntoMemoryScope() throws ServletException, IOException {
+        var request = new MockHttpServletRequest("GET", "/api/v1/memory/status");
+        request.addHeader(NamespaceResolutionFilter.HEADER_NAMESPACE, "project-z");
+        var response = new MockHttpServletResponse();
+
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+
+        var reqCtx = new com.spectrayan.spector.synapse.memory.RequestMemoryContext(
+                "tenant-xyz",
+                List.of(),
+                TEST_ACCOUNT,
+                "0195500000005",
+                "project-z",
+                com.spectrayan.spector.synapse.catalog.GrantRole.READER,
+                java.util.Set.of(),
+                null,
+                List.of(),
+                null,
+                null
+        );
+        var binding = new MemoryBinding(mockMemory, TEST_ACCOUNT, "0195500000005", "project-z", null, reqCtx);
+        when(binder.bind(any(), eq(Optional.of("project-z")))).thenReturn(binding);
+
+        final String[] observedTenant = new String[1];
+        var customChain = new jakarta.servlet.FilterChain() {
+            @Override
+            public void doFilter(jakarta.servlet.ServletRequest req, jakarta.servlet.ServletResponse res) {
+                observedTenant[0] = com.spectrayan.spector.commons.concurrent.MemoryScope.tenantId();
+            }
+        };
+
+        filter.doFilter(request, response, customChain);
+
+        assertThat(observedTenant[0]).isEqualTo("tenant-xyz");
+    }
+
+    @Test
+    @DisplayName("Filter catches CrossTenantAccessException and returns 403 JSON")
+    void testCrossTenantAccessDeniedReturns403() throws ServletException, IOException {
+        var request = new MockHttpServletRequest("GET", "/api/v1/memory/status");
+        request.addHeader(NamespaceResolutionFilter.HEADER_NAMESPACE, "foreign-ns");
+        var response = new MockHttpServletResponse();
+        var chain = new MockFilterChain();
+
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+
+        when(binder.bind(any(), eq(Optional.of("foreign-ns"))))
+                .thenThrow(new com.spectrayan.spector.synapse.catalog.exception.CrossTenantAccessException(
+                        TEST_ACCOUNT, "foreign-ns", "other-tenant"));
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(response.getContentAsString()).contains("SPE-820-001");
+    }
 }

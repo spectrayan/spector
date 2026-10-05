@@ -19,11 +19,20 @@ import java.util.concurrent.Callable;
 
 public final class MemoryScope {
 
+    public static final ScopedValue<String> TENANT_ID = ScopedValue.newInstance();
     public static final ScopedValue<String> SESSION_ID = ScopedValue.newInstance();
     public static final ScopedValue<String> NAMESPACE_ID = ScopedValue.newInstance();
     public static final ScopedValue<Long> FENCE_EPOCH = ScopedValue.newInstance();
 
     private MemoryScope() {}
+
+    public static String tenantId() {
+        return TENANT_ID.isBound() ? TENANT_ID.get() : null;
+    }
+
+    public static boolean isTenantActive() {
+        return TENANT_ID.isBound();
+    }
 
     public static String sessionId() {
         return SESSION_ID.isBound() ? SESSION_ID.get() : null;
@@ -50,10 +59,24 @@ public final class MemoryScope {
     }
 
     public static void runWithScope(String sessionId, String namespaceId, Runnable task) {
+        runWithScope(null, sessionId, namespaceId, task);
+    }
+
+    public static void runWithScope(String tenantId, String sessionId, String namespaceId, Runnable task) {
+        boolean hasTenant = tenantId != null && !tenantId.isBlank();
         boolean hasSession = sessionId != null && !sessionId.isBlank();
         boolean hasNamespace = namespaceId != null && !namespaceId.isBlank();
 
-        if (hasSession && hasNamespace) {
+        if (hasTenant) {
+            var carrier = ScopedValue.where(TENANT_ID, tenantId);
+            if (hasSession) {
+                carrier = carrier.where(SESSION_ID, sessionId);
+            }
+            if (hasNamespace) {
+                carrier = carrier.where(NAMESPACE_ID, namespaceId);
+            }
+            carrier.run(task);
+        } else if (hasSession && hasNamespace) {
             ScopedValue.where(SESSION_ID, sessionId)
                     .where(NAMESPACE_ID, namespaceId)
                     .run(task);
@@ -67,10 +90,24 @@ public final class MemoryScope {
     }
 
     public static <T> T callWithScope(String sessionId, String namespaceId, Callable<T> task) throws Exception {
+        return callWithScope(null, sessionId, namespaceId, task);
+    }
+
+    public static <T> T callWithScope(String tenantId, String sessionId, String namespaceId, Callable<T> task) throws Exception {
+        boolean hasTenant = tenantId != null && !tenantId.isBlank();
         boolean hasSession = sessionId != null && !sessionId.isBlank();
         boolean hasNamespace = namespaceId != null && !namespaceId.isBlank();
 
-        if (hasSession && hasNamespace) {
+        if (hasTenant) {
+            var carrier = ScopedValue.where(TENANT_ID, tenantId);
+            if (hasSession) {
+                carrier = carrier.where(SESSION_ID, sessionId);
+            }
+            if (hasNamespace) {
+                carrier = carrier.where(NAMESPACE_ID, namespaceId);
+            }
+            return carrier.call(task::call);
+        } else if (hasSession && hasNamespace) {
             return ScopedValue.where(SESSION_ID, sessionId)
                     .where(NAMESPACE_ID, namespaceId)
                     .call(task::call);

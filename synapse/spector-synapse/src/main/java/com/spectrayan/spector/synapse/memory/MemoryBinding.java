@@ -47,6 +47,13 @@ public record MemoryBinding(
     }
 
     /**
+     * Alias for {@link #requestMemoryContext()}.
+     */
+    public RequestMemoryContext context() {
+        return requestMemoryContext;
+    }
+
+    /**
      * Retrieves the current request's bound {@link MemoryBinding} from RequestContextHolder if available.
      *
      * @return optional containing the active MemoryBinding, or empty if none bound

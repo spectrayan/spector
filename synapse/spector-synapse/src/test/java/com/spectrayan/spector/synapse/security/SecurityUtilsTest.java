@@ -226,10 +226,59 @@ class SecurityUtilsTest {
     }
 
     @Test
-    void getTenantIdIsAlwaysDefaultWhenAuthenticated() {
+    void getTenantIdIsAlwaysDefaultWhenAuthenticatedWithoutTenant() {
         bind(authenticated(TSID, "SCOPE_memory:read"));
 
         assertThat(SecurityUtils.getTenantId()).isEqualTo("default");
+    }
+
+    @Test
+    void getTenantIdResolvesFromMemoryScope() {
+        com.spectrayan.spector.commons.concurrent.MemoryScope.runWithScope(
+                "tenant-alpha", "session-1", "ns-1", () -> {
+                    assertThat(SecurityUtils.getTenantId()).isEqualTo("tenant-alpha");
+                });
+    }
+
+    @Test
+    void getTenantIdResolvesFromApiKeyAuthenticationDetails() {
+        var token = new UsernamePasswordAuthenticationToken(TSID, "credentials", List.of());
+        token.setDetails(new ApiKeyAuthenticationDetails("key-123", "tenant-bravo"));
+        bind(token);
+
+        assertThat(SecurityUtils.getTenantId()).isEqualTo("tenant-bravo");
+    }
+
+    @Test
+    void getTenantIdResolvesFromJwtDefaultClaims() {
+        var jwt = org.springframework.security.oauth2.jwt.Jwt.withTokenValue("mock-token")
+                .header("alg", "none")
+                .claim("sub", TSID)
+                .claim("tenant_id", "tenant-jwt-1")
+                .build();
+        var jwtAuth = new org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken(jwt, List.of());
+        bind(jwtAuth);
+
+        assertThat(SecurityUtils.getTenantId()).isEqualTo("tenant-jwt-1");
+    }
+
+    @Test
+    void getTenantIdResolvesFromConfiguredOidcTenantClaim() {
+        try {
+            SecurityUtils.setOidcTenantClaim("custom_tenant_claim");
+            var jwt = org.springframework.security.oauth2.jwt.Jwt.withTokenValue("mock-token")
+                    .header("alg", "none")
+                    .claim("sub", TSID)
+                    .claim("custom_tenant_claim", "tenant-custom-oidc")
+                    .claim("tenant_id", "fallback-tenant")
+                    .build();
+            var jwtAuth = new org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken(jwt, List.of());
+            bind(jwtAuth);
+
+            assertThat(SecurityUtils.getTenantId()).isEqualTo("tenant-custom-oidc");
+        } finally {
+            SecurityUtils.setOidcTenantClaim(null);
+        }
     }
 
     @Test
