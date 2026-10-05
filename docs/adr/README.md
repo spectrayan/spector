@@ -100,7 +100,7 @@ Fill out the document completely:
   | **Last Verified** | YYYY-MM-DD |
   ```
 
-- Strictly use **vendor-neutral open-source roles** (*Project Lead*, *Technical Lead*, *Architecture Working Group*, *TSC*, *Maintainers*, *Committers*). Never include corporate or commercial executive titles.
+- Strictly use **vendor-neutral open-source roles** (*Project Lead*, *Technical Lead*, *Architecture Working Group*, *TSC*, *Maintainers*, *Committers*).
 - Articulate the Problem Statement, Decision Drivers, Evaluated Options, Decision Outcome, and Concrete Code References.
 
 ### Step 4: Submit a Pull Request

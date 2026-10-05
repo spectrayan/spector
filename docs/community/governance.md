@@ -11,7 +11,8 @@ The Spector project is guided by the following core values:
 - **Openness & Transparency**: Technical roadmap planning, architectural debates, decision records, and release schedules are conducted in public forums (GitHub Issues, Discussions, and Pull Requests).
 - **Meritocracy & Inclusivity**: Influence and review authority are earned through sustained technical contributions, high engineering standards, and constructive peer collaboration.
 - **Vendor Neutrality**: The project is governed independently of commercial affiliations. Technical direction serves the long-term health of the open-source software ecosystem.
-- **Strictly Open-Source Roles**: Governance relies on established open-source roles (*Project Lead*, *Technical Lead*, *Architecture Working Group*, *Technical Steering Committee*, *Maintainers*, *Committers*, and *Contributors*). Corporate titles (such as CEO, CTO, Product Owner, or VP) play no role in project decision-making.
+- **Individual Capacity & Representation**: Maintainers, reviewers, and contributors participate in the project as individuals in their personal capacity. Decision-making authority, technical influence, and voting rights are earned strictly through personal contributions and community stewardship, rather than corporate affiliation or commercial sponsorship.
+- **Meritocratic Roles**: Governance is structured exclusively around defined open-source roles (*Project Lead*, *Technical Lead*, *Architecture Working Group*, *Technical Steering Committee*, *Maintainers*, *Committers*, and *Contributors*).
 - **Psychological Safety**: All participants must treat one another with respect and abide by our [Code of Conduct](https://github.com/spectrayan/spector/blob/main/CODE_OF_CONDUCT.md).
 
 ---
@@ -190,7 +191,7 @@ Any change meeting any of the following criteria requires an **Architecture Deci
 
 ## 6. Developer Certificate of Origin (DCO 1.1)
 
-To ensure copyright integrity without imposing onerous corporate legal agreements, Spector adopts the standard **Developer Certificate of Origin (DCO 1.1)**.
+To ensure copyright integrity while maintaining a lightweight, contributor-friendly onboarding experience, Spector adopts the standard **Developer Certificate of Origin (DCO 1.1)**.
 
 Every contributor certifies that they authored or have permission to submit the code by including a signed-off line in their commit messages:
 
