@@ -344,11 +344,11 @@ public class MemoryRequestBinder {
 
         String effectiveTenantId = tokenClaims.tenantId() != null ? tokenClaims.tenantId() : (account != null ? account.tenantId() : null);
 
-        if (tokenClaims.tenantId() != null && account != null && account.tenantId() != null
+        if (tokenClaims.tenantId() != null && account != null
                 && !tokenClaims.tenantId().equals(account.tenantId())) {
             log.warn("[MemoryRequestBinder] Access denied: token tenantId='{}' does not match account tenantId='{}' for account={}",
                     tokenClaims.tenantId(), account.tenantId(), accountId);
-            throw new CrossTenantAccessException(accountId, targetNamespaceId, account.tenantId());
+            throw new CrossTenantAccessException(accountId, targetNamespaceId, account.tenantId() != null ? account.tenantId() : "default");
         }
 
         if (record != null && !record.ownerAccountId().equals(accountId)) {
@@ -356,12 +356,13 @@ public class MemoryRequestBinder {
             try {
                 ownerAccount = catalog.getAccount(record.ownerAccountId());
             } catch (Exception ignored) {}
-            if (ownerAccount != null && ownerAccount.tenantId() != null) {
-                String callerTenant = effectiveTenantId != null ? effectiveTenantId : (account != null ? account.tenantId() : "default");
-                if (!java.util.Objects.equals(callerTenant, ownerAccount.tenantId())) {
+            if (ownerAccount != null) {
+                String callerTenant = effectiveTenantId != null ? effectiveTenantId : (account != null ? account.tenantId() : null);
+                String ownerTenant = ownerAccount.tenantId();
+                if (!java.util.Objects.equals(callerTenant, ownerTenant) && (callerTenant != null || ownerTenant != null)) {
                     log.warn("[MemoryRequestBinder] Cross-tenant access denied: account={} (tenant={}) attempted access to namespace={} owned by account={} (tenant={})",
-                            accountId, callerTenant, targetNamespaceId, record.ownerAccountId(), ownerAccount.tenantId());
-                    throw new CrossTenantAccessException(accountId, targetNamespaceId, ownerAccount.tenantId());
+                            accountId, callerTenant, targetNamespaceId, record.ownerAccountId(), ownerTenant);
+                    throw new CrossTenantAccessException(accountId, targetNamespaceId, ownerTenant != null ? ownerTenant : "default");
                 }
             }
         }

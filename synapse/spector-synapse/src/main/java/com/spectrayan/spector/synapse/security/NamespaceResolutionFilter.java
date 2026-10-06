@@ -110,26 +110,21 @@ public class NamespaceResolutionFilter extends OncePerRequestFilter {
                 }
             });
         } catch (CrossTenantAccessException e) {
-            log.warn("[NamespaceResolutionFilter] Cross-tenant access denied: {}", e.getMessage());
-            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            String errorCodeId = e.errorCode() != null ? e.errorCode().id() : "SPE-820-001";
-            String alias = CrossTenantAccessException.ERROR_CODE_ALIAS;
-            String msg = e.getMessage() != null
-                    ? e.getMessage().replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r")
-                    : "Cross-tenant access denied";
-            String isoTimestamp = java.time.format.DateTimeFormatter.ISO_INSTANT.format(java.time.Instant.now());
-            String json = String.format(
-                    "{\"status\":403,\"error\":\"%s\",\"code\":\"%s\",\"alias\":\"%s\",\"message\":\"%s\",\"timestamp\":\"%s\",\"details\":{\"alias\":\"%s\",\"code\":\"%s\"}}",
-                    errorCodeId, errorCodeId, alias, msg, isoTimestamp, alias, errorCodeId
-            );
-            response.getWriter().write(json);
+            writeCrossTenantDenied(response, e);
         } catch (RuntimeException e) {
-            if (e.getCause() instanceof IOException ioException) {
-                throw ioException;
+            if (e.getCause() instanceof CrossTenantAccessException ctae) {
+                writeCrossTenantDenied(response, ctae);
+                return;
             }
             if (e.getCause() instanceof ServletException servletException) {
+                if (servletException.getCause() instanceof CrossTenantAccessException ctae) {
+                    writeCrossTenantDenied(response, ctae);
+                    return;
+                }
                 throw servletException;
+            }
+            if (e.getCause() instanceof IOException ioException) {
+                throw ioException;
             }
             throw e;
         } finally {
@@ -137,5 +132,23 @@ public class NamespaceResolutionFilter extends OncePerRequestFilter {
                 binder.unbind(binding);
             }
         }
+    }
+
+    private void writeCrossTenantDenied(HttpServletResponse response, CrossTenantAccessException e) throws IOException {
+        log.warn("[NamespaceResolutionFilter] Cross-tenant access denied: {}", e.getMessage());
+        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding(java.nio.charset.StandardCharsets.UTF_8.name());
+        String errorCodeId = e.errorCode() != null ? e.errorCode().id() : "SPE-820-001";
+        String alias = CrossTenantAccessException.ERROR_CODE_ALIAS;
+        String msg = e.getMessage() != null
+                ? e.getMessage().replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r")
+                : "Cross-tenant access denied";
+        String isoTimestamp = java.time.format.DateTimeFormatter.ISO_INSTANT.format(java.time.Instant.now());
+        String json = String.format(
+                "{\"status\":403,\"error\":\"%s\",\"code\":\"%s\",\"alias\":\"%s\",\"message\":\"%s\",\"timestamp\":\"%s\",\"details\":{\"alias\":\"%s\",\"code\":\"%s\"}}",
+                errorCodeId, errorCodeId, alias, msg, isoTimestamp, alias, errorCodeId
+        );
+        response.getWriter().write(json);
     }
 }

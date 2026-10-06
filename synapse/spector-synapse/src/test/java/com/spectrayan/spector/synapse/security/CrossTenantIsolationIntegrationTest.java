@@ -363,4 +363,54 @@ class CrossTenantIsolationIntegrationTest {
             SecurityUtils.setOidcTenantClaim(null);
         }
     }
+
+    @Test
+    @DisplayName("MemoryRequestBinder rejects tenanted caller attempting to bind to an untenanted owner's namespace")
+    void testBinderRejectsTenantedCallerAccessingUntenantedOwnerForeignNamespace() {
+        String untenantedOwner = "01955000000U2";
+        catalog.getOrCreateAccount(untenantedOwner, AccountProfile.HUMAN_SOLO, PrincipalKind.HUMAN, null);
+        NamespaceRecord nsUntenanted = catalog.createNamespace(untenantedOwner, "untenanted-foreign", NamespaceType.PROJECT);
+
+        // Tenanted caller from tenant-alpha attempts to access untenanted owner's namespace
+        Jwt jwtAlpha = Jwt.withTokenValue("mock-jwt-alpha-cross")
+                .header("alg", "none")
+                .subject(ACCOUNT_ALPHA)
+                .claim("tenant_id", TENANT_ALPHA)
+                .build();
+        var authAlpha = new JwtAuthenticationToken(jwtAlpha, List.of());
+
+        assertThatThrownBy(() -> binder.bind(authAlpha, Optional.of(nsUntenanted.namespaceId())))
+                .isInstanceOf(CrossTenantAccessException.class)
+                .hasMessageContaining("SPE-820-001");
+    }
+
+    @Test
+    @DisplayName("MemoryRequestBinder rejects tenanted token attempting to access an untenanted account")
+    void testBinderRejectsTenantedTokenAccessingUntenantedAccount() {
+        String untenantedAccount = "01955000000U3";
+        catalog.getOrCreateAccount(untenantedAccount, AccountProfile.HUMAN_SOLO, PrincipalKind.HUMAN, null);
+
+        Jwt jwtWithTenant = Jwt.withTokenValue("mock-jwt-with-tenant")
+                .header("alg", "none")
+                .subject(untenantedAccount)
+                .claim("tenant_id", TENANT_ALPHA)
+                .build();
+        var authWithTenant = new JwtAuthenticationToken(jwtWithTenant, List.of());
+
+        assertThatThrownBy(() -> binder.bind(authWithTenant, Optional.of("default")))
+                .isInstanceOf(CrossTenantAccessException.class)
+                .hasMessageContaining("SPE-820-001");
+    }
+
+    @Test
+    @DisplayName("JdbcAccountCatalog.listAccessible does not leak foreign-tenant namespaces")
+    void testListAccessibleFiltersOutCrossTenantGrants() {
+        NamespaceRecord nsB = catalog.createNamespace(ACCOUNT_BETA, "beta-project", NamespaceType.PROJECT);
+
+        // Query accessible for Account A
+        List<NamespaceRecord> accessibleA = catalog.listAccessible(ACCOUNT_ALPHA);
+
+        assertThat(accessibleA)
+                .noneMatch(rec -> rec.namespaceId().equals(nsB.namespaceId()));
+    }
 }

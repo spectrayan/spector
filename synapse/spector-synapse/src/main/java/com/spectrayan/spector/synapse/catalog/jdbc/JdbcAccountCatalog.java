@@ -122,10 +122,6 @@ public class JdbcAccountCatalog implements AccountCatalog {
                     throw new TenantReassignmentException(accountId, account.tenantId(), tenantId);
                 }
             }
-            if (account.tenantId() == null && tenantId != null) {
-                assignTenant(accountId, tenantId);
-                account = findAccountById(accountId).orElse(account);
-            }
             ensureDefaultNamespaceExists(account);
             return account;
         }
@@ -385,13 +381,23 @@ public class JdbcAccountCatalog implements AccountCatalog {
     public List<NamespaceRecord> listAccessible(String accountId) {
         Objects.requireNonNull(accountId, "accountId must not be null");
         // Ensure account default namespace is provisioned
-        getOrCreateAccount(accountId);
+        Account caller = getOrCreateAccount(accountId);
 
         String sql = sqlLoader.load("catalog/namespaces/list-accessible");
-        return jdbc.sql(sql)
+        List<NamespaceRecord> records = jdbc.sql(sql)
                 .param("accountId", accountId)
                 .query(this::mapNamespaceRow)
                 .list();
+
+        String callerTenant = caller.tenantId();
+        return records.stream().filter(rec -> {
+            if (rec.ownerAccountId().equals(accountId)) {
+                return true;
+            }
+            Account owner = findAccountById(rec.ownerAccountId()).orElse(null);
+            String ownerTenant = owner != null ? owner.tenantId() : null;
+            return Objects.equals(callerTenant, ownerTenant);
+        }).toList();
     }
 
     @Override

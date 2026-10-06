@@ -145,9 +145,13 @@ public final class SecurityUtils {
      */
     public static String getOidcTenantClaim() {
         if (oidcTenantClaim != null && !oidcTenantClaim.isBlank()) {
-            return oidcTenantClaim;
+            return oidcTenantClaim.trim();
         }
-        return System.getProperty(SpectorPropertyConstants.AUTH_OIDC_TENANT_CLAIM);
+        String sysProp = System.getProperty(SpectorPropertyConstants.AUTH_OIDC_TENANT_CLAIM);
+        if (sysProp != null && !sysProp.isBlank()) {
+            return sysProp.trim();
+        }
+        return null;
     }
 
     /**
@@ -199,20 +203,9 @@ public final class SecurityUtils {
         }
 
         if (auth.getDetails() instanceof Map<?, ?> detailsMap) {
-            String configuredClaim = getOidcTenantClaim();
-            if (configuredClaim != null && !configuredClaim.isBlank()) {
-                Object val = detailsMap.get(configuredClaim.trim());
-                String str = extractStringFromValue(val);
-                if (str != null) {
-                    return str;
-                }
-            }
-            for (String key : new String[] {"tenant_id", "tenantId", "tid", "realm_access.tenant_id"}) {
-                Object val = detailsMap.get(key);
-                String str = extractStringFromValue(val);
-                if (str != null) {
-                    return str;
-                }
+            String tenant = extractTenantFromMap(detailsMap);
+            if (tenant != null) {
+                return tenant;
             }
         }
 
@@ -233,7 +226,27 @@ public final class SecurityUtils {
         }
 
         Object principal = auth.getPrincipal();
+        if (principal instanceof Map<?, ?> principalMap) {
+            String tenant = extractTenantFromMap(principalMap);
+            if (tenant != null) {
+                return tenant;
+            }
+        }
+
         if (principal != null && !(principal instanceof String)) {
+            for (String mapMethod : new String[] {"getAttributes", "getClaims", "attributes", "claims"}) {
+                try {
+                    var method = principal.getClass().getMethod(mapMethod);
+                    Object res = method.invoke(principal);
+                    if (res instanceof Map<?, ?> map) {
+                        String tenant = extractTenantFromMap(map);
+                        if (tenant != null) {
+                            return tenant;
+                        }
+                    }
+                } catch (ReflectiveOperationException ignored) {}
+            }
+
             for (String methodName : new String[] {"tenantId", "getTenantId", "tenant_id"}) {
                 try {
                     var method = principal.getClass().getMethod(methodName);
@@ -244,6 +257,17 @@ public final class SecurityUtils {
                     }
                 } catch (ReflectiveOperationException ignored) {}
             }
+        }
+
+        for (String methodName : new String[] {"tenantId", "getTenantId", "tenant_id"}) {
+            try {
+                var method = auth.getClass().getMethod(methodName);
+                Object res = method.invoke(auth);
+                String str = extractStringFromValue(res);
+                if (str != null) {
+                    return str;
+                }
+            } catch (ReflectiveOperationException ignored) {}
         }
 
         return null;
@@ -264,15 +288,28 @@ public final class SecurityUtils {
         if (jwt == null) {
             return null;
         }
+        return extractTenantFromMap(jwt.getClaims());
+    }
+
+    /**
+     * Extracts tenant identifier from any claims or attributes map.
+     *
+     * @param map the claims or attributes map
+     * @return resolved tenant ID, or {@code null} if absent or blank
+     */
+    public static String extractTenantFromMap(Map<?, ?> map) {
+        if (map == null || map.isEmpty()) {
+            return null;
+        }
         String configuredClaim = getOidcTenantClaim();
         if (configuredClaim != null && !configuredClaim.isBlank()) {
-            String val = getClaimValueAsString(jwt, configuredClaim.trim());
+            String val = getPathValueAsString(map, configuredClaim.trim());
             if (val != null && !val.isBlank()) {
                 return val.trim();
             }
         }
         for (String candidate : new String[] {"tenant_id", "tid", "tenantId", "realm_access.tenant_id"}) {
-            String val = getClaimValueAsString(jwt, candidate);
+            String val = getPathValueAsString(map, candidate);
             if (val != null && !val.isBlank()) {
                 return val.trim();
             }
@@ -293,14 +330,26 @@ public final class SecurityUtils {
         if (jwt == null || claimName == null || claimName.isBlank()) {
             return null;
         }
-        claimName = claimName.trim();
-        Map<String, Object> claims = jwt.getClaims();
-        if (claims == null || claims.isEmpty()) {
+        return getPathValueAsString(jwt.getClaims(), claimName.trim());
+    }
+
+    /**
+     * Resolves a value from a map, supporting direct keys and dot-separated
+     * nested paths (e.g. {@code "realm_access.tenant_id"}). Supports numeric values,
+     * collections/arrays (returns the first non-blank entry), and nested path navigation.
+     *
+     * @param map the map to traverse
+     * @param path the key or dot-separated nested path
+     * @return string representation of the value, or {@code null} if absent or blank
+     */
+    public static String getPathValueAsString(Map<?, ?> map, String path) {
+        if (map == null || map.isEmpty() || path == null || path.isBlank()) {
             return null;
         }
+        path = path.trim();
 
-        // 1. Direct match in claims map
-        Object direct = claims.get(claimName);
+        // 1. Direct match in map
+        Object direct = map.get(path);
         if (direct != null) {
             String str = extractStringFromValue(direct);
             if (str != null) {
@@ -309,12 +358,12 @@ public final class SecurityUtils {
         }
 
         // 2. Dot-separated path traversal for nested JSON objects and arrays
-        if (claimName.contains(".")) {
-            String[] parts = claimName.split("\\.");
-            Object current = claims;
+        if (path.contains(".")) {
+            String[] parts = path.split("\\.");
+            Object current = map;
             for (String part : parts) {
-                if (current instanceof Map<?, ?> map) {
-                    current = map.get(part);
+                if (current instanceof Map<?, ?> m) {
+                    current = m.get(part);
                 } else if (current instanceof List<?> list) {
                     try {
                         int idx = Integer.parseInt(part);
@@ -349,6 +398,12 @@ public final class SecurityUtils {
         if (val == null) {
             return null;
         }
+        if (val instanceof Boolean) {
+            return null;
+        }
+        if (val instanceof java.util.Optional<?> opt) {
+            return opt.map(SecurityUtils::extractStringFromValue).orElse(null);
+        }
         if (val instanceof String s) {
             String trimmed = s.trim();
             return trimmed.isEmpty() ? null : trimmed;
@@ -377,13 +432,20 @@ public final class SecurityUtils {
             return null;
         }
         if (val instanceof Map<?, ?> map) {
-            for (String key : new String[] {"id", "tenant_id", "tenantId", "value", "key"}) {
+            for (String key : new String[] {"id", "tenant_id", "tenantId", "slug", "value", "key"}) {
                 Object sub = map.get(key);
                 if (sub != null) {
                     String extracted = extractStringFromValue(sub);
                     if (extracted != null && !extracted.isBlank()) {
                         return extracted;
                     }
+                }
+            }
+            if (map.size() == 1) {
+                Object singleVal = map.values().iterator().next();
+                String extracted = extractStringFromValue(singleVal);
+                if (extracted != null && !extracted.isBlank()) {
+                    return extracted;
                 }
             }
             return null;

@@ -105,6 +105,8 @@ class ErrorCodeTest {
         assertThat(ErrorCode.INTERNAL_ERROR.id()).isEqualTo("SPE-900-001");
         assertThat(ErrorCode.CROSS_TENANT_ACCESS_DENIED.id()).isEqualTo("SPE-820-001");
         assertThat(ErrorCode.fromId("SPE-SEC-001")).isSameAs(ErrorCode.CROSS_TENANT_ACCESS_DENIED);
+        assertThat(ErrorCode.fromId("  SPE-SEC-001  ")).isSameAs(ErrorCode.CROSS_TENANT_ACCESS_DENIED);
+        assertThat(ErrorCode.fromId("  SPE-820-001  ")).isSameAs(ErrorCode.CROSS_TENANT_ACCESS_DENIED);
     }
 
     // ─────────────── Lookup ───────────────

@@ -770,11 +770,11 @@ public enum ErrorCode {
         if (id == null) {
             return null;
         }
-        String normalized = id.toUpperCase();
+        String normalized = id.trim().toUpperCase();
         if ("SPE-SEC-001".equals(normalized)) {
             return CROSS_TENANT_ACCESS_DENIED;
         }
-        if (id.length() < 11) {
+        if (normalized.length() < 11) {
             return null;
         }
         try {

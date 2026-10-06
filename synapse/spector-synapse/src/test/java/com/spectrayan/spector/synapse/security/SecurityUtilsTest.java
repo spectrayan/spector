@@ -16,6 +16,7 @@
 package com.spectrayan.spector.synapse.security;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.AfterEach;
@@ -478,6 +479,101 @@ class SecurityUtilsTest {
             }
             SecurityUtils.setOidcTenantClaim(null);
         }
+    }
+
+    @Test
+    void getTenantIdResolvesFromDetailsNestedDotPath() {
+        var token = new UsernamePasswordAuthenticationToken(TSID, "credentials", List.of());
+        token.setDetails(Map.of("realm_access", Map.of("tenant_id", "nested-details-tenant")));
+        bind(token);
+
+        assertThat(SecurityUtils.getTenantId()).isEqualTo("nested-details-tenant");
+    }
+
+    @Test
+    void getTenantIdResolvesFromPrincipalAttributesMap() {
+        record MockOAuth2Principal(String name, Map<String, Object> attributes) {
+            public Map<String, Object> getAttributes() {
+                return attributes;
+            }
+        }
+        var principal = new MockOAuth2Principal("oauth2-user", Map.of("tenant_id", "oauth2-attr-tenant"));
+        var token = new UsernamePasswordAuthenticationToken(principal, "credentials", List.of());
+        bind(token);
+
+        assertThat(SecurityUtils.getTenantId()).isEqualTo("oauth2-attr-tenant");
+    }
+
+    @Test
+    void getTenantIdResolvesFromPrincipalClaimsMap() {
+        record MockOidcPrincipal(String name, Map<String, Object> claims) {
+            public Map<String, Object> getClaims() {
+                return claims;
+            }
+        }
+        var principal = new MockOidcPrincipal("oidc-user", Map.of("tid", "oidc-claim-tenant"));
+        var token = new UsernamePasswordAuthenticationToken(principal, "credentials", List.of());
+        bind(token);
+
+        assertThat(SecurityUtils.getTenantId()).isEqualTo("oidc-claim-tenant");
+    }
+
+    @Test
+    void getTenantIdResolvesFromPrincipalMap() {
+        Map<String, Object> principalMap = Map.of("tenant_id", "map-principal-tenant");
+        var token = new UsernamePasswordAuthenticationToken(principalMap, "credentials", List.of());
+        bind(token);
+
+        assertThat(SecurityUtils.getTenantId()).isEqualTo("map-principal-tenant");
+    }
+
+    @Test
+    void getTenantIdResolvesFromSingleEntryMapLeaf() {
+        try {
+            SecurityUtils.setOidcTenantClaim("tenant_object");
+            var jwt = org.springframework.security.oauth2.jwt.Jwt.withTokenValue("mock-token")
+                    .header("alg", "none")
+                    .claim("sub", TSID)
+                    .claim("tenant_object", Map.of("custom_key", "single-entry-tenant"))
+                    .build();
+            var jwtAuth = new org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken(jwt, List.of());
+            bind(jwtAuth);
+
+            assertThat(SecurityUtils.getTenantId()).isEqualTo("single-entry-tenant");
+        } finally {
+            SecurityUtils.setOidcTenantClaim(null);
+        }
+    }
+
+    @Test
+    void getTenantIdResolvesFromAuthenticationReflection() {
+        class CustomAuthToken extends UsernamePasswordAuthenticationToken {
+            private final String tenant;
+            CustomAuthToken(String tenant) {
+                super(TSID, "credentials", List.of());
+                this.tenant = tenant;
+            }
+            public String getTenantId() {
+                return tenant;
+            }
+        }
+        bind(new CustomAuthToken("auth-reflection-tenant"));
+
+        assertThat(SecurityUtils.getTenantId()).isEqualTo("auth-reflection-tenant");
+    }
+
+    @Test
+    void getTenantIdIgnoresBooleanValuesInClaims() {
+        var jwt = org.springframework.security.oauth2.jwt.Jwt.withTokenValue("mock-token")
+                .header("alg", "none")
+                .claim("sub", TSID)
+                .claim("tenant_id", Boolean.TRUE)
+                .claim("tid", "fallback-after-bool")
+                .build();
+        var jwtAuth = new org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken(jwt, List.of());
+        bind(jwtAuth);
+
+        assertThat(SecurityUtils.getTenantId()).isEqualTo("fallback-after-bool");
     }
 
     @Test

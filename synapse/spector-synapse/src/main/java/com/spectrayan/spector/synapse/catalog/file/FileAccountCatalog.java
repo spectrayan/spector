@@ -168,10 +168,6 @@ public class FileAccountCatalog implements AccountCatalog {
                         throw new TenantReassignmentException(accountId, account.tenantId(), tenantId);
                     }
                 }
-                if (account.tenantId() == null && tenantId != null) {
-                    assignTenant(accountId, tenantId);
-                    account = objectMapper.readValue(accountFile.toFile(), Account.class);
-                }
                 return account;
             }
 
