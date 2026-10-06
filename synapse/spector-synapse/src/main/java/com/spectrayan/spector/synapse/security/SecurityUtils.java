@@ -17,6 +17,7 @@ package com.spectrayan.spector.synapse.security;
 
 import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -176,18 +177,42 @@ public final class SecurityUtils {
             return DEFAULT_USER_ID;
         }
 
+        String extracted = extractTenantFromAuthentication(auth);
+        return (extracted != null && !extracted.isBlank()) ? extracted : DEFAULT_USER_ID;
+    }
+
+    /**
+     * Extracts tenant identifier from any {@link Authentication} object.
+     *
+     * @param auth the authentication object
+     * @return the resolved tenant ID, or {@code null} if absent or blank
+     */
+    public static String extractTenantFromAuthentication(Authentication auth) {
+        if (auth == null) {
+            return null;
+        }
+
         if (auth.getDetails() instanceof ApiKeyAuthenticationDetails apiKeyDetails) {
             if (apiKeyDetails.tenantId() != null && !apiKeyDetails.tenantId().isBlank()) {
-                return apiKeyDetails.tenantId();
+                return apiKeyDetails.tenantId().trim();
             }
         }
 
         if (auth.getDetails() instanceof Map<?, ?> detailsMap) {
-            Object tid = detailsMap.get("tenant_id");
-            if (tid == null) tid = detailsMap.get("tenantId");
-            if (tid == null) tid = detailsMap.get("tid");
-            if (tid != null && !tid.toString().isBlank()) {
-                return tid.toString().trim();
+            String configuredClaim = getOidcTenantClaim();
+            if (configuredClaim != null && !configuredClaim.isBlank()) {
+                Object val = detailsMap.get(configuredClaim.trim());
+                String str = extractStringFromValue(val);
+                if (str != null) {
+                    return str;
+                }
+            }
+            for (String key : new String[] {"tenant_id", "tenantId", "tid", "realm_access.tenant_id"}) {
+                Object val = detailsMap.get(key);
+                String str = extractStringFromValue(val);
+                if (str != null) {
+                    return str;
+                }
             }
         }
 
@@ -209,23 +234,19 @@ public final class SecurityUtils {
 
         Object principal = auth.getPrincipal();
         if (principal != null && !(principal instanceof String)) {
-            try {
-                var method = principal.getClass().getMethod("tenantId");
-                Object res = method.invoke(principal);
-                if (res != null && !res.toString().isBlank()) {
-                    return res.toString().trim();
-                }
-            } catch (ReflectiveOperationException ignored) {}
-            try {
-                var method = principal.getClass().getMethod("getTenantId");
-                Object res = method.invoke(principal);
-                if (res != null && !res.toString().isBlank()) {
-                    return res.toString().trim();
-                }
-            } catch (ReflectiveOperationException ignored) {}
+            for (String methodName : new String[] {"tenantId", "getTenantId", "tenant_id"}) {
+                try {
+                    var method = principal.getClass().getMethod(methodName);
+                    Object res = method.invoke(principal);
+                    String str = extractStringFromValue(res);
+                    if (str != null) {
+                        return str;
+                    }
+                } catch (ReflectiveOperationException ignored) {}
+            }
         }
 
-        return DEFAULT_USER_ID;
+        return null;
     }
 
     /**
@@ -233,8 +254,8 @@ public final class SecurityUtils {
      *
      * <p>Inspects the configured OIDC claim (from {@link #getOidcTenantClaim()}) if present,
      * followed by default claims ({@code tenant_id}, {@code tid}, {@code tenantId},
-     * {@code realm_access.tenant_id}). Supports numeric claim values and dot-delimited
-     * nested JSON path traversal (e.g. {@code realm_access.tenant_id}).</p>
+     * {@code realm_access.tenant_id}). Supports numeric claim values, collections/arrays,
+     * and dot-delimited nested JSON path traversal (e.g. {@code realm_access.tenant_id}).</p>
      *
      * @param jwt the JWT token to inspect
      * @return the resolved tenant ID, or {@code null} if no tenant claim is found
@@ -261,7 +282,8 @@ public final class SecurityUtils {
 
     /**
      * Resolves a claim value from a {@link Jwt}, supporting direct keys and dot-separated
-     * nested paths (e.g. {@code "realm_access.tenant_id"}). Supports numeric values.
+     * nested paths (e.g. {@code "realm_access.tenant_id"}). Supports numeric values,
+     * collections/arrays (returns the first non-blank entry), and nested path navigation.
      *
      * @param jwt the JWT token
      * @param claimName the claim name or nested path
@@ -280,28 +302,94 @@ public final class SecurityUtils {
         // 1. Direct match in claims map
         Object direct = claims.get(claimName);
         if (direct != null) {
-            String str = direct.toString().trim();
-            return str.isEmpty() ? null : str;
+            String str = extractStringFromValue(direct);
+            if (str != null) {
+                return str;
+            }
         }
 
-        // 2. Dot-separated path traversal for nested JSON objects
+        // 2. Dot-separated path traversal for nested JSON objects and arrays
         if (claimName.contains(".")) {
             String[] parts = claimName.split("\\.");
             Object current = claims;
             for (String part : parts) {
                 if (current instanceof Map<?, ?> map) {
                     current = map.get(part);
+                } else if (current instanceof List<?> list) {
+                    try {
+                        int idx = Integer.parseInt(part);
+                        if (idx >= 0 && idx < list.size()) {
+                            current = list.get(idx);
+                        } else {
+                            current = null;
+                            break;
+                        }
+                    } catch (NumberFormatException e) {
+                        current = null;
+                        break;
+                    }
                 } else {
-                    return null;
+                    current = null;
+                    break;
                 }
             }
             if (current != null) {
-                String str = current.toString().trim();
-                return str.isEmpty() ? null : str;
+                return extractStringFromValue(current);
             }
         }
 
         return null;
+    }
+
+    /**
+     * Recursively extracts the first non-blank string representation from a claim value,
+     * properly unpacking collections, arrays, and id-holding maps.
+     */
+    static String extractStringFromValue(Object val) {
+        if (val == null) {
+            return null;
+        }
+        if (val instanceof String s) {
+            String trimmed = s.trim();
+            return trimmed.isEmpty() ? null : trimmed;
+        }
+        if (val instanceof Number) {
+            return val.toString().trim();
+        }
+        if (val instanceof java.util.Collection<?> coll) {
+            for (Object item : coll) {
+                String extracted = extractStringFromValue(item);
+                if (extracted != null && !extracted.isBlank()) {
+                    return extracted;
+                }
+            }
+            return null;
+        }
+        if (val.getClass().isArray()) {
+            int len = java.lang.reflect.Array.getLength(val);
+            for (int i = 0; i < len; i++) {
+                Object item = java.lang.reflect.Array.get(val, i);
+                String extracted = extractStringFromValue(item);
+                if (extracted != null && !extracted.isBlank()) {
+                    return extracted;
+                }
+            }
+            return null;
+        }
+        if (val instanceof Map<?, ?> map) {
+            for (String key : new String[] {"id", "tenant_id", "tenantId", "value", "key"}) {
+                Object sub = map.get(key);
+                if (sub != null) {
+                    String extracted = extractStringFromValue(sub);
+                    if (extracted != null && !extracted.isBlank()) {
+                        return extracted;
+                    }
+                }
+            }
+            return null;
+        }
+        String str = val.toString().trim();
+        return str.isBlank() ? null : str;
     }
 
     /**

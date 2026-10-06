@@ -302,9 +302,10 @@ public class FileAccountCatalog implements AccountCatalog {
                 Account caller = snapshot.account();
                 try {
                     Account owner = getAccount(record.ownerAccountId());
-                    if (caller != null && owner != null && caller.tenantId() != null && owner.tenantId() != null
-                            && !caller.tenantId().equals(owner.tenantId())) {
-                        throw new CrossTenantAccessException(accountId, record.namespaceId(), owner.tenantId());
+                    String callerTenant = caller != null ? caller.tenantId() : null;
+                    String ownerTenant = owner != null ? owner.tenantId() : null;
+                    if (!Objects.equals(callerTenant, ownerTenant) && (callerTenant != null || ownerTenant != null)) {
+                        throw new CrossTenantAccessException(accountId, record.namespaceId(), ownerTenant != null ? ownerTenant : "default");
                     }
                 } catch (NamespaceNotFoundException ignored) {}
             }
@@ -321,9 +322,10 @@ public class FileAccountCatalog implements AccountCatalog {
                 try {
                     owner = getAccount(ownerAccountId);
                 } catch (NamespaceNotFoundException ignored) {}
-                if (caller != null && owner != null && caller.tenantId() != null && owner.tenantId() != null
-                        && !caller.tenantId().equals(owner.tenantId())) {
-                    throw new CrossTenantAccessException(accountId, slugOrId, owner.tenantId());
+                String callerTenant = caller != null ? caller.tenantId() : null;
+                String ownerTenant = owner != null ? owner.tenantId() : null;
+                if (!Objects.equals(callerTenant, ownerTenant) && (callerTenant != null || ownerTenant != null)) {
+                    throw new CrossTenantAccessException(accountId, slugOrId, ownerTenant != null ? ownerTenant : "default");
                 }
                 if (owner != null) {
                     try {
@@ -331,6 +333,26 @@ public class FileAccountCatalog implements AccountCatalog {
                         return ownerSnapshot.resolveNamespace(slugOrId);
                     } catch (Exception ignored) {}
                 }
+            }
+        }
+
+        // Check across accounts to enforce cross-tenant isolation parity when resolving by ID
+        for (Account acct : listAccounts()) {
+            if (!acct.id().equals(accountId)) {
+                try {
+                    CatalogSnapshot otherSnap = loadSnapshot(acct.id());
+                    Optional<NamespaceRecord> foreignRecord = otherSnap.resolveNamespace(slugOrId);
+                    if (foreignRecord.isPresent()) {
+                        NamespaceRecord rec = foreignRecord.get();
+                        String callerTenant = snapshot.account() != null ? snapshot.account().tenantId() : null;
+                        String ownerTenant = acct.tenantId();
+                        if (!Objects.equals(callerTenant, ownerTenant) && (callerTenant != null || ownerTenant != null)) {
+                            throw new CrossTenantAccessException(accountId, rec.namespaceId(), ownerTenant != null ? ownerTenant : "default");
+                        }
+                    }
+                } catch (CrossTenantAccessException e) {
+                    throw e;
+                } catch (Exception ignored) {}
             }
         }
 
@@ -352,9 +374,10 @@ public class FileAccountCatalog implements AccountCatalog {
             if (ownerAccountId != null && !ownerAccountId.equals(accountId)) {
                 try {
                     Account owner = getAccount(ownerAccountId);
-                    if (caller != null && owner != null && caller.tenantId() != null && owner.tenantId() != null
-                            && !caller.tenantId().equals(owner.tenantId())) {
-                        throw new CrossTenantAccessException(accountId, namespaceId, owner.tenantId());
+                    String callerTenant = caller != null ? caller.tenantId() : null;
+                    String ownerTenant = owner != null ? owner.tenantId() : null;
+                    if (!Objects.equals(callerTenant, ownerTenant) && (callerTenant != null || ownerTenant != null)) {
+                        throw new CrossTenantAccessException(accountId, namespaceId, ownerTenant != null ? ownerTenant : "default");
                     }
                 } catch (NamespaceNotFoundException ignored) {}
             }
@@ -905,9 +928,10 @@ public class FileAccountCatalog implements AccountCatalog {
 
         Account callerAccount = getAccount(callerAccountId);
         Account granteeAccount = getAccount(granteeAccountId);
-        if (callerAccount.tenantId() != null && granteeAccount.tenantId() != null
-                && !callerAccount.tenantId().equals(granteeAccount.tenantId())) {
-            throw new CrossTenantAccessException(granteeAccountId, record.namespaceId(), callerAccount.tenantId());
+        String callerTenant = callerAccount != null ? callerAccount.tenantId() : null;
+        String granteeTenant = granteeAccount != null ? granteeAccount.tenantId() : null;
+        if (!Objects.equals(callerTenant, granteeTenant) && (callerTenant != null || granteeTenant != null)) {
+            throw new CrossTenantAccessException(granteeAccountId, record.namespaceId(), callerTenant != null ? callerTenant : "default");
         }
 
         Grant grant = new Grant(

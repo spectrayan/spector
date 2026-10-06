@@ -305,4 +305,26 @@ class FileAccountCatalogTest {
                 .isInstanceOf(CrossTenantAccessException.class)
                 .hasMessageContaining("SPE-820-001");
     }
+
+    @Test
+    @DisplayName("FileAccountCatalog rejects untenanted account access and grants to tenanted namespaces")
+    void testUntenantedAccountAccessAndGrantRejectedInFileCatalog() {
+        catalog.getOrCreateAccount(ACCOUNT_ID);
+        catalog.assignTenant(ACCOUNT_ID, "acme");
+        NamespaceRecord ns = catalog.createNamespace(ACCOUNT_ID, "proj-acme3", NamespaceType.PROJECT);
+
+        String untenantedUser = "01955000000D4";
+        catalog.getOrCreateAccount(untenantedUser);
+
+        // Untenanted account cannot resolve tenanted namespace by ID
+        assertThatThrownBy(() -> catalog.resolve(untenantedUser, ns.namespaceId()))
+                .isInstanceOf(CrossTenantAccessException.class)
+                .hasMessageContaining("SPE-820-001");
+
+        // Tenanted account cannot grant to untenanted account
+        assertThatThrownBy(() -> catalog.grantNamespace(ACCOUNT_ID, ns.namespaceId(), untenantedUser,
+                GrantRole.READER, null, null))
+                .isInstanceOf(CrossTenantAccessException.class)
+                .hasMessageContaining("SPE-820-001");
+    }
 }

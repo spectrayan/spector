@@ -93,10 +93,10 @@ class CrossTenantIsolationIntegrationTest {
         catalog = new JdbcAccountCatalog(jdbc, sqlLoader, objectMapper);
 
         // Provision accounts in distinct tenants
-        Account accA = catalog.getOrCreateAccount(ACCOUNT_ALPHA, AccountProfile.HUMAN_SOLO, PrincipalKind.HUMAN, TENANT_ALPHA);
+        catalog.getOrCreateAccount(ACCOUNT_ALPHA, AccountProfile.HUMAN_SOLO, PrincipalKind.HUMAN, TENANT_ALPHA);
         catalog.assignTenant(ACCOUNT_ALPHA, TENANT_ALPHA);
 
-        Account accB = catalog.getOrCreateAccount(ACCOUNT_BETA, AccountProfile.HUMAN_SOLO, PrincipalKind.HUMAN, TENANT_BETA);
+        catalog.getOrCreateAccount(ACCOUNT_BETA, AccountProfile.HUMAN_SOLO, PrincipalKind.HUMAN, TENANT_BETA);
         catalog.assignTenant(ACCOUNT_BETA, TENANT_BETA);
 
         mockMemory = mock(SpectorMemory.class);
@@ -276,5 +276,91 @@ class CrossTenantIsolationIntegrationTest {
         assertThat(ex.errorCode()).isEqualTo(ErrorCode.CROSS_TENANT_ACCESS_DENIED);
         assertThat(ErrorCode.fromId("SPE-SEC-001")).isEqualTo(ErrorCode.CROSS_TENANT_ACCESS_DENIED);
         assertThat(ErrorCode.fromId("SPE-820-001")).isEqualTo(ErrorCode.CROSS_TENANT_ACCESS_DENIED);
+    }
+
+    @Test
+    @DisplayName("MemoryRequestBinder correctly extracts tenant from List / Collection claims")
+    void testBinderResolvesListTenantClaims() {
+        NamespaceRecord nsA = catalog.createNamespace(ACCOUNT_ALPHA, "slug-list", NamespaceType.PROJECT);
+        when(mockResolver.resolve(ACCOUNT_ALPHA, nsA.namespaceId())).thenReturn(mockMemory);
+
+        // Single-element list
+        Jwt jwtSingleList = Jwt.withTokenValue("mock-jwt-single-list")
+                .header("alg", "none")
+                .subject(ACCOUNT_ALPHA)
+                .claim("tenant_id", List.of(TENANT_ALPHA))
+                .build();
+        var authSingle = new JwtAuthenticationToken(jwtSingleList, List.of());
+        MemoryBinding bindingSingle = binder.bind(authSingle, Optional.of("slug-list"));
+        assertThat(bindingSingle.context().tenantId()).isEqualTo(TENANT_ALPHA);
+
+        // Multi-element list: resolves first non-blank
+        Jwt jwtMultiList = Jwt.withTokenValue("mock-jwt-multi-list")
+                .header("alg", "none")
+                .subject(ACCOUNT_ALPHA)
+                .claim("tenant_id", List.of(TENANT_ALPHA, "secondary-tenant"))
+                .build();
+        var authMulti = new JwtAuthenticationToken(jwtMultiList, List.of());
+        MemoryBinding bindingMulti = binder.bind(authMulti, Optional.of("slug-list"));
+        assertThat(bindingMulti.context().tenantId()).isEqualTo(TENANT_ALPHA);
+    }
+
+    @Test
+    @DisplayName("Untenanted accounts cannot resolve or receive grants to tenanted namespaces")
+    void testUntenantedAccountAccessAndGrantRejected() {
+        String untenantedAccount = "01955000000U0";
+        catalog.getOrCreateAccount(untenantedAccount, AccountProfile.HUMAN_SOLO, PrincipalKind.HUMAN, null);
+
+        NamespaceRecord nsA = catalog.createNamespace(ACCOUNT_ALPHA, "private-tenanted", NamespaceType.PROJECT);
+
+        // Untenanted account attempts to resolve tenanted namespace by ID
+        assertThatThrownBy(() -> catalog.resolve(untenantedAccount, nsA.namespaceId()))
+                .isInstanceOf(CrossTenantAccessException.class)
+                .hasMessageContaining("SPE-820-001");
+
+        // Tenanted account attempts to grant to untenanted account
+        assertThatThrownBy(() -> catalog.grantNamespace(ACCOUNT_ALPHA, nsA.namespaceId(), untenantedAccount,
+                GrantRole.READER, null, null))
+                .isInstanceOf(CrossTenantAccessException.class)
+                .hasMessageContaining("SPE-820-001");
+    }
+
+    @Test
+    @DisplayName("Dynamic switching of OIDC tenant claim at runtime without restart")
+    void testDynamicSwitchingOfOidcTenantClaimAtRuntime() {
+        try {
+            // Step 1: Claim set to "tenant_claim_v1"
+            SecurityUtils.setOidcTenantClaim("tenant_claim_v1");
+            assertThat(SecurityUtils.getOidcTenantClaim()).isEqualTo("tenant_claim_v1");
+
+            Jwt jwt1 = Jwt.withTokenValue("mock-jwt-v1")
+                    .header("alg", "none")
+                    .subject(ACCOUNT_ALPHA)
+                    .claim("tenant_claim_v1", TENANT_ALPHA)
+                    .claim("tenant_claim_v2", TENANT_BETA)
+                    .build();
+            var auth1 = new JwtAuthenticationToken(jwt1, List.of());
+            SecurityContextHolder.getContext().setAuthentication(auth1);
+            assertThat(SecurityUtils.getTenantId()).isEqualTo(TENANT_ALPHA);
+
+            // Step 2: Dynamically switch to "tenant_claim_v2" at runtime
+            SecurityUtils.setOidcTenantClaim("tenant_claim_v2");
+            assertThat(SecurityUtils.getOidcTenantClaim()).isEqualTo("tenant_claim_v2");
+            assertThat(SecurityUtils.getTenantId()).isEqualTo(TENANT_BETA);
+
+            // Step 3: Clear custom claim and fall back to default candidate claims
+            SecurityUtils.setOidcTenantClaim(null);
+            assertThat(SecurityUtils.getOidcTenantClaim()).isNull();
+            Jwt jwtDefault = Jwt.withTokenValue("mock-jwt-default")
+                    .header("alg", "none")
+                    .subject(ACCOUNT_ALPHA)
+                    .claim("tid", TENANT_ALPHA)
+                    .build();
+            var authDefault = new JwtAuthenticationToken(jwtDefault, List.of());
+            SecurityContextHolder.getContext().setAuthentication(authDefault);
+            assertThat(SecurityUtils.getTenantId()).isEqualTo(TENANT_ALPHA);
+        } finally {
+            SecurityUtils.setOidcTenantClaim(null);
+        }
     }
 }

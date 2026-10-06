@@ -118,9 +118,10 @@ public class NamespaceResolutionFilter extends OncePerRequestFilter {
             String msg = e.getMessage() != null
                     ? e.getMessage().replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r")
                     : "Cross-tenant access denied";
+            String isoTimestamp = java.time.format.DateTimeFormatter.ISO_INSTANT.format(java.time.Instant.now());
             String json = String.format(
-                    "{\"status\":403,\"error\":\"%s\",\"code\":\"%s\",\"alias\":\"%s\",\"message\":\"%s\"}",
-                    errorCodeId, errorCodeId, alias, msg
+                    "{\"status\":403,\"error\":\"%s\",\"code\":\"%s\",\"alias\":\"%s\",\"message\":\"%s\",\"timestamp\":\"%s\",\"details\":{\"alias\":\"%s\",\"code\":\"%s\"}}",
+                    errorCodeId, errorCodeId, alias, msg, isoTimestamp, alias, errorCodeId
             );
             response.getWriter().write(json);
         } catch (RuntimeException e) {

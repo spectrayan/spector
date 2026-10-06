@@ -367,9 +367,10 @@ public class JdbcAccountCatalog implements AccountCatalog {
             }
             Account caller = findAccountById(accountId).orElse(null);
             Account owner = findAccountById(record.ownerAccountId()).orElse(null);
-            if (caller != null && owner != null && caller.tenantId() != null && owner.tenantId() != null
-                    && !caller.tenantId().equals(owner.tenantId())) {
-                throw new CrossTenantAccessException(accountId, record.namespaceId(), owner.tenantId());
+            String callerTenant = caller != null ? caller.tenantId() : null;
+            String ownerTenant = owner != null ? owner.tenantId() : null;
+            if (!Objects.equals(callerTenant, ownerTenant) && (callerTenant != null || ownerTenant != null)) {
+                throw new CrossTenantAccessException(accountId, record.namespaceId(), ownerTenant != null ? ownerTenant : "default");
             }
             // Check if accessible to this account (owned or granted)
             if (record.ownerAccountId().equals(accountId) || hasActiveGrant(accountId, record.namespaceId())) {
@@ -648,9 +649,10 @@ public class JdbcAccountCatalog implements AccountCatalog {
 
         Account callerAccount = getAccount(callerAccountId);
         Account granteeAccount = getAccount(granteeAccountId);
-        if (callerAccount.tenantId() != null && granteeAccount.tenantId() != null
-                && !callerAccount.tenantId().equals(granteeAccount.tenantId())) {
-            throw new CrossTenantAccessException(granteeAccountId, record.namespaceId(), callerAccount.tenantId());
+        String callerTenant = callerAccount != null ? callerAccount.tenantId() : null;
+        String granteeTenant = granteeAccount != null ? granteeAccount.tenantId() : null;
+        if (!Objects.equals(callerTenant, granteeTenant) && (callerTenant != null || granteeTenant != null)) {
+            throw new CrossTenantAccessException(granteeAccountId, record.namespaceId(), callerTenant != null ? callerTenant : "default");
         }
 
         Grant grant = new Grant(
@@ -770,9 +772,10 @@ public class JdbcAccountCatalog implements AccountCatalog {
                 if (ns.isPresent()) {
                     Account caller = findAccountById(accountId).orElse(null);
                     Account owner = findAccountById(ns.get().ownerAccountId()).orElse(null);
-                    if (caller != null && owner != null && caller.tenantId() != null && owner.tenantId() != null
-                            && !caller.tenantId().equals(owner.tenantId())) {
-                        throw new CrossTenantAccessException(accountId, namespaceId, owner.tenantId());
+                    String callerTenant = caller != null ? caller.tenantId() : null;
+                    String ownerTenant = owner != null ? owner.tenantId() : null;
+                    if (!Objects.equals(callerTenant, ownerTenant) && (callerTenant != null || ownerTenant != null)) {
+                        throw new CrossTenantAccessException(accountId, namespaceId, ownerTenant != null ? ownerTenant : "default");
                     }
                 }
                 if (cache != null) {

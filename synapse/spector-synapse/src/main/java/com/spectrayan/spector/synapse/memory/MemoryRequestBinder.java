@@ -485,17 +485,12 @@ public class MemoryRequestBinder {
     }
 
     private TokenClaims extractTokenClaims(Authentication auth) {
-        String tenantId = null;
-        if (auth != null) {
-            if (auth.getDetails() instanceof ApiKeyAuthenticationDetails apiKeyDetails) {
-                tenantId = apiKeyDetails.tenantId();
-            } else if (auth.getDetails() instanceof Map<?, ?> detailsMap) {
-                Object tid = detailsMap.get("tenant_id");
-                if (tid == null) tid = detailsMap.get("tenantId");
-                if (tid == null) tid = detailsMap.get("tid");
-                if (tid != null && !tid.toString().isBlank()) {
-                    tenantId = tid.toString().trim();
-                }
+        String tenantId = SecurityUtils.extractTenantFromAuthentication(auth);
+
+        if ((tenantId == null || tenantId.isBlank()) && MemoryScope.isTenantActive()) {
+            String scoped = MemoryScope.tenantId();
+            if (scoped != null && !scoped.isBlank() && !"default".equals(scoped)) {
+                tenantId = scoped;
             }
         }
 
@@ -506,20 +501,6 @@ public class MemoryRequestBinder {
             jwt = principalJwt;
         } else if (auth != null && auth.getCredentials() instanceof Jwt credJwt) {
             jwt = credJwt;
-        }
-
-        if (jwt != null) {
-            String extracted = SecurityUtils.extractTenantFromJwt(jwt);
-            if (extracted != null && !extracted.isBlank()) {
-                tenantId = extracted;
-            }
-        }
-
-        if ((tenantId == null || tenantId.isBlank()) && MemoryScope.isTenantActive()) {
-            String scoped = MemoryScope.tenantId();
-            if (scoped != null && !scoped.isBlank() && !"default".equals(scoped)) {
-                tenantId = scoped;
-            }
         }
 
         if (jwt == null) {
