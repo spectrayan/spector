@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -47,6 +48,7 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/api/v1/connectors")
 @FeatureGate("connectorsEnabled")
+@PreAuthorize("hasAnyRole('admin', 'super-admin', 'ADMIN', 'SUPER_ADMIN')")
 public class ConnectorController {
 
     private static final Logger log = LoggerFactory.getLogger(ConnectorController.class);

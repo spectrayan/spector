@@ -372,6 +372,7 @@ public class JdbcAccountCatalog implements AccountCatalog {
             if (record.ownerAccountId().equals(accountId) || hasActiveGrant(accountId, record.namespaceId())) {
                 return Optional.of(record);
             }
+            throw new NamespaceAccessDeniedException(record.namespaceId(), accountId);
         }
 
         return Optional.empty();

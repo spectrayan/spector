@@ -17,6 +17,7 @@ package com.spectrayan.spector.synapse.system;
 
 import com.spectrayan.spector.synapse.config.SynapseProperties;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -43,6 +44,7 @@ public class SystemController {
      * Get system status.
      */
     @GetMapping("/status")
+    @PreAuthorize("hasAnyRole('admin', 'super-admin', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<Map<String, Object>> status() {
         Duration uptime = Duration.between(startTime, Instant.now());
         var genProps = props.getProvider().getGeneration();
@@ -62,6 +64,7 @@ public class SystemController {
      * Get configuration (non-sensitive).
      */
     @GetMapping("/config")
+    @PreAuthorize("hasAnyRole('admin', 'super-admin', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<Map<String, Object>> config() {
         var genProps = props.getProvider().getGeneration();
         var embedProps = props.getProvider().getEmbedding();

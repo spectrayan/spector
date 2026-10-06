@@ -37,14 +37,17 @@ import org.springframework.security.crypto.password.Pbkdf2PasswordEncoder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 import com.spectrayan.spector.config.properties.AuthProperties;
 import com.spectrayan.spector.config.properties.AuthProperties.Pbkdf2Properties;
+import com.spectrayan.spector.synapse.memory.MemoryRequestBinder;
 import com.spectrayan.spector.synapse.ratelimit.RateLimitFilter;
 import com.spectrayan.spector.synapse.security.ApiKeyAuthenticationFilter;
 import com.spectrayan.spector.synapse.security.FailClosedAccessDeniedHandler;
 import com.spectrayan.spector.synapse.security.FailClosedAuthenticationEntryPoint;
+import com.spectrayan.spector.synapse.security.NamespaceResolutionFilter;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -186,10 +189,23 @@ public class SecurityConfig {
             ApiKeyAuthenticationFilter apiKeyFilter,
             SynapseProperties properties,
             ObjectProvider<AuthenticationManagerResolver<HttpServletRequest>> jwtResolverProvider,
+            ObjectProvider<RateLimitFilter> rateLimitFilterProvider,
+            ObjectProvider<NamespaceResolutionFilter> namespaceResolutionFilterProvider)
+            throws Exception {
+        RateLimitFilter rateLimitFilter = rateLimitFilterProvider != null ? rateLimitFilterProvider.getIfAvailable() : null;
+        NamespaceResolutionFilter namespaceResolutionFilter = namespaceResolutionFilterProvider != null ? namespaceResolutionFilterProvider.getIfAvailable() : null;
+        return buildFilterChain(http, apiKeyFilter, rateLimitFilter, namespaceResolutionFilter, properties, jwtResolverProvider);
+    }
+
+    public SecurityFilterChain filterChain(
+            HttpSecurity http,
+            ApiKeyAuthenticationFilter apiKeyFilter,
+            SynapseProperties properties,
+            ObjectProvider<AuthenticationManagerResolver<HttpServletRequest>> jwtResolverProvider,
             ObjectProvider<RateLimitFilter> rateLimitFilterProvider)
             throws Exception {
         RateLimitFilter rateLimitFilter = rateLimitFilterProvider != null ? rateLimitFilterProvider.getIfAvailable() : null;
-        return buildFilterChain(http, apiKeyFilter, rateLimitFilter, properties, jwtResolverProvider);
+        return buildFilterChain(http, apiKeyFilter, rateLimitFilter, null, properties, jwtResolverProvider);
     }
 
     public SecurityFilterChain filterChain(
@@ -198,7 +214,7 @@ public class SecurityConfig {
             SynapseProperties properties,
             ObjectProvider<AuthenticationManagerResolver<HttpServletRequest>> jwtResolverProvider)
             throws Exception {
-        return buildFilterChain(http, apiKeyFilter, null, properties, jwtResolverProvider);
+        return buildFilterChain(http, apiKeyFilter, null, null, properties, jwtResolverProvider);
     }
 
     public SecurityFilterChain filterChain(
@@ -208,13 +224,14 @@ public class SecurityConfig {
             SynapseProperties properties,
             ObjectProvider<AuthenticationManagerResolver<HttpServletRequest>> jwtResolverProvider)
             throws Exception {
-        return buildFilterChain(http, apiKeyFilter, rateLimitFilter, properties, jwtResolverProvider);
+        return buildFilterChain(http, apiKeyFilter, rateLimitFilter, null, properties, jwtResolverProvider);
     }
 
     private SecurityFilterChain buildFilterChain(
             HttpSecurity http,
             ApiKeyAuthenticationFilter apiKeyFilter,
             RateLimitFilter rateLimitFilter,
+            NamespaceResolutionFilter namespaceResolutionFilter,
             SynapseProperties properties,
             ObjectProvider<AuthenticationManagerResolver<HttpServletRequest>> jwtResolverProvider)
             throws Exception {
@@ -256,6 +273,12 @@ public class SecurityConfig {
                         .requestMatchers("/*.js", "/*.css", "/*.ico", "/*.png").permitAll()
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
+                        .requestMatchers("/.well-known/**").permitAll()
+                        .requestMatchers("/actuator/**").hasAnyRole("admin", "super-admin", "ADMIN", "SUPER_ADMIN")
+                        .requestMatchers("/tasks", "/tasks/**", "/providers", "/providers/**", "/api/v1/tasks", "/api/v1/tasks/**", "/api/v1/providers", "/api/v1/providers/**").hasAnyRole("admin", "super-admin", "ADMIN", "SUPER_ADMIN")
+                        .requestMatchers("/api/v1/admin/**").hasAnyRole("admin", "super-admin", "ADMIN", "SUPER_ADMIN")
+                        .requestMatchers("/api/v1/connectors", "/api/v1/connectors/**").hasAnyRole("admin", "super-admin", "ADMIN", "SUPER_ADMIN")
+                        .requestMatchers("/api/v1/migration/**").hasAnyRole("super-admin", "SUPER_ADMIN")
                         // Protected surfaces require a non-anonymous Authentication (Requirement 6.1).
                         .requestMatchers("/api/**").authenticated()
                         .requestMatchers("/mcp", "/mcp/**").authenticated()
@@ -284,6 +307,9 @@ public class SecurityConfig {
         http.addFilterBefore(apiKeyFilter, UsernamePasswordAuthenticationFilter.class);
         if (rateLimitFilter != null) {
             http.addFilterBefore(rateLimitFilter, ApiKeyAuthenticationFilter.class);
+        }
+        if (namespaceResolutionFilter != null) {
+            http.addFilterAfter(namespaceResolutionFilter, AuthorizationFilter.class);
         }
 
         return http.build();

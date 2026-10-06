@@ -278,7 +278,7 @@ public class AuthController {
      * @return the generated User_Id, or an error response
      */
     @PostMapping(value = "/register", produces = MediaType.APPLICATION_JSON_VALUE)
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('admin', 'super-admin', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<?> register(@Valid @RequestBody(required = false) RegisterRequest request) {
         if (request == null) {
             return badRequest("username and password are required");
@@ -359,7 +359,7 @@ public class AuthController {
      * @return the list of user summaries (never carrying password hashes)
      */
     @GetMapping(value = "/users", produces = MediaType.APPLICATION_JSON_VALUE)
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('admin', 'super-admin', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<List<UserSummary>> listUsers() {
         List<UserSummary> users = userAccountStore.listUsers().stream()
                 .map(UserSummary::from)
@@ -381,7 +381,7 @@ public class AuthController {
      * @return the updated account summary, or a 404 error response
      */
     @PutMapping(value = "/users/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('admin', 'super-admin', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<?> updateUser(@PathVariable("id") String id,
                                         @Valid @RequestBody(required = false) UpdateUserRequest request) {
         UpdateUserRequest update = request != null

@@ -340,13 +340,16 @@ public class FileAccountCatalog implements AccountCatalog {
                     Optional<NamespaceRecord> foreignRecord = otherSnap.resolveNamespace(slugOrId);
                     if (foreignRecord.isPresent()) {
                         NamespaceRecord rec = foreignRecord.get();
-                        String callerTenant = snapshot.account() != null ? snapshot.account().tenantId() : null;
-                        String ownerTenant = acct.tenantId();
-                        if (!Objects.equals(callerTenant, ownerTenant) && (callerTenant != null || ownerTenant != null)) {
-                            throw new CrossTenantAccessException(accountId, rec.namespaceId(), ownerTenant != null ? ownerTenant : "default");
+                        if (rec.namespaceId().equals(slugOrId) && rec.status() != NamespaceStatus.TOMBSTONED) {
+                            String callerTenant = snapshot.account() != null ? snapshot.account().tenantId() : null;
+                            String ownerTenant = acct.tenantId();
+                            if (!Objects.equals(callerTenant, ownerTenant) && (callerTenant != null || ownerTenant != null)) {
+                                throw new CrossTenantAccessException(accountId, rec.namespaceId(), ownerTenant != null ? ownerTenant : "default");
+                            }
+                            throw new NamespaceAccessDeniedException(rec.namespaceId(), accountId);
                         }
                     }
-                } catch (CrossTenantAccessException e) {
+                } catch (NamespaceAccessDeniedException e) {
                     throw e;
                 } catch (Exception ignored) {}
             }

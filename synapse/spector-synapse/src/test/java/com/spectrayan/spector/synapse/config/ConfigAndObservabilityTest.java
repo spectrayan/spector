@@ -46,7 +46,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @SpringBootTest
 @ActiveProfiles("test")
-@WithMockUser
+@WithMockUser(roles = "admin")
 @DisplayName("ConfigAndObservabilityTest — Integration Tests")
 class ConfigAndObservabilityTest {
 

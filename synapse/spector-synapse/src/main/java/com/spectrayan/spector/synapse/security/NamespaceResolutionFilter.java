@@ -31,6 +31,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.spectrayan.spector.commons.concurrent.MemoryScope;
 import com.spectrayan.spector.synapse.catalog.exception.CrossTenantAccessException;
+import com.spectrayan.spector.synapse.catalog.exception.NamespaceAccessDeniedException;
 import com.spectrayan.spector.synapse.memory.MemoryBinding;
 import com.spectrayan.spector.synapse.memory.MemoryRequestBinder;
 import org.springframework.http.MediaType;
@@ -109,16 +110,16 @@ public class NamespaceResolutionFilter extends OncePerRequestFilter {
                     throw new RuntimeException(e);
                 }
             });
-        } catch (CrossTenantAccessException e) {
-            writeCrossTenantDenied(response, e);
+        } catch (NamespaceAccessDeniedException e) {
+            writeAccessDenied(response, e);
         } catch (RuntimeException e) {
-            if (e.getCause() instanceof CrossTenantAccessException ctae) {
-                writeCrossTenantDenied(response, ctae);
+            if (e.getCause() instanceof NamespaceAccessDeniedException nade) {
+                writeAccessDenied(response, nade);
                 return;
             }
             if (e.getCause() instanceof ServletException servletException) {
-                if (servletException.getCause() instanceof CrossTenantAccessException ctae) {
-                    writeCrossTenantDenied(response, ctae);
+                if (servletException.getCause() instanceof NamespaceAccessDeniedException nade) {
+                    writeAccessDenied(response, nade);
                     return;
                 }
                 throw servletException;
@@ -134,16 +135,18 @@ public class NamespaceResolutionFilter extends OncePerRequestFilter {
         }
     }
 
-    private void writeCrossTenantDenied(HttpServletResponse response, CrossTenantAccessException e) throws IOException {
-        log.warn("[NamespaceResolutionFilter] Cross-tenant access denied: {}", e.getMessage());
+    private void writeAccessDenied(HttpServletResponse response, NamespaceAccessDeniedException e) throws IOException {
+        log.warn("[NamespaceResolutionFilter] Access denied: {}", e.getMessage());
         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding(java.nio.charset.StandardCharsets.UTF_8.name());
         String errorCodeId = e.errorCode() != null ? e.errorCode().id() : "SPE-820-001";
-        String alias = CrossTenantAccessException.ERROR_CODE_ALIAS;
+        String alias = (e instanceof CrossTenantAccessException)
+                ? CrossTenantAccessException.ERROR_CODE_ALIAS
+                : "NamespaceAccessDenied";
         String msg = e.getMessage() != null
                 ? e.getMessage().replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r")
-                : "Cross-tenant access denied";
+                : "Namespace access denied";
         String isoTimestamp = java.time.format.DateTimeFormatter.ISO_INSTANT.format(java.time.Instant.now());
         String json = String.format(
                 "{\"status\":403,\"error\":\"%s\",\"code\":\"%s\",\"alias\":\"%s\",\"message\":\"%s\",\"timestamp\":\"%s\",\"details\":{\"alias\":\"%s\",\"code\":\"%s\"}}",

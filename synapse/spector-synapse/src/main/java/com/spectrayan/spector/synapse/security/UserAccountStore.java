@@ -31,6 +31,8 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.crypto.password.Pbkdf2PasswordEncoder;
 import org.springframework.stereotype.Component;
 
+import com.spectrayan.spector.commons.security.SpectorRoles;
+
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Duration;
@@ -362,7 +364,7 @@ public class UserAccountStore {
         }
         try {
             createUser(DEFAULT_ADMIN_USERNAME, defaultPassword, "admin@localhost", "Administrator",
-                    Set.of("ADMIN"), Set.of("memory:read", "memory:write"), true);
+                    Set.of(SpectorRoles.ADMIN, "ADMIN"), SpectorRoles.ADMIN_SCOPES, true);
             log.info("Seeded default admin account (must change password on first login)");
         } catch (DuplicateUsernameException e) {
             // Concurrent seed on another node/thread already created it — idempotent success.

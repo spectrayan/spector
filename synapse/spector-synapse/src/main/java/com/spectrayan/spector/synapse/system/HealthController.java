@@ -19,6 +19,7 @@ import com.spectrayan.spector.synapse.agent.ToolRegistry;
 import com.spectrayan.spector.synapse.bridge.LlmBridge;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
 import com.spectrayan.spector.synapse.memory.MemoryService;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -78,6 +79,7 @@ public class HealthController {
     }
 
     @GetMapping("/metrics")
+    @PreAuthorize("hasAnyRole('super-admin', 'SUPER_ADMIN')")
     public Map<String, Object> metrics() {
         var runtime = Runtime.getRuntime();
         var mx = ManagementFactory.getRuntimeMXBean();
@@ -102,6 +104,7 @@ public class HealthController {
     }
 
     @GetMapping("/hardware")
+    @PreAuthorize("hasAnyRole('super-admin', 'SUPER_ADMIN')")
     public Map<String, Object> hardware() {
         return memoryService.getHardwareInfo();
     }

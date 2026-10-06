@@ -697,7 +697,7 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
-  /api/v1/tasks/{id}/trigger:
+  /tasks/{id}/trigger:
     post:
       tags:
       - task-management-controller
@@ -715,7 +715,25 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/TaskActionResponse"
-  /api/v1/tasks/{id}/resume:
+  /api/v1/tasks/{id}/trigger:
+    post:
+      tags:
+      - task-management-controller
+      operationId: triggerTask_1
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TaskActionResponse"
+  /tasks/{id}/resume:
     post:
       tags:
       - task-management-controller
@@ -733,11 +751,53 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/TaskActionResponse"
-  /api/v1/tasks/{id}/reschedule-interval:
+  /api/v1/tasks/{id}/resume:
+    post:
+      tags:
+      - task-management-controller
+      operationId: resumeTask_1
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TaskActionResponse"
+  /tasks/{id}/reschedule-interval:
     post:
       tags:
       - task-management-controller
       operationId: rescheduleInterval
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RescheduleIntervalRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TaskActionResponse"
+  /api/v1/tasks/{id}/reschedule-interval:
+    post:
+      tags:
+      - task-management-controller
+      operationId: rescheduleInterval_1
       parameters:
       - name: id
         in: path
@@ -781,11 +841,53 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/TaskActionResponse"
-  /api/v1/tasks/{id}/pause:
+  /tasks/{id}/reschedule-cron:
+    post:
+      tags:
+      - task-management-controller
+      operationId: rescheduleCron_1
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RescheduleCronRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TaskActionResponse"
+  /tasks/{id}/pause:
     post:
       tags:
       - task-management-controller
       operationId: pauseTask
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TaskActionResponse"
+  /api/v1/tasks/{id}/pause:
+    post:
+      tags:
+      - task-management-controller
+      operationId: pauseTask_1
       parameters:
       - name: id
         in: path
@@ -839,11 +941,51 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
+  /providers/generation/{name}/activate:
+    post:
+      tags:
+      - provider-controller
+      operationId: activateGeneration_1
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
   /api/v1/providers/embedding/{name}/activate:
     post:
       tags:
       - provider-controller
       operationId: activateEmbedding
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+  /providers/embedding/{name}/activate:
+    post:
+      tags:
+      - provider-controller
+      operationId: activateEmbedding_1
       parameters:
       - name: name
         in: path
@@ -1388,6 +1530,51 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/FederatedRecallResponse"
+  /api/v1/memory/facts:
+    get:
+      tags:
+      - Memory
+      summary: Query temporal facts about an entity
+      operationId: getFacts
+      parameters:
+      - name: entity
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: asOf
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TemporalFact"
+    post:
+      tags:
+      - Memory
+      summary: Assert a temporal fact into the memory graph
+      operationId: assertFact
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FactAssertRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/FactAssertResponse"
   /api/v1/memory/enrich-graph:
     post:
       tags:
@@ -2205,38 +2392,6 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/TokenUsageStats"
-  /api/v1/tasks:
-    get:
-      tags:
-      - task-management-controller
-      operationId: listTasks
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/TaskStatus"
-  /api/v1/tasks/{id}:
-    get:
-      tags:
-      - task-management-controller
-      operationId: getTask
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/TaskStatus"
   /api/v1/tasks/{id}/audit:
     get:
       tags:
@@ -2264,7 +2419,70 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/TaskRunAuditRecord"
-  /api/v1/tasks/audit:
+  /tasks/{id}/audit:
+    get:
+      tags:
+      - task-management-controller
+      operationId: getTaskAuditHistory_1
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TaskRunAuditRecord"
+  /tasks/{id}:
+    get:
+      tags:
+      - task-management-controller
+      operationId: getTask
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TaskStatus"
+  /api/v1/tasks/{id}:
+    get:
+      tags:
+      - task-management-controller
+      operationId: getTask_1
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TaskStatus"
+  /tasks/audit:
     get:
       tags:
       - task-management-controller
@@ -2286,6 +2504,56 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/TaskRunAuditRecord"
+  /api/v1/tasks/audit:
+    get:
+      tags:
+      - task-management-controller
+      operationId: getRecentAuditHistory_1
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TaskRunAuditRecord"
+  /api/v1/tasks:
+    get:
+      tags:
+      - task-management-controller
+      operationId: listTasks
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TaskStatus"
+  /tasks:
+    get:
+      tags:
+      - task-management-controller
+      operationId: listTasks_1
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TaskStatus"
   /api/v1/system/status:
     get:
       tags:
@@ -2364,19 +2632,6 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
-  /api/v1/providers:
-    get:
-      tags:
-      - provider-controller
-      operationId: list
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                type: object
-                additionalProperties: {}
   /api/v1/providers/health:
     get:
       tags:
@@ -2391,7 +2646,21 @@ paths:
                 type: object
                 additionalProperties:
                   $ref: "#/components/schemas/ProviderHealth"
-  /api/v1/providers/generation/{name}/health:
+  /providers/health:
+    get:
+      tags:
+      - provider-controller
+      operationId: health_2
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  $ref: "#/components/schemas/ProviderHealth"
+  /providers/generation/{name}/health:
     get:
       tags:
       - provider-controller
@@ -2409,7 +2678,25 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ProviderHealth"
-  /api/v1/providers/embedding/{name}/health:
+  /api/v1/providers/generation/{name}/health:
+    get:
+      tags:
+      - provider-controller
+      operationId: generationHealth_1
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ProviderHealth"
+  /providers/embedding/{name}/health:
     get:
       tags:
       - provider-controller
@@ -2427,6 +2714,50 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ProviderHealth"
+  /api/v1/providers/embedding/{name}/health:
+    get:
+      tags:
+      - provider-controller
+      operationId: embeddingHealth_1
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ProviderHealth"
+  /api/v1/providers:
+    get:
+      tags:
+      - provider-controller
+      operationId: list
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+  /providers:
+    get:
+      tags:
+      - provider-controller
+      operationId: list_1
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
   /api/v1/plugins:
     get:
       tags:
@@ -3629,6 +3960,26 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/PurgeResult"
+  /api/v1/memory/facts/{factId}:
+    delete:
+      tags:
+      - Memory
+      summary: Retract a previously asserted temporal fact
+      operationId: retractFact
+      parameters:
+      - name: factId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/FactRetractResponse"
   /api/v1/auth/api-keys/{id}:
     delete:
       tags:
@@ -5014,6 +5365,34 @@ components:
           format: int32
         detail:
           type: string
+    FactAssertRequest:
+      type: object
+      properties:
+        subject:
+          type: string
+        predicate:
+          type: string
+        object:
+          type: string
+        validFrom:
+          type: integer
+          format: int64
+        validTo:
+          type: integer
+          format: int64
+        confidence:
+          type: number
+          format: float
+        allowCoexisting:
+          type: boolean
+    FactAssertResponse:
+      type: object
+      properties:
+        factId:
+          type: integer
+          format: int32
+        status:
+          type: string
     BrowseRequest:
       type: object
       properties:
@@ -5373,26 +5752,6 @@ components:
         lastRecorded:
           type: string
           format: date-time
-    TaskStatus:
-      type: object
-      properties:
-        id:
-          type: string
-        namespaceId:
-          type: string
-        state:
-          type: string
-        previousFireTime:
-          type: string
-          format: date-time
-        nextFireTime:
-          type: string
-          format: date-time
-        description:
-          type: string
-        metadata:
-          type: object
-          additionalProperties: {}
     TaskRunAuditRecord:
       type: object
       properties:
@@ -5417,6 +5776,26 @@ components:
           type: string
         success:
           type: boolean
+    TaskStatus:
+      type: object
+      properties:
+        id:
+          type: string
+        namespaceId:
+          type: string
+        state:
+          type: string
+        previousFireTime:
+          type: string
+          format: date-time
+        nextFireTime:
+          type: string
+          format: date-time
+        description:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: {}
     UserProfileDto:
       type: object
       properties:
@@ -5836,6 +6215,53 @@ components:
         updatedAt:
           type: string
           format: date-time
+    TemporalFact:
+      type: object
+      properties:
+        factId:
+          type: integer
+          format: int32
+        subjectEntityId:
+          type: integer
+          format: int32
+        predicateId:
+          type: integer
+          format: int32
+        objectEntityId:
+          type: integer
+          format: int32
+        objectTextOffset:
+          type: integer
+          format: int64
+        objectTextLength:
+          type: integer
+          format: int32
+        validFrom:
+          type: integer
+          format: int64
+        validTo:
+          type: integer
+          format: int64
+        txTime:
+          type: integer
+          format: int64
+        confidence:
+          type: number
+          format: float
+        retractsFactId:
+          type: integer
+          format: int32
+        flags:
+          type: string
+          format: byte
+        retraction:
+          type: boolean
+        inferred:
+          type: boolean
+        ongoing:
+          type: boolean
+        resolved:
+          type: boolean
     EnrichmentStatusResponse:
       type: object
       properties:
@@ -6382,6 +6808,14 @@ components:
           items:
             type: string
         disclosure:
+          type: string
+    FactRetractResponse:
+      type: object
+      properties:
+        retractionId:
+          type: integer
+          format: int32
+        status:
           type: string
   securitySchemes:
     ApiKeyAuth:

@@ -55,6 +55,9 @@ public final class SecurityUtils {
     /** Prefix Spring Security applies to scope authorities. */
     private static final String SCOPE_PREFIX = "SCOPE_";
 
+    /** Prefix Spring Security applies to role authorities. */
+    private static final String ROLE_PREFIX = "ROLE_";
+
     private SecurityUtils() {}
 
     /**
@@ -114,6 +117,67 @@ public final class SecurityUtils {
             return false;
         }
         return getScopes().contains(scope);
+    }
+
+    /**
+     * Returns the role authorities granted to the current principal, with the
+     * {@code ROLE_} prefix stripped.
+     *
+     * @return an immutable set of role names; empty when unauthenticated.
+     */
+    public static Set<String> getRoles() {
+        Authentication auth = currentAuthentication();
+        if (auth == null) {
+            return Collections.emptySet();
+        }
+        Set<String> roles = new LinkedHashSet<>();
+        for (GrantedAuthority authority : auth.getAuthorities()) {
+            if (authority == null) {
+                continue;
+            }
+            String value = authority.getAuthority();
+            if (value != null && value.startsWith(ROLE_PREFIX)) {
+                roles.add(value.substring(ROLE_PREFIX.length()));
+            }
+        }
+        return Collections.unmodifiableSet(roles);
+    }
+
+    /**
+     * Tests whether the current principal holds the given role (case and hyphen/underscore-insensitive).
+     *
+     * @param role the role name (e.g. "admin", "super-admin")
+     * @return {@code true} if present, {@code false} otherwise
+     */
+    public static boolean hasRole(String role) {
+        if (role == null || role.isBlank()) {
+            return false;
+        }
+        Set<String> roles = getRoles();
+        if (roles.contains(role) || roles.contains(role.toLowerCase()) || roles.contains(role.toUpperCase())) {
+            return true;
+        }
+        String normalized = role.toLowerCase().replace('_', '-');
+        for (String r : roles) {
+            if (r.equalsIgnoreCase(role) || r.toLowerCase().replace('_', '-').equals(normalized)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Tests whether the current principal is a Platform Operator (super-admin).
+     */
+    public static boolean isSuperAdmin() {
+        return hasRole(com.spectrayan.spector.commons.security.SpectorRoles.SUPER_ADMIN);
+    }
+
+    /**
+     * Tests whether the current principal is a Tenant Admin or Platform Operator.
+     */
+    public static boolean isAdmin() {
+        return hasRole(com.spectrayan.spector.commons.security.SpectorRoles.ADMIN) || isSuperAdmin();
     }
 
     /**

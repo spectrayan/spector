@@ -23,6 +23,7 @@ import com.spectrayan.spector.synapse.security.SecurityUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
@@ -113,6 +114,7 @@ public class ConfigController {
      * Saves a configuration override.
      */
     @PutMapping("/{category}")
+    @PreAuthorize("hasAnyRole('admin', 'super-admin', 'ADMIN', 'SUPER_ADMIN')")
     public Map<String, Object> saveOverride(@PathVariable String category,
                                             @RequestBody Map<String, Object> request) {
         ConfigCategory cat = parseCategory(category);
@@ -154,6 +156,7 @@ public class ConfigController {
      * Deletes a configuration override.
      */
     @DeleteMapping("/{category}")
+    @PreAuthorize("hasAnyRole('admin', 'super-admin', 'ADMIN', 'SUPER_ADMIN')")
     public Map<String, Object> deleteOverride(@PathVariable String category,
                                              @RequestParam(defaultValue = "tenant") String scope) {
         ConfigCategory cat = parseCategory(category);

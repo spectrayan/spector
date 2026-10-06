@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
@@ -33,7 +34,8 @@ import java.util.Set;
  * <p>Endpoints for listing, activating, and checking health of LLM providers.</p>
  */
 @RestController
-@RequestMapping("/api/v1/providers")
+@RequestMapping({"/api/v1/providers", "/providers"})
+@PreAuthorize("hasAnyRole('admin', 'super-admin', 'ADMIN', 'SUPER_ADMIN')")
 public class ProviderController {
 
     private final ProviderRegistry registry;

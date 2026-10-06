@@ -94,25 +94,9 @@ public class JdbcUserDetailsService implements UserDetailsService {
     }
 
     /**
-     * Builds the combined authority list: each role prefixed with {@code ROLE_} and each scope
-     * prefixed with {@code SCOPE_}. Blank tokens are skipped.
+     * Builds the combined authority list using {@link SpectorAuthorityMapper}.
      */
     private static List<GrantedAuthority> toAuthorities(Set<String> roles, Set<String> scopes) {
-        List<GrantedAuthority> authorities = new ArrayList<>();
-        if (roles != null) {
-            for (String role : roles) {
-                if (role != null && !role.isBlank()) {
-                    authorities.add(new SimpleGrantedAuthority(ROLE_PREFIX + role.trim()));
-                }
-            }
-        }
-        if (scopes != null) {
-            for (String scope : scopes) {
-                if (scope != null && !scope.isBlank()) {
-                    authorities.add(new SimpleGrantedAuthority(SCOPE_PREFIX + scope.trim()));
-                }
-            }
-        }
-        return authorities;
+        return SpectorAuthorityMapper.toAuthorities(roles, scopes);
     }
 }

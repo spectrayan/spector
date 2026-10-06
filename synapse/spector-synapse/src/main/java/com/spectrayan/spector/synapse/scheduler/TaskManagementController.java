@@ -24,6 +24,7 @@ import com.spectrayan.spector.synapse.scheduler.TaskDto.TaskActionResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Duration;
@@ -40,7 +41,8 @@ import java.util.List;
  * @since 1.4.0
  */
 @RestController
-@RequestMapping("/api/v1/tasks")
+@RequestMapping({"/api/v1/tasks", "/tasks"})
+@PreAuthorize("hasAnyRole('admin', 'super-admin', 'ADMIN', 'SUPER_ADMIN')")
 public class TaskManagementController {
 
     private static final Logger log = LoggerFactory.getLogger(TaskManagementController.class);

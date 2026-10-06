@@ -22,6 +22,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -42,6 +43,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 @RestController
 @RequestMapping("/api/v1/plugins")
+@PreAuthorize("hasAnyRole('admin', 'super-admin', 'ADMIN', 'SUPER_ADMIN')")
 public class PluginManager {
 
     private static final Logger log = LoggerFactory.getLogger(PluginManager.class);

@@ -22,6 +22,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -131,6 +132,7 @@ public class SalienceController {
      * }</pre>
      */
     @PutMapping("/interests")
+    @PreAuthorize("hasAnyRole('admin', 'super-admin', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<Map<String, Object>> updateInterests(@RequestBody InterestsRequest request) {
         if (request.interests() == null && request.disinterests() == null) {
             return ResponseEntity.badRequest().body(Map.of(
@@ -183,6 +185,7 @@ public class SalienceController {
      * }</pre>
      */
     @PutMapping("/weights")
+    @PreAuthorize("hasAnyRole('admin', 'super-admin', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<Map<String, Object>> updateWeights(@RequestBody WeightsRequest request) {
         IcnuWeights icnu = null;
         if (request.icnu() != null) {
@@ -217,6 +220,7 @@ public class SalienceController {
      * provider.</p>
      */
     @PutMapping("/persona")
+    @PreAuthorize("hasAnyRole('admin', 'super-admin', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<Map<String, Object>> updatePersona(@RequestBody PersonaContext persona) {
         if (persona == null) {
             return ResponseEntity.badRequest().body(Map.of(
@@ -252,6 +256,7 @@ public class SalienceController {
      * }</pre>
      */
     @PutMapping("/rescore")
+    @PreAuthorize("hasAnyRole('admin', 'super-admin', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<Map<String, Object>> rescoreMemories() {
         SpectorMemory memory = memoryProvider != null ? memoryProvider.getIfAvailable() : null;
         if (!mao.isAvailable(memory)) {

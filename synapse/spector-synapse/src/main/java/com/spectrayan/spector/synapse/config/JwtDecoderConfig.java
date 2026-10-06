@@ -67,6 +67,7 @@ import org.springframework.web.client.RestOperations;
 import org.springframework.web.client.RestTemplate;
 
 import com.spectrayan.spector.config.properties.AuthProperties;
+import com.spectrayan.spector.synapse.security.SpectorAuthorityMapper;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -345,18 +346,11 @@ public class JwtDecoderConfig {
      */
     private static Converter<Jwt, Collection<GrantedAuthority>> scopeAndRoleAuthoritiesConverter() {
         return jwt -> {
-            Set<GrantedAuthority> authorities = new LinkedHashSet<>();
-            for (String scope : claimValues(jwt, CLAIM_SCOPE)) {
-                authorities.add(new SimpleGrantedAuthority(SCOPE_PREFIX + scope));
-            }
-            for (String scope : claimValues(jwt, CLAIM_SCP)) {
-                authorities.add(new SimpleGrantedAuthority(SCOPE_PREFIX + scope));
-            }
-            for (String role : claimValues(jwt, CLAIM_ROLES)) {
-                String value = role.startsWith(ROLE_PREFIX) ? role : ROLE_PREFIX + role;
-                authorities.add(new SimpleGrantedAuthority(value));
-            }
-            return authorities;
+            Set<String> scopes = new LinkedHashSet<>();
+            scopes.addAll(claimValues(jwt, CLAIM_SCOPE));
+            scopes.addAll(claimValues(jwt, CLAIM_SCP));
+            List<String> roles = claimValues(jwt, CLAIM_ROLES);
+            return SpectorAuthorityMapper.toAuthorities(roles, scopes);
         };
     }
 

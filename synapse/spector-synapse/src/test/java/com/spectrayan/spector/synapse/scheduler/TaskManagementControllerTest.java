@@ -48,7 +48,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @ActiveProfiles("test")
-@WithMockUser
+@WithMockUser(roles = "admin")
 @DirtiesContext
 @DisplayName("TaskManagementController — MVC Slice Tests")
 class TaskManagementControllerTest {
