@@ -354,6 +354,8 @@ class ControllerSecurityMatrixTest {
                         .andExpect(status().isForbidden());
                 mvc.perform(get("/api/v1/auth/users").with(user("user1").roles(role)))
                         .andExpect(status().isForbidden());
+                mvc.perform(get("/api/v1/agent/approvals").with(user("user1").roles(role)))
+                        .andExpect(status().isForbidden());
             }
         }
 
@@ -421,13 +423,15 @@ class ControllerSecurityMatrixTest {
         }
 
         @Test
-        @DisplayName("Platform Operator (ROLE_super-admin) authorized on Platform Operator endpoints")
+        @DisplayName("Platform Operator role variants authorized on Platform Operator endpoints via SpectorAuthorityMapper")
         void testSuperAdminAuthorizedOnPlatformEndpoints() throws Exception {
-            mvc.perform(get("/api/v1/system/hardware").with(user("super1").roles("super-admin")))
-                    .andExpect(status().isOk());
+            for (String role : List.of("super-admin", "SUPER_ADMIN", "SUPER-ADMIN", "super_admin")) {
+                mvc.perform(get("/api/v1/system/hardware").with(user("super1").authorities(SpectorAuthorityMapper.forRole(role))))
+                        .andExpect(status().isOk());
 
-            mvc.perform(get("/api/v1/system/metrics").with(user("super1").roles("super-admin")))
-                    .andExpect(status().isOk());
+                mvc.perform(get("/api/v1/system/metrics").with(user("super1").authorities(SpectorAuthorityMapper.forRole(role))))
+                        .andExpect(status().isOk());
+            }
         }
 
         @Test

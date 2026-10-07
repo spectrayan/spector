@@ -77,11 +77,12 @@ public final class SpectorAuthorityMapper {
                 if (!upper.equals(raw)) {
                     authorities.add(new SimpleGrantedAuthority(ROLE_PREFIX + upper));
                 }
-                if (raw.contains("-")) {
+                if (raw.contains("-") || raw.contains("_")) {
+                    String lower = raw.toLowerCase();
+                    authorities.add(new SimpleGrantedAuthority(ROLE_PREFIX + lower.replace('_', '-')));
                     authorities.add(new SimpleGrantedAuthority(ROLE_PREFIX + upper.replace('-', '_')));
-                }
-                if (raw.contains("_")) {
-                    authorities.add(new SimpleGrantedAuthority(ROLE_PREFIX + raw.toLowerCase().replace('_', '-')));
+                    authorities.add(new SimpleGrantedAuthority(ROLE_PREFIX + lower.replace('-', '_')));
+                    authorities.add(new SimpleGrantedAuthority(ROLE_PREFIX + upper.replace('_', '-')));
                 }
             }
         }
