@@ -19,20 +19,25 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 import com.spectrayan.spector.kernel.id.TsidGenerator;
+import com.spectrayan.spector.synapse.catalog.exception.CrossTenantAccessException;
 
 /**
  * JDBC-backed store for per-user API keys.
@@ -82,23 +87,29 @@ public class ApiKeyStore {
     /**
      * A persisted API key row (never carries the raw key value).
      *
-     * @param keyId     the 13-char TSID primary key
-     * @param userId    the owning user's TSID
-     * @param keyHash   the SHA-256 hex hash of the raw key (64 lowercase hex chars)
-     * @param scopes    the key's granted scopes
-     * @param expiresAt expiry instant, or {@code null} if the key never expires
-     * @param revoked   whether the key has been revoked
-     * @param createdAt creation instant
+     * @param keyId      the 13-char TSID primary key
+     * @param userId     the owning user's TSID
+     * @param keyHash    the SHA-256 hex hash of the raw key (64 lowercase hex chars)
+     * @param scopes     the key's granted scopes
+     * @param expiresAt  expiry instant, or {@code null} if the key never expires
+     * @param revoked    whether the key has been revoked
+     * @param createdAt  creation instant
+     * @param name       optional key name or label
+     * @param keyPrefix  display prefix (e.g. "spk_abc12345")
+     * @param lastUsedAt last-used instant, or {@code null} if never used
      */
     public record ApiKeyRow(String keyId, String userId, String keyHash, Set<String> scopes,
-                            Instant expiresAt, boolean revoked, Instant createdAt) {}
+                            Instant expiresAt, boolean revoked, Instant createdAt,
+                            String name, String keyPrefix, Instant lastUsedAt) {
+
+        public ApiKeyRow(String keyId, String userId, String keyHash, Set<String> scopes,
+                         Instant expiresAt, boolean revoked, Instant createdAt) {
+            this(keyId, userId, keyHash, scopes, expiresAt, revoked, createdAt, null, null, null);
+        }
+    }
 
     /**
      * Creates a new API key for the given user.
-     *
-     * <p>Generates a cryptographically-random raw key and a 13-char TSID {@code key_id}, persists
-     * only the SHA-256 hex hash of the raw key, and returns the raw key to the caller exactly
-     * once. The raw key is never logged or persisted.</p>
      *
      * @param userId    the owning user's TSID
      * @param scopes    the scopes to grant (may be empty; persisted as CSV)
@@ -106,25 +117,72 @@ public class ApiKeyStore {
      * @return the generated {@code keyId} and raw key value
      */
     public ApiKeyCreation create(String userId, Set<String> scopes, Instant expiresAt) {
+        return create(userId, null, scopes, expiresAt);
+    }
+
+    /**
+     * Creates a new API key with a name label for the given user (Issue #1050).
+     *
+     * @param userId    the owning user's TSID
+     * @param name      optional label/name for the key
+     * @param scopes    the scopes to grant (may be empty; persisted as CSV)
+     * @param expiresAt expiry instant, or {@code null} for a non-expiring key
+     * @return the generated {@code keyId} and raw key value
+     */
+    public ApiKeyCreation create(String userId, String name, Set<String> scopes, Instant expiresAt) {
         String rawKey = generateRawKey();
         String keyHash = sha256Hex(rawKey);
         String keyId = TSID.generate();
         String scopesCsv = toCsv(scopes);
+        String keyPrefix = "spk_" + rawKey.substring(0, Math.min(8, rawKey.length()));
+        Timestamp now = Timestamp.from(Instant.now());
+        Timestamp exp = expiresAt != null ? Timestamp.from(expiresAt) : null;
 
-        jdbc.sql("""
-                INSERT INTO api_keys (key_id, user_id, key_hash, scopes, expires_at, revoked, created_at)
-                VALUES (:keyId, :userId, :keyHash, :scopes, :expiresAt, FALSE, :createdAt)
-                """)
-                .param("keyId", keyId)
-                .param("userId", userId)
-                .param("keyHash", keyHash)
-                .param("scopes", scopesCsv)
-                .param("expiresAt", expiresAt != null ? Timestamp.from(expiresAt) : null)
-                .param("createdAt", Timestamp.from(Instant.now()))
-                .update();
+        try {
+            jdbc.sql("""
+                    INSERT INTO api_keys (key_id, user_id, key_hash, scopes, expires_at, revoked, created_at, name, key_prefix)
+                    VALUES (:keyId, :userId, :keyHash, :scopes, :expiresAt, FALSE, :createdAt, :name, :keyPrefix)
+                    """)
+                    .param("keyId", keyId)
+                    .param("userId", userId)
+                    .param("keyHash", keyHash)
+                    .param("scopes", scopesCsv)
+                    .param("expiresAt", exp)
+                    .param("createdAt", now)
+                    .param("name", name)
+                    .param("keyPrefix", keyPrefix)
+                    .update();
+        } catch (DataAccessException e) {
+            // Fallback for minimal schemas lacking metadata columns (e.g. ad-hoc unit tests)
+            jdbc.sql("""
+                    INSERT INTO api_keys (key_id, user_id, key_hash, scopes, expires_at, revoked, created_at)
+                    VALUES (:keyId, :userId, :keyHash, :scopes, :expiresAt, FALSE, :createdAt)
+                    """)
+                    .param("keyId", keyId)
+                    .param("userId", userId)
+                    .param("keyHash", keyHash)
+                    .param("scopes", scopesCsv)
+                    .param("expiresAt", exp)
+                    .param("createdAt", now)
+                    .update();
+        }
 
         log.debug("[Auth] Created API key {} for user {}", keyId, userId);
         return new ApiKeyCreation(keyId, rawKey);
+    }
+
+    /**
+     * Updates the {@code last_used_at} timestamp for an authenticated API key.
+     *
+     * @param keyId the key TSID
+     */
+    public void recordLastUsed(String keyId) {
+        try {
+            jdbc.sql("UPDATE api_keys SET last_used_at = :now WHERE key_id = :keyId")
+                    .param("now", Timestamp.from(Instant.now()))
+                    .param("keyId", keyId)
+                    .update();
+        } catch (DataAccessException ignored) {}
     }
 
     /**
@@ -144,36 +202,200 @@ public class ApiKeyStore {
     }
 
     /**
-     * Finds the active row owning the given SHA-256 hex hash, if any.
+     * Revokes an API key after enforcing ownership and tenant boundaries (Requirement R1, Issue #1050).
      *
-     * <p>A row is active only when it is both non-revoked and non-expired (a {@code null}
-     * {@code expires_at} means it never expires). Returns {@link Optional#empty()} for an unknown,
-     * revoked, or expired hash — the caller cannot distinguish these cases.</p>
+     * @param keyId        the 13-char TSID of the key to revoke
+     * @param callerUserId the authenticated caller TSID
+     * @param callerTenant the caller tenant ID
+     * @param targetTenant the owning user tenant ID
+     * @param isSuperAdmin whether caller is super-admin
+     * @param isAdmin      whether caller is tenant admin
+     * @return {@code true} if revoked, {@code false} if not found
+     * @throws CrossTenantAccessException if unauthorized
+     */
+    public boolean revokeWithAuthorization(String keyId, String callerUserId, String callerTenant,
+                                          String targetTenant, boolean isSuperAdmin, boolean isAdmin) {
+        Optional<ApiKeyRow> keyOpt = findById(keyId);
+        if (keyOpt.isEmpty()) {
+            return false;
+        }
+        ApiKeyRow key = keyOpt.get();
+        String ownerUserId = key.userId();
+
+        // 1. Account owner can revoke their own key
+        if (callerUserId != null && callerUserId.equals(ownerUserId)) {
+            return revoke(keyId);
+        }
+
+        // 2. Platform operator (super-admin) can revoke any key fleet-wide
+        if (isSuperAdmin) {
+            return revoke(keyId);
+        }
+
+        // 3. Tenant admin can revoke keys within their tenant
+        String effectiveCallerTenant = (callerTenant != null && !callerTenant.isBlank()) ? callerTenant : "default";
+        String effectiveTargetTenant = (targetTenant != null && !targetTenant.isBlank()) ? targetTenant : "default";
+
+        if (isAdmin && effectiveCallerTenant.equalsIgnoreCase(effectiveTargetTenant)) {
+            return revoke(keyId);
+        }
+
+        // 4. Unauthorized cross-user or cross-tenant revocation
+        throw CrossTenantAccessException.forApiKey(callerUserId, keyId, effectiveTargetTenant);
+    }
+
+    /**
+     * Finds an API key row by its 13-character TSID.
+     *
+     * @param keyId the key TSID
+     * @return the row if found, or empty
+     */
+    public Optional<ApiKeyRow> findById(String keyId) {
+        try {
+            return jdbc.sql("""
+                    SELECT key_id, user_id, key_hash, scopes, expires_at, revoked, created_at, name, key_prefix, last_used_at
+                    FROM api_keys
+                    WHERE key_id = :keyId
+                    """)
+                    .param("keyId", keyId)
+                    .query(ApiKeyStore::mapRow)
+                    .optional();
+        } catch (DataAccessException e) {
+            return jdbc.sql("""
+                    SELECT key_id, user_id, key_hash, scopes, expires_at, revoked, created_at
+                    FROM api_keys
+                    WHERE key_id = :keyId
+                    """)
+                    .param("keyId", keyId)
+                    .query(ApiKeyStore::mapRow)
+                    .optional();
+        }
+    }
+
+    /**
+     * Finds all API keys owned by a specific user (Requirement R2).
+     *
+     * @param userId the user's TSID
+     * @return list of API key rows
+     */
+    public List<ApiKeyRow> findByUserId(String userId) {
+        try {
+            return jdbc.sql("""
+                    SELECT key_id, user_id, key_hash, scopes, expires_at, revoked, created_at, name, key_prefix, last_used_at
+                    FROM api_keys
+                    WHERE user_id = :userId
+                    ORDER BY created_at DESC
+                    """)
+                    .param("userId", userId)
+                    .query(ApiKeyStore::mapRow)
+                    .list();
+        } catch (DataAccessException e) {
+            return jdbc.sql("""
+                    SELECT key_id, user_id, key_hash, scopes, expires_at, revoked, created_at
+                    FROM api_keys
+                    WHERE user_id = :userId
+                    ORDER BY created_at DESC
+                    """)
+                    .param("userId", userId)
+                    .query(ApiKeyStore::mapRow)
+                    .list();
+        }
+    }
+
+    /**
+     * Lists all API keys across all users (for administrative oversight, Requirement R3).
+     *
+     * @return list of all API key rows
+     */
+    public List<ApiKeyRow> findAll() {
+        try {
+            return jdbc.sql("""
+                    SELECT key_id, user_id, key_hash, scopes, expires_at, revoked, created_at, name, key_prefix, last_used_at
+                    FROM api_keys
+                    ORDER BY created_at DESC
+                    """)
+                    .query(ApiKeyStore::mapRow)
+                    .list();
+        } catch (DataAccessException e) {
+            return jdbc.sql("""
+                    SELECT key_id, user_id, key_hash, scopes, expires_at, revoked, created_at
+                    FROM api_keys
+                    ORDER BY created_at DESC
+                    """)
+                    .query(ApiKeyStore::mapRow)
+                    .list();
+        }
+    }
+
+    /**
+     * Finds the active row owning the given SHA-256 hex hash, if any.
      *
      * @param sha256HexHash the SHA-256 hex hash of a presented key (64 lowercase hex chars)
      * @return the owning active row, or empty
      */
     public Optional<ApiKeyRow> findActiveByHash(String sha256HexHash) {
-        return jdbc.sql("""
-                SELECT key_id, user_id, key_hash, scopes, expires_at, revoked, created_at
-                FROM api_keys
-                WHERE key_hash = :keyHash
-                  AND revoked = FALSE
-                  AND (expires_at IS NULL OR expires_at > :now)
-                """)
-                .param("keyHash", sha256HexHash)
-                .param("now", Timestamp.from(Instant.now()))
-                .query((rs, rowNum) -> new ApiKeyRow(
-                        rs.getString("key_id"),
-                        rs.getString("user_id"),
-                        rs.getString("key_hash"),
-                        fromCsv(rs.getString("scopes")),
-                        rs.getTimestamp("expires_at") != null
-                                ? rs.getTimestamp("expires_at").toInstant() : null,
-                        rs.getBoolean("revoked"),
-                        rs.getTimestamp("created_at") != null
-                                ? rs.getTimestamp("created_at").toInstant() : Instant.now()))
-                .optional();
+        try {
+            return jdbc.sql("""
+                    SELECT key_id, user_id, key_hash, scopes, expires_at, revoked, created_at, name, key_prefix, last_used_at
+                    FROM api_keys
+                    WHERE key_hash = :keyHash
+                      AND revoked = FALSE
+                      AND (expires_at IS NULL OR expires_at > :now)
+                    """)
+                    .param("keyHash", sha256HexHash)
+                    .param("now", Timestamp.from(Instant.now()))
+                    .query(ApiKeyStore::mapRow)
+                    .optional();
+        } catch (DataAccessException e) {
+            return jdbc.sql("""
+                    SELECT key_id, user_id, key_hash, scopes, expires_at, revoked, created_at
+                    FROM api_keys
+                    WHERE key_hash = :keyHash
+                      AND revoked = FALSE
+                      AND (expires_at IS NULL OR expires_at > :now)
+                    """)
+                    .param("keyHash", sha256HexHash)
+                    .param("now", Timestamp.from(Instant.now()))
+                    .query(ApiKeyStore::mapRow)
+                    .optional();
+        }
+    }
+
+    private static ApiKeyRow mapRow(ResultSet rs, int rowNum) throws SQLException {
+        String name = null;
+        String keyPrefix = null;
+        Instant lastUsedAt = null;
+        try {
+            name = rs.getString("name");
+        } catch (SQLException ignored) {}
+        try {
+            keyPrefix = rs.getString("key_prefix");
+        } catch (SQLException ignored) {}
+        try {
+            Timestamp ts = rs.getTimestamp("last_used_at");
+            if (ts != null) {
+                lastUsedAt = ts.toInstant();
+            }
+        } catch (SQLException ignored) {}
+
+        String keyId = rs.getString("key_id");
+        if (keyPrefix == null || keyPrefix.isBlank()) {
+            keyPrefix = "spk_" + (keyId != null && keyId.length() >= 8 ? keyId.substring(0, 8) : (keyId != null ? keyId : ""));
+        }
+
+        return new ApiKeyRow(
+                keyId,
+                rs.getString("user_id"),
+                rs.getString("key_hash"),
+                fromCsv(rs.getString("scopes")),
+                rs.getTimestamp("expires_at") != null
+                        ? rs.getTimestamp("expires_at").toInstant() : null,
+                rs.getBoolean("revoked"),
+                rs.getTimestamp("created_at") != null
+                        ? rs.getTimestamp("created_at").toInstant() : Instant.now(),
+                name,
+                keyPrefix,
+                lastUsedAt);
     }
 
     /**

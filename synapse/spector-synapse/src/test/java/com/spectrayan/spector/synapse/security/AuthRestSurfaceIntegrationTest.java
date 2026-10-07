@@ -22,6 +22,7 @@ import java.util.Set;
 import javax.sql.DataSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -556,6 +557,199 @@ class AuthRestSurfaceIntegrationTest {
                             .content(json(new CreateApiKeyRequest(Set.of("memory:read"), null))))
                     .andExpect(status().isUnauthorized());
         }
+
+        @Test
+        @DisplayName("IDOR prevention: User A cannot revoke User B's key, returns 403 with taxonomy code and key remains active (Issue #1050)")
+        void idor_userCannotRevokeAnotherUsersKey_returns403AndKeyRemainsActive() throws Exception {
+            String adminToken = adminAccessToken();
+            registerUser(adminToken, "alice_idor", "Alice!Password!123", Set.of("USER"));
+            registerUser(adminToken, "bob_idor", "Bob!Password!123", Set.of("USER"));
+
+            String tokenA = loginOk("alice_idor", "Alice!Password!123").accessToken();
+            String tokenB = loginOk("bob_idor", "Bob!Password!123").accessToken();
+
+            // User B creates an API key
+            CreateApiKeyResponse keyB = read(mvc.perform(post(AUTH + "/api-keys")
+                            .header("Authorization", "Bearer " + tokenB)
+                            .contentType(APPLICATION_JSON)
+                            .content(json(new CreateApiKeyRequest("Bob Key", Set.of("memory:read"), null))))
+                    .andExpect(status().isCreated())
+                    .andReturn(), CreateApiKeyResponse.class);
+
+            // User A attempts to revoke User B's key -> 403 Forbidden with SPE-820-001
+            mvc.perform(delete(AUTH + "/api-keys/" + keyB.keyId())
+                            .header("Authorization", "Bearer " + tokenA))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.status").value(403))
+                    .andExpect(jsonPath("$.error").value("SPE-820-001"))
+                    .andExpect(jsonPath("$.message").value(containsString("SPE-820-001")));
+
+            // User B's key is STILL active and authenticates successfully
+            mvc.perform(post(AUTH + "/api-keys")
+                            .header("X-API-Key", keyB.apiKey())
+                            .contentType(APPLICATION_JSON)
+                            .content(json(new CreateApiKeyRequest("Bob Second Key", Set.of("memory:read"), null))))
+                    .andExpect(status().isCreated());
+        }
+
+        @Test
+        @DisplayName("Ownership enforcement: User A can revoke their own key -> 204 No Content (Issue #1050)")
+        void userCanRevokeOwnKey_returns204_andKeyNoLongerAuthenticates() throws Exception {
+            String adminToken = adminAccessToken();
+            registerUser(adminToken, "charlie_own", "Charlie!Password!123", Set.of("USER"));
+            String tokenCharlie = loginOk("charlie_own", "Charlie!Password!123").accessToken();
+
+            CreateApiKeyResponse key = read(mvc.perform(post(AUTH + "/api-keys")
+                            .header("Authorization", "Bearer " + tokenCharlie)
+                            .contentType(APPLICATION_JSON)
+                            .content(json(new CreateApiKeyRequest("Charlie Key", Set.of("memory:read"), null))))
+                    .andExpect(status().isCreated())
+                    .andReturn(), CreateApiKeyResponse.class);
+
+            // Revoke own key
+            mvc.perform(delete(AUTH + "/api-keys/" + key.keyId())
+                            .header("Authorization", "Bearer " + tokenCharlie))
+                    .andExpect(status().isNoContent());
+
+            // Key no longer authenticates
+            mvc.perform(post(AUTH + "/api-keys")
+                            .header("X-API-Key", key.apiKey())
+                            .contentType(APPLICATION_JSON)
+                            .content(json(new CreateApiKeyRequest(Set.of("memory:read"), null))))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        @DisplayName("GET /api-keys returns caller-owned keys with metadata only (no secrets or hashes) (Issue #1050)")
+        void listApiKeys_returnsCallerKeysOnly_andOmitsSecrets() throws Exception {
+            String adminToken = adminAccessToken();
+            registerUser(adminToken, "dave_list", "Dave!Password!123", Set.of("USER"));
+            registerUser(adminToken, "eve_list", "Eve!Password!123", Set.of("USER"));
+
+            String tokenDave = loginOk("dave_list", "Dave!Password!123").accessToken();
+            String tokenEve = loginOk("eve_list", "Eve!Password!123").accessToken();
+
+            CreateApiKeyResponse daveKey = read(mvc.perform(post(AUTH + "/api-keys")
+                            .header("Authorization", "Bearer " + tokenDave)
+                            .contentType(APPLICATION_JSON)
+                            .content(json(new CreateApiKeyRequest("Dave Primary Key", Set.of("memory:read"), null))))
+                    .andExpect(status().isCreated())
+                    .andReturn(), CreateApiKeyResponse.class);
+
+            CreateApiKeyResponse eveKey = read(mvc.perform(post(AUTH + "/api-keys")
+                            .header("Authorization", "Bearer " + tokenEve)
+                            .contentType(APPLICATION_JSON)
+                            .content(json(new CreateApiKeyRequest("Eve Primary Key", Set.of("memory:read"), null))))
+                    .andExpect(status().isCreated())
+                    .andReturn(), CreateApiKeyResponse.class);
+
+            // Dave lists keys
+            MvcResult res = mvc.perform(get(AUTH + "/api-keys")
+                            .header("Authorization", "Bearer " + tokenDave))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$").isArray())
+                    .andReturn();
+
+            JsonNode list = tree(res);
+            assertThat(list.size()).isGreaterThanOrEqualTo(1);
+
+            boolean foundDaveKey = false;
+            for (JsonNode item : list) {
+                String keyId = item.path("key_id").asText();
+                assertThat(keyId).isNotEqualTo(eveKey.keyId());
+                if (keyId.equals(daveKey.keyId())) {
+                    foundDaveKey = true;
+                    assertThat(item.path("name").asText()).isEqualTo("Dave Primary Key");
+                    assertThat(item.path("key_prefix").asText()).isNotEmpty();
+                    assertThat(item.path("api_key").isMissingNode()).isTrue();
+                    assertThat(item.path("raw_key").isMissingNode()).isTrue();
+                    assertThat(item.path("key_hash").isMissingNode()).isTrue();
+                }
+            }
+            assertThat(foundDaveKey).isTrue();
+        }
+
+        @Test
+        @DisplayName("Tenant Admin oversight: can revoke keys within same tenant, rejected on cross-tenant revocation (Issue #1050)")
+        void tenantAdmin_canRevokeWithinTenant_andBlockedCrossTenant() throws Exception {
+            // Create Tenant Alpha Admin and User
+            userAccountStore.createUser("t_admin_alpha", "AdminAlpha!123", null, null,
+                    Set.of("ADMIN"), Set.of(), false, "tenant-alpha");
+            userAccountStore.createUser("t_user_alpha", "UserAlpha!123", null, null,
+                    Set.of("USER"), Set.of(), false, "tenant-alpha");
+            // Create Tenant Beta User
+            userAccountStore.createUser("t_user_beta", "UserBeta!123", null, null,
+                    Set.of("USER"), Set.of(), false, "tenant-beta");
+
+            String tokenAdminAlpha = loginOk("t_admin_alpha", "AdminAlpha!123").accessToken();
+            String tokenUserAlpha = loginOk("t_user_alpha", "UserAlpha!123").accessToken();
+            String tokenUserBeta = loginOk("t_user_beta", "UserBeta!123").accessToken();
+
+            CreateApiKeyResponse keyAlpha = read(mvc.perform(post(AUTH + "/api-keys")
+                            .header("Authorization", "Bearer " + tokenUserAlpha)
+                            .contentType(APPLICATION_JSON)
+                            .content(json(new CreateApiKeyRequest("Alpha Key", Set.of("memory:read"), null))))
+                    .andExpect(status().isCreated())
+                    .andReturn(), CreateApiKeyResponse.class);
+
+            CreateApiKeyResponse keyBeta = read(mvc.perform(post(AUTH + "/api-keys")
+                            .header("Authorization", "Bearer " + tokenUserBeta)
+                            .contentType(APPLICATION_JSON)
+                            .content(json(new CreateApiKeyRequest("Beta Key", Set.of("memory:read"), null))))
+                    .andExpect(status().isCreated())
+                    .andReturn(), CreateApiKeyResponse.class);
+
+            // Cross-tenant attempt: Admin Alpha cannot revoke User Beta's key
+            mvc.perform(delete(AUTH + "/api-keys/" + keyBeta.keyId())
+                            .header("Authorization", "Bearer " + tokenAdminAlpha))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.error").value("SPE-820-001"));
+
+            // Same-tenant revocation: Admin Alpha CAN revoke User Alpha's key
+            mvc.perform(delete(AUTH + "/api-keys/" + keyAlpha.keyId())
+                            .header("Authorization", "Bearer " + tokenAdminAlpha))
+                    .andExpect(status().isNoContent());
+
+            // keyAlpha no longer authenticates
+            mvc.perform(post(AUTH + "/api-keys")
+                            .header("X-API-Key", keyAlpha.apiKey())
+                            .contentType(APPLICATION_JSON)
+                            .content(json(new CreateApiKeyRequest(Set.of("memory:read"), null))))
+                    .andExpect(status().isUnauthorized());
+
+            // keyBeta STILL authenticates
+            mvc.perform(post(AUTH + "/api-keys")
+                            .header("X-API-Key", keyBeta.apiKey())
+                            .contentType(APPLICATION_JSON)
+                            .content(json(new CreateApiKeyRequest(Set.of("memory:read"), null))))
+                    .andExpect(status().isCreated());
+        }
+
+        @Test
+        @DisplayName("GET /api/v1/admin/api-keys: tenant-scoped oversight for admin, 403 for non-admin (Issue #1050)")
+        void adminListApiKeys_tenantOversightAndSecurityGating() throws Exception {
+            String adminToken = adminAccessToken();
+            String userAId = registerUser(adminToken, "frank_admin_test", "Frank!Password!123", Set.of("USER"));
+            String tokenFrank = loginOk("frank_admin_test", "Frank!Password!123").accessToken();
+
+            // Non-admin calling GET /api/v1/admin/api-keys returns 403 Forbidden
+            mvc.perform(get("/api/v1/admin/api-keys")
+                            .header("Authorization", "Bearer " + tokenFrank))
+                    .andExpect(status().isForbidden());
+
+            // Admin can access GET /api/v1/admin/api-keys
+            mvc.perform(get("/api/v1/admin/api-keys")
+                            .header("Authorization", "Bearer " + adminToken))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$").isArray());
+
+            // Filter by accountId
+            mvc.perform(get("/api/v1/admin/api-keys")
+                            .param("accountId", userAId)
+                            .header("Authorization", "Bearer " + adminToken))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$").isArray());
+        }
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -762,6 +956,11 @@ class AuthRestSurfaceIntegrationTest {
         @Bean
         AuthExceptionHandler authExceptionHandler() {
             return new AuthExceptionHandler();
+        }
+
+        @Bean
+        AdminApiKeyController adminApiKeyController(ApiKeyStore apiKeyStore, UserAccountStore userAccountStore) {
+            return new AdminApiKeyController(apiKeyStore, userAccountStore);
         }
     }
 }

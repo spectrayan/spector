@@ -214,15 +214,21 @@ public final class AuthDto {
     }
 
     /**
-     * Request body to issue a per-user API key (Requirement 12.6).
+     * Request body to issue a per-user API key (Requirement 12.6, Issue #1050).
      *
+     * @param name      optional label/name for the key
      * @param scopes    optional scopes to grant the key
      * @param expiresAt optional expiry instant, or {@code null} for a non-expiring key
      */
     public record CreateApiKeyRequest(
+            @JsonProperty("name") String name,
             @JsonProperty("scopes") Set<String> scopes,
             @JsonProperty("expires_at") Instant expiresAt
-    ) {}
+    ) {
+        public CreateApiKeyRequest(Set<String> scopes, Instant expiresAt) {
+            this(null, scopes, expiresAt);
+        }
+    }
 
     /**
      * Response for a newly issued API key. The raw {@code apiKey} value is returned exactly once and
@@ -235,4 +241,58 @@ public final class AuthDto {
             @JsonProperty("key_id") String keyId,
             @JsonProperty("api_key") String apiKey
     ) {}
+
+    /**
+     * Safe API-key metadata projection returned by key-listing and oversight endpoints
+     * (Requirements R2, R3, Issue #1050).
+     *
+     * <p>Deliberately omits the raw key value and the SHA-256 hash so secrets never leave
+     * the store.</p>
+     *
+     * @param id          13-character TSID identifying the key row
+     * @param keyId       alias for id
+     * @param name        key label or description
+     * @param description alias for name
+     * @param keyPrefix   display prefix (e.g. "spk_abc12345")
+     * @param scopes      granted scopes
+     * @param createdAt   row creation instant
+     * @param expiresAt   expiry instant, or {@code null} if non-expiring
+     * @param lastUsedAt  last-used instant, or {@code null} if never used
+     * @param revoked     whether the key has been revoked
+     * @param userId      owning user's TSID
+     */
+    public record ApiKeySummary(
+            @JsonProperty("id") String id,
+            @JsonProperty("key_id") String keyId,
+            @JsonProperty("name") String name,
+            @JsonProperty("description") String description,
+            @JsonProperty("key_prefix") String keyPrefix,
+            @JsonProperty("scopes") Set<String> scopes,
+            @JsonProperty("created_at") Instant createdAt,
+            @JsonProperty("expires_at") Instant expiresAt,
+            @JsonProperty("last_used_at") Instant lastUsedAt,
+            @JsonProperty("revoked") boolean revoked,
+            @JsonProperty("user_id") String userId
+    ) {
+        public static ApiKeySummary from(ApiKeyStore.ApiKeyRow row) {
+            String kid = row.keyId();
+            String prefix = row.keyPrefix();
+            if (prefix == null || prefix.isBlank()) {
+                prefix = "spk_" + (kid != null && kid.length() >= 8 ? kid.substring(0, 8) : (kid != null ? kid : ""));
+            }
+            String n = row.name() != null ? row.name() : "";
+            return new ApiKeySummary(
+                    kid,
+                    kid,
+                    n,
+                    n,
+                    prefix,
+                    row.scopes() != null ? row.scopes() : Set.of(),
+                    row.createdAt(),
+                    row.expiresAt(),
+                    row.lastUsedAt(),
+                    row.revoked(),
+                    row.userId());
+        }
+    }
 }

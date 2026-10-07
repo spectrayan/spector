@@ -46,11 +46,14 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 
+import com.spectrayan.spector.synapse.catalog.exception.CrossTenantAccessException;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
 import com.spectrayan.spector.config.properties.AuthProperties;
 import com.spectrayan.spector.config.properties.AuthProperties.RefreshProperties;
 import com.spectrayan.spector.synapse.memory.MemoryDto.ErrorResponse;
 import com.spectrayan.spector.synapse.security.ApiKeyStore.ApiKeyCreation;
+import com.spectrayan.spector.synapse.security.ApiKeyStore.ApiKeyRow;
+import com.spectrayan.spector.synapse.security.AuthDto.ApiKeySummary;
 import com.spectrayan.spector.synapse.security.AuthDto.ChangePasswordRequest;
 import com.spectrayan.spector.synapse.security.AuthDto.CreateApiKeyRequest;
 import com.spectrayan.spector.synapse.security.AuthDto.CreateApiKeyResponse;
@@ -103,7 +106,14 @@ class AuthControllerTest {
     }
 
     private void bindPrincipal(String userId) {
-        Authentication authenticated = new UsernamePasswordAuthenticationToken(userId, null, List.of());
+        bindPrincipal(userId, new String[0]);
+    }
+
+    private void bindPrincipal(String userId, String... roles) {
+        List<SimpleGrantedAuthority> authorities = java.util.Arrays.stream(roles)
+                .map(r -> new SimpleGrantedAuthority("ROLE_" + r))
+                .toList();
+        Authentication authenticated = new UsernamePasswordAuthenticationToken(userId, null, authorities);
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(authenticated);
         SecurityContextHolder.setContext(context);
@@ -406,6 +416,103 @@ class AuthControllerTest {
     @Test
     void revokeApiKeySuccessReturns204() {
         when(apiKeyStore.revoke("KEY0000000001")).thenReturn(true);
+
+        ResponseEntity<?> response = controller.revokeApiKey("KEY0000000001");
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+    }
+
+    @Test
+    void listApiKeysReturnsCurrentUserKeys() {
+        bindPrincipal(USER_ID);
+        ApiKeyRow row = new ApiKeyRow("KEY0000000001", USER_ID, "hash", Set.of("memory:read"),
+                null, false, Instant.now(), "Test Key", "spk_12345678", null);
+        when(apiKeyStore.findByUserId(USER_ID)).thenReturn(List.of(row));
+
+        ResponseEntity<List<ApiKeySummary>> response = controller.listApiKeys();
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).hasSize(1);
+        ApiKeySummary summary = response.getBody().getFirst();
+        assertThat(summary.keyId()).isEqualTo("KEY0000000001");
+        assertThat(summary.name()).isEqualTo("Test Key");
+        assertThat(summary.keyPrefix()).isEqualTo("spk_12345678");
+        assertThat(summary.scopes()).containsExactly("memory:read");
+    }
+
+    @Test
+    void revokeApiKeyUnauthorizedReturns403() {
+        bindPrincipal("USER_ATTACKER");
+        ApiKeyRow targetKey = new ApiKeyRow("KEY0000000001", "USER_VICTIM", "hash", Set.of(),
+                null, false, Instant.now(), "Victim Key", "spk_victim", null);
+        when(apiKeyStore.findById("KEY0000000001")).thenReturn(Optional.of(targetKey));
+        when(userAccountStore.findByUserId("USER_ATTACKER")).thenReturn(Optional.of(
+                new UserRow("USER_ATTACKER", "attacker", "h", null, null, Set.of("USER"), Set.of(), false, true, 0, null, null, Instant.now(), Instant.now(), "tenant-a")));
+        when(userAccountStore.findByUserId("USER_VICTIM")).thenReturn(Optional.of(
+                new UserRow("USER_VICTIM", "victim", "h", null, null, Set.of("USER"), Set.of(), false, true, 0, null, null, Instant.now(), Instant.now(), "tenant-a")));
+        when(apiKeyStore.revokeWithAuthorization(eq("KEY0000000001"), eq("USER_ATTACKER"), any(), any(), eq(false), eq(false)))
+                .thenThrow(CrossTenantAccessException.forApiKey("USER_ATTACKER", "KEY0000000001", "tenant-a"));
+
+        ResponseEntity<?> response = controller.revokeApiKey("KEY0000000001");
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(response.getBody()).isInstanceOf(ErrorResponse.class);
+        ErrorResponse err = (ErrorResponse) response.getBody();
+        assertThat(err.status()).isEqualTo(403);
+        assertThat(err.message()).contains("SPE-820-001");
+    }
+
+    @Test
+    void revokeApiKeyTenantAdminSameTenantReturns204() {
+        bindPrincipal("ADMIN_USER", "ADMIN");
+        ApiKeyRow targetKey = new ApiKeyRow("KEY0000000001", "USER_VICTIM", "hash", Set.of(),
+                null, false, Instant.now(), "Victim Key", "spk_victim", null);
+        when(apiKeyStore.findById("KEY0000000001")).thenReturn(Optional.of(targetKey));
+        when(userAccountStore.findByUserId("ADMIN_USER")).thenReturn(Optional.of(
+                new UserRow("ADMIN_USER", "admin", "h", null, null, Set.of("ADMIN"), Set.of(), false, true, 0, null, null, Instant.now(), Instant.now(), "tenant-a")));
+        when(userAccountStore.findByUserId("USER_VICTIM")).thenReturn(Optional.of(
+                new UserRow("USER_VICTIM", "victim", "h", null, null, Set.of("USER"), Set.of(), false, true, 0, null, null, Instant.now(), Instant.now(), "tenant-a")));
+        when(apiKeyStore.revokeWithAuthorization(eq("KEY0000000001"), eq("ADMIN_USER"), eq("tenant-a"), eq("tenant-a"), eq(false), eq(true)))
+                .thenReturn(true);
+
+        ResponseEntity<?> response = controller.revokeApiKey("KEY0000000001");
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+    }
+
+    @Test
+    void revokeApiKeyTenantAdminOtherTenantReturns403() {
+        bindPrincipal("ADMIN_USER", "ADMIN");
+        ApiKeyRow targetKey = new ApiKeyRow("KEY0000000001", "USER_OTHER", "hash", Set.of(),
+                null, false, Instant.now(), "Other Key", "spk_other", null);
+        when(apiKeyStore.findById("KEY0000000001")).thenReturn(Optional.of(targetKey));
+        when(userAccountStore.findByUserId("ADMIN_USER")).thenReturn(Optional.of(
+                new UserRow("ADMIN_USER", "admin", "h", null, null, Set.of("ADMIN"), Set.of(), false, true, 0, null, null, Instant.now(), Instant.now(), "tenant-a")));
+        when(userAccountStore.findByUserId("USER_OTHER")).thenReturn(Optional.of(
+                new UserRow("USER_OTHER", "other", "h", null, null, Set.of("USER"), Set.of(), false, true, 0, null, null, Instant.now(), Instant.now(), "tenant-b")));
+        when(apiKeyStore.revokeWithAuthorization(eq("KEY0000000001"), eq("ADMIN_USER"), eq("tenant-a"), eq("tenant-b"), eq(false), eq(true)))
+                .thenThrow(CrossTenantAccessException.forApiKey("ADMIN_USER", "KEY0000000001", "tenant-b"));
+
+        ResponseEntity<?> response = controller.revokeApiKey("KEY0000000001");
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        ErrorResponse err = (ErrorResponse) response.getBody();
+        assertThat(err.status()).isEqualTo(403);
+        assertThat(err.message()).contains("SPE-820-001");
+    }
+
+    @Test
+    void revokeApiKeySuperAdminAnyTenantReturns204() {
+        bindPrincipal("SUPER_USER", "SUPER_ADMIN");
+        ApiKeyRow targetKey = new ApiKeyRow("KEY0000000001", "USER_OTHER", "hash", Set.of(),
+                null, false, Instant.now(), "Other Key", "spk_other", null);
+        when(apiKeyStore.findById("KEY0000000001")).thenReturn(Optional.of(targetKey));
+        when(userAccountStore.findByUserId("SUPER_USER")).thenReturn(Optional.of(
+                new UserRow("SUPER_USER", "super", "h", null, null, Set.of("SUPER_ADMIN"), Set.of(), false, true, 0, null, null, Instant.now(), Instant.now(), "platform")));
+        when(userAccountStore.findByUserId("USER_OTHER")).thenReturn(Optional.of(
+                new UserRow("USER_OTHER", "other", "h", null, null, Set.of("USER"), Set.of(), false, true, 0, null, null, Instant.now(), Instant.now(), "tenant-b")));
+        when(apiKeyStore.revokeWithAuthorization(eq("KEY0000000001"), eq("SUPER_USER"), any(), any(), eq(true), anyBoolean()))
+                .thenReturn(true);
 
         ResponseEntity<?> response = controller.revokeApiKey("KEY0000000001");
 

@@ -26,10 +26,20 @@ public class CrossTenantAccessException extends NamespaceAccessDeniedException {
     public static final String ERROR_CODE_ALIAS = "SPE-SEC-001";
 
     private final String targetTenantId;
+    private final String resourceType;
 
     public CrossTenantAccessException(String accountId, String namespaceId, String targetTenantId) {
-        super(namespaceId, accountId);
+        this(accountId, namespaceId, targetTenantId, "namespace");
+    }
+
+    public CrossTenantAccessException(String accountId, String resourceId, String targetTenantId, String resourceType) {
+        super(resourceId, accountId);
         this.targetTenantId = targetTenantId;
+        this.resourceType = resourceType != null ? resourceType : "namespace";
+    }
+
+    public static CrossTenantAccessException forApiKey(String accountId, String keyId, String targetTenantId) {
+        return new CrossTenantAccessException(accountId, keyId, targetTenantId, "api key");
     }
 
     @Override
@@ -40,7 +50,7 @@ public class CrossTenantAccessException extends NamespaceAccessDeniedException {
     @Override
     public String getMessage() {
         return "[" + ErrorCode.CROSS_TENANT_ACCESS_DENIED.id() + " / " + ERROR_CODE_ALIAS + "] Cross-tenant access denied: account '"
-                + getPrincipalId() + "' cannot access namespace '" + getNamespaceId()
+                + getPrincipalId() + "' cannot access " + resourceType + " '" + getNamespaceId()
                 + "' belonging to tenant '" + targetTenantId + "'";
     }
 
@@ -50,5 +60,9 @@ public class CrossTenantAccessException extends NamespaceAccessDeniedException {
 
     public String getTargetTenantId() {
         return targetTenantId;
+    }
+
+    public String getResourceType() {
+        return resourceType;
     }
 }

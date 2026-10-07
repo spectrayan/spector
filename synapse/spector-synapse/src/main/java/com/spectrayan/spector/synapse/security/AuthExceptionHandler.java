@@ -28,7 +28,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.util.Map;
+
 import com.spectrayan.spector.commons.error.SpectorValidationException;
+import com.spectrayan.spector.synapse.catalog.exception.CrossTenantAccessException;
 import com.spectrayan.spector.synapse.memory.MemoryDto.ErrorResponse;
 
 /**
@@ -196,5 +199,39 @@ public class AuthExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(new ErrorResponse(401, "Unauthorized", MSG_AUTH_FAILED));
+    }
+
+    /**
+     * Maps cross-tenant and IDOR authorization violations (ADR-0070, Issue #1048, Issue #1050)
+     * to a fail-closed HTTP 403 Forbidden with unified error taxonomy (SPE-820-001 / SPE-SEC-001).
+     *
+     * @param ex the cross-tenant violation
+     * @return a 403 response with unified error taxonomy
+     */
+    @ExceptionHandler(CrossTenantAccessException.class)
+    public ResponseEntity<ErrorResponse> handleCrossTenantAccess(CrossTenantAccessException ex) {
+        log.warn("[Auth] Cross-tenant access denied: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new ErrorResponse(
+                        HttpStatus.FORBIDDEN.value(),
+                        ex.errorCode().id(),
+                        ex.getMessage(),
+                        Map.of(
+                                "alias", CrossTenantAccessException.ERROR_CODE_ALIAS,
+                                "code", ex.errorCode().id()
+                        )
+                ));
+    }
+
+    /**
+     * Maps Spring Security access denials to HTTP 403.
+     */
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(org.springframework.security.access.AccessDeniedException ex) {
+        log.warn("[Auth] Access denied: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new ErrorResponse(HttpStatus.FORBIDDEN.value(), "SPE-003-001", ex.getMessage()));
     }
 }

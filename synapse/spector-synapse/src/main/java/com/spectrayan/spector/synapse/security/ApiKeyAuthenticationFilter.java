@@ -157,6 +157,7 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
         Optional<ApiKeyStore.ApiKeyRow> match = apiKeyStore.findActiveByHash(hash);
         if (match.isPresent()) {
             ApiKeyStore.ApiKeyRow row = match.get();
+            apiKeyStore.recordLastUsed(row.keyId());
             String tenantId = null;
             Set<String> roles = new java.util.LinkedHashSet<>();
             Set<String> scopes = new java.util.LinkedHashSet<>();

@@ -17,11 +17,16 @@ package com.spectrayan.spector.synapse.security;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.synapse.catalog.exception.CrossTenantAccessException;
+import com.spectrayan.spector.synapse.security.AuthDto.ApiKeySummary;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -424,6 +429,7 @@ public class AuthController {
     public ResponseEntity<CreateApiKeyResponse> createApiKey(
             @Valid @RequestBody(required = false) CreateApiKeyRequest request) {
         String userId = SecurityUtils.getUserId();
+        String name = request != null ? request.name() : null;
         Set<String> scopes = request != null ? request.scopes() : null;
         Instant expiresAt = request != null ? request.expiresAt() : null;
 
@@ -438,7 +444,9 @@ public class AuthController {
             }
         }
 
-        ApiKeyCreation created = apiKeyStore.create(userId, scopes, expiresAt);
+        ApiKeyCreation created = (name != null && !name.isBlank())
+                ? apiKeyStore.create(userId, name, scopes, expiresAt)
+                : apiKeyStore.create(userId, scopes, expiresAt);
         log.info("[Auth] Issued API key {} for user id={}", created.keyId(), userId);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -446,19 +454,77 @@ public class AuthController {
     }
 
     /**
-     * Revokes an API key by id (Requirement 12.6). Revoked keys never authenticate again.
+     * Lists all API keys owned by the authenticated caller (Requirement R2, Issue #1050).
+     *
+     * <p>Returns metadata only: key ID, name/description, key prefix, assigned scopes,
+     * created timestamp, expires timestamp, last-used timestamp, and revocation status.
+     * Never exposes raw key secrets or salted hashes.</p>
+     *
+     * @return list of API key metadata records owned by the caller
+     */
+    @GetMapping(value = "/api-keys", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<List<ApiKeySummary>> listApiKeys() {
+        String userId = SecurityUtils.getUserId();
+        List<ApiKeySummary> keys = apiKeyStore.findByUserId(userId).stream()
+                .map(ApiKeySummary::from)
+                .toList();
+        return ResponseEntity.ok(keys);
+    }
+
+    /**
+     * Revokes an API key by id after enforcing ownership and tenant boundaries (Requirement R1, Issue #1050).
+     *
+     * <ul>
+     *   <li>Regular users can only revoke their own API keys.</li>
+     *   <li>Tenant Admins can revoke keys owned by accounts within their tenant.</li>
+     *   <li>Platform Operators can revoke any key fleet-wide.</li>
+     * </ul>
      *
      * @param id the 13-character TSID of the key to revoke
-     * @return HTTP 204 on success, or HTTP 404 when no such key exists
+     * @return HTTP 204 on success, HTTP 403 on IDOR/cross-tenant violation, or HTTP 404 when not found
      */
     @DeleteMapping(value = "/api-keys/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> revokeApiKey(@PathVariable("id") String id) {
-        boolean revoked = apiKeyStore.revoke(id);
-        if (!revoked) {
-            return notFound("api key not found");
+        String callerUserId = SecurityUtils.getUserId();
+        boolean isSuperAdmin = SecurityUtils.isSuperAdmin();
+        boolean isAdmin = SecurityUtils.isAdmin();
+
+        String callerTenant = SecurityUtils.getTenantId();
+        if (callerTenant == null || "default".equalsIgnoreCase(callerTenant)) {
+            callerTenant = userAccountStore.findByUserId(callerUserId)
+                    .map(UserRow::tenantId)
+                    .filter(t -> t != null && !t.isBlank())
+                    .orElse("default");
         }
-        log.info("[Auth] Revoked API key {}", id);
-        return ResponseEntity.noContent().build();
+
+        Optional<ApiKeyStore.ApiKeyRow> keyOpt = apiKeyStore.findById(id);
+        if (keyOpt.isEmpty()) {
+            boolean revoked = apiKeyStore.revoke(id);
+            if (!revoked) {
+                return notFound("api key not found");
+            }
+            log.info("[Auth] Revoked API key {}", id);
+            return ResponseEntity.noContent().build();
+        }
+
+        String targetUserId = keyOpt.get().userId();
+        String targetTenant = userAccountStore.findByUserId(targetUserId)
+                .map(UserRow::tenantId)
+                .filter(t -> t != null && !t.isBlank())
+                .orElse("default");
+
+        try {
+            boolean revoked = apiKeyStore.revokeWithAuthorization(
+                    id, callerUserId, callerTenant, targetTenant, isSuperAdmin, isAdmin);
+            if (!revoked) {
+                return notFound("api key not found");
+            }
+            log.info("[Auth] Revoked API key {} (caller={}, target={})", id, callerUserId, targetUserId);
+            return ResponseEntity.noContent().build();
+        } catch (CrossTenantAccessException e) {
+            log.warn("[Auth] API key revocation forbidden: {}", e.getMessage());
+            return forbidden(e.getMessage());
+        }
     }
 
     // ── Internal helpers ──
@@ -524,5 +590,19 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(new ErrorResponse(409, "Conflict", message));
+    }
+
+    private static ResponseEntity<ErrorResponse> forbidden(String message) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new ErrorResponse(
+                        HttpStatus.FORBIDDEN.value(),
+                        ErrorCode.CROSS_TENANT_ACCESS_DENIED.id(),
+                        message,
+                        Map.of(
+                                "alias", CrossTenantAccessException.ERROR_CODE_ALIAS,
+                                "code", ErrorCode.CROSS_TENANT_ACCESS_DENIED.id()
+                        )
+                ));
     }
 }
