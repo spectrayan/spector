@@ -25,6 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -121,6 +122,7 @@ public class UserSalienceController {
     }
 
     @PutMapping("/{scope}/{id}")
+    @PreAuthorize("hasAnyRole('admin', 'super-admin', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<Map<String, Object>> saveProfile(
             @PathVariable String scope,
             @PathVariable String id,
@@ -181,6 +183,7 @@ public class UserSalienceController {
     }
 
     @DeleteMapping("/{scope}/{id}")
+    @PreAuthorize("hasAnyRole('admin', 'super-admin', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<Map<String, Object>> deleteProfile(@PathVariable String scope, @PathVariable String id) {
         log.info("Resetting user salience profile for scope={}, id={}", scope, id);
         salienceProvider.updateInterests(List.of(), List.of());
@@ -194,6 +197,7 @@ public class UserSalienceController {
     }
 
     @PostMapping("/rescore")
+    @PreAuthorize("hasAnyRole('admin', 'super-admin', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<Map<String, Object>> rescoreMemories(@RequestBody(required = false) Map<String, String> body) {
         log.info("Triggered rescore of all memories with current salience profile");
         SpectorMemory memory = memoryProvider != null ? memoryProvider.getIfAvailable() : null;
@@ -217,6 +221,7 @@ public class UserSalienceController {
     }
 
     @GetMapping("/rescore/status")
+    @PreAuthorize("hasAnyRole('admin', 'super-admin', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<Map<String, Object>> rescoreStatus() {
         return ResponseEntity.ok(Map.of(
                 "status", "completed",

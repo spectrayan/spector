@@ -103,6 +103,12 @@ class ControllerSecurityMatrixTest {
     @Autowired
     private ObjectMapper mapper;
 
+    @Autowired(required = false)
+    private ApiKeyStore apiKeyStore;
+
+    @Autowired(required = false)
+    private UserAccountStore userAccountStore;
+
     @MockitoBean
     private MemoryService memoryService;
 
@@ -165,7 +171,8 @@ class ControllerSecurityMatrixTest {
                     "TokenUsageController",
                     "ConnectorController",
                     "PluginManager",
-                    "AgentApprovalController"
+                    "AgentApprovalController",
+                    "ObservabilityController"
             );
 
             int checkedAdminMethods = 0;
@@ -349,6 +356,42 @@ class ControllerSecurityMatrixTest {
                         .andExpect(status().isForbidden());
             }
         }
+
+        @Test
+        @DisplayName("Non-admins rejected with 403 on Prometheus actuator metrics")
+        void testNonAdminsRejectedOnPrometheus() throws Exception {
+            for (String role : nonAdminRoles) {
+                mvc.perform(get("/actuator/prometheus").with(user("user1").roles(role)))
+                        .andExpect(status().isForbidden());
+            }
+        }
+
+        @Test
+        @DisplayName("Non-admins rejected with 403 on observability stats and timeline")
+        void testNonAdminsRejectedOnObservability() throws Exception {
+            for (String role : nonAdminRoles) {
+                mvc.perform(get("/api/v1/observability/stats").with(user("user1").roles(role)))
+                        .andExpect(status().isForbidden());
+                mvc.perform(get("/api/v1/observability/timeline").with(user("user1").roles(role)))
+                        .andExpect(status().isForbidden());
+            }
+        }
+
+        @Test
+        @DisplayName("Non-admins rejected with 403 on salience rescoring and user profile mutations")
+        void testNonAdminsRejectedOnUserSalienceMutations() throws Exception {
+            for (String role : nonAdminRoles) {
+                mvc.perform(post("/api/v1/salience/rescore").with(user("user1").roles(role)))
+                        .andExpect(status().isForbidden());
+                mvc.perform(put("/api/v1/salience/user/default")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{}")
+                                .with(user("user1").roles(role)))
+                        .andExpect(status().isForbidden());
+                mvc.perform(delete("/api/v1/salience/user/default").with(user("user1").roles(role)))
+                        .andExpect(status().isForbidden());
+            }
+        }
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -403,6 +446,94 @@ class ControllerSecurityMatrixTest {
                 mvc.perform(get("/api/v1/system/status").with(user("adm").roles(role)))
                         .andExpect(status().isOk());
             }
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // 5. UNAUTHENTICATED REQUESTS RECEIVE 401
+    // ══════════════════════════════════════════════════════════════
+
+    @Nested
+    @DisplayName("5. Unauthenticated Request Gating")
+    class UnauthenticatedRejectionTests {
+
+        @Test
+        @DisplayName("Unauthenticated requests to admin and memory endpoints return 401 Unauthorized")
+        void testUnauthenticatedRequestsRejected() throws Exception {
+            mvc.perform(get("/api/v1/admin/cache")).andExpect(status().isUnauthorized());
+            mvc.perform(get("/tasks")).andExpect(status().isUnauthorized());
+            mvc.perform(get("/api/v1/observability/stats")).andExpect(status().isUnauthorized());
+            mvc.perform(get("/api/v1/memory/table")).andExpect(status().isUnauthorized());
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // 6. API KEY PRINCIPAL ROLE MAPPING & ISOLATION
+    // ══════════════════════════════════════════════════════════════
+
+    @Nested
+    @DisplayName("6. API Key Principal Role Mapping & Grant Isolation")
+    class ApiKeySecurityTests {
+
+        @Test
+        @DisplayName("API key principal inheriting admin role is authorized on admin endpoints")
+        void testApiKeyAdminAuthorizedOnAdminEndpoints() throws Exception {
+            if (apiKeyStore == null || userAccountStore == null) {
+                return;
+            }
+            String adminUid = userAccountStore.findByUsername("apiKeyAdmin")
+                    .map(UserRow::userId)
+                    .orElseGet(() -> userAccountStore.createUser("apiKeyAdmin", "Password123!", null, null,
+                            Set.of("admin"), Set.of(), false));
+            var keyCreation = apiKeyStore.create(adminUid, Set.of("admin"), null);
+
+            // API key with admin role can access cache admin and tasks
+            mvc.perform(get("/api/v1/admin/cache")
+                            .header("Authorization", "Bearer " + keyCreation.rawKey()))
+                    .andExpect(status().isOk());
+
+            mvc.perform(get("/api/v1/tasks")
+                            .header("Authorization", "Bearer " + keyCreation.rawKey()))
+                    .andExpect(status().isOk());
+        }
+
+        @Test
+        @DisplayName("API key principal with admin role receives 403 on ungranted memory namespace")
+        void testApiKeyAdminRejectedOnUngrantedNamespace() throws Exception {
+            if (apiKeyStore == null || userAccountStore == null) {
+                return;
+            }
+            String adminUid = userAccountStore.findByUsername("apiKeyAdmin2")
+                    .map(UserRow::userId)
+                    .orElseGet(() -> userAccountStore.createUser("apiKeyAdmin2", "Password123!", null, null,
+                            Set.of("admin"), Set.of(), false));
+            catalog.getOrCreateAccount(adminUid);
+            var keyCreation = apiKeyStore.create(adminUid, Set.of("admin"), null);
+
+            // Content isolation: Admin API key calling OTHER_USER's namespace receives 403
+            mvc.perform(get("/api/v1/memory/table")
+                            .header("X-Spector-Namespace", OTHER_USER)
+                            .header("Authorization", "Bearer " + keyCreation.rawKey()))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.status").value(403))
+                    .andExpect(jsonPath("$.code").value("SPE-800-002"));
+        }
+
+        @Test
+        @DisplayName("API key principal without admin role rejected with 403 on admin endpoints")
+        void testNonAdminApiKeyRejectedOnAdminEndpoints() throws Exception {
+            if (apiKeyStore == null || userAccountStore == null) {
+                return;
+            }
+            String viewerUid = userAccountStore.findByUsername("apiKeyViewer")
+                    .map(UserRow::userId)
+                    .orElseGet(() -> userAccountStore.createUser("apiKeyViewer", "Password123!", null, null,
+                            Set.of("viewer"), Set.of("memory:read"), false));
+            var keyCreation = apiKeyStore.create(viewerUid, Set.of("memory:read"), null);
+
+            mvc.perform(get("/api/v1/admin/cache")
+                            .header("Authorization", "Bearer " + keyCreation.rawKey()))
+                    .andExpect(status().isForbidden());
         }
     }
 }

@@ -158,33 +158,43 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
         if (match.isPresent()) {
             ApiKeyStore.ApiKeyRow row = match.get();
             String tenantId = null;
-            if (userAccountStore != null) {
-                tenantId = userAccountStore.findByUserId(row.userId())
-                        .map(UserRow::tenantId)
-                        .orElse(null);
+            Set<String> roles = new java.util.LinkedHashSet<>();
+            Set<String> scopes = new java.util.LinkedHashSet<>();
+            if (row.scopes() != null) {
+                scopes.addAll(row.scopes());
             }
+            if (userAccountStore != null) {
+                Optional<UserRow> userOpt = userAccountStore.findByUserId(row.userId());
+                if (userOpt.isPresent()) {
+                    UserRow user = userOpt.get();
+                    tenantId = user.tenantId();
+                    if (user.roles() != null) {
+                        roles.addAll(user.roles());
+                    }
+                }
+            }
+            for (String s : scopes) {
+                if (s != null) {
+                    String norm = s.trim().toLowerCase().replace('_', '-');
+                    if (norm.startsWith("role-") || norm.startsWith("role_")) {
+                        norm = norm.substring(5);
+                    }
+                    if (norm.startsWith("spector:")) {
+                        norm = norm.substring("spector:".length());
+                    }
+                    if (!com.spectrayan.spector.commons.security.SpectorRoles.scopesForRole(norm).isEmpty()) {
+                        roles.add(norm);
+                    }
+                }
+            }
+            List<GrantedAuthority> authorities = SpectorAuthorityMapper.toAuthorities(roles, scopes);
             var authentication = new UsernamePasswordAuthenticationToken(
-                    row.userId(), null, scopeAuthorities(row.scopes()));
+                    row.userId(), null, authorities);
             authentication.setDetails(new ApiKeyAuthenticationDetails(row.keyId(), tenantId));
             SecurityContextHolder.getContext().setAuthentication(authentication);
             log.debug("[Auth] API key {} authenticated user {} (tenant={}) for {}",
                     row.keyId(), row.userId(), tenantId, path);
         }
-    }
-
-    /**
-     * Maps a set of scope strings to {@code SCOPE_}-prefixed {@link GrantedAuthority} instances.
-     */
-    private static List<GrantedAuthority> scopeAuthorities(Set<String> scopes) {
-        List<GrantedAuthority> authorities = new ArrayList<>();
-        if (scopes != null) {
-            for (String scope : scopes) {
-                if (scope != null && !scope.isBlank()) {
-                    authorities.add(new SimpleGrantedAuthority(SCOPE_PREFIX + scope.trim()));
-                }
-            }
-        }
-        return authorities;
     }
 
     /**

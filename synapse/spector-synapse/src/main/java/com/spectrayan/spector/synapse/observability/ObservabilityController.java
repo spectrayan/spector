@@ -27,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
@@ -37,6 +38,7 @@ import java.util.*;
  */
 @RestController
 @RequestMapping("/api/v1/observability")
+@PreAuthorize("hasAnyRole('admin', 'super-admin', 'ADMIN', 'SUPER_ADMIN')")
 public class ObservabilityController {
 
     private static final Logger log = LoggerFactory.getLogger(ObservabilityController.class);

@@ -278,6 +278,8 @@ public class SecurityConfig {
                         .requestMatchers("/tasks", "/tasks/**", "/providers", "/providers/**", "/api/v1/tasks", "/api/v1/tasks/**", "/api/v1/providers", "/api/v1/providers/**").hasAnyRole("admin", "super-admin", "ADMIN", "SUPER_ADMIN")
                         .requestMatchers("/api/v1/admin/**").hasAnyRole("admin", "super-admin", "ADMIN", "SUPER_ADMIN")
                         .requestMatchers("/api/v1/connectors", "/api/v1/connectors/**").hasAnyRole("admin", "super-admin", "ADMIN", "SUPER_ADMIN")
+                        .requestMatchers("/api/v1/observability", "/api/v1/observability/**").hasAnyRole("admin", "super-admin", "ADMIN", "SUPER_ADMIN")
+                        .requestMatchers("/api/v1/salience/rescore", "/api/v1/salience/rescore/**").hasAnyRole("admin", "super-admin", "ADMIN", "SUPER_ADMIN")
                         .requestMatchers("/api/v1/migration/**").hasAnyRole("super-admin", "SUPER_ADMIN")
                         // Protected surfaces require a non-anonymous Authentication (Requirement 6.1).
                         .requestMatchers("/api/**").authenticated()
@@ -293,7 +295,16 @@ public class SecurityConfig {
                 // Route the resource server's own authentication/authorization failures (invalid,
                 // expired, or wrong-issuer bearer tokens) through the same fail-closed responders so
                 // every 401/403 body is uniform and secret-free (Requirements 19.1, 19.6).
+                org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver defaultBearerResolver =
+                        new org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver();
                 http.oauth2ResourceServer(oauth2 -> oauth2
+                        .bearerTokenResolver(request -> {
+                            var currentAuth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+                            if (currentAuth != null && currentAuth.isAuthenticated()) {
+                                return null;
+                            }
+                            return defaultBearerResolver.resolve(request);
+                        })
                         .authenticationManagerResolver(jwtResolver)
                         .authenticationEntryPoint(authEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler));
