@@ -2048,6 +2048,19 @@ paths:
               schema:
                 type: object
   /api/v1/auth/api-keys:
+    get:
+      tags:
+      - auth-controller
+      operationId: listApiKeys
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiKeySummary"
     post:
       tags:
       - auth-controller
@@ -3898,6 +3911,29 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+  /api/v1/admin/api-keys:
+    get:
+      tags:
+      - admin-api-key-controller
+      operationId: listApiKeys_1
+      parameters:
+      - name: accountId
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: userId
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
   /api/v1/account/introspect:
     get:
       tags:
@@ -5222,6 +5258,8 @@ components:
           format: int64
         truncated:
           type: boolean
+        positivelyReinforced:
+          type: boolean
         simulated:
           type: boolean
         dreamed:
@@ -5233,8 +5271,6 @@ components:
         lateral:
           type: boolean
         hyperfocused:
-          type: boolean
-        positivelyReinforced:
           type: boolean
     FederatedRecallHit:
       type: object
@@ -5677,6 +5713,8 @@ components:
     CreateApiKeyRequest:
       type: object
       properties:
+        name:
+          type: string
         scopes:
           type: array
           items:
@@ -6254,11 +6292,11 @@ components:
         flags:
           type: string
           format: byte
+        retraction:
+          type: boolean
         inferred:
           type: boolean
         ongoing:
-          type: boolean
-        retraction:
           type: boolean
         resolved:
           type: boolean
@@ -6591,6 +6629,37 @@ components:
         updated_at:
           type: string
           format: date-time
+    ApiKeySummary:
+      type: object
+      properties:
+        id:
+          type: string
+        key_id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        key_prefix:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        last_used_at:
+          type: string
+          format: date-time
+        revoked:
+          type: boolean
+        user_id:
+          type: string
     AgentCard:
       type: object
       properties:
