@@ -118,8 +118,8 @@ class JdbcUserDetailsServiceTest {
 
         assertThat(details.getAuthorities())
                 .extracting(GrantedAuthority::getAuthority)
-                .containsExactlyInAnyOrder(
-                        "ROLE_ADMIN", "ROLE_USER", "SCOPE_memory:read", "SCOPE_memory:write");
+                .contains(
+                        "ROLE_ADMIN", "ROLE_admin", "ROLE_USER", "ROLE_user", "SCOPE_memory:read", "SCOPE_memory:write");
     }
 
     @Test

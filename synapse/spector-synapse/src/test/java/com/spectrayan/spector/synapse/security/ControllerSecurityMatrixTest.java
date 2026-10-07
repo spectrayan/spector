@@ -172,7 +172,8 @@ class ControllerSecurityMatrixTest {
                     "ConnectorController",
                     "PluginManager",
                     "AgentApprovalController",
-                    "ObservabilityController"
+                    "ObservabilityController",
+                    "SystemController"
             );
 
             int checkedAdminMethods = 0;
@@ -188,6 +189,15 @@ class ControllerSecurityMatrixTest {
                             .as("Controller method %s.%s must have @PreAuthorize", simpleName, method.getMethod().getName())
                             .isTrue();
                     checkedAdminMethods++;
+                }
+
+                if ("ConfigController".equals(simpleName)) {
+                    String methodName = method.getMethod().getName();
+                    if ("saveOverride".equals(methodName) || "deleteOverride".equals(methodName)) {
+                        assertThat(method.hasMethodAnnotation(PreAuthorize.class))
+                                .as("ConfigController mutation method %s must have @PreAuthorize", methodName)
+                                .isTrue();
+                    }
                 }
             }
 
@@ -246,6 +256,42 @@ class ControllerSecurityMatrixTest {
                             .header("X-Spector-Namespace", OTHER_USER)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(recallJson)
+                            .with(user(ADMIN_USER).roles("admin")))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.status").value(403))
+                    .andExpect(jsonPath("$.code").value("SPE-800-002"));
+        }
+
+        @Test
+        @DisplayName("Admin accessing remember on ungranted namespace returns 403 Forbidden")
+        void testAdminOnRememberUngrantedNamespaceReturns403() throws Exception {
+            String rememberJson = mapper.writeValueAsString(Map.of("text", "admin memory write"));
+            mvc.perform(post("/api/v1/memory")
+                            .header("X-Spector-Namespace", OTHER_USER)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(rememberJson)
+                            .with(user(ADMIN_USER).roles("admin")))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.status").value(403))
+                    .andExpect(jsonPath("$.code").value("SPE-800-002"));
+        }
+
+        @Test
+        @DisplayName("Admin accessing graph overview on ungranted namespace returns 403 Forbidden")
+        void testAdminOnGraphOverviewUngrantedNamespaceReturns403() throws Exception {
+            mvc.perform(get("/api/v1/memory/graph/overview")
+                            .header("X-Spector-Namespace", OTHER_USER)
+                            .with(user(ADMIN_USER).roles("admin")))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.status").value(403))
+                    .andExpect(jsonPath("$.code").value("SPE-800-002"));
+        }
+
+        @Test
+        @DisplayName("Admin accessing delete memory on ungranted namespace returns 403 Forbidden")
+        void testAdminOnDeleteMemoryUngrantedNamespaceReturns403() throws Exception {
+            mvc.perform(delete("/api/v1/memory/mem-1")
+                            .header("X-Spector-Namespace", OTHER_USER)
                             .with(user(ADMIN_USER).roles("admin")))
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.status").value(403))
@@ -394,6 +440,17 @@ class ControllerSecurityMatrixTest {
                         .andExpect(status().isForbidden());
             }
         }
+
+        @Test
+        @DisplayName("Non-admins rejected with 403 on migration export")
+        void testNonAdminsRejectedOnMigration() throws Exception {
+            for (String role : nonAdminRoles) {
+                mvc.perform(post("/api/v1/migration/export")
+                                .param("outputPath", "/tmp/export")
+                                .with(user("user1").roles(role)))
+                        .andExpect(status().isForbidden());
+            }
+        }
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -425,7 +482,7 @@ class ControllerSecurityMatrixTest {
         @Test
         @DisplayName("Platform Operator role variants authorized on Platform Operator endpoints via SpectorAuthorityMapper")
         void testSuperAdminAuthorizedOnPlatformEndpoints() throws Exception {
-            for (String role : List.of("super-admin", "SUPER_ADMIN", "SUPER-ADMIN", "super_admin")) {
+            for (String role : List.of("super-admin", "SUPER_ADMIN", "SUPER-ADMIN", "super_admin", "SuperAdmin", "superAdmin")) {
                 mvc.perform(get("/api/v1/system/hardware").with(user("super1").authorities(SpectorAuthorityMapper.forRole(role))))
                         .andExpect(status().isOk());
 
@@ -435,19 +492,145 @@ class ControllerSecurityMatrixTest {
         }
 
         @Test
+        @DisplayName("Tenant Admin rejected with 403 on global/system configuration mutation")
+        void testTenantAdminRejectedOnGlobalConfig() throws Exception {
+            String configJson = mapper.writeValueAsString(Map.of("scope", "system", "values", Map.of("key", "val")));
+            mvc.perform(put("/api/v1/config/memory")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(configJson)
+                            .with(user("admin1").roles("admin")))
+                    .andExpect(status().isForbidden());
+
+            mvc.perform(delete("/api/v1/config/memory")
+                            .param("scope", "system")
+                            .with(user("admin1").roles("admin")))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("Platform Operator authorized on global/system configuration mutation")
+        void testSuperAdminAuthorizedOnGlobalConfig() throws Exception {
+            String configJson = mapper.writeValueAsString(Map.of("scope", "system", "values", Map.of("key", "val")));
+            mvc.perform(put("/api/v1/config/memory")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(configJson)
+                            .with(user("super1").roles("super-admin")))
+                    .andExpect(status().isOk());
+
+            mvc.perform(delete("/api/v1/config/memory")
+                            .param("scope", "system")
+                            .with(user("super1").roles("super-admin")))
+                    .andExpect(status().isOk());
+        }
+
+        @Test
+        @DisplayName("Tenant Admin rejected with 403 when attempting privilege escalation to super-admin")
+        void testPrivilegeEscalationPrevented() throws Exception {
+            String registerJson = mapper.writeValueAsString(Map.of(
+                    "username", "escalatedUser",
+                    "password", "Password123!",
+                    "roles", List.of("super-admin")
+            ));
+            mvc.perform(post("/api/v1/auth/register")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(registerJson)
+                            .with(user("admin1").roles("admin")))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("Privilege escalation rejected with 403 when role name contains leading/trailing whitespace")
+        void testPrivilegeEscalationPreventedWithWhitespace() throws Exception {
+            String registerJson = mapper.writeValueAsString(Map.of(
+                    "username", "escalatedUserWs",
+                    "password", "Password123!",
+                    "roles", List.of(" super-admin ")
+            ));
+            mvc.perform(post("/api/v1/auth/register")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(registerJson)
+                            .with(user("admin1").roles("admin")))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("Privilege escalation rejected with 403 when super-admin scope is requested on registration")
+        void testPrivilegeEscalationPreventedWithSuperAdminScopeOnRegister() throws Exception {
+            String registerJson = mapper.writeValueAsString(Map.of(
+                    "username", "escalatedScopeUser",
+                    "password", "Password123!",
+                    "roles", List.of("editor"),
+                    "scopes", List.of("spector:admin")
+            ));
+            mvc.perform(post("/api/v1/auth/register")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(registerJson)
+                            .with(user("admin1").roles("admin")))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("Privilege escalation rejected with 403 when non-super-admin assigns super-admin role or scope in updateUser")
+        void testPrivilegeEscalationPreventedOnUpdateUser() throws Exception {
+            String updateRoleJson = mapper.writeValueAsString(Map.of(
+                    "roles", List.of(" super-admin ")
+            ));
+            mvc.perform(put("/api/v1/auth/users/0195500000002")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(updateRoleJson)
+                            .with(user("admin1").roles("admin")))
+                    .andExpect(status().isForbidden());
+
+            String updateScopeJson = mapper.writeValueAsString(Map.of(
+                    "scopes", List.of("spector:admin")
+            ));
+            mvc.perform(put("/api/v1/auth/users/0195500000002")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(updateScopeJson)
+                            .with(user("admin1").roles("admin")))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("Privilege escalation rejected with 403 when non-super-admin requests super-admin API key")
+        void testPrivilegeEscalationPreventedOnApiKeyCreation() throws Exception {
+            for (String scope : List.of("spector:admin", "scope_spector:admin", "SCOPE-spector:admin", "super-admin")) {
+                String apiKeyJson = mapper.writeValueAsString(Map.of(
+                        "scopes", List.of(scope)
+                ));
+                mvc.perform(post("/api/v1/auth/api-keys")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(apiKeyJson)
+                                .with(user("admin1").roles("admin")))
+                        .andExpect(status().isForbidden());
+            }
+
+            for (String scope : List.of("admin", "spector:namespace:admin")) {
+                String nonAdminApiKeyJson = mapper.writeValueAsString(Map.of(
+                        "scopes", List.of(scope)
+                ));
+                mvc.perform(post("/api/v1/auth/api-keys")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(nonAdminApiKeyJson)
+                                .with(user("user1").roles("viewer")))
+                        .andExpect(status().isForbidden());
+            }
+        }
+
+        @Test
         @DisplayName("Both admin and super-admin authorized on Tenant Admin infra endpoints")
         void testAdminAndSuperAdminAuthorizedOnTenantEndpoints() throws Exception {
-            for (String role : List.of("admin", "super-admin")) {
-                mvc.perform(get("/api/v1/admin/cache").with(user("adm").roles(role)))
+            for (String role : List.of("admin", "super-admin", "ADMIN", "Admin")) {
+                mvc.perform(get("/api/v1/admin/cache").with(user("adm").authorities(SpectorAuthorityMapper.forRole(role))))
                         .andExpect(status().isOk());
 
-                mvc.perform(get("/tasks").with(user("adm").roles(role)))
+                mvc.perform(get("/tasks").with(user("adm").authorities(SpectorAuthorityMapper.forRole(role))))
                         .andExpect(status().isOk());
 
-                mvc.perform(get("/providers").with(user("adm").roles(role)))
+                mvc.perform(get("/providers").with(user("adm").authorities(SpectorAuthorityMapper.forRole(role))))
                         .andExpect(status().isOk());
 
-                mvc.perform(get("/api/v1/system/status").with(user("adm").roles(role)))
+                mvc.perform(get("/api/v1/system/status").with(user("adm").authorities(SpectorAuthorityMapper.forRole(role))))
                         .andExpect(status().isOk());
             }
         }

@@ -130,7 +130,13 @@ public class ConfigController {
         }
 
         ScopedConfig config;
-        if ("user".equals(scopeType)) {
+        if ("system".equalsIgnoreCase(scopeType) || "global".equalsIgnoreCase(scopeType)) {
+            if (!SecurityUtils.isSuperAdmin()) {
+                throw new org.springframework.security.access.AccessDeniedException(
+                        "Platform Operator (super-admin) role required for global configuration");
+            }
+            config = ScopedConfig.system(cat, values);
+        } else if ("user".equalsIgnoreCase(scopeType)) {
             config = ScopedConfig.user(tenantId, userId, cat, values);
         } else {
             config = ScopedConfig.tenant(tenantId, cat, values, userId);
@@ -163,7 +169,18 @@ public class ConfigController {
         String tenantId = SecurityUtils.getTenantId();
         String userId = SecurityUtils.getUserId();
 
-        String scopeStr = "user".equals(scope) ? "user:" + tenantId + ":" + userId : "tenant:" + tenantId;
+        String scopeStr;
+        if ("system".equalsIgnoreCase(scope) || "global".equalsIgnoreCase(scope)) {
+            if (!SecurityUtils.isSuperAdmin()) {
+                throw new org.springframework.security.access.AccessDeniedException(
+                        "Platform Operator (super-admin) role required for global configuration");
+            }
+            scopeStr = "system";
+        } else if ("user".equalsIgnoreCase(scope)) {
+            scopeStr = "user:" + tenantId + ":" + userId;
+        } else {
+            scopeStr = "tenant:" + tenantId;
+        }
         boolean deleted = resolutionService.removeOverride(scopeStr, cat);
 
         // Re-apply defaults

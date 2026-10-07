@@ -6254,11 +6254,11 @@ components:
         flags:
           type: string
           format: byte
-        retraction:
-          type: boolean
         inferred:
           type: boolean
         ongoing:
+          type: boolean
+        retraction:
           type: boolean
         resolved:
           type: boolean

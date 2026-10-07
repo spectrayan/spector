@@ -593,4 +593,64 @@ class SecurityUtilsTest {
 
         assertThat(SecurityUtils.getScopes()).containsExactly("agent:invoke");
     }
+
+    // --- hasRole / isSuperAdmin / isAdmin / hasScope bidirectional -----------
+
+    @Test
+    void hasRoleHandlesCaseAndCamelCaseNormalization() {
+        bind(new UsernamePasswordAuthenticationToken(
+                TSID, "credentials",
+                List.of(new SimpleGrantedAuthority("ROLE_super-admin"))));
+
+        assertThat(SecurityUtils.hasRole("super-admin")).isTrue();
+        assertThat(SecurityUtils.hasRole("SUPER_ADMIN")).isTrue();
+        assertThat(SecurityUtils.hasRole("SuperAdmin")).isTrue();
+        assertThat(SecurityUtils.hasRole("superAdmin")).isTrue();
+        assertThat(SecurityUtils.hasRole("ROLE_super-admin")).isTrue();
+        assertThat(SecurityUtils.hasRole("role_super_admin")).isTrue();
+        assertThat(SecurityUtils.isSuperAdmin()).isTrue();
+        assertThat(SecurityUtils.isAdmin()).isTrue();
+        assertThat(SecurityUtils.hasRole("editor")).isFalse();
+    }
+
+    @Test
+    void hasRoleHandlesPascalCaseGrantedAuthority() {
+        bind(new UsernamePasswordAuthenticationToken(
+                TSID, "credentials",
+                List.of(new SimpleGrantedAuthority("ROLE_SuperAdmin"))));
+
+        assertThat(SecurityUtils.hasRole("super-admin")).isTrue();
+        assertThat(SecurityUtils.hasRole("SUPER_ADMIN")).isTrue();
+        assertThat(SecurityUtils.isSuperAdmin()).isTrue();
+        assertThat(SecurityUtils.isAdmin()).isTrue();
+    }
+
+    @Test
+    void hasScopeMatchesWithAndWithoutPrefix() {
+        bind(new UsernamePasswordAuthenticationToken(
+                TSID, "credentials",
+                List.of(new SimpleGrantedAuthority("SCOPE_spector:memory:read"))));
+
+        assertThat(SecurityUtils.hasScope("spector:memory:read")).isTrue();
+        assertThat(SecurityUtils.hasScope("memory:read")).isTrue();
+        assertThat(SecurityUtils.hasScope("SCOPE_memory:read")).isTrue();
+        assertThat(SecurityUtils.hasScope("scope_memory:read")).isTrue();
+        assertThat(SecurityUtils.hasScope("SCOPE-memory:read")).isTrue();
+        assertThat(SecurityUtils.hasScope("memory:write")).isFalse();
+    }
+
+    @Test
+    void getRolesAndGetScopesSupportVariedPrefixes() {
+        bind(new UsernamePasswordAuthenticationToken(
+                TSID, "credentials",
+                List.of(
+                        new SimpleGrantedAuthority("role_admin"),
+                        new SimpleGrantedAuthority("ROLE-viewer"),
+                        new SimpleGrantedAuthority("scope_memory:read"),
+                        new SimpleGrantedAuthority("SCOPE-search:read")
+                )));
+
+        assertThat(SecurityUtils.getRoles()).containsExactlyInAnyOrder("admin", "viewer");
+        assertThat(SecurityUtils.getScopes()).containsExactlyInAnyOrder("memory:read", "search:read");
+    }
 }

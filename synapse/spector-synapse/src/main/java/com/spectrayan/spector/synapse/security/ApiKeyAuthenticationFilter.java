@@ -175,9 +175,18 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
             }
             for (String s : scopes) {
                 if (s != null) {
-                    String norm = s.trim().toLowerCase().replace('_', '-');
-                    if (norm.startsWith("role-") || norm.startsWith("role_")) {
-                        norm = norm.substring(5);
+                    String trimmed = s.trim();
+                    String norm = trimmed.replaceAll("(?<=[a-z0-9])(?=[A-Z])", "-").toLowerCase().replace('_', '-');
+                    while (norm.startsWith("role-") || norm.startsWith("scope-")) {
+                        if (norm.startsWith("role-")) {
+                            norm = norm.substring(5).trim();
+                        } else {
+                            norm = norm.substring(6).trim();
+                        }
+                    }
+                    if (norm.equals("spector:admin") || norm.equals("super-admin") || norm.equals("spector:super-admin")) {
+                        roles.add(com.spectrayan.spector.commons.security.SpectorRoles.SUPER_ADMIN);
+                        continue;
                     }
                     if (norm.startsWith("spector:")) {
                         norm = norm.substring("spector:".length());

@@ -67,18 +67,34 @@ public final class SpectorAuthorityMapper {
                     continue;
                 }
                 String trimmed = role.trim();
-                String raw = trimmed.startsWith(ROLE_PREFIX) ? trimmed.substring(ROLE_PREFIX.length()) : trimmed;
+                String raw = trimmed;
+                if (raw.regionMatches(true, 0, "ROLE_", 0, 5) || raw.regionMatches(true, 0, "ROLE-", 0, 5)) {
+                    raw = raw.substring(5).trim();
+                }
                 if (raw.isBlank()) {
                     continue;
                 }
 
                 authorities.add(new SimpleGrantedAuthority(ROLE_PREFIX + raw));
                 String upper = raw.toUpperCase();
+                String lower = raw.toLowerCase();
                 if (!upper.equals(raw)) {
                     authorities.add(new SimpleGrantedAuthority(ROLE_PREFIX + upper));
                 }
+                if (!lower.equals(raw)) {
+                    authorities.add(new SimpleGrantedAuthority(ROLE_PREFIX + lower));
+                }
+
+                // CamelCase / PascalCase normalization (e.g. "SuperAdmin" -> "super-admin")
+                String kebabFromCamel = raw.replaceAll("(?<=[a-z0-9])(?=[A-Z])", "-").toLowerCase();
+                if (!kebabFromCamel.equals(lower)) {
+                    authorities.add(new SimpleGrantedAuthority(ROLE_PREFIX + kebabFromCamel));
+                    authorities.add(new SimpleGrantedAuthority(ROLE_PREFIX + kebabFromCamel.toUpperCase()));
+                    authorities.add(new SimpleGrantedAuthority(ROLE_PREFIX + kebabFromCamel.replace('-', '_')));
+                    authorities.add(new SimpleGrantedAuthority(ROLE_PREFIX + kebabFromCamel.toUpperCase().replace('-', '_')));
+                }
+
                 if (raw.contains("-") || raw.contains("_")) {
-                    String lower = raw.toLowerCase();
                     authorities.add(new SimpleGrantedAuthority(ROLE_PREFIX + lower.replace('_', '-')));
                     authorities.add(new SimpleGrantedAuthority(ROLE_PREFIX + upper.replace('-', '_')));
                     authorities.add(new SimpleGrantedAuthority(ROLE_PREFIX + lower.replace('-', '_')));
@@ -91,10 +107,12 @@ public final class SpectorAuthorityMapper {
             for (String scope : scopes) {
                 if (scope != null && !scope.isBlank()) {
                     String s = scope.trim();
-                    if (s.startsWith(SCOPE_PREFIX)) {
-                        authorities.add(new SimpleGrantedAuthority(s));
-                    } else {
-                        authorities.add(new SimpleGrantedAuthority(SCOPE_PREFIX + s));
+                    String rawScope = s;
+                    if (rawScope.regionMatches(true, 0, "SCOPE_", 0, 6) || rawScope.regionMatches(true, 0, "SCOPE-", 0, 6)) {
+                        rawScope = rawScope.substring(6).trim();
+                    }
+                    if (!rawScope.isBlank()) {
+                        authorities.add(new SimpleGrantedAuthority(SCOPE_PREFIX + rawScope));
                     }
                 }
             }
@@ -114,25 +132,33 @@ public final class SpectorAuthorityMapper {
     }
 
     /**
+     * Builds authorities for a single role along with its implied constituent scopes
+     * per {@link SpectorRoles#scopesForRole(String)}.
+     *
+     * @param role the role name
+     * @return the granted authorities covering role variants and implied scopes
+     */
+    public static List<GrantedAuthority> forRoleWithScopes(String role) {
+        if (role == null || role.isBlank()) {
+            return List.of();
+        }
+        String trimmed = role.trim();
+        String raw = trimmed;
+        if (raw.regionMatches(true, 0, "ROLE_", 0, 5) || raw.regionMatches(true, 0, "ROLE-", 0, 5)) {
+            raw = raw.substring(5).trim();
+        }
+        String kebab = raw.replaceAll("(?<=[a-z0-9])(?=[A-Z])", "-").toLowerCase().replace('_', '-');
+        Set<String> impliedScopes = SpectorRoles.scopesForRole(kebab);
+        return toAuthorities(List.of(role), impliedScopes);
+    }
+
+    /**
      * Builds authorities for a collection of scopes.
      *
      * @param scopes the scopes
      * @return the granted authorities
      */
     public static List<GrantedAuthority> forScopes(Collection<String> scopes) {
-        Set<GrantedAuthority> authorities = new LinkedHashSet<>();
-        if (scopes != null) {
-            for (String scope : scopes) {
-                if (scope != null && !scope.isBlank()) {
-                    String s = scope.trim();
-                    if (s.startsWith(SCOPE_PREFIX)) {
-                        authorities.add(new SimpleGrantedAuthority(s));
-                    } else {
-                        authorities.add(new SimpleGrantedAuthority(SCOPE_PREFIX + s));
-                    }
-                }
-            }
-        }
-        return new ArrayList<>(authorities);
+        return toAuthorities(List.of(), scopes);
     }
 }

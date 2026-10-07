@@ -294,6 +294,14 @@ public class AuthController {
 
         Set<String> roles = request.roles() != null && !request.roles().isEmpty()
                 ? request.roles() : DEFAULT_ROLES;
+        boolean containsSuperAdmin = roles.stream().anyMatch(AuthController::isSuperAdminTarget);
+        if (request.scopes() != null && request.scopes().stream().anyMatch(AuthController::isSuperAdminTarget)) {
+            containsSuperAdmin = true;
+        }
+        if (containsSuperAdmin && !SecurityUtils.isSuperAdmin()) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Platform Operator (super-admin) role required to assign super-admin privileges");
+        }
         boolean mustChange = request.mustChangePassword() != null && request.mustChangePassword();
         try {
             String userId = userAccountStore.createUser(username, password, request.email(),
@@ -386,6 +394,13 @@ public class AuthController {
                                         @Valid @RequestBody(required = false) UpdateUserRequest request) {
         UpdateUserRequest update = request != null
                 ? request : new UpdateUserRequest(null, null, null, null);
+        if (update.roles() != null && update.roles().stream().anyMatch(AuthController::isSuperAdminTarget)
+                || update.scopes() != null && update.scopes().stream().anyMatch(AuthController::isSuperAdminTarget)) {
+            if (!SecurityUtils.isSuperAdmin()) {
+                throw new org.springframework.security.access.AccessDeniedException(
+                        "Platform Operator (super-admin) role required to assign super-admin privileges");
+            }
+        }
         Optional<UserRow> updated = userAccountStore.updateAccount(
                 id, update.active(), update.roles(), update.scopes(), update.displayName());
         if (updated.isEmpty()) {
@@ -412,6 +427,17 @@ public class AuthController {
         Set<String> scopes = request != null ? request.scopes() : null;
         Instant expiresAt = request != null ? request.expiresAt() : null;
 
+        if (scopes != null && !scopes.isEmpty()) {
+            if (scopes.stream().anyMatch(AuthController::isSuperAdminTarget) && !SecurityUtils.isSuperAdmin()) {
+                throw new org.springframework.security.access.AccessDeniedException(
+                        "Platform Operator (super-admin) role required to issue API keys with super-admin privileges");
+            }
+            if (scopes.stream().anyMatch(AuthController::isAdminTarget) && !SecurityUtils.isAdmin()) {
+                throw new org.springframework.security.access.AccessDeniedException(
+                        "Admin role required to issue API keys with admin privileges");
+            }
+        }
+
         ApiKeyCreation created = apiKeyStore.create(userId, scopes, expiresAt);
         log.info("[Auth] Issued API key {} for user id={}", created.keyId(), userId);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -436,6 +462,41 @@ public class AuthController {
     }
 
     // ── Internal helpers ──
+
+    private static boolean isSuperAdminTarget(String value) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+        String trimmed = value.trim();
+        String norm = trimmed.replaceAll("(?<=[a-z0-9])(?=[A-Z])", "-").toLowerCase().replace('_', '-');
+        while (norm.startsWith("role-") || norm.startsWith("scope-")) {
+            if (norm.startsWith("role-")) {
+                norm = norm.substring(5).trim();
+            } else {
+                norm = norm.substring(6).trim();
+            }
+        }
+        return norm.equals("super-admin") || norm.equals("spector:super-admin") || norm.equals("spector:admin");
+    }
+
+    private static boolean isAdminTarget(String value) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+        if (isSuperAdminTarget(value)) {
+            return true;
+        }
+        String trimmed = value.trim();
+        String norm = trimmed.replaceAll("(?<=[a-z0-9])(?=[A-Z])", "-").toLowerCase().replace('_', '-');
+        while (norm.startsWith("role-") || norm.startsWith("scope-")) {
+            if (norm.startsWith("role-")) {
+                norm = norm.substring(5).trim();
+            } else {
+                norm = norm.substring(6).trim();
+            }
+        }
+        return norm.equals("admin") || norm.equals("spector:namespace:admin");
+    }
 
     private static boolean isBlank(String value) {
         return value == null || value.isBlank();
