@@ -46,6 +46,7 @@ class CredentialServiceTest {
         DataSource dataSource = new EmbeddedDatabaseBuilder()
                 .setType(EmbeddedDatabaseType.H2)
                 .addScript("classpath:db/migration/V5__credentials.sql")
+                .addScript("classpath:db/migration/V10__retire_api_keys_and_add_credential_key_hash.sql")
                 .generateUniqueName(true)
                 .build();
 

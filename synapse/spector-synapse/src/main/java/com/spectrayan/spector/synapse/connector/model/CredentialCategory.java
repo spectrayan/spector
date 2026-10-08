@@ -19,6 +19,7 @@ package com.spectrayan.spector.synapse.connector.model;
  * Broad functional domain category of a stored credential.
  */
 public enum CredentialCategory {
+    AUTH("API Keys & Inbound Authentication"),
     LLM("AI & Cognitive Models"),
     EMBEDDING("Embedding Models"),
     CHANNEL("Messaging Channels"),

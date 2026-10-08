@@ -52,6 +52,21 @@ public interface CredentialRepository {
     List<CredentialRecord> findByUserId(String tenantId, String userId);
 
     /**
+     * Finds a credential by its inbound API key SHA-256 hash.
+     */
+    Optional<CredentialRecord> findByKeyHash(String keyHash);
+
+    /**
+     * Lists all credentials fleet-wide across all tenants.
+     */
+    List<CredentialRecord> findAll();
+
+    /**
+     * Lists all credentials for a specific user fleet-wide across all tenants.
+     */
+    List<CredentialRecord> findAllByUserId(String userId);
+
+    /**
      * Clears the default flag for a specific provider in a tenant.
      */
     void clearDefault(String tenantId, String provider);

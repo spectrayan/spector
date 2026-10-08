@@ -50,6 +50,18 @@ public class JdbcCredentialRepository implements CredentialRepository {
     private static final Logger log = LoggerFactory.getLogger(JdbcCredentialRepository.class);
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
+    private static final String SQL_FIND_ALL =
+            "SELECT credential_id, tenant_id, user_id, name, category, provider, credential_type, "
+            + "ciphertext, iv, auth_tag, masked_preview, properties_json, is_default, "
+            + "description, version, created_at, updated_at, expires_at, last_used_at, key_hash "
+            + "FROM credentials ORDER BY tenant_id, provider, name";
+
+    private static final String SQL_FIND_ALL_BY_USER =
+            "SELECT credential_id, tenant_id, user_id, name, category, provider, credential_type, "
+            + "ciphertext, iv, auth_tag, masked_preview, properties_json, is_default, "
+            + "description, version, created_at, updated_at, expires_at, last_used_at, key_hash "
+            + "FROM credentials WHERE user_id = :userId ORDER BY tenant_id, provider, name";
+
     private final JdbcClient jdbc;
     private final ObjectMapper mapper;
     private final SqlQueryLoader sqlLoader;
@@ -99,6 +111,7 @@ public class JdbcCredentialRepository implements CredentialRepository {
                     .param("createdAt", Timestamp.from(record.createdAt()))
                     .param("updatedAt", Timestamp.from(record.updatedAt()))
                     .param("expiresAt", record.expiresAt() != null ? Timestamp.from(record.expiresAt()) : null)
+                    .param("keyHash", record.keyHash() != null && !record.keyHash().isBlank() ? record.keyHash().trim().toLowerCase() : null)
                     .update();
         } catch (DataAccessException e) {
             log.error("[JdbcCredRepo] Failed to save credential '{}' for tenant '{}'", record.name(), record.tenantId(), e);
@@ -175,6 +188,56 @@ public class JdbcCredentialRepository implements CredentialRepository {
     }
 
     @Override
+    public Optional<CredentialRecord> findByKeyHash(String keyHash) {
+        if (keyHash == null || keyHash.isBlank()) return Optional.empty();
+
+        try {
+            return jdbc.sql(sqlLoader.load("credentials/find-by-key-hash"))
+                    .param("keyHash", keyHash.trim().toLowerCase())
+                    .query(this::mapRow)
+                    .optional();
+        } catch (Exception e) {
+            log.warn("[JdbcCredRepo] Failed to find credential by key hash: {}", e.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    @Override
+    public List<CredentialRecord> findAll() {
+        try {
+            return jdbc.sql(resolveQuery("credentials/find-all", SQL_FIND_ALL))
+                    .query(this::mapRow)
+                    .list();
+        } catch (Exception e) {
+            log.error("[JdbcCredRepo] Failed to list all credentials fleet-wide", e);
+            return List.of();
+        }
+    }
+
+    @Override
+    public List<CredentialRecord> findAllByUserId(String userId) {
+        if (userId == null || userId.isBlank()) return List.of();
+
+        try {
+            return jdbc.sql(resolveQuery("credentials/find-all-by-user", SQL_FIND_ALL_BY_USER))
+                    .param("userId", userId)
+                    .query(this::mapRow)
+                    .list();
+        } catch (Exception e) {
+            log.error("[JdbcCredRepo] Failed to list credentials for user '{}' fleet-wide", userId, e);
+            return List.of();
+        }
+    }
+
+    private String resolveQuery(String path, String defaultSql) {
+        try {
+            return sqlLoader.load(path);
+        } catch (Exception e) {
+            return defaultSql;
+        }
+    }
+
+    @Override
     @CacheEvict(value = SynapseCacheConstants.CACHE_CREDENTIAL_RECORDS, allEntries = true)
     public void clearDefault(String tenantId, String provider) {
         String effectiveTenant = tenantId != null ? tenantId : "default";
@@ -241,6 +304,7 @@ public class JdbcCredentialRepository implements CredentialRepository {
                 ? rs.getTimestamp("expires_at").toInstant() : null;
         Instant lastUsedAt = rs.getTimestamp("last_used_at") != null
                 ? rs.getTimestamp("last_used_at").toInstant() : null;
+        String keyHash = rs.getString("key_hash");
 
         CredentialCategory category = CredentialCategory.LLM;
         if (categoryStr != null) {
@@ -261,7 +325,7 @@ public class JdbcCredentialRepository implements CredentialRepository {
 
         return new CredentialRecord(
                 credentialId, tenantId, userId, name, category, provider, credentialType,
-                ciphertext, iv, authTag, maskedPreview, props, isDefault, description,
+                keyHash, ciphertext, iv, authTag, maskedPreview, props, isDefault, description,
                 version, createdAt, updatedAt, expiresAt, lastUsedAt
         );
     }

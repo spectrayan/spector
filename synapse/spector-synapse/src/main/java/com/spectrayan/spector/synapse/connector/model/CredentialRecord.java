@@ -29,6 +29,7 @@ public record CredentialRecord(
         CredentialCategory category,
         String provider,
         CredentialType credentialType,
+        String keyHash,
         String ciphertext,
         String iv,
         String authTag,
@@ -42,6 +43,36 @@ public record CredentialRecord(
         Instant expiresAt,
         Instant lastUsedAt
 ) {
+    public CredentialRecord(
+            String credentialId,
+            String tenantId,
+            String userId,
+            String name,
+            CredentialCategory category,
+            String provider,
+            CredentialType credentialType,
+            String ciphertext,
+            String iv,
+            String authTag,
+            String maskedPreview,
+            Map<String, Object> properties,
+            boolean isDefault,
+            String description,
+            int version,
+            Instant createdAt,
+            Instant updatedAt,
+            Instant expiresAt,
+            Instant lastUsedAt
+    ) {
+        this(credentialId, tenantId, userId, name, category, provider, credentialType,
+                null, ciphertext, iv, authTag, maskedPreview, properties, isDefault,
+                description, version, createdAt, updatedAt, expiresAt, lastUsedAt);
+    }
+
+    public String getKeyHash() {
+        return keyHash;
+    }
+
     public static Builder builder(String credentialId, String tenantId, String name,
                                   CredentialCategory category, String provider) {
         return new Builder(credentialId, tenantId, name, category, provider);
@@ -55,6 +86,7 @@ public record CredentialRecord(
         private final String provider;
         private String userId;
         private CredentialType credentialType = CredentialType.API_KEY;
+        private String keyHash;
         private String ciphertext;
         private String iv;
         private String authTag;
@@ -79,6 +111,7 @@ public record CredentialRecord(
 
         public Builder userId(String userId) { this.userId = userId; return this; }
         public Builder credentialType(CredentialType type) { this.credentialType = type; return this; }
+        public Builder keyHash(String keyHash) { this.keyHash = keyHash; return this; }
         public Builder ciphertext(String ciphertext) { this.ciphertext = ciphertext; return this; }
         public Builder iv(String iv) { this.iv = iv; return this; }
         public Builder authTag(String authTag) { this.authTag = authTag; return this; }
@@ -95,7 +128,7 @@ public record CredentialRecord(
         public CredentialRecord build() {
             return new CredentialRecord(
                     credentialId, tenantId, userId, name, category, provider, credentialType,
-                    ciphertext, iv, authTag, maskedPreview, properties, isDefault, description,
+                    keyHash, ciphertext, iv, authTag, maskedPreview, properties, isDefault, description,
                     version, createdAt, updatedAt, expiresAt, lastUsedAt
             );
         }

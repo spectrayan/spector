@@ -2,5 +2,4 @@ SELECT credential_id, tenant_id, user_id, name, category, provider, credential_t
        ciphertext, iv, auth_tag, masked_preview, properties_json, is_default,
        description, version, created_at, updated_at, expires_at, last_used_at, key_hash
 FROM credentials
-WHERE tenant_id = :tenantId
-ORDER BY provider, name
+WHERE LOWER(key_hash) = :keyHash
