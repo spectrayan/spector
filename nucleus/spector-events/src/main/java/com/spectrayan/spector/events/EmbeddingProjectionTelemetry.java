@@ -47,13 +47,11 @@ public record EmbeddingProjectionTelemetry(
      * @param z          projected Z coordinate
      * @param tier       memory tier ("WORKING", "EPISODIC", etc.)
      * @param importance importance score (0.0–1.0)
-     * @param label      human-readable label
      */
     public record ProjectedPoint(
             String id,
             float x, float y, float z,
             String tier,
-            float importance,
-            String label
+            float importance
     ) {}
 }

@@ -238,7 +238,7 @@ class SpectorTelemetryEventTest {
         @DisplayName("construction with points and query projection")
         void constructionWithPointsAndQuery() {
             var point = new EmbeddingProjectionTelemetry.ProjectedPoint(
-                    "mem-1", 0.5f, -0.3f, 0.8f, "SEMANTIC", 0.9f, "Architecture doc");
+                    "mem-1", 0.5f, -0.3f, 0.8f, "SEMANTIC", 0.9f);
             var queryProj = new float[]{0.1f, 0.2f, 0.3f};
 
             var t = new EmbeddingProjectionTelemetry(List.of(point), queryProj);
@@ -261,12 +261,11 @@ class SpectorTelemetryEventTest {
         @DisplayName("projected point accessors")
         void projectedPointAccessors() {
             var p = new EmbeddingProjectionTelemetry.ProjectedPoint(
-                    "id-1", 1.0f, 2.0f, 3.0f, "WORKING", 0.5f, "Test label");
+                    "id-1", 1.0f, 2.0f, 3.0f, "WORKING", 0.5f);
             assertThat(p.x()).isEqualTo(1.0f);
             assertThat(p.y()).isEqualTo(2.0f);
             assertThat(p.z()).isEqualTo(3.0f);
             assertThat(p.importance()).isEqualTo(0.5f);
-            assertThat(p.label()).isEqualTo("Test label");
         }
     }
 

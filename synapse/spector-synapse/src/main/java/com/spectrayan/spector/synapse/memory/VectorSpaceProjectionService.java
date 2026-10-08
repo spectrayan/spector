@@ -198,16 +198,11 @@ public class VectorSpaceProjectionService {
             float y = projected[i][1] * scaleY;
             float z = projected[i][2] * scaleZ;
 
-            String label = rec.text() != null
-                    ? (rec.text().length() > 28 ? rec.text().substring(0, 28) + "..." : rec.text())
-                    : rec.id();
-
             points.add(new ProjectedPoint(
                     rec.id(),
                     x, y, z,
                     rec.memoryType() != null ? rec.memoryType().name() : "WORKING",
-                    rec.importance(),
-                    label
+                    rec.importance()
             ));
         }
 
@@ -257,14 +252,10 @@ public class VectorSpaceProjectionService {
             float y = (((hash >> 8) & 0xFF) / 128.0f - 1.0f) * 15.0f;
             float z = (((hash >> 16) & 0xFF) / 128.0f - 1.0f) * 15.0f;
 
-            String label = rec.text() != null
-                    ? (rec.text().length() > 28 ? rec.text().substring(0, 28) + "..." : rec.text())
-                    : rec.id();
-
             points.add(new ProjectedPoint(
                     rec.id(), x, y, z,
                     rec.memoryType() != null ? rec.memoryType().name() : "WORKING",
-                    rec.importance(), label
+                    rec.importance()
             ));
         }
         return points;

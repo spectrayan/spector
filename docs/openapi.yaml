@@ -5975,8 +5975,6 @@ components:
         importance:
           type: number
           format: float
-        label:
-          type: string
     ProjectionResult:
       type: object
       properties:

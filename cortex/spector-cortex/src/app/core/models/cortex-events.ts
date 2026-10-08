@@ -155,7 +155,6 @@ export interface ProjectedPointDto {
   readonly z: number;
   readonly tier: string;
   readonly importance: number;
-  readonly label: string;
 }
 
 /**

@@ -21,7 +21,15 @@ import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ScoreBreakdown;
-import com.spectrayan.spector.kernel.api.MemorySource;
+import com.spectrayan.spector.synapse.observability.dto.ObservabilityDto.AgeBucketDto;
+import com.spectrayan.spector.synapse.observability.dto.ObservabilityDto.AgeDistributionResponse;
+import com.spectrayan.spector.synapse.observability.dto.ObservabilityDto.ObservabilityStatsResponse;
+import com.spectrayan.spector.synapse.observability.dto.ObservabilityDto.ScoreBreakdownDto;
+import com.spectrayan.spector.synapse.observability.dto.ObservabilityDto.TimelineEventDto;
+import com.spectrayan.spector.synapse.observability.dto.ObservabilityDto.TimelineResponse;
+import com.spectrayan.spector.synapse.observability.dto.ObservabilityDto.TracedRecallItemDto;
+import com.spectrayan.spector.synapse.observability.dto.ObservabilityDto.TracedRecallRequest;
+import com.spectrayan.spector.synapse.observability.dto.ObservabilityDto.TracedRecallResponse;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,7 +42,10 @@ import java.time.Instant;
 import java.util.*;
 
 /**
- * REST controller for exposing memory observability and glass-box metrics.
+ * REST controller for exposing content-free memory observability and glass-box metrics.
+ *
+ * <p>Invariant: Under ADR-0083 and the content-free admin contract, no endpoint in this
+ * controller may return raw memory content (text, vectors, tags, or unvetted metadata).</p>
  */
 @RestController
 @RequestMapping("/api/v1/observability")
@@ -58,30 +69,26 @@ public class ObservabilityController {
      * Returns aggregate memory statistics.
      */
     @GetMapping("/stats")
-    public ResponseEntity<Map<String, Object>> stats() {
+    public ResponseEntity<ObservabilityStatsResponse> stats() {
         SpectorMemory memory = memoryProvider.getIfAvailable();
         if (memory == null) {
-            return ResponseEntity.status(503).body(Map.of("error", "Memory engine not available"));
+            return ResponseEntity.status(503).build();
         }
-
-        Map<String, Object> stats = new LinkedHashMap<>();
-        stats.put("totalMemories", memory.totalMemories());
 
         var index = memory.admin().index();
-        if (index != null) {
-            stats.put("indexedMemories", index.size());
-        } else {
-            stats.put("indexedMemories", 0);
-        }
+        int indexedMemories = index != null ? index.size() : 0;
 
         var tierCounts = new LinkedHashMap<String, Integer>();
         tierCounts.put("WORKING", memory.memoryCount(MemoryType.WORKING));
         tierCounts.put("EPISODIC", memory.memoryCount(MemoryType.EPISODIC));
         tierCounts.put("SEMANTIC", memory.memoryCount(MemoryType.SEMANTIC));
         tierCounts.put("PROCEDURAL", memory.memoryCount(MemoryType.PROCEDURAL));
-        stats.put("tierDistribution", tierCounts);
 
-        return ResponseEntity.ok(stats);
+        return ResponseEntity.ok(new ObservabilityStatsResponse(
+                memory.totalMemories(),
+                indexedMemories,
+                tierCounts
+        ));
     }
 
     /**
@@ -97,59 +104,60 @@ public class ObservabilityController {
     }
 
     /**
-     * Returns chronological memory events for timeline visualization.
+     * Returns chronological memory events for timeline visualization (content-free).
      */
     @GetMapping("/timeline")
-    public ResponseEntity<Map<String, Object>> timeline(@RequestParam(required = false) String from,
-                                                         @RequestParam(required = false) String to,
-                                                         @RequestParam(defaultValue = "100") int limit) {
+    public ResponseEntity<TimelineResponse> timeline(
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to,
+            @RequestParam(defaultValue = "100") int limit) {
         SpectorMemory memory = memoryProvider.getIfAvailable();
         if (memory == null) {
-            return ResponseEntity.status(503).body(Map.of("error", "Memory engine not available"));
+            return ResponseEntity.status(503).build();
         }
 
         List<CognitiveRecord> records = memory.admin().listAll();
         records.sort((a, b) -> Long.compare(b.timestampMs(), a.timestampMs())); // desc
 
         int effectiveLimit = Math.min(limit, 1000);
-        List<Map<String, Object>> eventList = new ArrayList<>();
+        List<TimelineEventDto> eventList = new ArrayList<>();
+
+        String defaultNs = memory.namespaceId() != null && !memory.namespaceId().isBlank()
+                ? memory.namespaceId()
+                : "default";
 
         for (CognitiveRecord rec : records) {
             if (eventList.size() >= effectiveLimit) break;
-            
+
             Instant recTime = Instant.ofEpochMilli(rec.timestampMs());
             if (from != null && recTime.toString().compareTo(from) < 0) continue;
             if (to != null && recTime.toString().compareTo(to) > 0) continue;
 
-            Map<String, Object> entry = new LinkedHashMap<>();
-            entry.put("eventType", "CREATED");
-            entry.put("memoryId", rec.id());
-            entry.put("namespace", "default");
-            entry.put("timestamp", recTime.toString());
-            
-            Map<String, Object> metadata = new LinkedHashMap<>();
-            String rawText = rec.text() != null ? rec.text() : "";
-            metadata.put("text", rawText.length() > 200 ? rawText.substring(0, 197) + "..." : rawText);
-            entry.put("metadata", metadata);
+            String tier = rec.memoryType() != null ? rec.memoryType().name() : "WORKING";
 
-            eventList.add(entry);
+            eventList.add(new TimelineEventDto(
+                    "CREATED",
+                    rec.id(),
+                    defaultNs,
+                    recTime.toString(),
+                    tier,
+                    rec.importance(),
+                    rec.valence(),
+                    rec.agentRecallCount()
+            ));
         }
 
-        Map<String, Object> response = new LinkedHashMap<>();
-        response.put("events", eventList);
-        response.put("totalEvents", eventList.size());
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(new TimelineResponse(eventList, eventList.size()));
     }
 
     /**
      * Returns memory age distribution for histogram visualization.
      */
     @GetMapping("/age-distribution")
-    public ResponseEntity<Map<String, Object>> ageDistribution() {
+    public ResponseEntity<AgeDistributionResponse> ageDistribution() {
         SpectorMemory memory = memoryProvider.getIfAvailable();
         if (memory == null) {
-            return ResponseEntity.status(503).body(Map.of("error", "Memory engine not available"));
+            return ResponseEntity.status(503).build();
         }
 
         List<CognitiveRecord> records = memory.admin().listAll();
@@ -177,37 +185,33 @@ public class ObservabilityController {
         }
 
         String[] labels = {"< 1 hour", "1h - 24h", "1d - 7d", "7d - 30d", "30d - 90d", "> 90d"};
-        List<Map<String, Object>> buckets = new ArrayList<>();
+        List<AgeBucketDto> buckets = new ArrayList<>();
         int total = 0;
         for (int i = 0; i < 6; i++) {
-            Map<String, Object> bucket = new LinkedHashMap<>();
-            bucket.put("label", labels[i]);
-            bucket.put("count", bucketCounts[i]);
-            buckets.add(bucket);
+            buckets.add(new AgeBucketDto(labels[i], bucketCounts[i]));
             total += bucketCounts[i];
         }
 
-        Map<String, Object> response = new LinkedHashMap<>();
-        response.put("buckets", buckets);
-        response.put("totalMemories", total);
-        response.put("oldestMemory", oldest == Instant.MAX ? null : oldest.toString());
-        response.put("newestMemory", newest == Instant.MIN ? null : newest.toString());
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(new AgeDistributionResponse(
+                buckets,
+                total,
+                oldest == Instant.MAX ? null : oldest.toString(),
+                newest == Instant.MIN ? null : newest.toString()
+        ));
     }
 
     /**
-     * Recall memories with full cognitive scoring trace.
+     * Recall memories with full cognitive scoring trace (strictly content-free).
      */
     @PostMapping("/traced-recall")
-    public ResponseEntity<Map<String, Object>> tracedRecall(@RequestBody TracedRecallRequest request) {
+    public ResponseEntity<TracedRecallResponse> tracedRecall(@RequestBody TracedRecallRequest request) {
         SpectorMemory memory = memoryProvider.getIfAvailable();
         if (memory == null) {
-            return ResponseEntity.status(503).body(Map.of("error", "Memory engine not available"));
+            return ResponseEntity.status(503).build();
         }
 
         if (request == null || request.query() == null || request.query().isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "query is required"));
+            return ResponseEntity.badRequest().build();
         }
 
         int topK = request.topK() > 0 ? request.topK() : 10;
@@ -220,48 +224,41 @@ public class ObservabilityController {
         List<CognitiveResult> results = memory.recall(request.query(), options);
         long latencyMicros = (System.nanoTime() - startNanos) / 1_000;
 
-        List<Map<String, Object>> tracedResults = new ArrayList<>();
+        List<TracedRecallItemDto> tracedResults = new ArrayList<>();
         for (CognitiveResult cr : results) {
-            Map<String, Object> entry = new LinkedHashMap<>();
-            entry.put("id", cr.id());
-            entry.put("text", cr.text());
-            entry.put("score", cr.score());
-            entry.put("memoryType", cr.memoryType() != null ? cr.memoryType().name() : null);
-            entry.put("importance", cr.importance());
-            entry.put("ageDays", cr.ageDays());
-            entry.put("recallCount", cr.agentRecallCount());
-            entry.put("valence", cr.valence());
-            entry.put("retrievalMode", cr.retrievalMode() != null ? cr.retrievalMode().name() : "STANDARD");
-
+            ScoreBreakdownDto breakdownDto = null;
             if (cr.hasBreakdown()) {
                 ScoreBreakdown bd = cr.breakdown();
-                Map<String, Object> breakdown = new LinkedHashMap<>();
-                breakdown.put("similarity", bd.similarity());
-                breakdown.put("importanceDecay", bd.importanceDecay());
-                breakdown.put("tagBoostFactor", bd.tagBoostFactor());
-                breakdown.put("habituationPenalty", bd.habituationPenalty());
-                breakdown.put("graphBoost", bd.graphBoost());
-                breakdown.put("valenceAlignment", bd.valenceAlignment());
-                breakdown.put("finalScore", bd.finalScore());
-                entry.put("breakdown", breakdown);
+                breakdownDto = new ScoreBreakdownDto(
+                        bd.similarity(),
+                        bd.importanceDecay(),
+                        bd.tagBoostFactor(),
+                        bd.habituationPenalty(),
+                        bd.graphBoost(),
+                        bd.valenceAlignment(),
+                        bd.finalScore()
+                );
             }
 
-            tracedResults.add(entry);
+            tracedResults.add(new TracedRecallItemDto(
+                    cr.id(),
+                    cr.score(),
+                    cr.memoryType() != null ? cr.memoryType().name() : null,
+                    cr.importance(),
+                    cr.ageDays(),
+                    cr.agentRecallCount(),
+                    cr.valence(),
+                    cr.retrievalMode() != null ? cr.retrievalMode().name() : "STANDARD",
+                    breakdownDto
+            ));
         }
 
-        Map<String, Object> response = new LinkedHashMap<>();
-        response.put("query", request.query());
-        response.put("results", tracedResults);
-        response.put("totalResults", tracedResults.size());
-        response.put("latencyMicros", latencyMicros);
-        response.put("traceEnabled", true);
-
-        return ResponseEntity.ok(response);
-    }
-
-    public record TracedRecallRequest(String query, int topK) {
-        public TracedRecallRequest {
-            if (topK <= 0) topK = 10;
-        }
+        return ResponseEntity.ok(new TracedRecallResponse(
+                request.query(),
+                tracedResults,
+                tracedResults.size(),
+                latencyMicros,
+                true
+        ));
     }
 }

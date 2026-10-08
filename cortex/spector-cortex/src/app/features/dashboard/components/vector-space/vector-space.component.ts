@@ -104,7 +104,7 @@ export class VectorSpaceComponent implements AfterViewInit, OnDestroy {
             position: [p.x, p.y, p.z] as [number, number, number],
             tier: p.tier,
             importance: p.importance,
-            label: p.label,
+            label: p.id,
           }));
           this.state.vectorPoints.set(points);
           this.buildPointCloud();

@@ -159,7 +159,11 @@ class ConfigAndObservabilityTest {
         mvc.perform(get("/api/v1/observability/timeline"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.events", notNullValue()))
-                .andExpect(jsonPath("$.totalEvents", notNullValue()));
+                .andExpect(jsonPath("$.totalEvents", notNullValue()))
+                .andExpect(jsonPath("$.events[0].memoryId", is("mem-1")))
+                .andExpect(jsonPath("$.events[0].tier", is("SEMANTIC")))
+                .andExpect(jsonPath("$.events[0].metadata").doesNotExist())
+                .andExpect(jsonPath("$.events[0].text").doesNotExist());
     }
 
     @Test
