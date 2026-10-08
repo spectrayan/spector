@@ -50,10 +50,7 @@ import com.spectrayan.spector.synapse.config.SynapseProperties;
 import com.spectrayan.spector.config.properties.AuthProperties;
 import com.spectrayan.spector.config.properties.AuthProperties.RefreshProperties;
 import com.spectrayan.spector.synapse.memory.MemoryDto.ErrorResponse;
-import com.spectrayan.spector.synapse.security.ApiKeyStore.ApiKeyCreation;
 import com.spectrayan.spector.synapse.security.AuthDto.ChangePasswordRequest;
-import com.spectrayan.spector.synapse.security.AuthDto.CreateApiKeyRequest;
-import com.spectrayan.spector.synapse.security.AuthDto.CreateApiKeyResponse;
 import com.spectrayan.spector.synapse.security.AuthDto.LoginRequest;
 import com.spectrayan.spector.synapse.security.AuthDto.LoginResponse;
 import com.spectrayan.spector.synapse.security.AuthDto.RefreshRequest;
@@ -77,7 +74,6 @@ class AuthControllerTest {
     private RefreshTokenStore refreshTokenStore;
     private JtiBlocklist jtiBlocklist;
     private UserAccountStore userAccountStore;
-    private ApiKeyStore apiKeyStore;
     private AuthController controller;
 
     @BeforeEach
@@ -87,14 +83,13 @@ class AuthControllerTest {
         refreshTokenStore = mock(RefreshTokenStore.class);
         jtiBlocklist = mock(JtiBlocklist.class);
         userAccountStore = mock(UserAccountStore.class);
-        apiKeyStore = mock(ApiKeyStore.class);
 
         AuthProperties auth = new AuthProperties(
                 true, null, new RefreshProperties(Duration.ofDays(30)), null, null, null, null, null);
         SynapseProperties props = new SynapseProperties(0, null, null, null, null, auth);
 
         controller = new AuthController(authenticationManager, tokenMinter, refreshTokenStore,
-                jtiBlocklist, userAccountStore, apiKeyStore, props);
+                jtiBlocklist, userAccountStore, props);
     }
 
     @AfterEach
@@ -375,41 +370,6 @@ class AuthControllerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(((UserSummary) response.getBody()).userId()).isEqualTo(USER_ID);
-    }
-
-    // ── api-keys ──
-
-    @Test
-    void createApiKeyReturnsRawKeyOnceForCurrentUser() {
-        bindPrincipal(USER_ID);
-        when(apiKeyStore.create(eq(USER_ID), any(), any()))
-                .thenReturn(new ApiKeyCreation("KEY0000000001", "raw-api-key-value"));
-
-        ResponseEntity<CreateApiKeyResponse> response = controller.createApiKey(
-                new CreateApiKeyRequest(Set.of("memory:read"), null));
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-        assertThat(response.getBody().keyId()).isEqualTo("KEY0000000001");
-        assertThat(response.getBody().apiKey()).isEqualTo("raw-api-key-value");
-        verify(apiKeyStore).create(eq(USER_ID), any(), any());
-    }
-
-    @Test
-    void revokeApiKeyMissingReturns404() {
-        when(apiKeyStore.revoke("MISSING")).thenReturn(false);
-
-        ResponseEntity<?> response = controller.revokeApiKey("MISSING");
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
-    }
-
-    @Test
-    void revokeApiKeySuccessReturns204() {
-        when(apiKeyStore.revoke("KEY0000000001")).thenReturn(true);
-
-        ResponseEntity<?> response = controller.revokeApiKey("KEY0000000001");
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
     }
 
     private static UserRow activeUser() {

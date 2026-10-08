@@ -19,8 +19,8 @@ import com.spectrayan.spector.config.properties.RateLimitProperties.TierPolicy;
 import com.spectrayan.spector.synapse.config.RateLimitConfiguration;
 import com.spectrayan.spector.synapse.config.SecurityConfig;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
+import com.spectrayan.spector.synapse.connector.repository.CredentialRepository;
 import com.spectrayan.spector.synapse.security.ApiKeyAuthenticationFilter;
-import com.spectrayan.spector.synapse.security.ApiKeyStore;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -67,13 +67,13 @@ class RateLimitIntegrationTest {
         }
 
         @Bean
-        public ApiKeyStore apiKeyStore() {
-            return Mockito.mock(ApiKeyStore.class);
+        public CredentialRepository credentialRepository() {
+            return Mockito.mock(CredentialRepository.class);
         }
 
         @Bean
-        public ApiKeyAuthenticationFilter apiKeyAuthenticationFilter(SynapseProperties properties, ApiKeyStore apiKeyStore) {
-            return new ApiKeyAuthenticationFilter(properties, apiKeyStore);
+        public ApiKeyAuthenticationFilter apiKeyAuthenticationFilter(SynapseProperties properties, CredentialRepository credentialRepository) {
+            return new ApiKeyAuthenticationFilter(properties, credentialRepository);
         }
 
         @Bean

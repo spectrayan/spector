@@ -39,14 +39,22 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import com.spectrayan.spector.synapse.config.SynapseProperties;
 import com.spectrayan.spector.config.properties.AuthProperties;
-import com.spectrayan.spector.synapse.security.ApiKeyStore.ApiKeyRow;
+import com.spectrayan.spector.synapse.connector.model.CredentialCategory;
+import com.spectrayan.spector.synapse.connector.model.CredentialRecord;
+import com.spectrayan.spector.synapse.connector.repository.CredentialRepository;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.temporal.ChronoUnit;
+import java.util.HexFormat;
+import java.util.Map;
 
 /**
  * Unit tests for {@link ApiKeyAuthenticationFilter}.
  *
  * <p>Exercises both the legacy shared-key path ({@code spector.auth.enabled=false}) and the
- * multi-user hashed-key path ({@code spector.auth.enabled=true}) using Spring's servlet mocks and
- * a mocked {@link ApiKeyStore}. Each test clears the {@link SecurityContextHolder} afterwards so
+ * multi-user credentials vault path ({@code spector.auth.enabled=true}) using Spring's servlet mocks and
+ * a mocked {@link CredentialRepository}. Each test clears the {@link SecurityContextHolder} afterwards so
  * that the per-request binding never leaks across tests.</p>
  *
  * <p>Covers Requirements 1.2, 1.3, 5.1, 5.2, 5.4, 5.5, 5.6, 5.7, 5.8.</p>
@@ -58,7 +66,7 @@ class ApiKeyAuthenticationFilterTest {
     private static final String X_API_KEY = "X-API-Key";
     private static final String AUTHORIZATION = "Authorization";
 
-    private final ApiKeyStore apiKeyStore = mock(ApiKeyStore.class);
+    private final CredentialRepository credentialRepository = mock(CredentialRepository.class);
 
     @AfterEach
     void clearContext() {
@@ -69,13 +77,23 @@ class ApiKeyAuthenticationFilterTest {
     // Helpers
     // ─────────────────────────────────────────────────────────────────────────────
 
+    private static String sha256Hex(String input) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] digest = md.digest(input.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 algorithm missing", e);
+        }
+    }
+
     private static SynapseProperties props(boolean authEnabled) {
         AuthProperties auth = new AuthProperties(authEnabled, null, null, null, null, null, null, null);
         return new SynapseProperties(0, SHARED_KEY, null, null, null, auth);
     }
 
     private ApiKeyAuthenticationFilter filter(boolean authEnabled) {
-        return new ApiKeyAuthenticationFilter(props(authEnabled), apiKeyStore);
+        return new ApiKeyAuthenticationFilter(props(authEnabled), credentialRepository);
     }
 
     private static MockHttpServletRequest request(String uri) {
@@ -84,9 +102,11 @@ class ApiKeyAuthenticationFilterTest {
         return request;
     }
 
-    private static ApiKeyRow activeRow(String userId, Set<String> scopes) {
-        return new ApiKeyRow("key_0000000001", userId, "unused-hash", scopes,
-                null, false, Instant.now());
+    private static CredentialRecord activeRecord(String userId, Set<String> scopes) {
+        return CredentialRecord.builder("key_0000000001", "default", "test-key", CredentialCategory.AUTH, "spector")
+                .userId(userId)
+                .properties(Map.of("scopes", List.copyOf(scopes)))
+                .build();
     }
 
     private static Authentication currentAuth() {
@@ -131,7 +151,7 @@ class ApiKeyAuthenticationFilterTest {
             assertThat(currentAuth().getName()).isEqualTo("api-client");
             assertThat(currentAuthorities()).containsExactly("ROLE_API");
             // Legacy path never consults the per-user store (Req 5.6).
-            verify(apiKeyStore, never()).findActiveByHash(anyString());
+            verify(credentialRepository, never()).findByKeyHash(anyString());
         }
 
         @Test
@@ -143,7 +163,7 @@ class ApiKeyAuthenticationFilterTest {
             run(filter(false), request);
 
             assertThat(currentAuth()).isNull();
-            verify(apiKeyStore, never()).findActiveByHash(anyString());
+            verify(credentialRepository, never()).findByKeyHash(anyString());
         }
 
         @Test
@@ -203,7 +223,7 @@ class ApiKeyAuthenticationFilterTest {
             run(filter(false), request);
 
             assertThat(currentAuth()).isNull();
-            verify(apiKeyStore, never()).findActiveByHash(anyString());
+            verify(credentialRepository, never()).findByKeyHash(anyString());
         }
 
         @Test
@@ -214,7 +234,7 @@ class ApiKeyAuthenticationFilterTest {
             run(filter(true), request);
 
             assertThat(currentAuth()).isNull();
-            verify(apiKeyStore, never()).findActiveByHash(anyString());
+            verify(credentialRepository, never()).findByKeyHash(anyString());
         }
     }
 
@@ -223,16 +243,16 @@ class ApiKeyAuthenticationFilterTest {
     // ─────────────────────────────────────────────────────────────────────────────
 
     @Nested
-    @DisplayName("per-user hashed-key path (auth enabled)")
+    @DisplayName("per-user credentials vault path (auth enabled)")
     class PerUserKey {
 
         @Test
         @DisplayName("SHA-256 match binds userId principal with SCOPE_* authorities (Req 5.3)")
         void matchBindsUserIdAndScopes() throws Exception {
             String rawKey = "raw-user-key-abc";
-            String hash = ApiKeyStore.sha256Hex(rawKey);
-            when(apiKeyStore.findActiveByHash(hash))
-                    .thenReturn(Optional.of(activeRow("user_00000001", Set.of("memory:read", "memory:write"))));
+            String hash = sha256Hex(rawKey);
+            when(credentialRepository.findByKeyHash(hash))
+                    .thenReturn(Optional.of(activeRecord("user_00000001", Set.of("memory:read", "memory:write"))));
 
             MockHttpServletRequest request = request("/api/v1/memory");
             request.addHeader(AUTHORIZATION, BEARER + rawKey);
@@ -243,16 +263,16 @@ class ApiKeyAuthenticationFilterTest {
             assertThat(currentAuth().getName()).isEqualTo("user_00000001");
             assertThat(currentAuthorities())
                     .containsExactlyInAnyOrder("SCOPE_memory:read", "SCOPE_memory:write");
-            verify(apiKeyStore).findActiveByHash(hash);
+            verify(credentialRepository).findByKeyHash(hash);
         }
 
         @Test
         @DisplayName("match on the /mcp path also authenticates (Req 5.3)")
         void matchOnMcpPathAuthenticates() throws Exception {
             String rawKey = "raw-mcp-key";
-            String hash = ApiKeyStore.sha256Hex(rawKey);
-            when(apiKeyStore.findActiveByHash(hash))
-                    .thenReturn(Optional.of(activeRow("user_mcp0001", Set.of("memory:read"))));
+            String hash = sha256Hex(rawKey);
+            when(credentialRepository.findByKeyHash(hash))
+                    .thenReturn(Optional.of(activeRecord("user_mcp0001", Set.of("memory:read"))));
 
             MockHttpServletRequest request = request("/mcp");
             request.addHeader(X_API_KEY, rawKey);
@@ -265,9 +285,9 @@ class ApiKeyAuthenticationFilterTest {
         }
 
         @Test
-        @DisplayName("unknown/revoked/expired key (no active row) leaves unauthenticated (Req 5.4)")
+        @DisplayName("unknown/revoked/missing key leaves unauthenticated (Req 5.4)")
         void noActiveRowLeavesUnauthenticated() throws Exception {
-            when(apiKeyStore.findActiveByHash(anyString())).thenReturn(Optional.empty());
+            when(credentialRepository.findByKeyHash(anyString())).thenReturn(Optional.empty());
 
             MockHttpServletRequest request = request("/api/v1/memory");
             request.addHeader(AUTHORIZATION, BEARER + "unknown-key");
@@ -275,13 +295,33 @@ class ApiKeyAuthenticationFilterTest {
             run(filter(true), request);
 
             assertThat(currentAuth()).isNull();
-            verify(apiKeyStore).findActiveByHash(ApiKeyStore.sha256Hex("unknown-key"));
+            verify(credentialRepository).findByKeyHash(sha256Hex("unknown-key"));
+        }
+
+        @Test
+        @DisplayName("expired credential in vault leaves context unauthenticated")
+        void expiredCredentialLeavesUnauthenticated() throws Exception {
+            String rawKey = "expired-key-123";
+            String hash = sha256Hex(rawKey);
+            CredentialRecord expiredRecord = CredentialRecord.builder("cred-exp-1", "default", "exp-key", CredentialCategory.AUTH, "spector")
+                    .userId("user-exp")
+                    .expiresAt(Instant.now().minus(1, ChronoUnit.HOURS))
+                    .properties(Map.of("scopes", List.of("memory:read")))
+                    .build();
+            when(credentialRepository.findByKeyHash(hash)).thenReturn(Optional.of(expiredRecord));
+
+            MockHttpServletRequest request = request("/api/v1/memory");
+            request.addHeader(AUTHORIZATION, BEARER + rawKey);
+
+            run(filter(true), request);
+
+            assertThat(currentAuth()).isNull();
         }
 
         @Test
         @DisplayName("store failure is swallowed; context stays unauthenticated and chain continues (Reqs 5.7, 5.8)")
         void storeFailureLeavesUnauthenticatedAndContinues() throws Exception {
-            when(apiKeyStore.findActiveByHash(anyString()))
+            when(credentialRepository.findByKeyHash(anyString()))
                     .thenThrow(new RuntimeException("db down"));
 
             MockHttpServletRequest request = request("/api/v1/memory");
@@ -312,16 +352,16 @@ class ApiKeyAuthenticationFilterTest {
             run(filter(true), request);
 
             assertThat(currentAuth()).isNull();
-            verify(apiKeyStore, never()).findActiveByHash(anyString());
+            verify(credentialRepository, never()).findByKeyHash(anyString());
         }
 
         @Test
         @DisplayName("exactly 512-char key is accepted and looked up (Req 5.2)")
         void maxLengthKeyAccepted() throws Exception {
             String maxLength = "a".repeat(512);
-            String hash = ApiKeyStore.sha256Hex(maxLength);
-            when(apiKeyStore.findActiveByHash(hash))
-                    .thenReturn(Optional.of(activeRow("user_maxlen01", Set.of("memory:read"))));
+            String hash = sha256Hex(maxLength);
+            when(credentialRepository.findByKeyHash(hash))
+                    .thenReturn(Optional.of(activeRecord("user_maxlen01", Set.of("memory:read"))));
 
             MockHttpServletRequest request = request("/api/v1/memory");
             request.addHeader(AUTHORIZATION, BEARER + maxLength);
@@ -330,7 +370,7 @@ class ApiKeyAuthenticationFilterTest {
 
             assertThat(currentAuth()).isNotNull();
             assertThat(currentAuth().getName()).isEqualTo("user_maxlen01");
-            verify(apiKeyStore).findActiveByHash(hash);
+            verify(credentialRepository).findByKeyHash(hash);
         }
 
         @Test
@@ -342,7 +382,7 @@ class ApiKeyAuthenticationFilterTest {
             run(filter(true), request);
 
             assertThat(currentAuth()).isNull();
-            verify(apiKeyStore, never()).findActiveByHash(anyString());
+            verify(credentialRepository, never()).findByKeyHash(anyString());
         }
     }
 
@@ -364,7 +404,7 @@ class ApiKeyAuthenticationFilterTest {
             run(filter(true), request);
 
             assertThat(currentAuth()).isNull();
-            verify(apiKeyStore, never()).findActiveByHash(anyString());
+            verify(credentialRepository, never()).findByKeyHash(anyString());
         }
 
         @Test
@@ -388,17 +428,17 @@ class ApiKeyAuthenticationFilterTest {
         void apiKeyResolvesTenant() throws Exception {
             String rawKey = "raw-user-key-tenant";
             String userId = "01955000000X1";
-            String hash = ApiKeyStore.sha256Hex(rawKey);
+            String hash = sha256Hex(rawKey);
 
-            when(apiKeyStore.findActiveByHash(hash))
-                    .thenReturn(Optional.of(activeRow(userId, Set.of("memory:read"))));
+            when(credentialRepository.findByKeyHash(hash))
+                    .thenReturn(Optional.of(activeRecord(userId, Set.of("memory:read"))));
 
             UserAccountStore userAccountStore = mock(UserAccountStore.class);
             UserRow userRow = mock(UserRow.class);
             when(userRow.tenantId()).thenReturn("tenant-key-org");
             when(userAccountStore.findByUserId(userId)).thenReturn(Optional.of(userRow));
 
-            var filterWithStore = new ApiKeyAuthenticationFilter(props(true), apiKeyStore, userAccountStore);
+            var filterWithStore = new ApiKeyAuthenticationFilter(props(true), credentialRepository, userAccountStore);
 
             MockHttpServletRequest request = request("/api/v1/memory/status");
             request.addHeader(AUTHORIZATION, BEARER + rawKey);

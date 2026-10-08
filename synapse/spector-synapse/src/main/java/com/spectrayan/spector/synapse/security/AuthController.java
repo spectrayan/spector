@@ -45,10 +45,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
 import com.spectrayan.spector.config.properties.AuthProperties;
 import com.spectrayan.spector.synapse.memory.MemoryDto.ErrorResponse;
-import com.spectrayan.spector.synapse.security.ApiKeyStore.ApiKeyCreation;
 import com.spectrayan.spector.synapse.security.AuthDto.ChangePasswordRequest;
-import com.spectrayan.spector.synapse.security.AuthDto.CreateApiKeyRequest;
-import com.spectrayan.spector.synapse.security.AuthDto.CreateApiKeyResponse;
 import com.spectrayan.spector.synapse.security.AuthDto.LoginRequest;
 import com.spectrayan.spector.synapse.security.AuthDto.LoginResponse;
 import com.spectrayan.spector.synapse.security.AuthDto.RefreshRequest;
@@ -63,10 +60,8 @@ import com.spectrayan.spector.synapse.security.ServerAccessTokenMinter.MintedAcc
  * REST controller for the identity lifecycle at {@code /api/v1/auth} (Requirement 12).
  *
  * <p>This slice implements the session endpoints — {@code POST /login}, {@code POST /refresh}, and
- * {@code POST /logout} (Requirements 2.1–2.4, 2.6, 2.7, 12.3, 12.4, 19.2). Account and API-key
- * management ({@code register}, {@code change-password}, {@code users}, {@code api-keys}) are added
- * to this same controller by a later task; the shared collaborators are injected here so those
- * endpoints can be layered in without restructuring.</p>
+ * {@code POST /logout} (Requirements 2.1–2.4, 2.6, 2.7, 12.3, 12.4, 19.2). User management
+ * ({@code register}, {@code change-password}, {@code users}) is also handled here.</p>
  *
  * <p><strong>Login</strong> delegates credential verification to the {@link AuthenticationManager}
  * (a {@code DaoAuthenticationProvider} over the JDBC user store + PBKDF2 encoder). On success it
@@ -105,7 +100,6 @@ public class AuthController {
     private final RefreshTokenStore refreshTokenStore;
     private final JtiBlocklist jtiBlocklist;
     private final UserAccountStore userAccountStore;
-    private final ApiKeyStore apiKeyStore;
     private final AuthProperties auth;
 
     /**
@@ -116,7 +110,6 @@ public class AuthController {
      * @param refreshTokenStore     the refresh-token store (persists only SHA-256 hashes)
      * @param jtiBlocklist          the {@code jti} blocklist consulted on logout
      * @param userAccountStore      the account store (used to resolve scopes/roles on refresh)
-     * @param apiKeyStore           the per-user API-key store (issue/revoke)
      * @param properties            bound {@code spector.*} configuration (refresh TTL)
      */
     public AuthController(AuthenticationManager authenticationManager,
@@ -124,14 +117,12 @@ public class AuthController {
                           RefreshTokenStore refreshTokenStore,
                           JtiBlocklist jtiBlocklist,
                           UserAccountStore userAccountStore,
-                          ApiKeyStore apiKeyStore,
                           SynapseProperties properties) {
         this.authenticationManager = authenticationManager;
         this.tokenMinter = tokenMinter;
         this.refreshTokenStore = refreshTokenStore;
         this.jtiBlocklist = jtiBlocklist;
         this.userAccountStore = userAccountStore;
-        this.apiKeyStore = apiKeyStore;
         this.auth = properties.auth();
     }
 
@@ -409,58 +400,6 @@ public class AuthController {
         log.info("[Auth] Admin updated account for user id={}", id);
         return ResponseEntity.ok(UserSummary.from(updated.get()));
     }
-
-    /**
-     * Issues a per-user API key for the authenticated caller (Requirement 12.6).
-     *
-     * <p>The raw key value is returned in the response exactly once and is not recoverable from
-     * storage — only its SHA-256 hash is persisted (the store performs the hashing). The key is
-     * owned by the authenticated User_Id, never a client-supplied identity.</p>
-     *
-     * @param request the API-key creation request body (may be {@code null})
-     * @return the raw key and its id (HTTP 201)
-     */
-    @PostMapping(value = "/api-keys", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<CreateApiKeyResponse> createApiKey(
-            @Valid @RequestBody(required = false) CreateApiKeyRequest request) {
-        String userId = SecurityUtils.getUserId();
-        Set<String> scopes = request != null ? request.scopes() : null;
-        Instant expiresAt = request != null ? request.expiresAt() : null;
-
-        if (scopes != null && !scopes.isEmpty()) {
-            if (scopes.stream().anyMatch(AuthController::isSuperAdminTarget) && !SecurityUtils.isSuperAdmin()) {
-                throw new org.springframework.security.access.AccessDeniedException(
-                        "Platform Operator (super-admin) role required to issue API keys with super-admin privileges");
-            }
-            if (scopes.stream().anyMatch(AuthController::isAdminTarget) && !SecurityUtils.isAdmin()) {
-                throw new org.springframework.security.access.AccessDeniedException(
-                        "Admin role required to issue API keys with admin privileges");
-            }
-        }
-
-        ApiKeyCreation created = apiKeyStore.create(userId, scopes, expiresAt);
-        log.info("[Auth] Issued API key {} for user id={}", created.keyId(), userId);
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(new CreateApiKeyResponse(created.keyId(), created.rawKey()));
-    }
-
-    /**
-     * Revokes an API key by id (Requirement 12.6). Revoked keys never authenticate again.
-     *
-     * @param id the 13-character TSID of the key to revoke
-     * @return HTTP 204 on success, or HTTP 404 when no such key exists
-     */
-    @DeleteMapping(value = "/api-keys/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> revokeApiKey(@PathVariable("id") String id) {
-        boolean revoked = apiKeyStore.revoke(id);
-        if (!revoked) {
-            return notFound("api key not found");
-        }
-        log.info("[Auth] Revoked API key {}", id);
-        return ResponseEntity.noContent().build();
-    }
-
     // ── Internal helpers ──
 
     private static boolean isSuperAdminTarget(String value) {

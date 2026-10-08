@@ -40,13 +40,10 @@ public record CreateCredentialRequest(
         String provider,
 
         CredentialType credentialType,
-
-        @NotBlank(message = "secret is required")
         String secret,
-
         Map<String, Object> properties,
 
-        boolean isDefault,
+        Boolean isDefault,
 
         String description,
 

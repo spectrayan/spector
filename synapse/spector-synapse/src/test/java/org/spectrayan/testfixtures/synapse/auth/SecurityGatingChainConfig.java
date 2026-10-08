@@ -30,7 +30,7 @@ import com.spectrayan.spector.synapse.config.SecurityConfig;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
 import com.spectrayan.spector.config.properties.AuthProperties;
 import com.spectrayan.spector.synapse.security.ApiKeyAuthenticationFilter;
-import com.spectrayan.spector.synapse.security.ApiKeyStore;
+import com.spectrayan.spector.synapse.connector.repository.CredentialRepository;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -53,13 +53,13 @@ public abstract class SecurityGatingChainConfig {
     }
 
     @Bean
-    ApiKeyStore apiKeyStore() {
-        return Mockito.mock(ApiKeyStore.class);
+    CredentialRepository credentialRepository() {
+        return Mockito.mock(CredentialRepository.class);
     }
 
     @Bean
-    ApiKeyAuthenticationFilter apiKeyFilter(SynapseProperties properties, ApiKeyStore apiKeyStore) {
-        return new ApiKeyAuthenticationFilter(properties, apiKeyStore);
+    ApiKeyAuthenticationFilter apiKeyFilter(SynapseProperties properties, CredentialRepository credentialRepository) {
+        return new ApiKeyAuthenticationFilter(properties, credentialRepository);
     }
 
     @Bean

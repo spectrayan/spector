@@ -43,7 +43,13 @@ import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
-
+import com.spectrayan.spector.synapse.connector.model.CredentialCategory;
+import com.spectrayan.spector.synapse.connector.model.CredentialRecord;
+import com.spectrayan.spector.synapse.connector.repository.CredentialRepository;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -104,7 +110,7 @@ class ControllerSecurityMatrixTest {
     private ObjectMapper mapper;
 
     @Autowired(required = false)
-    private ApiKeyStore apiKeyStore;
+    private CredentialRepository credentialRepository;
 
     @Autowired(required = false)
     private UserAccountStore userAccountStore;
@@ -387,11 +393,9 @@ class ControllerSecurityMatrixTest {
         }
 
         @Test
-        @DisplayName("Non-admins rejected with 403 on credentials, usage, connectors, plugins")
+        @DisplayName("Non-admins rejected with 403 on usage, connectors, plugins, auth/users, approvals")
         void testNonAdminsRejectedOnOtherAdminSurfaces() throws Exception {
             for (String role : nonAdminRoles) {
-                mvc.perform(get("/api/v1/credentials").with(user("user1").roles(role)))
-                        .andExpect(status().isForbidden());
                 mvc.perform(get("/api/v1/usage/summary").with(user("user1").roles(role)))
                         .andExpect(status().isForbidden());
                 mvc.perform(get("/api/v1/connectors").with(user("user1").roles(role)))
@@ -402,6 +406,15 @@ class ControllerSecurityMatrixTest {
                         .andExpect(status().isForbidden());
                 mvc.perform(get("/api/v1/agent/approvals").with(user("user1").roles(role)))
                         .andExpect(status().isForbidden());
+            }
+        }
+
+        @Test
+        @DisplayName("Non-admins authorized with 200 on /api/v1/credentials (user-scoped listing)")
+        void testNonAdminsAuthorizedOnCredentialsList() throws Exception {
+            for (String role : nonAdminRoles) {
+                mvc.perform(get("/api/v1/credentials").with(user("user1").roles(role)))
+                        .andExpect(status().isOk());
             }
         }
 
@@ -596,9 +609,13 @@ class ControllerSecurityMatrixTest {
         void testPrivilegeEscalationPreventedOnApiKeyCreation() throws Exception {
             for (String scope : List.of("spector:admin", "scope_spector:admin", "SCOPE-spector:admin", "super-admin")) {
                 String apiKeyJson = mapper.writeValueAsString(Map.of(
-                        "scopes", List.of(scope)
+                        "name", "admin-key-" + System.nanoTime(),
+                        "category", "AUTH",
+                        "provider", "spector",
+                        "credentialType", "API_KEY",
+                        "properties", Map.of("scopes", List.of(scope))
                 ));
-                mvc.perform(post("/api/v1/auth/api-keys")
+                mvc.perform(post("/api/v1/credentials")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(apiKeyJson)
                                 .with(user("admin1").roles("admin")))
@@ -607,9 +624,13 @@ class ControllerSecurityMatrixTest {
 
             for (String scope : List.of("admin", "spector:namespace:admin")) {
                 String nonAdminApiKeyJson = mapper.writeValueAsString(Map.of(
-                        "scopes", List.of(scope)
+                        "name", "viewer-key-" + System.nanoTime(),
+                        "category", "AUTH",
+                        "provider", "spector",
+                        "credentialType", "API_KEY",
+                        "properties", Map.of("scopes", List.of(scope))
                 ));
-                mvc.perform(post("/api/v1/auth/api-keys")
+                mvc.perform(post("/api/v1/credentials")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(nonAdminApiKeyJson)
                                 .with(user("user1").roles("viewer")))
@@ -662,32 +683,51 @@ class ControllerSecurityMatrixTest {
     @DisplayName("6. API Key Principal Role Mapping & Grant Isolation")
     class ApiKeySecurityTests {
 
+        private static String sha256Hex(String input) {
+            try {
+                MessageDigest md = MessageDigest.getInstance("SHA-256");
+                byte[] digest = md.digest(input.getBytes(StandardCharsets.UTF_8));
+                return HexFormat.of().formatHex(digest);
+            } catch (NoSuchAlgorithmException e) {
+                throw new IllegalStateException("SHA-256 algorithm missing", e);
+            }
+        }
+
         @Test
         @DisplayName("API key principal inheriting admin role is authorized on admin endpoints")
         void testApiKeyAdminAuthorizedOnAdminEndpoints() throws Exception {
-            if (apiKeyStore == null || userAccountStore == null) {
+            if (credentialRepository == null || userAccountStore == null) {
                 return;
             }
             String adminUid = userAccountStore.findByUsername("apiKeyAdmin")
                     .map(UserRow::userId)
                     .orElseGet(() -> userAccountStore.createUser("apiKeyAdmin", "Password123!", null, null,
                             Set.of("admin"), Set.of(), false));
-            var keyCreation = apiKeyStore.create(adminUid, Set.of("admin"), null);
+            String rawKey = "sk_spec_admin_test_12345678901234567890";
+            credentialRepository.save(CredentialRecord.builder("cred-admin-1", "default", "admin-key", CredentialCategory.AUTH, "spector")
+                    .userId(adminUid)
+                    .keyHash(sha256Hex(rawKey))
+                    .ciphertext("dummy")
+                    .iv("dummy")
+                    .authTag("dummy")
+                    .maskedPreview("sk_spec_...admin")
+                    .properties(Map.of("scopes", List.of("admin")))
+                    .build());
 
             // API key with admin role can access cache admin and tasks
             mvc.perform(get("/api/v1/admin/cache")
-                            .header("Authorization", "Bearer " + keyCreation.rawKey()))
+                            .header("Authorization", "Bearer " + rawKey))
                     .andExpect(status().isOk());
 
             mvc.perform(get("/api/v1/tasks")
-                            .header("Authorization", "Bearer " + keyCreation.rawKey()))
+                            .header("Authorization", "Bearer " + rawKey))
                     .andExpect(status().isOk());
         }
 
         @Test
         @DisplayName("API key principal with admin role receives 403 on ungranted memory namespace")
         void testApiKeyAdminRejectedOnUngrantedNamespace() throws Exception {
-            if (apiKeyStore == null || userAccountStore == null) {
+            if (credentialRepository == null || userAccountStore == null) {
                 return;
             }
             String adminUid = userAccountStore.findByUsername("apiKeyAdmin2")
@@ -695,12 +735,21 @@ class ControllerSecurityMatrixTest {
                     .orElseGet(() -> userAccountStore.createUser("apiKeyAdmin2", "Password123!", null, null,
                             Set.of("admin"), Set.of(), false));
             catalog.getOrCreateAccount(adminUid);
-            var keyCreation = apiKeyStore.create(adminUid, Set.of("admin"), null);
+            String rawKey = "sk_spec_admin2_test_12345678901234567890";
+            credentialRepository.save(CredentialRecord.builder("cred-admin-2", "default", "admin-key-2", CredentialCategory.AUTH, "spector")
+                    .userId(adminUid)
+                    .keyHash(sha256Hex(rawKey))
+                    .ciphertext("dummy")
+                    .iv("dummy")
+                    .authTag("dummy")
+                    .maskedPreview("sk_spec_...admin2")
+                    .properties(Map.of("scopes", List.of("admin")))
+                    .build());
 
             // Content isolation: Admin API key calling OTHER_USER's namespace receives 403
             mvc.perform(get("/api/v1/memory/table")
                             .header("X-Spector-Namespace", OTHER_USER)
-                            .header("Authorization", "Bearer " + keyCreation.rawKey()))
+                            .header("Authorization", "Bearer " + rawKey))
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.status").value(403))
                     .andExpect(jsonPath("$.code").value("SPE-800-002"));
@@ -709,17 +758,26 @@ class ControllerSecurityMatrixTest {
         @Test
         @DisplayName("API key principal without admin role rejected with 403 on admin endpoints")
         void testNonAdminApiKeyRejectedOnAdminEndpoints() throws Exception {
-            if (apiKeyStore == null || userAccountStore == null) {
+            if (credentialRepository == null || userAccountStore == null) {
                 return;
             }
             String viewerUid = userAccountStore.findByUsername("apiKeyViewer")
                     .map(UserRow::userId)
                     .orElseGet(() -> userAccountStore.createUser("apiKeyViewer", "Password123!", null, null,
                             Set.of("viewer"), Set.of("memory:read"), false));
-            var keyCreation = apiKeyStore.create(viewerUid, Set.of("memory:read"), null);
+            String rawKey = "sk_spec_viewer_test_12345678901234567890";
+            credentialRepository.save(CredentialRecord.builder("cred-viewer-1", "default", "viewer-key", CredentialCategory.AUTH, "spector")
+                    .userId(viewerUid)
+                    .keyHash(sha256Hex(rawKey))
+                    .ciphertext("dummy")
+                    .iv("dummy")
+                    .authTag("dummy")
+                    .maskedPreview("sk_spec_...viewer")
+                    .properties(Map.of("scopes", List.of("memory:read")))
+                    .build());
 
             mvc.perform(get("/api/v1/admin/cache")
-                            .header("Authorization", "Bearer " + keyCreation.rawKey()))
+                            .header("Authorization", "Bearer " + rawKey))
                     .andExpect(status().isForbidden());
         }
     }

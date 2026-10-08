@@ -62,7 +62,7 @@ import net.jqwik.api.Provide;
  * {@code V3__multi_user_auth.sql} (the same in-memory H2 + {@link JdbcClient} pattern used by
  * {@code RefreshTokenStoreTest} / {@code JtiBlocklistTest}), a real {@link Pbkdf2PasswordEncoder}
  * (a single iteration for speed — hashing behaviour is covered elsewhere), a real
- * {@link ServerAccessTokenMinter}, {@link ApiKeyStore}, and {@link RefreshTokenStore}.</p>
+ * {@link ServerAccessTokenMinter}, and {@link RefreshTokenStore}.</p>
  *
  * <p>Generated usernames are drawn from a realistic handle alphabet (letters, digits, and the
  * separators {@code . _ -}) of length 1..64 and are constructed to always contain at least one
@@ -155,18 +155,13 @@ class UserAccountTsidPiiAvoidancePropertyTest {
         assertThat(sub).doesNotContain(username);
 
         // (Req 16.2) Persisted foreign keys equal the userId and never carry the username.
-        fx.apiKeys.create(userId, Set.of("memory:read"), Instant.now().plus(1, ChronoUnit.DAYS));
         fx.refreshTokens.create(userId, Instant.now().plus(1, ChronoUnit.DAYS));
 
-        String apiKeyFk = single(fx.jdbc, "SELECT user_id FROM api_keys");
         String refreshFk = single(fx.jdbc, "SELECT user_id FROM refresh_tokens");
-        assertThat(apiKeyFk).isEqualTo(userId);
-        assertThat(apiKeyFk).doesNotContain(username);
         assertThat(refreshFk).isEqualTo(userId);
         assertThat(refreshFk).doesNotContain(username);
 
         // No persisted foreign key equals the username.
-        assertThat(countWhereUserId(fx.jdbc, "api_keys", username)).isZero();
         assertThat(countWhereUserId(fx.jdbc, "refresh_tokens", username)).isZero();
 
         // The username is confined to the `username` column; the primary key is the TSID.
@@ -178,7 +173,7 @@ class UserAccountTsidPiiAvoidancePropertyTest {
 
     /** Per-try store/token wiring backed by a fresh in-memory H2 database. */
     private record Fixture(JdbcClient jdbc, UserAccountStore store, ServerAccessTokenMinter minter,
-                           ApiKeyStore apiKeys, RefreshTokenStore refreshTokens) {
+                           RefreshTokenStore refreshTokens) {
     }
 
     private static Fixture newFixture() {
@@ -203,7 +198,6 @@ class UserAccountTsidPiiAvoidancePropertyTest {
                 jdbc,
                 new UserAccountStore(jdbc, encoder, props),
                 new ServerAccessTokenMinter(props),
-                new ApiKeyStore(jdbc),
                 new RefreshTokenStore(jdbc, new TsidGenerator(0)));
     }
 
@@ -229,19 +223,6 @@ class UserAccountTsidPiiAvoidancePropertyTest {
                     updated_at            TIMESTAMP     NOT NULL,
                     PRIMARY KEY (user_id),
                     CONSTRAINT uq_users_username UNIQUE (username)
-                )
-                """).update();
-        jdbc.sql("""
-                CREATE TABLE api_keys (
-                    key_id      VARCHAR(13)   NOT NULL,
-                    user_id     VARCHAR(13)   NOT NULL,
-                    key_hash    VARCHAR(64)   NOT NULL,
-                    scopes      VARCHAR(1024) NOT NULL DEFAULT '',
-                    expires_at  TIMESTAMP,
-                    revoked     BOOLEAN       NOT NULL DEFAULT FALSE,
-                    created_at  TIMESTAMP     NOT NULL,
-                    PRIMARY KEY (key_id),
-                    CONSTRAINT fk_api_keys_user FOREIGN KEY (user_id) REFERENCES users (user_id)
                 )
                 """).update();
         jdbc.sql("""

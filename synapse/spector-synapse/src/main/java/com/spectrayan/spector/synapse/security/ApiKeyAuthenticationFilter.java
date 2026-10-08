@@ -16,10 +16,15 @@
 package com.spectrayan.spector.synapse.security;
 
 import java.io.IOException;
-import java.util.ArrayList;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,6 +36,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.spectrayan.spector.synapse.config.SynapseProperties;
+import com.spectrayan.spector.synapse.connector.model.CredentialRecord;
+import com.spectrayan.spector.synapse.connector.repository.CredentialRepository;
 import com.spectrayan.spector.config.properties.AuthProperties;
 
 import jakarta.servlet.FilterChain;
@@ -39,7 +46,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 /**
- * API key authentication filter.
+ * API key authentication filter backed by the universal credentials vault.
  *
  * <p>Accepts keys via two mechanisms, preferring the {@code Authorization} header over
  * {@code X-API-Key} when both are present:</p>
@@ -57,10 +64,10 @@ import jakarta.servlet.http.HttpServletResponse;
  *   <li><strong>disabled</strong> (legacy, backward-compatible): if the extracted key equals the
  *       configured shared key ({@code spector.api-key}), bind an {@code Authentication} carrying
  *       {@code ROLE_API}; otherwise leave the context unauthenticated.</li>
- *   <li><strong>enabled</strong>: compute {@code SHA-256} of the raw key and look up a non-revoked,
- *       non-expired row via {@link ApiKeyStore#findActiveByHash(String)}. On a match, bind an
+ *   <li><strong>enabled</strong>: compute {@code SHA-256} of the raw key and look up a non-expired
+ *       credential via {@link CredentialRepository#findByKeyHash(String)}. On a match, bind an
  *       {@code Authentication} whose principal is the owning {@code userId} and whose authorities
- *       are the key's scopes mapped to {@code SCOPE_*}; otherwise leave the context
+ *       are mapped to {@code SCOPE_*} and {@code ROLE_*}; otherwise leave the context
  *       unauthenticated (downstream authorization yields 401/403).</li>
  * </ul>
  *
@@ -72,35 +79,35 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
     private static final Logger log = LoggerFactory.getLogger(ApiKeyAuthenticationFilter.class);
     private static final String BEARER_PREFIX = "Bearer ";
     private static final String API_KEY_HEADER = "X-API-Key";
-    private static final String SCOPE_PREFIX = "SCOPE_";
 
     /** Maximum accepted length of a presented API key value (inclusive). */
     private static final int MAX_KEY_LENGTH = 512;
 
     private final SynapseProperties props;
     private final AuthProperties auth;
-    private final ApiKeyStore apiKeyStore;
+    private final CredentialRepository credentialRepository;
     private final UserAccountStore userAccountStore;
+    private final ConcurrentHashMap<String, Long> lastUsedThrottle = new ConcurrentHashMap<>();
 
     @org.springframework.beans.factory.annotation.Autowired
     public ApiKeyAuthenticationFilter(
             SynapseProperties props,
-            ApiKeyStore apiKeyStore,
+            CredentialRepository credentialRepository,
             org.springframework.beans.factory.ObjectProvider<UserAccountStore> userAccountStoreProvider) {
         this.props = props;
         this.auth = props.auth();
-        this.apiKeyStore = apiKeyStore;
+        this.credentialRepository = credentialRepository;
         this.userAccountStore = userAccountStoreProvider != null ? userAccountStoreProvider.getIfAvailable() : null;
     }
 
-    public ApiKeyAuthenticationFilter(SynapseProperties props, ApiKeyStore apiKeyStore) {
-        this(props, apiKeyStore, (UserAccountStore) null);
+    public ApiKeyAuthenticationFilter(SynapseProperties props, CredentialRepository credentialRepository) {
+        this(props, credentialRepository, (UserAccountStore) null);
     }
 
-    public ApiKeyAuthenticationFilter(SynapseProperties props, ApiKeyStore apiKeyStore, UserAccountStore userAccountStore) {
+    public ApiKeyAuthenticationFilter(SynapseProperties props, CredentialRepository credentialRepository, UserAccountStore userAccountStore) {
         this.props = props;
         this.auth = props.auth();
-        this.apiKeyStore = apiKeyStore;
+        this.credentialRepository = credentialRepository;
         this.userAccountStore = userAccountStore;
     }
 
@@ -138,8 +145,8 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
         if (apiKey == null || apiKey.isBlank()) {
             return;
         }
-        byte[] a = apiKey.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        byte[] b = props.apiKey() != null ? props.apiKey().getBytes(java.nio.charset.StandardCharsets.UTF_8) : new byte[0];
+        byte[] a = apiKey.getBytes(StandardCharsets.UTF_8);
+        byte[] b = props.apiKey() != null ? props.apiKey().getBytes(StandardCharsets.UTF_8) : new byte[0];
         if (java.security.MessageDigest.isEqual(a, b)) {
             var authentication = new UsernamePasswordAuthenticationToken(
                     "api-client", null,
@@ -153,18 +160,38 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
         if (apiKey == null || apiKey.isBlank()) {
             return;
         }
-        String hash = ApiKeyStore.sha256Hex(apiKey);
-        Optional<ApiKeyStore.ApiKeyRow> match = apiKeyStore.findActiveByHash(hash);
+        String hash = sha256Hex(apiKey);
+        Optional<CredentialRecord> match = credentialRepository.findByKeyHash(hash);
         if (match.isPresent()) {
-            ApiKeyStore.ApiKeyRow row = match.get();
-            String tenantId = null;
+            CredentialRecord row = match.get();
+
+            // Expiration check
+            if (row.expiresAt() != null && row.expiresAt().isBefore(Instant.now())) {
+                log.debug("[Auth] Presented API key credential '{}' expired at {}", row.name(), row.expiresAt());
+                return;
+            }
+
+            String tenantId = row.tenantId();
+            String userId = row.userId();
             Set<String> roles = new java.util.LinkedHashSet<>();
             Set<String> scopes = new java.util.LinkedHashSet<>();
-            if (row.scopes() != null) {
-                scopes.addAll(row.scopes());
+
+            // Extract scopes from properties map
+            if (row.properties() != null && row.properties().containsKey("scopes")) {
+                Object scopesObj = row.properties().get("scopes");
+                if (scopesObj instanceof java.util.Collection<?> col) {
+                    for (Object o : col) {
+                        if (o != null) scopes.add(o.toString());
+                    }
+                } else if (scopesObj instanceof String s) {
+                    for (String part : s.split("[,\\s]+")) {
+                        if (!part.isBlank()) scopes.add(part.trim());
+                    }
+                }
             }
-            if (userAccountStore != null) {
-                Optional<UserRow> userOpt = userAccountStore.findByUserId(row.userId());
+
+            if (userAccountStore != null && userId != null) {
+                Optional<UserRow> userOpt = userAccountStore.findByUserId(userId);
                 if (userOpt.isPresent()) {
                     UserRow user = userOpt.get();
                     tenantId = user.tenantId();
@@ -173,6 +200,7 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
                     }
                 }
             }
+
             for (String s : scopes) {
                 if (s != null) {
                     String trimmed = s.trim();
@@ -196,13 +224,40 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
                     }
                 }
             }
+
             List<GrantedAuthority> authorities = SpectorAuthorityMapper.toAuthorities(roles, scopes);
             var authentication = new UsernamePasswordAuthenticationToken(
-                    row.userId(), null, authorities);
-            authentication.setDetails(new ApiKeyAuthenticationDetails(row.keyId(), tenantId));
+                    userId != null ? userId : row.credentialId(), null, authorities);
+            authentication.setDetails(new ApiKeyAuthenticationDetails(row.credentialId(), tenantId));
             SecurityContextHolder.getContext().setAuthentication(authentication);
-            log.debug("[Auth] API key {} authenticated user {} (tenant={}) for {}",
-                    row.keyId(), row.userId(), tenantId, path);
+
+            recordLastUsedThrottled(row.credentialId());
+            log.debug("[Auth] Credential {} authenticated user {} (tenant={}) for {}",
+                    row.credentialId(), userId, tenantId, path);
+        }
+    }
+
+    private void recordLastUsedThrottled(String credentialId) {
+        if (credentialId == null) return;
+        long now = System.currentTimeMillis();
+        Long last = lastUsedThrottle.put(credentialId, now);
+        if (last == null || (now - last) >= 60_000L) {
+            try {
+                credentialRepository.updateLastUsedAt(credentialId, Instant.ofEpochMilli(now));
+            } catch (Exception e) {
+                log.debug("[Auth] Failed to update last_used_at for credential {}", credentialId, e);
+            }
+        }
+    }
+
+    static String sha256Hex(String raw) {
+        if (raw == null) return null;
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] digest = md.digest(raw.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 not available", e);
         }
     }
 

@@ -225,7 +225,11 @@ paths:
         required: false
         schema:
           type: string
-          default: default
+      - name: tenantId
+        in: query
+        required: false
+        schema:
+          type: string
       - name: name
         in: path
         required: true
@@ -248,7 +252,11 @@ paths:
         required: false
         schema:
           type: string
-          default: default
+      - name: tenantId
+        in: query
+        required: false
+        schema:
+          type: string
       - name: name
         in: path
         required: true
@@ -277,7 +285,11 @@ paths:
         required: false
         schema:
           type: string
-          default: default
+      - name: tenantId
+        in: query
+        required: false
+        schema:
+          type: string
       - name: name
         in: path
         required: true
@@ -1744,7 +1756,11 @@ paths:
         required: false
         schema:
           type: string
-          default: default
+      - name: tenantId
+        in: query
+        required: false
+        schema:
+          type: string
       - name: userId
         in: query
         required: false
@@ -1769,7 +1785,11 @@ paths:
         required: false
         schema:
           type: string
-          default: default
+      - name: tenantId
+        in: query
+        required: false
+        schema:
+          type: string
       requestBody:
         content:
           application/json:
@@ -1794,7 +1814,11 @@ paths:
         required: false
         schema:
           type: string
-          default: default
+      - name: tenantId
+        in: query
+        required: false
+        schema:
+          type: string
       - name: name
         in: path
         required: true
@@ -2047,23 +2071,6 @@ paths:
             application/json:
               schema:
                 type: object
-  /api/v1/auth/api-keys:
-    post:
-      tags:
-      - auth-controller
-      operationId: createApiKey
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateApiKeyRequest"
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CreateApiKeyResponse"
   /api/v1/agents/{id}/invoke:
     post:
       tags:
@@ -3980,24 +3987,6 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/FactRetractResponse"
-  /api/v1/auth/api-keys/{id}:
-    delete:
-      tags:
-      - auth-controller
-      operationId: revokeApiKey
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
 components:
   schemas:
     AcousticModulationMap:
@@ -4506,6 +4495,7 @@ components:
         category:
           type: string
           enum:
+          - AUTH
           - LLM
           - EMBEDDING
           - CHANNEL
@@ -4553,6 +4543,7 @@ components:
         category:
           type: string
           enum:
+          - AUTH
           - LLM
           - EMBEDDING
           - CHANNEL
@@ -4598,6 +4589,8 @@ components:
         lastUsedAt:
           type: string
           format: date-time
+        rawSecret:
+          type: string
     WeightsRequest:
       type: object
       properties:
@@ -5429,6 +5422,7 @@ components:
         category:
           type: string
           enum:
+          - AUTH
           - LLM
           - EMBEDDING
           - CHANNEL
@@ -5454,7 +5448,6 @@ components:
           - APP_ROLE
         secret:
           type: string
-          minLength: 1
         properties:
           type: object
           additionalProperties: {}
@@ -5469,7 +5462,6 @@ components:
       - category
       - name
       - provider
-      - secret
     RouteConfig:
       type: object
       properties:
@@ -5674,24 +5666,6 @@ components:
       required:
       - current_password
       - new_password
-    CreateApiKeyRequest:
-      type: object
-      properties:
-        scopes:
-          type: array
-          items:
-            type: string
-          uniqueItems: true
-        expires_at:
-          type: string
-          format: date-time
-    CreateApiKeyResponse:
-      type: object
-      properties:
-        key_id:
-          type: string
-        api_key:
-          type: string
     ApprovalDecisionRequest:
       type: object
       properties:
@@ -6254,11 +6228,11 @@ components:
         flags:
           type: string
           format: byte
-        inferred:
+        retraction:
           type: boolean
         ongoing:
           type: boolean
-        retraction:
+        inferred:
           type: boolean
         resolved:
           type: boolean

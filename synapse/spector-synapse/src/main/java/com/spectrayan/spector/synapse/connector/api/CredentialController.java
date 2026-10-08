@@ -20,11 +20,13 @@ import com.spectrayan.spector.synapse.connector.api.dto.CredentialResponse;
 import com.spectrayan.spector.synapse.connector.api.dto.UpdateCredentialRequest;
 import com.spectrayan.spector.synapse.connector.model.CredentialRecord;
 import com.spectrayan.spector.synapse.connector.service.CredentialService;
+import com.spectrayan.spector.synapse.security.SecurityUtils;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -32,7 +34,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -48,13 +49,15 @@ import java.util.Objects;
  * REST API presentation layer for managing encrypted credentials, BYOK keys,
  * channel tokens, and enterprise vault configurations.
  *
- * <p>Delegates domain business logic, cryptographic operations, and persistence
- * to {@link CredentialService}.</p>
+ * <p>Enforces IDOR ownership protection and multi-tenant isolation across all
+ * credential lifecycles. Regular users can manage their own credentials, tenant
+ * administrators maintain oversight of credentials within their tenant, and platform
+ * operators have fleet-wide access.</p>
  */
 @RestController
 @RequestMapping("/api/v1/credentials")
 @Validated
-@PreAuthorize("hasAnyRole('admin', 'super-admin', 'ADMIN', 'SUPER_ADMIN')")
+@PreAuthorize("isAuthenticated()")
 public class CredentialController {
 
     private static final Logger log = LoggerFactory.getLogger(CredentialController.class);
@@ -68,33 +71,67 @@ public class CredentialController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public CredentialResponse createCredential(
-            @RequestHeader(value = "X-Tenant-ID", defaultValue = "default") String tenantId,
+            @RequestHeader(value = "X-Tenant-ID", required = false) String tenantIdHeader,
+            @RequestParam(required = false) String tenantId,
             @Valid @RequestBody CreateCredentialRequest request,
             Authentication authentication) {
 
-        String userId = authentication != null ? authentication.getName() : null;
-        log.info("[CredentialAPI] REST create credential '{}' for tenant '{}'", request.name(), tenantId);
+        String effectiveTenant = resolveTenant(tenantId != null ? tenantId : tenantIdHeader);
+        String callerUserId = resolveUserId(authentication);
+        log.info("[CredentialAPI] REST create credential '{}' for tenant '{}' user '{}'",
+                request.name(), effectiveTenant, callerUserId);
 
-        CredentialRecord record = credentialService.createCredential(tenantId, userId, request);
+        CredentialRecord record = credentialService.createCredential(effectiveTenant, callerUserId, request);
         return CredentialResponse.fromRecord(record);
     }
 
     @GetMapping
     public List<CredentialResponse> listCredentials(
-            @RequestHeader(value = "X-Tenant-ID", defaultValue = "default") String tenantId,
-            @RequestParam(required = false) String userId) {
+            @RequestHeader(value = "X-Tenant-ID", required = false) String tenantIdHeader,
+            @RequestParam(required = false) String tenantId,
+            @RequestParam(required = false) String userId,
+            Authentication authentication) {
 
-        return credentialService.listCredentials(tenantId, userId).stream()
+        String callerTenant = SecurityUtils.getTenantId();
+        String callerUserId = resolveUserId(authentication);
+
+        if (SecurityUtils.isSuperAdmin()) {
+            String targetTenant = tenantId != null && !tenantId.isBlank() ? tenantId : tenantIdHeader;
+            if (targetTenant != null && !targetTenant.isBlank() && !"default".equalsIgnoreCase(targetTenant)) {
+                return credentialService.listCredentials(targetTenant, userId).stream()
+                        .map(CredentialResponse::fromRecord)
+                        .toList();
+            }
+            return credentialService.listCredentialsFleetWide(targetTenant, userId).stream()
+                    .map(CredentialResponse::fromRecord)
+                    .toList();
+        }
+
+        if (SecurityUtils.isAdmin()) {
+            String effectiveTenant = callerTenant != null && !callerTenant.isBlank() ? callerTenant : "default";
+            return credentialService.listCredentials(effectiveTenant, userId).stream()
+                    .map(CredentialResponse::fromRecord)
+                    .toList();
+        }
+
+        // Regular user: strictly scoped to caller's tenant and own userId
+        String effectiveTenant = callerTenant != null && !callerTenant.isBlank() ? callerTenant : "default";
+        return credentialService.listCredentials(effectiveTenant, callerUserId).stream()
                 .map(CredentialResponse::fromRecord)
                 .toList();
     }
 
     @GetMapping("/{name}")
     public ResponseEntity<CredentialResponse> getCredential(
-            @RequestHeader(value = "X-Tenant-ID", defaultValue = "default") String tenantId,
-            @PathVariable String name) {
+            @RequestHeader(value = "X-Tenant-ID", required = false) String tenantIdHeader,
+            @RequestParam(required = false) String tenantId,
+            @PathVariable String name,
+            Authentication authentication) {
 
-        return credentialService.getCredential(tenantId, name)
+        String effectiveTenant = resolveTenant(tenantId != null ? tenantId : tenantIdHeader);
+        String callerUserId = resolveUserId(authentication);
+
+        return credentialService.getCredentialWithAuthorization(effectiveTenant, callerUserId, name)
                 .map(CredentialResponse::fromRecord)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
@@ -102,13 +139,16 @@ public class CredentialController {
 
     @PutMapping("/{name}")
     public ResponseEntity<CredentialResponse> updateCredential(
-            @RequestHeader(value = "X-Tenant-ID", defaultValue = "default") String tenantId,
+            @RequestHeader(value = "X-Tenant-ID", required = false) String tenantIdHeader,
+            @RequestParam(required = false) String tenantId,
             @PathVariable String name,
             @RequestBody UpdateCredentialRequest request,
             Authentication authentication) {
 
-        String userId = authentication != null ? authentication.getName() : null;
-        return credentialService.updateCredential(tenantId, userId, name, request)
+        String effectiveTenant = resolveTenant(tenantId != null ? tenantId : tenantIdHeader);
+        String callerUserId = resolveUserId(authentication);
+
+        return credentialService.updateCredentialWithAuthorization(effectiveTenant, callerUserId, name, request)
                 .map(CredentialResponse::fromRecord)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
@@ -117,10 +157,15 @@ public class CredentialController {
     @DeleteMapping("/{name}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public ResponseEntity<Void> deleteCredential(
-            @RequestHeader(value = "X-Tenant-ID", defaultValue = "default") String tenantId,
-            @PathVariable String name) {
+            @RequestHeader(value = "X-Tenant-ID", required = false) String tenantIdHeader,
+            @RequestParam(required = false) String tenantId,
+            @PathVariable String name,
+            Authentication authentication) {
 
-        boolean deleted = credentialService.deleteCredential(tenantId, name);
+        String effectiveTenant = resolveTenant(tenantId != null ? tenantId : tenantIdHeader);
+        String callerUserId = resolveUserId(authentication);
+
+        boolean deleted = credentialService.deleteCredentialWithAuthorization(effectiveTenant, callerUserId, name);
         if (!deleted) {
             return ResponseEntity.notFound().build();
         }
@@ -129,13 +174,35 @@ public class CredentialController {
 
     @PostMapping("/{name}/test")
     public ResponseEntity<Map<String, Object>> testCredential(
-            @RequestHeader(value = "X-Tenant-ID", defaultValue = "default") String tenantId,
-            @PathVariable String name) {
+            @RequestHeader(value = "X-Tenant-ID", required = false) String tenantIdHeader,
+            @RequestParam(required = false) String tenantId,
+            @PathVariable String name,
+            Authentication authentication) {
 
-        Map<String, Object> result = credentialService.testCredential(tenantId, name);
+        String effectiveTenant = resolveTenant(tenantId != null ? tenantId : tenantIdHeader);
+        String callerUserId = resolveUserId(authentication);
+
+        Map<String, Object> result = credentialService.testCredentialWithAuthorization(effectiveTenant, callerUserId, name);
         if ("NOT_FOUND".equals(result.get("status"))) {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(result);
+    }
+
+    private String resolveTenant(String requestedTenant) {
+        String callerTenant = SecurityUtils.getTenantId();
+        if (SecurityUtils.isSuperAdmin() && requestedTenant != null && !requestedTenant.isBlank()
+                && !"default".equalsIgnoreCase(requestedTenant)) {
+            return requestedTenant.trim();
+        }
+        return callerTenant != null && !callerTenant.isBlank() ? callerTenant : "default";
+    }
+
+    private String resolveUserId(Authentication authentication) {
+        if (authentication != null && authentication.getName() != null && !authentication.getName().isBlank()) {
+            return authentication.getName();
+        }
+        String u = SecurityUtils.getUserId();
+        return u != null ? u : "anonymous";
     }
 }

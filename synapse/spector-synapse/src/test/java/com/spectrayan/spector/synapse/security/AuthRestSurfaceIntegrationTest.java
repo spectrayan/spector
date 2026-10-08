@@ -67,13 +67,22 @@ import com.spectrayan.spector.kernel.id.TsidGenerator;
 import com.spectrayan.spector.synapse.config.JwtDecoderConfig;
 import com.spectrayan.spector.synapse.config.SecurityConfig;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import com.spectrayan.spector.synapse.connector.model.CredentialCategory;
+import com.spectrayan.spector.synapse.connector.model.CredentialRecord;
+import com.spectrayan.spector.synapse.connector.repository.CredentialRepository;
+import com.spectrayan.spector.synapse.connector.repository.JdbcCredentialRepository;
+import com.spectrayan.spector.synapse.config.sql.SqlQueryLoader;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
+import java.util.List;
 import com.spectrayan.spector.config.properties.AuthProperties;
 import com.spectrayan.spector.config.properties.AuthProperties.DefaultAdminProperties;
 import com.spectrayan.spector.config.properties.AuthProperties.JwtProperties;
 import com.spectrayan.spector.config.properties.AuthProperties.Pbkdf2Properties;
 import com.spectrayan.spector.synapse.security.AuthDto.ChangePasswordRequest;
-import com.spectrayan.spector.synapse.security.AuthDto.CreateApiKeyRequest;
-import com.spectrayan.spector.synapse.security.AuthDto.CreateApiKeyResponse;
 import com.spectrayan.spector.synapse.security.AuthDto.LoginRequest;
 import com.spectrayan.spector.synapse.security.AuthDto.LoginResponse;
 import com.spectrayan.spector.synapse.security.AuthDto.RefreshRequest;
@@ -139,6 +148,8 @@ class AuthRestSurfaceIntegrationTest {
     private static RefreshTokenStore refreshTokenStore;
     private static JtiBlocklist jtiBlocklist;
     private static JwtDecoder serverJwtDecoder;
+    private static CredentialRepository credentialRepository;
+    private static JdbcClient jdbcClient;
 
     @BeforeAll
     static void setUp() {
@@ -157,6 +168,8 @@ class AuthRestSurfaceIntegrationTest {
         refreshTokenStore = ctx.getBean(RefreshTokenStore.class);
         jtiBlocklist = ctx.getBean(JtiBlocklist.class);
         serverJwtDecoder = ctx.getBean(JwtDecoder.class);
+        credentialRepository = ctx.getBean(CredentialRepository.class);
+        jdbcClient = ctx.getBean(JdbcClient.class);
 
         // Seed the default admin exactly as AuthStartupInitializer does on ApplicationReadyEvent.
         userAccountStore.seedDefaultAdmin(ADMIN_PASSWORD);
@@ -497,63 +510,78 @@ class AuthRestSurfaceIntegrationTest {
     }
 
     // ══════════════════════════════════════════════════════════════
-    // API keys (Requirement 12.6)
+    // API keys & Credentials Vault (Requirement 12.6, Issue #1050)
     // ══════════════════════════════════════════════════════════════
 
+    private static String sha256Hex(String input) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(md.digest(input.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 algorithm missing", e);
+        }
+    }
+
     @Nested
-    @DisplayName("/api-keys")
-    class ApiKeys {
+    @DisplayName("/api-keys retirement & inbound auth via credentials vault")
+    class ApiKeysRetirementAndVaultAuth {
 
         @Test
-        @DisplayName("POST /api-keys returns the raw key once and that key authenticates a later request (Req 12.6)")
-        void createApiKey_returnsRawKeyOnce_andAuthenticatesSubsequentRequest() throws Exception {
-            MvcResult res = mvc.perform(post(AUTH + "/api-keys")
-                            .header("Authorization", "Bearer " + adminAccessToken())
-                            .contentType(APPLICATION_JSON)
-                            .content(json(new CreateApiKeyRequest(Set.of("memory:read"), null))))
-                    .andExpect(status().isCreated())
-                    .andExpect(jsonPath("$.key_id").isNotEmpty())
-                    .andExpect(jsonPath("$.api_key").isNotEmpty())
-                    .andReturn();
-
-            CreateApiKeyResponse created = read(res, CreateApiKeyResponse.class);
-
-            // The raw key authenticates a subsequent request via X-API-Key (endpoint needs only auth).
-            mvc.perform(post(AUTH + "/api-keys")
-                            .header("X-API-Key", created.apiKey())
-                            .contentType(APPLICATION_JSON)
-                            .content(json(new CreateApiKeyRequest(Set.of("memory:read"), null))))
-                    .andExpect(status().isCreated());
+        @DisplayName("api_keys table is completely dropped from schema")
+        void apiKeysTableIsDropped() {
+            assertThatThrownBy(() -> jdbcClient.sql("SELECT COUNT(*) FROM api_keys").query().singleValue())
+                    .isInstanceOf(Exception.class);
         }
 
         @Test
-        @DisplayName("DELETE /api-keys/{id} revokes the key so it no longer authenticates (Req 12.6)")
-        void deleteApiKey_revokes_thenKeyNoLongerAuthenticates() throws Exception {
+        @DisplayName("Legacy /api-keys routes return 404 (removed from AuthController)")
+        void legacyRoutesAreRemoved() throws Exception {
             String adminToken = adminAccessToken();
-            CreateApiKeyResponse created = read(mvc.perform(post(AUTH + "/api-keys")
+            mvc.perform(post(AUTH + "/api-keys")
                             .header("Authorization", "Bearer " + adminToken)
                             .contentType(APPLICATION_JSON)
-                            .content(json(new CreateApiKeyRequest(Set.of("memory:read"), null))))
-                    .andExpect(status().isCreated())
-                    .andReturn(), CreateApiKeyResponse.class);
+                            .content("{\"scopes\":[\"memory:read\"]}"))
+                    .andExpect(status().isNotFound());
 
-            // Sanity: the freshly issued key authenticates.
-            mvc.perform(post(AUTH + "/api-keys")
-                            .header("X-API-Key", created.apiKey())
-                            .contentType(APPLICATION_JSON)
-                            .content(json(new CreateApiKeyRequest(Set.of("memory:read"), null))))
-                    .andExpect(status().isCreated());
-
-            // Revoke it.
-            mvc.perform(delete(AUTH + "/api-keys/" + created.keyId())
+            mvc.perform(delete(AUTH + "/api-keys/key-123")
                             .header("Authorization", "Bearer " + adminToken))
-                    .andExpect(status().isNoContent());
+                    .andExpect(status().isNotFound());
+        }
 
-            // The revoked key no longer authenticates → the protected endpoint returns 401.
-            mvc.perform(post(AUTH + "/api-keys")
-                            .header("X-API-Key", created.apiKey())
-                            .contentType(APPLICATION_JSON)
-                            .content(json(new CreateApiKeyRequest(Set.of("memory:read"), null))))
+        @Test
+        @DisplayName("Credential stored in vault with key_hash authenticates inbound requests and rejects once deleted")
+        void credentialInVaultAuthenticatesInboundRequest() throws Exception {
+            String rawApiKey = "sk_spec_test_live_vault_key_1234567890";
+            String hash = sha256Hex(rawApiKey);
+            String adminId = adminUserId();
+
+            CredentialRecord cred = CredentialRecord.builder("cred-inbound-test", "default", "inbound-key", CredentialCategory.AUTH, "spector")
+                    .userId(adminId)
+                    .keyHash(hash)
+                    .ciphertext("dummy-ciphertext")
+                    .iv("dummy-iv")
+                    .authTag("dummy-auth-tag")
+                    .maskedPreview("sk_spec_...1234")
+                    .properties(Map.of("scopes", List.of("admin")))
+                    .build();
+            credentialRepository.save(cred);
+
+            // Inbound request authenticates using X-API-Key
+            mvc.perform(get(AUTH + "/users")
+                            .header("X-API-Key", rawApiKey))
+                    .andExpect(status().isOk());
+
+            // Inbound request authenticates using Authorization: Bearer
+            mvc.perform(get(AUTH + "/users")
+                            .header("Authorization", "Bearer " + rawApiKey))
+                    .andExpect(status().isOk());
+
+            // Now delete/remove credential from vault
+            credentialRepository.deleteByName("default", "inbound-key");
+
+            // Key no longer authenticates -> 401
+            mvc.perform(get(AUTH + "/users")
+                            .header("X-API-Key", rawApiKey))
                     .andExpect(status().isUnauthorized());
         }
     }
@@ -644,6 +672,11 @@ class AuthRestSurfaceIntegrationTest {
         }
 
         @Bean
+        ObjectMapper objectMapper() {
+            return new ObjectMapper();
+        }
+
+        @Bean
         DataSource dataSource() {
             DriverManagerDataSource ds = new DriverManagerDataSource();
             ds.setDriverClassName("org.h2.Driver");
@@ -702,8 +735,8 @@ class AuthRestSurfaceIntegrationTest {
         }
 
         @Bean
-        ApiKeyStore apiKeyStore(JdbcClient jdbc) {
-            return new ApiKeyStore(jdbc);
+        CredentialRepository credentialRepository(JdbcClient jdbc, ObjectMapper mapper) {
+            return new JdbcCredentialRepository(jdbc, mapper, new SqlQueryLoader());
         }
 
         @Bean
@@ -722,8 +755,8 @@ class AuthRestSurfaceIntegrationTest {
         }
 
         @Bean
-        ApiKeyAuthenticationFilter apiKeyFilter(SynapseProperties props, ApiKeyStore apiKeyStore) {
-            return new ApiKeyAuthenticationFilter(props, apiKeyStore);
+        ApiKeyAuthenticationFilter apiKeyFilter(SynapseProperties props, CredentialRepository credentialRepository) {
+            return new ApiKeyAuthenticationFilter(props, credentialRepository);
         }
 
         /**
@@ -753,10 +786,9 @@ class AuthRestSurfaceIntegrationTest {
                                      RefreshTokenStore refreshTokenStore,
                                      JtiBlocklist jtiBlocklist,
                                      UserAccountStore userAccountStore,
-                                     ApiKeyStore apiKeyStore,
                                      SynapseProperties props) {
             return new AuthController(authenticationManager, tokenMinter, refreshTokenStore,
-                    jtiBlocklist, userAccountStore, apiKeyStore, props);
+                    jtiBlocklist, userAccountStore, props);
         }
 
         @Bean

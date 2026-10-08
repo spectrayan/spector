@@ -43,7 +43,9 @@ public record CredentialResponse(
         Instant createdAt,
         Instant updatedAt,
         Instant expiresAt,
-        Instant lastUsedAt
+        Instant lastUsedAt,
+        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+        String rawSecret
 ) {
     public static CredentialResponse fromRecord(CredentialRecord record) {
         return new CredentialResponse(
@@ -62,7 +64,8 @@ public record CredentialResponse(
                 record.createdAt(),
                 record.updatedAt(),
                 record.expiresAt(),
-                record.lastUsedAt()
+                record.lastUsedAt(),
+                record.rawSecret()
         );
     }
 }

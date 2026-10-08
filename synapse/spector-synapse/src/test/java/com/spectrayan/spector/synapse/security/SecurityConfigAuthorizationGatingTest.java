@@ -57,7 +57,7 @@ import ch.qos.logback.core.read.ListAppender;
  * a minimal {@link AnnotationConfigWebApplicationContext} constructs the real chain via
  * {@code new SecurityConfig(props).filterChain(http, apiKeyFilter, props, jwtResolverProvider)} and
  * exposes it to {@link MockMvc} through {@code springSecurity()}. The extended
- * {@link ApiKeyAuthenticationFilter} is wired with a mock {@link ApiKeyStore} (never exercised —
+ * {@link ApiKeyAuthenticationFilter} is wired with a mock {@link com.spectrayan.spector.synapse.connector.repository.CredentialRepository} (never exercised —
  * the credential states are simulated at the authorization layer with spring-security-test's
  * {@code authentication(...)} post-processor). No OIDC/HS256 {@code AuthenticationManagerResolver}
  * bean is present, so the {@code ObjectProvider} resolves empty and the OAuth2 resource-server

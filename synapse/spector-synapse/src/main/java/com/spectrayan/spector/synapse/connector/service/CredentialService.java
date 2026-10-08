@@ -62,4 +62,34 @@ public interface CredentialService {
      * Tests and probes connectivity and validity for a stored credential.
      */
     Map<String, Object> testCredential(String tenantId, String name);
+
+    /**
+     * Retrieves credential metadata by name with IDOR and tenancy authorization enforcement.
+     */
+    Optional<CredentialRecord> getCredentialWithAuthorization(String tenantId, String callerUserId, String name);
+
+    /**
+     * Updates an existing credential with IDOR and tenancy authorization enforcement.
+     */
+    Optional<CredentialRecord> updateCredentialWithAuthorization(String tenantId, String callerUserId, String name, UpdateCredentialRequest request);
+
+    /**
+     * Deletes a credential with IDOR and tenancy authorization enforcement.
+     */
+    boolean deleteCredentialWithAuthorization(String tenantId, String callerUserId, String name);
+
+    /**
+     * Probes credential connectivity with IDOR and tenancy authorization enforcement.
+     */
+    Map<String, Object> testCredentialWithAuthorization(String tenantId, String callerUserId, String name);
+
+    /**
+     * Lists credentials fleet-wide across tenants or filtered by tenant and user.
+     */
+    List<CredentialRecord> listCredentialsFleetWide(String tenantId, String userId);
+
+    /**
+     * Verifies caller ownership and tenancy bounds on a credential record.
+     */
+    void checkOwnership(CredentialRecord record, String callerTenant, String callerUserId);
 }
