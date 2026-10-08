@@ -5258,8 +5258,6 @@ components:
           format: int64
         truncated:
           type: boolean
-        positivelyReinforced:
-          type: boolean
         simulated:
           type: boolean
         dreamed:
@@ -5271,6 +5269,8 @@ components:
         lateral:
           type: boolean
         hyperfocused:
+          type: boolean
+        positivelyReinforced:
           type: boolean
     FederatedRecallHit:
       type: object
@@ -6292,11 +6292,11 @@ components:
         flags:
           type: string
           format: byte
-        retraction:
+        ongoing:
           type: boolean
         inferred:
           type: boolean
-        ongoing:
+        retraction:
           type: boolean
         resolved:
           type: boolean

@@ -195,4 +195,44 @@ class AdminApiKeyControllerTest {
         assertThat(err.status()).isEqualTo(403);
         assertThat(err.message()).contains("SPE-820-001");
     }
+
+    @Test
+    @DisplayName("Tenant admin filtering by nonexistent accountId returns HTTP 404 (not false cross-tenant 403)")
+    void listApiKeysTenantAdminNonexistentAccountReturns404() {
+        bindPrincipal("ADMIN_T1", "tenant-alpha", "ADMIN");
+        UserRow adminUser = user("ADMIN_T1", "admin1", Set.of("ADMIN"), "tenant-alpha");
+        when(userAccountStore.findByUserId("ADMIN_T1")).thenReturn(Optional.of(adminUser));
+        when(userAccountStore.listUsers()).thenReturn(List.of(adminUser));
+        when(userAccountStore.findByUserId("NONEXISTENT_USER")).thenReturn(Optional.empty());
+
+        ResponseEntity<?> response = controller.listApiKeys("NONEXISTENT_USER", null);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(response.getBody()).isInstanceOf(ErrorResponse.class);
+        ErrorResponse err = (ErrorResponse) response.getBody();
+        assertThat(err.status()).isEqualTo(404);
+        assertThat(err.message()).contains("User not found");
+    }
+
+    @Test
+    @DisplayName("Tenant admin oversight uses DB tenant when security context diverges")
+    void listApiKeysTenantAdminDbTenantTakesPrecedenceOverJwt() {
+        // Security context principal says tenant-old, DB says tenant-new
+        bindPrincipal("ADMIN_T1", "tenant-old", "ADMIN");
+        UserRow adminUser = user("ADMIN_T1", "admin1", Set.of("ADMIN"), "tenant-new");
+        UserRow userNew = user("USER_NEW", "usernew", Set.of("USER"), "tenant-new");
+
+        when(userAccountStore.findByUserId("ADMIN_T1")).thenReturn(Optional.of(adminUser));
+        when(userAccountStore.listUsers()).thenReturn(List.of(adminUser, userNew));
+        ApiKeyRow key1 = key("KEY0000000001", "USER_NEW", "Key New");
+        when(apiKeyStore.findByUserId("USER_NEW")).thenReturn(List.of(key1));
+
+        ResponseEntity<?> response = controller.listApiKeys("USER_NEW", null);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        @SuppressWarnings("unchecked")
+        List<ApiKeySummary> summaries = (List<ApiKeySummary>) response.getBody();
+        assertThat(summaries).hasSize(1);
+        assertThat(summaries.getFirst().keyId()).isEqualTo("KEY0000000001");
+    }
 }

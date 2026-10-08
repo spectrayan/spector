@@ -489,22 +489,17 @@ public class AuthController {
         boolean isSuperAdmin = SecurityUtils.isSuperAdmin();
         boolean isAdmin = SecurityUtils.isAdmin();
 
-        String callerTenant = SecurityUtils.getTenantId();
-        if (callerTenant == null || "default".equalsIgnoreCase(callerTenant)) {
-            callerTenant = userAccountStore.findByUserId(callerUserId)
-                    .map(UserRow::tenantId)
-                    .filter(t -> t != null && !t.isBlank())
-                    .orElse("default");
+        String callerTenant = userAccountStore.findByUserId(callerUserId)
+                .map(UserRow::tenantId)
+                .filter(t -> t != null && !t.isBlank())
+                .orElseGet(SecurityUtils::getTenantId);
+        if (callerTenant == null || callerTenant.isBlank()) {
+            callerTenant = "default";
         }
 
         Optional<ApiKeyStore.ApiKeyRow> keyOpt = apiKeyStore.findById(id);
         if (keyOpt.isEmpty()) {
-            boolean revoked = apiKeyStore.revoke(id);
-            if (!revoked) {
-                return notFound("api key not found");
-            }
-            log.info("[Auth] Revoked API key {}", id);
-            return ResponseEntity.noContent().build();
+            return notFound("api key not found");
         }
 
         String targetUserId = keyOpt.get().userId();

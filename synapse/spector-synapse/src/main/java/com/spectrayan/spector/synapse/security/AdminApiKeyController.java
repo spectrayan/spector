@@ -17,6 +17,7 @@ package com.spectrayan.spector.synapse.security;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -82,12 +83,12 @@ public class AdminApiKeyController {
         String callerUserId = SecurityUtils.getUserId();
         boolean isSuperAdmin = SecurityUtils.isSuperAdmin();
 
-        String callerTenant = SecurityUtils.getTenantId();
-        if (callerTenant == null || "default".equalsIgnoreCase(callerTenant)) {
-            callerTenant = userAccountStore.findByUserId(callerUserId)
-                    .map(UserRow::tenantId)
-                    .filter(t -> t != null && !t.isBlank())
-                    .orElse("default");
+        String callerTenant = userAccountStore.findByUserId(callerUserId)
+                .map(UserRow::tenantId)
+                .filter(t -> t != null && !t.isBlank())
+                .orElseGet(SecurityUtils::getTenantId);
+        if (callerTenant == null || callerTenant.isBlank()) {
+            callerTenant = "default";
         }
 
         // Fleet-wide access for Platform Operators (super-admin)
@@ -119,17 +120,22 @@ public class AdminApiKeyController {
                 .collect(Collectors.toSet());
 
         if (filterAccountId != null) {
-            if (!tenantUserIds.contains(filterAccountId)) {
-                String targetTenant = userAccountStore.findByUserId(filterAccountId)
-                        .map(UserRow::tenantId)
-                        .filter(t -> t != null && !t.isBlank())
-                        .orElse("default");
-                log.warn("[AdminAuth] Tenant admin {} (tenant={}) attempted cross-tenant oversight of account {} (tenant={})",
-                        callerUserId, finalCallerTenant, filterAccountId, targetTenant);
-                return forbidden("[" + ErrorCode.CROSS_TENANT_ACCESS_DENIED.id() + " / "
-                        + CrossTenantAccessException.ERROR_CODE_ALIAS + "] Cross-tenant access denied: account '"
-                        + callerUserId + "' cannot oversee account '" + filterAccountId
-                        + "' belonging to tenant '" + targetTenant + "'");
+            Optional<UserRow> targetUser = userAccountStore.findByUserId(filterAccountId);
+            if (targetUser.isPresent()) {
+                String targetTenant = targetUser.get().tenantId();
+                if (targetTenant == null || targetTenant.isBlank()) {
+                    targetTenant = "default";
+                }
+                if (!finalCallerTenant.equalsIgnoreCase(targetTenant)) {
+                    log.warn("[AdminAuth] Tenant admin {} (tenant={}) attempted cross-tenant oversight of account {} (tenant={})",
+                            callerUserId, finalCallerTenant, filterAccountId, targetTenant);
+                    return forbidden("[" + ErrorCode.CROSS_TENANT_ACCESS_DENIED.id() + " / "
+                            + CrossTenantAccessException.ERROR_CODE_ALIAS + "] Cross-tenant access denied: account '"
+                            + callerUserId + "' cannot oversee account '" + filterAccountId
+                            + "' belonging to tenant '" + targetTenant + "'");
+                }
+            } else if (!tenantUserIds.contains(filterAccountId)) {
+                return notFound("User not found: " + filterAccountId);
             }
             List<ApiKeySummary> keys = apiKeyStore.findByUserId(filterAccountId).stream()
                     .map(ApiKeySummary::from)
@@ -142,6 +148,12 @@ public class AdminApiKeyController {
                 .map(ApiKeySummary::from)
                 .toList();
         return ResponseEntity.ok(keys);
+    }
+
+    private static ResponseEntity<ErrorResponse> notFound(String message) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new ErrorResponse(HttpStatus.NOT_FOUND.value(), "Not Found", message));
     }
 
     private static ResponseEntity<ErrorResponse> forbidden(String message) {

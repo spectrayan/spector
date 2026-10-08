@@ -29,6 +29,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -171,15 +172,34 @@ public class ApiKeyStore {
         return new ApiKeyCreation(keyId, rawKey);
     }
 
+    /** Throttle window for last_used_at database writes to prevent lock contention under high RPS. */
+    private static final long LAST_USED_THROTTLE_SECONDS = 60;
+    private final ConcurrentHashMap<String, Instant> lastUsedThrottle = new ConcurrentHashMap<>();
+
     /**
      * Updates the {@code last_used_at} timestamp for an authenticated API key.
+     *
+     * <p>Throttled to at most once per 60 seconds per key to eliminate database row-lock contention
+     * and write amplification under high request concurrency.</p>
      *
      * @param keyId the key TSID
      */
     public void recordLastUsed(String keyId) {
+        if (keyId == null || keyId.isBlank()) {
+            return;
+        }
+        Instant now = Instant.now();
+        Instant last = lastUsedThrottle.get(keyId);
+        if (last != null && last.plusSeconds(LAST_USED_THROTTLE_SECONDS).isAfter(now)) {
+            return;
+        }
+        if (lastUsedThrottle.size() > 10_000) {
+            lastUsedThrottle.entrySet().removeIf(e -> e.getValue().plusSeconds(300).isBefore(now));
+        }
+        lastUsedThrottle.put(keyId, now);
         try {
             jdbc.sql("UPDATE api_keys SET last_used_at = :now WHERE key_id = :keyId")
-                    .param("now", Timestamp.from(Instant.now()))
+                    .param("now", Timestamp.from(now))
                     .param("keyId", keyId)
                     .update();
         } catch (DataAccessException ignored) {}

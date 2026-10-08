@@ -750,6 +750,65 @@ class AuthRestSurfaceIntegrationTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$").isArray());
         }
+
+        @Test
+        @DisplayName("Revoking nonexistent API key returns HTTP 404 Not Found (no bypass)")
+        void revokeApiKey_nonexistentKey_returns404() throws Exception {
+            String adminToken = adminAccessToken();
+            registerUser(adminToken, "nonexist_tester", "Test!Password!123", Set.of("USER"));
+            String token = loginOk("nonexist_tester", "Test!Password!123").accessToken();
+
+            mvc.perform(delete(AUTH + "/api-keys/018f000000000")
+                            .header("Authorization", "Bearer " + token))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.status").value(404));
+        }
+
+        @Test
+        @DisplayName("Tenant Admin querying nonexistent accountId receives HTTP 404 Not Found")
+        void adminListApiKeys_nonexistentUser_returns404() throws Exception {
+            userAccountStore.createUser("tenant_gamma_admin", "AdminGamma!123", null, null,
+                    Set.of("ADMIN"), Set.of(), false, "tenant-gamma");
+            String tokenGamma = loginOk("tenant_gamma_admin", "AdminGamma!123").accessToken();
+
+            mvc.perform(get("/api/v1/admin/api-keys")
+                            .param("accountId", "018fnonexistent00")
+                            .header("Authorization", "Bearer " + tokenGamma))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.status").value(404));
+        }
+
+        @Test
+        @DisplayName("Tenant change in DB takes precedence: admin cannot oversee prior tenant keys")
+        void tenantAdmin_afterTenantChangeInDb_cannotRevokePriorTenantKey() throws Exception {
+            // User in tenant-x
+            String userXId = userAccountStore.createUser("user_tx", "UserTX!123", null, null,
+                    Set.of("USER"), Set.of(), false, "tenant-x");
+            String tokenUserX = loginOk("user_tx", "UserTX!123").accessToken();
+            CreateApiKeyResponse keyX = read(mvc.perform(post(AUTH + "/api-keys")
+                            .header("Authorization", "Bearer " + tokenUserX)
+                            .contentType(APPLICATION_JSON)
+                            .content(json(new CreateApiKeyRequest("Key X", Set.of("memory:read"), null))))
+                    .andExpect(status().isCreated())
+                    .andReturn(), CreateApiKeyResponse.class);
+
+            // Admin originally created in tenant-x, gets token with tenant-x
+            String adminId = userAccountStore.createUser("admin_shifting", "Shift!Admin!123", null, null,
+                    Set.of("ADMIN"), Set.of(), false, "tenant-x");
+            String staleToken = loginOk("admin_shifting", "Shift!Admin!123").accessToken();
+
+            // Admin's tenant is shifted in DB to tenant-y
+            ctx.getBean(JdbcClient.class)
+                    .sql("UPDATE users SET tenant_id = 'tenant-y' WHERE user_id = :userId")
+                    .param("userId", adminId)
+                    .update();
+
+            // Attempt to revoke userX's key using the token -> blocked with 403 because DB tenant is now tenant-y!
+            mvc.perform(delete(AUTH + "/api-keys/" + keyX.keyId())
+                            .header("Authorization", "Bearer " + staleToken))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.error").value("SPE-820-001"));
+        }
     }
 
     // ══════════════════════════════════════════════════════════════

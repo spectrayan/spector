@@ -406,7 +406,7 @@ class AuthControllerTest {
 
     @Test
     void revokeApiKeyMissingReturns404() {
-        when(apiKeyStore.revoke("MISSING")).thenReturn(false);
+        when(apiKeyStore.findById("MISSING")).thenReturn(Optional.empty());
 
         ResponseEntity<?> response = controller.revokeApiKey("MISSING");
 
@@ -415,7 +415,14 @@ class AuthControllerTest {
 
     @Test
     void revokeApiKeySuccessReturns204() {
-        when(apiKeyStore.revoke("KEY0000000001")).thenReturn(true);
+        bindPrincipal(USER_ID);
+        ApiKeyRow targetKey = new ApiKeyRow("KEY0000000001", USER_ID, "hash", Set.of(),
+                null, false, Instant.now(), "My Key", "spk_12345678", null);
+        when(apiKeyStore.findById("KEY0000000001")).thenReturn(Optional.of(targetKey));
+        when(userAccountStore.findByUserId(USER_ID)).thenReturn(Optional.of(
+                new UserRow(USER_ID, "user", "h", null, null, Set.of("USER"), Set.of(), false, true, 0, null, null, Instant.now(), Instant.now(), "tenant-a")));
+        when(apiKeyStore.revokeWithAuthorization(eq("KEY0000000001"), eq(USER_ID), eq("tenant-a"), eq("tenant-a"), eq(false), eq(false)))
+                .thenReturn(true);
 
         ResponseEntity<?> response = controller.revokeApiKey("KEY0000000001");
 
@@ -512,6 +519,27 @@ class AuthControllerTest {
         when(userAccountStore.findByUserId("USER_OTHER")).thenReturn(Optional.of(
                 new UserRow("USER_OTHER", "other", "h", null, null, Set.of("USER"), Set.of(), false, true, 0, null, null, Instant.now(), Instant.now(), "tenant-b")));
         when(apiKeyStore.revokeWithAuthorization(eq("KEY0000000001"), eq("SUPER_USER"), any(), any(), eq(true), anyBoolean()))
+                .thenReturn(true);
+
+        ResponseEntity<?> response = controller.revokeApiKey("KEY0000000001");
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+    }
+
+    @Test
+    void revokeApiKeyTenantChangedInDbTakesPrecedenceOverJwt() {
+        // Principal bound with old tenant in security context
+        bindPrincipal("ADMIN_USER", "ADMIN");
+        ApiKeyRow targetKey = new ApiKeyRow("KEY0000000001", "USER_TARGET", "hash", Set.of(),
+                null, false, Instant.now(), "Target Key", "spk_target", null);
+        when(apiKeyStore.findById("KEY0000000001")).thenReturn(Optional.of(targetKey));
+
+        // DB reflects updated tenant: tenant-new (diverging from security context)
+        when(userAccountStore.findByUserId("ADMIN_USER")).thenReturn(Optional.of(
+                new UserRow("ADMIN_USER", "admin", "h", null, null, Set.of("ADMIN"), Set.of(), false, true, 0, null, null, Instant.now(), Instant.now(), "tenant-new")));
+        when(userAccountStore.findByUserId("USER_TARGET")).thenReturn(Optional.of(
+                new UserRow("USER_TARGET", "target", "h", null, null, Set.of("USER"), Set.of(), false, true, 0, null, null, Instant.now(), Instant.now(), "tenant-new")));
+        when(apiKeyStore.revokeWithAuthorization(eq("KEY0000000001"), eq("ADMIN_USER"), eq("tenant-new"), eq("tenant-new"), eq(false), eq(true)))
                 .thenReturn(true);
 
         ResponseEntity<?> response = controller.revokeApiKey("KEY0000000001");
