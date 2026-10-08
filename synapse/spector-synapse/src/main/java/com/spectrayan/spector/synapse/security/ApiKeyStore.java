@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -175,6 +176,7 @@ public class ApiKeyStore {
     /** Throttle window for last_used_at database writes to prevent lock contention under high RPS. */
     private static final long LAST_USED_THROTTLE_SECONDS = 60;
     private final ConcurrentHashMap<String, Instant> lastUsedThrottle = new ConcurrentHashMap<>();
+    private final AtomicLong lastThrottleEvictionMs = new AtomicLong(0);
 
     /**
      * Updates the {@code last_used_at} timestamp for an authenticated API key.
@@ -194,7 +196,11 @@ public class ApiKeyStore {
             return;
         }
         if (lastUsedThrottle.size() > 10_000) {
-            lastUsedThrottle.entrySet().removeIf(e -> e.getValue().plusSeconds(300).isBefore(now));
+            long nowMs = now.toEpochMilli();
+            long prevMs = lastThrottleEvictionMs.get();
+            if (nowMs - prevMs > 60_000 && lastThrottleEvictionMs.compareAndSet(prevMs, nowMs)) {
+                lastUsedThrottle.entrySet().removeIf(e -> e.getValue().plusSeconds(300).isBefore(now));
+            }
         }
         lastUsedThrottle.put(keyId, now);
         try {

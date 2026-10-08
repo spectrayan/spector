@@ -3933,7 +3933,9 @@ paths:
           content:
             application/json:
               schema:
-                type: object
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiKeySummary"
   /api/v1/account/introspect:
     get:
       tags:
@@ -4028,12 +4030,8 @@ paths:
         schema:
           type: string
       responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
+        "204":
+          description: No Content
 components:
   schemas:
     AcousticModulationMap:
@@ -5258,6 +5256,8 @@ components:
           format: int64
         truncated:
           type: boolean
+        positivelyReinforced:
+          type: boolean
         simulated:
           type: boolean
         dreamed:
@@ -5269,8 +5269,6 @@ components:
         lateral:
           type: boolean
         hyperfocused:
-          type: boolean
-        positivelyReinforced:
           type: boolean
     FederatedRecallHit:
       type: object
@@ -6292,11 +6290,11 @@ components:
         flags:
           type: string
           format: byte
-        ongoing:
+        retraction:
           type: boolean
         inferred:
           type: boolean
-        retraction:
+        ongoing:
           type: boolean
         resolved:
           type: boolean

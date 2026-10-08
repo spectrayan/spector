@@ -94,6 +94,9 @@ public class AdminApiKeyController {
         // Fleet-wide access for Platform Operators (super-admin)
         if (isSuperAdmin) {
             if (filterAccountId != null) {
+                if (userAccountStore.findByUserId(filterAccountId).isEmpty()) {
+                    return notFound("User not found: " + filterAccountId);
+                }
                 List<ApiKeySummary> keys = apiKeyStore.findByUserId(filterAccountId).stream()
                         .map(ApiKeySummary::from)
                         .toList();
@@ -108,7 +111,8 @@ public class AdminApiKeyController {
 
         // Tenant-scoped access for Tenant Admins (admin)
         String finalCallerTenant = callerTenant;
-        Set<String> tenantUserIds = userAccountStore.listUsers().stream()
+        List<UserRow> allUsers = userAccountStore.listUsers();
+        Set<String> tenantUserIds = allUsers.stream()
                 .filter(u -> {
                     String ut = u.tenantId();
                     if (ut == null || ut.isBlank()) {
@@ -120,22 +124,22 @@ public class AdminApiKeyController {
                 .collect(Collectors.toSet());
 
         if (filterAccountId != null) {
-            Optional<UserRow> targetUser = userAccountStore.findByUserId(filterAccountId);
-            if (targetUser.isPresent()) {
-                String targetTenant = targetUser.get().tenantId();
-                if (targetTenant == null || targetTenant.isBlank()) {
-                    targetTenant = "default";
-                }
-                if (!finalCallerTenant.equalsIgnoreCase(targetTenant)) {
-                    log.warn("[AdminAuth] Tenant admin {} (tenant={}) attempted cross-tenant oversight of account {} (tenant={})",
-                            callerUserId, finalCallerTenant, filterAccountId, targetTenant);
-                    return forbidden("[" + ErrorCode.CROSS_TENANT_ACCESS_DENIED.id() + " / "
-                            + CrossTenantAccessException.ERROR_CODE_ALIAS + "] Cross-tenant access denied: account '"
-                            + callerUserId + "' cannot oversee account '" + filterAccountId
-                            + "' belonging to tenant '" + targetTenant + "'");
-                }
-            } else if (!tenantUserIds.contains(filterAccountId)) {
+            Optional<UserRow> targetUser = userAccountStore.findByUserId(filterAccountId)
+                    .or(() -> allUsers.stream().filter(u -> u.userId().equals(filterAccountId)).findFirst());
+            if (targetUser.isEmpty()) {
                 return notFound("User not found: " + filterAccountId);
+            }
+            String targetTenant = targetUser.get().tenantId();
+            if (targetTenant == null || targetTenant.isBlank()) {
+                targetTenant = "default";
+            }
+            if (!finalCallerTenant.equalsIgnoreCase(targetTenant)) {
+                log.warn("[AdminAuth] Tenant admin {} (tenant={}) attempted cross-tenant oversight of account {} (tenant={})",
+                        callerUserId, finalCallerTenant, filterAccountId, targetTenant);
+                return forbidden("[" + ErrorCode.CROSS_TENANT_ACCESS_DENIED.id() + " / "
+                        + CrossTenantAccessException.ERROR_CODE_ALIAS + "] Cross-tenant access denied: account '"
+                        + callerUserId + "' cannot oversee account '" + filterAccountId
+                        + "' belonging to tenant '" + targetTenant + "'");
             }
             List<ApiKeySummary> keys = apiKeyStore.findByUserId(filterAccountId).stream()
                     .map(ApiKeySummary::from)

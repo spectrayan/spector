@@ -116,6 +116,8 @@ class AdminApiKeyControllerTest {
                 user("SUPER_ADMIN_ID", "superadmin", Set.of("SUPER_ADMIN"), "platform")));
 
         ApiKeyRow key1 = key("KEY0000000001", "USER_T2", "Key Tenant 2");
+        when(userAccountStore.findByUserId("USER_T2")).thenReturn(Optional.of(
+                user("USER_T2", "usert2", Set.of("USER"), "tenant-beta")));
         when(apiKeyStore.findByUserId("USER_T2")).thenReturn(List.of(key1));
 
         ResponseEntity<?> response = controller.listApiKeys("USER_T2", null);
@@ -125,6 +127,23 @@ class AdminApiKeyControllerTest {
         List<ApiKeySummary> summaries = (List<ApiKeySummary>) response.getBody();
         assertThat(summaries).hasSize(1);
         assertThat(summaries.getFirst().keyId()).isEqualTo("KEY0000000001");
+    }
+
+    @Test
+    @DisplayName("Super-admin filtering by nonexistent accountId returns HTTP 404")
+    void listApiKeysSuperAdminNonexistentAccountReturns404() {
+        bindPrincipal("SUPER_ADMIN_ID", "platform", "SUPER_ADMIN");
+        when(userAccountStore.findByUserId("SUPER_ADMIN_ID")).thenReturn(Optional.of(
+                user("SUPER_ADMIN_ID", "superadmin", Set.of("SUPER_ADMIN"), "platform")));
+        when(userAccountStore.findByUserId("NONEXISTENT_USER")).thenReturn(Optional.empty());
+
+        ResponseEntity<?> response = controller.listApiKeys("NONEXISTENT_USER", null);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(response.getBody()).isInstanceOf(ErrorResponse.class);
+        ErrorResponse err = (ErrorResponse) response.getBody();
+        assertThat(err.status()).isEqualTo(404);
+        assertThat(err.message()).contains("User not found: NONEXISTENT_USER");
     }
 
     // ── Tenant Admin (admin) ──

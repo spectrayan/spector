@@ -779,6 +779,18 @@ class AuthRestSurfaceIntegrationTest {
         }
 
         @Test
+        @DisplayName("Super Admin querying nonexistent accountId receives HTTP 404 Not Found")
+        void adminListApiKeys_superAdminNonexistentUser_returns404() throws Exception {
+            String adminToken = adminAccessToken();
+
+            mvc.perform(get("/api/v1/admin/api-keys")
+                            .param("accountId", "018fnonexistent99")
+                            .header("Authorization", "Bearer " + adminToken))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.status").value(404));
+        }
+
+        @Test
         @DisplayName("Tenant change in DB takes precedence: admin cannot oversee prior tenant keys")
         void tenantAdmin_afterTenantChangeInDb_cannotRevokePriorTenantKey() throws Exception {
             // User in tenant-x
