@@ -254,4 +254,51 @@ class AdminApiKeyControllerTest {
         assertThat(summaries).hasSize(1);
         assertThat(summaries.getFirst().keyId()).isEqualTo("KEY0000000001");
     }
+
+    @Test
+    @DisplayName("Super-admin retrieves keys filtered by username fallback")
+    void listApiKeysSuperAdminWithUsernameFilterReturnsAccountKeys() {
+        bindPrincipal("SUPER_ADMIN_ID", "platform", "SUPER_ADMIN");
+        when(userAccountStore.findByUserId("SUPER_ADMIN_ID")).thenReturn(Optional.of(
+                user("SUPER_ADMIN_ID", "superadmin", Set.of("SUPER_ADMIN"), "platform")));
+
+        UserRow userT2 = user("USER_T2", "usert2", Set.of("USER"), "tenant-beta");
+        when(userAccountStore.findByUserId("usert2")).thenReturn(Optional.empty());
+        when(userAccountStore.findByUsername("usert2")).thenReturn(Optional.of(userT2));
+
+        ApiKeyRow key1 = key("KEY0000000001", "USER_T2", "Key Tenant 2");
+        when(apiKeyStore.findByUserId("USER_T2")).thenReturn(List.of(key1));
+
+        ResponseEntity<?> response = controller.listApiKeys("usert2", null);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        @SuppressWarnings("unchecked")
+        List<ApiKeySummary> summaries = (List<ApiKeySummary>) response.getBody();
+        assertThat(summaries).hasSize(1);
+        assertThat(summaries.getFirst().keyId()).isEqualTo("KEY0000000001");
+    }
+
+    @Test
+    @DisplayName("Tenant admin filters by username fallback within their tenant returns account keys")
+    void listApiKeysTenantAdminWithUsernameInSameTenantReturnsKeys() {
+        bindPrincipal("ADMIN_T1", "tenant-alpha", "ADMIN");
+        UserRow adminUser = user("ADMIN_T1", "admin1", Set.of("ADMIN"), "tenant-alpha");
+        UserRow userT1 = user("USER_T1", "usert1", Set.of("USER"), "tenant-alpha");
+
+        when(userAccountStore.findByUserId("ADMIN_T1")).thenReturn(Optional.of(adminUser));
+        when(userAccountStore.listUsers()).thenReturn(List.of(adminUser, userT1));
+        when(userAccountStore.findByUserId("usert1")).thenReturn(Optional.empty());
+        when(userAccountStore.findByUsername("usert1")).thenReturn(Optional.of(userT1));
+
+        ApiKeyRow key1 = key("KEY0000000001", "USER_T1", "Key Alpha");
+        when(apiKeyStore.findByUserId("USER_T1")).thenReturn(List.of(key1));
+
+        ResponseEntity<?> response = controller.listApiKeys("usert1", null);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        @SuppressWarnings("unchecked")
+        List<ApiKeySummary> summaries = (List<ApiKeySummary>) response.getBody();
+        assertThat(summaries).hasSize(1);
+        assertThat(summaries.getFirst().keyId()).isEqualTo("KEY0000000001");
+    }
 }

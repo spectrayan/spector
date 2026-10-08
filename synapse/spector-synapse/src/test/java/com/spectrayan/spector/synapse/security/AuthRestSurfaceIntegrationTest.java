@@ -821,6 +821,80 @@ class AuthRestSurfaceIntegrationTest {
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.error").value("SPE-820-001"));
         }
+
+        @Test
+        @DisplayName("API key authentication records last_used_at timestamp observable in listApiKeys (Issue #1050)")
+        void apiKey_authenticatesAndRecordsLastUsedAt() throws Exception {
+            String adminToken = adminAccessToken();
+            registerUser(adminToken, "grace_tracking", "Grace!Password!123", Set.of("USER"));
+            String tokenGrace = loginOk("grace_tracking", "Grace!Password!123").accessToken();
+
+            CreateApiKeyResponse key = read(mvc.perform(post(AUTH + "/api-keys")
+                            .header("Authorization", "Bearer " + tokenGrace)
+                            .contentType(APPLICATION_JSON)
+                            .content(json(new CreateApiKeyRequest("Grace Tracked Key", Set.of("memory:read"), null))))
+                    .andExpect(status().isCreated())
+                    .andReturn(), CreateApiKeyResponse.class);
+
+            // Initially, last_used_at is null
+            MvcResult initialRes = mvc.perform(get(AUTH + "/api-keys")
+                            .header("Authorization", "Bearer " + tokenGrace))
+                    .andExpect(status().isOk())
+                    .andReturn();
+            JsonNode initialList = tree(initialRes);
+            assertThat(initialList.get(0).path("last_used_at").isNull()).isTrue();
+
+            // Authenticate with the API key
+            mvc.perform(post(AUTH + "/api-keys")
+                            .header("X-API-Key", key.apiKey())
+                            .contentType(APPLICATION_JSON)
+                            .content(json(new CreateApiKeyRequest("Child Key", Set.of("memory:read"), null))))
+                    .andExpect(status().isCreated());
+
+            // After use, last_used_at is recorded
+            MvcResult usedRes = mvc.perform(get(AUTH + "/api-keys")
+                            .header("Authorization", "Bearer " + tokenGrace))
+                    .andExpect(status().isOk())
+                    .andReturn();
+            JsonNode usedList = tree(usedRes);
+            boolean foundKeyWithLastUsed = false;
+            for (JsonNode item : usedList) {
+                if (item.path("key_id").asText().equals(key.keyId())) {
+                    assertThat(item.path("last_used_at").isNull()).isFalse();
+                    assertThat(item.path("last_used_at").asText()).isNotEmpty();
+                    foundKeyWithLastUsed = true;
+                }
+            }
+            assertThat(foundKeyWithLastUsed).isTrue();
+        }
+
+        @Test
+        @DisplayName("GET /api/v1/admin/api-keys with username filter resolves user and returns keys (Issue #1050)")
+        void adminListApiKeys_usernameFilter_resolvesAndReturnsKeys() throws Exception {
+            String adminToken = adminAccessToken();
+            userAccountStore.createUser("hank_lookup", "Hank!Password!123", null, null,
+                    Set.of("USER"), Set.of(), false, "default");
+            String tokenHank = loginOk("hank_lookup", "Hank!Password!123").accessToken();
+
+            CreateApiKeyResponse keyHank = read(mvc.perform(post(AUTH + "/api-keys")
+                            .header("Authorization", "Bearer " + tokenHank)
+                            .contentType(APPLICATION_JSON)
+                            .content(json(new CreateApiKeyRequest("Hank Key", Set.of("memory:read"), null))))
+                    .andExpect(status().isCreated())
+                    .andReturn(), CreateApiKeyResponse.class);
+
+            // Admin queries by username "hank_lookup" instead of TSID
+            MvcResult res = mvc.perform(get("/api/v1/admin/api-keys")
+                            .param("accountId", "hank_lookup")
+                            .header("Authorization", "Bearer " + adminToken))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$").isArray())
+                    .andReturn();
+
+            JsonNode list = tree(res);
+            assertThat(list.size()).isGreaterThanOrEqualTo(1);
+            assertThat(list.get(0).path("key_id").asText()).isEqualTo(keyHank.keyId());
+        }
     }
 
     // ══════════════════════════════════════════════════════════════

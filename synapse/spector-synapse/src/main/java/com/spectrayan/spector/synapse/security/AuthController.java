@@ -45,7 +45,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 
 import com.spectrayan.spector.synapse.config.SynapseProperties;
 import com.spectrayan.spector.config.properties.AuthProperties;
@@ -484,6 +489,14 @@ public class AuthController {
      * @return HTTP 204 on success, HTTP 403 on IDOR/cross-tenant violation, or HTTP 404 when not found
      */
     @DeleteMapping(value = "/api-keys/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(
+            operationId = "revokeApiKey",
+            summary = "Revoke API key by ID",
+            responses = {
+                    @ApiResponse(responseCode = "204", description = "No Content", content = @Content)
+            }
+    )
     public ResponseEntity<?> revokeApiKey(@PathVariable("id") String id) {
         String callerUserId = SecurityUtils.getUserId();
         boolean isSuperAdmin = SecurityUtils.isSuperAdmin();

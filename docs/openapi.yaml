@@ -3915,6 +3915,7 @@ paths:
     get:
       tags:
       - admin-api-key-controller
+      summary: List API keys for administrative oversight
       operationId: listApiKeys_1
       parameters:
       - name: accountId
@@ -4022,6 +4023,7 @@ paths:
     delete:
       tags:
       - auth-controller
+      summary: Revoke API key by ID
       operationId: revokeApiKey
       parameters:
       - name: id
@@ -6290,9 +6292,9 @@ components:
         flags:
           type: string
           format: byte
-        retraction:
-          type: boolean
         inferred:
+          type: boolean
+        retraction:
           type: boolean
         ongoing:
           type: boolean

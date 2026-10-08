@@ -32,6 +32,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.synapse.catalog.exception.CrossTenantAccessException;
 import com.spectrayan.spector.synapse.memory.MemoryDto.ErrorResponse;
@@ -72,6 +78,20 @@ public class AdminApiKeyController {
      * @return list of API key metadata records
      */
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(
+            operationId = "listApiKeys_1",
+            summary = "List API keys for administrative oversight",
+            responses = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "OK",
+                            content = @Content(
+                                    mediaType = MediaType.APPLICATION_JSON_VALUE,
+                                    array = @ArraySchema(schema = @Schema(implementation = ApiKeySummary.class))
+                            )
+                    )
+            }
+    )
     public ResponseEntity<?> listApiKeys(
             @RequestParam(name = "accountId", required = false) String accountId,
             @RequestParam(name = "userId", required = false) String userId) {
@@ -94,10 +114,12 @@ public class AdminApiKeyController {
         // Fleet-wide access for Platform Operators (super-admin)
         if (isSuperAdmin) {
             if (filterAccountId != null) {
-                if (userAccountStore.findByUserId(filterAccountId).isEmpty()) {
+                Optional<UserRow> targetUser = userAccountStore.findByUserId(filterAccountId)
+                        .or(() -> userAccountStore.findByUsername(filterAccountId));
+                if (targetUser.isEmpty()) {
                     return notFound("User not found: " + filterAccountId);
                 }
-                List<ApiKeySummary> keys = apiKeyStore.findByUserId(filterAccountId).stream()
+                List<ApiKeySummary> keys = apiKeyStore.findByUserId(targetUser.get().userId()).stream()
                         .map(ApiKeySummary::from)
                         .toList();
                 return ResponseEntity.ok(keys);
@@ -125,7 +147,8 @@ public class AdminApiKeyController {
 
         if (filterAccountId != null) {
             Optional<UserRow> targetUser = userAccountStore.findByUserId(filterAccountId)
-                    .or(() -> allUsers.stream().filter(u -> u.userId().equals(filterAccountId)).findFirst());
+                    .or(() -> userAccountStore.findByUsername(filterAccountId))
+                    .or(() -> allUsers.stream().filter(u -> u.userId().equals(filterAccountId) || u.username().equalsIgnoreCase(filterAccountId)).findFirst());
             if (targetUser.isEmpty()) {
                 return notFound("User not found: " + filterAccountId);
             }
@@ -141,7 +164,7 @@ public class AdminApiKeyController {
                         + callerUserId + "' cannot oversee account '" + filterAccountId
                         + "' belonging to tenant '" + targetTenant + "'");
             }
-            List<ApiKeySummary> keys = apiKeyStore.findByUserId(filterAccountId).stream()
+            List<ApiKeySummary> keys = apiKeyStore.findByUserId(targetUser.get().userId()).stream()
                     .map(ApiKeySummary::from)
                     .toList();
             return ResponseEntity.ok(keys);
