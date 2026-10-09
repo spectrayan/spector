@@ -337,7 +337,7 @@ export class CortexStateService {
         position: [p.x, p.y, p.z] as [number, number, number],
         tier: p.tier,
         importance: p.importance,
-        label: p.label,
+        label: p.id,
       })));
     }
     if (event.queryProjection) {
