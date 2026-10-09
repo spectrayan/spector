@@ -144,8 +144,8 @@ public class NamespaceResolutionFilter extends OncePerRequestFilter {
         String alias = (e instanceof CrossTenantAccessException)
                 ? CrossTenantAccessException.ERROR_CODE_ALIAS
                 : "NamespaceAccessDenied";
-        String msg = e.getMessage() != null
-                ? e.getMessage().replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r")
+        String msg = (e instanceof CrossTenantAccessException)
+                ? "Cross-tenant access forbidden"
                 : "Namespace access denied";
         String isoTimestamp = java.time.format.DateTimeFormatter.ISO_INSTANT.format(java.time.Instant.now());
         String json = String.format(
