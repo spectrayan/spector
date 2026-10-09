@@ -144,7 +144,7 @@
         <picocli.version>4.7.6</picocli.version>
         <handlebars.version>4.5.2</handlebars.version>
         <camel.version>4.14.9</camel.version>
-        <jsoup.version>1.23.1</jsoup.version>
+        <jsoup.version>1.23.2</jsoup.version>
         <junrar.version>7.6.1</junrar.version>
         <bucket4j.version>8.10.1</bucket4j.version>
         <phileas.version>4.4.0</phileas.version>
