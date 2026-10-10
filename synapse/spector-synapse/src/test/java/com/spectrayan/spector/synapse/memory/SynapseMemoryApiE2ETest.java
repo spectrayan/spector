@@ -22,6 +22,7 @@ import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -57,8 +58,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * </pre>
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ActiveProfiles("test")
 @WithMockUser
 @TestPropertySource(properties = {
+        "spector.security.master-key=test-e2e-master-encryption-key-32b",
         "spector.memory.enabled=true",
         "spector.memory.persistence-mode=IN_MEMORY",
         "spector.provider.embedding.dimensions=768",

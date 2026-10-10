@@ -22,6 +22,7 @@ import com.spectrayan.spector.test.judge.LlmTestJudge;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 
 import java.util.List;
@@ -48,7 +49,9 @@ import static org.assertj.core.api.Assertions.*;
  * <p>Tests are <b>skipped</b> automatically when {@code OLLAMA_LIVE} is not set.</p>
  */
 @SpringBootTest
+@ActiveProfiles("test")
 @TestPropertySource(properties = {
+        "spector.security.master-key=test-e2e-master-encryption-key-32b",
         "spector.memory.enabled=true",
         "spector.memory.persistence-mode=IN_MEMORY",
         "spector.provider.embedding.dimensions=768",
