@@ -15,9 +15,13 @@
  */
 package com.spectrayan.spector.synapse.security.crypto;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.Cipher;
@@ -49,7 +53,14 @@ public class AesGcmCipher {
     private final byte[] masterKey;
     private final SecureRandom secureRandom = new SecureRandom();
 
-    public AesGcmCipher(@Value("${spector.security.master-key:${SPECTOR_MASTER_ENCRYPTION_KEY:}}") String masterKeyConfig) {
+    public AesGcmCipher(String masterKeyConfig) {
+        this(masterKeyConfig, null);
+    }
+
+    @Autowired
+    public AesGcmCipher(
+            @Value("${spector.security.master-key:${SPECTOR_MASTER_ENCRYPTION_KEY:}}") String masterKeyConfig,
+            @Autowired(required = false) Environment environment) {
         if (masterKeyConfig != null && !masterKeyConfig.isBlank()) {
             byte[] raw = masterKeyConfig.getBytes(StandardCharsets.UTF_8);
             try {
@@ -59,7 +70,26 @@ public class AesGcmCipher {
                 throw new IllegalStateException("SHA-256 not available", e);
             }
         } else {
-            log.warn("[AesGcmCipher] No SPECTOR_MASTER_ENCRYPTION_KEY configured; using deterministic development key");
+            boolean isDevOrTest = environment != null && environment.acceptsProfiles(Profiles.of("dev", "test"));
+            if (!isDevOrTest) {
+                String errorMsg = "[SPE-820-002 / SPE-SEC-002] " + ErrorCode.MASTER_KEY_MISSING.messageTemplate();
+                log.error(errorMsg);
+                throw new IllegalStateException(errorMsg);
+            }
+
+            if (environment.acceptsProfiles(Profiles.of("dev"))) {
+                log.warn("""
+                        
+                        ********************************************************************************
+                        * WARNING: SPECTOR_MASTER_ENCRYPTION_KEY is unset!                             *
+                        * Using deterministic development master key for credential envelope crypto.   *
+                        * THIS IS INSECURE FOR PRODUCTION. Set SPECTOR_MASTER_ENCRYPTION_KEY in prod.  *
+                        ********************************************************************************
+                        """);
+            } else {
+                log.debug("[AesGcmCipher] Test profile active with unset master encryption key; using deterministic test fallback key");
+            }
+
             try {
                 MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
                 this.masterKey = sha256.digest("spector-dev-default-master-key-32b".getBytes(StandardCharsets.UTF_8));

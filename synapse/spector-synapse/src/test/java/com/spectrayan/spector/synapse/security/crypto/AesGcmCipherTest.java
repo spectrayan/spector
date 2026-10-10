@@ -96,4 +96,73 @@ class AesGcmCipherTest {
         assertThat(cipher.maskSecret("short")).isEqualTo("••••••••");
         assertThat(cipher.maskSecret(null)).isEqualTo("••••••••");
     }
+
+    @Test
+    @DisplayName("Fail closed: Unset master key in prod profile throws IllegalStateException with SPE-SEC-002")
+    void unsetMasterKeyInProdProfileFailsClosed() {
+        org.springframework.mock.env.MockEnvironment env = new org.springframework.mock.env.MockEnvironment();
+        env.setActiveProfiles("prod");
+
+        assertThatThrownBy(() -> new AesGcmCipher(null, env))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("SPE-SEC-002")
+                .hasMessageContaining("SPE-820-002");
+
+        assertThatThrownBy(() -> new AesGcmCipher("", env))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("SPE-SEC-002")
+                .hasMessageContaining("SPE-820-002");
+    }
+
+    @Test
+    @DisplayName("Fail closed: Unset master key with default profile (no active profile) throws IllegalStateException with SPE-SEC-002")
+    void unsetMasterKeyWithDefaultProfileFailsClosed() {
+        org.springframework.mock.env.MockEnvironment env = new org.springframework.mock.env.MockEnvironment();
+
+        assertThatThrownBy(() -> new AesGcmCipher(null, env))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("SPE-SEC-002")
+                .hasMessageContaining("SPE-820-002");
+
+        assertThatThrownBy(() -> new AesGcmCipher(null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("SPE-SEC-002")
+                .hasMessageContaining("SPE-820-002");
+    }
+
+    @Test
+    @DisplayName("Dev profile: Unset master key falls back to dev key and functions correctly")
+    void unsetMasterKeyInDevProfileUsesFallback() {
+        org.springframework.mock.env.MockEnvironment env = new org.springframework.mock.env.MockEnvironment();
+        env.setActiveProfiles("dev");
+
+        AesGcmCipher devCipher = new AesGcmCipher(null, env);
+        String secret = "dev-secret-payload";
+        AesGcmCipher.EncryptedPayload encrypted = devCipher.encrypt(secret, "dev-tenant");
+        assertThat(devCipher.decrypt(encrypted.ciphertext(), encrypted.iv(), "dev-tenant")).isEqualTo(secret);
+    }
+
+    @Test
+    @DisplayName("Test profile: Unset master key falls back to test key and functions correctly")
+    void unsetMasterKeyInTestProfileUsesFallback() {
+        org.springframework.mock.env.MockEnvironment env = new org.springframework.mock.env.MockEnvironment();
+        env.setActiveProfiles("test");
+
+        AesGcmCipher testCipher = new AesGcmCipher(null, env);
+        String secret = "test-secret-payload";
+        AesGcmCipher.EncryptedPayload encrypted = testCipher.encrypt(secret, "test-tenant");
+        assertThat(testCipher.decrypt(encrypted.ciphertext(), encrypted.iv(), "test-tenant")).isEqualTo(secret);
+    }
+
+    @Test
+    @DisplayName("Prod profile: Valid master key configures cipher and functions correctly")
+    void validMasterKeyInProdProfileSucceeds() {
+        org.springframework.mock.env.MockEnvironment env = new org.springframework.mock.env.MockEnvironment();
+        env.setActiveProfiles("prod");
+
+        AesGcmCipher prodCipher = new AesGcmCipher("super-secret-production-master-key-32b", env);
+        String secret = "production-credential-secret";
+        AesGcmCipher.EncryptedPayload encrypted = prodCipher.encrypt(secret, "prod-tenant");
+        assertThat(prodCipher.decrypt(encrypted.ciphertext(), encrypted.iv(), "prod-tenant")).isEqualTo(secret);
+    }
 }

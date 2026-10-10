@@ -25,7 +25,8 @@ for secret_file in \
     spector_embedding_api_key:SPECTOR_EMBEDDING_API_KEY \
     spector_generation_api_key:SPECTOR_GENERATION_API_KEY \
     spector_api_key:SPECTOR_API_KEY \
-    spector_auth_jwt_secret:SPECTOR_AUTH_JWT_SECRET; do
+    spector_auth_jwt_secret:SPECTOR_AUTH_JWT_SECRET \
+    spector_master_encryption_key:SPECTOR_MASTER_ENCRYPTION_KEY; do
     file_name="${secret_file%%:*}"
     env_name="${secret_file##*:}"
     secret_path="/run/secrets/${file_name}"

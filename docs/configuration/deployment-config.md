@@ -224,3 +224,57 @@ Located at `deploy/terraform/modules/azure-aca`:
 |:---|:---|
 | `fqdn` | Fully Qualified Domain Name of the container application. |
 | `app_id` | Unique Azure Container App resource ID. |
+
+---
+
+## 6. Master Encryption Key Management & Fail-Closed Security
+
+Spector uses AES-256-GCM envelope encryption with HKDF-SHA256 per-tenant key derivation for its universal credentials vault (`credentials` table, ADR-0076, Issue #1052).
+
+### Fail-Closed Production Invariant (`SPE-SEC-002`)
+
+* **Production Environments**: When running in any profile outside `dev` and `test` (including the default production profile), `SPECTOR_MASTER_ENCRYPTION_KEY` (or `spector.security.master-key`) **must be explicitly provided**. If unset or blank, Spector refuses to boot and fails fast with taxonomy error `[SPE-820-002 / SPE-SEC-002]`:
+  ```text
+  [SPE-820-002 / SPE-SEC-002] Master encryption key is required outside dev/test profiles (set SPECTOR_MASTER_ENCRYPTION_KEY or spector.security.master-key)
+  ```
+* **Development Mode (`dev` profile)**: If unset, Spector falls back to a deterministic development key and prints a prominent `WARN` banner alerting developers that the configuration is insecure for production.
+* **Testing Mode (`test` profile)**: Falls back to a deterministic key with debug logging to allow automated test suites to execute without manual key management.
+
+### Key Generation
+
+Generate a cryptographically secure 256-bit random key before deploying:
+
+```bash
+# 256-bit hexadecimal key (recommended)
+openssl rand -hex 32
+
+# Alternative: 256-bit Base64 key
+openssl rand -base64 32
+```
+
+### Key Injection Methods
+
+1. **Environment Variable**:
+   ```bash
+   export SPECTOR_MASTER_ENCRYPTION_KEY="<64-hex-char-secret-key>"
+   ```
+2. **Docker Secrets (Recommended for Swarm / Compose)**:
+   Mount the secret at `/run/secrets/spector_master_encryption_key`. The container's `entrypoint.sh` automatically reads and exports it into the backend process.
+3. **Kubernetes Secret / Helm**:
+   Inject via `secretRef.name` or container environment variable in `values.yaml`:
+   ```yaml
+   env:
+     SPECTOR_MASTER_ENCRYPTION_KEY:
+       valueFrom:
+         secretKeyRef:
+           name: spector-secrets
+           key: master-encryption-key
+   ```
+
+### Key Rotation Guidelines
+
+1. Because the master key serves as the Key Encryption Key (KEK) for stored credentials, rotating it requires a phased re-encryption process:
+   - Export or decrypt existing credentials using the current active key.
+   - Deploy the new master key.
+   - Re-encrypt and persist credentials under the new key.
+2. In future BYOK releases (Phase 3 / ADR-0069), key derivation and rotation are delegated to customer-managed KMS endpoints (AWS KMS, GCP KMS, Azure Key Vault, HashiCorp Vault Transit).

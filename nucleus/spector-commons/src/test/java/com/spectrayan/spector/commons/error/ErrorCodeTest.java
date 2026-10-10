@@ -107,6 +107,10 @@ class ErrorCodeTest {
         assertThat(ErrorCode.fromId("SPE-SEC-001")).isSameAs(ErrorCode.CROSS_TENANT_ACCESS_DENIED);
         assertThat(ErrorCode.fromId("  SPE-SEC-001  ")).isSameAs(ErrorCode.CROSS_TENANT_ACCESS_DENIED);
         assertThat(ErrorCode.fromId("  SPE-820-001  ")).isSameAs(ErrorCode.CROSS_TENANT_ACCESS_DENIED);
+        assertThat(ErrorCode.MASTER_KEY_MISSING.id()).isEqualTo("SPE-820-002");
+        assertThat(ErrorCode.fromId("SPE-SEC-002")).isSameAs(ErrorCode.MASTER_KEY_MISSING);
+        assertThat(ErrorCode.fromId("  SPE-SEC-002  ")).isSameAs(ErrorCode.MASTER_KEY_MISSING);
+        assertThat(ErrorCode.fromId("  SPE-820-002  ")).isSameAs(ErrorCode.MASTER_KEY_MISSING);
     }
 
     // ─────────────── Lookup ───────────────

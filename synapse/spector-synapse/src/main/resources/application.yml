@@ -75,6 +75,7 @@ spector:
   # Classpath YAML default is deny-all; local/dev overrides to ALLOW_ALL below.
   # Soul.tools is a capability hint only — effective = policy ∩ soul.tools when non-empty.
   security:
+    master-key: ${SPECTOR_MASTER_ENCRYPTION_KEY:}
     injection:
       enabled: ${SPECTOR_SECURITY_INJECTION_ENABLED:true}
       mode: ${SPECTOR_SECURITY_INJECTION_MODE:WARN}

@@ -665,7 +665,11 @@ public enum ErrorCode {
 
     /** Cross-tenant access denied: operation attempted across tenant boundaries. */
     CROSS_TENANT_ACCESS_DENIED    (820_001, ErrorCategory.SECURITY,
-            "Cross-tenant access denied: account '{}' cannot access namespace '{}' belonging to tenant '{}'");
+            "Cross-tenant access denied: account '{}' cannot access namespace '{}' belonging to tenant '{}'"),
+
+    /** Master encryption key is missing or unset outside dev/test profiles. */
+    MASTER_KEY_MISSING            (820_002, ErrorCategory.SECURITY,
+            "Master encryption key is required outside dev/test profiles (set SPECTOR_MASTER_ENCRYPTION_KEY or spector.security.master-key)");
 
     // ══════════════════════════════════════════════════════════════════════
 
@@ -773,6 +777,9 @@ public enum ErrorCode {
         String normalized = id.trim().toUpperCase();
         if ("SPE-SEC-001".equals(normalized)) {
             return CROSS_TENANT_ACCESS_DENIED;
+        }
+        if ("SPE-SEC-002".equals(normalized)) {
+            return MASTER_KEY_MISSING;
         }
         if (normalized.length() < 11) {
             return null;
