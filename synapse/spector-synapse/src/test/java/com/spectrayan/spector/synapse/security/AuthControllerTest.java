@@ -120,7 +120,6 @@ class AuthControllerTest {
         AuthConfigResponse body = response.getBody();
         assertThat(body).isNotNull();
         assertThat(body.authEnabled()).isTrue();
-        assertThat(body.getAuthEnabledCamel()).isTrue();
         assertThat(body.oidcEnabled()).isFalse();
         assertThat(body.oidcIssuerUri()).isNull();
     }

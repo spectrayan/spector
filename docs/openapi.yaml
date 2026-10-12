@@ -5292,17 +5292,17 @@ components:
           type: boolean
         positivelyReinforced:
           type: boolean
-        simulated:
-          type: boolean
-        dreamed:
-          type: boolean
         multimodal:
           type: boolean
-        negativeOutcome:
+        simulated:
+          type: boolean
+        hyperfocused:
           type: boolean
         lateral:
           type: boolean
-        hyperfocused:
+        negativeOutcome:
+          type: boolean
+        dreamed:
           type: boolean
     FederatedRecallHit:
       type: object
@@ -6369,11 +6369,11 @@ components:
         flags:
           type: string
           format: byte
-        ongoing:
+        retraction:
           type: boolean
         inferred:
           type: boolean
-        retraction:
+        ongoing:
           type: boolean
         resolved:
           type: boolean
@@ -6714,12 +6714,6 @@ components:
         oidc_enabled:
           type: boolean
         oidc_issuer_uri:
-          type: string
-        authEnabled:
-          type: boolean
-        oidcEnabled:
-          type: boolean
-        oidcIssuerUri:
           type: string
     AgentCard:
       type: object

@@ -247,14 +247,5 @@ public final class AuthDto {
             @JsonProperty("auth_enabled") boolean authEnabled,
             @JsonProperty("oidc_enabled") boolean oidcEnabled,
             @JsonProperty("oidc_issuer_uri") String oidcIssuerUri
-    ) {
-        @JsonProperty("authEnabled")
-        public boolean getAuthEnabledCamel() { return authEnabled; }
-
-        @JsonProperty("oidcEnabled")
-        public boolean getOidcEnabledCamel() { return oidcEnabled; }
-
-        @JsonProperty("oidcIssuerUri")
-        public String getOidcIssuerUriCamel() { return oidcIssuerUri; }
-    }
+    ) {}
 }
