@@ -1,0 +1,123 @@
+<div class="login-container">
+  <div class="login-card-wrapper">
+    <!-- Brand / Header -->
+    <div class="brand-header">
+      <img
+        [src]="theme.isDark() ? 'assets/spector-logo-icon-dark.png' : 'assets/spector-logo-icon-light.png'"
+        alt="Spector Logo"
+        class="brand-logo"
+      />
+      <div class="brand-titles">
+        <h1 class="brand-name">Spector <span class="brand-badge">Cortex</span></h1>
+        <p class="brand-subtitle">Cognitive Memory Engine for Autonomous Agents</p>
+      </div>
+    </div>
+
+    <!-- Login Form Card -->
+    <mat-card class="login-card">
+      <mat-card-header class="login-card-header">
+        <mat-card-title>Sign In</mat-card-title>
+        <mat-card-subtitle>Enter your credentials to access the memory cortex</mat-card-subtitle>
+      </mat-card-header>
+
+      <mat-card-content>
+        <!-- Error Alert -->
+        @if (errorMessage(); as msg) {
+          <div class="error-banner" role="alert" id="login-error-message">
+            <mat-icon class="error-icon">error_outline</mat-icon>
+            <span class="error-text">{{ msg }}</span>
+          </div>
+        }
+
+        <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
+          <!-- Username Input -->
+          <mat-form-field appearance="outline" class="form-field">
+            <mat-label>Username</mat-label>
+            <input
+              matInput
+              formControlName="username"
+              id="username-input"
+              autocomplete="username"
+              placeholder="e.g. admin or username"
+              required
+            />
+            <mat-icon matPrefix class="field-icon">account_circle</mat-icon>
+            @if (loginForm.get('username')?.hasError('required') && loginForm.get('username')?.touched) {
+              <mat-error>Username is required</mat-error>
+            }
+          </mat-form-field>
+
+          <!-- Password Input -->
+          <mat-form-field appearance="outline" class="form-field">
+            <mat-label>Password</mat-label>
+            <input
+              matInput
+              [type]="hidePassword() ? 'password' : 'text'"
+              formControlName="password"
+              id="password-input"
+              autocomplete="current-password"
+              required
+            />
+            <mat-icon matPrefix class="field-icon">lock</mat-icon>
+            <button
+              mat-icon-button
+              matSuffix
+              type="button"
+              (click)="hidePassword.set(!hidePassword())"
+              [attr.aria-label]="hidePassword() ? 'Show password' : 'Hide password'"
+              id="toggle-password-visibility"
+            >
+              <mat-icon>{{ hidePassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+            </button>
+            @if (loginForm.get('password')?.hasError('required') && loginForm.get('password')?.touched) {
+              <mat-error>Password is required</mat-error>
+            }
+          </mat-form-field>
+
+          <!-- Sign In Submit Button -->
+          <button
+            mat-flat-button
+            color="primary"
+            type="submit"
+            class="submit-button"
+            id="login-submit-button"
+            [disabled]="loginForm.invalid || loading()"
+          >
+            @if (loading()) {
+              <mat-spinner diameter="20" class="button-spinner"></mat-spinner>
+              <span>Authenticating...</span>
+            } @else {
+              <mat-icon>login</mat-icon>
+              <span>Sign In</span>
+            }
+          </button>
+        </form>
+
+        <!-- SSO Section (if configured) -->
+        @if (auth.authConfig()?.oidcEnabled) {
+          <div class="sso-divider">
+            <span class="divider-line"></span>
+            <span class="divider-text">or continue with</span>
+            <span class="divider-line"></span>
+          </div>
+
+          <button
+            mat-stroked-button
+            type="button"
+            class="sso-button"
+            id="sso-login-button"
+            (click)="loginWithSso()"
+          >
+            <mat-icon>security</mat-icon>
+            <span>Single Sign-On (OIDC)</span>
+          </button>
+        }
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Footer -->
+    <div class="login-footer">
+      <span class="footer-text">Protected by Spector Multi-Tenant Isolation & Zero-Knowledge Enclaves</span>
+    </div>
+  </div>
+</div>

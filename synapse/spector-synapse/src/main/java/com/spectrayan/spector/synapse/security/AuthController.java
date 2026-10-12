@@ -45,6 +45,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
 import com.spectrayan.spector.config.properties.AuthProperties;
 import com.spectrayan.spector.synapse.memory.MemoryDto.ErrorResponse;
+import com.spectrayan.spector.synapse.security.AuthDto.AuthConfigResponse;
 import com.spectrayan.spector.synapse.security.AuthDto.ChangePasswordRequest;
 import com.spectrayan.spector.synapse.security.AuthDto.LoginRequest;
 import com.spectrayan.spector.synapse.security.AuthDto.LoginResponse;
@@ -124,6 +125,22 @@ public class AuthController {
         this.jtiBlocklist = jtiBlocklist;
         this.userAccountStore = userAccountStore;
         this.auth = properties.auth();
+    }
+
+    /**
+     * Returns public authentication configuration metadata (Cortex auth awareness).
+     *
+     * @return public auth configuration flags
+     */
+    @GetMapping(value = "/config", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<AuthConfigResponse> getAuthConfig() {
+        boolean oidcActive = auth.oidc() != null
+                && auth.oidc().jwksUrl() != null
+                && !auth.oidc().jwksUrl().isBlank();
+        String issuerUri = (oidcActive && auth.oidc().issuer() != null && !auth.oidc().issuer().isBlank())
+                ? auth.oidc().issuer()
+                : null;
+        return ResponseEntity.ok(new AuthConfigResponse(auth.enabled(), oidcActive, issuerUri));
     }
 
     /**

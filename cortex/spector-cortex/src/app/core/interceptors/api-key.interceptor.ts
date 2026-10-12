@@ -14,35 +14,4 @@
  * limitations under the License.
  */
 
-import { HttpInterceptorFn } from '@angular/common/http';
-import { inject } from '@angular/core';
-import { Router } from '@angular/router';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { catchError, throwError } from 'rxjs';
-
-/**
- * Functional HTTP interceptor that injects the `X-API-Key` header
- * on every outgoing request. On 401 responses, shows a snackbar
- * notification with a link to the Settings page.
- */
-export const apiKeyInterceptor: HttpInterceptorFn = (req, next) => {
-  const apiKey = localStorage.getItem('spector_api_key') || 'spector-dev-key';
-
-  const cloned = req.clone({
-    setHeaders: { 'X-API-Key': apiKey },
-  });
-
-  return next(cloned).pipe(
-    catchError((err) => {
-      if (err.status === 401) {
-        const router = inject(Router);
-        const snack = inject(MatSnackBar);
-        snack
-          .open('API key is invalid or expired', 'Settings', { duration: 5000 })
-          .onAction()
-          .subscribe(() => router.navigate(['/settings']));
-      }
-      return throwError(() => err);
-    })
-  );
-};
+export { authInterceptor as apiKeyInterceptor } from './auth.interceptor';

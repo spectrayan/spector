@@ -272,7 +272,7 @@ public class SecurityConfig {
                         .requestMatchers("/assets/**").permitAll()
                         .requestMatchers("/*.js", "/*.css", "/*.ico", "/*.png").permitAll()
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs", "/v3/api-docs/**").permitAll()
-                        .requestMatchers("/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
+                        .requestMatchers("/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/config").permitAll()
                         .requestMatchers("/.well-known/**").permitAll()
                         .requestMatchers("/actuator/**").hasAnyRole("admin", "super-admin", "ADMIN", "SUPER_ADMIN")
                         .requestMatchers("/tasks", "/tasks/**", "/providers", "/providers/**", "/api/v1/tasks", "/api/v1/tasks/**", "/api/v1/providers", "/api/v1/providers/**").hasAnyRole("admin", "super-admin", "ADMIN", "SUPER_ADMIN")

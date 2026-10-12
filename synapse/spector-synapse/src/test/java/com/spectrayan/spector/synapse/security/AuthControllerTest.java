@@ -50,6 +50,7 @@ import com.spectrayan.spector.synapse.config.SynapseProperties;
 import com.spectrayan.spector.config.properties.AuthProperties;
 import com.spectrayan.spector.config.properties.AuthProperties.RefreshProperties;
 import com.spectrayan.spector.synapse.memory.MemoryDto.ErrorResponse;
+import com.spectrayan.spector.synapse.security.AuthDto.AuthConfigResponse;
 import com.spectrayan.spector.synapse.security.AuthDto.ChangePasswordRequest;
 import com.spectrayan.spector.synapse.security.AuthDto.LoginRequest;
 import com.spectrayan.spector.synapse.security.AuthDto.LoginResponse;
@@ -107,6 +108,21 @@ class AuthControllerTest {
     private MintedAccessToken sampleAccess() {
         return new MintedAccessToken("access.jwt.token", "jti-123",
                 Instant.now().plusSeconds(3600), 3600L);
+    }
+
+    // ── config ──
+
+    @Test
+    void getAuthConfigReturnsConfiguredValues() {
+        ResponseEntity<AuthConfigResponse> response = controller.getAuthConfig();
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        AuthConfigResponse body = response.getBody();
+        assertThat(body).isNotNull();
+        assertThat(body.authEnabled()).isTrue();
+        assertThat(body.getAuthEnabledCamel()).isTrue();
+        assertThat(body.oidcEnabled()).isFalse();
+        assertThat(body.oidcIssuerUri()).isNull();
     }
 
     // ── login ──

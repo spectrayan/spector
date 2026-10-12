@@ -1030,8 +1030,7 @@ paths:
           content:
             '*/*':
               schema:
-                type: object
-                additionalProperties: {}
+                $ref: "#/components/schemas/TracedRecallResponse"
   /api/v1/namespaces:
     get:
       tags:
@@ -2808,8 +2807,7 @@ paths:
           content:
             '*/*':
               schema:
-                type: object
-                additionalProperties: {}
+                $ref: "#/components/schemas/TimelineResponse"
   /api/v1/observability/stats:
     get:
       tags:
@@ -2821,8 +2819,7 @@ paths:
           content:
             '*/*':
               schema:
-                type: object
-                additionalProperties: {}
+                $ref: "#/components/schemas/ObservabilityStatsResponse"
   /api/v1/observability/metrics/live:
     get:
       tags:
@@ -2849,8 +2846,7 @@ paths:
           content:
             '*/*':
               schema:
-                type: object
-                additionalProperties: {}
+                $ref: "#/components/schemas/AgeDistributionResponse"
   /api/v1/migration/jobs/{executionId}:
     get:
       tags:
@@ -3555,6 +3551,18 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/UserSummary"
+  /api/v1/auth/config:
+    get:
+      tags:
+      - auth-controller
+      operationId: getAuthConfig
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthConfigResponse"
   /api/v1/agents/{id}/card:
     get:
       tags:
@@ -4743,6 +4751,73 @@ components:
         topK:
           type: integer
           format: int32
+    ScoreBreakdownDto:
+      type: object
+      properties:
+        similarity:
+          type: number
+          format: double
+        importanceDecay:
+          type: number
+          format: double
+        tagBoostFactor:
+          type: number
+          format: double
+        habituationPenalty:
+          type: number
+          format: double
+        graphBoost:
+          type: number
+          format: double
+        valenceAlignment:
+          type: number
+          format: double
+        finalScore:
+          type: number
+          format: double
+    TracedRecallItemDto:
+      type: object
+      properties:
+        id:
+          type: string
+        score:
+          type: number
+          format: double
+        memoryType:
+          type: string
+        importance:
+          type: number
+          format: float
+        ageDays:
+          type: number
+          format: double
+        recallCount:
+          type: integer
+          format: int32
+        valence:
+          type: string
+          format: byte
+        retrievalMode:
+          type: string
+        breakdown:
+          $ref: "#/components/schemas/ScoreBreakdownDto"
+    TracedRecallResponse:
+      type: object
+      properties:
+        query:
+          type: string
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/TracedRecallItemDto"
+        totalResults:
+          type: integer
+          format: int32
+        latencyMicros:
+          type: integer
+          format: int64
+        traceEnabled:
+          type: boolean
     CreateNamespaceRequest:
       type: object
       properties:
@@ -5215,6 +5290,8 @@ components:
           format: int64
         truncated:
           type: boolean
+        positivelyReinforced:
+          type: boolean
         simulated:
           type: boolean
         dreamed:
@@ -5226,8 +5303,6 @@ components:
         lateral:
           type: boolean
         hyperfocused:
-          type: boolean
-        positivelyReinforced:
           type: boolean
     FederatedRecallHit:
       type: object
@@ -5833,6 +5908,74 @@ components:
         connectorCount:
           type: integer
           format: int32
+    TimelineEventDto:
+      type: object
+      properties:
+        eventType:
+          type: string
+        memoryId:
+          type: string
+        namespace:
+          type: string
+        timestamp:
+          type: string
+        tier:
+          type: string
+        importance:
+          type: number
+          format: float
+        valence:
+          type: string
+          format: byte
+        recallCount:
+          type: integer
+          format: int32
+    TimelineResponse:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/TimelineEventDto"
+        totalEvents:
+          type: integer
+          format: int32
+    ObservabilityStatsResponse:
+      type: object
+      properties:
+        totalMemories:
+          type: integer
+          format: int32
+        indexedMemories:
+          type: integer
+          format: int32
+        tierDistribution:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int32
+    AgeBucketDto:
+      type: object
+      properties:
+        label:
+          type: string
+        count:
+          type: integer
+          format: int32
+    AgeDistributionResponse:
+      type: object
+      properties:
+        buckets:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgeBucketDto"
+        totalMemories:
+          type: integer
+          format: int32
+        oldestMemory:
+          type: string
+        newestMemory:
+          type: string
     MemoryTableRow:
       type: object
       properties:
@@ -6226,11 +6369,11 @@ components:
         flags:
           type: string
           format: byte
-        retraction:
-          type: boolean
         ongoing:
           type: boolean
         inferred:
+          type: boolean
+        retraction:
           type: boolean
         resolved:
           type: boolean
@@ -6563,6 +6706,21 @@ components:
         updated_at:
           type: string
           format: date-time
+    AuthConfigResponse:
+      type: object
+      properties:
+        auth_enabled:
+          type: boolean
+        oidc_enabled:
+          type: boolean
+        oidc_issuer_uri:
+          type: string
+        authEnabled:
+          type: boolean
+        oidcEnabled:
+          type: boolean
+        oidcIssuerUri:
+          type: string
     AgentCard:
       type: object
       properties:

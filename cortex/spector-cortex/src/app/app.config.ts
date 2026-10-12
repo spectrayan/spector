@@ -13,7 +13,7 @@ import { routes } from './app.routes';
 import { ThemeService } from './core/services/theme.service';
 import { MockDataService } from './core/services/mock-data.service';
 import { FeatureFlagService } from './core/services/feature-flag.service';
-import { apiKeyInterceptor } from './core/interceptors/api-key.interceptor';
+import { authInterceptor } from './core/interceptors/auth.interceptor';
 
 
 export const appConfig: ApplicationConfig = {
@@ -22,7 +22,7 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes, withViewTransitions()),
     provideAnimationsAsync(),
-    provideHttpClient(withFetch(), withInterceptors([apiKeyInterceptor])),
+    provideHttpClient(withFetch(), withInterceptors([authInterceptor])),
 
     // Load feature flags from Synapse backend before app renders
     provideAppInitializer(() => {

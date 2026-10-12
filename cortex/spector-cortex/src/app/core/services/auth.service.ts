@@ -13,25 +13,43 @@ import { firstValueFrom } from 'rxjs';
 import { LoggerService } from './logger.service';
 import { environment } from '../../../environments/environment';
 
+/** Auth configuration from GET /api/v1/auth/config */
+export interface AuthConfig {
+  authEnabled: boolean;
+  auth_enabled?: boolean;
+  oidcEnabled: boolean;
+  oidc_enabled?: boolean;
+  oidcIssuerUri?: string | null;
+  oidc_issuer_uri?: string | null;
+}
+
 /** Login response from POST /api/v1/auth/login */
 export interface LoginResponse {
-  accessToken: string;
-  refreshToken: string;
-  tokenType: string;
-  expiresIn: number;
-  userId: string;        // TSID (opaque identifier)
-  username: string;      // login handle (display)
-  roles: string[];
-  tenantId: string;      // TSID (opaque identifier)
-  mustChangePassword: boolean;
+  accessToken?: string;
+  access_token?: string;
+  refreshToken?: string;
+  refresh_token?: string;
+  tokenType?: string;
+  token_type?: string;
+  expiresIn?: number;
+  expires_in?: number;
+  userId?: string;        // TSID (opaque identifier)
+  username?: string;      // login handle (display)
+  roles?: string[];
+  tenantId?: string;      // TSID (opaque identifier)
+  mustChangePassword?: boolean;
 }
 
 /** Token refresh response from POST /api/v1/auth/refresh */
 export interface RefreshResponse {
-  accessToken: string;
-  refreshToken: string;
-  tokenType: string;
-  expiresIn: number;
+  accessToken?: string;
+  access_token?: string;
+  refreshToken?: string;
+  refresh_token?: string;
+  tokenType?: string;
+  token_type?: string;
+  expiresIn?: number;
+  expires_in?: number;
 }
 
 /** Change password response from POST /api/v1/auth/change-password */
@@ -81,6 +99,8 @@ export class AuthService {
 
   // ── Reactive state ──
   readonly token = signal<string | null>(null);
+  readonly authConfig = signal<AuthConfig | null>(null);
+
   readonly isAuthenticated = computed(() => {
     const t = this.token();
     if (!t) return false;
@@ -88,6 +108,13 @@ export class AuthService {
     if (!payload) return false;
     return payload.exp * 1000 > Date.now();
   });
+
+  /** Whether authentication is enabled on the backend. */
+  isAuthEnabled(): boolean {
+    const cfg = this.authConfig();
+    if (!cfg) return true;
+    return cfg.authEnabled ?? cfg.auth_enabled ?? true;
+  }
 
   readonly currentUser = computed(() => {
     const t = this.token();
@@ -103,14 +130,23 @@ export class AuthService {
     };
   });
 
-  /** Whether the current user has the 'admin' role. */
-  readonly isAdmin = computed(() =>
-    this.currentUser()?.roles?.includes('admin') ?? false
-  );
+  /** Whether the current user has the 'admin' or 'super-admin' role. */
+  readonly isAdmin = computed(() => {
+    const roles = this.currentUser()?.roles ?? [];
+    return roles.some(r => {
+      const norm = r.toLowerCase().replace(/_/g, '-');
+      return norm === 'admin' || norm === 'super-admin';
+    });
+  });
 
-  /** Check if the current user has a specific role. */
+  /** Check if the current user has a specific role (case-insensitive, normalized). */
   hasRole(role: string): boolean {
-    return this.currentUser()?.roles?.includes(role) ?? false;
+    const roles = this.currentUser()?.roles ?? [];
+    const target = role.toLowerCase().replace(/_/g, '-');
+    return roles.some(r => {
+      const norm = r.toLowerCase().replace(/_/g, '-');
+      return norm === target || (target === 'admin' && norm === 'super-admin');
+    });
   }
 
   readonly mustChangePassword = signal(false);
@@ -133,7 +169,45 @@ export class AuthService {
       this.resolveReady = resolve;
     });
 
-    if (isPlatformBrowser(this.platformId)) {
+    this.initialize();
+  }
+
+  /**
+   * Loads public authentication configuration and restores existing sessions.
+   */
+  async loadAuthConfig(): Promise<AuthConfig> {
+    try {
+      const config = await firstValueFrom(
+        this.http.get<AuthConfig>(`${AUTH_API}/config`)
+      );
+      const normalized: AuthConfig = {
+        authEnabled: config.authEnabled ?? config.auth_enabled ?? true,
+        oidcEnabled: config.oidcEnabled ?? config.oidc_enabled ?? false,
+        oidcIssuerUri: config.oidcIssuerUri ?? config.oidc_issuer_uri ?? null,
+      };
+      this.authConfig.set(normalized);
+      return normalized;
+    } catch {
+      this.log.debug('AuthService', 'Using default auth configuration');
+      const fallback: AuthConfig = {
+        authEnabled: true,
+        oidcEnabled: false,
+        oidcIssuerUri: null,
+      };
+      this.authConfig.set(fallback);
+      return fallback;
+    }
+  }
+
+  private async initialize(): Promise<void> {
+    if (!isPlatformBrowser(this.platformId)) {
+      this.resolveReady();
+      return;
+    }
+
+    try {
+      await this.loadAuthConfig();
+
       // Restore token from localStorage on startup
       const storedAccess = localStorage.getItem(ACCESS_TOKEN_KEY);
       if (storedAccess) {
@@ -142,28 +216,23 @@ export class AuthService {
           this.token.set(storedAccess);
           this.mustChangePassword.set(payload.mcp === true);
           this.scheduleRefresh(storedAccess);
-          this.resolveReady();
           return;
         } else {
           // Access token expired — try to refresh
           const storedRefresh = localStorage.getItem(REFRESH_TOKEN_KEY);
           if (storedRefresh) {
-            this.refreshToken(storedRefresh).then(() => {
-              this.resolveReady();
-            }).catch(() => {
+            try {
+              await this.refreshToken(storedRefresh);
+              return;
+            } catch {
               this.clearTokens();
-              this.resolveReady();
-            });
-            return;
+            }
+          } else {
+            this.clearTokens();
           }
-          this.clearTokens();
         }
       }
-
-      // No valid token — resolve ready (will redirect to login via guard)
-      this.resolveReady();
-    } else {
-      // SSR — resolve immediately
+    } finally {
       this.resolveReady();
     }
   }
@@ -177,15 +246,20 @@ export class AuthService {
       this.http.post<LoginResponse>(`${AUTH_API}/login`, { username, password })
     );
 
-    this.token.set(response.accessToken);
-    this.mustChangePassword.set(response.mustChangePassword);
+    const accessToken = response.accessToken || response.access_token || '';
+    const refreshToken = response.refreshToken || response.refresh_token || '';
+
+    this.token.set(accessToken);
+    this.mustChangePassword.set(response.mustChangePassword === true);
 
     if (isPlatformBrowser(this.platformId)) {
-      localStorage.setItem(ACCESS_TOKEN_KEY, response.accessToken);
-      localStorage.setItem(REFRESH_TOKEN_KEY, response.refreshToken);
+      if (accessToken) localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+      if (refreshToken) localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
     }
 
-    this.scheduleRefresh(response.accessToken);
+    if (accessToken) {
+      this.scheduleRefresh(accessToken);
+    }
     return response;
   }
 
@@ -231,14 +305,17 @@ export class AuthService {
       })
     );
 
-    this.token.set(response.accessToken);
+    const accessToken = response.accessToken || (response as any).access_token || '';
+    this.token.set(accessToken);
     this.mustChangePassword.set(false);
 
-    if (isPlatformBrowser(this.platformId)) {
-      localStorage.setItem(ACCESS_TOKEN_KEY, response.accessToken);
+    if (isPlatformBrowser(this.platformId) && accessToken) {
+      localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
     }
 
-    this.scheduleRefresh(response.accessToken);
+    if (accessToken) {
+      this.scheduleRefresh(accessToken);
+    }
     return response;
   }
 
@@ -262,22 +339,28 @@ export class AuthService {
 
       const response = await firstValueFrom(
         this.http.post<RefreshResponse>(`${AUTH_API}/refresh`, {
-          refreshToken: refreshTk,
+          refresh_token: refreshTk,
         })
       );
 
-      this.token.set(response.accessToken);
+      const accessToken = response.accessToken || response.access_token || '';
+      const newRefreshToken = response.refreshToken || response.refresh_token;
+
+      this.token.set(accessToken);
 
       if (isPlatformBrowser(this.platformId)) {
-        localStorage.setItem(ACCESS_TOKEN_KEY, response.accessToken);
-        localStorage.setItem(REFRESH_TOKEN_KEY, response.refreshToken);
+        if (accessToken) localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+        if (newRefreshToken) localStorage.setItem(REFRESH_TOKEN_KEY, newRefreshToken);
       }
 
-      this.scheduleRefresh(response.accessToken);
+      if (accessToken) {
+        this.scheduleRefresh(accessToken);
+      }
       this.log.info('AuthService', 'Token refreshed successfully');
     } catch (err) {
       this.log.warn('AuthService', 'Token refresh failed — logging out');
       this.handleUnauthorized();
+      throw err;
     } finally {
       this.refreshInProgress = false;
     }
@@ -294,7 +377,7 @@ export class AuthService {
     if (refreshTk) {
       try {
         await firstValueFrom(
-          this.http.post(`${AUTH_API}/logout`, { refreshToken: refreshTk })
+          this.http.post(`${AUTH_API}/logout`, { refresh_token: refreshTk })
         );
       } catch {
         // Ignore — we're logging out anyway

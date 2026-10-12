@@ -235,4 +235,26 @@ public final class AuthDto {
             @JsonProperty("key_id") String keyId,
             @JsonProperty("api_key") String apiKey
     ) {}
+
+    /**
+     * Public authentication and identity-provider configuration metadata.
+     *
+     * @param authEnabled   whether multi-user authentication is active
+     * @param oidcEnabled   whether OIDC Single Sign-On is configured
+     * @param oidcIssuerUri the OIDC issuer URI, or {@code null} when disabled
+     */
+    public record AuthConfigResponse(
+            @JsonProperty("auth_enabled") boolean authEnabled,
+            @JsonProperty("oidc_enabled") boolean oidcEnabled,
+            @JsonProperty("oidc_issuer_uri") String oidcIssuerUri
+    ) {
+        @JsonProperty("authEnabled")
+        public boolean getAuthEnabledCamel() { return authEnabled; }
+
+        @JsonProperty("oidcEnabled")
+        public boolean getOidcEnabledCamel() { return oidcEnabled; }
+
+        @JsonProperty("oidcIssuerUri")
+        public String getOidcIssuerUriCamel() { return oidcIssuerUri; }
+    }
 }
