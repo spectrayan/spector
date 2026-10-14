@@ -169,6 +169,7 @@ class ControllerSecurityMatrixTest {
             assertThat(handlerMethods).isNotEmpty();
 
             Set<String> adminControllerNames = Set.of(
+                    "AdminTenantController",
                     "CacheController",
                     "TaskManagementController",
                     "ProviderController",

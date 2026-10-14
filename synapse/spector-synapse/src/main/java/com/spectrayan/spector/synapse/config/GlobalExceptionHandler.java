@@ -109,6 +109,12 @@ public class GlobalExceptionHandler {
                     "alias", com.spectrayan.spector.synapse.catalog.exception.CrossTenantAccessException.ERROR_CODE_ALIAS,
                     "code", code.id()
             );
+        } else if (ex instanceof com.spectrayan.spector.synapse.catalog.exception.TenantSuspendedException tse) {
+            details = Map.of(
+                    "alias", com.spectrayan.spector.synapse.catalog.exception.TenantSuspendedException.ERROR_CODE_ALIAS,
+                    "code", code.id(),
+                    "tenantId", tse.getTenantId()
+            );
         }
         log.warn("[SynapseException] [{}] status={} message={}", code.id(), status.value(), ex.getMessage());
         var responseBuilder = ResponseEntity.status(status)
