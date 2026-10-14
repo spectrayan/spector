@@ -669,7 +669,11 @@ public enum ErrorCode {
 
     /** Master encryption key is missing or unset outside dev/test profiles. */
     MASTER_KEY_MISSING            (820_002, ErrorCategory.SECURITY,
-            "Master encryption key is required outside dev/test profiles (set SPECTOR_MASTER_ENCRYPTION_KEY or spector.security.master-key)");
+            "Master encryption key is required outside dev/test profiles (set SPECTOR_MASTER_ENCRYPTION_KEY or spector.security.master-key)"),
+
+    /** Tenant is suspended or deactivated; authentication and operations for its principals are blocked. */
+    TENANT_SUSPENDED              (820_003, ErrorCategory.SECURITY,
+            "Tenant '{}' is suspended — authentication and access are blocked");
 
     // ══════════════════════════════════════════════════════════════════════
 
@@ -780,6 +784,9 @@ public enum ErrorCode {
         }
         if ("SPE-SEC-002".equals(normalized)) {
             return MASTER_KEY_MISSING;
+        }
+        if ("SPE-SEC-003".equals(normalized)) {
+            return TENANT_SUSPENDED;
         }
         if (normalized.length() < 11) {
             return null;

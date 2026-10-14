@@ -111,6 +111,10 @@ class ErrorCodeTest {
         assertThat(ErrorCode.fromId("SPE-SEC-002")).isSameAs(ErrorCode.MASTER_KEY_MISSING);
         assertThat(ErrorCode.fromId("  SPE-SEC-002  ")).isSameAs(ErrorCode.MASTER_KEY_MISSING);
         assertThat(ErrorCode.fromId("  SPE-820-002  ")).isSameAs(ErrorCode.MASTER_KEY_MISSING);
+        assertThat(ErrorCode.TENANT_SUSPENDED.id()).isEqualTo("SPE-820-003");
+        assertThat(ErrorCode.fromId("SPE-SEC-003")).isSameAs(ErrorCode.TENANT_SUSPENDED);
+        assertThat(ErrorCode.fromId("  SPE-SEC-003  ")).isSameAs(ErrorCode.TENANT_SUSPENDED);
+        assertThat(ErrorCode.fromId("  SPE-820-003  ")).isSameAs(ErrorCode.TENANT_SUSPENDED);
     }
 
     // ─────────────── Lookup ───────────────

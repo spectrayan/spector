@@ -675,6 +675,64 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/AgentSoul"
+  /api/v1/admin/tenants/{tenantId}:
+    get:
+      tags:
+      - admin-tenant-controller
+      operationId: getTenant
+      parameters:
+      - name: tenantId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantResponse"
+    put:
+      tags:
+      - admin-tenant-controller
+      operationId: updateTenant
+      parameters:
+      - name: tenantId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTenantRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantResponse"
+    delete:
+      tags:
+      - admin-tenant-controller
+      operationId: deleteTenant
+      parameters:
+      - name: tenantId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantResponse"
   /api/v1/account/default-namespace:
     put:
       tags:
@@ -2276,6 +2334,53 @@ paths:
             '*/*':
               schema:
                 type: object
+  /api/v1/admin/tenants:
+    get:
+      tags:
+      - admin-tenant-controller
+      operationId: listTenants
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - ACTIVE
+          - SUSPENDED
+          - DELETED
+      - name: includeDeleted
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TenantResponse"
+    post:
+      tags:
+      - admin-tenant-controller
+      operationId: createTenant
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTenantRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantResponse"
   /api/v1/chat/sessions/{id}:
     delete:
       tags:
@@ -3695,6 +3800,26 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/AgentActionApproval"
+  /api/v1/admin/tenants/{tenantId}/audit:
+    get:
+      tags:
+      - admin-tenant-controller
+      operationId: listTenantAuditLogs
+      parameters:
+      - name: tenantId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TenantAuditResponse"
   /api/v1/admin/cache/{cacheName}/{key}:
     get:
       tags:
@@ -4718,6 +4843,90 @@ components:
         defaultArousal:
           type: string
           format: byte
+    TenantQuotasDto:
+      type: object
+      properties:
+        maxAccounts:
+          type: integer
+          format: int32
+        maxNamespaces:
+          type: integer
+          format: int32
+        maxStorageBytes:
+          type: integer
+          format: int64
+    TenantSettingsDto:
+      type: object
+      properties:
+        byokEnabled:
+          type: boolean
+        breakGlassApproverRequired:
+          type: boolean
+        breakGlassMaxDurationMinutes:
+          type: integer
+          format: int32
+    UpdateTenantRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        plan:
+          type: string
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - SUSPENDED
+          - DELETED
+        legalHold:
+          type: boolean
+        settings:
+          $ref: "#/components/schemas/TenantSettingsDto"
+        quotas:
+          $ref: "#/components/schemas/TenantQuotasDto"
+    TenantResponse:
+      type: object
+      properties:
+        tenantId:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - SUSPENDED
+          - DELETED
+        plan:
+          type: string
+        legalHold:
+          type: boolean
+        settings:
+          $ref: "#/components/schemas/TenantSettingsDto"
+        quotas:
+          $ref: "#/components/schemas/TenantQuotasDto"
+        accountCount:
+          type: integer
+          format: int64
+        namespaceCount:
+          type: integer
+          format: int64
+        storageBytes:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        deletedAt:
+          type: string
+          format: date-time
     SetDefaultNamespaceRequest:
       type: object
       properties:
@@ -5296,13 +5505,13 @@ components:
           type: boolean
         simulated:
           type: boolean
-        hyperfocused:
-          type: boolean
-        lateral:
+        dreamed:
           type: boolean
         negativeOutcome:
           type: boolean
-        dreamed:
+        lateral:
+          type: boolean
+        hyperfocused:
           type: boolean
     FederatedRecallHit:
       type: object
@@ -5756,6 +5965,29 @@ components:
           additionalProperties: {}
         reason:
           type: string
+    CreateTenantRequest:
+      type: object
+      properties:
+        tenantId:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        plan:
+          type: string
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - SUSPENDED
+          - DELETED
+        legalHold:
+          type: boolean
+        settings:
+          $ref: "#/components/schemas/TenantSettingsDto"
+        quotas:
+          $ref: "#/components/schemas/TenantQuotasDto"
     RenameSessionRequest:
       type: object
       properties:
@@ -6780,6 +7012,27 @@ components:
           type: string
         pending:
           type: boolean
+    TenantAuditResponse:
+      type: object
+      properties:
+        auditId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        actorId:
+          type: string
+        actorTenantId:
+          type: string
+        action:
+          type: string
+        targetType:
+          type: string
+        targetId:
+          type: string
+        details:
+          type: object
+          additionalProperties: {}
     CacheDetailDto:
       type: object
       properties:

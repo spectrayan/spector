@@ -190,11 +190,27 @@ public class SecurityConfig {
             SynapseProperties properties,
             ObjectProvider<AuthenticationManagerResolver<HttpServletRequest>> jwtResolverProvider,
             ObjectProvider<RateLimitFilter> rateLimitFilterProvider,
+            ObjectProvider<NamespaceResolutionFilter> namespaceResolutionFilterProvider,
+            ObjectProvider<com.spectrayan.spector.synapse.security.TenantStatusFilter> tenantStatusFilterProvider)
+            throws Exception {
+        RateLimitFilter rateLimitFilter = rateLimitFilterProvider != null ? rateLimitFilterProvider.getIfAvailable() : null;
+        NamespaceResolutionFilter namespaceResolutionFilter = namespaceResolutionFilterProvider != null ? namespaceResolutionFilterProvider.getIfAvailable() : null;
+        com.spectrayan.spector.synapse.security.TenantStatusFilter tenantStatusFilter =
+                tenantStatusFilterProvider != null ? tenantStatusFilterProvider.getIfAvailable() : null;
+        return buildFilterChain(http, apiKeyFilter, rateLimitFilter, namespaceResolutionFilter, tenantStatusFilter, properties, jwtResolverProvider);
+    }
+
+    public SecurityFilterChain filterChain(
+            HttpSecurity http,
+            ApiKeyAuthenticationFilter apiKeyFilter,
+            SynapseProperties properties,
+            ObjectProvider<AuthenticationManagerResolver<HttpServletRequest>> jwtResolverProvider,
+            ObjectProvider<RateLimitFilter> rateLimitFilterProvider,
             ObjectProvider<NamespaceResolutionFilter> namespaceResolutionFilterProvider)
             throws Exception {
         RateLimitFilter rateLimitFilter = rateLimitFilterProvider != null ? rateLimitFilterProvider.getIfAvailable() : null;
         NamespaceResolutionFilter namespaceResolutionFilter = namespaceResolutionFilterProvider != null ? namespaceResolutionFilterProvider.getIfAvailable() : null;
-        return buildFilterChain(http, apiKeyFilter, rateLimitFilter, namespaceResolutionFilter, properties, jwtResolverProvider);
+        return buildFilterChain(http, apiKeyFilter, rateLimitFilter, namespaceResolutionFilter, null, properties, jwtResolverProvider);
     }
 
     public SecurityFilterChain filterChain(
@@ -205,7 +221,7 @@ public class SecurityConfig {
             ObjectProvider<RateLimitFilter> rateLimitFilterProvider)
             throws Exception {
         RateLimitFilter rateLimitFilter = rateLimitFilterProvider != null ? rateLimitFilterProvider.getIfAvailable() : null;
-        return buildFilterChain(http, apiKeyFilter, rateLimitFilter, null, properties, jwtResolverProvider);
+        return buildFilterChain(http, apiKeyFilter, rateLimitFilter, null, null, properties, jwtResolverProvider);
     }
 
     public SecurityFilterChain filterChain(
@@ -214,7 +230,7 @@ public class SecurityConfig {
             SynapseProperties properties,
             ObjectProvider<AuthenticationManagerResolver<HttpServletRequest>> jwtResolverProvider)
             throws Exception {
-        return buildFilterChain(http, apiKeyFilter, null, null, properties, jwtResolverProvider);
+        return buildFilterChain(http, apiKeyFilter, null, null, null, properties, jwtResolverProvider);
     }
 
     public SecurityFilterChain filterChain(
@@ -224,7 +240,7 @@ public class SecurityConfig {
             SynapseProperties properties,
             ObjectProvider<AuthenticationManagerResolver<HttpServletRequest>> jwtResolverProvider)
             throws Exception {
-        return buildFilterChain(http, apiKeyFilter, rateLimitFilter, null, properties, jwtResolverProvider);
+        return buildFilterChain(http, apiKeyFilter, rateLimitFilter, null, null, properties, jwtResolverProvider);
     }
 
     private SecurityFilterChain buildFilterChain(
@@ -232,6 +248,7 @@ public class SecurityConfig {
             ApiKeyAuthenticationFilter apiKeyFilter,
             RateLimitFilter rateLimitFilter,
             NamespaceResolutionFilter namespaceResolutionFilter,
+            com.spectrayan.spector.synapse.security.TenantStatusFilter tenantStatusFilter,
             SynapseProperties properties,
             ObjectProvider<AuthenticationManagerResolver<HttpServletRequest>> jwtResolverProvider)
             throws Exception {
@@ -276,6 +293,7 @@ public class SecurityConfig {
                         .requestMatchers("/.well-known/**").permitAll()
                         .requestMatchers("/actuator/**").hasAnyRole("admin", "super-admin", "ADMIN", "SUPER_ADMIN")
                         .requestMatchers("/tasks", "/tasks/**", "/providers", "/providers/**", "/api/v1/tasks", "/api/v1/tasks/**", "/api/v1/providers", "/api/v1/providers/**").hasAnyRole("admin", "super-admin", "ADMIN", "SUPER_ADMIN")
+                        .requestMatchers("/api/v1/admin/tenants", "/api/v1/admin/tenants/**").hasAnyRole("super-admin", "SUPER_ADMIN")
                         .requestMatchers("/api/v1/admin/**").hasAnyRole("admin", "super-admin", "ADMIN", "SUPER_ADMIN")
                         .requestMatchers("/api/v1/connectors", "/api/v1/connectors/**").hasAnyRole("admin", "super-admin", "ADMIN", "SUPER_ADMIN")
                         .requestMatchers("/api/v1/observability", "/api/v1/observability/**").hasAnyRole("admin", "super-admin", "ADMIN", "SUPER_ADMIN")
@@ -318,6 +336,9 @@ public class SecurityConfig {
         http.addFilterBefore(apiKeyFilter, UsernamePasswordAuthenticationFilter.class);
         if (rateLimitFilter != null) {
             http.addFilterBefore(rateLimitFilter, ApiKeyAuthenticationFilter.class);
+        }
+        if (tenantStatusFilter != null) {
+            http.addFilterAfter(tenantStatusFilter, AuthorizationFilter.class);
         }
         if (namespaceResolutionFilter != null) {
             http.addFilterAfter(namespaceResolutionFilter, AuthorizationFilter.class);

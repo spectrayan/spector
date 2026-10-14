@@ -102,6 +102,7 @@ public class AuthController {
     private final JtiBlocklist jtiBlocklist;
     private final UserAccountStore userAccountStore;
     private final AuthProperties auth;
+    private final com.spectrayan.spector.synapse.admin.tenant.TenantService tenantService;
 
     /**
      * Creates the controller.
@@ -119,12 +120,36 @@ public class AuthController {
                           JtiBlocklist jtiBlocklist,
                           UserAccountStore userAccountStore,
                           SynapseProperties properties) {
+        this(authenticationManager, tokenMinter, refreshTokenStore, jtiBlocklist, userAccountStore, properties,
+                (com.spectrayan.spector.synapse.admin.tenant.TenantService) null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public AuthController(AuthenticationManager authenticationManager,
+                          ServerAccessTokenMinter tokenMinter,
+                          RefreshTokenStore refreshTokenStore,
+                          JtiBlocklist jtiBlocklist,
+                          UserAccountStore userAccountStore,
+                          SynapseProperties properties,
+                          org.springframework.beans.factory.ObjectProvider<com.spectrayan.spector.synapse.admin.tenant.TenantService> tenantServiceProvider) {
+        this(authenticationManager, tokenMinter, refreshTokenStore, jtiBlocklist, userAccountStore, properties,
+                tenantServiceProvider != null ? tenantServiceProvider.getIfAvailable() : null);
+    }
+
+    public AuthController(AuthenticationManager authenticationManager,
+                          ServerAccessTokenMinter tokenMinter,
+                          RefreshTokenStore refreshTokenStore,
+                          JtiBlocklist jtiBlocklist,
+                          UserAccountStore userAccountStore,
+                          SynapseProperties properties,
+                          com.spectrayan.spector.synapse.admin.tenant.TenantService tenantService) {
         this.authenticationManager = authenticationManager;
         this.tokenMinter = tokenMinter;
         this.refreshTokenStore = refreshTokenStore;
         this.jtiBlocklist = jtiBlocklist;
         this.userAccountStore = userAccountStore;
         this.auth = properties.auth();
+        this.tenantService = tenantService;
     }
 
     /**
@@ -182,6 +207,9 @@ public class AuthController {
 
         String userId = authentication.getName();
         String tenantId = userAccountStore.findByUserId(userId).map(UserRow::tenantId).orElse(null);
+        if (tenantService != null) {
+            tenantService.assertTenantActive(tenantId != null && !tenantId.isBlank() ? tenantId : "default");
+        }
         // codeql[java/user-controlled-bypass]
         MintedAccessToken access = (tenantId != null && !tenantId.isBlank())
                 ? tokenMinter.mintFromAuthorities(userId, authentication.getAuthorities(), tenantId)
@@ -234,6 +262,9 @@ public class AuthController {
         }
 
         String tenantId = user.get().tenantId();
+        if (tenantService != null) {
+            tenantService.assertTenantActive(tenantId != null && !tenantId.isBlank() ? tenantId : "default");
+        }
         MintedAccessToken access = (tenantId != null && !tenantId.isBlank())
                 ? tokenMinter.mint(userId, user.get().scopes(), user.get().roles(), tenantId)
                 : tokenMinter.mint(userId, user.get().scopes(), user.get().roles());

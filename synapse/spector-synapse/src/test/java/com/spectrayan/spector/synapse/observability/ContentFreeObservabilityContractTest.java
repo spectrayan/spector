@@ -162,7 +162,10 @@ class ContentFreeObservabilityContractTest {
 
         private final JavaClasses classes = new ClassFileImporter()
                 .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
-                .importPackages("com.spectrayan.spector.synapse.observability");
+                .importPackages(
+                        "com.spectrayan.spector.synapse.observability",
+                        "com.spectrayan.spector.synapse.admin"
+                );
 
         @Test
         @DisplayName("Observability DTOs must never declare content fields (text, vector, tags, payload, metadata)")
