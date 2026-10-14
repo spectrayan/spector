@@ -2,13 +2,13 @@
 
 | Field | Value |
 |:---|:---|
-| **Status** | Proposed |
+| **Status** | Accepted (Amended by ADR-0087) |
 | **Date** | 2026-09-18 |
 | **Authors** | Spector Maintainers & Architecture Working Group |
 | **Deciders** | Spector Technical Steering Committee (TSC) |
 | **Supersedes** | None |
 | **Superseded By** | None |
-| **Last Verified** | 2026-09-18 (Verified against `main`) |
+| **Last Verified** | 2026-10-13 (Amended by ADR-0087 for tenant/fleet rollups) |
 
 ---
 
@@ -251,8 +251,8 @@ Stats, scoring, and growth endpoints read `MemoryBinding.current()` and return o
     - `MemoryRegistry.java` / `NamespaceResolver.java` — gauge lifecycle + `cachedEntries()`
     - `MemoryBinding.java` / `MemoryScope.java` — request vs scoped identity
 - **Schema**: `V2__memory_analytics.sql` (baseline); next migration for namespace composite PK
-- **Related records**: ADR-0026, ADR-0034, ADR-0062, ADR-0076, ADR-0079, ADR-0080
-- **Related issues**: #355 (close), #923 (reopen — `HnswIndexMetricsBinder` not implemented)
+- **Related records**: ADR-0026, ADR-0034, ADR-0062, ADR-0076, ADR-0079, ADR-0080, ADR-0087 (Tenant & Fleet Rollups)
+- **Related issues**: #355 (close), #923 (reopen — `HnswIndexMetricsBinder` not implemented), #1058 (Tenant & fleet rollups)
 - **Verification Tests** (to add or extend):
     - Two-namespace Observation series (`spector.namespace` distinct)
     - Gauge unbind on registry eviction

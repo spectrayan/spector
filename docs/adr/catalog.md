@@ -1,11 +1,11 @@
 # Architecture Decision Records (ADRs) — Master Catalog
 
-> **Authoritative registry of all 86 Architecture Decision Records governing Spector.** Every record tracks architectural rationale, options evaluated, trade-offs accepted, and code verification against `main`.
+> **Authoritative registry of all 87 Architecture Decision Records governing Spector.** Every record tracks architectural rationale, options evaluated, trade-offs accepted, and code verification against `main`.
 
 > [!NOTE]
 > The Active Inference Self-Model Engine verification report has graduated to the architecture audit section: [Architecture Verification Report: Active Inference Self-Model Engine (AISME)](../architecture/aisme-completeness-verification-report.md).
 
-## Master Registry (0001–0086)
+## Master Registry (0001–0087)
 
 | ADR | Title | Status | Date | Target File |
 |:---|:---|:---:|:---:|:---|
@@ -91,10 +91,11 @@
 | **ADR-0080** | [Observed Memory and Pathway Metrics Telemetry Architecture](0080-observed-memory-and-pathway-metrics-telemetry.md) | `Accepted (Implemented)` | 2026-08-28 | [`0080-observed-memory-and-pathway-metrics-telemetry.md`](0080-observed-memory-and-pathway-metrics-telemetry.md) |
 | **ADR-0081** | [Dedicated Reactive Cell Ingress Router](0081-dedicated-reactive-cell-ingress-router.md) | `Accepted` | 2026-09-15 | [`0081-dedicated-reactive-cell-ingress-router.md`](0081-dedicated-reactive-cell-ingress-router.md) |
 | **ADR-0082** | [Index Plane Lifecycle, Derived Views, and Reconciliation](0082-index-plane-lifecycle-and-derived-view-reconciliation.md) | `Proposed` | 2026-09-17 | [`0082-index-plane-lifecycle-and-derived-view-reconciliation.md`](0082-index-plane-lifecycle-and-derived-view-reconciliation.md) |
-| **ADR-0083** | [Namespace-Isolated Memory Analytics and Stats Telemetry](0083-namespace-isolated-memory-analytics-telemetry.md) | `Proposed` | 2026-09-18 | [`0083-namespace-isolated-memory-analytics-telemetry.md`](0083-namespace-isolated-memory-analytics-telemetry.md) |
+| **ADR-0083** | [Namespace-Isolated Memory Analytics and Stats Telemetry](0083-namespace-isolated-memory-analytics-telemetry.md) | `Accepted (Amended by ADR-0087)` | 2026-09-18 | [`0083-namespace-isolated-memory-analytics-telemetry.md`](0083-namespace-isolated-memory-analytics-telemetry.md) |
 | **ADR-0084** | [Dual-Plane Conversation Persistence](0084-dual-plane-conversation-persistence.md) | `Proposed` | 2026-09-19 | [`0084-dual-plane-conversation-persistence.md`](0084-dual-plane-conversation-persistence.md) |
 | **ADR-0085** | [Dynamic Synapse Configuration Overrides and SpectorMemory Runtime Propagation Architecture](0085-dynamic-synapse-configuration-and-runtime-propagation.md) | `Proposed` | 2026-09-19 | [`0085-dynamic-synapse-configuration-and-runtime-propagation.md`](0085-dynamic-synapse-configuration-and-runtime-propagation.md) |
 | **ADR-0086** | [Procedural Skill Crystallization](0086-procedural-skill-crystallization.md) | `Accepted (Implemented)` | 2026-09-22 | [`0086-procedural-skill-crystallization.md`](0086-procedural-skill-crystallization.md) |
+| **ADR-0087** | [Admin Role Model, Content-Free Admin API Contract & Break-Glass Policy](0087-admin-role-model-content-free-contract-break-glass.md) | `Proposed` | 2026-10-13 | [`0087-admin-role-model-content-free-contract-break-glass.md`](0087-admin-role-model-content-free-contract-break-glass.md) |
 
 ---
 
@@ -197,3 +198,4 @@ Hardware Abstraction Layer (HAL), actor concurrency, clustering & cell HA, REST/
 - **[ADR-0083: Namespace-Isolated Memory Analytics and Stats Telemetry](0083-namespace-isolated-memory-analytics-telemetry.md)** (`Proposed`)
 - **[ADR-0084: Dual-Plane Conversation Persistence](0084-dual-plane-conversation-persistence.md)** (`Proposed`)
 - **[ADR-0085: Dynamic Synapse Configuration Overrides and SpectorMemory Runtime Propagation Architecture](0085-dynamic-synapse-configuration-and-runtime-propagation.md)** (`Proposed`)
+- **[ADR-0087: Admin Role Model, Content-Free Admin API Contract & Break-Glass Policy](0087-admin-role-model-content-free-contract-break-glass.md)** (`Proposed`)
