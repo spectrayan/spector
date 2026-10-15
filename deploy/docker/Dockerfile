@@ -6,7 +6,7 @@
 # ═══════════════════════════════════════════════════════════════════
 
 # ── Stage 1: Build Angular Cortex Dashboard ───────────────────────────
-FROM --platform=$BUILDPLATFORM node:22.22.3-alpine@sha256:e58326d0d441090181ac150dc2078d3e2cf6a0d42e809aebba3ef5880935ffdd AS builder-cortex
+FROM --platform=$BUILDPLATFORM node:26.11.1-alpine@sha256:143494b1da2945f061539253adc65e4f1569ddf07da2d384c022c791a9d90a4a AS builder-cortex
 
 WORKDIR /build
 COPY cortex/spector-cortex/package*.json ./
