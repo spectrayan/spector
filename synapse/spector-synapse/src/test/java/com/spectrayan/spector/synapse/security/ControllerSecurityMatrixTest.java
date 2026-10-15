@@ -171,6 +171,7 @@ class ControllerSecurityMatrixTest {
             Set<String> adminControllerNames = Set.of(
                     "AdminTenantController",
                     "AdminAccountController",
+                    "AdminNamespaceController",
                     "CacheController",
                     "TaskManagementController",
                     "ProviderController",

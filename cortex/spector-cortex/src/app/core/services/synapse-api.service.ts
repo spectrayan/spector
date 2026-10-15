@@ -544,4 +544,80 @@ export class SynapseApiService {
   listAccountAuditLogs(accountId: string): Observable<any[]> {
     return this.http.get<any[]>(`${this.baseUrl}/admin/accounts/${accountId}/audit`);
   }
+
+  // ─── Admin Namespace Lifecycle (ADR-0087, Issue #1057) ───
+
+  listAdminNamespaces(filters: {
+    tenantId?: string;
+    ownerAccountId?: string;
+    status?: string;
+    legalHold?: boolean;
+  } = {}): Observable<any[]> {
+    const params: Record<string, string> = {};
+    if (filters.tenantId) params['tenantId'] = filters.tenantId;
+    if (filters.ownerAccountId) params['ownerAccountId'] = filters.ownerAccountId;
+    if (filters.status) params['status'] = filters.status;
+    if (filters.legalHold !== undefined) params['legalHold'] = String(filters.legalHold);
+    return this.http.get<any[]>(`${this.baseUrl}/admin/namespaces`, { params });
+  }
+
+  getAdminNamespace(namespaceId: string): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/admin/namespaces/${namespaceId}`);
+  }
+
+  updateAdminNamespaceQuotas(namespaceId: string, request: {
+    maxMemories?: number | null;
+    maxStorageBytes?: number | null;
+    maxOpsPerMinute?: number | null;
+  }): Observable<any> {
+    return this.http.put<any>(`${this.baseUrl}/admin/namespaces/${namespaceId}/quotas`, request);
+  }
+
+  archiveAdminNamespace(namespaceId: string): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/admin/namespaces/${namespaceId}/archive`, {});
+  }
+
+  restoreAdminNamespace(namespaceId: string): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/admin/namespaces/${namespaceId}/restore`, {});
+  }
+
+  tombstoneAdminNamespace(namespaceId: string): Observable<any> {
+    return this.http.delete<any>(`${this.baseUrl}/admin/namespaces/${namespaceId}`);
+  }
+
+  setAdminNamespaceLegalHold(namespaceId: string, request: {
+    legalHold: boolean;
+    reason?: string;
+  }): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/admin/namespaces/${namespaceId}/legal-hold`, request);
+  }
+
+  transferAdminNamespaceOwnership(namespaceId: string, request: {
+    newOwnerAccountId: string;
+    previousOwnerGrantRole?: string;
+    reason?: string;
+  }): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/admin/namespaces/${namespaceId}/transfer-ownership`, request);
+  }
+
+  eraseAdminNamespace(namespaceId: string, request: {
+    confirmationSlug: string;
+    reason?: string;
+    includeSearchIndex?: boolean;
+  }): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/admin/namespaces/${namespaceId}/erase`, request);
+  }
+
+  listAdminNamespaceGrants(namespaceId: string): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/admin/namespaces/${namespaceId}/grants`);
+  }
+
+  revokeAdminNamespaceGrant(namespaceId: string, grantId: string): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/admin/namespaces/${namespaceId}/grants/${grantId}`);
+  }
+
+  listAdminNamespaceAuditLogs(namespaceId: string): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/admin/namespaces/${namespaceId}/audit`);
+  }
 }
+

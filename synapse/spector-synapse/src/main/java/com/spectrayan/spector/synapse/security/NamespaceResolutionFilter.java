@@ -70,6 +70,7 @@ public class NamespaceResolutionFilter extends OncePerRequestFilter {
                 || path.startsWith("/api/v1/events")
                 || path.startsWith("/api/v1/admin/tenants")
                 || path.startsWith("/api/v1/admin/accounts")
+                || path.startsWith("/api/v1/admin/namespaces")
                 || path.contains("/health");
     }
 

@@ -232,6 +232,79 @@ public class MemoryService {
         return "default";
     }
 
+    private void enforceNamespaceWriteQuotasAndRecordWrite(SpectorMemory memory) {
+        if (jdbc == null) {
+            return;
+        }
+        String namespaceId = MemoryBinding.current()
+                .map(MemoryBinding::namespaceId)
+                .filter(id -> id != null && !id.isBlank())
+                .orElseGet(() -> resolveNamespaceId(memory));
+        if (namespaceId == null || namespaceId.isBlank()) {
+            return;
+        }
+        try {
+            var rowOpt = jdbc.sql("""
+                    SELECT n.status, n.max_memories,
+                           COALESCE(NULLIF(u.tenant_id, ''), 'default') AS tenant_id
+                    FROM namespaces n
+                    LEFT JOIN users u ON n.owner_account_id = u.user_id
+                    WHERE n.namespace_id = :namespaceId
+                    """)
+                    .param("namespaceId", namespaceId)
+                    .query((rs, rowNum) -> new Object[]{
+                            rs.getString("status"),
+                            (Integer) rs.getObject("max_memories"),
+                            rs.getString("tenant_id")
+                    })
+                    .optional();
+
+            if (rowOpt.isPresent()) {
+                Object[] row = rowOpt.get();
+                String status = (String) row[0];
+                Integer maxMemories = (Integer) row[1];
+                String tenantId = row[2] != null ? (String) row[2] : "default";
+
+                if ("ARCHIVED".equalsIgnoreCase(status)) {
+                    throw new com.spectrayan.spector.synapse.catalog.exception.NamespaceAccessDeniedException(
+                            namespaceId, "Namespace is ARCHIVED (read-only)");
+                }
+                if (maxMemories != null && maxMemories > 0) {
+                    int currentMemories = (memory != null) ? memory.totalMemories() : 0;
+                    try {
+                        java.util.Optional<Integer> snapshotCount = jdbc.sql(
+                                "SELECT total_count FROM memory_analytics_snapshot WHERE namespace_id = :namespaceId ORDER BY snapshot_time DESC LIMIT 1")
+                                .param("namespaceId", namespaceId)
+                                .query(Integer.class)
+                                .optional();
+                        if (snapshotCount.isPresent() && snapshotCount.get() != null) {
+                            currentMemories = Math.max(currentMemories, snapshotCount.get());
+                        }
+                    } catch (Exception ignored) {}
+                    if (currentMemories >= maxMemories) {
+                        if (meterRegistry != null) {
+                            meterRegistry.counter("spector.quota.breach.total",
+                                    "level", "namespace",
+                                    "tenant_id", tenantId,
+                                    "resource", "memories").increment();
+                        }
+                        throw new com.spectrayan.spector.synapse.catalog.exception.NamespaceQuotaExceededException(
+                                namespaceId, "maxMemories exceeded: " + currentMemories + " >= " + maxMemories);
+                    }
+                }
+                Instant now = Instant.now();
+                jdbc.sql("UPDATE namespaces SET last_write_at = :now, last_accessed_at = :now WHERE namespace_id = :namespaceId")
+                        .param("now", Timestamp.from(now))
+                        .param("namespaceId", namespaceId)
+                        .update();
+            }
+        } catch (com.spectrayan.spector.synapse.catalog.exception.NamespaceException ne) {
+            throw ne;
+        } catch (Exception e) {
+            log.debug("[MemoryService] Skipped namespace write quota/telemetry update for {}: {}", namespaceId, e.getMessage());
+        }
+    }
+
     // ══════════════════════════════════════════════════════════════
     // STORE / REMEMBER
     // ══════════════════════════════════════════════════════════════
@@ -246,6 +319,7 @@ public class MemoryService {
         }
         log.debug("[MemoryService] store: text.length={}, tags={}", request.text().length(), request.tags());
         SpectorMemory memory = resolveMemory();
+        enforceNamespaceWriteQuotasAndRecordWrite(memory);
         if (!mao.isAvailable(memory)) {
             return new StoreResponse("stub-" + System.nanoTime(), request.text(),
                     "SEMANTIC", 0.0, "Memory stored (stub mode — engine not available)");
@@ -275,6 +349,7 @@ public class MemoryService {
 
         // Resolve the target memory on the REQUEST THREAD; the async task closes over it.
         final SpectorMemory memory = resolveMemory();
+        enforceNamespaceWriteQuotasAndRecordWrite(memory);
         if (!mao.isAvailable(memory)) {
             log.warn("[MemoryService] Remember called in stub mode — id={}", effectiveId);
             return AcceptedResponse.forRemember("stub-task-" + System.nanoTime(), effectiveId);

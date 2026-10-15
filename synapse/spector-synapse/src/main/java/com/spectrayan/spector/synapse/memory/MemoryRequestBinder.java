@@ -375,7 +375,9 @@ public class MemoryRequestBinder {
             throw new com.spectrayan.spector.synapse.catalog.exception.NamespaceAccessDeniedException(
                     targetNamespaceId, accountId);
         }
-        GrantRole role = authGrant.get().role();
+        GrantRole role = (record != null && record.status() == NamespaceStatus.ARCHIVED)
+                ? GrantRole.READER
+                : authGrant.get().role();
 
         NamespaceResolver resolver = registry.namespaceResolver();
         String ownerAccountId = record != null ? record.ownerAccountId() : accountId;
