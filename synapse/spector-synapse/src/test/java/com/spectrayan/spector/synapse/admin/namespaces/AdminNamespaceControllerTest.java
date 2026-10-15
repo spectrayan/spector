@@ -116,6 +116,9 @@ class AdminNamespaceControllerTest {
     @MockitoBean
     private SpectorMemory spectorMemory;
 
+    @MockitoBean
+    private com.spectrayan.spector.synapse.memory.MemoryAccessObject mao;
+
     private MockMvc mvc;
     private String acmeAdminId;
     private String acmeColleagueId;
