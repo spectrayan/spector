@@ -211,40 +211,67 @@ export class SynapseApiService {
     return this.http.get<any>(`${this.baseUrl}/observability/age-distribution`);
   }
 
-  // ─── Multi-Agent Workspaces (OPP-006) ───
+  // ─── Multi-Agent Workspaces (OPP-006 — Deprecated by ADR-0087 / Issue #1056) ───
 
+  /**
+   * @deprecated Replaced by the Admin Account & Agent-Principal Registry (`POST /api/v1/admin/accounts` with `kind: 'AGENT'`).
+   */
   registerAgent(name: string, description = '', scopes: string[] = ['*']): Observable<any> {
     return this.http.post<any>(`${this.baseUrl}/agent-workspaces/agents`, { name, description, scopes });
   }
 
+  /**
+   * @deprecated Replaced by `GET /api/v1/admin/accounts?kind=AGENT` and `GET /api/v1/admin/accounts/{id}/agents`.
+   */
   listAgents(): Observable<any> {
     return this.http.get<any>(`${this.baseUrl}/agent-workspaces/agents`);
   }
 
+  /**
+   * @deprecated Replaced by `PROJECT` namespaces (`POST /api/v1/namespaces` with `type: 'PROJECT'`).
+   */
   createWorkspace(name: string, description = '', conflictPolicy = 'APPEND'): Observable<any> {
     return this.http.post<any>(`${this.baseUrl}/agent-workspaces/workspaces`, { name, description, conflictPolicy });
   }
 
+  /**
+   * @deprecated Replaced by `PROJECT` namespaces (`GET /api/v1/namespaces`).
+   */
   listWorkspaces(): Observable<any> {
     return this.http.get<any>(`${this.baseUrl}/agent-workspaces/workspaces`);
   }
 
+  /**
+   * @deprecated Replaced by namespace grants (`POST /api/v1/namespaces/{slugOrId}/grants`).
+   */
   addWorkspaceMember(workspaceId: string, agentId: string, role = 'READ_WRITE'): Observable<any> {
     return this.http.post<any>(`${this.baseUrl}/agent-workspaces/workspaces/${workspaceId}/members`, { agentId, role });
   }
 
+  /**
+   * @deprecated Replaced by content-free namespace/account observability (`GET /api/v1/admin/accounts/{id}`).
+   */
   workspaceActivity(workspaceId: string, limit = 50): Observable<any> {
     return this.http.get<any>(`${this.baseUrl}/agent-workspaces/workspaces/${workspaceId}/activity`, { params: { limit } });
   }
 
+  /**
+   * @deprecated Replaced by content-free namespace/account observability (`GET /api/v1/admin/accounts/{id}`).
+   */
   workspaceActivityFeed(workspaceId: string, limit = 20): Observable<any> {
     return this.http.get<any>(`${this.baseUrl}/agent-workspaces/workspaces/${workspaceId}/activity/feed`, { params: { limit } });
   }
 
+  /**
+   * @deprecated Replaced by standard namespace-scoped memory ingestion with `X-Spector-Namespace`.
+   */
   workspaceRemember(workspaceId: string, agentId: string, text: string): Observable<any> {
     return this.http.post<any>(`${this.baseUrl}/agent-workspaces/workspaces/${workspaceId}/remember`, { agentId, text });
   }
 
+  /**
+   * @deprecated Replaced by standard namespace-scoped memory recall with `X-Spector-Namespace`.
+   */
   workspaceRecall(workspaceId: string, agentId: string, query: string, topK = 5): Observable<any> {
     return this.http.post<any>(`${this.baseUrl}/agent-workspaces/workspaces/${workspaceId}/recall`, { agentId, query, topK });
   }
@@ -465,5 +492,56 @@ export class SynapseApiService {
 
   revokeNamespaceGrant(slugOrId: string, grantId: string): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/namespaces/${slugOrId}/grants/${grantId}`);
+  }
+
+  // ─── Admin Account & Agent-Principal Registry (ADR-0087, Issue #1056) ───
+
+  listAdminAccounts(filters: {
+    tenantId?: string;
+    kind?: string;
+    profile?: string;
+    active?: boolean;
+    ownerAccountId?: string;
+  } = {}): Observable<any[]> {
+    const params: Record<string, string> = {};
+    if (filters.tenantId) params['tenantId'] = filters.tenantId;
+    if (filters.kind) params['kind'] = filters.kind;
+    if (filters.profile) params['profile'] = filters.profile;
+    if (filters.active !== undefined) params['active'] = String(filters.active);
+    if (filters.ownerAccountId) params['ownerAccountId'] = filters.ownerAccountId;
+    return this.http.get<any[]>(`${this.baseUrl}/admin/accounts`, { params });
+  }
+
+  getAdminAccount(accountId: string): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/admin/accounts/${accountId}`);
+  }
+
+  createAdminAccount(request: any): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/admin/accounts`, request);
+  }
+
+  updateAdminAccount(accountId: string, request: any): Observable<any> {
+    return this.http.put<any>(`${this.baseUrl}/admin/accounts/${accountId}`, request);
+  }
+
+  reassignAccountTenant(accountId: string, tenantId: string): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/admin/accounts/${accountId}/tenant`, { tenantId });
+  }
+
+  resetAccountCredentials(accountId: string, request: {
+    newPassword?: string;
+    mustChangePassword?: boolean;
+    revokeRefreshTokens?: boolean;
+    revokeApiKeys?: boolean;
+  } = {}): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/admin/accounts/${accountId}/reset-credentials`, request);
+  }
+
+  listOwnedAgents(accountId: string): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/admin/accounts/${accountId}/agents`);
+  }
+
+  listAccountAuditLogs(accountId: string): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/admin/accounts/${accountId}/audit`);
   }
 }

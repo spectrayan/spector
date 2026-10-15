@@ -733,6 +733,47 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TenantResponse"
+  /api/v1/admin/accounts/{accountId}:
+    get:
+      tags:
+      - admin-account-controller
+      operationId: getAccount
+      parameters:
+      - name: accountId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountAdminResponse"
+    put:
+      tags:
+      - admin-account-controller
+      operationId: updateAccount
+      parameters:
+      - name: accountId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAccountRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountAdminResponse"
   /api/v1/account/default-namespace:
     put:
       tags:
@@ -2381,6 +2422,120 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TenantResponse"
+  /api/v1/admin/accounts:
+    get:
+      tags:
+      - admin-account-controller
+      operationId: listAccounts
+      parameters:
+      - name: tenantId
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: kind
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - HUMAN
+          - AGENT
+          - SERVICE
+      - name: profile
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - HUMAN_SOLO
+          - HUMAN_TEAM
+          - AGENT
+          - SERVICE
+          - UNLIMITED
+      - name: active
+        in: query
+        required: false
+        schema:
+          type: boolean
+      - name: ownerAccountId
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AccountAdminResponse"
+    post:
+      tags:
+      - admin-account-controller
+      operationId: createAccount
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAccountRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountAdminResponse"
+  /api/v1/admin/accounts/{accountId}/tenant:
+    post:
+      tags:
+      - admin-account-controller
+      operationId: reassignTenant
+      parameters:
+      - name: accountId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReassignTenantRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountAdminResponse"
+  /api/v1/admin/accounts/{accountId}/reset-credentials:
+    post:
+      tags:
+      - admin-account-controller
+      operationId: resetCredentials
+      parameters:
+      - name: accountId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetCredentialsRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResetCredentialsResponse"
   /api/v1/chat/sessions/{id}:
     delete:
       tags:
@@ -4038,6 +4193,46 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+  /api/v1/admin/accounts/{accountId}/audit:
+    get:
+      tags:
+      - admin-account-controller
+      operationId: listAccountAuditLogs
+      parameters:
+      - name: accountId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TenantAuditResponse"
+  /api/v1/admin/accounts/{accountId}/agents:
+    get:
+      tags:
+      - admin-account-controller
+      operationId: listOwnedAgents
+      parameters:
+      - name: accountId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OwnedAgentSummaryDto"
   /api/v1/account/introspect:
     get:
       tags:
@@ -4927,6 +5122,188 @@ components:
         deletedAt:
           type: string
           format: date-time
+    UpdateAccountRequest:
+      type: object
+      properties:
+        displayName:
+          type: string
+        email:
+          type: string
+        active:
+          type: boolean
+        profile:
+          type: string
+          enum:
+          - HUMAN_SOLO
+          - HUMAN_TEAM
+          - AGENT
+          - SERVICE
+          - UNLIMITED
+        roles:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+        scopes:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+        legalHold:
+          type: boolean
+        ownerAccountId:
+          type: string
+        maxNamespaces:
+          type: integer
+          format: int32
+        maxHotNamespaces:
+          type: integer
+          format: int32
+    AccountAdminResponse:
+      type: object
+      properties:
+        accountId:
+          type: string
+        username:
+          type: string
+        displayName:
+          type: string
+        email:
+          type: string
+        tenantId:
+          type: string
+        kind:
+          type: string
+          enum:
+          - HUMAN
+          - AGENT
+          - SERVICE
+        profile:
+          type: string
+          enum:
+          - HUMAN_SOLO
+          - HUMAN_TEAM
+          - AGENT
+          - SERVICE
+          - UNLIMITED
+        roles:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+        scopes:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+        active:
+          type: boolean
+        locked:
+          type: boolean
+        mustChangePassword:
+          type: boolean
+        legalHold:
+          type: boolean
+        defaultNamespaceId:
+          type: string
+        ownerAccountId:
+          type: string
+        ownerUsername:
+          type: string
+        ownerDisplayName:
+          type: string
+        quotas:
+          $ref: "#/components/schemas/AccountQuotaSummaryDto"
+        namespaceCount:
+          type: integer
+          format: int64
+        storageBytes:
+          type: integer
+          format: int64
+        apiKeyCount:
+          type: integer
+          format: int64
+        lastActivityAt:
+          type: string
+          format: date-time
+        ownedAgents:
+          type: array
+          items:
+            $ref: "#/components/schemas/OwnedAgentSummaryDto"
+        namespaceGrants:
+          type: array
+          items:
+            $ref: "#/components/schemas/AccountNamespaceGrantDto"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    AccountNamespaceGrantDto:
+      type: object
+      properties:
+        grantId:
+          type: string
+        namespaceId:
+          type: string
+        namespaceSlug:
+          type: string
+        namespaceDisplayName:
+          type: string
+        namespaceOwnerId:
+          type: string
+        role:
+          type: string
+        actions:
+          type: array
+          items:
+            type: string
+        grantedBy:
+          type: string
+        grantedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+    AccountQuotaSummaryDto:
+      type: object
+      properties:
+        maxNamespaces:
+          type: integer
+          format: int32
+        maxHotNamespaces:
+          type: integer
+          format: int32
+    OwnedAgentSummaryDto:
+      type: object
+      properties:
+        accountId:
+          type: string
+        username:
+          type: string
+        displayName:
+          type: string
+        kind:
+          type: string
+          enum:
+          - HUMAN
+          - AGENT
+          - SERVICE
+        profile:
+          type: string
+          enum:
+          - HUMAN_SOLO
+          - HUMAN_TEAM
+          - AGENT
+          - SERVICE
+          - UNLIMITED
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
     SetDefaultNamespaceRequest:
       type: object
       properties:
@@ -5501,17 +5878,17 @@ components:
           type: boolean
         positivelyReinforced:
           type: boolean
+        hyperfocused:
+          type: boolean
+        dreamed:
+          type: boolean
         multimodal:
           type: boolean
         simulated:
           type: boolean
-        dreamed:
-          type: boolean
-        negativeOutcome:
-          type: boolean
         lateral:
           type: boolean
-        hyperfocused:
+        negativeOutcome:
           type: boolean
     FederatedRecallHit:
       type: object
@@ -5988,6 +6365,100 @@ components:
           $ref: "#/components/schemas/TenantSettingsDto"
         quotas:
           $ref: "#/components/schemas/TenantQuotasDto"
+    CreateAccountRequest:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+        displayName:
+          type: string
+        email:
+          type: string
+        tenantId:
+          type: string
+        kind:
+          type: string
+          enum:
+          - HUMAN
+          - AGENT
+          - SERVICE
+        profile:
+          type: string
+          enum:
+          - HUMAN_SOLO
+          - HUMAN_TEAM
+          - AGENT
+          - SERVICE
+          - UNLIMITED
+        roles:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+        scopes:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+        mustChangePassword:
+          type: boolean
+        legalHold:
+          type: boolean
+        ownerAccountId:
+          type: string
+        maxNamespaces:
+          type: integer
+          format: int32
+        maxHotNamespaces:
+          type: integer
+          format: int32
+        initialGrants:
+          type: array
+          items:
+            $ref: "#/components/schemas/InitialNamespaceGrantDto"
+    InitialNamespaceGrantDto:
+      type: object
+      properties:
+        namespaceId:
+          type: string
+        role:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+    ReassignTenantRequest:
+      type: object
+      properties:
+        tenantId:
+          type: string
+    ResetCredentialsRequest:
+      type: object
+      properties:
+        newPassword:
+          type: string
+        mustChangePassword:
+          type: boolean
+        revokeRefreshTokens:
+          type: boolean
+        revokeApiKeys:
+          type: boolean
+    ResetCredentialsResponse:
+      type: object
+      properties:
+        accountId:
+          type: string
+        passwordReset:
+          type: boolean
+        refreshTokensRevoked:
+          type: boolean
+        revokedApiKeyCount:
+          type: integer
+          format: int32
+        resetAt:
+          type: string
+          format: date-time
     RenameSessionRequest:
       type: object
       properties:
