@@ -20,4 +20,4 @@
 ALTER TABLE users ADD COLUMN IF NOT EXISTS owner_account_id VARCHAR(13);
 
 CREATE INDEX IF NOT EXISTS idx_users_owner_account_id ON users (owner_account_id);
-CREATE INDEX IF NOT EXISTS idx_users_tenant_kind ON users (tenant_id, kind);
+CREATE INDEX IF NOT EXISTS idx_users_kind ON users (kind);
