@@ -185,6 +185,43 @@ List<Document> results = vectorStore.similaritySearch(
 
 ---
 
+## 🧠 Spector-Native Features (Cognitive Profiles & Salience)
+
+While Spring AI provides a standard interface, Spector introduces advanced cognitive memory features like **Salience** (importance scoring) and **Cognitive Profiles** (contextual persona filtering).
+
+To access these features beyond the standard Spring AI `VectorStore` interface, you can cast the generic store to `SpectorVectorStore` and utilize `SpectorSearchRequest`.
+
+```java
+import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.ai.vectorstore.spector.SpectorVectorStore;
+import org.springframework.ai.vectorstore.spector.SpectorSearchRequest;
+import org.springframework.stereotype.Service;
+
+@Service
+public class CognitiveSearchService {
+
+    private final SpectorVectorStore spectorStore;
+
+    // Autowire and cast the standard VectorStore to access native APIs
+    public CognitiveSearchService(VectorStore vectorStore) {
+        this.spectorStore = (SpectorVectorStore) vectorStore;
+    }
+
+    public void performCognitiveSearch() {
+        // Similarity search combining Spring AI filters with Spector cognitive metrics
+        var results = spectorStore.cognitiveSearch(
+                SpectorSearchRequest.query("system architecture decisions")
+                        .withTopK(5)
+                        .withFilterExpression("status == 'approved'") // Standard metadata filter
+                        .withCognitiveProfile("senior-architect")     // Spector-native: Persona context
+                        .withMinSalience(0.85)                        // Spector-native: Minimum importance score
+        );
+
+        results.forEach(doc ->
+                System.out.println("High-salience match: " + doc.getText()));
+    }
+}
+```
 ## 🗑️ Deleting Documents
 
 ```java
