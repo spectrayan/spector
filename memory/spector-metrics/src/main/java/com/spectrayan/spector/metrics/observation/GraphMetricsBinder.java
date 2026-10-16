@@ -43,27 +43,38 @@ public class GraphMetricsBinder implements MeterBinder {
     private final HebbianGraphMemory directHebbian;
     private final EntityDirectory directEntityDirectory;
     private final String namespaceId;
+    private final String tenantId;
 
     public GraphMetricsBinder(SpectorMemory memory) {
-        this(memory, null);
+        this(memory, null, null);
     }
 
     public GraphMetricsBinder(SpectorMemory memory, String namespaceId) {
+        this(memory, namespaceId, null);
+    }
+
+    public GraphMetricsBinder(SpectorMemory memory, String namespaceId, String tenantId) {
         this.memory = memory;
         this.directHebbian = null;
         this.directEntityDirectory = null;
         this.namespaceId = namespaceId;
+        this.tenantId = (tenantId != null && !tenantId.isBlank()) ? tenantId : null;
     }
 
     public GraphMetricsBinder(HebbianGraphMemory hebbian, EntityDirectory entityDirectory) {
-        this(hebbian, entityDirectory, null);
+        this(hebbian, entityDirectory, null, null);
     }
 
     public GraphMetricsBinder(HebbianGraphMemory hebbian, EntityDirectory entityDirectory, String namespaceId) {
+        this(hebbian, entityDirectory, namespaceId, null);
+    }
+
+    public GraphMetricsBinder(HebbianGraphMemory hebbian, EntityDirectory entityDirectory, String namespaceId, String tenantId) {
         this.memory = null;
         this.directHebbian = hebbian;
         this.directEntityDirectory = entityDirectory;
         this.namespaceId = namespaceId;
+        this.tenantId = (tenantId != null && !tenantId.isBlank()) ? tenantId : null;
     }
 
     @Override
@@ -76,24 +87,28 @@ public class GraphMetricsBinder implements MeterBinder {
                     .tag("graph", "hebbian")
                     .description("Highest node index observed in Hebbian CSR");
             if (namespaceId != null) nodesBuilder.tag("spector.namespace", namespaceId);
+            if (tenantId != null) nodesBuilder.tag("spector.tenant", tenantId);
             nodesBuilder.register(registry);
 
             var edgesBuilder = Gauge.builder("spector.graph.edges", hgm, h -> (double) h.totalEdges())
                     .tag("graph", "hebbian")
                     .description("Total active Hebbian association edges");
             if (namespaceId != null) edgesBuilder.tag("spector.namespace", namespaceId);
+            if (tenantId != null) edgesBuilder.tag("spector.tenant", tenantId);
             edgesBuilder.register(registry);
 
             var bytesBuilder = Gauge.builder("spector.graph.bytes", hgm, h -> (double) h.structureHealthSnapshot().allocatedBytes())
                     .tag("graph", "hebbian")
                     .description("Allocated bytes for Hebbian graph structures");
             if (namespaceId != null) bytesBuilder.tag("spector.namespace", namespaceId);
+            if (tenantId != null) bytesBuilder.tag("spector.tenant", tenantId);
             bytesBuilder.register(registry);
 
             var liveBytesBuilder = Gauge.builder("spector.graph.live_bytes", hgm, h -> (double) h.structureHealthSnapshot().liveBytes())
                     .tag("graph", "hebbian")
                     .description("Live bytes currently utilized in Hebbian graph structures");
             if (namespaceId != null) liveBytesBuilder.tag("spector.namespace", namespaceId);
+            if (tenantId != null) liveBytesBuilder.tag("spector.tenant", tenantId);
             liveBytesBuilder.register(registry);
 
             var headroomBuilder = Gauge.builder("spector.graph.headroom", hgm, h -> {
@@ -103,6 +118,7 @@ public class GraphMetricsBinder implements MeterBinder {
                     .tag("graph", "hebbian")
                     .description("Remaining addressable node index headroom fraction [0..1]");
             if (namespaceId != null) headroomBuilder.tag("spector.namespace", namespaceId);
+            if (tenantId != null) headroomBuilder.tag("spector.tenant", tenantId);
             headroomBuilder.register(registry);
         }
 
@@ -111,24 +127,28 @@ public class GraphMetricsBinder implements MeterBinder {
                     .tag("graph", "entity")
                     .description("Active entity nodes in Entity Directory");
             if (namespaceId != null) nodesBuilder.tag("spector.namespace", namespaceId);
+            if (tenantId != null) nodesBuilder.tag("spector.tenant", tenantId);
             nodesBuilder.register(registry);
 
             var edgesBuilder = Gauge.builder("spector.graph.edges", entityDir, e -> (double) e.adjHighWaterMark())
                     .tag("graph", "entity")
                     .description("Total active entity-to-memory adjacency links");
             if (namespaceId != null) edgesBuilder.tag("spector.namespace", namespaceId);
+            if (tenantId != null) edgesBuilder.tag("spector.tenant", tenantId);
             edgesBuilder.register(registry);
 
             var bytesBuilder = Gauge.builder("spector.graph.bytes", entityDir, e -> (double) e.structureHealthSnapshot().allocatedBytes())
                     .tag("graph", "entity")
                     .description("Allocated bytes for Entity Directory structures");
             if (namespaceId != null) bytesBuilder.tag("spector.namespace", namespaceId);
+            if (tenantId != null) bytesBuilder.tag("spector.tenant", tenantId);
             bytesBuilder.register(registry);
 
             var liveBytesBuilder = Gauge.builder("spector.graph.live_bytes", entityDir, e -> (double) e.structureHealthSnapshot().liveBytes())
                     .tag("graph", "entity")
                     .description("Live bytes currently utilized in Entity Directory structures");
             if (namespaceId != null) liveBytesBuilder.tag("spector.namespace", namespaceId);
+            if (tenantId != null) liveBytesBuilder.tag("spector.tenant", tenantId);
             liveBytesBuilder.register(registry);
         }
 
@@ -140,18 +160,21 @@ public class GraphMetricsBinder implements MeterBinder {
                     .tag("graph", "hypergraph")
                     .description("Total active hyperedges in HyperEntityGraph");
             if (namespaceId != null) edgesBuilder.tag("spector.namespace", namespaceId);
+            if (tenantId != null) edgesBuilder.tag("spector.tenant", tenantId);
             edgesBuilder.register(registry);
 
             var headroomBuilder = Gauge.builder("spector.graph.headroom", hyper, HyperEntityGraphMemory::headroom)
                     .tag("graph", "hypergraph")
                     .description("Remaining hyperedge capacity fraction [0..1]");
             if (namespaceId != null) headroomBuilder.tag("spector.namespace", namespaceId);
+            if (tenantId != null) headroomBuilder.tag("spector.tenant", tenantId);
             headroomBuilder.register(registry);
 
             var rejectedBuilder = Gauge.builder("spector.graph.rejected", hyper, h -> (double) h.rejectedAtCapacityCount())
                     .tag("graph", "hypergraph")
                     .description("Total hyperedge additions rejected due to capacity exhaustion");
             if (namespaceId != null) rejectedBuilder.tag("spector.namespace", namespaceId);
+            if (tenantId != null) rejectedBuilder.tag("spector.tenant", tenantId);
             rejectedBuilder.register(registry);
         }
     }

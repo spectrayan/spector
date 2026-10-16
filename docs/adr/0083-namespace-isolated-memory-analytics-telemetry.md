@@ -203,7 +203,24 @@ Operators who run Prometheus already get replica fan-in and long-range graphs in
 
 ### 5.7 Authorization
 
-Stats, scoring, and growth endpoints read `MemoryBinding.current()` and return only that namespace. Actuator prometheus stays an operator endpoint (existing security config). Account-wide rollups are out of scope.
+Stats, scoring, and growth endpoints read `MemoryBinding.current()` and return only that namespace. Actuator prometheus stays an operator endpoint (existing security config).
+
+### 5.8 Amendment (ADR-0087 / Issue #1058): Multi-Level Admin Analytics Rollups (`fleet → tenant → account → namespace`)
+
+Under ADR-0087, administrative observability adds a content-free rollup surface at `/api/v1/admin/analytics` (`AdminAnalyticsController`, `AdminAnalyticsService`, `AdminAnalyticsDto`):
+
+1. **Rollup Hierarchy & RBAC**:
+   - **Fleet (`GET /api/v1/admin/analytics/fleet`)**: Restricted strictly to Platform Operators (`super-admin`). Aggregates tenant, account, and namespace counts, tier distributions, storage bytes, throughput (`rememberOpsPerSec`, `recallOpsPerSec`), recall latency percentiles (`p50`, `p95`, `p99`, `mean`), consolidation & dream cycle counts, error rates, token & cost usage, quota utilization, and a per-tenant summary table. Tenant `admin` requests fail with HTTP 403 (`SPE-820-001`).
+   - **Tenant (`GET /api/v1/admin/analytics/tenant`, `GET /api/v1/admin/analytics/tenants/{tenantId}`)**: Accessible to `admin` (strictly isolated to their own tenant; cross-tenant queries return HTTP 403 `SPE-820-001`) and `super-admin`. Aggregates across all accounts and namespaces belonging to the tenant.
+   - **Account (`GET /api/v1/admin/analytics/accounts/{accountId}`)**: Aggregates across all namespaces owned by `accountId` plus account-scoped token/cost usage from `TokenUsageTracker`, subject to tenant isolation.
+   - **Namespace (`GET /api/v1/admin/analytics/namespaces/{namespaceId}`)**: Per-namespace census, growth deltas (24h/7d/30d), throughput/latency, consolidation/dream health, and quota utilization, subject to tenant isolation.
+   - **Historical Time-Series (`GET /api/v1/admin/analytics/timeseries`)**: Aggregates `memory_analytics_snapshot` points across `FLEET`, `TENANT`, `ACCOUNT`, or `NAMESPACE` scopes.
+2. **Tenant Meter Tagging (`spector.tenant`)**:
+   - `SpectorObservationDocumentation.LowCardinalityKeys.TENANT` (`spector.tenant`) is emitted alongside `spector.namespace` when `MemoryScope.tenantId()` is bound.
+   - `SpectorMemoryGauges` and `GraphMetricsBinder` tag per-namespace gauges with `spector.tenant` when bound by `NamespaceResolver`.
+   - `V14__analytics_tenant_rollups.sql` adds `tenant_id`, `storage_bytes`, `dream_cycles_run`, and `error_count` to `memory_analytics_snapshot` with composite index `idx_analytics_tenant_time (tenant_id, snapshot_time)`.
+3. **Zero-Content Contract**:
+   - Every DTO in `com.spectrayan.spector.synapse.admin.analytics.dto` is verified by `ContentFreeObservabilityContractTest` to declare zero content fields (`text`, `vector`, `quantizedVector`, `payload`, `tags`, `metadata`, `rawSecret`, `secret`, `ciphertext`).
 
 ## 6. Pros and Cons of the Options
 
@@ -233,6 +250,7 @@ Stats, scoring, and growth endpoints read `MemoryBinding.current()` and return o
 2. **Phase 2 — Delete duplicate counters.** Remove `MemoryService` activity fields (`recallCount`, `rememberCount`, `totalLatencyMs`, `consolidationCount`, `similarityScores`, consolidation volatiles) and `getAndReset*()`. Remove `TelemetryBroadcasterService` duplicate counters (`recallCount`, `rememberCount`, `reinforceCount`, `forgetCount`) and `record*()` methods. Point live activity/ops-sec at `MeterRegistry`. Namespace-scope `SpectorCache` keys with configurable TTL (`spector.memory.stats.cache-ttl`). Add safe cold-start fallbacks (null meter → zero). Move last-consolidation onto engine-local state.
 3. **Phase 3 — Property-gated history.** Add `spector.memory.analytics.history.enabled` property (default `true`). Refactor `MemoryAnalyticsScheduler` with `@ConditionalOnProperty`. Migrate `memory_analytics_snapshot` to composite PK (`snapshot_time`, `namespace_id`, `instance_id`). Scheduler iterates `MemoryRegistry` cached entries and derives deltas from `MeterRegistry`.
 4. **Phase 4 — Verification and docs.** Isolation tests for stats API. Actuator sample output with two namespaces. Synapse ops note: prometheus is operator-only. Update Cortex growth chart to handle `history.enabled=false`. Close #355 from the implementing PR. Reopen #923 (HNSW `MeterBinder` not implemented).
+5. **Phase 5 — Multi-level admin rollups (#1058).** Add `V14__analytics_tenant_rollups.sql`, tag gauges/observations with `spector.tenant`, and expose content-free fleet/tenant/account/namespace/timeseries rollups at `/api/v1/admin/analytics`.
 
 ## 8. Code Reference & Verification
 
@@ -241,20 +259,22 @@ Stats, scoring, and growth endpoints read `MemoryBinding.current()` and return o
     - `com.spectrayan.spector.metrics`
     - `com.spectrayan.spector.metrics.observation`
     - `com.spectrayan.spector.synapse.memory`
+    - `com.spectrayan.spector.synapse.admin.analytics`
     - `com.spectrayan.spector.synapse.platform.events`
 - **Classes (current, to change)**:
-    - `ObservedSpectorMemory.java` / `ObservableComponent.java` — namespace tag source
-    - `SpectorMemoryGauges.java` — bind per engine with `spector.namespace`
+    - `ObservedSpectorMemory.java` / `ObservableComponent.java` — namespace & tenant tag source
+    - `SpectorMemoryGauges.java` — bind per engine with `spector.namespace` and `spector.tenant`
     - `MemoryService.java` — delete global counters; namespace cache keys; configurable TTL
     - `TelemetryBroadcasterService.java` — delete duplicate `AtomicLong` counters; read from `MeterRegistry`
-    - `MemoryAnalyticsScheduler.java` — `@ConditionalOnProperty`, namespace iteration
+    - `MemoryAnalyticsScheduler.java` — `@ConditionalOnProperty`, namespace iteration, tenant/account attribution
+    - `AdminAnalyticsController.java` / `AdminAnalyticsService.java` / `AdminAnalyticsDto.java` — content-free rollups
     - `MemoryRegistry.java` / `NamespaceResolver.java` — gauge lifecycle + `cachedEntries()`
     - `MemoryBinding.java` / `MemoryScope.java` — request vs scoped identity
-- **Schema**: `V2__memory_analytics.sql` (baseline); next migration for namespace composite PK
+- **Schema**: `V2__memory_analytics.sql` (baseline); `V8__per_namespace_analytics.sql` (namespace composite PK); `V14__analytics_tenant_rollups.sql` (tenant rollup columns & indexes)
 - **Related records**: ADR-0026, ADR-0034, ADR-0062, ADR-0076, ADR-0079, ADR-0080, ADR-0087 (Tenant & Fleet Rollups)
 - **Related issues**: #355 (close), #923 (reopen — `HnswIndexMetricsBinder` not implemented), #1058 (Tenant & fleet rollups)
 - **Verification Tests** (to add or extend):
-    - Two-namespace Observation series (`spector.namespace` distinct)
+    - Two-namespace Observation series (`spector.namespace` and `spector.tenant` distinct)
     - Gauge unbind on registry eviction
     - `getStats()` for namespace A does not return B's cache or census
     - `MeterRegistry` activity matches remember/recall on that engine
@@ -262,4 +282,6 @@ Stats, scoring, and growth endpoints read `MemoryBinding.current()` and return o
     - Snapshot query filters `namespace_id` when history enabled
     - Snapshot scheduler does not start when `history.enabled=false`
     - Cold-start: `getStats()` returns zeros before any remember/recall calls
+    - `AdminAnalyticsControllerTest` & `ContentFreeObservabilityContractTest`: tenant `admin` isolated to own tenant (403 `SPE-820-001` on fleet/cross-tenant); `super-admin` queries fleet-wide or any tenant; zero content fields in DTOs
+
 

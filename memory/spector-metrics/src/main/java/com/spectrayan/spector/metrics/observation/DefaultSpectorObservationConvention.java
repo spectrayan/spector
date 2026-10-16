@@ -45,6 +45,9 @@ public class DefaultSpectorObservationConvention implements SpectorObservationCo
         if (context.getNamespace() != null) {
             kvs = kvs.and(KeyValue.of(SpectorObservationDocumentation.LowCardinalityKeys.NAMESPACE, context.getNamespace()));
         }
+        if (context.getTenant() != null && !context.getTenant().isBlank()) {
+            kvs = kvs.and(KeyValue.of(SpectorObservationDocumentation.LowCardinalityKeys.TENANT, context.getTenant()));
+        }
 
         if (context.getError() != null) {
             kvs = kvs.and(KeyValue.of(SpectorObservationDocumentation.LowCardinalityKeys.ERROR,

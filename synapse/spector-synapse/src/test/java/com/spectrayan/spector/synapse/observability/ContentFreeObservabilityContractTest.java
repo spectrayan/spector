@@ -197,14 +197,19 @@ class ContentFreeObservabilityContractTest {
                     "com.spectrayan.spector.synapse.memory.MemoryDto$RecallResult"
             );
 
-            var controllerClass = classes.get(ObservabilityController.class);
-            for (JavaMethod method : controllerClass.getMethods()) {
-                if (method.getModifiers().contains(com.tngtech.archunit.core.domain.JavaModifier.PUBLIC)) {
-                    String returnTypeName = method.getReturnType().getName();
-                    for (String banned : bannedReturnTypes) {
-                        assertThat(returnTypeName)
-                                .as("Endpoint %s in ObservabilityController must not return %s", method.getName(), banned)
-                                .doesNotContain(banned);
+            for (Class<?> ctrlType : List.of(
+                    ObservabilityController.class,
+                    com.spectrayan.spector.synapse.admin.analytics.AdminAnalyticsController.class
+            )) {
+                var controllerClass = classes.get(ctrlType);
+                for (JavaMethod method : controllerClass.getMethods()) {
+                    if (method.getModifiers().contains(com.tngtech.archunit.core.domain.JavaModifier.PUBLIC)) {
+                        String returnTypeName = method.getReturnType().getName();
+                        for (String banned : bannedReturnTypes) {
+                            assertThat(returnTypeName)
+                                    .as("Endpoint %s in %s must not return %s", method.getName(), ctrlType.getSimpleName(), banned)
+                                    .doesNotContain(banned);
+                        }
                     }
                 }
             }
@@ -360,6 +365,26 @@ class ContentFreeObservabilityContractTest {
                 assertThat(firstPoint.has("y")).isTrue();
                 assertThat(firstPoint.has("z")).isTrue();
             }
+        }
+
+        @Test
+        @DisplayName("GET /api/v1/admin/analytics/tenant — returns aggregated tenant rollup without memory content")
+        void adminAnalyticsRollupsAreContentFree() throws Exception {
+            MvcResult result = mvc.perform(get("/api/v1/admin/analytics/tenant"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.tenantId", is("default")))
+                    .andExpect(jsonPath("$.tiers", notNullValue()))
+                    .andReturn();
+
+            String responseBody = result.getResponse().getContentAsString();
+            assertThat(responseBody)
+                    .doesNotContain(CANARY_MEMORY_TEXT)
+                    .doesNotContain(CANARY_TAG)
+                    .doesNotContain(CANARY_RECALL_TEXT)
+                    .doesNotContain("\"text\"")
+                    .doesNotContain("\"vector\"")
+                    .doesNotContain("\"payload\"")
+                    .doesNotContain("\"tags\"");
         }
     }
 }

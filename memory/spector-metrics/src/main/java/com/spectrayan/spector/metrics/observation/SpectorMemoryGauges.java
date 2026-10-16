@@ -24,14 +24,20 @@ public class SpectorMemoryGauges implements MeterBinder {
     
     private final SpectorMemory memory;
     private final String namespaceId;
+    private final String tenantId;
     
     public SpectorMemoryGauges(SpectorMemory memory) {
-        this(memory, null);
+        this(memory, null, null);
     }
     
     public SpectorMemoryGauges(SpectorMemory memory, String namespaceId) {
+        this(memory, namespaceId, null);
+    }
+
+    public SpectorMemoryGauges(SpectorMemory memory, String namespaceId, String tenantId) {
         this.memory = memory;
         this.namespaceId = namespaceId;
+        this.tenantId = (tenantId != null && !tenantId.isBlank()) ? tenantId : null;
     }
     
     @Override
@@ -45,6 +51,7 @@ public class SpectorMemoryGauges implements MeterBinder {
         var countBuilder = Gauge.builder("spector.memory.count", memory, SpectorMemory::totalMemories)
                 .description("Total number of memories across all tiers");
         if (namespaceId != null) countBuilder.tag("spector.namespace", namespaceId);
+        if (tenantId != null) countBuilder.tag("spector.tenant", tenantId);
         countBuilder.register(registry);
 
         // Index Plane Gauges (ADR-0082)
@@ -55,29 +62,33 @@ public class SpectorMemoryGauges implements MeterBinder {
                         .tag("index", name)
                         .description("Total entries in index");
                 if (namespaceId != null) b1.tag("spector.namespace", namespaceId);
+                if (tenantId != null) b1.tag("spector.tenant", tenantId);
                 b1.register(registry);
                 
                 var b2 = Gauge.builder("spector.memory.index.heap.bytes", idx, i -> i.stats().heapBytes())
                         .tag("index", name)
                         .description("Estimated heap bytes used by index");
                 if (namespaceId != null) b2.tag("spector.namespace", namespaceId);
+                if (tenantId != null) b2.tag("spector.tenant", tenantId);
                 b2.register(registry);
                 
                 var b3 = Gauge.builder("spector.memory.index.off_heap.bytes", idx, i -> i.stats().offHeapBytes())
                         .tag("index", name)
                         .description("Off-heap bytes used by index");
                 if (namespaceId != null) b3.tag("spector.namespace", namespaceId);
+                if (tenantId != null) b3.tag("spector.tenant", tenantId);
                 b3.register(registry);
                 
                 var b4 = Gauge.builder("spector.memory.index.generation", idx, com.spectrayan.spector.memory.index.ManagedIndex::generation)
                         .tag("index", name)
                         .description("Index generation number");
                 if (namespaceId != null) b4.tag("spector.namespace", namespaceId);
+                if (tenantId != null) b4.tag("spector.tenant", tenantId);
                 b4.register(registry);
             }
         }
 
         // Graph Telemetry Gauges (Milestone 4 / ADR-0083 / R4)
-        new GraphMetricsBinder(memory, namespaceId).bindTo(registry);
+        new GraphMetricsBinder(memory, namespaceId, tenantId).bindTo(registry);
     }
 }

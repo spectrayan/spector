@@ -148,4 +148,22 @@ class SpectorMemoryGaugesTest {
         assertThat(registry.find("spector.memory.count").tag("spector.namespace", "ns-evict-a").gauge()).isNull();
         assertThat(registry.find("spector.memory.count").tag("spector.namespace", "ns-evict-b").gauge()).isNotNull();
     }
+
+    @Test
+    @DisplayName("Gauges with namespace and tenant tags produce both spector.namespace and spector.tenant tags")
+    void gaugesWithNamespaceAndTenantTag_producesTaggedMeters() {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        SpectorMemoryGauges gauges = new SpectorMemoryGauges(mockMemory, "ns-tenant-1", "acme");
+
+        when(mockMemory.totalMemories()).thenReturn(77);
+        gauges.bindTo(registry);
+
+        Gauge gauge = registry.find("spector.memory.count")
+                .tag("spector.namespace", "ns-tenant-1")
+                .tag("spector.tenant", "acme")
+                .gauge();
+
+        assertThat(gauge).isNotNull();
+        assertThat(gauge.value()).isEqualTo(77.0);
+    }
 }

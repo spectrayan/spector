@@ -526,6 +526,12 @@ public enum SpectorObservationDocumentation implements ObservationDocumentation 
                 return "spector.namespace";
             }
         },
+        TENANT {
+            @Override
+            public String asString() {
+                return "spector.tenant";
+            }
+        },
         STATUS {
             @Override
             public String asString() {

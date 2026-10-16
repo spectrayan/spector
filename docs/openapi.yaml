@@ -4456,6 +4456,147 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+  /api/v1/admin/analytics/timeseries:
+    get:
+      tags:
+      - admin-analytics-controller
+      operationId: getTimeseries
+      parameters:
+      - name: scope
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - FLEET
+          - TENANT
+          - ACCOUNT
+          - NAMESPACE
+      - name: tenantId
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: accountId
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: namespaceId
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 100
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyticsTimeseriesResponse"
+  /api/v1/admin/analytics/tenants/{tenantId}:
+    get:
+      tags:
+      - admin-analytics-controller
+      operationId: getTenantAnalytics
+      parameters:
+      - name: tenantId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantAnalyticsRollup"
+  /api/v1/admin/analytics/tenant:
+    get:
+      tags:
+      - admin-analytics-controller
+      operationId: getCallerTenantAnalytics
+      parameters:
+      - name: tenantId
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantAnalyticsRollup"
+  /api/v1/admin/analytics/namespaces/{namespaceId}:
+    get:
+      tags:
+      - admin-analytics-controller
+      operationId: getNamespaceAnalytics
+      parameters:
+      - name: namespaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NamespaceAnalyticsRollup"
+  /api/v1/admin/analytics/fleet:
+    get:
+      tags:
+      - admin-analytics-controller
+      operationId: getFleetAnalytics
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FleetAnalyticsRollup"
+  /api/v1/admin/analytics/accounts/{accountId}:
+    get:
+      tags:
+      - admin-analytics-controller
+      operationId: getAccountAnalytics
+      parameters:
+      - name: accountId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountAnalyticsRollup"
   /api/v1/admin/accounts/{accountId}/audit:
     get:
       tags:
@@ -6238,8 +6379,6 @@ components:
           format: int64
         truncated:
           type: boolean
-        positivelyReinforced:
-          type: boolean
         simulated:
           type: boolean
         multimodal:
@@ -6251,6 +6390,8 @@ components:
         lateral:
           type: boolean
         hyperfocused:
+          type: boolean
+        positivelyReinforced:
           type: boolean
     FederatedRecallHit:
       type: object
@@ -7998,6 +8139,431 @@ components:
           type: number
           format: double
         evictionCount:
+          type: integer
+          format: int64
+    AnalyticsTimeseriesPoint:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        totalCount:
+          type: integer
+          format: int64
+        workingCount:
+          type: integer
+          format: int64
+        episodicCount:
+          type: integer
+          format: int64
+        semanticCount:
+          type: integer
+          format: int64
+        proceduralCount:
+          type: integer
+          format: int64
+        storageBytes:
+          type: integer
+          format: int64
+        recallCount:
+          type: integer
+          format: int64
+        rememberCount:
+          type: integer
+          format: int64
+        avgLatencyMs:
+          type: number
+          format: double
+        consolidationsRun:
+          type: integer
+          format: int64
+        dreamCyclesRun:
+          type: integer
+          format: int64
+        errorCount:
+          type: integer
+          format: int64
+        hebbianEdges:
+          type: integer
+          format: int64
+        entityNodes:
+          type: integer
+          format: int64
+    AnalyticsTimeseriesResponse:
+      type: object
+      properties:
+        scope:
+          type: string
+          enum:
+          - FLEET
+          - TENANT
+          - ACCOUNT
+          - NAMESPACE
+        tenantId:
+          type: string
+        accountId:
+          type: string
+        namespaceId:
+          type: string
+        points:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnalyticsTimeseriesPoint"
+        totalPoints:
+          type: integer
+          format: int32
+        generatedAt:
+          type: string
+          format: date-time
+    AccountAnalyticsRollup:
+      type: object
+      properties:
+        accountId:
+          type: string
+        username:
+          type: string
+        displayName:
+          type: string
+        principalType:
+          type: string
+        tenantId:
+          type: string
+        namespaceCount:
+          type: integer
+          format: int32
+        storageBytes:
+          type: integer
+          format: int64
+        tiers:
+          $ref: "#/components/schemas/TierBreakdown"
+        growth:
+          $ref: "#/components/schemas/GrowthStats"
+        throughput:
+          $ref: "#/components/schemas/ThroughputAndLatency"
+        consolidation:
+          $ref: "#/components/schemas/ConsolidationAndDreamHealth"
+        tokenUsage:
+          $ref: "#/components/schemas/TokenUsageRollup"
+        quotas:
+          $ref: "#/components/schemas/QuotaUtilizationRollup"
+        namespaces:
+          type: array
+          items:
+            $ref: "#/components/schemas/NamespaceAnalyticsRollup"
+        generatedAt:
+          type: string
+          format: date-time
+    ConsolidationAndDreamHealth:
+      type: object
+      properties:
+        consolidationsRun:
+          type: integer
+          format: int64
+        dreamCyclesRun:
+          type: integer
+          format: int64
+        decayedEngrams:
+          type: integer
+          format: int64
+        hebbianEdges:
+          type: integer
+          format: int64
+        temporalLinks:
+          type: integer
+          format: int64
+        entityNodes:
+          type: integer
+          format: int64
+        entityEdges:
+          type: integer
+          format: int64
+    GrowthStats:
+      type: object
+      properties:
+        currentTotalMemories:
+          type: integer
+          format: int64
+        delta24hMemories:
+          type: integer
+          format: int64
+        delta7dMemories:
+          type: integer
+          format: int64
+        delta30dMemories:
+          type: integer
+          format: int64
+        growthRate24hPct:
+          type: number
+          format: double
+    NamespaceAnalyticsRollup:
+      type: object
+      properties:
+        namespaceId:
+          type: string
+        slug:
+          type: string
+        displayName:
+          type: string
+        tenantId:
+          type: string
+        ownerAccountId:
+          type: string
+        status:
+          type: string
+        legalHold:
+          type: boolean
+        storageBytes:
+          type: integer
+          format: int64
+        tiers:
+          $ref: "#/components/schemas/TierBreakdown"
+        growth:
+          $ref: "#/components/schemas/GrowthStats"
+        throughput:
+          $ref: "#/components/schemas/ThroughputAndLatency"
+        consolidation:
+          $ref: "#/components/schemas/ConsolidationAndDreamHealth"
+        quotas:
+          $ref: "#/components/schemas/QuotaUtilizationRollup"
+        generatedAt:
+          type: string
+          format: date-time
+    QuotaUtilizationRollup:
+      type: object
+      properties:
+        memoryCountUsed:
+          type: integer
+          format: int64
+        memoryCountQuota:
+          type: integer
+          format: int64
+        memoryUtilizationPct:
+          type: number
+          format: double
+        storageBytesUsed:
+          type: integer
+          format: int64
+        storageBytesQuota:
+          type: integer
+          format: int64
+        storageUtilizationPct:
+          type: number
+          format: double
+        namespaceCountUsed:
+          type: integer
+          format: int64
+        namespaceCountQuota:
+          type: integer
+          format: int64
+        namespaceUtilizationPct:
+          type: number
+          format: double
+        accountCountUsed:
+          type: integer
+          format: int64
+        accountCountQuota:
+          type: integer
+          format: int64
+        quotaBreachCount:
+          type: integer
+          format: int64
+    TenantAnalyticsRollup:
+      type: object
+      properties:
+        tenantId:
+          type: string
+        displayName:
+          type: string
+        plan:
+          type: string
+        status:
+          type: string
+        accountCount:
+          type: integer
+          format: int32
+        humanCount:
+          type: integer
+          format: int32
+        agentCount:
+          type: integer
+          format: int32
+        namespaceCount:
+          type: integer
+          format: int32
+        storageBytes:
+          type: integer
+          format: int64
+        tiers:
+          $ref: "#/components/schemas/TierBreakdown"
+        growth:
+          $ref: "#/components/schemas/GrowthStats"
+        throughput:
+          $ref: "#/components/schemas/ThroughputAndLatency"
+        consolidation:
+          $ref: "#/components/schemas/ConsolidationAndDreamHealth"
+        tokenUsage:
+          $ref: "#/components/schemas/TokenUsageRollup"
+        quotas:
+          $ref: "#/components/schemas/QuotaUtilizationRollup"
+        accounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/AccountAnalyticsRollup"
+        namespaces:
+          type: array
+          items:
+            $ref: "#/components/schemas/NamespaceAnalyticsRollup"
+        generatedAt:
+          type: string
+          format: date-time
+    ThroughputAndLatency:
+      type: object
+      properties:
+        rememberTotal:
+          type: integer
+          format: int64
+        recallTotal:
+          type: integer
+          format: int64
+        rememberOpsPerSec:
+          type: number
+          format: double
+        recallOpsPerSec:
+          type: number
+          format: double
+        latencyP50Ms:
+          type: number
+          format: double
+        latencyP95Ms:
+          type: number
+          format: double
+        latencyP99Ms:
+          type: number
+          format: double
+        latencyMeanMs:
+          type: number
+          format: double
+        errorCount:
+          type: integer
+          format: int64
+        errorRate:
+          type: number
+          format: double
+    TierBreakdown:
+      type: object
+      properties:
+        total:
+          type: integer
+          format: int64
+        working:
+          type: integer
+          format: int64
+        episodic:
+          type: integer
+          format: int64
+        semantic:
+          type: integer
+          format: int64
+        procedural:
+          type: integer
+          format: int64
+    TokenUsageRollup:
+      type: object
+      properties:
+        inputTokens:
+          type: integer
+          format: int64
+        outputTokens:
+          type: integer
+          format: int64
+        embeddingTokens:
+          type: integer
+          format: int64
+        totalTokens:
+          type: integer
+          format: int64
+        requestCount:
+          type: integer
+          format: int64
+        estimatedCostUsd:
+          type: number
+          format: double
+    FleetAnalyticsRollup:
+      type: object
+      properties:
+        tenantCount:
+          type: integer
+          format: int32
+        activeTenantCount:
+          type: integer
+          format: int32
+        accountCount:
+          type: integer
+          format: int32
+        namespaceCount:
+          type: integer
+          format: int32
+        storageBytes:
+          type: integer
+          format: int64
+        tiers:
+          $ref: "#/components/schemas/TierBreakdown"
+        growth:
+          $ref: "#/components/schemas/GrowthStats"
+        throughput:
+          $ref: "#/components/schemas/ThroughputAndLatency"
+        consolidation:
+          $ref: "#/components/schemas/ConsolidationAndDreamHealth"
+        tokenUsage:
+          $ref: "#/components/schemas/TokenUsageRollup"
+        quotas:
+          $ref: "#/components/schemas/QuotaUtilizationRollup"
+        tenants:
+          type: array
+          items:
+            $ref: "#/components/schemas/TenantSummaryItem"
+        generatedAt:
+          type: string
+          format: date-time
+    TenantSummaryItem:
+      type: object
+      properties:
+        tenantId:
+          type: string
+        displayName:
+          type: string
+        plan:
+          type: string
+        status:
+          type: string
+        accountCount:
+          type: integer
+          format: int32
+        namespaceCount:
+          type: integer
+          format: int32
+        totalMemories:
+          type: integer
+          format: int64
+        storageBytes:
+          type: integer
+          format: int64
+        recallOpsPerSec:
+          type: number
+          format: double
+        rememberOpsPerSec:
+          type: number
+          format: double
+        latencyP95Ms:
+          type: number
+          format: double
+        totalTokens:
+          type: integer
+          format: int64
+        estimatedCostUsd:
+          type: number
+          format: double
+        quotaBreachCount:
           type: integer
           format: int64
     AccountFlags:

@@ -552,7 +552,16 @@ public class NamespaceResolver implements AutoCloseable {
                 cache.put(namespaceId, handle);
                 notifyOpen(tenantId, namespaceId, instance);
                 if (meterRegistry != null) {
-                    new com.spectrayan.spector.metrics.observation.SpectorMemoryGauges(handle.memory, namespaceId)
+                    String metricTenantId = tenantId;
+                    if (metricTenantId == null || metricTenantId.isBlank()) {
+                        try {
+                            metricTenantId = placementTenantIdFor(namespaceId, ownerAccountId, accountId, account);
+                        } catch (Exception ignored) {
+                            metricTenantId = "default";
+                        }
+                    }
+                    new com.spectrayan.spector.metrics.observation.SpectorMemoryGauges(
+                            handle.memory, namespaceId, metricTenantId != null ? metricTenantId : "default")
                             .bindTo(meterRegistry);
                 }
             } finally {
