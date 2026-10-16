@@ -3238,6 +3238,32 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/AgeDistributionResponse"
+  /api/v1/namespaces/{slugOrId}/audit:
+    get:
+      tags:
+      - namespace-controller
+      operationId: listNamespaceAuditEvents
+      parameters:
+      - name: slugOrId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditEventDto"
   /api/v1/migration/jobs/{executionId}:
     get:
       tags:
@@ -4456,6 +4482,97 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+  /api/v1/admin/audit:
+    get:
+      tags:
+      - admin-audit-controller
+      operationId: queryAuditEvents
+      parameters:
+      - name: tenantId
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: actorId
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: actorAccountId
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: action
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: targetType
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: targetId
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: namespaceId
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: outcome
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditEventDto"
+  /api/v1/admin/audit/verify:
+    get:
+      tags:
+      - admin-audit-controller
+      operationId: verifyAuditChain
+      parameters:
+      - name: tenantId
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditChainVerificationDto"
   /api/v1/admin/analytics/timeseries:
     get:
       tags:
@@ -6383,6 +6500,8 @@ components:
           type: boolean
         multimodal:
           type: boolean
+        positivelyReinforced:
+          type: boolean
         dreamed:
           type: boolean
         negativeOutcome:
@@ -6390,8 +6509,6 @@ components:
         lateral:
           type: boolean
         hyperfocused:
-          type: boolean
-        positivelyReinforced:
           type: boolean
     FederatedRecallHit:
       type: object
@@ -7244,6 +7361,41 @@ components:
         oldestMemory:
           type: string
         newestMemory:
+          type: string
+    AuditEventDto:
+      type: object
+      properties:
+        id:
+          type: string
+        ts:
+          type: string
+          format: date-time
+        tenantId:
+          type: string
+        actorAccountId:
+          type: string
+        actorRole:
+          type: string
+        action:
+          type: string
+        targetType:
+          type: string
+        targetId:
+          type: string
+        namespaceId:
+          type: string
+        reason:
+          type: string
+        requestId:
+          type: string
+        outcome:
+          type: string
+        details:
+          type: object
+          additionalProperties: {}
+        prevHash:
+          type: string
+        entryHash:
           type: string
     MemoryTableRow:
       type: object
@@ -8141,6 +8293,23 @@ components:
         evictionCount:
           type: integer
           format: int64
+    AuditChainVerificationDto:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        checkedCount:
+          type: integer
+          format: int64
+        lastEntryHash:
+          type: string
+        firstInvalidEventId:
+          type: string
+        message:
+          type: string
+        verifiedAt:
+          type: string
+          format: date-time
     AnalyticsTimeseriesPoint:
       type: object
       properties:

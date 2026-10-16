@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.synapse.connector.api;
 
+import com.spectrayan.spector.synapse.admin.audit.AuditLogService;
 import com.spectrayan.spector.synapse.connector.api.dto.CreateCredentialRequest;
 import com.spectrayan.spector.synapse.connector.api.dto.CredentialResponse;
 import com.spectrayan.spector.synapse.connector.api.dto.UpdateCredentialRequest;
@@ -24,6 +25,7 @@ import com.spectrayan.spector.synapse.security.SecurityUtils;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -63,9 +65,18 @@ public class CredentialController {
     private static final Logger log = LoggerFactory.getLogger(CredentialController.class);
 
     private final CredentialService credentialService;
+    private final AuditLogService auditLogService;
+
+    @Autowired
+    public CredentialController(
+            CredentialService credentialService,
+            @Autowired(required = false) AuditLogService auditLogService) {
+        this.credentialService = Objects.requireNonNull(credentialService, "CredentialService must not be null");
+        this.auditLogService = auditLogService;
+    }
 
     public CredentialController(CredentialService credentialService) {
-        this.credentialService = Objects.requireNonNull(credentialService, "CredentialService must not be null");
+        this(credentialService, null);
     }
 
     @PostMapping
@@ -82,6 +93,22 @@ public class CredentialController {
                 request.name(), effectiveTenant, callerUserId);
 
         CredentialRecord record = credentialService.createCredential(effectiveTenant, callerUserId, request);
+        if (auditLogService != null) {
+            boolean isByok = isByokCredential(record.name(), record.provider());
+            auditLogService.recordActionForTenant(
+                    effectiveTenant,
+                    isByok ? "BYOK_KEY_CREATE" : "CREATE_CREDENTIAL",
+                    isByok ? "BYOK_KEY" : "CREDENTIAL",
+                    record.name(),
+                    null,
+                    null,
+                    Map.of(
+                            "category", record.category() != null ? record.category().name() : "",
+                            "provider", record.provider() != null ? record.provider() : "",
+                            "ownerUserId", record.userId() != null ? record.userId() : callerUserId
+                    )
+            );
+        }
         return CredentialResponse.fromRecord(record);
     }
 
@@ -149,7 +176,21 @@ public class CredentialController {
         String callerUserId = resolveUserId(authentication);
 
         return credentialService.updateCredentialWithAuthorization(effectiveTenant, callerUserId, name, request)
-                .map(CredentialResponse::fromRecord)
+                .map(record -> {
+                    if (auditLogService != null) {
+                        boolean isByok = isByokCredential(record.name(), record.provider());
+                        auditLogService.recordActionForTenant(
+                                effectiveTenant,
+                                isByok ? "BYOK_KEY_ROTATE" : "UPDATE_CREDENTIAL",
+                                isByok ? "BYOK_KEY" : "CREDENTIAL",
+                                record.name(),
+                                null,
+                                null,
+                                Map.of("provider", record.provider() != null ? record.provider() : "")
+                        );
+                    }
+                    return CredentialResponse.fromRecord(record);
+                })
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
@@ -168,6 +209,18 @@ public class CredentialController {
         boolean deleted = credentialService.deleteCredentialWithAuthorization(effectiveTenant, callerUserId, name);
         if (!deleted) {
             return ResponseEntity.notFound().build();
+        }
+        if (auditLogService != null) {
+            boolean isByok = isByokCredential(name, null);
+            auditLogService.recordActionForTenant(
+                    effectiveTenant,
+                    isByok ? "BYOK_KEY_DELETE" : "DELETE_CREDENTIAL",
+                    isByok ? "BYOK_KEY" : "CREDENTIAL",
+                    name,
+                    null,
+                    null,
+                    Map.of("credentialName", name)
+            );
         }
         return ResponseEntity.noContent().build();
     }
@@ -204,5 +257,19 @@ public class CredentialController {
         }
         String u = SecurityUtils.getUserId();
         return u != null ? u : "anonymous";
+    }
+
+    private static boolean isByokCredential(String name, String provider) {
+        if (name != null) {
+            String lower = name.toLowerCase();
+            if (lower.contains("byok") || lower.contains("kms") || lower.contains("kek") || lower.contains("dek")) {
+                return true;
+            }
+        }
+        if (provider != null) {
+            String lower = provider.toLowerCase();
+            return lower.contains("kms") || lower.contains("byok") || lower.contains("vault");
+        }
+        return false;
     }
 }
