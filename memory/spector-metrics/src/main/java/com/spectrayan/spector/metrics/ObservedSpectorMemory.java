@@ -134,13 +134,16 @@ public class ObservedSpectorMemory extends ObservableComponent implements Specto
 
     public void recordSimilarityScore(double score) {
         String ns = resolveNamespaceId();
+        String tenant = resolveTenantId();
         MeterRegistry target = this.meterRegistry != null ? this.meterRegistry : SpectorMetrics.registry();
         if (target != null) {
-            DistributionSummary.builder("spector.memory.recall.similarity")
+            var builder = DistributionSummary.builder("spector.memory.recall.similarity")
                     .tag("spector.namespace", ns != null ? ns : "default")
-                    .description("Recall result similarity score distribution")
-                    .register(target)
-                    .record(score);
+                    .description("Recall result similarity score distribution");
+            if (tenant != null && !tenant.isBlank()) {
+                builder.tag("spector.tenant", tenant);
+            }
+            builder.register(target).record(score);
         }
     }
 

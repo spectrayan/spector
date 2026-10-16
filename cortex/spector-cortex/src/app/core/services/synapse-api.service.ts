@@ -619,5 +619,50 @@ export class SynapseApiService {
   listAdminNamespaceAuditLogs(namespaceId: string): Observable<any[]> {
     return this.http.get<any[]>(`${this.baseUrl}/admin/namespaces/${namespaceId}/audit`);
   }
+
+  // ─── Admin Analytics Rollups (ADR-0083 §5.8, ADR-0087, Issue #1058) ───
+
+  getFleetAnalytics(): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/admin/analytics/fleet`);
+  }
+
+  getCallerTenantAnalytics(tenantId?: string): Observable<any> {
+    const params: Record<string, string> = {};
+    if (tenantId) params['tenantId'] = tenantId;
+    return this.http.get<any>(`${this.baseUrl}/admin/analytics/tenant`, { params });
+  }
+
+  getTenantAnalytics(tenantId: string): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/admin/analytics/tenants/${tenantId}`);
+  }
+
+  getAccountAnalytics(accountId: string): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/admin/analytics/accounts/${accountId}`);
+  }
+
+  getNamespaceAnalytics(namespaceId: string): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/admin/analytics/namespaces/${namespaceId}`);
+  }
+
+  getAnalyticsTimeseries(filters: {
+    scope?: 'FLEET' | 'TENANT' | 'ACCOUNT' | 'NAMESPACE';
+    tenantId?: string;
+    accountId?: string;
+    namespaceId?: string;
+    from?: string;
+    to?: string;
+    limit?: number;
+  } = {}): Observable<any> {
+    const params: Record<string, string> = {};
+    if (filters.scope) params['scope'] = filters.scope;
+    if (filters.tenantId) params['tenantId'] = filters.tenantId;
+    if (filters.accountId) params['accountId'] = filters.accountId;
+    if (filters.namespaceId) params['namespaceId'] = filters.namespaceId;
+    if (filters.from) params['from'] = filters.from;
+    if (filters.to) params['to'] = filters.to;
+    if (filters.limit !== undefined) params['limit'] = String(filters.limit);
+    return this.http.get<any>(`${this.baseUrl}/admin/analytics/timeseries`, { params });
+  }
 }
+
 

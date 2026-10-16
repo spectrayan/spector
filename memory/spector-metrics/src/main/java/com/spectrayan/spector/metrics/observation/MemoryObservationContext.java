@@ -31,6 +31,7 @@ public class MemoryObservationContext extends Observation.Context {
     private final String operation;
     private String tier;
     private String namespace;
+    private String tenant;
     private String sessionId;
     private String memoryId;
     private String query;
@@ -61,6 +62,15 @@ public class MemoryObservationContext extends Observation.Context {
 
     public MemoryObservationContext setNamespace(String namespace) {
         this.namespace = namespace;
+        return this;
+    }
+
+    public String getTenant() {
+        return tenant;
+    }
+
+    public MemoryObservationContext setTenant(String tenant) {
+        this.tenant = tenant;
         return this;
     }
 

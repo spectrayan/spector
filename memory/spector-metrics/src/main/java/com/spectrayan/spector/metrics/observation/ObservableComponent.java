@@ -49,6 +49,10 @@ public abstract class ObservableComponent {
         return MemoryScope.namespaceId();
     }
 
+    protected String resolveTenantId() {
+        return MemoryScope.tenantId();
+    }
+
     protected <T> T withObservation(SpectorObservationDocumentation doc, Map<String, String> tags, Supplier<T> work) {
         if (!config.isEnabled(doc.getName())) {
             return work.get();
@@ -56,11 +60,13 @@ public abstract class ObservableComponent {
 
         MemoryObservationContext context = new MemoryObservationContext(doc.getName());
         context.setNamespace(resolveNamespaceId());
+        context.setTenant(resolveTenantId());
         context.setSessionId(MemoryScope.sessionId());
 
         if (tags != null) {
             tags.forEach((k, v) -> {
                 if ("tier".equalsIgnoreCase(k)) context.setTier(v);
+                else if ("tenant".equalsIgnoreCase(k) || "spector.tenant".equalsIgnoreCase(k)) context.setTenant(v);
                 else if ("memory_id".equalsIgnoreCase(k)) context.setMemoryId(v);
                 else if ("task_id".equalsIgnoreCase(k)) context.setTaskId(v);
                 else if ("query".equalsIgnoreCase(k)) context.setQuery(v);

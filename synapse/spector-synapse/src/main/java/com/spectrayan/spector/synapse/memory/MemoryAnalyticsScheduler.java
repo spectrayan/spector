@@ -62,7 +62,8 @@ public class MemoryAnalyticsScheduler {
     private String instanceId;
 
     // Last-seen timer counts and total durations per namespace for interval delta calculation.
-    // [0] = recalls, [1] = remembers, [2] = consolidations, [3] = recallTotalDurationMs (as double bits)
+    // [0] = recalls, [1] = remembers, [2] = consolidations, [3] = recallTotalDurationMs (as double bits),
+    // [4] = dreams (reflect), [5] = errors
     private final ConcurrentHashMap<String, long[]> lastSnapshots = new ConcurrentHashMap<>();
 
     public MemoryAnalyticsScheduler(MemoryAccessObject mao, JdbcClient jdbc,
@@ -134,29 +135,57 @@ public class MemoryAnalyticsScheduler {
         double curRecallTotalMs = timerTotalTimeMs(meterRegistry, "spector.memory.recall", namespaceId);
         long curRemembers = timerCount(meterRegistry, "spector.memory.remember", namespaceId);
         long curConsolidations = timerCount(meterRegistry, "spector.memory.consolidate", namespaceId);
+        long curDreams = timerCount(meterRegistry, "spector.memory.reflect", namespaceId);
+        long curErrors = errorTimerCount(meterRegistry, namespaceId);
 
         // Compute interval deltas from last snapshot
-        long[] prev = lastSnapshots.getOrDefault(namespaceId, new long[]{0, 0, 0, 0});
+        long[] prev = lastSnapshots.getOrDefault(namespaceId, new long[]{0, 0, 0, 0, 0, 0});
         long deltaRecalls = Math.max(0, curRecalls - prev[0]);
         long deltaRemembers = Math.max(0, curRemembers - prev[1]);
         long deltaConsolidations = Math.max(0, curConsolidations - prev[2]);
         double prevRecallTotalMs = Double.longBitsToDouble(prev[3]);
         double deltaRecallTotalMs = Math.max(0.0, curRecallTotalMs - prevRecallTotalMs);
+        long deltaDreams = prev.length > 4 ? Math.max(0, curDreams - prev[4]) : curDreams;
+        long deltaErrors = prev.length > 5 ? Math.max(0, curErrors - prev[5]) : curErrors;
 
         // True interval average latency: delta total duration / delta count
         double avgLatencyMs = deltaRecalls > 0 ? (deltaRecallTotalMs / deltaRecalls) : 0.0;
 
-        lastSnapshots.put(namespaceId, new long[]{curRecalls, curRemembers, curConsolidations, Double.doubleToLongBits(curRecallTotalMs)});
+        lastSnapshots.put(namespaceId, new long[]{
+                curRecalls, curRemembers, curConsolidations, Double.doubleToLongBits(curRecallTotalMs),
+                curDreams, curErrors
+        });
+
+        String accountId = null;
+        String tenantId = "default";
+        try {
+            var meta = jdbc.sql("SELECT n.owner_account_id, COALESCE(u.tenant_id, 'default') AS tenant_id " +
+                            "FROM namespaces n LEFT JOIN users u ON n.owner_account_id = u.user_id " +
+                            "WHERE n.namespace_id = :ns")
+                    .param("ns", namespaceId)
+                    .query((rs, rowNum) -> new String[]{rs.getString("owner_account_id"), rs.getString("tenant_id")})
+                    .optional();
+            if (meta.isPresent()) {
+                accountId = meta.get()[0];
+                if (meta.get()[1] != null && !meta.get()[1].isBlank()) {
+                    tenantId = meta.get()[1];
+                }
+            }
+        } catch (Exception ignored) {
+            // Safe fallback when catalog tables or mock JdbcClient do not return ownership rows
+        }
 
         jdbc.sql("INSERT INTO memory_analytics_snapshot " +
-                        "(snapshot_time, namespace_id, instance_id, total_count, working_count, episodic_count, " +
+                        "(snapshot_time, namespace_id, instance_id, account_id, tenant_id, total_count, working_count, episodic_count, " +
                         "semantic_count, procedural_count, hebbian_edges, temporal_links, entity_nodes, entity_edges, " +
-                        "avg_latency_ms, recall_count, remember_count, consolidations_run) " +
-                        "VALUES (:time, :ns, :inst, :total, :working, :episodic, :semantic, :procedural, " +
-                        ":hebbian, :temporal, :nodes, :edges, :avgLatency, :recalls, :remembers, :consolidations)")
+                        "avg_latency_ms, recall_count, remember_count, consolidations_run, dream_cycles_run, error_count) " +
+                        "VALUES (:time, :ns, :inst, :account, :tenant, :total, :working, :episodic, :semantic, :procedural, " +
+                        ":hebbian, :temporal, :nodes, :edges, :avgLatency, :recalls, :remembers, :consolidations, :dreams, :errors)")
                 .param("time", Timestamp.from(now))
                 .param("ns", namespaceId)
                 .param("inst", instanceId)
+                .param("account", accountId)
+                .param("tenant", tenantId)
                 .param("total", totalCount)
                 .param("working", workingCount)
                 .param("episodic", episodicCount)
@@ -170,33 +199,57 @@ public class MemoryAnalyticsScheduler {
                 .param("recalls", deltaRecalls)
                 .param("remembers", deltaRemembers)
                 .param("consolidations", deltaConsolidations)
+                .param("dreams", deltaDreams)
+                .param("errors", deltaErrors)
                 .update();
 
-        log.debug("[MemoryAnalytics] Persisted snapshot: ns={}, total={}, avgLatency={}ms",
-                namespaceId, totalCount, avgLatencyMs);
+        log.debug("[MemoryAnalytics] Persisted snapshot: ns={}, tenant={}, total={}, avgLatency={}ms",
+                namespaceId, tenantId, totalCount, avgLatencyMs);
     }
 
     /**
      * Reads cumulative timer count from MeterRegistry, filtered by namespace tag.
-     * Returns 0 on cold start (timer not yet created).
+     * Sums across all timers matching the namespace (e.g. different tiers/statuses).
      */
     private long timerCount(MeterRegistry registry, String metricName, String namespaceId) {
         if (registry == null) return 0;
-        Timer timer = registry.find(metricName)
+        return registry.find(metricName)
                 .tag("spector.namespace", namespaceId)
-                .timer();
-        return timer != null ? timer.count() : 0;
+                .timers()
+                .stream()
+                .mapToLong(Timer::count)
+                .sum();
     }
 
     /**
      * Reads cumulative total duration in milliseconds from MeterRegistry, filtered by namespace tag.
-     * Returns 0.0 on cold start.
      */
     private double timerTotalTimeMs(MeterRegistry registry, String metricName, String namespaceId) {
         if (registry == null) return 0.0;
-        Timer timer = registry.find(metricName)
+        return registry.find(metricName)
                 .tag("spector.namespace", namespaceId)
-                .timer();
-        return timer != null ? timer.totalTime(TimeUnit.MILLISECONDS) : 0.0;
+                .timers()
+                .stream()
+                .mapToDouble(t -> t.totalTime(TimeUnit.MILLISECONDS))
+                .sum();
+    }
+
+    private long errorTimerCount(MeterRegistry registry, String namespaceId) {
+        if (registry == null) return 0;
+        long recallErrors = registry.find("spector.memory.recall")
+                .tag("spector.namespace", namespaceId)
+                .tag("spector.status", "ERROR")
+                .timers()
+                .stream()
+                .mapToLong(Timer::count)
+                .sum();
+        long rememberErrors = registry.find("spector.memory.remember")
+                .tag("spector.namespace", namespaceId)
+                .tag("spector.status", "ERROR")
+                .timers()
+                .stream()
+                .mapToLong(Timer::count)
+                .sum();
+        return recallErrors + rememberErrors;
     }
 }

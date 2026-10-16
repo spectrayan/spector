@@ -69,7 +69,12 @@ public final class MicrometerMemoryObservationHook implements MemoryObservationH
         if (ns == null && tags != null) {
             ns = tags.getOrDefault("namespace", tags.get("spector.namespace"));
         }
+        String tenant = MemoryScope.tenantId();
+        if (tenant == null && tags != null) {
+            tenant = tags.getOrDefault("tenant", tags.get("spector.tenant"));
+        }
         context.setNamespace(ns);
+        context.setTenant(tenant);
         context.setSessionId(MemoryScope.sessionId());
 
         if (tags != null) {
@@ -78,8 +83,10 @@ public final class MicrometerMemoryObservationHook implements MemoryObservationH
                 String v = entry.getValue();
                 if ("tier".equalsIgnoreCase(k)) {
                     context.setTier(v);
-                } else if ("namespace".equalsIgnoreCase(k)) {
+                } else if ("namespace".equalsIgnoreCase(k) || "spector.namespace".equalsIgnoreCase(k)) {
                     context.setNamespace(v);
+                } else if ("tenant".equalsIgnoreCase(k) || "spector.tenant".equalsIgnoreCase(k)) {
+                    context.setTenant(v);
                 } else if ("session_id".equalsIgnoreCase(k)) {
                     context.setSessionId(v);
                 } else if ("memory_id".equalsIgnoreCase(k)) {

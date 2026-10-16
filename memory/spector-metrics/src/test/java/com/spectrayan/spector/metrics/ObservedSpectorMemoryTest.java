@@ -217,4 +217,18 @@ class ObservedSpectorMemoryTest {
         assertThat(summary.count()).isEqualTo(2);
         assertThat(summary.mean()).isEqualTo(0.90, org.assertj.core.data.Offset.offset(0.001));
     }
+
+    @Test
+    @DisplayName("Observation propagates spector.tenant low-cardinality tag when MemoryScope binds tenantId")
+    void testObservationPropagatesTenantTagWhenMemoryScopeBound() {
+        MemoryScope.runWithScope("tenant-acme", "sess-tenant", "ns-acme-1",
+                () -> memory.remember("mem-t1", "Tenant scoped observation", MemoryType.SEMANTIC, MemorySource.USER_STATED));
+
+        TestObservationRegistryAssert.assertThat(registry)
+                .hasObservationWithNameEqualTo("spector.memory.remember")
+                .that()
+                .hasLowCardinalityKeyValue("spector.namespace", "ns-acme-1")
+                .hasLowCardinalityKeyValue("spector.tenant", "tenant-acme")
+                .hasHighCardinalityKeyValue("spector.session_id", "sess-tenant");
+    }
 }
