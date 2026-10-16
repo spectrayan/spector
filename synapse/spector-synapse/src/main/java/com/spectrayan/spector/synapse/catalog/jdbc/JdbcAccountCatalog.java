@@ -62,6 +62,7 @@ public class JdbcAccountCatalog implements AccountCatalog {
     private final ObjectMapper objectMapper;
     private final TsidGenerator tsid;
     private final org.springframework.beans.factory.ObjectProvider<com.spectrayan.spector.commons.cache.SpectorCacheManager> cacheManagerProvider;
+    private final org.springframework.beans.factory.ObjectProvider<io.micrometer.core.instrument.MeterRegistry> meterRegistryProvider;
 
     private final Cache<String, Long> membershipVersionCache = Caffeine.newBuilder()
             .maximumSize(4096)
@@ -73,20 +74,31 @@ public class JdbcAccountCatalog implements AccountCatalog {
             SqlQueryLoader sqlLoader,
             ObjectMapper objectMapper,
             TsidGenerator tsid,
-            org.springframework.beans.factory.ObjectProvider<com.spectrayan.spector.commons.cache.SpectorCacheManager> cacheManagerProvider) {
+            org.springframework.beans.factory.ObjectProvider<com.spectrayan.spector.commons.cache.SpectorCacheManager> cacheManagerProvider,
+            org.springframework.beans.factory.ObjectProvider<io.micrometer.core.instrument.MeterRegistry> meterRegistryProvider) {
         this.jdbc = Objects.requireNonNull(jdbc, "jdbc must not be null");
         this.sqlLoader = Objects.requireNonNull(sqlLoader, "sqlLoader must not be null");
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
         this.tsid = tsid != null ? tsid : new TsidGenerator();
         this.cacheManagerProvider = cacheManagerProvider;
+        this.meterRegistryProvider = meterRegistryProvider;
+    }
+
+    public JdbcAccountCatalog(
+            JdbcClient jdbc,
+            SqlQueryLoader sqlLoader,
+            ObjectMapper objectMapper,
+            TsidGenerator tsid,
+            org.springframework.beans.factory.ObjectProvider<com.spectrayan.spector.commons.cache.SpectorCacheManager> cacheManagerProvider) {
+        this(jdbc, sqlLoader, objectMapper, tsid, cacheManagerProvider, null);
     }
 
     public JdbcAccountCatalog(JdbcClient jdbc, SqlQueryLoader sqlLoader, ObjectMapper objectMapper, TsidGenerator tsid) {
-        this(jdbc, sqlLoader, objectMapper, tsid, null);
+        this(jdbc, sqlLoader, objectMapper, tsid, null, null);
     }
 
     public JdbcAccountCatalog(JdbcClient jdbc, SqlQueryLoader sqlLoader, ObjectMapper objectMapper) {
-        this(jdbc, sqlLoader, objectMapper, new TsidGenerator(), null);
+        this(jdbc, sqlLoader, objectMapper, new TsidGenerator(), null, null);
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -272,11 +284,18 @@ public class JdbcAccountCatalog implements AccountCatalog {
         }
 
         Account account = getAccount(accountId);
+        String effTenantId = (account.tenantId() != null && !account.tenantId().isBlank())
+                ? account.tenantId().trim()
+                : "default";
+
+        // Check tenant namespace quota (Issue #1057)
+        enforceTenantNamespaceQuota(effTenantId);
 
         // Check account namespace quota
         int currentCount = countOwnedNamespaces(accountId);
         int maxAllowed = account.quotas().maxNamespaces();
         if (maxAllowed > 0 && currentCount >= maxAllowed) {
+            recordQuotaBreach("account", effTenantId, "namespaces");
             throw new AccountQuotaExceededException(accountId, "maxNamespaces exceeded: " + currentCount + " >= " + maxAllowed);
         }
 
@@ -982,6 +1001,48 @@ public class JdbcAccountCatalog implements AccountCatalog {
                 .query(Integer.class)
                 .single();
         return count != null ? count : 0;
+    }
+
+    private void enforceTenantNamespaceQuota(String tenantId) {
+        Integer tenantMaxNs = null;
+        try {
+            tenantMaxNs = jdbc.sql("SELECT max_namespaces FROM tenants WHERE tenant_id = :tenantId")
+                    .param("tenantId", tenantId)
+                    .query(Integer.class)
+                    .optional()
+                    .orElse(null);
+        } catch (Exception e) {
+            log.debug("[JdbcAccountCatalog] Could not query tenant max_namespaces for {}: {}", tenantId, e.getMessage());
+            return;
+        }
+        if (tenantMaxNs != null && tenantMaxNs > 0) {
+            Long currentTenantNs = jdbc.sql(sqlLoader.load("tenants/count-namespaces"))
+                    .param("tenantId", tenantId)
+                    .query(Long.class)
+                    .single();
+            long count = currentTenantNs != null ? currentTenantNs : 0L;
+            if (count >= tenantMaxNs) {
+                recordQuotaBreach("tenant", tenantId, "namespaces");
+                throw new TenantQuotaExceededException(tenantId, "maxNamespaces exceeded: " + count + " >= " + tenantMaxNs);
+            }
+        }
+    }
+
+    private void recordQuotaBreach(String level, String tenantId, String resource) {
+        if (meterRegistryProvider == null) {
+            return;
+        }
+        try {
+            io.micrometer.core.instrument.MeterRegistry mr = meterRegistryProvider.getIfAvailable();
+            if (mr != null) {
+                mr.counter("spector.quota.breach.total",
+                        "level", level,
+                        "tenant_id", tenantId != null ? tenantId : "default",
+                        "resource", resource).increment();
+            }
+        } catch (Exception e) {
+            log.debug("[JdbcAccountCatalog] Failed to record quota breach metric: {}", e.getMessage());
+        }
     }
 
     private void insertNamespaceRow(NamespaceRecord record) {

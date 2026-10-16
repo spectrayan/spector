@@ -733,6 +733,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TenantResponse"
+  /api/v1/admin/namespaces/{namespaceId}/quotas:
+    put:
+      tags:
+      - admin-namespace-controller
+      operationId: updateQuotas
+      parameters:
+      - name: namespaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateNamespaceQuotasRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminNamespaceResponse"
   /api/v1/admin/accounts/{accountId}:
     get:
       tags:
@@ -2422,6 +2446,113 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TenantResponse"
+  /api/v1/admin/namespaces/{namespaceId}/transfer-ownership:
+    post:
+      tags:
+      - admin-namespace-controller
+      operationId: transferOwnership
+      parameters:
+      - name: namespaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransferOwnershipRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminNamespaceResponse"
+  /api/v1/admin/namespaces/{namespaceId}/restore:
+    post:
+      tags:
+      - admin-namespace-controller
+      operationId: restoreNamespace
+      parameters:
+      - name: namespaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminNamespaceResponse"
+  /api/v1/admin/namespaces/{namespaceId}/legal-hold:
+    post:
+      tags:
+      - admin-namespace-controller
+      operationId: setLegalHold_1
+      parameters:
+      - name: namespaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NamespaceLegalHoldRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminNamespaceResponse"
+  /api/v1/admin/namespaces/{namespaceId}/erase:
+    post:
+      tags:
+      - admin-namespace-controller
+      operationId: eraseNamespace
+      parameters:
+      - name: namespaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EraseNamespaceRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErasureAuditReport"
+  /api/v1/admin/namespaces/{namespaceId}/archive:
+    post:
+      tags:
+      - admin-namespace-controller
+      operationId: archiveNamespace
+      parameters:
+      - name: namespaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminNamespaceResponse"
   /api/v1/admin/accounts:
     get:
       tags:
@@ -3975,6 +4106,138 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/TenantAuditResponse"
+  /api/v1/admin/namespaces:
+    get:
+      tags:
+      - admin-namespace-controller
+      operationId: listNamespaces_1
+      parameters:
+      - name: tenantId
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: ownerAccountId
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - ACTIVE
+          - TOMBSTONED
+          - ARCHIVED
+          - LEGAL_HOLD
+      - name: type
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - DEFAULT
+          - PROJECT
+          - AGENT
+          - SHARED
+          - ARCHIVE
+      - name: legalHold
+        in: query
+        required: false
+        schema:
+          type: boolean
+      - name: includeTombstoned
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminNamespaceResponse"
+  /api/v1/admin/namespaces/{namespaceId}:
+    get:
+      tags:
+      - admin-namespace-controller
+      operationId: getNamespace_1
+      parameters:
+      - name: namespaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminNamespaceResponse"
+    delete:
+      tags:
+      - admin-namespace-controller
+      operationId: tombstoneNamespace
+      parameters:
+      - name: namespaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminNamespaceResponse"
+  /api/v1/admin/namespaces/{namespaceId}/grants:
+    get:
+      tags:
+      - admin-namespace-controller
+      operationId: listGrants_1
+      parameters:
+      - name: namespaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminNamespaceGrantResponse"
+  /api/v1/admin/namespaces/{namespaceId}/audit:
+    get:
+      tags:
+      - admin-namespace-controller
+      operationId: listNamespaceAuditLogs
+      parameters:
+      - name: namespaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TenantAuditResponse"
   /api/v1/admin/cache/{cacheName}/{key}:
     get:
       tags:
@@ -4315,6 +4578,25 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/FactRetractResponse"
+  /api/v1/admin/namespaces/{namespaceId}/grants/{grantId}:
+    delete:
+      tags:
+      - admin-namespace-controller
+      operationId: revokeGrant_1
+      parameters:
+      - name: namespaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: grantId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
 components:
   schemas:
     AcousticModulationMap:
@@ -5122,6 +5404,86 @@ components:
         deletedAt:
           type: string
           format: date-time
+    UpdateNamespaceQuotasRequest:
+      type: object
+      properties:
+        maxMemories:
+          type: integer
+          format: int32
+        maxStorageBytes:
+          type: integer
+          format: int64
+        maxOpsPerMinute:
+          type: integer
+          format: int32
+    AdminNamespaceResponse:
+      type: object
+      properties:
+        namespaceId:
+          type: string
+        slug:
+          type: string
+        displayName:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+          enum:
+          - DEFAULT
+          - PROJECT
+          - AGENT
+          - SHARED
+          - ARCHIVE
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - TOMBSTONED
+          - ARCHIVED
+          - LEGAL_HOLD
+        legalHold:
+          type: boolean
+        tenantId:
+          type: string
+        ownerAccountId:
+          type: string
+        ownerUsername:
+          type: string
+        ownerDisplayName:
+          type: string
+        grantsCount:
+          type: integer
+          format: int64
+        memoryCount:
+          type: integer
+          format: int64
+        storageBytes:
+          type: integer
+          format: int64
+        quotas:
+          $ref: "#/components/schemas/NamespaceQuotasDto"
+        createdAt:
+          type: string
+          format: date-time
+        lastWriteAt:
+          type: string
+          format: date-time
+        lastRecallAt:
+          type: string
+          format: date-time
+    NamespaceQuotasDto:
+      type: object
+      properties:
+        maxMemories:
+          type: integer
+          format: int32
+        maxStorageBytes:
+          type: integer
+          format: int64
+        maxOpsPerMinute:
+          type: integer
+          format: int32
     UpdateAccountRequest:
       type: object
       properties:
@@ -5878,17 +6240,17 @@ components:
           type: boolean
         positivelyReinforced:
           type: boolean
-        hyperfocused:
-          type: boolean
-        dreamed:
+        simulated:
           type: boolean
         multimodal:
           type: boolean
-        simulated:
+        dreamed:
+          type: boolean
+        negativeOutcome:
           type: boolean
         lateral:
           type: boolean
-        negativeOutcome:
+        hyperfocused:
           type: boolean
     FederatedRecallHit:
       type: object
@@ -6365,6 +6727,69 @@ components:
           $ref: "#/components/schemas/TenantSettingsDto"
         quotas:
           $ref: "#/components/schemas/TenantQuotasDto"
+    TransferOwnershipRequest:
+      type: object
+      properties:
+        newOwnerAccountId:
+          type: string
+        previousOwnerGrantRole:
+          type: string
+        reason:
+          type: string
+    NamespaceLegalHoldRequest:
+      type: object
+      properties:
+        legalHold:
+          type: boolean
+        reason:
+          type: string
+    EraseNamespaceRequest:
+      type: object
+      properties:
+        propagateReplicas:
+          type: boolean
+        reason:
+          type: string
+    ErasureAuditReport:
+      type: object
+      properties:
+        accountId:
+          type: string
+        namespaceId:
+          type: string
+        operator:
+          type: string
+        erasedAt:
+          type: string
+          format: date-time
+        localFilesDeleted:
+          type: integer
+          format: int32
+        localBytesDeleted:
+          type: integer
+          format: int64
+        objectStoreKeysDeleted:
+          type: integer
+          format: int32
+        replicaPropagationDispatched:
+          type: boolean
+        replicaAcks:
+          type: integer
+          format: int32
+        unreachableReplicas:
+          type: array
+          items:
+            type: string
+        erasureMechanism:
+          type: string
+        cryptoErasePerformed:
+          type: boolean
+        incompletenessDisclosure:
+          type: string
+        uninspectedClasses:
+          type: array
+          items:
+            type: string
     CreateAccountRequest:
       type: object
       properties:
@@ -7072,11 +7497,11 @@ components:
         flags:
           type: string
           format: byte
+        ongoing:
+          type: boolean
         retraction:
           type: boolean
         inferred:
-          type: boolean
-        ongoing:
           type: boolean
         resolved:
           type: boolean
@@ -7504,6 +7929,33 @@ components:
         details:
           type: object
           additionalProperties: {}
+    AdminNamespaceGrantResponse:
+      type: object
+      properties:
+        grantId:
+          type: string
+        namespaceId:
+          type: string
+        principalId:
+          type: string
+        principalUsername:
+          type: string
+        principalType:
+          type: string
+        role:
+          type: string
+        actions:
+          type: array
+          items:
+            type: string
+        grantedBy:
+          type: string
+        grantedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
     CacheDetailDto:
       type: object
       properties:
