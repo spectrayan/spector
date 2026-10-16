@@ -199,7 +199,8 @@ class ContentFreeObservabilityContractTest {
 
             for (Class<?> ctrlType : List.of(
                     ObservabilityController.class,
-                    com.spectrayan.spector.synapse.admin.analytics.AdminAnalyticsController.class
+                    com.spectrayan.spector.synapse.admin.analytics.AdminAnalyticsController.class,
+                    com.spectrayan.spector.synapse.admin.audit.AdminAuditController.class
             )) {
                 var controllerClass = classes.get(ctrlType);
                 for (JavaMethod method : controllerClass.getMethods()) {

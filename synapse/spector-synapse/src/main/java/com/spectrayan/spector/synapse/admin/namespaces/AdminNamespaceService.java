@@ -45,6 +45,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spectrayan.spector.kernel.id.TsidGenerator;
 import com.spectrayan.spector.memory.SpectorMemory;
+import com.spectrayan.spector.synapse.admin.audit.AuditLogService;
 import com.spectrayan.spector.synapse.admin.namespaces.dto.AdminNamespaceDto.AdminNamespaceGrantResponse;
 import com.spectrayan.spector.synapse.admin.namespaces.dto.AdminNamespaceDto.AdminNamespaceResponse;
 import com.spectrayan.spector.synapse.admin.namespaces.dto.AdminNamespaceDto.EraseNamespaceRequest;
@@ -107,6 +108,7 @@ public class AdminNamespaceService {
     private final ObjectProvider<MemoryRegistry> memoryRegistryProvider;
     private final ObjectProvider<TenantErasureService> erasureServiceProvider;
     private final ObjectProvider<MeterRegistry> meterRegistryProvider;
+    private final AuditLogService auditLogService;
     private final TsidGenerator tsid = new TsidGenerator(12);
 
     @Autowired
@@ -120,7 +122,8 @@ public class AdminNamespaceService {
             @Autowired(required = false) SynapseProperties synapseProps,
             ObjectProvider<MemoryRegistry> memoryRegistryProvider,
             ObjectProvider<TenantErasureService> erasureServiceProvider,
-            ObjectProvider<MeterRegistry> meterRegistryProvider) {
+            ObjectProvider<MeterRegistry> meterRegistryProvider,
+            @Autowired(required = false) AuditLogService auditLogService) {
         this.jdbc = Objects.requireNonNull(jdbc, "jdbc must not be null");
         this.accountCatalog = Objects.requireNonNull(accountCatalog, "accountCatalog must not be null");
         this.userAccountStore = Objects.requireNonNull(userAccountStore, "userAccountStore must not be null");
@@ -131,6 +134,24 @@ public class AdminNamespaceService {
         this.memoryRegistryProvider = memoryRegistryProvider;
         this.erasureServiceProvider = erasureServiceProvider;
         this.meterRegistryProvider = meterRegistryProvider;
+        this.auditLogService = auditLogService != null
+                ? auditLogService
+                : new AuditLogService(this.jdbc, this.sqlLoader, this.objectMapper, this.userAccountStore, null, null);
+    }
+
+    public AdminNamespaceService(
+            JdbcClient jdbc,
+            AccountCatalog accountCatalog,
+            UserAccountStore userAccountStore,
+            TenantService tenantService,
+            SqlQueryLoader sqlLoader,
+            ObjectMapper objectMapper,
+            SynapseProperties synapseProps,
+            ObjectProvider<MemoryRegistry> memoryRegistryProvider,
+            ObjectProvider<TenantErasureService> erasureServiceProvider,
+            ObjectProvider<MeterRegistry> meterRegistryProvider) {
+        this(jdbc, accountCatalog, userAccountStore, tenantService, sqlLoader, objectMapper, synapseProps,
+                memoryRegistryProvider, erasureServiceProvider, meterRegistryProvider, null);
     }
 
     /**
@@ -876,29 +897,33 @@ public class AdminNamespaceService {
             String action,
             String targetNamespaceId,
             Map<String, Object> details) {
-        String auditId = tsid.generate();
-        Instant now = Instant.now();
-        String effActor = (actorId != null && !actorId.isBlank()) ? actorId : "system";
-        String detailsJson = "{}";
+        String resourceTenant = actorTenantId;
         try {
-            detailsJson = objectMapper.writeValueAsString(details != null ? details : Map.of());
-        } catch (Exception e) {
-            log.warn("[AdminNamespaceService] Failed to serialize audit details for {}: {}", targetNamespaceId, e.getMessage());
-        }
+            Optional<String> nsTenant = jdbc.sql("""
+                    SELECT COALESCE(NULLIF(u.tenant_id, ''), 'default')
+                    FROM namespaces n
+                    LEFT JOIN users u ON n.owner_account_id = u.user_id
+                    WHERE n.namespace_id = :namespaceId
+                    """)
+                    .param("namespaceId", targetNamespaceId)
+                    .query(String.class)
+                    .optional();
+            if (nsTenant.isPresent() && !nsTenant.get().isBlank()) {
+                resourceTenant = nsTenant.get().trim();
+            }
+        } catch (Exception ignored) {}
 
-        jdbc.sql(sqlLoader.load("tenants/insert-audit-log"))
-                .param("auditId", auditId)
-                .param("timestamp", Timestamp.from(now))
-                .param("actorId", effActor)
-                .param("actorTenantId", actorTenantId)
-                .param("action", action)
-                .param("targetType", "NAMESPACE")
-                .param("targetId", targetNamespaceId)
-                .param("detailsJson", detailsJson)
-                .update();
-
-        log.info("[ADMIN_AUDIT] auditId={} actor={} action={} targetType=NAMESPACE targetId={} details={}",
-                auditId, effActor, action, targetNamespaceId, detailsJson);
+        auditLogService.recordAdminAction(
+                actorId,
+                actorTenantId,
+                resourceTenant,
+                action,
+                "NAMESPACE",
+                targetNamespaceId,
+                targetNamespaceId,
+                null,
+                details
+        );
     }
 
     private NamespaceAdminRow mapNamespaceRow(ResultSet rs, int rowNum) throws SQLException {

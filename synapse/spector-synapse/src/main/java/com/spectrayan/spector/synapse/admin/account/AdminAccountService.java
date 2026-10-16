@@ -58,6 +58,7 @@ import com.spectrayan.spector.synapse.admin.account.dto.AdminAccountDto.Reassign
 import com.spectrayan.spector.synapse.admin.account.dto.AdminAccountDto.ResetCredentialsRequest;
 import com.spectrayan.spector.synapse.admin.account.dto.AdminAccountDto.ResetCredentialsResponse;
 import com.spectrayan.spector.synapse.admin.account.dto.AdminAccountDto.UpdateAccountRequest;
+import com.spectrayan.spector.synapse.admin.audit.AuditLogService;
 import com.spectrayan.spector.synapse.admin.tenant.AdminAuditEntry;
 import com.spectrayan.spector.synapse.admin.tenant.TenantRecord;
 import com.spectrayan.spector.synapse.admin.tenant.TenantService;
@@ -103,6 +104,7 @@ public class AdminAccountService {
     private final SqlQueryLoader sqlLoader;
     private final ObjectMapper objectMapper;
     private final SynapseProperties synapseProps;
+    private final AuditLogService auditLogService;
     private final TsidGenerator tsid;
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -116,7 +118,8 @@ public class AdminAccountService {
             SqlQueryLoader sqlLoader,
             ObjectMapper objectMapper,
             @Autowired(required = false) TsidGenerator tsid,
-            @Autowired(required = false) SynapseProperties synapseProps) {
+            @Autowired(required = false) SynapseProperties synapseProps,
+            @Autowired(required = false) AuditLogService auditLogService) {
         this.jdbc = Objects.requireNonNull(jdbc, "jdbc must not be null");
         this.userAccountStore = Objects.requireNonNull(userAccountStore, "userAccountStore must not be null");
         this.accountCatalog = Objects.requireNonNull(accountCatalog, "accountCatalog must not be null");
@@ -126,6 +129,22 @@ public class AdminAccountService {
         this.objectMapper = objectMapper != null ? objectMapper : new ObjectMapper();
         this.tsid = new TsidGenerator(11);
         this.synapseProps = synapseProps;
+        this.auditLogService = auditLogService != null
+                ? auditLogService
+                : new AuditLogService(this.jdbc, this.sqlLoader, this.objectMapper, this.userAccountStore, null, null);
+    }
+
+    public AdminAccountService(
+            JdbcClient jdbc,
+            UserAccountStore userAccountStore,
+            AccountCatalog accountCatalog,
+            CredentialRepository credentialRepository,
+            TenantService tenantService,
+            SqlQueryLoader sqlLoader,
+            ObjectMapper objectMapper,
+            TsidGenerator tsid,
+            SynapseProperties synapseProps) {
+        this(jdbc, userAccountStore, accountCatalog, credentialRepository, tenantService, sqlLoader, objectMapper, tsid, synapseProps, null);
     }
 
     /**
@@ -887,29 +906,28 @@ public class AdminAccountService {
             String action,
             String targetAccountId,
             Map<String, Object> details) {
-        String auditId = tsid.generate();
-        Instant now = Instant.now();
-        String effActor = (actorId != null && !actorId.isBlank()) ? actorId : "system";
-        String detailsJson = "{}";
-        try {
-            detailsJson = objectMapper.writeValueAsString(details != null ? details : Map.of());
-        } catch (Exception e) {
-            log.warn("[AdminAccountService] Failed to serialize audit details for {}: {}", targetAccountId, e.getMessage());
+        String resourceTenant = actorTenantId;
+        if (details != null && details.get("tenantId") instanceof String t && !t.isBlank()) {
+            resourceTenant = t.trim();
+        } else {
+            try {
+                Optional<AccountRow> row = findAccountRow(targetAccountId);
+                if (row.isPresent() && row.get().tenantId() != null && !row.get().tenantId().isBlank()) {
+                    resourceTenant = row.get().tenantId().trim();
+                }
+            } catch (Exception ignored) {}
         }
-
-        jdbc.sql(sqlLoader.load("tenants/insert-audit-log"))
-                .param("auditId", auditId)
-                .param("timestamp", Timestamp.from(now))
-                .param("actorId", effActor)
-                .param("actorTenantId", actorTenantId)
-                .param("action", action)
-                .param("targetType", "ACCOUNT")
-                .param("targetId", targetAccountId)
-                .param("detailsJson", detailsJson)
-                .update();
-
-        log.info("[ADMIN_AUDIT] auditId={} actor={} action={} targetType=ACCOUNT targetId={} details={}",
-                auditId, effActor, action, targetAccountId, detailsJson);
+        auditLogService.recordAdminAction(
+                actorId,
+                actorTenantId,
+                resourceTenant,
+                action,
+                "ACCOUNT",
+                targetAccountId,
+                null,
+                null,
+                details
+        );
     }
 
     private static AccountProfile resolveDefaultProfile(AccountProfile requested, PrincipalKind kind) {

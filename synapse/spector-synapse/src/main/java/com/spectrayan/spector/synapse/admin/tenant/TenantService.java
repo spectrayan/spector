@@ -44,6 +44,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spectrayan.spector.kernel.id.TsidGenerator;
+import com.spectrayan.spector.synapse.admin.audit.AuditLogService;
 import com.spectrayan.spector.synapse.admin.tenant.dto.TenantDto.CreateTenantRequest;
 import com.spectrayan.spector.synapse.admin.tenant.dto.TenantDto.TenantAuditResponse;
 import com.spectrayan.spector.synapse.admin.tenant.dto.TenantDto.TenantQuotasDto;
@@ -74,6 +75,7 @@ public class TenantService {
     private final SqlQueryLoader sqlLoader;
     private final ObjectMapper objectMapper;
     private final SynapseProperties synapseProps;
+    private final AuditLogService auditLogService;
     private final TsidGenerator tsid = new TsidGenerator();
     private final Set<String> byokConfiguredTenants = ConcurrentHashMap.newKeySet();
 
@@ -82,15 +84,27 @@ public class TenantService {
             JdbcClient jdbc,
             SqlQueryLoader sqlLoader,
             ObjectMapper objectMapper,
-            @Autowired(required = false) SynapseProperties synapseProps) {
+            @Autowired(required = false) SynapseProperties synapseProps,
+            @Autowired(required = false) AuditLogService auditLogService) {
         this.jdbc = Objects.requireNonNull(jdbc, "jdbc must not be null");
         this.sqlLoader = sqlLoader != null ? sqlLoader : new SqlQueryLoader();
         this.objectMapper = objectMapper != null ? objectMapper : new ObjectMapper();
         this.synapseProps = synapseProps;
+        this.auditLogService = auditLogService != null
+                ? auditLogService
+                : new AuditLogService(this.jdbc, this.sqlLoader, this.objectMapper);
+    }
+
+    public TenantService(
+            JdbcClient jdbc,
+            SqlQueryLoader sqlLoader,
+            ObjectMapper objectMapper,
+            SynapseProperties synapseProps) {
+        this(jdbc, sqlLoader, objectMapper, synapseProps, null);
     }
 
     public TenantService(JdbcClient jdbc, SqlQueryLoader sqlLoader, ObjectMapper objectMapper) {
-        this(jdbc, sqlLoader, objectMapper, null);
+        this(jdbc, sqlLoader, objectMapper, null, null);
     }
 
     /**
@@ -557,29 +571,17 @@ public class TenantService {
             String action,
             String targetTenantId,
             Map<String, Object> details) {
-        String auditId = tsid.generate();
-        Instant now = Instant.now();
-        String effActor = (actorId != null && !actorId.isBlank()) ? actorId : "system";
-        String detailsJson = "{}";
-        try {
-            detailsJson = objectMapper.writeValueAsString(details != null ? details : Map.of());
-        } catch (Exception e) {
-            log.warn("[TenantService] Failed to serialize audit details for {}: {}", targetTenantId, e.getMessage());
-        }
-
-        jdbc.sql(sqlLoader.load("tenants/insert-audit-log"))
-                .param("auditId", auditId)
-                .param("timestamp", Timestamp.from(now))
-                .param("actorId", effActor)
-                .param("actorTenantId", actorTenantId)
-                .param("action", action)
-                .param("targetType", "TENANT")
-                .param("targetId", targetTenantId)
-                .param("detailsJson", detailsJson)
-                .update();
-
-        log.info("[ADMIN_AUDIT] auditId={} actor={} action={} targetType=TENANT targetId={} details={}",
-                auditId, effActor, action, targetTenantId, detailsJson);
+        auditLogService.recordAdminAction(
+                actorId,
+                actorTenantId,
+                targetTenantId,
+                action,
+                "TENANT",
+                targetTenantId,
+                null,
+                null,
+                details
+        );
     }
 
     private static void validateBreakGlassDuration(int minutes) {

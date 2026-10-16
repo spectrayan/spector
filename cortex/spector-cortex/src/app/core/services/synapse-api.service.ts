@@ -663,6 +663,46 @@ export class SynapseApiService {
     if (filters.limit !== undefined) params['limit'] = String(filters.limit);
     return this.http.get<any>(`${this.baseUrl}/admin/analytics/timeseries`, { params });
   }
+
+  // ─── Append-Only Audit Log (Issue #1059) ───
+
+  queryAdminAuditEvents(filters: {
+    tenantId?: string;
+    actorId?: string;
+    action?: string;
+    targetType?: string;
+    targetId?: string;
+    namespaceId?: string;
+    outcome?: 'SUCCESS' | 'DENIED' | 'FAILURE';
+    from?: string;
+    to?: string;
+    limit?: number;
+  } = {}): Observable<any[]> {
+    const params: Record<string, string> = {};
+    if (filters.tenantId) params['tenantId'] = filters.tenantId;
+    if (filters.actorId) params['actorId'] = filters.actorId;
+    if (filters.action) params['action'] = filters.action;
+    if (filters.targetType) params['targetType'] = filters.targetType;
+    if (filters.targetId) params['targetId'] = filters.targetId;
+    if (filters.namespaceId) params['namespaceId'] = filters.namespaceId;
+    if (filters.outcome) params['outcome'] = filters.outcome;
+    if (filters.from) params['from'] = filters.from;
+    if (filters.to) params['to'] = filters.to;
+    if (filters.limit !== undefined) params['limit'] = String(filters.limit);
+    return this.http.get<any[]>(`${this.baseUrl}/admin/audit`, { params });
+  }
+
+  verifyAdminAuditChain(limit = 5000): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/admin/audit/verify`, {
+      params: { limit: String(limit) }
+    });
+  }
+
+  getNamespaceAuditEvents(slugOrId: string, limit = 100): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/namespaces/${slugOrId}/audit`, {
+      params: { limit: String(limit) }
+    });
+  }
 }
 
 

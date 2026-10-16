@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.synapse.config.api;
 
+import com.spectrayan.spector.synapse.admin.audit.AuditLogService;
 import com.spectrayan.spector.synapse.config.model.ConfigCategory;
 import com.spectrayan.spector.synapse.config.model.ScopedConfig;
 import com.spectrayan.spector.synapse.config.service.ConfigApplicator;
@@ -23,6 +24,7 @@ import com.spectrayan.spector.synapse.security.SecurityUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -41,13 +43,23 @@ public class ConfigController {
     private final ConfigResolutionService resolutionService;
     private final ConfigApplicator applicator;
     private final com.spectrayan.spector.synapse.config.service.ConfigSchemaRegistry schemaRegistry;
+    private final AuditLogService auditLogService;
+
+    @Autowired
+    public ConfigController(ConfigResolutionService resolutionService,
+                            ConfigApplicator applicator,
+                            com.spectrayan.spector.synapse.config.service.ConfigSchemaRegistry schemaRegistry,
+                            @Autowired(required = false) AuditLogService auditLogService) {
+        this.resolutionService = resolutionService;
+        this.applicator = applicator;
+        this.schemaRegistry = schemaRegistry;
+        this.auditLogService = auditLogService;
+    }
 
     public ConfigController(ConfigResolutionService resolutionService,
                             ConfigApplicator applicator,
                             com.spectrayan.spector.synapse.config.service.ConfigSchemaRegistry schemaRegistry) {
-        this.resolutionService = resolutionService;
-        this.applicator = applicator;
-        this.schemaRegistry = schemaRegistry;
+        this(resolutionService, applicator, schemaRegistry, null);
     }
 
     /**
@@ -149,6 +161,16 @@ public class ConfigController {
         String applyStatus = applicator.apply(tenantId, userId, cat, effective);
 
         log.info("Config saved: category={}, scope={}, editor={}, status={}", cat.key(), config.scope(), userId, applyStatus);
+        if (auditLogService != null) {
+            auditLogService.recordAction(
+                    "SAVE_CONFIG_OVERRIDE",
+                    "CONFIG",
+                    cat.key(),
+                    null,
+                    null,
+                    Map.of("scope", config.scope(), "category", cat.key(), "status", applyStatus)
+            );
+        }
 
         return Map.of(
                 "status", applyStatus,
@@ -186,6 +208,16 @@ public class ConfigController {
         // Re-apply defaults
         Map<String, Object> effective = resolutionService.resolve(tenantId, userId, cat);
         applicator.apply(tenantId, userId, cat, effective);
+        if (auditLogService != null) {
+            auditLogService.recordAction(
+                    "DELETE_CONFIG_OVERRIDE",
+                    "CONFIG",
+                    cat.key(),
+                    null,
+                    null,
+                    Map.of("scope", scopeStr, "category", cat.key(), "deleted", deleted)
+            );
+        }
 
         return Map.of(
                 "status", deleted ? "deleted" : "not_found",

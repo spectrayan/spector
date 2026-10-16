@@ -16,9 +16,11 @@
 package com.spectrayan.spector.synapse.config.cache;
 
 import com.github.benmanes.caffeine.cache.stats.CacheStats;
+import com.spectrayan.spector.synapse.admin.audit.AuditLogService;
 import com.spectrayan.spector.synapse.error.SynapseNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.caffeine.CaffeineCache;
@@ -49,9 +51,18 @@ public class CacheController {
     private static final Logger log = LoggerFactory.getLogger(CacheController.class);
 
     private final CacheManager cacheManager;
+    private final AuditLogService auditLogService;
+
+    @Autowired
+    public CacheController(
+            CacheManager cacheManager,
+            @Autowired(required = false) AuditLogService auditLogService) {
+        this.cacheManager = Objects.requireNonNull(cacheManager, "cacheManager must not be null");
+        this.auditLogService = auditLogService;
+    }
 
     public CacheController(CacheManager cacheManager) {
-        this.cacheManager = Objects.requireNonNull(cacheManager, "cacheManager must not be null");
+        this(cacheManager, null);
     }
 
     /**
@@ -172,6 +183,16 @@ public class CacheController {
             }
         }
         log.info("[CacheAdmin] Cleared all caches ({})", cacheNames);
+        if (auditLogService != null) {
+            auditLogService.recordAction(
+                    "CLEAR_ALL_CACHES",
+                    "CACHE",
+                    "ALL",
+                    null,
+                    null,
+                    Map.of("clearedCaches", cacheNames)
+            );
+        }
         return ResponseEntity.ok(Map.of(
                 "status", "success",
                 "message", "Cleared all caches",
@@ -191,6 +212,16 @@ public class CacheController {
 
         cache.clear();
         log.info("[CacheAdmin] Cleared cache '{}'", cacheName);
+        if (auditLogService != null) {
+            auditLogService.recordAction(
+                    "CLEAR_CACHE",
+                    "CACHE",
+                    cacheName,
+                    null,
+                    null,
+                    Map.of("cacheName", cacheName)
+            );
+        }
         return ResponseEntity.ok(Map.of(
                 "status", "success",
                 "message", "Cleared cache '" + cacheName + "'"
@@ -211,6 +242,16 @@ public class CacheController {
 
         cache.evict(key);
         log.info("[CacheAdmin] Evicted key '{}' from cache '{}'", key, cacheName);
+        if (auditLogService != null) {
+            auditLogService.recordAction(
+                    "EVICT_CACHE_KEY",
+                    "CACHE",
+                    cacheName,
+                    null,
+                    null,
+                    Map.of("cacheName", cacheName, "key", key)
+            );
+        }
         return ResponseEntity.ok(Map.of(
                 "status", "success",
                 "message", "Evicted key '" + key + "' from cache '" + cacheName + "'"

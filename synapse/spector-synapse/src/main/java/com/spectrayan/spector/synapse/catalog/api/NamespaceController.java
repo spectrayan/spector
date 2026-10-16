@@ -17,9 +17,11 @@ package com.spectrayan.spector.synapse.catalog.api;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -30,12 +32,17 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.spectrayan.spector.synapse.admin.audit.AuditLogService;
+import com.spectrayan.spector.synapse.admin.audit.dto.AdminAuditDto.AuditEventDto;
 import com.spectrayan.spector.synapse.catalog.AccountCatalog;
 import com.spectrayan.spector.synapse.catalog.Grant;
+import com.spectrayan.spector.synapse.catalog.GrantRole;
 import com.spectrayan.spector.synapse.catalog.NamespaceRecord;
 import com.spectrayan.spector.synapse.catalog.NamespaceType;
+import com.spectrayan.spector.synapse.catalog.exception.NamespaceAccessDeniedException;
 import com.spectrayan.spector.synapse.catalog.exception.NamespaceNotFoundException;
 import com.spectrayan.spector.synapse.security.SecurityUtils;
 
@@ -52,9 +59,18 @@ public class NamespaceController {
     private static final Logger log = LoggerFactory.getLogger(NamespaceController.class);
 
     private final AccountCatalog catalog;
+    private final AuditLogService auditLogService;
+
+    @Autowired
+    public NamespaceController(
+            AccountCatalog catalog,
+            @Autowired(required = false) AuditLogService auditLogService) {
+        this.catalog = catalog;
+        this.auditLogService = auditLogService;
+    }
 
     public NamespaceController(AccountCatalog catalog) {
-        this.catalog = catalog;
+        this(catalog, null);
     }
 
     /**
@@ -88,6 +104,16 @@ public class NamespaceController {
                 request.description(),
                 request.bias()
         );
+        if (auditLogService != null) {
+            auditLogService.recordAction(
+                    "CREATE_NAMESPACE",
+                    "NAMESPACE",
+                    created.namespaceId(),
+                    created.namespaceId(),
+                    null,
+                    Map.of("slug", created.slug(), "type", created.type().name())
+            );
+        }
         return ResponseEntity.status(HttpStatus.CREATED).body(NamespaceResponse.from(created));
     }
 
@@ -120,6 +146,16 @@ public class NamespaceController {
                 request.type(),
                 request.bias()
         );
+        if (auditLogService != null) {
+            auditLogService.recordAction(
+                    "UPDATE_NAMESPACE",
+                    "NAMESPACE",
+                    updated.namespaceId(),
+                    updated.namespaceId(),
+                    null,
+                    Map.of("slug", updated.slug(), "type", updated.type().name())
+            );
+        }
         return ResponseEntity.ok(NamespaceResponse.from(updated));
     }
 
@@ -130,7 +166,19 @@ public class NamespaceController {
     public ResponseEntity<Void> deleteNamespace(@PathVariable String slugOrId) {
         String accountId = SecurityUtils.getUserId();
         log.info("[NamespaceController] deleteNamespace: account={}, slugOrId={}", accountId, slugOrId);
+        Optional<NamespaceRecord> resolved = catalog.resolve(accountId, slugOrId);
         catalog.tombstone(accountId, slugOrId);
+        if (auditLogService != null) {
+            String nsId = resolved.map(NamespaceRecord::namespaceId).orElse(slugOrId);
+            auditLogService.recordAction(
+                    "DELETE_NAMESPACE",
+                    "NAMESPACE",
+                    nsId,
+                    nsId,
+                    null,
+                    Map.of("slugOrId", slugOrId)
+            );
+        }
         return ResponseEntity.noContent().build();
     }
 
@@ -141,7 +189,19 @@ public class NamespaceController {
     public ResponseEntity<Map<String, String>> resetNamespace(@PathVariable String slugOrId) {
         String accountId = SecurityUtils.getUserId();
         log.info("[NamespaceController] resetNamespace: account={}, slugOrId={}", accountId, slugOrId);
+        Optional<NamespaceRecord> resolved = catalog.resolve(accountId, slugOrId);
         catalog.resetNamespace(accountId, slugOrId);
+        if (auditLogService != null) {
+            String nsId = resolved.map(NamespaceRecord::namespaceId).orElse(slugOrId);
+            auditLogService.recordAction(
+                    "RESET_NAMESPACE",
+                    "NAMESPACE",
+                    nsId,
+                    nsId,
+                    null,
+                    Map.of("slugOrId", slugOrId)
+            );
+        }
         return ResponseEntity.ok(Map.of("status", "reset", "namespace", slugOrId));
     }
 
@@ -176,6 +236,20 @@ public class NamespaceController {
                 request.expiresAt(),
                 request.constraints()
         );
+        if (auditLogService != null) {
+            auditLogService.recordAction(
+                    "GRANT_NAMESPACE",
+                    "NAMESPACE",
+                    created.objectId(),
+                    created.objectId(),
+                    null,
+                    Map.of(
+                            "grantId", created.grantId(),
+                            "granteeAccountId", created.principalId(),
+                            "role", created.role().name()
+                    )
+            );
+        }
         return ResponseEntity.status(HttpStatus.CREATED).body(GrantResponse.from(created));
     }
 
@@ -190,6 +264,16 @@ public class NamespaceController {
         log.info("[NamespaceController] setLegalHold: account={}, slugOrId={}, legalHold={}",
                 accountId, slugOrId, request.legalHold());
         NamespaceRecord updated = catalog.setLegalHold(accountId, slugOrId, request.legalHold());
+        if (auditLogService != null) {
+            auditLogService.recordAction(
+                    "SET_NAMESPACE_LEGAL_HOLD",
+                    "NAMESPACE",
+                    updated.namespaceId(),
+                    updated.namespaceId(),
+                    null,
+                    Map.of("legalHold", updated.legalHold())
+            );
+        }
         return ResponseEntity.ok(NamespaceResponse.from(updated));
     }
 
@@ -203,7 +287,43 @@ public class NamespaceController {
         String accountId = SecurityUtils.getUserId();
         log.info("[NamespaceController] revokeGrant: account={}, slugOrId={}, grantId={}",
                 accountId, slugOrId, grantId);
+        Optional<NamespaceRecord> resolved = catalog.resolve(accountId, slugOrId);
         catalog.revokeNamespaceGrant(accountId, slugOrId, grantId);
+        if (auditLogService != null) {
+            String nsId = resolved.map(NamespaceRecord::namespaceId).orElse(slugOrId);
+            auditLogService.recordAction(
+                    "REVOKE_NAMESPACE_GRANT",
+                    "NAMESPACE",
+                    nsId,
+                    nsId,
+                    null,
+                    Map.of("grantId", grantId)
+            );
+        }
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Lists append-only audit events targeting this namespace (including admin actions, quota changes,
+     * legal hold updates, grant mutations, and break-glass events). Accessible to the namespace owner
+     * and {@code ADMIN} grant holders (Issue #1059).
+     */
+    @GetMapping("/{slugOrId}/audit")
+    public ResponseEntity<List<AuditEventDto>> listNamespaceAuditEvents(
+            @PathVariable String slugOrId,
+            @RequestParam(name = "limit", required = false) Integer limit) {
+        String accountId = SecurityUtils.getUserId();
+        NamespaceRecord record = catalog.resolve(accountId, slugOrId)
+                .orElseThrow(() -> new NamespaceNotFoundException(slugOrId));
+
+        if (!record.ownerAccountId().equals(accountId)
+                && catalog.authorize(accountId, record.namespaceId(), GrantRole.ADMIN).isEmpty()) {
+            throw new NamespaceAccessDeniedException(record.namespaceId(), accountId);
+        }
+
+        if (auditLogService == null) {
+            return ResponseEntity.ok(List.of());
+        }
+        return ResponseEntity.ok(auditLogService.listNamespaceAuditEvents(record.namespaceId(), limit));
     }
 }

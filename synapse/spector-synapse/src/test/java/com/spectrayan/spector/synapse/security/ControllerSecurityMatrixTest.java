@@ -173,6 +173,7 @@ class ControllerSecurityMatrixTest {
                     "AdminAccountController",
                     "AdminNamespaceController",
                     "AdminAnalyticsController",
+                    "AdminAuditController",
                     "CacheController",
                     "TaskManagementController",
                     "ProviderController",
