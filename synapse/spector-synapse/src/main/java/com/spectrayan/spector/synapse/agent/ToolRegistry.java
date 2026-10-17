@@ -62,6 +62,29 @@ public class ToolRegistry {
     private final ToolAccessPolicy toolAccessPolicy;
     private final AtomicReference<String> cachedFingerprint = new AtomicReference<>(null);
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.springframework.beans.factory.ObjectProvider<com.spectrayan.spector.synapse.memory.MemoryRequestBinder> binderProvider;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.springframework.beans.factory.ObjectProvider<com.spectrayan.spector.synapse.memory.MemoryRegistry> memoryRegistryProvider;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.springframework.beans.factory.ObjectProvider<com.spectrayan.spector.synapse.config.SynapseProperties> synapsePropertiesProvider;
+
+    private volatile com.spectrayan.spector.synapse.memory.MemoryRequestBinder explicitBinder;
+    private volatile Boolean explicitAuthEnabled;
+
+    /**
+     * Configures explicit {@link com.spectrayan.spector.synapse.memory.MemoryRequestBinder} and auth flag
+     * for non-Spring or unit-test tool registry instances.
+     */
+    public void setMemoryBindingContext(
+            com.spectrayan.spector.synapse.memory.MemoryRequestBinder binder,
+            boolean authEnabled) {
+        this.explicitBinder = binder;
+        this.explicitAuthEnabled = authEnabled;
+    }
+
     /**
      * Helper constructor for testing and manual registry creation.
      */
@@ -302,13 +325,12 @@ public class ToolRegistry {
             Map<String, Object> args = request.arguments() != null && !request.arguments().isBlank()
                     ? MAPPER.readValue(request.arguments(), Map.class)
                     : Map.of();
-            
-            // Execute the MCP tool
-            McpSchema.CallToolResult result = tool.execute(args);
+
+            McpSchema.CallToolResult result = invokeWithNamespaceBinding(tool, args);
             if (result == null || result.content() == null) {
                 return "";
             }
-            
+
             StringBuilder sb = new StringBuilder();
             for (var content : result.content()) {
                 if (content instanceof McpSchema.TextContent textContent) {
@@ -319,6 +341,88 @@ public class ToolRegistry {
         } catch (Exception e) {
             log.warn("[ToolRegistry] Tool '{}' execution failed: {}", tool.name(), e.getMessage());
             return "Error executing tool '" + tool.name() + "': " + e.getMessage();
+        }
+    }
+
+    /**
+     * Invokes an {@link McpToolHandler} after resolving and binding the caller's
+     * {@code principal → tenant → namespace} and verifying write grants for write tools.
+     */
+    public McpSchema.CallToolResult invokeWithNamespaceBinding(
+            McpToolHandler tool,
+            Map<String, Object> args) throws Exception {
+        com.spectrayan.spector.synapse.memory.MemoryRequestBinder binder = explicitBinder != null
+                ? explicitBinder
+                : (binderProvider != null ? binderProvider.getIfAvailable() : null);
+        com.spectrayan.spector.synapse.memory.MemoryRegistry registry =
+                memoryRegistryProvider != null ? memoryRegistryProvider.getIfAvailable() : null;
+        if (binder == null && registry != null) {
+            binder = registry.binder();
+        }
+        boolean authEnabled = explicitAuthEnabled != null
+                ? explicitAuthEnabled
+                : (synapsePropertiesProvider != null
+                        && synapsePropertiesProvider.getIfAvailable() != null
+                        && synapsePropertiesProvider.getIfAvailable().auth() != null
+                        && synapsePropertiesProvider.getIfAvailable().auth().enabled());
+
+        if (binder == null && registry == null && !authEnabled) {
+            return tool.execute(args != null ? args : Map.of());
+        }
+
+        String namespaceSelector = (args != null && args.get("namespace") != null)
+                ? String.valueOf(args.get("namespace"))
+                : null;
+        if (namespaceSelector == null || namespaceSelector.isBlank()) {
+            var attrs = org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+            if (attrs instanceof org.springframework.web.context.request.ServletRequestAttributes sra) {
+                String hdr = sra.getRequest().getHeader("X-Spector-Namespace");
+                if (hdr != null && !hdr.isBlank()) {
+                    namespaceSelector = hdr.trim();
+                } else {
+                    String param = sra.getRequest().getParameter("namespace");
+                    if (param != null && !param.isBlank()) {
+                        namespaceSelector = param.trim();
+                    }
+                }
+            }
+            if ((namespaceSelector == null || namespaceSelector.isBlank()) && attrs != null) {
+                Object reqBindingObj = attrs.getAttribute(
+                        com.spectrayan.spector.synapse.memory.MemoryBinding.ATTRIBUTE_KEY,
+                        org.springframework.web.context.request.RequestAttributes.SCOPE_REQUEST);
+                if (reqBindingObj instanceof com.spectrayan.spector.synapse.memory.MemoryBinding reqBinding
+                        && reqBinding.namespaceId() != null) {
+                    namespaceSelector = reqBinding.namespaceId();
+                }
+            }
+            if ((namespaceSelector == null || namespaceSelector.isBlank())
+                    && com.spectrayan.spector.commons.concurrent.MemoryScope.isNamespaceActive()) {
+                String scopedNs = com.spectrayan.spector.commons.concurrent.MemoryScope.namespaceId();
+                if (scopedNs != null && !scopedNs.isBlank()) {
+                    namespaceSelector = scopedNs;
+                }
+            }
+        }
+
+        String sessionId = com.spectrayan.spector.commons.concurrent.MemoryScope.isSessionActive()
+                ? com.spectrayan.spector.commons.concurrent.MemoryScope.sessionId()
+                : null;
+
+        Optional<com.spectrayan.spector.synapse.mcp.McpRequestMemory.DenyReason> deny = binder != null
+                ? com.spectrayan.spector.synapse.mcp.McpRequestMemory.bindForCurrentRequest(
+                        binder, authEnabled, namespaceSelector, sessionId, tool.isWriteTool())
+                : com.spectrayan.spector.synapse.mcp.McpRequestMemory.bindForCurrentRequest(
+                        registry, authEnabled, namespaceSelector, sessionId, tool.isWriteTool());
+        if (deny.isPresent()) {
+            String msg = "Error: " + com.spectrayan.spector.synapse.mcp.McpRequestMemory.message(deny.get());
+            return new McpSchema.CallToolResult(
+                    List.of(new McpSchema.TextContent(msg)),
+                    true, null, null);
+        }
+        try {
+            return tool.execute(args != null ? args : Map.of());
+        } finally {
+            com.spectrayan.spector.synapse.mcp.McpRequestMemory.clear();
         }
     }
 

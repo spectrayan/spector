@@ -113,11 +113,34 @@ public final class ConversationReflector {
             return; // Need at least a user message + assistant response
         }
 
+        org.springframework.security.core.Authentication callerAuth =
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        org.springframework.web.context.request.RequestAttributes callerAttrs =
+                org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+        String callerTenantId = com.spectrayan.spector.commons.concurrent.MemoryScope.isTenantActive()
+                ? com.spectrayan.spector.commons.concurrent.MemoryScope.tenantId()
+                : com.spectrayan.spector.synapse.security.SecurityUtils.getTenantId();
+        String callerSessionId = com.spectrayan.spector.commons.concurrent.MemoryScope.isSessionActive()
+                ? com.spectrayan.spector.commons.concurrent.MemoryScope.sessionId()
+                : null;
+        String callerNamespaceId = com.spectrayan.spector.commons.concurrent.MemoryScope.isNamespaceActive()
+                ? com.spectrayan.spector.commons.concurrent.MemoryScope.namespaceId()
+                : null;
+
         SpectorExecutors.executor(ThreadPlane.VIRTUAL, "synapse-io").execute(() -> {
+            org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(callerAuth);
+            if (callerAttrs != null) {
+                org.springframework.web.context.request.RequestContextHolder.setRequestAttributes(callerAttrs);
+            }
             try {
-                reflect(conversationMessages);
+                com.spectrayan.spector.commons.concurrent.MemoryScope.runWithScope(
+                        callerTenantId, callerSessionId, callerNamespaceId,
+                        () -> reflect(conversationMessages));
             } catch (Exception e) {
                 log.warn("[Reflector] Async reflection failed: {}", e.getMessage());
+            } finally {
+                org.springframework.security.core.context.SecurityContextHolder.clearContext();
+                org.springframework.web.context.request.RequestContextHolder.resetRequestAttributes();
             }
         });
     }
@@ -145,12 +168,13 @@ public final class ConversationReflector {
             log.info("[Reflector] Extracted {} facts, {} knowledge items",
                     facts.size(), knowledge.size());
 
-            // Store knowledge artifacts via memory_remember tool
+            // Store knowledge artifacts via memory_remember tool (enforcing caller namespace & write grant)
             var rememberTool = toolRegistry.get("memory_remember");
             if (rememberTool.isPresent()) {
                 for (var item : knowledge) {
                     try {
-                        io.modelcontextprotocol.spec.McpSchema.CallToolResult toolResult = rememberTool.get().execute(item);
+                        io.modelcontextprotocol.spec.McpSchema.CallToolResult toolResult =
+                                toolRegistry.invokeWithNamespaceBinding(rememberTool.get(), item);
                         StringBuilder sb = new StringBuilder();
                         if (toolResult != null && toolResult.content() != null) {
                             for (var contentEntry : toolResult.content()) {
@@ -176,7 +200,7 @@ public final class ConversationReflector {
                             Map<String, Object> args = new HashMap<>(fact);
                             args.put("text", "User fact: " + fact.get("field")
                                     + " = " + fact.get("value"));
-                            factTool.execute(args);
+                            toolRegistry.invokeWithNamespaceBinding(factTool, args);
                         } catch (Exception e) {
                             log.debug("[Reflector] Fact storage failed: {}", e.getMessage());
                         }

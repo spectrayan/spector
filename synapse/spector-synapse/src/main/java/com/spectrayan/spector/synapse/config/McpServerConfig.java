@@ -246,11 +246,11 @@ public class McpServerConfig {
 
                     return new McpStatelessServerFeatures.SyncToolSpecification(tool, (exchange, request) -> {
                         Map<String, Object> args = request.arguments() != null ? request.arguments() : Map.of();
-                        String namespace = args.get("namespace") != null ? String.valueOf(args.get("namespace")) : null;
+                        String namespace = resolveNamespaceSelector(args);
                         var binder = binderProvider != null ? binderProvider.getIfAvailable() : null;
                         Optional<McpRequestMemory.DenyReason> deny = binder != null
-                                ? McpRequestMemory.bindForCurrentRequest(binder, authEnabled, namespace, null)
-                                : McpRequestMemory.bindForCurrentRequest(userMemoryRegistry, authEnabled, namespace, null);
+                                ? McpRequestMemory.bindForCurrentRequest(binder, authEnabled, namespace, null, mcpTool.isWriteTool())
+                                : McpRequestMemory.bindForCurrentRequest(userMemoryRegistry, authEnabled, namespace, null, mcpTool.isWriteTool());
                         if (deny.isPresent()) {
                             return toolError(McpRequestMemory.message(deny.get()));
                         }
@@ -280,11 +280,11 @@ public class McpServerConfig {
 
                     return new McpServerFeatures.SyncToolSpecification(tool, (exchange, request) -> {
                         Map<String, Object> args = request.arguments() != null ? request.arguments() : Map.of();
-                        String namespace = args.get("namespace") != null ? String.valueOf(args.get("namespace")) : null;
+                        String namespace = resolveNamespaceSelector(args);
                         var binder = binderProvider != null ? binderProvider.getIfAvailable() : null;
                         Optional<McpRequestMemory.DenyReason> deny = binder != null
-                                ? McpRequestMemory.bindForCurrentRequest(binder, authEnabled, namespace, null)
-                                : McpRequestMemory.bindForCurrentRequest(userMemoryRegistry, authEnabled, namespace, null);
+                                ? McpRequestMemory.bindForCurrentRequest(binder, authEnabled, namespace, null, mcpTool.isWriteTool())
+                                : McpRequestMemory.bindForCurrentRequest(userMemoryRegistry, authEnabled, namespace, null, mcpTool.isWriteTool());
                         if (deny.isPresent()) {
                             return toolError(McpRequestMemory.message(deny.get()));
                         }
@@ -300,6 +300,27 @@ public class McpServerConfig {
                 .toList();
     }
 
+    private static String resolveNamespaceSelector(Map<String, Object> args) {
+        if (args != null && args.get("namespace") != null) {
+            String ns = String.valueOf(args.get("namespace"));
+            if (!ns.isBlank()) {
+                return ns;
+            }
+        }
+        var attrs = org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+        if (attrs instanceof org.springframework.web.context.request.ServletRequestAttributes sra) {
+            String hdr = sra.getRequest().getHeader("X-Spector-Namespace");
+            if (hdr != null && !hdr.isBlank()) {
+                return hdr.trim();
+            }
+            String param = sra.getRequest().getParameter("namespace");
+            if (param != null && !param.isBlank()) {
+                return param.trim();
+            }
+        }
+        return null;
+    }
+
     /** Builds an MCP tool error result carrying the given message. */
     private static McpSchema.CallToolResult toolError(String message) {
         return new McpSchema.CallToolResult(
@@ -310,10 +331,16 @@ public class McpServerConfig {
     @Bean(name = "coreMemoryTools")
     public List<McpToolHandler> coreMemoryTools(
             ObjectProvider<SpectorMemory> sharedMemory,
-            ObjectProvider<com.spectrayan.spector.synapse.agent.enactment.EnactmentService> enactmentServiceProvider) {
+            ObjectProvider<com.spectrayan.spector.synapse.agent.enactment.EnactmentService> enactmentServiceProvider,
+            ObjectProvider<SynapseProperties> synapsePropertiesProvider) {
+        SynapseProperties synapseProperties = synapsePropertiesProvider != null ? synapsePropertiesProvider.getIfAvailable() : null;
+        boolean authEnabled = synapseProperties != null && synapseProperties.auth() != null && synapseProperties.auth().enabled();
         Supplier<SpectorMemory> resolver = () -> {
             SpectorMemory perUser = McpRequestMemory.current();
-            return perUser != null ? perUser : sharedMemory.getIfAvailable();
+            if (perUser != null) {
+                return perUser;
+            }
+            return authEnabled ? null : (sharedMemory != null ? sharedMemory.getIfAvailable() : null);
         };
         com.spectrayan.spector.mcp.tools.memory.PersonaEnactTool.Enactor enactor = (situation, namespace, actingSoulId, mode) -> {
             com.spectrayan.spector.synapse.agent.enactment.EnactmentService svc = enactmentServiceProvider.getIfAvailable();
@@ -332,5 +359,11 @@ public class McpServerConfig {
             }
         }
         return List.copyOf(handlers);
+    }
+
+    public List<McpToolHandler> coreMemoryTools(
+            ObjectProvider<SpectorMemory> sharedMemory,
+            ObjectProvider<com.spectrayan.spector.synapse.agent.enactment.EnactmentService> enactmentServiceProvider) {
+        return coreMemoryTools(sharedMemory, enactmentServiceProvider, null);
     }
 }

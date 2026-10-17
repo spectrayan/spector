@@ -68,6 +68,8 @@ public class NamespaceResolutionFilter extends OncePerRequestFilter {
         }
         return path.startsWith("/api/v1/auth")
                 || path.startsWith("/api/v1/events")
+                || path.startsWith("/api/v1/mcp")
+                || path.startsWith("/api/v1/credentials")
                 || path.startsWith("/api/v1/admin/tenants")
                 || path.startsWith("/api/v1/admin/accounts")
                 || path.startsWith("/api/v1/admin/namespaces")

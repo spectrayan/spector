@@ -306,10 +306,11 @@ public class AdminAccountService {
         );
 
         Instant now = Instant.now();
+        String defaultNsId = kind == PrincipalKind.AGENT ? null : accountId;
         jdbc.sql(sqlLoader.load("accounts/update-account-catalog-fields"))
                 .param("kind", kind.name())
                 .param("profile", profile.name())
-                .param("defaultNamespaceId", accountId)
+                .param("defaultNamespaceId", defaultNsId)
                 .param("maxNamespaces", request.maxNamespaces())
                 .param("maxHotNamespaces", request.maxHotNamespaces())
                 .param("legalHold", legalHold)
@@ -319,7 +320,7 @@ public class AdminAccountService {
                 .param("accountId", accountId)
                 .update();
 
-        // Provision default namespace and implicit OWNER grant in catalog
+        // Provision default namespace and implicit OWNER grant in catalog (skipped for AGENT accounts)
         accountCatalog.getOrCreateAccount(accountId, profile, kind, targetTenantId);
 
         // Apply optional initial namespace grants

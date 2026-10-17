@@ -42,6 +42,8 @@ import com.spectrayan.spector.synapse.mcp.McpRequestMemory;
 public class VectorSearchTool extends McpToolHandler {
 
     private final ObjectProvider<SpectorMemory> memoryProvider;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.spectrayan.spector.synapse.config.SynapseProperties synapseProperties;
 
     public VectorSearchTool(ObjectProvider<SpectorMemory> memoryProvider) {
         this.memoryProvider = memoryProvider;
@@ -107,6 +109,12 @@ public class VectorSearchTool extends McpToolHandler {
         tagsProp.put("description", "Comma-separated tags: 'debugging,database'.");
         properties.put("tags", tagsProp);
 
+        // namespace - optional
+        Map<String, Object> namespaceProp = new LinkedHashMap<>();
+        namespaceProp.put("type", "string");
+        namespaceProp.put("description", "Optional target namespace slug or ID (must be owned or granted to the caller).");
+        properties.put("namespace", namespaceProp);
+
         schema.put("properties", properties);
         schema.put("required", List.of("query"));
 
@@ -120,15 +128,15 @@ public class VectorSearchTool extends McpToolHandler {
 
     private String executeInternal(Map<String, Object> arguments) throws Exception {
         try {
-            // Prefer the memory bound for the current MCP request (per-user namespace resolved on
-            // the servlet request thread). Fall back to the shared provider for non-servlet callers
-            // (stdio transport, agent chat) where no request-scoped instance is bound.
+            // Prefer the memory bound for the current MCP/agentic request (per-user namespace resolved on
+            // the request/tool thread). Fall back to the shared provider only when auth is disabled.
             SpectorMemory memory = McpRequestMemory.current();
-            if (memory == null) {
+            boolean authEnabled = synapseProperties != null && synapseProperties.auth() != null && synapseProperties.auth().enabled();
+            if (memory == null && !authEnabled && memoryProvider != null) {
                 memory = memoryProvider.getIfAvailable();
             }
             if (memory == null) {
-                return "Error: Spector memory engine is not available (running in stub mode).";
+                return "Error: [SPE-800-002] Spector memory engine is not available or namespace access was denied.";
             }
 
             String query = getRequiredString(arguments, "query");
