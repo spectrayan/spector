@@ -110,19 +110,24 @@
     <mat-divider></mat-divider>
 
     <!-- Navigation Items -->
-    @if (auth.currentUser()?.roles?.includes('admin')) {
-    <button mat-menu-item routerLink="/users" id="nav-user-management">
-      <mat-icon>group</mat-icon>
-      <span>User Management</span>
-    </button>
-    <button mat-menu-item routerLink="/admin" id="nav-admin">
+    @if (auth.isAdmin()) {
+    <button mat-menu-item routerLink="/admin/overview" id="nav-admin">
       <mat-icon>admin_panel_settings</mat-icon>
-      <span>System Admin</span>
+      <span>Admin Console</span>
     </button>
-    <button mat-menu-item routerLink="/admin/config" id="nav-config">
-      <mat-icon>tune</mat-icon>
-      <span>Configuration</span>
+    <button mat-menu-item routerLink="/admin/accounts" id="nav-user-management">
+      <mat-icon>group</mat-icon>
+      <span>Accounts & Agents</span>
     </button>
+    <button mat-menu-item routerLink="/admin/infra" id="nav-config">
+      <mat-icon>dns</mat-icon>
+      <span>Infrastructure</span>
+    </button>
+    <button mat-menu-item routerLink="/dashboard" id="nav-personal-workspace">
+      <mat-icon>workspaces</mat-icon>
+      <span>Personal Workspace</span>
+    </button>
+    <mat-divider></mat-divider>
     }
     <button mat-menu-item routerLink="/settings" id="nav-settings">
       <mat-icon>settings</mat-icon>
