@@ -54,6 +54,20 @@ public record MemoryBinding(
     }
 
     /**
+     * Returns {@code true} if this memory binding was established via an emergency break-glass session.
+     */
+    public boolean isBreakGlass() {
+        return requestMemoryContext != null && requestMemoryContext.isBreakGlass();
+    }
+
+    /**
+     * Returns the active break-glass session ID if bound under break-glass, or {@code null}.
+     */
+    public String breakGlassSessionId() {
+        return requestMemoryContext != null ? requestMemoryContext.breakGlassSessionId() : null;
+    }
+
+    /**
      * Retrieves the current request's bound {@link MemoryBinding} from RequestContextHolder if available.
      *
      * @return optional containing the active MemoryBinding, or empty if none bound

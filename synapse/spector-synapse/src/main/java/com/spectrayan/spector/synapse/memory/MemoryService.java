@@ -136,6 +136,7 @@ public class MemoryService {
 
     private final VectorSpaceProjectionService projectionService;
     private final com.spectrayan.spector.synapse.platform.events.TelemetryBroadcasterService telemetryBroadcasterService;
+    private com.spectrayan.spector.synapse.admin.breakglass.BreakGlassService breakGlassService;
 
     public MemoryService(MemoryAccessObject mao, EventPublisher eventPublisher, TsidGenerator tsid) {
         this(mao, eventPublisher, tsid, null, null, null, null, null, null, null);
@@ -189,6 +190,11 @@ public class MemoryService {
         }
     }
 
+    @Autowired(required = false)
+    public void setBreakGlassService(com.spectrayan.spector.synapse.admin.breakglass.BreakGlassService breakGlassService) {
+        this.breakGlassService = breakGlassService;
+    }
+
     /**
      * Resolves the target {@link SpectorMemory} on the calling (request) thread.
      *
@@ -211,11 +217,44 @@ public class MemoryService {
 
     private void assertRoleAtLeast(com.spectrayan.spector.synapse.catalog.GrantRole minimumRole) {
         MemoryBinding.current().ifPresent(binding -> {
+            if (binding.isBreakGlass() && !com.spectrayan.spector.synapse.catalog.GrantRole.READER.isAtLeast(minimumRole)) {
+                throw new com.spectrayan.spector.synapse.catalog.exception.BreakGlassAccessDeniedException(
+                        binding.namespaceId(),
+                        binding.accountId(),
+                        "Break-glass sessions are strictly read-only; mutating operations are forbidden"
+                );
+            }
             if (binding.requestMemoryContext() != null && binding.requestMemoryContext().role() != null) {
                 com.spectrayan.spector.synapse.catalog.GrantRole role = binding.requestMemoryContext().role();
                 if (!role.isAtLeast(minimumRole)) {
                     throw new com.spectrayan.spector.synapse.catalog.exception.NamespaceAccessDeniedException(
                             binding.namespaceId(), binding.accountId());
+                }
+            }
+        });
+    }
+
+    private void auditBreakGlassReadIfActive(String operation, List<String> memoryIds) {
+        if (breakGlassService == null) {
+            return;
+        }
+        MemoryBinding.current().ifPresent(binding -> {
+            if (binding.isBreakGlass() && binding.context() != null) {
+                org.springframework.web.context.request.RequestAttributes attrs =
+                        org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+                if (attrs != null && Boolean.TRUE.equals(attrs.getAttribute(
+                        "spector.breakglass.read.audited",
+                        org.springframework.web.context.request.RequestAttributes.SCOPE_REQUEST))) {
+                    return;
+                }
+                String bgId = binding.context().breakGlassSessionId();
+                breakGlassService.recordBreakGlassRead(bgId, binding.namespaceId(), operation, memoryIds);
+                if (attrs != null) {
+                    attrs.setAttribute(
+                            "spector.breakglass.read.audited",
+                            Boolean.TRUE,
+                            org.springframework.web.context.request.RequestAttributes.SCOPE_REQUEST
+                    );
                 }
             }
         });
@@ -581,13 +620,15 @@ public class MemoryService {
                 Map.entry("latencyMicros", elapsedMicros)
         ));
 
-        return results.stream().limit(limit)
+        List<RecallResult> mapped = results.stream().limit(limit)
                 .map(r -> new RecallResult(r.id(), r.text(), r.memoryType().name(),
                         (double) r.score(), r.memoryType().name(),
                         String.format("%.1f days", r.ageDays()),
                         Arrays.asList(r.synapticTags()),
                         r.truncated()))
                 .toList();
+        auditBreakGlassReadIfActive("recall", mapped.stream().map(RecallResult::id).toList());
+        return mapped;
     }
 
     /**
@@ -632,12 +673,14 @@ public class MemoryService {
                 resolveMemory(),
                 request.tags().toArray(String[]::new));
 
-        return records.stream()
+        List<BrowseResult> mapped = records.stream()
                 .sorted(java.util.Comparator.comparingLong(CognitiveRecord::timestampMs))
                 .limit(request.limit())
                 .map(r -> new BrowseResult(r.id(), r.text(), r.memoryType().name(),
                         r.timestampMs(), Arrays.asList(r.tags())))
                 .toList();
+        auditBreakGlassReadIfActive("browse", mapped.stream().map(BrowseResult::id).toList());
+        return mapped;
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -650,7 +693,12 @@ public class MemoryService {
     public MemoryTableResponse getMemoryTable(int page, int pageSize, String tierFilter, boolean showTombstoned) {
         int effectivePage = Math.max(0, page);
         int effectivePageSize = (pageSize > 0 && pageSize <= 500) ? pageSize : 50;
-        return mao.getMemoryTable(resolveMemory(), effectivePage, effectivePageSize, tierFilter, showTombstoned);
+        MemoryTableResponse resp = mao.getMemoryTable(resolveMemory(), effectivePage, effectivePageSize, tierFilter, showTombstoned);
+        List<String> ids = (resp != null && resp.rows() != null)
+                ? resp.rows().stream().map(MemoryTableRow::id).toList()
+                : List.of();
+        auditBreakGlassReadIfActive("table", ids);
+        return resp;
     }
 
     /**
@@ -663,8 +711,13 @@ public class MemoryService {
         int effectivePageSize = (pageSize > 0 && pageSize <= 500) ? pageSize : 50;
         log.debug("[MemoryService] getMemoryTable: cursor={}, page={}, pageSize={}, createdFrom={}, createdTo={}, source={}, tier={}, tombstoned={}",
                 cursor, effectivePage, effectivePageSize, createdFrom, createdTo, source, tierFilter, showTombstoned);
-        return mao.getMemoryTable(resolveMemory(), cursor, effectivePage, effectivePageSize,
+        MemoryTableResponse resp = mao.getMemoryTable(resolveMemory(), cursor, effectivePage, effectivePageSize,
                 createdFrom, createdTo, source, tierFilter, showTombstoned);
+        List<String> ids = (resp != null && resp.rows() != null)
+                ? resp.rows().stream().map(MemoryTableRow::id).toList()
+                : List.of();
+        auditBreakGlassReadIfActive("table", ids);
+        return resp;
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -944,13 +997,23 @@ public class MemoryService {
 
     public MemoryGraphResponse getGraphOverview(int maxNodes) {
         int capped = Math.min(Math.max(1, maxNodes), 500);
-        return mao.getGraphOverview(resolveMemory(), capped);
+        MemoryGraphResponse resp = mao.getGraphOverview(resolveMemory(), capped);
+        List<String> ids = (resp != null && resp.nodes() != null)
+                ? resp.nodes().stream().map(MemoryDto.GraphNodeDto::id).toList()
+                : List.of();
+        auditBreakGlassReadIfActive("graph_overview", ids);
+        return resp;
     }
 
     public MemoryGraphResponse getMemoryGraph(String id, int depth) {
         requireId(id);
         int capped = Math.min(Math.max(1, depth), 5);
-        return mao.getMemoryGraph(resolveMemory(), id, capped);
+        MemoryGraphResponse resp = mao.getMemoryGraph(resolveMemory(), id, capped);
+        List<String> ids = (resp != null && resp.nodes() != null && !resp.nodes().isEmpty())
+                ? resp.nodes().stream().map(MemoryDto.GraphNodeDto::id).toList()
+                : List.of(id);
+        auditBreakGlassReadIfActive("memory_graph", ids);
+        return resp;
     }
 
     public TopologyStatsResponse getTopologyStats() {
@@ -975,10 +1038,17 @@ public class MemoryService {
 
     public MemoryTableRow getMemoryById(String id) {
         requireId(id);
-        return mao.getMemoryById(resolveMemory(), id);
+        MemoryTableRow row = mao.getMemoryById(resolveMemory(), id);
+        if (row != null) {
+            auditBreakGlassReadIfActive("get_by_id", List.of(row.id()));
+        } else {
+            auditBreakGlassReadIfActive("get_by_id", List.of(id));
+        }
+        return row;
     }
 
     public void updateMemory(String id, UpdateMemoryRequest request) {
+        assertRoleAtLeast(com.spectrayan.spector.synapse.catalog.GrantRole.WRITER);
         requireId(id);
         if (request == null) {
             throw new IllegalArgumentException("Update request body cannot be null");
@@ -989,7 +1059,9 @@ public class MemoryService {
 
     public MemoryVectorResponse getMemoryVector(String id) {
         requireId(id);
-        return mao.getMemoryVector(resolveMemory(), id);
+        MemoryVectorResponse resp = mao.getMemoryVector(resolveMemory(), id);
+        auditBreakGlassReadIfActive("get_vector", List.of(id));
+        return resp;
     }
 
     // ══════════════════════════════════════════════════════════════

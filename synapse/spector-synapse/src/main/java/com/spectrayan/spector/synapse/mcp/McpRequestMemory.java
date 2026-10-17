@@ -98,6 +98,12 @@ public final class McpRequestMemory {
             MemoryBinding binding;
             if (binder != null) {
                 binding = binder.bind(auth, Optional.ofNullable(selector), connectionId);
+                if (binding != null && binding.isBreakGlass()) {
+                    binder.unbind(binding);
+                    log.warn("[McpRequestMemory] Break-glass sessions cannot be used for MCP tool invocations: namespace={}, account={}",
+                            binding.namespaceId(), binding.accountId());
+                    return Optional.of(DenyReason.ACCESS_DENIED);
+                }
                 CURRENT_BINDER.set(binder);
             } else {
                 return Optional.of(DenyReason.RESOLUTION_FAILED);

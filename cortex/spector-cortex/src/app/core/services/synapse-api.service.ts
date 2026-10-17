@@ -703,6 +703,46 @@ export class SynapseApiService {
       params: { limit: String(limit) }
     });
   }
+
+  // ─── Break-Glass Namespace Access (Issue #1060) ───
+
+  requestBreakGlass(payload: {
+    namespaceId: string;
+    justification: string;
+    ticketRef?: string;
+    durationMinutes?: number;
+  }): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/admin/break-glass`, payload);
+  }
+
+  approveBreakGlass(id: string, comment?: string): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/admin/break-glass/${id}/approve`, comment ? { comment } : {});
+  }
+
+  rejectBreakGlass(id: string, reason?: string): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/admin/break-glass/${id}/reject`, reason ? { reason } : {});
+  }
+
+  revokeBreakGlass(id: string, reason?: string): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/admin/break-glass/${id}/revoke`, reason ? { reason } : {});
+  }
+
+  listBreakGlassRequests(filters: {
+    tenantId?: string;
+    namespaceId?: string;
+    status?: 'PENDING_APPROVAL' | 'ACTIVE' | 'EXPIRED' | 'REVOKED' | 'REJECTED';
+  } = {}): Observable<any[]> {
+    const params: Record<string, string> = {};
+    if (filters.tenantId) params['tenantId'] = filters.tenantId;
+    if (filters.namespaceId) params['namespaceId'] = filters.namespaceId;
+    if (filters.status) params['status'] = filters.status;
+    return this.http.get<any[]>(`${this.baseUrl}/admin/break-glass`, { params });
+  }
+
+  getBreakGlassRequest(id: string): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/admin/break-glass/${id}`);
+  }
 }
+
 
 

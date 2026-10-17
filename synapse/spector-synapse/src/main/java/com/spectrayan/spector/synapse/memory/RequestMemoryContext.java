@@ -34,8 +34,9 @@ import com.spectrayan.spector.synapse.catalog.GrantRole;
  * @param allowSet          allowed namespace slugs / IDs from JWT claims (empty = unrestricted)
  * @param sessionId         optional session or connection ID
  * @param soulStack         the resolved hierarchical soul stack
- * @param primarySoul       the primary soul context
- * @param effectiveSalience the resolved effective salience profile for this request
+ * @param primarySoul         the primary soul context
+ * @param effectiveSalience   the resolved effective salience profile for this request
+ * @param breakGlassSessionId active break-glass session ID if bound under emergency read-only access (nullable)
  */
 public record RequestMemoryContext(
         String tenantId,
@@ -48,7 +49,8 @@ public record RequestMemoryContext(
         String sessionId,
         List<SoulContext> soulStack,
         SoulContext primarySoul,
-        SalienceProfile effectiveSalience
+        SalienceProfile effectiveSalience,
+        String breakGlassSessionId
 ) {
     public RequestMemoryContext {
         orgUnitIds = orgUnitIds != null ? List.copyOf(orgUnitIds) : List.of();
@@ -66,9 +68,29 @@ public record RequestMemoryContext(
             Set<String> allowSet,
             String sessionId,
             List<SoulContext> soulStack,
+            SoulContext primarySoul,
+            SalienceProfile effectiveSalience
+    ) {
+        this(tenantId, orgUnitIds, accountId, namespaceId, slug, role, allowSet, sessionId, soulStack, primarySoul, effectiveSalience, null);
+    }
+
+    public RequestMemoryContext(
+            String tenantId,
+            List<String> orgUnitIds,
+            String accountId,
+            String namespaceId,
+            String slug,
+            GrantRole role,
+            Set<String> allowSet,
+            String sessionId,
+            List<SoulContext> soulStack,
             SoulContext primarySoul
     ) {
-        this(tenantId, orgUnitIds, accountId, namespaceId, slug, role, allowSet, sessionId, soulStack, primarySoul, null);
+        this(tenantId, orgUnitIds, accountId, namespaceId, slug, role, allowSet, sessionId, soulStack, primarySoul, null, null);
+    }
+
+    public boolean isBreakGlass() {
+        return breakGlassSessionId != null && !breakGlassSessionId.isBlank();
     }
 }
 

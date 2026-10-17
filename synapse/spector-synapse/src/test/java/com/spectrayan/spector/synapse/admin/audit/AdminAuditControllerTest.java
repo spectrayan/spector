@@ -159,11 +159,12 @@ class AdminAuditControllerTest {
         when(spectorMemory.memoryCount(any())).thenReturn(1);
 
         // Clean test state across nested runs
+        jdbc.update("DELETE FROM break_glass_requests");
         jdbc.update("DELETE FROM audit_event");
         jdbc.update("DELETE FROM admin_audit_log");
         jdbc.update("DELETE FROM credentials WHERE name IN ('openai-prod-key', 'cov-api-key')");
         jdbc.update("DELETE FROM grants WHERE principal_id IN (SELECT user_id FROM users WHERE tenant_id IN ('tenant-alpha', 'tenant-beta', 'tenant-cov') OR username IN ('super-operator-01', 'admin-alpha-01', 'admin-beta-01', 'owner-alpha-01', 'other-alpha-02', 'cov-account-user'))");
-        jdbc.update("DELETE FROM namespaces WHERE slug IN ('cov-ns-1', 'cov-ns-2', 'owner-vault')");
+        jdbc.update("DELETE FROM namespaces WHERE slug IN ('cov-ns-1', 'cov-ns-2', 'cov-ns-3', 'owner-vault')");
         jdbc.update("DELETE FROM namespaces WHERE owner_account_id IN (SELECT user_id FROM users WHERE tenant_id IN ('tenant-alpha', 'tenant-beta', 'tenant-cov') OR username IN ('super-operator-01', 'admin-alpha-01', 'admin-beta-01', 'owner-alpha-01', 'other-alpha-02', 'cov-account-user'))");
         jdbc.update("DELETE FROM users WHERE tenant_id IN ('tenant-alpha', 'tenant-beta', 'tenant-cov') OR username IN ('super-operator-01', 'admin-alpha-01', 'admin-beta-01', 'owner-alpha-01', 'other-alpha-02', 'cov-account-user')");
         jdbc.update("DELETE FROM tenants WHERE tenant_id IN ('tenant-alpha', 'tenant-beta', 'tenant-cov')");
@@ -405,6 +406,65 @@ class AdminAuditControllerTest {
             assertProducesAuditEvent(verifiedAdminMutations, "DELETE /api/v1/admin/cache/{cacheName}/{key}", () ->
                     mvc.perform(delete("/api/v1/admin/cache/" + targetCache + "/sample-key")
                                     .with(user(superAdminId).authorities(SpectorAuthorityMapper.forRole("super-admin"))))
+                            .andExpect(status().isOk()));
+
+            // ── E. AdminBreakGlassController (4 mutating endpoints under /api/v1/admin/break-glass) ──
+            NamespaceRecord ns3 = catalog.createNamespace(
+                    ownerUserId, "cov-ns-3", NamespaceType.PROJECT, "Coverage NS 3", "desc", null);
+            final String[] bgId1 = new String[1];
+
+            assertProducesAuditEvent(verifiedAdminMutations, "POST /api/v1/admin/break-glass", () -> {
+                MvcResult res = mvc.perform(post("/api/v1/admin/break-glass")
+                                .with(user(tenantAAdminId).authorities(SpectorAuthorityMapper.forRole("admin")))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(mapper.writeValueAsString(Map.of(
+                                        "namespaceId", ns3.namespaceId(),
+                                        "justification", "SEV-1 incident diagnostics",
+                                        "ticketRef", "INC-1060-COV",
+                                        "durationMinutes", 30
+                                ))))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+                bgId1[0] = mapper.readTree(res.getResponse().getContentAsString()).get("id").asText();
+            });
+
+            assertProducesAuditEvent(verifiedAdminMutations, "POST /api/v1/admin/break-glass/{id}/approve", () ->
+                    mvc.perform(post("/api/v1/admin/break-glass/" + bgId1[0] + "/approve")
+                                    .with(user(superAdminId).authorities(SpectorAuthorityMapper.forRole("super-admin")))
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content(mapper.writeValueAsString(Map.of(
+                                            "comment", "Dual-control approved"
+                                    ))))
+                            .andExpect(status().isOk()));
+
+            assertProducesAuditEvent(verifiedAdminMutations, "POST /api/v1/admin/break-glass/{id}/revoke", () ->
+                    mvc.perform(post("/api/v1/admin/break-glass/" + bgId1[0] + "/revoke")
+                                    .with(user(superAdminId).authorities(SpectorAuthorityMapper.forRole("super-admin")))
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content(mapper.writeValueAsString(Map.of(
+                                            "reason", "Investigation completed"
+                                    ))))
+                            .andExpect(status().isOk()));
+
+            MvcResult bgReq2 = mvc.perform(post("/api/v1/admin/break-glass")
+                            .with(user(tenantAAdminId).authorities(SpectorAuthorityMapper.forRole("admin")))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(mapper.writeValueAsString(Map.of(
+                                    "namespaceId", ns3.namespaceId(),
+                                    "justification", "Second break-glass request to test rejection",
+                                    "durationMinutes", 15
+                            ))))
+                    .andExpect(status().isCreated())
+                    .andReturn();
+            String bgId2 = mapper.readTree(bgReq2.getResponse().getContentAsString()).get("id").asText();
+
+            assertProducesAuditEvent(verifiedAdminMutations, "POST /api/v1/admin/break-glass/{id}/reject", () ->
+                    mvc.perform(post("/api/v1/admin/break-glass/" + bgId2 + "/reject")
+                                    .with(user(superAdminId).authorities(SpectorAuthorityMapper.forRole("super-admin")))
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content(mapper.writeValueAsString(Map.of(
+                                            "reason", "Rejected due to missing ticket reference"
+                                    ))))
                             .andExpect(status().isOk()));
 
             // Assert 100% coverage of all discovered /api/v1/admin/** mutating routes

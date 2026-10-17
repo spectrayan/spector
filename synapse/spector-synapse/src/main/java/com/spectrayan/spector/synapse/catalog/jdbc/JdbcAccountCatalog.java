@@ -384,7 +384,8 @@ public class JdbcAccountCatalog implements AccountCatalog {
             Account owner = findAccountById(record.ownerAccountId()).orElse(null);
             String callerTenant = caller != null ? caller.tenantId() : null;
             String ownerTenant = owner != null ? owner.tenantId() : null;
-            if (!Objects.equals(callerTenant, ownerTenant) && (callerTenant != null || ownerTenant != null)) {
+            boolean breakGlassGranted = hasActiveBreakGlassGrant(accountId, record.namespaceId());
+            if (!breakGlassGranted && !Objects.equals(callerTenant, ownerTenant) && (callerTenant != null || ownerTenant != null)) {
                 throw new CrossTenantAccessException(accountId, record.namespaceId(), ownerTenant != null ? ownerTenant : "default");
             }
             // Check if accessible to this account (owned or granted)
@@ -752,7 +753,7 @@ public class JdbcAccountCatalog implements AccountCatalog {
         var cache = getCache(com.spectrayan.spector.synapse.config.cache.SynapseCacheConstants.CACHE_PEP_NAMESPACE);
         if (cache != null) {
             Optional<Grant> cached = cache.get(cacheKey, Grant.class);
-            if (cached != null && cached.isPresent()) {
+            if (cached != null && cached.isPresent() && !cached.get().isExpired()) {
                 return cached;
             }
         }
@@ -795,7 +796,8 @@ public class JdbcAccountCatalog implements AccountCatalog {
 
         for (Grant grant : grants) {
             if (grant.role() != null && grant.role().ordinal() <= minimumRole.ordinal()) {
-                if (ns.isPresent()) {
+                boolean isBreakGlassGrant = grant.grantId() != null && grant.grantId().startsWith("bg_grant_");
+                if (ns.isPresent() && !isBreakGlassGrant) {
                     Account caller = findAccountById(accountId).orElse(null);
                     Account owner = findAccountById(ns.get().ownerAccountId()).orElse(null);
                     String callerTenant = caller != null ? caller.tenantId() : null;
@@ -992,6 +994,17 @@ public class JdbcAccountCatalog implements AccountCatalog {
                 .query(this::mapGrantRow)
                 .list();
         return !grants.isEmpty();
+    }
+
+    private boolean hasActiveBreakGlassGrant(String accountId, String namespaceId) {
+        String findGrantSql = sqlLoader.load("catalog/grants/find-active-grant");
+        List<Grant> grants = jdbc.sql(findGrantSql)
+                .param("objectType", GrantObjectType.NAMESPACE.name())
+                .param("objectId", namespaceId)
+                .param("principalId", accountId)
+                .query(this::mapGrantRow)
+                .list();
+        return grants.stream().anyMatch(g -> g.grantId() != null && g.grantId().startsWith("bg_grant_"));
     }
 
     private int countOwnedNamespaces(String accountId) {

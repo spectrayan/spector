@@ -102,6 +102,7 @@ public class MemoryController {
 
     private final MemoryService memoryService;
     private final FederatedRecallService federatedRecallService;
+    private com.spectrayan.spector.synapse.admin.breakglass.BreakGlassService breakGlassService;
 
     @org.springframework.beans.factory.annotation.Autowired
     public MemoryController(
@@ -113,6 +114,41 @@ public class MemoryController {
 
     public MemoryController(MemoryService memoryService) {
         this(memoryService, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setBreakGlassService(com.spectrayan.spector.synapse.admin.breakglass.BreakGlassService breakGlassService) {
+        this.breakGlassService = breakGlassService;
+    }
+
+    private void auditBreakGlassReadIfNeeded(String operation, List<String> memoryIds) {
+        if (breakGlassService == null) {
+            return;
+        }
+        MemoryBinding.current().ifPresent(binding -> {
+            if (binding.isBreakGlass() && binding.context() != null) {
+                org.springframework.web.context.request.RequestAttributes attrs =
+                        org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+                if (attrs != null && Boolean.TRUE.equals(attrs.getAttribute(
+                        "spector.breakglass.read.audited",
+                        org.springframework.web.context.request.RequestAttributes.SCOPE_REQUEST))) {
+                    return;
+                }
+                breakGlassService.recordBreakGlassRead(
+                        binding.context().breakGlassSessionId(),
+                        binding.namespaceId(),
+                        operation,
+                        memoryIds
+                );
+                if (attrs != null) {
+                    attrs.setAttribute(
+                            "spector.breakglass.read.audited",
+                            Boolean.TRUE,
+                            org.springframework.web.context.request.RequestAttributes.SCOPE_REQUEST
+                    );
+                }
+            }
+        });
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -146,10 +182,17 @@ public class MemoryController {
             @RequestParam(defaultValue = "false") boolean tombstoned) {
         String tierFilter = (tier != null && !tier.isBlank()) ? tier : null;
         String sourceFilter = (source != null && !source.isBlank()) ? source : null;
+        MemoryTableResponse resp;
         if (cursor == null && created_from == null && created_to == null && sourceFilter == null) {
-            return ResponseEntity.ok(memoryService.getMemoryTable(page, pageSize, tierFilter, tombstoned));
+            resp = memoryService.getMemoryTable(page, pageSize, tierFilter, tombstoned);
+        } else {
+            resp = memoryService.getMemoryTable(cursor, page, pageSize, created_from, created_to, sourceFilter, tierFilter, tombstoned);
         }
-        return ResponseEntity.ok(memoryService.getMemoryTable(cursor, page, pageSize, created_from, created_to, sourceFilter, tierFilter, tombstoned));
+        List<String> ids = (resp != null && resp.rows() != null)
+                ? resp.rows().stream().map(MemoryTableRow::id).toList()
+                : List.of();
+        auditBreakGlassReadIfNeeded("table", ids);
+        return ResponseEntity.ok(resp);
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -206,7 +249,10 @@ public class MemoryController {
     @PostMapping("/search")
     @Operation(operationId = "searchMemories", summary = "Semantic similarity search")
     public ResponseEntity<List<SearchResult>> search(@RequestBody SearchRequest request) {
-        return ResponseEntity.ok(memoryService.search(request));
+        List<SearchResult> results = memoryService.search(request);
+        List<String> ids = results != null ? results.stream().map(SearchResult::id).toList() : List.of();
+        auditBreakGlassReadIfNeeded("search", ids);
+        return ResponseEntity.ok(results);
     }
 
     /**
@@ -218,7 +264,9 @@ public class MemoryController {
     @Operation(operationId = "recallMemories", summary = "Cognitive recall with biological scoring")
     public ResponseEntity<List<RecallResult>> recall(@RequestBody RecallRequest request) {
         List<RecallResult> results = memoryService.recall(request);
-        boolean truncated = results.stream().anyMatch(RecallResult::truncated);
+        List<String> ids = results != null ? results.stream().map(RecallResult::id).toList() : List.of();
+        auditBreakGlassReadIfNeeded("recall", ids);
+        boolean truncated = results != null && results.stream().anyMatch(RecallResult::truncated);
         return ResponseEntity.ok()
                 .header("X-Recall-Truncated", String.valueOf(truncated))
                 .body(results);
@@ -233,8 +281,12 @@ public class MemoryController {
     @Operation(operationId = "recallMemoriesWithResponse", summary = "Cognitive recall returning full response with truncation metadata")
     public ResponseEntity<RecallResponse> recallResponse(@RequestBody RecallRequest request) {
         RecallResponse response = memoryService.recallWithResponse(request);
+        List<String> ids = (response != null && response.results() != null)
+                ? response.results().stream().map(RecallResult::id).toList()
+                : List.of();
+        auditBreakGlassReadIfNeeded("recall", ids);
         return ResponseEntity.ok()
-                .header("X-Recall-Truncated", String.valueOf(response.truncated()))
+                .header("X-Recall-Truncated", String.valueOf(response != null && response.truncated()))
                 .body(response);
     }
 
@@ -264,7 +316,10 @@ public class MemoryController {
     @PostMapping("/browse")
     @Operation(operationId = "browseMemories", summary = "Tag-based memory browsing without vector search")
     public ResponseEntity<List<BrowseResult>> browse(@RequestBody BrowseRequest request) {
-        return ResponseEntity.ok(memoryService.browse(request));
+        List<BrowseResult> results = memoryService.browse(request);
+        List<String> ids = results != null ? results.stream().map(BrowseResult::id).toList() : List.of();
+        auditBreakGlassReadIfNeeded("browse", ids);
+        return ResponseEntity.ok(results);
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -287,7 +342,12 @@ public class MemoryController {
     @Operation(operationId = "getGraphOverview", summary = "Sampled overview of associative memory graph")
     public ResponseEntity<MemoryGraphResponse> getGraphOverview(
             @RequestParam(defaultValue = "100") int maxNodes) {
-        return ResponseEntity.ok(memoryService.getGraphOverview(maxNodes));
+        MemoryGraphResponse resp = memoryService.getGraphOverview(maxNodes);
+        List<String> ids = (resp != null && resp.nodes() != null)
+                ? resp.nodes().stream().map(MemoryDto.GraphNodeDto::id).toList()
+                : List.of();
+        auditBreakGlassReadIfNeeded("graph_overview", ids);
+        return ResponseEntity.ok(resp);
     }
 
     /**
@@ -477,8 +537,10 @@ public class MemoryController {
     public ResponseEntity<MemoryTableRow> getMemoryById(@PathVariable String id) {
         MemoryTableRow row = memoryService.getMemoryById(id);
         if (row == null) {
+            auditBreakGlassReadIfNeeded("get_by_id", List.of(id));
             return ResponseEntity.notFound().build();
         }
+        auditBreakGlassReadIfNeeded("get_by_id", List.of(row.id()));
         return ResponseEntity.ok(row);
     }
 
@@ -504,7 +566,9 @@ public class MemoryController {
     @GetMapping("/{id}/vector")
     @Operation(operationId = "getMemoryVector", summary = "Retrieve INT8 quantized embedding vector for a memory")
     public ResponseEntity<MemoryVectorResponse> getMemoryVector(@PathVariable String id) {
-        return ResponseEntity.ok(memoryService.getMemoryVector(id));
+        MemoryVectorResponse resp = memoryService.getMemoryVector(id);
+        auditBreakGlassReadIfNeeded("get_vector", List.of(id));
+        return ResponseEntity.ok(resp);
     }
 
     /**
@@ -558,7 +622,12 @@ public class MemoryController {
     public ResponseEntity<MemoryGraphResponse> getMemoryGraph(
             @PathVariable String id,
             @RequestParam(defaultValue = "2") int depth) {
-        return ResponseEntity.ok(memoryService.getMemoryGraph(id, depth));
+        MemoryGraphResponse resp = memoryService.getMemoryGraph(id, depth);
+        List<String> ids = (resp != null && resp.nodes() != null && !resp.nodes().isEmpty())
+                ? resp.nodes().stream().map(MemoryDto.GraphNodeDto::id).toList()
+                : List.of(id);
+        auditBreakGlassReadIfNeeded("memory_graph", ids);
+        return ResponseEntity.ok(resp);
     }
 
     /**
