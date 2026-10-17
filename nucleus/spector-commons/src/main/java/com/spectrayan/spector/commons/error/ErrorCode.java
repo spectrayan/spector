@@ -673,7 +673,15 @@ public enum ErrorCode {
 
     /** Tenant is suspended or deactivated; authentication and operations for its principals are blocked. */
     TENANT_SUSPENDED              (820_003, ErrorCategory.SECURITY,
-            "Tenant '{}' is suspended — authentication and access are blocked");
+            "Tenant '{}' is suspended — authentication and access are blocked"),
+
+    /** Break-glass access is prohibited on BYOK-enabled tenants regardless of role (ADR-0087 §5.4, Issue #1060). */
+    BREAK_GLASS_BYOK_PROHIBITED   (820_004, ErrorCategory.SECURITY,
+            "Break-glass access is prohibited for BYOK-enabled tenant '{}' (namespace '{}')"),
+
+    /** Break-glass access or approval denied due to self-approval, expiry, revocation, or read-only violation (Issue #1060). */
+    BREAK_GLASS_ACCESS_DENIED     (820_005, ErrorCategory.SECURITY,
+            "Break-glass access denied: {}");
 
     // ══════════════════════════════════════════════════════════════════════
 
@@ -787,6 +795,12 @@ public enum ErrorCode {
         }
         if ("SPE-SEC-003".equals(normalized)) {
             return TENANT_SUSPENDED;
+        }
+        if ("SPE-SEC-004".equals(normalized) || "SPE-SEC-BYOK-NO-BREAK-GLASS".equals(normalized)) {
+            return BREAK_GLASS_BYOK_PROHIBITED;
+        }
+        if ("SPE-SEC-005".equals(normalized)) {
+            return BREAK_GLASS_ACCESS_DENIED;
         }
         if (normalized.length() < 11) {
             return null;

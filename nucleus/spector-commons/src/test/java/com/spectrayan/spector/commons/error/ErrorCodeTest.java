@@ -115,6 +115,13 @@ class ErrorCodeTest {
         assertThat(ErrorCode.fromId("SPE-SEC-003")).isSameAs(ErrorCode.TENANT_SUSPENDED);
         assertThat(ErrorCode.fromId("  SPE-SEC-003  ")).isSameAs(ErrorCode.TENANT_SUSPENDED);
         assertThat(ErrorCode.fromId("  SPE-820-003  ")).isSameAs(ErrorCode.TENANT_SUSPENDED);
+        assertThat(ErrorCode.BREAK_GLASS_BYOK_PROHIBITED.id()).isEqualTo("SPE-820-004");
+        assertThat(ErrorCode.fromId("SPE-SEC-004")).isSameAs(ErrorCode.BREAK_GLASS_BYOK_PROHIBITED);
+        assertThat(ErrorCode.fromId("SPE-SEC-BYOK-NO-BREAK-GLASS")).isSameAs(ErrorCode.BREAK_GLASS_BYOK_PROHIBITED);
+        assertThat(ErrorCode.fromId("  SPE-820-004  ")).isSameAs(ErrorCode.BREAK_GLASS_BYOK_PROHIBITED);
+        assertThat(ErrorCode.BREAK_GLASS_ACCESS_DENIED.id()).isEqualTo("SPE-820-005");
+        assertThat(ErrorCode.fromId("SPE-SEC-005")).isSameAs(ErrorCode.BREAK_GLASS_ACCESS_DENIED);
+        assertThat(ErrorCode.fromId("  SPE-820-005  ")).isSameAs(ErrorCode.BREAK_GLASS_ACCESS_DENIED);
     }
 
     // ─────────────── Lookup ───────────────

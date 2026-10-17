@@ -294,6 +294,7 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/**").hasAnyRole("admin", "super-admin", "ADMIN", "SUPER_ADMIN")
                         .requestMatchers("/tasks", "/tasks/**", "/providers", "/providers/**", "/api/v1/tasks", "/api/v1/tasks/**", "/api/v1/providers", "/api/v1/providers/**").hasAnyRole("admin", "super-admin", "ADMIN", "SUPER_ADMIN")
                         .requestMatchers("/api/v1/admin/tenants", "/api/v1/admin/tenants/**").hasAnyRole("super-admin", "SUPER_ADMIN")
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/admin/break-glass/*/revoke").authenticated()
                         .requestMatchers("/api/v1/admin/**").hasAnyRole("admin", "super-admin", "ADMIN", "SUPER_ADMIN")
                         .requestMatchers("/api/v1/connectors", "/api/v1/connectors/**").hasAnyRole("admin", "super-admin", "ADMIN", "SUPER_ADMIN")
                         .requestMatchers("/api/v1/observability", "/api/v1/observability/**").hasAnyRole("admin", "super-admin", "ADMIN", "SUPER_ADMIN")

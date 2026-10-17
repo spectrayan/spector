@@ -4855,6 +4855,159 @@ paths:
       responses:
         "200":
           description: OK
+  /api/v1/admin/break-glass:
+    get:
+      tags:
+      - admin-break-glass-controller
+      summary: List break-glass namespace access requests and active sessions
+      operationId: listBreakGlassRequests
+      parameters:
+      - name: tenantId
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: namespaceId
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - PENDING_APPROVAL
+          - ACTIVE
+          - EXPIRED
+          - REVOKED
+          - REJECTED
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BreakGlassResponse"
+    post:
+      tags:
+      - admin-break-glass-controller
+      summary: Submit a time-boxed break-glass namespace access request (non-BYOK tenants only)
+      operationId: createBreakGlassRequest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBreakGlassRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BreakGlassResponse"
+        "403":
+          description: Forbidden — BYOK tenant or cross-tenant access denied
+  /api/v1/admin/break-glass/{id}:
+    get:
+      tags:
+      - admin-break-glass-controller
+      summary: Get break-glass request details
+      operationId: getBreakGlassRequest
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BreakGlassResponse"
+  /api/v1/admin/break-glass/{id}/approve:
+    post:
+      tags:
+      - admin-break-glass-controller
+      summary: Approve a pending break-glass request (dual-control by a second distinct admin)
+      operationId: approveBreakGlassRequest
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApproveBreakGlassRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BreakGlassResponse"
+        "403":
+          description: Forbidden — self-approval or BYOK tenant
+  /api/v1/admin/break-glass/{id}/reject:
+    post:
+      tags:
+      - admin-break-glass-controller
+      summary: Reject a pending break-glass request
+      operationId: rejectBreakGlassRequest
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RejectBreakGlassRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BreakGlassResponse"
+  /api/v1/admin/break-glass/{id}/revoke:
+    post:
+      tags:
+      - admin-break-glass-controller
+      summary: Revoke a pending or active break-glass session (callable by admin or namespace owner)
+      operationId: revokeBreakGlassRequest
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RevokeBreakGlassRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BreakGlassResponse"
 components:
   schemas:
     AcousticModulationMap:
@@ -8852,6 +9005,86 @@ components:
           format: int32
         status:
           type: string
+    CreateBreakGlassRequest:
+      type: object
+      required:
+      - namespaceId
+      - justification
+      properties:
+        namespaceId:
+          type: string
+        justification:
+          type: string
+        ticketRef:
+          type: string
+        durationMinutes:
+          type: integer
+          format: int32
+    ApproveBreakGlassRequest:
+      type: object
+      properties:
+        comment:
+          type: string
+    RejectBreakGlassRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+    RevokeBreakGlassRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+    BreakGlassResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        namespaceId:
+          type: string
+        ownerAccountId:
+          type: string
+        requesterAccountId:
+          type: string
+        justification:
+          type: string
+        ticketRef:
+          type: string
+        durationMinutes:
+          type: integer
+          format: int32
+        status:
+          type: string
+          enum:
+          - PENDING_APPROVAL
+          - ACTIVE
+          - EXPIRED
+          - REVOKED
+          - REJECTED
+        approverAccountId:
+          type: string
+        approvalComment:
+          type: string
+        approvedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        revokedAt:
+          type: string
+          format: date-time
+        revokedBy:
+          type: string
+        revokeReason:
+          type: string
+        grantId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
   securitySchemes:
     ApiKeyAuth:
       type: apiKey
@@ -8863,3 +9096,4 @@ components:
       description: OAuth2 / OIDC JWT Bearer Token
       scheme: bearer
       bearerFormat: JWT
+

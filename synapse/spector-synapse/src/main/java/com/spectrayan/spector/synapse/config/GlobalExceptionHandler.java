@@ -115,6 +115,21 @@ public class GlobalExceptionHandler {
                     "code", code.id(),
                     "tenantId", tse.getTenantId()
             );
+        } else if (ex instanceof com.spectrayan.spector.synapse.catalog.exception.BreakGlassByokProhibitedException bgbpe) {
+            details = Map.of(
+                    "alias", com.spectrayan.spector.synapse.catalog.exception.BreakGlassByokProhibitedException.ERROR_CODE_ALIAS,
+                    "policyCode", com.spectrayan.spector.synapse.catalog.exception.BreakGlassByokProhibitedException.BYOK_POLICY_CODE,
+                    "code", code.id(),
+                    "tenantId", bgbpe.getTenantId(),
+                    "namespaceId", bgbpe.getNamespaceId()
+            );
+        } else if (ex instanceof com.spectrayan.spector.synapse.catalog.exception.BreakGlassAccessDeniedException bgade) {
+            details = Map.of(
+                    "alias", com.spectrayan.spector.synapse.catalog.exception.BreakGlassAccessDeniedException.ERROR_CODE_ALIAS,
+                    "code", code.id(),
+                    "namespaceId", bgade.getNamespaceId(),
+                    "reason", bgade.getReason()
+            );
         }
         log.warn("[SynapseException] [{}] status={} message={}", code.id(), status.value(), ex.getMessage());
         var responseBuilder = ResponseEntity.status(status)

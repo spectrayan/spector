@@ -73,6 +73,7 @@ public class NamespaceResolutionFilter extends OncePerRequestFilter {
                 || path.startsWith("/api/v1/admin/namespaces")
                 || path.startsWith("/api/v1/admin/analytics")
                 || path.startsWith("/api/v1/admin/audit")
+                || path.startsWith("/api/v1/admin/break-glass")
                 || path.contains("/health");
     }
 
@@ -95,6 +96,9 @@ public class NamespaceResolutionFilter extends OncePerRequestFilter {
 
         try {
             binding = binder.bind(auth, Optional.ofNullable(selector));
+            if (binding != null && binding.isBreakGlass()) {
+                enforceBreakGlassReadOnly(request, binding);
+            }
             request.setAttribute(MemoryBinding.ATTRIBUTE_KEY, binding);
 
             RequestAttributes attrs = RequestContextHolder.getRequestAttributes();
@@ -140,18 +144,55 @@ public class NamespaceResolutionFilter extends OncePerRequestFilter {
         }
     }
 
+    private void enforceBreakGlassReadOnly(HttpServletRequest request, MemoryBinding binding) {
+        String method = request.getMethod() != null ? request.getMethod().toUpperCase() : "GET";
+        String path = request.getRequestURI() != null ? request.getRequestURI() : "";
+
+        if (path.contains("/export")) {
+            throw new com.spectrayan.spector.synapse.catalog.exception.BreakGlassAccessDeniedException(
+                    binding.namespaceId(),
+                    binding.accountId(),
+                    "Break-glass sessions are non-exportable; export is forbidden during break-glass access"
+            );
+        }
+
+        if ("GET".equals(method) || "HEAD".equals(method) || "OPTIONS".equals(method)) {
+            return;
+        }
+
+        if ("POST".equals(method) && (
+                path.equals("/api/v1/memory/recall")
+                || path.equals("/api/v1/memory/recall/response")
+                || path.equals("/api/v1/memory/search")
+                || path.equals("/api/v1/memory/browse"))) {
+            return;
+        }
+
+        throw new com.spectrayan.spector.synapse.catalog.exception.BreakGlassAccessDeniedException(
+                binding.namespaceId(),
+                binding.accountId(),
+                "Break-glass sessions are strictly read-only; " + method + " " + path + " is forbidden"
+        );
+    }
+
     private void writeAccessDenied(HttpServletResponse response, NamespaceAccessDeniedException e) throws IOException {
         log.warn("[NamespaceResolutionFilter] Access denied: {}", e.getMessage());
         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding(java.nio.charset.StandardCharsets.UTF_8.name());
         String errorCodeId = e.errorCode() != null ? e.errorCode().id() : "SPE-820-001";
-        String alias = (e instanceof CrossTenantAccessException)
-                ? CrossTenantAccessException.ERROR_CODE_ALIAS
-                : "NamespaceAccessDenied";
-        String msg = (e instanceof CrossTenantAccessException)
-                ? "Cross-tenant access forbidden"
-                : "Namespace access denied";
+        String alias;
+        String msg;
+        if (e instanceof CrossTenantAccessException) {
+            alias = CrossTenantAccessException.ERROR_CODE_ALIAS;
+            msg = "Cross-tenant access forbidden";
+        } else if (e instanceof com.spectrayan.spector.synapse.catalog.exception.BreakGlassAccessDeniedException bgade) {
+            alias = com.spectrayan.spector.synapse.catalog.exception.BreakGlassAccessDeniedException.ERROR_CODE_ALIAS;
+            msg = bgade.getReason();
+        } else {
+            alias = "NamespaceAccessDenied";
+            msg = "Namespace access denied";
+        }
         String isoTimestamp = java.time.format.DateTimeFormatter.ISO_INSTANT.format(java.time.Instant.now());
         String json = String.format(
                 "{\"status\":403,\"error\":\"%s\",\"code\":\"%s\",\"alias\":\"%s\",\"message\":\"%s\",\"timestamp\":\"%s\",\"details\":{\"alias\":\"%s\",\"code\":\"%s\"}}",

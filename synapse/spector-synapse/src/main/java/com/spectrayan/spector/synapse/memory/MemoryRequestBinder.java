@@ -85,6 +85,7 @@ public class MemoryRequestBinder {
     private final OwnershipResolver ownershipResolver;
     private final MeterRegistry meterRegistry;
     private final FenceTokenManager fenceTokenManager;
+    private com.spectrayan.spector.synapse.admin.breakglass.BreakGlassService breakGlassService;
 
     @Autowired
     public MemoryRequestBinder(
@@ -164,6 +165,11 @@ public class MemoryRequestBinder {
         this.ownershipResolver = ownershipResolver != null ? ownershipResolver : OwnershipResolver.standalone();
         this.meterRegistry = null;
         this.fenceTokenManager = fenceTokenManager;
+    }
+
+    @Autowired(required = false)
+    public void setBreakGlassService(com.spectrayan.spector.synapse.admin.breakglass.BreakGlassService breakGlassService) {
+        this.breakGlassService = breakGlassService;
     }
 
     public OwnershipResolver ownershipResolver() {
@@ -324,9 +330,13 @@ public class MemoryRequestBinder {
         String targetSlug;
         String targetNamespaceId;
         NamespaceRecord record = null;
+        Optional<com.spectrayan.spector.synapse.admin.breakglass.BreakGlassRecord> activeBreakGlass = Optional.empty();
 
         if (selector != null && selector.isPresent() && !selector.get().isBlank()) {
             String slugOrId = selector.get().trim();
+            if (breakGlassService != null) {
+                activeBreakGlass = breakGlassService.evaluateSessionOnBind(accountId, slugOrId);
+            }
             record = catalog.resolve(accountId, slugOrId)
                     .orElseThrow(() -> new NamespaceNotFoundException(slugOrId));
             if (record.status() == NamespaceStatus.TOMBSTONED) {
@@ -334,8 +344,14 @@ public class MemoryRequestBinder {
             }
             targetSlug = record.slug();
             targetNamespaceId = record.namespaceId();
+            if (activeBreakGlass.isEmpty() && breakGlassService != null && !slugOrId.equals(targetNamespaceId)) {
+                activeBreakGlass = breakGlassService.evaluateSessionOnBind(accountId, targetNamespaceId);
+            }
         } else {
             targetNamespaceId = account.defaultNamespaceId();
+            if (breakGlassService != null && targetNamespaceId != null) {
+                activeBreakGlass = breakGlassService.evaluateSessionOnBind(accountId, targetNamespaceId);
+            }
             record = catalog.resolve(accountId, targetNamespaceId).orElse(null);
             targetSlug = record != null ? record.slug() : "default";
         }
@@ -351,7 +367,7 @@ public class MemoryRequestBinder {
             throw new CrossTenantAccessException(accountId, targetNamespaceId, account.tenantId() != null ? account.tenantId() : "default");
         }
 
-        if (record != null && !record.ownerAccountId().equals(accountId)) {
+        if (record != null && !record.ownerAccountId().equals(accountId) && activeBreakGlass.isEmpty()) {
             Account ownerAccount = null;
             try {
                 ownerAccount = catalog.getAccount(record.ownerAccountId());
@@ -375,7 +391,16 @@ public class MemoryRequestBinder {
             throw new com.spectrayan.spector.synapse.catalog.exception.NamespaceAccessDeniedException(
                     targetNamespaceId, accountId);
         }
-        GrantRole role = (record != null && record.status() == NamespaceStatus.ARCHIVED)
+        boolean isBreakGlassGrant = activeBreakGlass.isPresent()
+                || (authGrant.get().grantId() != null && authGrant.get().grantId().startsWith("bg_grant_"));
+        if (isBreakGlassGrant && activeBreakGlass.isEmpty() && breakGlassService != null) {
+            activeBreakGlass = breakGlassService.evaluateSessionOnBind(accountId, targetNamespaceId);
+            if (activeBreakGlass.isEmpty()) {
+                throw new com.spectrayan.spector.synapse.catalog.exception.BreakGlassAccessDeniedException(
+                        targetNamespaceId, accountId, "Break-glass grant is no longer active");
+            }
+        }
+        GrantRole role = (isBreakGlassGrant || (record != null && record.status() == NamespaceStatus.ARCHIVED))
                 ? GrantRole.READER
                 : authGrant.get().role();
 
@@ -435,6 +460,9 @@ public class MemoryRequestBinder {
                 salience = NamespaceBiasApplier.apply(salience, record.bias());
             }
 
+            String breakGlassSessionId = activeBreakGlass.map(com.spectrayan.spector.synapse.admin.breakglass.BreakGlassRecord::id)
+                    .orElse(null);
+
             RequestMemoryContext requestContext = new RequestMemoryContext(
                     effectiveTenantId,
                     effectiveOrgs,
@@ -446,7 +474,8 @@ public class MemoryRequestBinder {
                     sessionId,
                     soulStack,
                     primarySoul,
-                    salience
+                    salience,
+                    breakGlassSessionId
             );
             return new MemoryBinding(memory, accountId, targetNamespaceId, targetSlug, lease, requestContext);
         } catch (RuntimeException e) {
