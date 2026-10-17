@@ -86,6 +86,35 @@
   flex: 1;
 }
 
+.rail-mode-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px 8px;
+  margin: 0 8px 4px;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--mat-sys-on-surface-variant);
+
+  .mode-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+
+  &.admin-mode {
+    color: var(--mat-sys-primary);
+  }
+}
+
+.mode-switch-item {
+  border: 1px dashed var(--mat-sys-outline-variant);
+  margin-bottom: 6px;
+}
+
 .nav-version {
   padding: 8px 16px;
 }

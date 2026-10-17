@@ -1,3 +1,19 @@
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { Injectable, inject, signal, computed, Signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
@@ -12,8 +28,9 @@ import { environment } from '../../../environments/environment';
  * backend is unreachable (LLM-dependent features off by default).
  *
  * Usage:
- * - `isEnabled('chatEnabled')` — synchronous boolean check
- * - `enabled('chatEnabled')` — reactive `Signal<boolean>` for templates
+ * - `isEnabled('playgroundEnabled')` — synchronous boolean check
+ * - `isAnyEnabled('playgroundEnabled', 'chatEnabled')` — synchronous check across aliases
+ * - `enabled('playgroundEnabled')` — reactive `Signal<boolean>` for templates
  */
 @Injectable({ providedIn: 'root' })
 export class FeatureFlagService {
@@ -23,6 +40,7 @@ export class FeatureFlagService {
 
   /** Safe defaults — LLM / agent features OFF, core cognitive features ON. */
   private readonly defaults: Record<string, boolean> = {
+    playgroundEnabled: false,
     chatEnabled: false,
     agentChatEnabled: false,
     agentWorkspacesEnabled: false,
@@ -62,6 +80,11 @@ export class FeatureFlagService {
     return this.flags()[flag] ?? false;
   }
 
+  /** Synchronous check — returns `true` if any of the specified flags are enabled. */
+  isAnyEnabled(...flags: string[]): boolean {
+    return flags.some(flag => this.isEnabled(flag));
+  }
+
   /** Reactive signal — use in templates or `computed()` chains. */
   enabled(flag: string): Signal<boolean> {
     return computed(() => this.flags()[flag] ?? false);
@@ -79,3 +102,4 @@ export class FeatureFlagService {
 export function initializeFeatureFlags(service: FeatureFlagService): () => Observable<void> {
   return () => service.loadFlags();
 }
+

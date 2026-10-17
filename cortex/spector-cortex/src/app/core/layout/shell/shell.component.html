@@ -3,13 +3,19 @@
 <cortex-maintenance-banner />
 <cortex-onboarding-tour />
 
-<div class="shell-layout">
+<div class="shell-layout" [class.admin-console-mode]="isAdminConsole()">
   <!-- Side Navigation (desktop/tablet) -->
   <nav class="side-rail" [class.collapsed]="collapsed()">
+    @if (!collapsed()) {
+    <div class="rail-mode-label" [class.admin-mode]="isAdminConsole()">
+      <mat-icon class="mode-icon">{{ isAdminConsole() ? 'admin_panel_settings' : 'workspaces' }}</mat-icon>
+      <span>{{ isAdminConsole() ? 'Admin Console' : 'User Workspace' }}</span>
+    </div>
+    }
 
     @for (item of navItems(); track item.route) {
     <a class="nav-item" [routerLink]="item.route" routerLinkActive="active" [matTooltip]="collapsed() ? item.label : ''"
-      matTooltipPosition="right" [id]="'side-nav-' + item.label.toLowerCase()">
+      matTooltipPosition="right" [id]="'side-nav-' + item.label.toLowerCase().replace(' ', '-')">
       <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
       @if (!collapsed()) {
       <span class="nav-label">{{ item.label }}</span>
@@ -18,6 +24,29 @@
     }
 
     <div class="nav-spacer"></div>
+
+    <!-- Admin Console <-> Personal Workspace Switcher -->
+    @if (auth.isAdmin()) {
+      @if (isAdminConsole()) {
+      <a class="nav-item mode-switch-item" routerLink="/dashboard"
+        [matTooltip]="collapsed() ? 'Switch to Personal Workspace' : ''"
+        matTooltipPosition="right" id="side-nav-switch-workspace">
+        <mat-icon class="nav-icon">arrow_back</mat-icon>
+        @if (!collapsed()) {
+        <span class="nav-label">Personal Workspace</span>
+        }
+      </a>
+      } @else {
+      <a class="nav-item mode-switch-item" routerLink="/admin/overview"
+        [matTooltip]="collapsed() ? 'Switch to Admin Console' : ''"
+        matTooltipPosition="right" id="side-nav-switch-admin">
+        <mat-icon class="nav-icon">admin_panel_settings</mat-icon>
+        @if (!collapsed()) {
+        <span class="nav-label">Admin Console</span>
+        }
+      </a>
+      }
+    }
 
     <!-- Version badge -->
     @if (!collapsed()) {

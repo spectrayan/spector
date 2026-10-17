@@ -1,7 +1,22 @@
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { Injectable, inject, signal, OnDestroy, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { CortexStateService } from './cortex-state.service';
-import { SessionRecorderService } from './session-recorder.service';
 import { NotificationService } from './notification.service';
 import { LoggerService } from './logger.service';
 import { AuthService } from './auth.service';
@@ -41,7 +56,6 @@ const DEFAULT_CONFIG: EventStreamConfig = {
 export class EventStreamService implements OnDestroy {
 
   private readonly state = inject(CortexStateService);
-  private readonly recorder = inject(SessionRecorderService);
   private readonly platformId = inject(PLATFORM_ID);
   private readonly notificationService = inject(NotificationService);
   private readonly log = inject(LoggerService);
@@ -176,9 +190,6 @@ export class EventStreamService implements OnDestroy {
   }
 
   private dispatchEvent(event: AnyCortexEvent): void {
-    // Record if recording is active
-    this.recorder.recordEvent(event);
-
     switch (event.eventType) {
       case 'cortex.query.trace':
         this.state.pushQueryTrace(event as QueryTraceEvent);

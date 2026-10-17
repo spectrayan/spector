@@ -1,3 +1,19 @@
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import {
   Component,
   inject,
@@ -13,20 +29,24 @@ import { Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '@core/services/auth.service';
+import { FeatureFlagService } from '@core/services/feature-flag.service';
 import { ThemeService } from '@core/services/theme.service';
 
 /** Command palette action categories */
 type PaletteCategory = 'Recent' | 'Navigation' | 'Action' | 'Theme' | 'Graph' | 'Memory';
 
 /** A command palette action item */
-interface PaletteItem {
+export interface PaletteItem {
   id: string;
   icon: string;
   label: string;
+  route?: string;
   category: PaletteCategory;
   shortcut?: string;
   action: () => void;
   adminOnly?: boolean;
+  superAdminOnly?: boolean;
+  featureFlags?: string[];
 }
 
 const RECENT_COMMANDS_KEY = 'spector.palette.recent';
@@ -44,6 +64,7 @@ export class CommandPaletteComponent implements OnDestroy {
 
   private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
+  private readonly featureFlags = inject(FeatureFlagService);
   private readonly theme = inject(ThemeService);
 
   readonly isOpen = signal(false);
@@ -51,44 +72,65 @@ export class CommandPaletteComponent implements OnDestroy {
   readonly activeIndex = signal(0);
   readonly recentIds = signal<string[]>(this.loadRecentIds());
 
-  private readonly allItems: PaletteItem[] = [
-    // Navigation
-    { id: 'nav-graph', icon: 'hub', label: 'Graph Explorer', category: 'Navigation', action: () => this.navigateTo('/graph') },
-    { id: 'nav-dashboard', icon: 'dashboard', label: 'Dashboard', category: 'Navigation', action: () => this.navigateTo('/dashboard') },
-    { id: 'nav-query', icon: 'search', label: 'Query', category: 'Navigation', action: () => this.navigateTo('/query') },
-    { id: 'nav-memories', icon: 'psychology', label: 'Memories', category: 'Navigation', action: () => this.navigateTo('/memories') },
-    { id: 'nav-settings', icon: 'tune', label: 'Settings', category: 'Navigation', action: () => this.navigateTo('/settings') },
-    { id: 'nav-admin', icon: 'admin_panel_settings', label: 'Admin Panel', category: 'Navigation', action: () => this.navigateTo('/admin'), adminOnly: true },
-    { id: 'nav-connectors', icon: 'cable', label: 'Connectors', category: 'Navigation', action: () => this.navigateTo('/connectors'), adminOnly: true },
-    { id: 'nav-providers', icon: 'smart_toy', label: 'Providers', category: 'Navigation', action: () => this.navigateTo('/providers'), adminOnly: true },
-    { id: 'nav-templates', icon: 'category', label: 'Templates', category: 'Navigation', action: () => this.navigateTo('/templates'), adminOnly: true },
-    { id: 'nav-users', icon: 'people', label: 'User Management', category: 'Navigation', action: () => this.navigateTo('/users'), adminOnly: true },
-    { id: 'nav-replay', icon: 'replay', label: 'Session Replay', category: 'Navigation', action: () => this.navigateTo('/replay') },
+  readonly allItems: PaletteItem[] = [
+    // User Workspace Navigation
+    { id: 'nav-dashboard', icon: 'dashboard', label: 'Dashboard', route: '/dashboard', category: 'Navigation', action: () => this.navigateTo('/dashboard') },
+    { id: 'nav-memories', icon: 'psychology', label: 'Memories', route: '/memories', category: 'Navigation', action: () => this.navigateTo('/memories') },
+    { id: 'nav-query', icon: 'search', label: 'Query', route: '/query', category: 'Navigation', action: () => this.navigateTo('/query') },
+    { id: 'nav-graph', icon: 'hub', label: 'Graph Explorer', route: '/graph', category: 'Navigation', action: () => this.navigateTo('/graph') },
+    { id: 'nav-health', icon: 'donut_large', label: 'Memory Health', route: '/memory-health', category: 'Navigation', action: () => this.navigateTo('/memory-health') },
+    { id: 'nav-settings', icon: 'tune', label: 'Settings', route: '/settings', category: 'Navigation', action: () => this.navigateTo('/settings') },
+    {
+      id: 'nav-playground',
+      icon: 'science',
+      label: 'Playground',
+      route: '/playground',
+      category: 'Navigation',
+      featureFlags: ['playgroundEnabled', 'chatEnabled'],
+      action: () => this.navigateTo('/playground'),
+    },
+
+    // Admin Console Navigation
+    { id: 'nav-admin-overview', icon: 'admin_panel_settings', label: 'Admin Console: Overview', route: '/admin/overview', category: 'Navigation', action: () => this.navigateTo('/admin/overview'), adminOnly: true },
+    { id: 'nav-admin-tenants', icon: 'domain', label: 'Admin Console: Tenants', route: '/admin/tenants', category: 'Navigation', action: () => this.navigateTo('/admin/tenants'), superAdminOnly: true },
+    { id: 'nav-admin-accounts', icon: 'group', label: 'Admin Console: Accounts & Agents', route: '/admin/accounts', category: 'Navigation', action: () => this.navigateTo('/admin/accounts'), adminOnly: true },
+    { id: 'nav-admin-namespaces', icon: 'folder_special', label: 'Admin Console: Namespaces', route: '/admin/namespaces', category: 'Navigation', action: () => this.navigateTo('/admin/namespaces'), adminOnly: true },
+    { id: 'nav-admin-analytics', icon: 'insights', label: 'Admin Console: Analytics', route: '/admin/analytics', category: 'Navigation', action: () => this.navigateTo('/admin/analytics'), adminOnly: true },
+    { id: 'nav-admin-keys', icon: 'vpn_key', label: 'Admin Console: Keys & Encryption', route: '/admin/keys', category: 'Navigation', action: () => this.navigateTo('/admin/keys'), adminOnly: true },
+    { id: 'nav-admin-infra', icon: 'dns', label: 'Admin Console: Infrastructure', route: '/admin/infra', category: 'Navigation', action: () => this.navigateTo('/admin/infra'), adminOnly: true },
+    { id: 'nav-admin-audit', icon: 'fact_check', label: 'Admin Console: Audit Log', route: '/admin/audit', category: 'Navigation', action: () => this.navigateTo('/admin/audit'), adminOnly: true },
+    { id: 'nav-admin-break-glass', icon: 'emergency', label: 'Admin Console: Break-Glass', route: '/admin/break-glass', category: 'Navigation', action: () => this.navigateTo('/admin/break-glass'), adminOnly: true },
 
     // Theme
     { id: 'theme-toggle', icon: 'contrast', label: 'Toggle Dark / Light Theme', category: 'Theme', shortcut: '', action: () => this.theme.toggle() },
 
     // Graph
-    { id: 'graph-screenshot', icon: 'camera_alt', label: 'Capture Graph Screenshot', category: 'Graph', action: () => this.navigateAndEmit('/graph', 'cortex:graph:screenshot') },
-    { id: 'graph-share', icon: 'share', label: 'Share Graph', category: 'Graph', action: () => this.navigateAndEmit('/graph', 'cortex:graph:share') },
-    { id: 'graph-reset', icon: 'restart_alt', label: 'Reset Graph View', category: 'Graph', action: () => this.navigateTo('/graph') },
-    { id: 'graph-filters', icon: 'tune', label: 'Toggle Graph Filters', category: 'Graph', action: () => this.navigateAndEmit('/graph', 'cortex:graph:filters') },
+    { id: 'graph-screenshot', icon: 'camera_alt', label: 'Capture Graph Screenshot', route: '/graph', category: 'Graph', action: () => this.navigateAndEmit('/graph', 'cortex:graph:screenshot') },
+    { id: 'graph-share', icon: 'share', label: 'Share Graph', route: '/graph', category: 'Graph', action: () => this.navigateAndEmit('/graph', 'cortex:graph:share') },
+    { id: 'graph-reset', icon: 'restart_alt', label: 'Reset Graph View', route: '/graph', category: 'Graph', action: () => this.navigateTo('/graph') },
+    { id: 'graph-filters', icon: 'tune', label: 'Toggle Graph Filters', route: '/graph', category: 'Graph', action: () => this.navigateAndEmit('/graph', 'cortex:graph:filters') },
 
     // Memory
-    { id: 'mem-remember', icon: 'add_circle', label: 'Remember New Memory', category: 'Memory', action: () => this.navigateTo('/studio') },
-    { id: 'mem-search', icon: 'manage_search', label: 'Search Memories', category: 'Memory', action: () => this.navigateTo('/memories') },
-    { id: 'mem-recall', icon: 'psychology_alt', label: 'Run Recall Query', category: 'Memory', action: () => this.navigateTo('/query') },
+    { id: 'mem-remember', icon: 'add_circle', label: 'Remember New Memory', route: '/memories', category: 'Memory', action: () => this.navigateTo('/memories') },
+    { id: 'mem-search', icon: 'manage_search', label: 'Search Memories', route: '/memories', category: 'Memory', action: () => this.navigateTo('/memories') },
+    { id: 'mem-recall', icon: 'psychology_alt', label: 'Run Recall Query', route: '/query', category: 'Memory', action: () => this.navigateTo('/query') },
 
     // Actions
     { id: 'action-refresh', icon: 'refresh', label: 'Refresh Page', category: 'Action', shortcut: 'F5', action: () => { window.location.reload(); } },
     { id: 'action-copy-url', icon: 'content_copy', label: 'Copy Current URL', category: 'Action', action: () => this.copyCurrentUrl() },
   ];
 
-  /** Filtered items based on query and admin role */
+  private isItemPermitted(item: PaletteItem): boolean {
+    if (item.superAdminOnly && !this.auth.isSuperAdmin()) return false;
+    if (item.adminOnly && !this.auth.isAdmin()) return false;
+    if (item.featureFlags && !this.featureFlags.isAnyEnabled(...item.featureFlags)) return false;
+    return true;
+  }
+
+  /** Filtered items based on query, user role, and feature flags */
   readonly filteredItems = computed(() => {
     const q = this.query().toLowerCase().trim();
-    const isAdmin = this.auth.isAdmin();
-    let items = this.allItems.filter(item => !item.adminOnly || isAdmin);
+    let items = this.allItems.filter(item => this.isItemPermitted(item));
 
     if (q) {
       items = items.filter(item =>
@@ -104,10 +146,9 @@ export class CommandPaletteComponent implements OnDestroy {
   /** Build recently-used items from stored IDs */
   private readonly recentItems = computed(() => {
     const ids = this.recentIds();
-    const isAdmin = this.auth.isAdmin();
     return ids
       .map(id => this.allItems.find(item => item.id === id))
-      .filter((item): item is PaletteItem => !!item && (!item.adminOnly || isAdmin));
+      .filter((item): item is PaletteItem => !!item && this.isItemPermitted(item));
   });
 
   /** Group filtered results by category */

@@ -46,7 +46,6 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
-import { SynapseApiService } from '../../core/services/synapse-api.service';
 import {
   ConversationDrawerComponent,
   SessionSummary,
@@ -98,7 +97,6 @@ import { ChatService } from './services/chat.service';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AgentChatComponent {
-  private readonly api = inject(SynapseApiService);
   private readonly chatService = inject(ChatService);
   private readonly snack = inject(MatSnackBar);
   private readonly route = inject(ActivatedRoute);

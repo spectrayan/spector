@@ -1,3 +1,19 @@
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
@@ -211,71 +227,6 @@ export class SynapseApiService {
     return this.http.get<any>(`${this.baseUrl}/observability/age-distribution`);
   }
 
-  // ─── Multi-Agent Workspaces (OPP-006 — Deprecated by ADR-0087 / Issue #1056) ───
-
-  /**
-   * @deprecated Replaced by the Admin Account & Agent-Principal Registry (`POST /api/v1/admin/accounts` with `kind: 'AGENT'`).
-   */
-  registerAgent(name: string, description = '', scopes: string[] = ['*']): Observable<any> {
-    return this.http.post<any>(`${this.baseUrl}/agent-workspaces/agents`, { name, description, scopes });
-  }
-
-  /**
-   * @deprecated Replaced by `GET /api/v1/admin/accounts?kind=AGENT` and `GET /api/v1/admin/accounts/{id}/agents`.
-   */
-  listAgents(): Observable<any> {
-    return this.http.get<any>(`${this.baseUrl}/agent-workspaces/agents`);
-  }
-
-  /**
-   * @deprecated Replaced by `PROJECT` namespaces (`POST /api/v1/namespaces` with `type: 'PROJECT'`).
-   */
-  createWorkspace(name: string, description = '', conflictPolicy = 'APPEND'): Observable<any> {
-    return this.http.post<any>(`${this.baseUrl}/agent-workspaces/workspaces`, { name, description, conflictPolicy });
-  }
-
-  /**
-   * @deprecated Replaced by `PROJECT` namespaces (`GET /api/v1/namespaces`).
-   */
-  listWorkspaces(): Observable<any> {
-    return this.http.get<any>(`${this.baseUrl}/agent-workspaces/workspaces`);
-  }
-
-  /**
-   * @deprecated Replaced by namespace grants (`POST /api/v1/namespaces/{slugOrId}/grants`).
-   */
-  addWorkspaceMember(workspaceId: string, agentId: string, role = 'READ_WRITE'): Observable<any> {
-    return this.http.post<any>(`${this.baseUrl}/agent-workspaces/workspaces/${workspaceId}/members`, { agentId, role });
-  }
-
-  /**
-   * @deprecated Replaced by content-free namespace/account observability (`GET /api/v1/admin/accounts/{id}`).
-   */
-  workspaceActivity(workspaceId: string, limit = 50): Observable<any> {
-    return this.http.get<any>(`${this.baseUrl}/agent-workspaces/workspaces/${workspaceId}/activity`, { params: { limit } });
-  }
-
-  /**
-   * @deprecated Replaced by content-free namespace/account observability (`GET /api/v1/admin/accounts/{id}`).
-   */
-  workspaceActivityFeed(workspaceId: string, limit = 20): Observable<any> {
-    return this.http.get<any>(`${this.baseUrl}/agent-workspaces/workspaces/${workspaceId}/activity/feed`, { params: { limit } });
-  }
-
-  /**
-   * @deprecated Replaced by standard namespace-scoped memory ingestion with `X-Spector-Namespace`.
-   */
-  workspaceRemember(workspaceId: string, agentId: string, text: string): Observable<any> {
-    return this.http.post<any>(`${this.baseUrl}/agent-workspaces/workspaces/${workspaceId}/remember`, { agentId, text });
-  }
-
-  /**
-   * @deprecated Replaced by standard namespace-scoped memory recall with `X-Spector-Namespace`.
-   */
-  workspaceRecall(workspaceId: string, agentId: string, query: string, topK = 5): Observable<any> {
-    return this.http.post<any>(`${this.baseUrl}/agent-workspaces/workspaces/${workspaceId}/recall`, { agentId, query, topK });
-  }
-
   // ─── Portability (Sprint 1 — F-002) ───
 
   exportMemories(format = 'json'): Observable<any> {
@@ -337,85 +288,6 @@ export class SynapseApiService {
     return this.http.get<any>(`${this.baseUrl}/governance/erasure/history`, { params: { limit } });
   }
 
-  // ─── Chat (formerly Cognitive RAG) ───
-
-  chatQuery(query: string, options: {
-    maxMemories?: number;
-    generateResponse?: boolean;
-    conversationId?: string;
-    memoryTier?: string;
-    model?: string;
-    fileContent?: string;
-    systemPrompt?: string;
-    scoringBias?: { relevance: number; recency: number; importance: number };
-  } = {}): Observable<any> {
-    const body: any = {
-      query,
-      maxMemories: options.maxMemories ?? 5,
-      generateResponse: options.generateResponse ?? true,
-    };
-    if (options.conversationId) body.conversationId = options.conversationId;
-    if (options.memoryTier) body.memoryTier = options.memoryTier;
-    if (options.model) body.model = options.model;
-    if (options.fileContent) body.fileContent = options.fileContent;
-    if (options.systemPrompt) body.systemPrompt = options.systemPrompt;
-    if (options.scoringBias) body.bias = options.scoringBias;
-    return this.http.post<any>(`${this.baseUrl}/chat/query`, body);
-  }
-
-  chatConfig(): Observable<any> {
-    return this.http.get<any>(`${this.baseUrl}/chat/config`);
-  }
-
-  chatModels(): Observable<any> {
-    return this.http.get<any>(`${this.baseUrl}/chat/models`);
-  }
-
-  createConversation(title?: string, model?: string, systemPrompt?: string): Observable<any> {
-    return this.http.post<any>(`${this.baseUrl}/chat/conversations`, { title, model, systemPrompt });
-  }
-
-  listConversations(limit = 50): Observable<any> {
-    return this.http.get<any>(`${this.baseUrl}/chat/conversations`, { params: { limit } });
-  }
-
-  loadConversation(conversationId: string, page = 0, pageSize = 50): Observable<any> {
-    return this.http.get<any>(`${this.baseUrl}/chat/conversations/${conversationId}`, {
-      params: { page, pageSize }
-    });
-  }
-
-  deleteConversation(conversationId: string): Observable<any> {
-    return this.http.delete<any>(`${this.baseUrl}/chat/conversations/${conversationId}`);
-  }
-
-  // ─── Agent Chat ───
-
-  /**
-   * Send an agent chat message with cognitive memory priming.
-   * The backend auto-manages sessions — no conversation management needed.
-   * System prompt is managed server-side (companion-system.txt + soul identity).
-   * Returns JSON with response, trace (tool steps), primedMemories count, and metadata.
-   */
-  agentChat(message: string, options: {
-    sessionId?: string;
-    model?: string;
-    contextDepth?: number;
-    enableGraph?: boolean;
-    enableTextSearch?: boolean;
-    enableTrace?: boolean;
-  } = {}): Observable<any> {
-    return this.http.post<any>(`${this.baseUrl}/chat/agent`, {
-      message,
-      ...options,
-    });
-  }
-
-  /** List available agent tools. */
-  agentTools(): Observable<any> {
-    return this.http.get<any>(`${this.baseUrl}/chat/tools`);
-  }
-
   // ─── Agent Soul Management ───
 
   /** Get the current agent soul (identity). */
@@ -443,24 +315,10 @@ export class SynapseApiService {
     return this.http.get<any>(`${this.baseUrl}/agent/tools`);
   }
 
-  /** List recent chat sessions (for "Load More" past messages). */
-  chatSessions(limit: number = 10): Observable<any> {
-    return this.http.get<any>(`${this.baseUrl}/chat/sessions`, { params: { limit } });
-  }
-
-  /** Load all messages for a specific past session. */
-  chatSessionMessages(sessionId: string): Observable<any> {
-    return this.http.get<any>(`${this.baseUrl}/chat/sessions/${sessionId}/messages`);
-  }
-
   /** List available Ollama models. */
   listOllamaModels(): Observable<any> {
     return this.http.get<any>(`${this.baseUrl}/system/ollama-models`);
   }
-
-
-  // (Sprint 3 agent/workspace stubs superseded by OPP-006 section above)
-
 
   // ─── Benchmarks (Sprint 3 — F-008) ───
 

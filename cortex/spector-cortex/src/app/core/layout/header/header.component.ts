@@ -1,4 +1,20 @@
-import { Component, inject, ViewChild, ElementRef, signal } from '@angular/core';
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import { Component, inject } from '@angular/core';
 
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
@@ -15,14 +31,8 @@ import { RouterLink } from '@angular/router';
 
 import { ThemeService } from '@core/services/theme.service';
 import { CortexStateService } from '@core/services/cortex-state.service';
-import {
-  SessionRecorderService,
-  RecordedSession,
-} from '@core/services/session-recorder.service';
-import { SessionReplayService, PLAYBACK_SPEEDS } from '@core/services/session-replay.service';
 import { NotificationService } from '@core/services/notification.service';
 import { AuthService } from '@core/services/auth.service';
-import { PROFILE_PARAMS } from '@core/models/memory-types';
 
 @Component({
   selector: 'cortex-header',
@@ -46,39 +56,7 @@ import { PROFILE_PARAMS } from '@core/models/memory-types';
 export class HeaderComponent {
   protected readonly theme = inject(ThemeService);
   protected readonly state = inject(CortexStateService);
-  protected readonly recorder = inject(SessionRecorderService);
-  protected readonly replay = inject(SessionReplayService);
   protected readonly notif = inject(NotificationService);
   protected readonly auth = inject(AuthService);
-  protected readonly profileParams = PROFILE_PARAMS;
-  protected readonly playbackSpeeds = PLAYBACK_SPEEDS;
-
-  @ViewChild('sessionFileInput')
-  private sessionFileInput!: ElementRef<HTMLInputElement>;
-
-  protected toggleRecording(): void {
-    if (this.recorder.isRecording()) {
-      const session = this.recorder.stopRecording();
-      this.recorder.saveToLocalStorage(session);
-      this.recorder.exportSession(session);
-    } else {
-      this.recorder.startRecording();
-    }
-  }
-
-  protected openImportDialog(): void {
-    this.sessionFileInput.nativeElement.click();
-  }
-
-  protected async onFileSelected(event: Event): Promise<void> {
-    const input = event.target as HTMLInputElement;
-    if (!input.files || input.files.length === 0) return;
-    const file = input.files[0];
-    const session = await this.recorder.importSession(file);
-    if (session) {
-      this.replay.loadSession(session);
-      this.replay.play();
-    }
-    input.value = ''; // Reset so the same file can be re-imported
-  }
 }
+
