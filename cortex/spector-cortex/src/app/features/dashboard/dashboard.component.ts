@@ -1,3 +1,19 @@
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import {
   Component,
   inject,
@@ -57,12 +73,21 @@ export class DashboardComponent implements OnInit {
   protected readonly state = inject(CortexStateService);
   private readonly log = inject(LoggerService);
   private readonly memoryService = inject(MemoryTableService);
+  private lastLoadedNamespace: string | null = null;
 
   constructor() {
     // Switch view mode based on the node selector dropdown
     effect(() => {
       const selected = this.state.selectedNode();
       this.state.viewMode.set(selected === 'cluster' ? 'cluster' : 'dashboard');
+    });
+
+    // Reload telemetry when active namespace changes
+    effect(() => {
+      const ns = this.state.currentNamespace();
+      if (this.lastLoadedNamespace !== null && this.lastLoadedNamespace !== ns && !this.state.useMockData()) {
+        this.bootstrapTelemetry();
+      }
     });
   }
 
@@ -82,6 +107,7 @@ export class DashboardComponent implements OnInit {
   }
 
   private bootstrapTelemetry(): void {
+    this.lastLoadedNamespace = this.state.currentNamespace();
     // 1. Initial Memory Diagnostic snapshot
     this.memoryService.getMemoryDiagnostics().subscribe({
       next: (diag) => this.state.memoryDiag.set(diag),

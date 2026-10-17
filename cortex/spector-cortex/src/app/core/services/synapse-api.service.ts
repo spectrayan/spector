@@ -340,6 +340,14 @@ export class SynapseApiService {
     return this.http.get<any[]>(`${this.baseUrl}/namespaces`);
   }
 
+  introspectAccount(): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/account/introspect`);
+  }
+
+  setDefaultNamespace(namespace: string): Observable<any> {
+    return this.http.put<any>(`${this.baseUrl}/account/default-namespace`, { namespace });
+  }
+
   listNamespaceGrants(slugOrId: string): Observable<any[]> {
     return this.http.get<any[]>(`${this.baseUrl}/namespaces/${slugOrId}/grants`);
   }

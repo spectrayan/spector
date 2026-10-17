@@ -20,21 +20,39 @@ import { Router } from '@angular/router';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { catchError, from, switchMap, throwError } from 'rxjs';
 import { AuthService } from '../services/auth.service';
+import { CortexStateService } from '../services/cortex-state.service';
+
+const NAMESPACE_SCOPED_SEGMENTS = [
+  '/memory',
+  '/observability',
+  '/portability',
+  '/governance',
+  '/salience',
+  '/chat',
+  '/events',
+];
+
+function isNamespaceScopedUrl(url: string): boolean {
+  return NAMESPACE_SCOPED_SEGMENTS.some((segment) => url.includes(segment));
+}
 
 /**
- * Functional HTTP interceptor that manages request authorization:
+ * Functional HTTP interceptor that manages request authorization and active namespace routing:
  *
  * 1. Attaches `Authorization: Bearer <accessToken>` when an access token is available.
  * 2. When no token is available or `auth.enabled=false`, falls back to `X-API-Key`
  *    (from `localStorage.getItem('spector_api_key') || 'spector-dev-key'`).
- * 3. Bypasses authorization headers on public auth endpoints (`/login`, `/refresh`, `/config`).
- * 4. On 401 Unauthorized responses:
+ * 3. Attaches `X-Spector-Namespace: state.currentNamespace()` on namespace-scoped endpoints
+ *    (`/memory/**`, `/observability/**`, `/portability/**`, `/governance/**`, `/salience/**`, `/chat/**`, `/events/**`).
+ * 4. Bypasses authorization headers on public auth endpoints (`/login`, `/refresh`, `/config`).
+ * 5. On 401 Unauthorized responses:
  *    - For protected endpoints, attempts refresh token rotation via `AuthService.refreshToken()`.
  *    - Retries the failed request with the newly issued access token.
  *    - If refresh fails or was already on refresh/login, triggers `AuthService.handleUnauthorized()`.
  */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
+  const state = inject(CortexStateService);
   const router = inject(Router);
   const snack = inject(MatSnackBar);
 
@@ -48,17 +66,23 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   let authReq = req;
 
   if (!isAuthBypass) {
+    const headers: Record<string, string> = {};
     const token = authService.getAccessToken();
     if (token) {
-      authReq = req.clone({
-        setHeaders: { Authorization: `Bearer ${token}` },
-      });
+      headers['Authorization'] = `Bearer ${token}`;
     } else {
       const apiKey = localStorage.getItem('spector_api_key') || 'spector-dev-key';
-      authReq = req.clone({
-        setHeaders: { 'X-API-Key': apiKey },
-      });
+      headers['X-API-Key'] = apiKey;
     }
+
+    if (isNamespaceScopedUrl(url) && !req.headers.has('X-Spector-Namespace')) {
+      const activeNamespace = state.currentNamespace();
+      if (activeNamespace) {
+        headers['X-Spector-Namespace'] = activeNamespace;
+      }
+    }
+
+    authReq = req.clone({ setHeaders: headers });
   }
 
   return next(authReq).pipe(
@@ -76,7 +100,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
             switchMap(() => {
               const newToken = authService.getAccessToken();
               if (newToken) {
-                const retried = req.clone({
+                const retried = authReq.clone({
                   setHeaders: { Authorization: `Bearer ${newToken}` },
                 });
                 return next(retried);
