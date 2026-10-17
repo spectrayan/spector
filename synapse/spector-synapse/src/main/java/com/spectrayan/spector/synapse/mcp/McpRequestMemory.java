@@ -47,6 +47,7 @@ public final class McpRequestMemory {
 
     private static final ThreadLocal<MemoryBinding> CURRENT_BINDING = new ThreadLocal<>();
     private static final ThreadLocal<MemoryRequestBinder> CURRENT_BINDER = new ThreadLocal<>();
+    private static final ThreadLocal<String> LAST_DENY_MESSAGE = new ThreadLocal<>();
 
     private McpRequestMemory() {
     }
@@ -70,7 +71,7 @@ public final class McpRequestMemory {
      * duration of the invocation using {@link MemoryRequestBinder}.
      */
     public static Optional<DenyReason> bindForCurrentRequest(MemoryRequestBinder binder, boolean authEnabled) {
-        return bindForCurrentRequest(binder, authEnabled, null, null);
+        return bindForCurrentRequest(binder, authEnabled, null, null, false);
     }
 
     /**
@@ -81,11 +82,28 @@ public final class McpRequestMemory {
             boolean authEnabled,
             String namespaceSelector,
             String connectionId) {
+        return bindForCurrentRequest(binder, authEnabled, namespaceSelector, connectionId, false);
+    }
+
+    /**
+     * Resolves the caller's memory using {@link MemoryRequestBinder} and optionally enforces
+     * {@link com.spectrayan.spector.synapse.catalog.GrantAction#WRITE} permission for mutating tools.
+     */
+    public static Optional<DenyReason> bindForCurrentRequest(
+            MemoryRequestBinder binder,
+            boolean authEnabled,
+            String namespaceSelector,
+            String connectionId,
+            boolean requireWrite) {
+        LAST_DENY_MESSAGE.remove();
+
         if (authEnabled && !SecurityUtils.isAuthenticated()) {
+            LAST_DENY_MESSAGE.set("[SPE-300-001] Authentication is required to invoke MCP tools over /mcp.");
             return Optional.of(DenyReason.AUTH_REQUIRED);
         }
 
         if (namespaceSelector != null && "*".equals(namespaceSelector.trim())) {
+            LAST_DENY_MESSAGE.set("[SPE-100-001] Wildcard namespace '*' is not supported. Please specify a single namespace or omit to use the default.");
             return Optional.of(DenyReason.WILDCARD_REJECTED);
         }
 
@@ -102,31 +120,59 @@ public final class McpRequestMemory {
                     binder.unbind(binding);
                     log.warn("[McpRequestMemory] Break-glass sessions cannot be used for MCP tool invocations: namespace={}, account={}",
                             binding.namespaceId(), binding.accountId());
+                    LAST_DENY_MESSAGE.set("[SPE-820-005 / SPE-SEC-005 / SPE-800-002] Access denied: break-glass sessions cannot be used for MCP or agentic tool invocations.");
+                    return Optional.of(DenyReason.ACCESS_DENIED);
+                }
+                if (requireWrite && binding != null && binding.context() != null
+                        && binding.context().role() != null
+                        && !binding.context().role().isAtLeast(com.spectrayan.spector.synapse.catalog.GrantRole.WRITER)) {
+                    binder.unbind(binding);
+                    log.warn("[McpRequestMemory] Write tool denied for read-only grant role {}: namespace={}, account={}",
+                            binding.context().role(), binding.namespaceId(), binding.accountId());
+                    LAST_DENY_MESSAGE.set("[SPE-800-002] Access denied: caller grant role ("
+                            + binding.context().role() + ") does not permit write operations on namespace '"
+                            + binding.namespaceId() + "'.");
                     return Optional.of(DenyReason.ACCESS_DENIED);
                 }
                 CURRENT_BINDER.set(binder);
             } else {
+                LAST_DENY_MESSAGE.set("[SPE-700-001] Memory resolution failed; the MCP call was denied and no memory was modified.");
                 return Optional.of(DenyReason.RESOLUTION_FAILED);
             }
 
             CURRENT_BINDING.set(binding);
             return Optional.empty();
         } catch (NamespaceAccessDeniedException e) {
-            clear();
+            unbindCurrent();
             log.warn("[McpRequestMemory] access denied: {}", e.getMessage());
+            if (e instanceof com.spectrayan.spector.synapse.catalog.exception.CrossTenantAccessException) {
+                LAST_DENY_MESSAGE.set("[SPE-820-001 / SPE-SEC-001] Cross-tenant access forbidden: " + e.getMessage());
+            } else if (e instanceof com.spectrayan.spector.synapse.catalog.exception.BreakGlassAccessDeniedException) {
+                LAST_DENY_MESSAGE.set("[SPE-820-005 / SPE-SEC-005 / SPE-800-002] Access denied (break-glass): " + e.getMessage());
+            } else {
+                LAST_DENY_MESSAGE.set("[SPE-800-002] Access denied: caller does not have sufficient permissions to access the requested namespace (" + e.getMessage() + ").");
+            }
+            return Optional.of(DenyReason.ACCESS_DENIED);
+        } catch (com.spectrayan.spector.synapse.catalog.exception.NamespaceNotFoundException e) {
+            unbindCurrent();
+            log.warn("[McpRequestMemory] ungranted or unknown namespace denied: {}", e.getMessage());
+            LAST_DENY_MESSAGE.set("[SPE-800-002] Access denied: caller does not own or have a grant for the requested namespace (" + e.getMessage() + ").");
             return Optional.of(DenyReason.ACCESS_DENIED);
         } catch (TokenNamespaceLockedException e) {
-            clear();
+            unbindCurrent();
             log.warn("[McpRequestMemory] token namespace locked: {}", e.getMessage());
+            LAST_DENY_MESSAGE.set("[SPE-800-003] Token is locked to specific namespaces and access to the requested namespace was denied.");
             return Optional.of(DenyReason.TOKEN_LOCKED);
         } catch (com.spectrayan.spector.commons.error.SpectorValidationException e) {
-            clear();
+            unbindCurrent();
             log.warn("[McpRequestMemory] validation error: {}", e.getMessage());
+            LAST_DENY_MESSAGE.set("[SPE-100-001] Wildcard namespace '*' is not supported. Please specify a single namespace or omit to use the default.");
             return Optional.of(DenyReason.WILDCARD_REJECTED);
         } catch (RuntimeException e) {
-            clear();
+            unbindCurrent();
             log.warn("[McpRequestMemory] memory resolution failed; denying MCP call: {}", e.getMessage());
             log.debug("[McpRequestMemory] resolution failure detail", e);
+            LAST_DENY_MESSAGE.set("[SPE-700-001] Memory resolution failed; the MCP call was denied and no memory was modified.");
             return Optional.of(DenyReason.RESOLUTION_FAILED);
         }
     }
@@ -135,7 +181,7 @@ public final class McpRequestMemory {
      * Adapter method for callers that provide {@link MemoryRegistry}.
      */
     public static Optional<DenyReason> bindForCurrentRequest(MemoryRegistry registry, boolean authEnabled) {
-        return bindForCurrentRequest(registry, authEnabled, null, null);
+        return bindForCurrentRequest(registry, authEnabled, null, null, false);
     }
 
     /**
@@ -146,16 +192,33 @@ public final class McpRequestMemory {
             boolean authEnabled,
             String namespaceSelector,
             String connectionId) {
+        return bindForCurrentRequest(registry, authEnabled, namespaceSelector, connectionId, false);
+    }
+
+    /**
+     * Adapter method for callers that provide {@link MemoryRegistry} and specify {@code requireWrite}.
+     */
+    public static Optional<DenyReason> bindForCurrentRequest(
+            MemoryRegistry registry,
+            boolean authEnabled,
+            String namespaceSelector,
+            String connectionId,
+            boolean requireWrite) {
         if (registry != null && registry.binder() != null) {
-            return bindForCurrentRequest(registry.binder(), authEnabled, namespaceSelector, connectionId);
+            return bindForCurrentRequest(registry.binder(), authEnabled, namespaceSelector, connectionId, requireWrite);
         }
+        LAST_DENY_MESSAGE.remove();
         if (authEnabled) {
             log.warn("[McpRequestMemory] Denying MCP call: MemoryRequestBinder unavailable under enabled auth");
-            return !SecurityUtils.isAuthenticated()
-                    ? Optional.of(DenyReason.AUTH_REQUIRED)
-                    : Optional.of(DenyReason.RESOLUTION_FAILED);
+            if (!SecurityUtils.isAuthenticated()) {
+                LAST_DENY_MESSAGE.set("[SPE-300-001] Authentication is required to invoke MCP tools over /mcp.");
+                return Optional.of(DenyReason.AUTH_REQUIRED);
+            }
+            LAST_DENY_MESSAGE.set("[SPE-700-001] Memory resolution failed; the MCP call was denied and no memory was modified.");
+            return Optional.of(DenyReason.RESOLUTION_FAILED);
         }
         if (namespaceSelector != null && "*".equals(namespaceSelector.trim())) {
+            LAST_DENY_MESSAGE.set("[SPE-100-001] Wildcard namespace '*' is not supported. Please specify a single namespace or omit to use the default.");
             return Optional.of(DenyReason.WILDCARD_REJECTED);
         }
         try {
@@ -173,8 +236,9 @@ public final class McpRequestMemory {
             CURRENT_BINDING.set(binding);
             return Optional.empty();
         } catch (RuntimeException e) {
-            clear();
+            unbindCurrent();
             log.warn("[McpRequestMemory] memory resolution failed; denying MCP call: {}", e.getMessage());
+            LAST_DENY_MESSAGE.set("[SPE-700-001] Memory resolution failed; the MCP call was denied and no memory was modified.");
             return Optional.of(DenyReason.RESOLUTION_FAILED);
         }
     }
@@ -196,8 +260,7 @@ public final class McpRequestMemory {
         return CURRENT_BINDING.get();
     }
 
-    /** Removes any memory bound to the current thread and closes its lease. */
-    public static void clear() {
+    private static void unbindCurrent() {
         MemoryBinding binding = CURRENT_BINDING.get();
         MemoryRequestBinder binder = CURRENT_BINDER.get();
         if (binding != null) {
@@ -215,24 +278,34 @@ public final class McpRequestMemory {
         McpSessionContext.clearFallback();
     }
 
+    /** Removes any memory bound to the current thread and closes its lease. */
+    public static void clear() {
+        unbindCurrent();
+        LAST_DENY_MESSAGE.remove();
+    }
+
     /**
-     * Human-readable tool-error content for a deny reason.
+     * Human-readable tool-error content for a deny reason, including ADR-0070 error taxonomy codes.
      *
      * @param reason the deny reason
      * @return a message suitable for an MCP tool error result
      */
     public static String message(DenyReason reason) {
+        String detailed = LAST_DENY_MESSAGE.get();
+        if (detailed != null && !detailed.isBlank()) {
+            return detailed;
+        }
         return switch (reason) {
             case AUTH_REQUIRED ->
-                    "Authentication is required to invoke MCP tools over /mcp.";
+                    "[SPE-300-001] Authentication is required to invoke MCP tools over /mcp.";
             case ACCESS_DENIED ->
-                    "Access denied: caller does not have sufficient permissions to access the requested namespace.";
+                    "[SPE-800-002] Access denied: caller does not have sufficient permissions to access the requested namespace.";
             case RESOLUTION_FAILED ->
-                    "Memory resolution failed; the MCP call was denied and no memory was modified.";
+                    "[SPE-700-001] Memory resolution failed; the MCP call was denied and no memory was modified.";
             case WILDCARD_REJECTED ->
-                    "Wildcard namespace '*' is not supported. Please specify a single namespace or omit to use the default.";
+                    "[SPE-100-001] Wildcard namespace '*' is not supported. Please specify a single namespace or omit to use the default.";
             case TOKEN_LOCKED ->
-                    "Token is locked to specific namespaces and access to the requested namespace was denied.";
+                    "[SPE-800-003] Token is locked to specific namespaces and access to the requested namespace was denied.";
         };
     }
 }

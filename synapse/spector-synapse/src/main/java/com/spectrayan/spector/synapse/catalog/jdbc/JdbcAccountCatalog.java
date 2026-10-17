@@ -138,10 +138,14 @@ public class JdbcAccountCatalog implements AccountCatalog {
             return account;
         }
 
-        AccountProfile effProfile = profile != null ? profile : AccountProfile.HUMAN_SOLO;
         PrincipalKind effKind = kind != null ? kind : PrincipalKind.HUMAN;
+        AccountProfile effProfile = profile != null
+                ? profile
+                : (effKind == PrincipalKind.AGENT ? AccountProfile.AGENT : AccountProfile.HUMAN_SOLO);
+        String defaultNsId = effKind == PrincipalKind.AGENT ? null : accountId;
+        String defaultRole = effKind == PrincipalKind.AGENT ? "ROLE_AGENT" : "ROLE_USER";
 
-        log.info("[JdbcAccountCatalog] Auto-provisioning account for ID: {}", accountId);
+        log.info("[JdbcAccountCatalog] Auto-provisioning account for ID: {} (kind={})", accountId, effKind);
         Instant now = Instant.now();
 
         // Insert new user account row
@@ -150,7 +154,7 @@ public class JdbcAccountCatalog implements AccountCatalog {
                     user_id, username, password_hash, display_name, roles, scopes,
                     profile, kind, flags, default_namespace_id, tenant_id, created_at, updated_at
                 ) VALUES (
-                    :userId, :username, '', :displayName, 'ROLE_USER', '',
+                    :userId, :username, '', :displayName, :roles, '',
                     :profile, :kind, '{}', :defaultNamespaceId, :tenantId, :now, :now
                 )
                 """;
@@ -159,29 +163,32 @@ public class JdbcAccountCatalog implements AccountCatalog {
                 .param("userId", accountId)
                 .param("username", accountId)
                 .param("displayName", accountId)
+                .param("roles", defaultRole)
                 .param("profile", effProfile.name())
                 .param("kind", effKind.name())
-                .param("defaultNamespaceId", accountId)
+                .param("defaultNamespaceId", defaultNsId)
                 .param("tenantId", tenantId)
                 .param("now", Timestamp.from(now))
                 .update();
 
-        // Auto-create default namespace record (namespaceId == accountId, slug == "default")
-        insertNamespaceRow(new NamespaceRecord(
-                accountId,
-                "default",
-                accountId,
-                NamespaceType.DEFAULT,
-                NamespaceStatus.ACTIVE,
-                "Default Namespace",
-                "Primary personal memory store",
-                null,
-                now,
-                now
-        ));
+        if (effKind != PrincipalKind.AGENT) {
+            // Auto-create default namespace record (namespaceId == accountId, slug == "default")
+            insertNamespaceRow(new NamespaceRecord(
+                    accountId,
+                    "default",
+                    accountId,
+                    NamespaceType.DEFAULT,
+                    NamespaceStatus.ACTIVE,
+                    "Default Namespace",
+                    "Primary personal memory store",
+                    null,
+                    now,
+                    now
+            ));
 
-        // Add implicit OWNER grant
-        insertImplicitOwnerGrant(accountId, accountId);
+            // Add implicit OWNER grant
+            insertImplicitOwnerGrant(accountId, accountId);
+        }
 
         Account newAccount = new Account(
                 accountId,
@@ -190,7 +197,7 @@ public class JdbcAccountCatalog implements AccountCatalog {
                 accountId,
                 defaultQuotas(effProfile, null, null),
                 new AccountFlags(true, true, true),
-                accountId,
+                defaultNsId,
                 now,
                 tenantId,
                 false
@@ -236,6 +243,9 @@ public class JdbcAccountCatalog implements AccountCatalog {
     }
 
     private void ensureDefaultNamespaceExists(Account account) {
+        if (account.kind() == PrincipalKind.AGENT) {
+            return;
+        }
         String accountId = account.id();
         String sql = sqlLoader.load("catalog/namespaces/find-by-owner-and-slug");
         Optional<NamespaceRecord> defaultNs = jdbc.sql(sql)
@@ -393,6 +403,41 @@ public class JdbcAccountCatalog implements AccountCatalog {
                 return Optional.of(record);
             }
             throw new NamespaceAccessDeniedException(record.namespaceId(), accountId);
+        }
+
+        // 3. Try resolving by slug across granted / foreign namespaces
+        List<NamespaceRecord> byForeignSlug = jdbc.sql(
+                        "SELECT namespace_id, owner_account_id, slug, type, status, display_name, description, bias_json, created_at, last_accessed_at, legal_hold FROM namespaces WHERE slug = :slug AND status != 'TOMBSTONED'")
+                .param("slug", slugOrId)
+                .query(this::mapNamespaceRow)
+                .list();
+
+        if (!byForeignSlug.isEmpty()) {
+            Account caller = findAccountById(accountId).orElse(null);
+            String callerTenant = caller != null ? caller.tenantId() : null;
+            for (NamespaceRecord candidate : byForeignSlug) {
+                Account owner = findAccountById(candidate.ownerAccountId()).orElse(null);
+                String ownerTenant = owner != null ? owner.tenantId() : null;
+                boolean breakGlassGranted = hasActiveBreakGlassGrant(accountId, candidate.namespaceId());
+                boolean sameTenant = Objects.equals(callerTenant, ownerTenant);
+                if ((sameTenant || breakGlassGranted) && hasActiveGrant(accountId, candidate.namespaceId())) {
+                    return Optional.of(candidate);
+                }
+            }
+            if (!"default".equals(slugOrId)) {
+                for (NamespaceRecord candidate : byForeignSlug) {
+                    Account owner = findAccountById(candidate.ownerAccountId()).orElse(null);
+                    String ownerTenant = owner != null ? owner.tenantId() : null;
+                    if (Objects.equals(callerTenant, ownerTenant)) {
+                        throw new NamespaceAccessDeniedException(candidate.namespaceId(), accountId);
+                    }
+                }
+                NamespaceRecord crossTenantCandidate = byForeignSlug.getFirst();
+                Account owner = findAccountById(crossTenantCandidate.ownerAccountId()).orElse(null);
+                String ownerTenant = owner != null ? owner.tenantId() : null;
+                throw new CrossTenantAccessException(accountId, crossTenantCandidate.namespaceId(),
+                        ownerTenant != null ? ownerTenant : "default");
+            }
         }
 
         return Optional.empty();
@@ -1004,7 +1049,7 @@ public class JdbcAccountCatalog implements AccountCatalog {
                 .param("principalId", accountId)
                 .query(this::mapGrantRow)
                 .list();
-        return grants.stream().anyMatch(g -> g.grantId() != null && g.grantId().startsWith("bg_grant_"));
+        return grants.stream().anyMatch(g -> g.grantId() != null && g.grantId().startsWith("bg_"));
     }
 
     private int countOwnedNamespaces(String accountId) {
@@ -1111,9 +1156,17 @@ public class JdbcAccountCatalog implements AccountCatalog {
         Timestamp createdAt = rs.getTimestamp("created_at");
         String tenantId = rs.getString("tenant_id");
         boolean legalHold = rs.getBoolean("legal_hold");
+        String rolesStr = null;
+        try {
+            rolesStr = rs.getString("roles");
+        } catch (SQLException ignored) {}
 
         PrincipalKind kind = kindStr != null ? PrincipalKind.valueOf(kindStr) : PrincipalKind.HUMAN;
         AccountProfile profile = profileStr != null ? AccountProfile.valueOf(profileStr) : AccountProfile.HUMAN_SOLO;
+        if (kind == PrincipalKind.HUMAN && defaultNsId == null && isAgentRolesOnly(rolesStr)) {
+            kind = PrincipalKind.AGENT;
+            profile = AccountProfile.AGENT;
+        }
         AccountFlags flags = parseFlags(flagsStr);
         AccountQuotas quotas = defaultQuotas(profile, maxNs, maxHotNs);
 
@@ -1124,11 +1177,33 @@ public class JdbcAccountCatalog implements AccountCatalog {
                 displayName != null ? displayName : userId,
                 quotas,
                 flags,
-                defaultNsId != null ? defaultNsId : userId,
+                kind == PrincipalKind.AGENT ? defaultNsId : (defaultNsId != null ? defaultNsId : userId),
                 createdAt != null ? createdAt.toInstant() : Instant.now(),
                 tenantId,
                 legalHold
         );
+    }
+
+    private static boolean isAgentRolesOnly(String rolesStr) {
+        if (rolesStr == null || rolesStr.isBlank()) {
+            return false;
+        }
+        boolean hasAgent = false;
+        for (String raw : rolesStr.split(",")) {
+            String token = raw.trim().toLowerCase();
+            if (token.startsWith("role_") || token.startsWith("role-")) {
+                token = token.substring(5).trim();
+            }
+            if (token.isEmpty()) {
+                continue;
+            }
+            if ("agent".equals(token)) {
+                hasAgent = true;
+            } else {
+                return false;
+            }
+        }
+        return hasAgent;
     }
 
     private NamespaceRecord mapNamespaceRow(ResultSet rs, int rowNum) throws SQLException {

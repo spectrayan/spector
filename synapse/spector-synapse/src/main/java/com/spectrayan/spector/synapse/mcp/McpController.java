@@ -96,11 +96,25 @@ public class McpController {
         }
 
         // Resolve + bind the caller's per-user memory on this request thread. Denies
-        // (auth-required / resolution-failed) fail closed without touching any user's memory.
-        String namespace = (arguments != null && arguments.containsKey("namespace"))
+        // (auth-required / access-denied / resolution-failed) fail closed without touching any user's memory.
+        String namespace = (arguments != null && arguments.get("namespace") != null)
                 ? String.valueOf(arguments.get("namespace")) : null;
+        if (namespace == null || namespace.isBlank()) {
+            var attrs = org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+            if (attrs instanceof org.springframework.web.context.request.ServletRequestAttributes sra) {
+                String hdr = sra.getRequest().getHeader("X-Spector-Namespace");
+                if (hdr != null && !hdr.isBlank()) {
+                    namespace = hdr.trim();
+                } else {
+                    String param = sra.getRequest().getParameter("namespace");
+                    if (param != null && !param.isBlank()) {
+                        namespace = param.trim();
+                    }
+                }
+            }
+        }
         Optional<McpRequestMemory.DenyReason> deny =
-                McpRequestMemory.bindForCurrentRequest(userMemoryRegistry, authEnabled, namespace, null);
+                McpRequestMemory.bindForCurrentRequest(userMemoryRegistry, authEnabled, namespace, null, tool.isWriteTool());
         if (deny.isPresent()) {
             return errorResponse(McpRequestMemory.message(deny.get()));
         }

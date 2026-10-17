@@ -68,6 +68,7 @@ public class NamespaceResolutionFilter extends OncePerRequestFilter {
         }
         return path.startsWith("/api/v1/auth")
                 || path.startsWith("/api/v1/events")
+                || path.startsWith("/api/v1/mcp")
                 || path.startsWith("/api/v1/admin/tenants")
                 || path.startsWith("/api/v1/admin/accounts")
                 || path.startsWith("/api/v1/admin/namespaces")
@@ -120,6 +121,20 @@ public class NamespaceResolutionFilter extends OncePerRequestFilter {
                 }
             });
         } catch (NamespaceAccessDeniedException e) {
+            String path = request.getRequestURI();
+            if (!(e instanceof CrossTenantAccessException)
+                    && selector == null
+                    && path != null
+                    && path.startsWith("/api/v1/credentials")) {
+                MemoryScope.runWithScope(initialTenantId, null, null, () -> {
+                    try {
+                        filterChain.doFilter(request, response);
+                    } catch (IOException | ServletException ex) {
+                        throw new RuntimeException(ex);
+                    }
+                });
+                return;
+            }
             writeAccessDenied(response, e);
         } catch (RuntimeException e) {
             if (e.getCause() instanceof NamespaceAccessDeniedException nade) {

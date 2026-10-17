@@ -596,11 +596,22 @@ public class ChatService {
             appendOperationalEvent(turnId, 0, "session", sessionEvent);
         }
 
-        // 4. Dispatch long-running agentic execution to Virtual Thread
+        // 4. Dispatch long-running agentic execution to Virtual Thread, propagating caller identity & namespace scope
+        org.springframework.security.core.Authentication callerAuth =
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        org.springframework.web.context.request.RequestAttributes callerAttrs =
+                org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+        String callerTenantId = com.spectrayan.spector.synapse.security.SecurityUtils.getTenantId();
+        String callerNamespaceId = MemoryScope.isNamespaceActive() ? MemoryScope.namespaceId() : null;
+
         Executor vtExecutor = SpectorExecutors.executor(ThreadPlane.VIRTUAL, "chat-stream");
         vtExecutor.execute(() -> {
+            org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(callerAuth);
+            if (callerAttrs != null) {
+                org.springframework.web.context.request.RequestContextHolder.setRequestAttributes(callerAttrs);
+            }
             try {
-                ScopedValue.where(MemoryScope.SESSION_ID, sessionId).run(() -> {
+                MemoryScope.runWithScope(callerTenantId, sessionId, callerNamespaceId, () -> {
                     processStreamExecution(request, soul, sessionId, turnId, model, sink);
                 });
             } catch (Exception e) {
@@ -608,6 +619,9 @@ public class ChatService {
                 sink.send(new ChatStreamEvent.Error(sessionId, turnId, sink.nextSeq(),
                         System.currentTimeMillis(), "SPE-700-001", e.getMessage(), true));
                 sink.triggerAbort();
+            } finally {
+                org.springframework.security.core.context.SecurityContextHolder.clearContext();
+                org.springframework.web.context.request.RequestContextHolder.resetRequestAttributes();
             }
         });
     }

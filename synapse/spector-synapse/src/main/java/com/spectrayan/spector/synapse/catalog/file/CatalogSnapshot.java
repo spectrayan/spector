@@ -108,6 +108,9 @@ public record CatalogSnapshot(
      * @return the matching grant, or empty if none found
      */
     public Optional<Grant> findGrant(String accountId, String namespaceId, GrantRole minimumRole) {
+        if (namespaceId == null) {
+            return Optional.empty();
+        }
         if (accountId.equals(account.id()) && namespaceId.equals(account.defaultNamespaceId())) {
             return Optional.of(new Grant(
                     accountId + "-owner-default",
@@ -124,14 +127,25 @@ public record CatalogSnapshot(
             ));
         }
 
+        Grant best = null;
         for (Grant grant : liveGrants) {
             if (grant.objectId().equals(namespaceId) && grant.principalId().equals(accountId)) {
                 if (grant.role().isAtLeast(minimumRole)) {
-                    return Optional.of(grant);
+                    if (best == null) {
+                        best = grant;
+                    } else {
+                        boolean bestIsBg = best.grantId() != null && best.grantId().startsWith("bg_");
+                        boolean currIsBg = grant.grantId() != null && grant.grantId().startsWith("bg_");
+                        if (bestIsBg && !currIsBg) {
+                            best = grant;
+                        } else if (bestIsBg == currIsBg && grant.role().ordinal() < best.role().ordinal()) {
+                            best = grant;
+                        }
+                    }
                 }
             }
         }
-        return Optional.empty();
+        return Optional.ofNullable(best);
     }
 
     /**

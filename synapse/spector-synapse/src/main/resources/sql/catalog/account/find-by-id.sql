@@ -2,6 +2,7 @@
 SELECT
     user_id,
     display_name,
+    roles,
     kind,
     profile,
     flags,

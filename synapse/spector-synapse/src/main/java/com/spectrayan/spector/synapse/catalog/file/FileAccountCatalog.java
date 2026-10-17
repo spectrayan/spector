@@ -181,7 +181,9 @@ public class FileAccountCatalog implements AccountCatalog {
                     StandardOpenOption.CREATE, StandardOpenOption.WRITE);
                  FileLock fileLock = channel.lock()) {
 
-                // Create account with requested profile defaults
+                // Create account with requested profile defaults.
+                // Agent principals do NOT receive an auto-provisioned default namespace or implicit OWNER grant.
+                String defaultNsId = (effKind == PrincipalKind.AGENT) ? null : accountId;
                 Account account = new Account(
                         accountId,
                         effKind,
@@ -189,12 +191,19 @@ public class FileAccountCatalog implements AccountCatalog {
                         null,  // displayName
                         AccountQuotas.forProfile(effProfile),
                         AccountFlags.forProfile(effProfile),
-                        accountId,  // defaultNamespaceId == accountId (invariant §12)
+                        defaultNsId,
                         Instant.now(),
                         tenantId,
                         false
                 );
                 atomicWrite(accountFile, account);
+
+                if (effKind == PrincipalKind.AGENT) {
+                    atomicWrite(accountDir.resolve(FILE_SLUGS), Map.of());
+                    atomicWrite(accountDir.resolve(FILE_NAMESPACES), Map.of());
+                    log.info("[FileAccountCatalog] created agent account (no default namespace): {}", accountId);
+                    return account;
+                }
 
                 // Write slug map: default → accountId
                 Map<String, String> slugs = Map.of("default", accountId);
@@ -282,6 +291,9 @@ public class FileAccountCatalog implements AccountCatalog {
 
     @Override
     public Optional<NamespaceRecord> resolve(String accountId, String slugOrId) {
+        if (slugOrId == null || slugOrId.isBlank()) {
+            return Optional.empty();
+        }
         CatalogSnapshot snapshot;
         try {
             snapshot = loadSnapshot(accountId);
@@ -308,31 +320,43 @@ public class FileAccountCatalog implements AccountCatalog {
             return recordOpt;
         }
 
-        // Check if there is an active grant for this namespace ID on the caller's account
-        Optional<Grant> grantOpt = snapshot.findGrant(accountId, slugOrId, GrantRole.READER);
-        if (grantOpt.isPresent()) {
-            String ownerAccountId = grantOpt.get().grantedBy();
-            if (ownerAccountId != null && !ownerAccountId.equals(accountId)) {
-                Account caller = snapshot.account();
-                Account owner = null;
-                try {
-                    owner = getAccount(ownerAccountId);
-                } catch (NamespaceNotFoundException ignored) {}
-                String callerTenant = caller != null ? caller.tenantId() : null;
-                String ownerTenant = owner != null ? owner.tenantId() : null;
-                if (!Objects.equals(callerTenant, ownerTenant) && (callerTenant != null || ownerTenant != null)) {
-                    throw new CrossTenantAccessException(accountId, slugOrId, ownerTenant != null ? ownerTenant : "default");
-                }
-                if (owner != null) {
+        // Check if there is an active grant for this namespace ID or slug on the caller's account
+        for (Grant grant : snapshot.liveGrants()) {
+            if (grant.principalId().equals(accountId)
+                    && grant.objectType() == GrantObjectType.NAMESPACE
+                    && grant.role().isAtLeast(GrantRole.READER)) {
+                String ownerAccountId = grant.grantedBy();
+                if (ownerAccountId != null && !ownerAccountId.equals(accountId)) {
+                    Account caller = snapshot.account();
+                    Account owner = null;
                     try {
-                        CatalogSnapshot ownerSnapshot = loadSnapshot(ownerAccountId);
-                        return ownerSnapshot.resolveNamespace(slugOrId);
-                    } catch (Exception ignored) {}
+                        owner = getAccount(ownerAccountId);
+                    } catch (NamespaceNotFoundException ignored) {}
+                    if (owner != null) {
+                        try {
+                            CatalogSnapshot ownerSnapshot = loadSnapshot(ownerAccountId);
+                            Optional<NamespaceRecord> grantedNs = ownerSnapshot.resolveNamespace(grant.objectId());
+                            if (grantedNs.isPresent()) {
+                                NamespaceRecord rec = grantedNs.get();
+                                if (rec.status() != NamespaceStatus.TOMBSTONED
+                                        && (rec.namespaceId().equals(slugOrId) || rec.slug().equals(slugOrId))) {
+                                    String callerTenant = caller != null ? caller.tenantId() : null;
+                                    String ownerTenant = owner.tenantId();
+                                    if (!Objects.equals(callerTenant, ownerTenant) && (callerTenant != null || ownerTenant != null)) {
+                                        throw new CrossTenantAccessException(accountId, slugOrId, ownerTenant != null ? ownerTenant : "default");
+                                    }
+                                    return Optional.of(rec);
+                                }
+                            }
+                        } catch (CrossTenantAccessException e) {
+                            throw e;
+                        } catch (Exception ignored) {}
+                    }
                 }
             }
         }
 
-        // Check across accounts to enforce cross-tenant isolation parity when resolving by ID
+        // Check across accounts to enforce cross-tenant and grant isolation parity when resolving by ID or slug
         for (Account acct : listAccounts()) {
             if (!acct.id().equals(accountId)) {
                 try {
@@ -340,11 +364,16 @@ public class FileAccountCatalog implements AccountCatalog {
                     Optional<NamespaceRecord> foreignRecord = otherSnap.resolveNamespace(slugOrId);
                     if (foreignRecord.isPresent()) {
                         NamespaceRecord rec = foreignRecord.get();
-                        if (rec.namespaceId().equals(slugOrId) && rec.status() != NamespaceStatus.TOMBSTONED) {
+                        boolean matchedById = rec.namespaceId().equals(slugOrId);
+                        boolean matchedBySlug = !"default".equals(slugOrId) && rec.slug().equals(slugOrId);
+                        if ((matchedById || matchedBySlug) && rec.status() != NamespaceStatus.TOMBSTONED) {
                             String callerTenant = snapshot.account() != null ? snapshot.account().tenantId() : null;
                             String ownerTenant = acct.tenantId();
                             if (!Objects.equals(callerTenant, ownerTenant) && (callerTenant != null || ownerTenant != null)) {
                                 throw new CrossTenantAccessException(accountId, rec.namespaceId(), ownerTenant != null ? ownerTenant : "default");
+                            }
+                            if (snapshot.findGrant(accountId, rec.namespaceId(), GrantRole.READER).isPresent()) {
+                                return Optional.of(rec);
                             }
                             throw new NamespaceAccessDeniedException(rec.namespaceId(), accountId);
                         }
@@ -360,6 +389,9 @@ public class FileAccountCatalog implements AccountCatalog {
 
     @Override
     public Optional<Grant> authorize(String accountId, String namespaceId, GrantRole minimum) {
+        if (namespaceId == null || namespaceId.isBlank()) {
+            return Optional.empty();
+        }
         CatalogSnapshot snapshot;
         try {
             snapshot = loadSnapshot(accountId);
@@ -766,7 +798,36 @@ public class FileAccountCatalog implements AccountCatalog {
         } catch (NamespaceNotFoundException e) {
             return List.of();
         }
-        return snapshot.accessibleNamespaces(accountId);
+        List<NamespaceRecord> result = new ArrayList<>(snapshot.accessibleNamespaces(accountId));
+        Set<String> seenIds = new HashSet<>();
+        for (NamespaceRecord rec : result) {
+            seenIds.add(rec.namespaceId());
+        }
+        Account caller = snapshot.account();
+        String callerTenant = caller != null ? caller.tenantId() : null;
+        for (Grant grant : snapshot.liveGrants()) {
+            if (grant.principalId().equals(accountId)
+                    && grant.objectType() == GrantObjectType.NAMESPACE
+                    && grant.role().isAtLeast(GrantRole.READER)
+                    && !seenIds.contains(grant.objectId())) {
+                String ownerAccountId = grant.grantedBy();
+                if (ownerAccountId != null && !ownerAccountId.equals(accountId)) {
+                    try {
+                        Account owner = getAccount(ownerAccountId);
+                        String ownerTenant = owner != null ? owner.tenantId() : null;
+                        if (Objects.equals(callerTenant, ownerTenant) || (callerTenant == null && ownerTenant == null)) {
+                            CatalogSnapshot ownerSnap = loadSnapshot(ownerAccountId);
+                            ownerSnap.resolveNamespace(grant.objectId()).ifPresent(rec -> {
+                                if (rec.status() != NamespaceStatus.TOMBSTONED && seenIds.add(rec.namespaceId())) {
+                                    result.add(rec);
+                                }
+                            });
+                        }
+                    } catch (Exception ignored) {}
+                }
+            }
+        }
+        return result;
     }
 
     @Override

@@ -337,8 +337,15 @@ public class MemoryRequestBinder {
             if (breakGlassService != null) {
                 activeBreakGlass = breakGlassService.evaluateSessionOnBind(accountId, slugOrId);
             }
-            record = catalog.resolve(accountId, slugOrId)
-                    .orElseThrow(() -> new NamespaceNotFoundException(slugOrId));
+            Optional<NamespaceRecord> resolvedOpt = catalog.resolve(accountId, slugOrId);
+            if (resolvedOpt.isEmpty()) {
+                if (account.kind() == PrincipalKind.AGENT || account.defaultNamespaceId() == null) {
+                    throw new com.spectrayan.spector.synapse.catalog.exception.NamespaceAccessDeniedException(
+                            slugOrId, accountId);
+                }
+                throw new NamespaceNotFoundException(slugOrId);
+            }
+            record = resolvedOpt.get();
             if (record.status() == NamespaceStatus.TOMBSTONED) {
                 throw new NamespaceTombstonedException(record.namespaceId());
             }
@@ -349,11 +356,27 @@ public class MemoryRequestBinder {
             }
         } else {
             targetNamespaceId = account.defaultNamespaceId();
-            if (breakGlassService != null && targetNamespaceId != null) {
-                activeBreakGlass = breakGlassService.evaluateSessionOnBind(accountId, targetNamespaceId);
+            if (targetNamespaceId == null) {
+                // Agent accounts have no default namespace; resolve sole granted namespace if unambiguously 1,
+                // otherwise reject with NamespaceAccessDeniedException (SPE-800-002).
+                List<NamespaceRecord> accessible = catalog.listAccessible(accountId);
+                if (accessible.size() == 1) {
+                    record = accessible.getFirst();
+                    targetNamespaceId = record.namespaceId();
+                    targetSlug = record.slug();
+                } else {
+                    log.warn("[MemoryRequestBinder] Access denied: principal={} (kind={}) has no default namespace and {} accessible namespaces",
+                            accountId, account.kind(), accessible.size());
+                    throw new com.spectrayan.spector.synapse.catalog.exception.NamespaceAccessDeniedException(
+                            "default", accountId);
+                }
+            } else {
+                if (breakGlassService != null) {
+                    activeBreakGlass = breakGlassService.evaluateSessionOnBind(accountId, targetNamespaceId);
+                }
+                record = catalog.resolve(accountId, targetNamespaceId).orElse(null);
+                targetSlug = record != null ? record.slug() : "default";
             }
-            record = catalog.resolve(accountId, targetNamespaceId).orElse(null);
-            targetSlug = record != null ? record.slug() : "default";
         }
 
         validateTokenAllowSets(tokenClaims, targetSlug, targetNamespaceId);
@@ -392,7 +415,7 @@ public class MemoryRequestBinder {
                     targetNamespaceId, accountId);
         }
         boolean isBreakGlassGrant = activeBreakGlass.isPresent()
-                || (authGrant.get().grantId() != null && authGrant.get().grantId().startsWith("bg_grant_"));
+                || (authGrant.get().grantId() != null && (authGrant.get().grantId().startsWith("bg_grant_") || authGrant.get().grantId().startsWith("bg_")));
         if (isBreakGlassGrant && activeBreakGlass.isEmpty() && breakGlassService != null) {
             activeBreakGlass = breakGlassService.evaluateSessionOnBind(accountId, targetNamespaceId);
             if (activeBreakGlass.isEmpty()) {
@@ -461,7 +484,7 @@ public class MemoryRequestBinder {
             }
 
             String breakGlassSessionId = activeBreakGlass.map(com.spectrayan.spector.synapse.admin.breakglass.BreakGlassRecord::id)
-                    .orElse(null);
+                    .orElse(isBreakGlassGrant ? authGrant.get().grantId() : null);
 
             RequestMemoryContext requestContext = new RequestMemoryContext(
                     effectiveTenantId,
@@ -526,6 +549,33 @@ public class MemoryRequestBinder {
             }
         }
 
+        boolean hasAgentAuthority = false;
+        boolean hasHumanOrAdminAuthority = false;
+        if (auth != null && auth.getAuthorities() != null) {
+            for (org.springframework.security.core.GrantedAuthority ga : auth.getAuthorities()) {
+                if (ga == null || ga.getAuthority() == null) {
+                    continue;
+                }
+                String a = ga.getAuthority().trim();
+                if ("ROLE_agent".equalsIgnoreCase(a) || "agent".equalsIgnoreCase(a)) {
+                    hasAgentAuthority = true;
+                } else if ("ROLE_admin".equalsIgnoreCase(a)
+                        || "ROLE_super-admin".equalsIgnoreCase(a)
+                        || "ROLE_super_admin".equalsIgnoreCase(a)
+                        || "ROLE_editor".equalsIgnoreCase(a)
+                        || "ROLE_viewer".equalsIgnoreCase(a)
+                        || "ROLE_user".equalsIgnoreCase(a)) {
+                    hasHumanOrAdminAuthority = true;
+                }
+            }
+        }
+        AccountProfile defaultProfile = (hasAgentAuthority && !hasHumanOrAdminAuthority)
+                ? AccountProfile.AGENT
+                : AccountProfile.HUMAN_SOLO;
+        PrincipalKind defaultKind = (hasAgentAuthority && !hasHumanOrAdminAuthority)
+                ? PrincipalKind.AGENT
+                : PrincipalKind.HUMAN;
+
         Jwt jwt = null;
         if (auth instanceof JwtAuthenticationToken jwtAuth) {
             jwt = jwtAuth.getToken();
@@ -536,7 +586,7 @@ public class MemoryRequestBinder {
         }
 
         if (jwt == null) {
-            return new TokenClaims(tenantId, List.of(), Set.of(), null, null, AccountProfile.HUMAN_SOLO, PrincipalKind.HUMAN);
+            return new TokenClaims(tenantId, List.of(), Set.of(), null, null, defaultProfile, defaultKind);
         }
         List<String> orgUnitIds = jwt.getClaimAsStringList("org");
         if (orgUnitIds == null) {
@@ -556,7 +606,7 @@ public class MemoryRequestBinder {
         if (profileStr == null) {
             profileStr = jwt.getClaimAsString("acct_type");
         }
-        AccountProfile profile = AccountProfile.HUMAN_SOLO;
+        AccountProfile profile = defaultProfile;
         if (profileStr != null) {
             try {
                 profile = AccountProfile.valueOf(profileStr.toUpperCase());
@@ -564,7 +614,7 @@ public class MemoryRequestBinder {
         }
 
         String kindStr = jwt.getClaimAsString("kind");
-        PrincipalKind kind = PrincipalKind.HUMAN;
+        PrincipalKind kind = defaultKind;
         if (kindStr != null) {
             try {
                 kind = PrincipalKind.valueOf(kindStr.toUpperCase());
