@@ -23,6 +23,7 @@ import { of, throwError, firstValueFrom } from 'rxjs';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { authInterceptor } from './auth.interceptor';
 import { AuthService } from '../services/auth.service';
+import { CortexStateService } from '../services/cortex-state.service';
 
 describe('authInterceptor', () => {
   let mockAuthService: {
@@ -173,5 +174,76 @@ describe('authInterceptor', () => {
 
     expect(mockAuthService.refreshToken).not.toHaveBeenCalled();
     expect(mockAuthService.handleUnauthorized).toHaveBeenCalled();
+  });
+
+  it('attaches X-Spector-Namespace from CortexStateService on namespace-scoped requests', async () => {
+    mockAuthService.getAccessToken.mockReturnValue('valid-jwt-token');
+    const state = TestBed.inject(CortexStateService);
+    state.setCurrentNamespace('team-alpha');
+
+    const req = new HttpRequest('GET', '/api/v1/memory/table');
+    let capturedReq: HttpRequest<unknown> | null = null;
+    const next: HttpHandlerFn = (r) => {
+      capturedReq = r;
+      return of(new HttpResponse({ status: 200 }));
+    };
+
+    await firstValueFrom(runInterceptor(req, next));
+
+    expect(capturedReq).not.toBeNull();
+    expect(capturedReq!.headers.get('X-Spector-Namespace')).toBe('team-alpha');
+    expect(localStorage.getItem('spector_current_namespace')).toBe('team-alpha');
+  });
+
+  it('omits X-Spector-Namespace on account introspection and admin endpoints', async () => {
+    mockAuthService.getAccessToken.mockReturnValue('valid-jwt-token');
+    const state = TestBed.inject(CortexStateService);
+    state.setCurrentNamespace('team-alpha');
+
+    const req = new HttpRequest('GET', '/api/v1/account/introspect');
+    let capturedReq: HttpRequest<unknown> | null = null;
+    const next: HttpHandlerFn = (r) => {
+      capturedReq = r;
+      return of(new HttpResponse({ status: 200 }));
+    };
+
+    await firstValueFrom(runInterceptor(req, next));
+
+    expect(capturedReq).not.toBeNull();
+    expect(capturedReq!.headers.has('X-Spector-Namespace')).toBe(false);
+  });
+
+  it('reconciles available namespaces and distinguishes owned vs shared', () => {
+    const state = TestBed.inject(CortexStateService);
+    state.setAvailableNamespaces(
+      [
+        {
+          namespaceId: 'ns-owned-1',
+          slug: 'alice-personal',
+          ownerAccountId: 'alice',
+          type: 'PERSONAL',
+          status: 'ACTIVE',
+          displayName: 'Alice Workspace',
+          owned: true,
+        },
+        {
+          namespaceId: 'ns-shared-2',
+          slug: 'platform-shared',
+          ownerAccountId: 'bob',
+          type: 'SHARED',
+          status: 'ACTIVE',
+          displayName: 'Platform Shared',
+          owned: false,
+        },
+      ],
+      'ns-shared-2'
+    );
+
+    expect(state.currentNamespace()).toBe('platform-shared');
+    expect(state.currentNamespaceItem()?.owned).toBe(false);
+
+    state.setCurrentNamespace('alice-personal');
+    expect(state.currentNamespaceItem()?.owned).toBe(true);
+    expect(state.currentNamespaceItem()?.displayName).toBe('Alice Workspace');
   });
 });

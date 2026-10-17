@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-import { Component, inject } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
+import { catchError, forkJoin, of } from 'rxjs';
 
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
@@ -30,9 +31,10 @@ import { MatDividerModule } from '@angular/material/divider';
 import { RouterLink } from '@angular/router';
 
 import { ThemeService } from '@core/services/theme.service';
-import { CortexStateService } from '@core/services/cortex-state.service';
+import { CortexStateService, NamespaceItem } from '@core/services/cortex-state.service';
 import { NotificationService } from '@core/services/notification.service';
 import { AuthService } from '@core/services/auth.service';
+import { SynapseApiService } from '@core/services/synapse-api.service';
 
 @Component({
   selector: 'cortex-header',
@@ -53,10 +55,60 @@ import { AuthService } from '@core/services/auth.service';
   templateUrl: './header.component.html',
   styleUrl: './header.component.scss',
 })
-export class HeaderComponent {
+export class HeaderComponent implements OnInit {
   protected readonly theme = inject(ThemeService);
   protected readonly state = inject(CortexStateService);
   protected readonly notif = inject(NotificationService);
   protected readonly auth = inject(AuthService);
+  private readonly api = inject(SynapseApiService);
+
+  ngOnInit(): void {
+    this.loadNamespaces();
+  }
+
+  loadNamespaces(): void {
+    forkJoin({
+      introspect: this.api.introspectAccount().pipe(catchError(() => of(null))),
+      list: this.api.listNamespaces().pipe(catchError(() => of([]))),
+    }).subscribe(({ introspect, list }) => {
+      const accountId: string | null =
+        introspect?.accountId ?? this.auth.currentUser()?.username ?? null;
+      const defaultNsId: string | null = introspect?.defaultNamespaceId ?? null;
+
+      const rawList: any[] = Array.isArray(list) ? [...list] : [];
+      if (Array.isArray(introspect?.namespaces)) {
+        for (const ns of introspect.namespaces) {
+          if (!rawList.some((r) => r.namespaceId === ns.namespaceId)) {
+            rawList.push(ns);
+          }
+        }
+      }
+
+      const items: NamespaceItem[] = rawList.map((ns) => ({
+        namespaceId: ns.namespaceId,
+        slug: ns.slug || ns.namespaceId,
+        ownerAccountId: ns.ownerAccountId,
+        type: ns.type || 'PERSONAL',
+        status: ns.status || 'ACTIVE',
+        displayName: ns.displayName ?? null,
+        description: ns.description ?? null,
+        legalHold: Boolean(ns.legalHold),
+        owned: accountId ? ns.ownerAccountId === accountId : true,
+      }));
+
+      this.state.setAvailableNamespaces(items, defaultNsId);
+    });
+  }
+
+  selectNamespace(slugOrId: string): void {
+    if (!slugOrId || slugOrId === this.state.currentNamespace()) {
+      return;
+    }
+    this.state.setCurrentNamespace(slugOrId);
+    this.api
+      .setDefaultNamespace(slugOrId)
+      .pipe(catchError(() => of(null)))
+      .subscribe();
+  }
 }
 

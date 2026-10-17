@@ -6,18 +6,6 @@
   </mat-card-header>
 
   <mat-card-content class="settings-content">
-    <!-- Target Tenant Switcher -->
-    <div class="setting-row">
-      <label class="setting-label">Target Tenant Namespace</label>
-      <mat-form-field appearance="outline" class="density-tight-field">
-        <mat-select [value]="state.playgroundTenant()" (selectionChange)="state.playgroundTenant.set($event.value)">
-          @for (ns of namespaces; track ns.value) {
-            <mat-option [value]="ns.value">{{ ns.label }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
-    </div>
-
     <!-- Cognitive Profile Selector -->
     <div class="setting-row">
       <label class="setting-label">Cognitive Profile Preset</label>

@@ -12,6 +12,44 @@
 
   <div class="spacer"></div>
 
+  <!-- Namespace Switcher -->
+  <button mat-button [matMenuTriggerFor]="namespaceMenu" class="namespace-switcher-btn"
+    id="namespace-switcher-trigger" matTooltip="Switch active memory namespace">
+    <mat-icon class="ns-icon">folder_special</mat-icon>
+    <span class="ns-active-slug cortex-mono">
+      {{ state.currentNamespaceItem()?.displayName || state.currentNamespace() }}
+    </span>
+    @if (state.currentNamespaceItem(); as activeNs) {
+      <span class="ns-badge" [class.owned]="activeNs.owned" [class.shared]="!activeNs.owned">
+        {{ activeNs.owned ? 'Owned' : 'Shared' }}
+      </span>
+    }
+    <mat-icon class="ns-chevron">expand_more</mat-icon>
+  </button>
+  <mat-menu #namespaceMenu="matMenu" class="namespace-menu-panel" xPosition="before">
+    <div class="ns-menu-header" (click)="$event.stopPropagation()">
+      <span class="ns-menu-title">Active Namespace</span>
+    </div>
+    <mat-divider></mat-divider>
+    @if (state.namespaces().length === 0) {
+      <button mat-menu-item (click)="selectNamespace(state.currentNamespace())" class="ns-menu-item active">
+        <mat-icon>folder</mat-icon>
+        <span class="ns-item-label cortex-mono">{{ state.currentNamespace() }}</span>
+        <span class="ns-badge owned">Default</span>
+      </button>
+    }
+    @for (ns of state.namespaces(); track ns.namespaceId) {
+      <button mat-menu-item (click)="selectNamespace(ns.slug || ns.namespaceId)"
+        class="ns-menu-item"
+        [class.active]="state.currentNamespace() === ns.slug || state.currentNamespace() === ns.namespaceId">
+        <mat-icon>{{ ns.owned ? 'folder' : 'folder_shared' }}</mat-icon>
+        <span class="ns-item-label cortex-mono">{{ ns.displayName || ns.slug }}</span>
+        <span class="ns-badge" [class.owned]="ns.owned" [class.shared]="!ns.owned">
+          {{ ns.owned ? 'Owned' : 'Shared' }}
+        </span>
+      </button>
+    }
+  </mat-menu>
 
   <!-- Connection Status -->
   <div class="status-group">

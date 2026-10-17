@@ -1,3 +1,19 @@
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import {
   Component,
   OnInit,
@@ -7,6 +23,7 @@ import {
   ViewChild,
   inject,
   signal,
+  effect,
   PLATFORM_ID,
 } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
@@ -17,6 +34,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Subscription, interval, startWith, switchMap } from 'rxjs';
 import { Chart, registerables } from 'chart.js';
 import { MemoryTableService, MemoryStats, ScoringStats } from '../../core/services/memory-table.service';
+import { CortexStateService } from '../../core/services/cortex-state.service';
 import { DecayForecastComponent } from './components/decay-forecast/decay-forecast.component';
 
 Chart.register(...registerables);
@@ -41,7 +59,9 @@ export class HealthComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('scoringCanvas') private scoringCanvas!: ElementRef<HTMLCanvasElement>;
 
   private readonly memoryService = inject(MemoryTableService);
+  private readonly state = inject(CortexStateService);
   private readonly platformId = inject(PLATFORM_ID);
+  private lastLoadedNamespace: string | null = null;
 
   readonly stats = signal<MemoryStats | null>(null);
   readonly scoring = signal<ScoringStats | null>(null);
@@ -53,8 +73,19 @@ export class HealthComponent implements OnInit, OnDestroy, AfterViewInit {
   private growthChart?: Chart;
   private scoringChart?: Chart;
 
+  constructor() {
+    effect(() => {
+      const ns = this.state.currentNamespace();
+      if (this.lastLoadedNamespace !== null && this.lastLoadedNamespace !== ns) {
+        this.lastLoadedNamespace = ns;
+        this.reloadNamespaceHealth();
+      }
+    });
+  }
+
   ngOnInit(): void {
     if (!isPlatformBrowser(this.platformId)) return;
+    this.lastLoadedNamespace = this.state.currentNamespace();
 
     // Start 5-second polling loop
     this.pollSubscription = interval(5000)
@@ -75,6 +106,26 @@ export class HealthComponent implements OnInit, OnDestroy, AfterViewInit {
       });
 
     // Also fetch scoring stats
+    this.fetchScoringStats();
+  }
+
+  private reloadNamespaceHealth(): void {
+    this.loading.set(true);
+    this.memoryService.getMemoryStats().subscribe({
+      next: (data) => {
+        this.stats.set(data);
+        this.updateCharts();
+        this.loading.set(false);
+      },
+      error: (err: any) => {
+        console.error('Failed to reload memory stats for namespace', err);
+        this.loading.set(false);
+      },
+    });
+    this.fetchScoringStats();
+  }
+
+  private fetchScoringStats(): void {
     this.memoryService.getScoringStats().subscribe({
       next: (data) => {
         this.scoring.set(data);

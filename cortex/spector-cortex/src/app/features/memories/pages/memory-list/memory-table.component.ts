@@ -1,17 +1,20 @@
 /*
  * Copyright 2026 Spectrayan
  *
- * Licensed under the Business Source License 1.1 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     https://github.com/spectrayan/spector/blob/main/spector-cortex/LICENSE
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Change Date: July 6, 2030
- * Change License: Apache License, Version 2.0
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
-import { Component, inject, OnInit, signal, computed, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, effect, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
@@ -25,6 +28,7 @@ import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MemoryTableService, MemoryRow } from '@core/services/memory-table.service';
+import { CortexStateService } from '@core/services/cortex-state.service';
 import { AddMemoryDialogComponent } from '../../components/add-memory-dialog.component';
 import { CortexSnackbarService } from '@shared/services/cortex-snackbar.service';
 import { ERROR_MESSAGES, formatMessage } from '@shared/constants/error-messages';
@@ -60,9 +64,23 @@ import { MemoryBulkActionsComponent } from './components/memory-bulk-actions/mem
 })
 export class MemoryTableComponent implements OnInit {
   protected readonly table = inject(MemoryTableService);
+  protected readonly state = inject(CortexStateService);
   private readonly router = inject(Router);
   private readonly dialog = inject(MatDialog);
   private readonly toast = inject(CortexSnackbarService);
+  private lastLoadedNamespace: string | null = null;
+
+  constructor() {
+    effect(() => {
+      const ns = this.state.currentNamespace();
+      if (this.lastLoadedNamespace !== null && this.lastLoadedNamespace !== ns) {
+        this.lastLoadedNamespace = ns;
+        this.clearSelection();
+        this.table.page.set(0);
+        this.table.loadPage();
+      }
+    });
+  }
 
   readonly tiers = ['WORKING', 'EPISODIC', 'SEMANTIC', 'PROCEDURAL'];
 
@@ -295,6 +313,7 @@ export class MemoryTableComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.lastLoadedNamespace = this.state.currentNamespace();
     this.table.loadPage();
   }
 

@@ -1,3 +1,19 @@
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 // ═══════════════════════════════════════════════════════════════════════
 // Spector Cortex — Central State Service
 // ═══════════════════════════════════════════════════════════════════════
@@ -19,6 +35,20 @@ import {
   MetricsTickEvent,
 } from '../models/cortex-events';
 import { CognitiveProfile, ConnectionStatus } from '../models/memory-types';
+
+/** Namespace descriptor returned by `/api/v1/namespaces` and `/api/v1/account/introspect`. */
+export interface NamespaceItem {
+  namespaceId: string;
+  slug: string;
+  ownerAccountId: string;
+  type: string;
+  status: string;
+  displayName?: string | null;
+  description?: string | null;
+  legalHold?: boolean;
+  /** True when the namespace is owned by the current account, false when shared via grant. */
+  owned: boolean;
+}
 
 /** Configurable limits for dashboard event buffers. */
 export interface DashboardLimits {
@@ -120,7 +150,17 @@ export class CortexStateService {
   readonly activeProfile = signal<CognitiveProfile>(CognitiveProfile.BALANCED);
   readonly playgroundTopK = signal<number>(10);
   readonly playgroundValence = signal<number | null>(null);
-  readonly playgroundTenant = signal<string>('default');
+
+  // ── Namespace Selection (ADR-0029, Issue #1063) ────────────────────
+  readonly namespaces = signal<NamespaceItem[]>([]);
+  readonly defaultNamespaceId = signal<string | null>(null);
+  readonly currentNamespace = signal<string>(this.readStoredNamespace());
+
+  readonly currentNamespaceItem = computed<NamespaceItem | null>(() => {
+    const active = this.currentNamespace();
+    const list = this.namespaces();
+    return list.find(ns => ns.slug === active || ns.namespaceId === active) ?? null;
+  });
 
   // ── Graph Layer Toggles ────────────────────────────────────────────
   readonly graphLayers = signal<GraphLayerToggles>({
@@ -208,6 +248,84 @@ export class CortexStateService {
     const sum = history.reduce((a, b) => a + b.latencyMicros, 0);
     return sum / history.length / 1000;
   });
+
+  // ── Namespace Mutations ────────────────────────────────────────────
+
+  setAvailableNamespaces(items: NamespaceItem[], defaultNsId?: string | null): void {
+    this.namespaces.set(items);
+    if (defaultNsId !== undefined) {
+      this.defaultNamespaceId.set(defaultNsId ?? null);
+    }
+    if (items.length === 0) {
+      return;
+    }
+
+    const stored = this.readExplicitStoredNamespace();
+    if (stored) {
+      const matchedStored = items.find(ns => ns.slug === stored || ns.namespaceId === stored);
+      if (matchedStored) {
+        this.setCurrentNamespace(matchedStored.slug || matchedStored.namespaceId);
+        return;
+      }
+    }
+
+    const defId = defaultNsId ?? this.defaultNamespaceId();
+    if (defId) {
+      const matchedDef = items.find(ns => ns.namespaceId === defId || ns.slug === defId);
+      if (matchedDef) {
+        this.setCurrentNamespace(matchedDef.slug || matchedDef.namespaceId);
+        return;
+      }
+    }
+
+    const current = this.currentNamespace();
+    const matchedCurrent = items.find(ns => ns.slug === current || ns.namespaceId === current);
+    if (matchedCurrent) {
+      this.setCurrentNamespace(matchedCurrent.slug || matchedCurrent.namespaceId);
+      return;
+    }
+
+    const first = items[0];
+    this.setCurrentNamespace(first.slug || first.namespaceId);
+  }
+
+  setCurrentNamespace(slugOrId: string): void {
+    const normalized = (slugOrId || 'default').trim() || 'default';
+    const prev = this.currentNamespace();
+    this.currentNamespace.set(normalized);
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('spector_current_namespace', normalized);
+      }
+    } catch {
+      // Ignore storage errors
+    }
+    if (prev !== normalized) {
+      this.currentQueryTrace.set(null);
+      this.queryHistory.set([]);
+      this.recallResults.set([]);
+      this.memoryDiag.set(null);
+      this.graphPulses.set([]);
+      this.metricsHistory.set([]);
+      this.decayCurve.set([]);
+      this.memoryDiffs.set([]);
+    }
+  }
+
+  private readExplicitStoredNamespace(): string | null {
+    try {
+      const stored = typeof localStorage !== 'undefined'
+        ? localStorage.getItem('spector_current_namespace')
+        : null;
+      return stored && stored.trim().length > 0 ? stored.trim() : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private readStoredNamespace(): string {
+    return this.readExplicitStoredNamespace() ?? 'default';
+  }
 
   // ── Mutations (called by services, not components) ─────────────────
 

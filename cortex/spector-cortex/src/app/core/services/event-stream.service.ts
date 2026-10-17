@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { Injectable, inject, signal, OnDestroy, PLATFORM_ID } from '@angular/core';
+import { Injectable, inject, signal, effect, OnDestroy, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { CortexStateService } from './cortex-state.service';
 import { NotificationService } from './notification.service';
@@ -67,6 +67,17 @@ export class EventStreamService implements OnDestroy {
   private abortController: AbortController | null = null;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private config = DEFAULT_CONFIG;
+  private activeNamespaceOnStream: string | null = null;
+
+  constructor() {
+    effect(() => {
+      const currentNs = this.state.currentNamespace();
+      if (this.activeNamespaceOnStream !== null && this.activeNamespaceOnStream !== currentNs && this.abortController) {
+        this.disconnect();
+        this.doConnect();
+      }
+    });
+  }
 
   /** Connect to the SSE endpoint. */
   connect(config?: Partial<EventStreamConfig>): void {
@@ -94,10 +105,12 @@ export class EventStreamService implements OnDestroy {
 
   private doConnect(): void {
     const url = `${this.config.baseUrl}/events?filter=${this.config.filter}`;
+    const currentNs = this.state.currentNamespace();
+    this.activeNamespaceOnStream = currentNs;
 
     this.state.connectionStatus.set('reconnecting');
 
-    // Use fetch with Authorization header (native EventSource cannot send headers)
+    // Use fetch with Authorization and X-Spector-Namespace headers (native EventSource cannot send headers)
     this.abortController = new AbortController();
     const token = this.auth.getAccessToken();
     const headers: Record<string, string> = {
@@ -105,6 +118,9 @@ export class EventStreamService implements OnDestroy {
     };
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
+    }
+    if (currentNs) {
+      headers['X-Spector-Namespace'] = currentNs;
     }
 
     fetch(url, {
