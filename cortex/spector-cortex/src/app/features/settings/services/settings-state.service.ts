@@ -1,14 +1,17 @@
 /*
  * Copyright 2026 Spectrayan
  *
- * Licensed under the Business Source License 1.1 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     https://github.com/spectrayan/spector/blob/main/spector-cortex/LICENSE
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Change Date: July 6, 2030
- * Change License: Apache License, Version 2.0
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 import { Injectable, inject, signal } from '@angular/core';
@@ -25,6 +28,7 @@ import {
   ConfigApplyMode,
   ConfigCategoryMeta,
   CATEGORY_METADATA,
+  ADMIN_INFRA_CONFIG_CATEGORY_KEYS,
   INTEREST_LEVELS,
 } from '../models/settings.models';
 
@@ -410,8 +414,10 @@ export class SettingsStateService {
     this.api.listConfigCategories().subscribe({
       next: (catRes) => {
         const rawCats: any[] = catRes.categories || [];
-        // Filter out deprecated 'rag' alias
-        const cats = rawCats.filter((c: any) => c.key !== 'rag');
+        // Filter out deprecated 'rag' alias and admin-infra categories (moved to /admin/infra in #1066)
+        const cats = rawCats.filter(
+          (c: any) => c.key !== 'rag' && !ADMIN_INFRA_CONFIG_CATEGORY_KEYS.has(c.key),
+        );
 
         const metas: ConfigCategoryMeta[] = cats.map((c: any) => {
           const key = c.key;
