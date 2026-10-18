@@ -360,6 +360,38 @@ export class SynapseApiService {
     return this.http.delete<void>(`${this.baseUrl}/namespaces/${slugOrId}/grants/${grantId}`);
   }
 
+  // ─── Admin Tenant Lifecycle (ADR-0087, Issue #1055) ───
+
+  listAdminTenants(filters: {
+    status?: string;
+    includeDeleted?: boolean;
+  } = {}): Observable<any[]> {
+    const params: Record<string, string> = {};
+    if (filters.status) params['status'] = filters.status;
+    if (filters.includeDeleted !== undefined) params['includeDeleted'] = String(filters.includeDeleted);
+    return this.http.get<any[]>(`${this.baseUrl}/admin/tenants`, { params });
+  }
+
+  getAdminTenant(tenantId: string): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/admin/tenants/${tenantId}`);
+  }
+
+  createAdminTenant(request: any): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/admin/tenants`, request);
+  }
+
+  updateAdminTenant(tenantId: string, request: any): Observable<any> {
+    return this.http.put<any>(`${this.baseUrl}/admin/tenants/${tenantId}`, request);
+  }
+
+  deleteAdminTenant(tenantId: string): Observable<any> {
+    return this.http.delete<any>(`${this.baseUrl}/admin/tenants/${tenantId}`);
+  }
+
+  listAdminTenantAuditLogs(tenantId: string): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/admin/tenants/${tenantId}/audit`);
+  }
+
   // ─── Admin Account & Agent-Principal Registry (ADR-0087, Issue #1056) ───
 
   listAdminAccounts(filters: {
@@ -411,19 +443,39 @@ export class SynapseApiService {
     return this.http.get<any[]>(`${this.baseUrl}/admin/accounts/${accountId}/audit`);
   }
 
+  listAdminCredentials(filters: {
+    tenantId?: string;
+    userId?: string;
+  } = {}): Observable<any[]> {
+    const params: Record<string, string> = {};
+    if (filters.tenantId) params['tenantId'] = filters.tenantId;
+    if (filters.userId) params['userId'] = filters.userId;
+    return this.http.get<any[]>(`${this.baseUrl}/credentials`, { params });
+  }
+
+  deleteAdminCredential(name: string, tenantId?: string): Observable<void> {
+    const params: Record<string, string> = {};
+    if (tenantId) params['tenantId'] = tenantId;
+    return this.http.delete<void>(`${this.baseUrl}/credentials/${encodeURIComponent(name)}`, { params });
+  }
+
   // ─── Admin Namespace Lifecycle (ADR-0087, Issue #1057) ───
 
   listAdminNamespaces(filters: {
     tenantId?: string;
     ownerAccountId?: string;
     status?: string;
+    type?: string;
     legalHold?: boolean;
+    includeTombstoned?: boolean;
   } = {}): Observable<any[]> {
     const params: Record<string, string> = {};
     if (filters.tenantId) params['tenantId'] = filters.tenantId;
     if (filters.ownerAccountId) params['ownerAccountId'] = filters.ownerAccountId;
     if (filters.status) params['status'] = filters.status;
+    if (filters.type) params['type'] = filters.type;
     if (filters.legalHold !== undefined) params['legalHold'] = String(filters.legalHold);
+    if (filters.includeTombstoned !== undefined) params['includeTombstoned'] = String(filters.includeTombstoned);
     return this.http.get<any[]>(`${this.baseUrl}/admin/namespaces`, { params });
   }
 
@@ -467,10 +519,11 @@ export class SynapseApiService {
   }
 
   eraseAdminNamespace(namespaceId: string, request: {
-    confirmationSlug: string;
+    confirmationSlug?: string;
+    propagateReplicas?: boolean;
     reason?: string;
     includeSearchIndex?: boolean;
-  }): Observable<any> {
+  } = {}): Observable<any> {
     return this.http.post<any>(`${this.baseUrl}/admin/namespaces/${namespaceId}/erase`, request);
   }
 

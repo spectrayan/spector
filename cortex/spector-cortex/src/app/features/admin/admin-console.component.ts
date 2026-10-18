@@ -22,7 +22,6 @@ import {
   input,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -31,7 +30,37 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { SynapseApiService } from '@core/services/synapse-api.service';
-import { AuthService } from '@core/services/auth.service';
+
+/**
+ * Formats a byte count into a human-readable unit string (`B`, `KB`, `MB`, `GB`, `TB`).
+ */
+export function formatAdminBytes(bytes: number | null | undefined): string {
+  if (bytes === null || bytes === undefined || Number.isNaN(bytes) || bytes <= 0) {
+    return '0 B';
+  }
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let value = bytes;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex++;
+  }
+  return `${unitIndex === 0 ? Math.round(value) : value.toFixed(1)} ${units[unitIndex]}`;
+}
+
+/**
+ * Formats an ISO-8601 timestamp string into a concise UTC/local operational label.
+ */
+export function formatAdminTimestamp(iso?: string | null): string {
+  if (!iso) {
+    return 'Never';
+  }
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return iso;
+  }
+  return date.toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+}
 
 /**
  * Shared content-free Admin Console page header and card shell.
@@ -123,130 +152,6 @@ export class AdminSectionShellComponent {
   readonly title = input.required<string>();
   readonly subtitle = input.required<string>();
 }
-
-@Component({
-  selector: 'cortex-admin-overview',
-  standalone: true,
-  imports: [CommonModule, RouterLink, MatCardModule, MatIconModule, MatButtonModule, AdminSectionShellComponent],
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <cortex-admin-section-shell
-      icon="space_dashboard"
-      title="Admin Console Overview"
-      subtitle="Fleet and tenant operational health summary (zero memory content)."
-    >
-      <div class="overview-grid">
-        @if (auth.isSuperAdmin()) {
-          <mat-card appearance="outlined" class="overview-card" routerLink="/admin/tenants">
-            <mat-card-header>
-              <mat-icon mat-card-avatar>domain</mat-icon>
-              <mat-card-title>Tenants</mat-card-title>
-              <mat-card-subtitle>Platform operator tenant lifecycle & quotas</mat-card-subtitle>
-            </mat-card-header>
-          </mat-card>
-        }
-        <mat-card appearance="outlined" class="overview-card" routerLink="/admin/accounts">
-          <mat-card-header>
-            <mat-icon mat-card-avatar>group</mat-icon>
-            <mat-card-title>Accounts & Agents</mat-card-title>
-            <mat-card-subtitle>Manage users, agent principals, and credential oversight</mat-card-subtitle>
-          </mat-card-header>
-        </mat-card>
-        <mat-card appearance="outlined" class="overview-card" routerLink="/admin/namespaces">
-          <mat-card-header>
-            <mat-icon mat-card-avatar>folder_special</mat-icon>
-            <mat-card-title>Namespaces</mat-card-title>
-            <mat-card-subtitle>Quotas, archival, legal hold, and verified erasure</mat-card-subtitle>
-          </mat-card-header>
-        </mat-card>
-        <mat-card appearance="outlined" class="overview-card" routerLink="/admin/analytics">
-          <mat-card-header>
-            <mat-icon mat-card-avatar>insights</mat-icon>
-            <mat-card-title>Analytics</mat-card-title>
-            <mat-card-subtitle>Content-free fleet, tenant, and namespace telemetry</mat-card-subtitle>
-          </mat-card-header>
-        </mat-card>
-        <mat-card appearance="outlined" class="overview-card" routerLink="/admin/infra">
-          <mat-card-header>
-            <mat-icon mat-card-avatar>dns</mat-icon>
-            <mat-card-title>Infrastructure & Benchmarks</mat-card-title>
-            <mat-card-subtitle>Providers, cluster health, tasks, cache, and benchmarks</mat-card-subtitle>
-          </mat-card-header>
-        </mat-card>
-        <mat-card appearance="outlined" class="overview-card" routerLink="/admin/audit">
-          <mat-card-header>
-            <mat-icon mat-card-avatar>fact_check</mat-icon>
-            <mat-card-title>Audit Log</mat-card-title>
-            <mat-card-subtitle>Append-only administrative and security event stream</mat-card-subtitle>
-          </mat-card-header>
-        </mat-card>
-      </div>
-    </cortex-admin-section-shell>
-  `,
-  styles: [`
-    .overview-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 16px;
-    }
-    .overview-card {
-      cursor: pointer;
-      transition: border-color 0.2s ease, transform 0.2s ease;
-      &:hover {
-        border-color: var(--mat-sys-primary);
-        transform: translateY(-2px);
-      }
-    }
-  `],
-})
-export class AdminOverviewComponent {
-  protected readonly auth = inject(AuthService);
-}
-
-@Component({
-  selector: 'cortex-admin-tenants',
-  standalone: true,
-  imports: [MatCardModule, AdminSectionShellComponent],
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <cortex-admin-section-shell
-      icon="domain"
-      title="Tenants"
-      subtitle="Platform-wide tenant provisioning, quotas, BYOK status, and break-glass policy."
-    />
-  `,
-})
-export class AdminTenantsComponent {}
-
-@Component({
-  selector: 'cortex-admin-accounts',
-  standalone: true,
-  imports: [MatCardModule, AdminSectionShellComponent],
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <cortex-admin-section-shell
-      icon="group"
-      title="Accounts & Agent Principals"
-      subtitle="User accounts, autonomous agent principals, and metadata-only credential oversight."
-    />
-  `,
-})
-export class AdminAccountsComponent {}
-
-@Component({
-  selector: 'cortex-admin-namespaces',
-  standalone: true,
-  imports: [MatCardModule, AdminSectionShellComponent],
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <cortex-admin-section-shell
-      icon="folder_special"
-      title="Namespaces"
-      subtitle="Namespace lifecycle, storage & memory quotas, legal holds, ownership transfer, and erasure."
-    />
-  `,
-})
-export class AdminNamespacesComponent {}
 
 @Component({
   selector: 'cortex-admin-analytics',

@@ -26,26 +26,26 @@ export const ADMIN_ROUTES: Routes = [
   {
     path: 'overview',
     loadComponent: () =>
-      import('./admin-console.component').then(m => m.AdminOverviewComponent),
+      import('./pages/admin-overview.component').then(m => m.AdminOverviewComponent),
     title: 'Admin Overview — Spector Cortex',
   },
   {
     path: 'tenants',
     canActivate: [roleGuard('super-admin')],
     loadComponent: () =>
-      import('./admin-console.component').then(m => m.AdminTenantsComponent),
+      import('./pages/admin-tenants.component').then(m => m.AdminTenantsComponent),
     title: 'Tenants — Spector Cortex Admin',
   },
   {
     path: 'accounts',
     loadComponent: () =>
-      import('./admin-console.component').then(m => m.AdminAccountsComponent),
+      import('./pages/admin-accounts.component').then(m => m.AdminAccountsComponent),
     title: 'Accounts & Agents — Spector Cortex Admin',
   },
   {
     path: 'namespaces',
     loadComponent: () =>
-      import('./admin-console.component').then(m => m.AdminNamespacesComponent),
+      import('./pages/admin-namespaces.component').then(m => m.AdminNamespacesComponent),
     title: 'Namespaces — Spector Cortex Admin',
   },
   {
