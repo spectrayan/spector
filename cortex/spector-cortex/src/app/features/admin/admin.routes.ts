@@ -51,7 +51,7 @@ export const ADMIN_ROUTES: Routes = [
   {
     path: 'analytics',
     loadComponent: () =>
-      import('./admin-console.component').then(m => m.AdminAnalyticsComponent),
+      import('./pages/admin-analytics.component').then(m => m.AdminAnalyticsComponent),
     title: 'Analytics — Spector Cortex Admin',
   },
   {

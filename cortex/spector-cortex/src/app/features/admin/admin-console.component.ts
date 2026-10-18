@@ -154,21 +154,6 @@ export class AdminSectionShellComponent {
 }
 
 @Component({
-  selector: 'cortex-admin-analytics',
-  standalone: true,
-  imports: [MatCardModule, AdminSectionShellComponent],
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <cortex-admin-section-shell
-      icon="insights"
-      title="Analytics"
-      subtitle="Content-free fleet, tenant, account, and namespace metrics."
-    />
-  `,
-})
-export class AdminAnalyticsComponent {}
-
-@Component({
   selector: 'cortex-admin-keys',
   standalone: true,
   imports: [MatCardModule, AdminSectionShellComponent],
