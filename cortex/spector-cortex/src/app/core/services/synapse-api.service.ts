@@ -611,10 +611,10 @@ export class SynapseApiService {
     return this.http.get<any[]>(`${this.baseUrl}/admin/audit`, { params });
   }
 
-  verifyAdminAuditChain(limit = 5000): Observable<any> {
-    return this.http.get<any>(`${this.baseUrl}/admin/audit/verify`, {
-      params: { limit: String(limit) }
-    });
+  verifyAdminAuditChain(tenantId?: string): Observable<any> {
+    const params: Record<string, string> = {};
+    if (tenantId) params['tenantId'] = tenantId;
+    return this.http.get<any>(`${this.baseUrl}/admin/audit/verify`, { params });
   }
 
   getNamespaceAuditEvents(slugOrId: string, limit = 100): Observable<any[]> {
@@ -623,7 +623,7 @@ export class SynapseApiService {
     });
   }
 
-  // ─── Break-Glass Namespace Access (Issue #1060) ───
+  // ─── Break-Glass Namespace Access (Issue #1060, #1066) ───
 
   requestBreakGlass(payload: {
     namespaceId: string;
@@ -660,6 +660,60 @@ export class SynapseApiService {
 
   getBreakGlassRequest(id: string): Observable<any> {
     return this.http.get<any>(`${this.baseUrl}/admin/break-glass/${id}`);
+  }
+
+  /**
+   * Read-only emergency memory inspection for an active break-glass session.
+   */
+  inspectBreakGlassNamespaceMemories(namespaceId: string, limit = 25): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/memory/table`, {
+      params: { limit: String(limit) },
+      headers: { 'X-Spector-Namespace': namespaceId },
+    });
+  }
+
+  // ─── Infrastructure, Tasks & Caches (Issue #1066) ───
+
+  getSystemStatus(): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/system/status`);
+  }
+
+  getSystemConfig(): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/system/config`);
+  }
+
+  listTasks(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/tasks`);
+  }
+
+  triggerTask(id: string): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/tasks/${id}/trigger`, {});
+  }
+
+  pauseTask(id: string): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/tasks/${id}/pause`, {});
+  }
+
+  resumeTask(id: string): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/tasks/${id}/resume`, {});
+  }
+
+  getRecentTaskAuditHistory(limit = 50): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/tasks/audit`, {
+      params: { limit: String(limit) },
+    });
+  }
+
+  listAdminCaches(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/admin/cache`);
+  }
+
+  clearAdminCache(cacheName: string): Observable<any> {
+    return this.http.delete<any>(`${this.baseUrl}/admin/cache/${cacheName}`);
+  }
+
+  clearAllAdminCaches(): Observable<any> {
+    return this.http.delete<any>(`${this.baseUrl}/admin/cache`);
   }
 }
 

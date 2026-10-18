@@ -1,14 +1,17 @@
 /*
  * Copyright 2026 Spectrayan
  *
- * Licensed under the Business Source License 1.1 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     https://github.com/spectrayan/spector/blob/main/spector-cortex/LICENSE
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Change Date: July 6, 2030
- * Change License: Apache License, Version 2.0
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 import '@angular/compiler';
@@ -40,7 +43,9 @@ describe('SettingsStateService — Dynamic AI Configuration & Hot-Swap', () => {
           categories: [
             { key: 'memory', label: 'Memory Core' },
             { key: 'recall', label: 'Recall & Search' },
-            { key: 'hnsw', label: 'HNSW Index' },
+            { key: 'salience', label: 'Salience & Emotion' },
+            { key: 'hnsw', label: 'HNSW Index (Admin Infra)' }, // Moved to /admin/infra (#1066)
+            { key: 'llm_provider', label: 'LLM Provider (Admin Infra)' }, // Moved to /admin/infra (#1066)
             { key: 'rag', label: 'RAG (Deprecated)' }, // Should be filtered out
           ],
         })
@@ -105,12 +110,12 @@ describe('SettingsStateService — Dynamic AI Configuration & Hot-Swap', () => {
     vi.useRealTimers();
   });
 
-  it('loads dynamic categories filtering out deprecated rag alias', () => {
+  it('loads dynamic user categories filtering out deprecated rag alias and admin infra categories', () => {
     service.loadAiConfig();
 
     const categories = service.aiConfigCategories();
     expect(categories.length).toBe(3);
-    expect(categories.map((c) => c.key)).toEqual(['memory', 'recall', 'hnsw']);
+    expect(categories.map((c) => c.key)).toEqual(['memory', 'recall', 'salience']);
     expect(service.aiConfigFields()['memory']).toBeDefined();
     expect(service.aiConfigFields()['memory'][0].key).toBe('decay-rate');
     expect(service.aiConfigFields()['memory'][0].applyMode).toBe('LIVE');

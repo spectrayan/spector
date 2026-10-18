@@ -63,19 +63,19 @@ export const ADMIN_ROUTES: Routes = [
   {
     path: 'infra',
     loadComponent: () =>
-      import('./admin-console.component').then(m => m.AdminInfraComponent),
+      import('./pages/admin-infra.component').then(m => m.AdminInfraComponent),
     title: 'Infrastructure — Spector Cortex Admin',
   },
   {
     path: 'audit',
     loadComponent: () =>
-      import('./admin-console.component').then(m => m.AdminAuditComponent),
+      import('./pages/admin-audit.component').then(m => m.AdminAuditComponent),
     title: 'Audit Log — Spector Cortex Admin',
   },
   {
     path: 'break-glass',
     loadComponent: () =>
-      import('./admin-console.component').then(m => m.AdminBreakGlassComponent),
+      import('./pages/admin-break-glass.component').then(m => m.AdminBreakGlassComponent),
     title: 'Break-Glass Access — Spector Cortex Admin',
   },
 ];

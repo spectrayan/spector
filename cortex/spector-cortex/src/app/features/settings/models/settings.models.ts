@@ -1,14 +1,17 @@
 /*
  * Copyright 2026 Spectrayan
  *
- * Licensed under the Business Source License 1.1 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     https://github.com/spectrayan/spector/blob/main/spector-cortex/LICENSE
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Change Date: July 6, 2030
- * Change License: Apache License, Version 2.0
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 export interface InterestEntry {
@@ -39,6 +42,31 @@ export interface ConfigCategoryMeta {
   icon: string;
   description: string;
 }
+
+/**
+ * Infrastructure and platform configuration categories managed in `/admin/infra`
+ * at `tenant` or `system` scope (Issue #1066).
+ */
+export const ADMIN_INFRA_CONFIG_CATEGORY_KEYS: ReadonlySet<string> = new Set([
+  'llm_provider',
+  'embedding_provider',
+  'hnsw',
+  'concurrency',
+  'telemetry',
+  'ingestion',
+  'multimodal',
+]);
+
+/**
+ * User/namespace cognitive configuration categories managed in User Settings (`/settings`).
+ */
+export const USER_CONFIG_CATEGORY_KEYS: ReadonlySet<string> = new Set([
+  'memory',
+  'recall',
+  'spectrum',
+  'salience',
+  'soul',
+]);
 
 export const CATEGORY_METADATA: Record<string, { label: string; icon: string; description: string }> = {
   llm_provider: { label: 'LLM Provider', icon: 'psychology', description: 'Text generation model, credentials, and parameters' },
