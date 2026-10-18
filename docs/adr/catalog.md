@@ -1,11 +1,11 @@
 # Architecture Decision Records (ADRs) — Master Catalog
 
-> **Authoritative registry of all 87 Architecture Decision Records governing Spector.** Every record tracks architectural rationale, options evaluated, trade-offs accepted, and code verification against `main`.
+> **Authoritative registry of all 88 Architecture Decision Records governing Spector.** Every record tracks architectural rationale, options evaluated, trade-offs accepted, and code verification against `main`.
 
 > [!NOTE]
 > The Active Inference Self-Model Engine verification report has graduated to the architecture audit section: [Architecture Verification Report: Active Inference Self-Model Engine (AISME)](../architecture/aisme-completeness-verification-report.md).
 
-## Master Registry (0001–0087)
+## Master Registry (0001–0088)
 
 | ADR | Title | Status | Date | Target File |
 |:---|:---|:---:|:---:|:---|
@@ -96,6 +96,7 @@
 | **ADR-0085** | [Dynamic Synapse Configuration Overrides and SpectorMemory Runtime Propagation Architecture](0085-dynamic-synapse-configuration-and-runtime-propagation.md) | `Proposed` | 2026-09-19 | [`0085-dynamic-synapse-configuration-and-runtime-propagation.md`](0085-dynamic-synapse-configuration-and-runtime-propagation.md) |
 | **ADR-0086** | [Procedural Skill Crystallization](0086-procedural-skill-crystallization.md) | `Accepted (Implemented)` | 2026-09-22 | [`0086-procedural-skill-crystallization.md`](0086-procedural-skill-crystallization.md) |
 | **ADR-0087** | [Admin Role Model, Content-Free Admin API Contract & Break-Glass Policy](0087-admin-role-model-content-free-contract-break-glass.md) | `Proposed` | 2026-10-13 | [`0087-admin-role-model-content-free-contract-break-glass.md`](0087-admin-role-model-content-free-contract-break-glass.md) |
+| **ADR-0088** | [Bring Your Own Key (BYOK) & Per-Tenant Envelope Encryption of the Memory Store](0088-byok-envelope-encryption-memory-store.md) | `Proposed` | 2026-10-18 | [`0088-byok-envelope-encryption-memory-store.md`](0088-byok-envelope-encryption-memory-store.md) |
 
 ---
 
@@ -199,3 +200,4 @@ Hardware Abstraction Layer (HAL), actor concurrency, clustering & cell HA, REST/
 - **[ADR-0084: Dual-Plane Conversation Persistence](0084-dual-plane-conversation-persistence.md)** (`Proposed`)
 - **[ADR-0085: Dynamic Synapse Configuration Overrides and SpectorMemory Runtime Propagation Architecture](0085-dynamic-synapse-configuration-and-runtime-propagation.md)** (`Proposed`)
 - **[ADR-0087: Admin Role Model, Content-Free Admin API Contract & Break-Glass Policy](0087-admin-role-model-content-free-contract-break-glass.md)** (`Proposed`)
+- **[ADR-0088: Bring Your Own Key (BYOK) & Per-Tenant Envelope Encryption of the Memory Store](0088-byok-envelope-encryption-memory-store.md)** (`Proposed`)
