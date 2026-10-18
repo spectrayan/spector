@@ -45,14 +45,14 @@ export const routes: Routes = [
       },
       {
         path: 'playground',
-        loadComponent: () =>
-          import('./features/chat/agent-chat.component').then((m) => m.AgentChatComponent),
+        loadChildren: () =>
+          import('./features/playground/playground.routes').then((m) => m.PLAYGROUND_ROUTES),
         canActivate: [featureGuard('playgroundEnabled', 'chatEnabled')],
         title: 'Playground — Spector Cortex',
       },
       {
         path: 'chat',
-        redirectTo: 'playground',
+        redirectTo: 'playground/chat',
         pathMatch: 'full',
       },
       {
