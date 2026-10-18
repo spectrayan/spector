@@ -265,9 +265,23 @@ public class JdbcChatTranscriptAdapter implements ChatTranscriptPort {
     @Override
     @Transactional
     public void startTurn(String turnId, String sessionId, int seq, String model, int primedCount) {
-        if (getSession(sessionId).isEmpty()) {
+        String callerOwner = currentOwnerId();
+        String callerTenant = currentTenantId();
+        Boolean ownedByCaller = jdbc.sql("""
+                SELECT (owner_account_id = :ownerAccountId AND tenant_id = :tenantId)
+                FROM CHAT_SESSION
+                WHERE id = :id
+                """)
+                .param("id", sessionId)
+                .param("ownerAccountId", callerOwner)
+                .param("tenantId", callerTenant)
+                .query(Boolean.class)
+                .optional()
+                .orElse(null);
+        if (Boolean.FALSE.equals(ownedByCaller)) {
             throw new SynapseNotFoundException("ChatSession", sessionId);
         }
+
         Instant now = Instant.now();
         jdbc.sql("""
                 INSERT INTO CHAT_TURN (id, session_id, seq, status, model, primed_count, input_tokens, output_tokens, latency_ms, created_at)
@@ -290,8 +304,8 @@ public class JdbcChatTranscriptAdapter implements ChatTranscriptPort {
                 """)
                 .param("id", sessionId)
                 .param("now", Timestamp.from(now))
-                .param("ownerAccountId", currentOwnerId())
-                .param("tenantId", currentTenantId())
+                .param("ownerAccountId", callerOwner)
+                .param("tenantId", callerTenant)
                 .update();
     }
 

@@ -16,6 +16,7 @@
 package com.spectrayan.spector.synapse.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.ConstructorBinding;
 
 /**
  * Feature flags for Spector Synapse v0.1.0-alpha.
@@ -70,34 +71,10 @@ public record FeatureFlags(
 ) {
 
     /**
-     * Backward-compatible 13-parameter constructor defaulting {@code playgroundEnabled} to {@code false}.
-     */
-    public FeatureFlags(
-            Boolean chatEnabled,
-            Boolean agentChatEnabled,
-            Boolean agentWorkspacesEnabled,
-            Boolean tagExtractionEnabled,
-            Boolean entityExtractionEnabled,
-            Boolean reflectionEnabled,
-            Boolean gpuAccelerationEnabled,
-            Boolean clusterModeEnabled,
-            Boolean connectorsEnabled,
-            Boolean benchmarksEnabled,
-            Boolean advancedVisualizationsEnabled,
-            Boolean governanceEnabled,
-            Boolean mcpServerEnabled
-    ) {
-        this(false, chatEnabled, agentChatEnabled, agentWorkspacesEnabled,
-                tagExtractionEnabled, entityExtractionEnabled, reflectionEnabled,
-                gpuAccelerationEnabled, clusterModeEnabled, connectorsEnabled,
-                benchmarksEnabled, advancedVisualizationsEnabled, governanceEnabled,
-                mcpServerEnabled);
-    }
-
-    /**
      * Compact constructor that applies sensible defaults when Spring
      * does not bind a value (i.e., the parameter is {@code null}).
      */
+    @ConstructorBinding
     public FeatureFlags {
         // Playground & LLM-dependent: off by default
         if (playgroundEnabled == null) playgroundEnabled = false;
