@@ -75,7 +75,12 @@ public class GlobalExceptionHandler {
         HttpStatus status = switch (code.category()) {
             case VALIDATION -> HttpStatus.BAD_REQUEST;
             case CONFIG -> HttpStatus.UNPROCESSABLE_ENTITY;
-            case SECURITY -> HttpStatus.FORBIDDEN;
+            case SECURITY -> code == ErrorCode.KMS_CONFIGURATION_INVALID ? HttpStatus.BAD_REQUEST : HttpStatus.FORBIDDEN;
+            case MEMORY -> switch (code) {
+                case KMS_UNAVAILABLE_FAIL_CLOSED -> HttpStatus.SERVICE_UNAVAILABLE;
+                case MEMORY_AUTH_TAG_MISMATCH -> HttpStatus.UNPROCESSABLE_ENTITY;
+                default -> HttpStatus.INTERNAL_SERVER_ERROR;
+            };
             case CONNECTOR -> (code == ErrorCode.CONNECTOR_ROUTE_NOT_FOUND ||
                                code == ErrorCode.CONNECTOR_TEMPLATE_NOT_FOUND)
                     ? HttpStatus.NOT_FOUND
@@ -149,7 +154,12 @@ public class GlobalExceptionHandler {
         HttpStatus status = switch (code.category()) {
             case VALIDATION -> HttpStatus.BAD_REQUEST;
             case CONFIG -> HttpStatus.UNPROCESSABLE_ENTITY;
-            case SECURITY -> HttpStatus.FORBIDDEN;
+            case SECURITY -> code == ErrorCode.KMS_CONFIGURATION_INVALID ? HttpStatus.BAD_REQUEST : HttpStatus.FORBIDDEN;
+            case MEMORY -> switch (code) {
+                case KMS_UNAVAILABLE_FAIL_CLOSED -> HttpStatus.SERVICE_UNAVAILABLE;
+                case MEMORY_AUTH_TAG_MISMATCH -> HttpStatus.UNPROCESSABLE_ENTITY;
+                default -> HttpStatus.INTERNAL_SERVER_ERROR;
+            };
             case CONNECTOR -> (code == ErrorCode.CONNECTOR_ROUTE_NOT_FOUND ||
                                code == ErrorCode.CONNECTOR_TEMPLATE_NOT_FOUND)
                     ? HttpStatus.NOT_FOUND

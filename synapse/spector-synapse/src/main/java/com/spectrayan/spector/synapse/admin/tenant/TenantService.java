@@ -127,6 +127,19 @@ public class TenantService {
             return true;
         }
         try {
+            Integer kekCount = jdbc.sql("""
+                    SELECT COUNT(*) FROM tenant_kek_config
+                    WHERE tenant_id = :tenantId AND status = 'ACTIVE'
+                    """)
+                    .param("tenantId", tenantId.trim())
+                    .query(Integer.class)
+                    .single();
+            if (kekCount != null && kekCount > 0) {
+                return true;
+            }
+        } catch (Exception ignored) {
+        }
+        try {
             Integer count = jdbc.sql("""
                     SELECT COUNT(*) FROM credentials
                     WHERE tenant_id = :tenantId
