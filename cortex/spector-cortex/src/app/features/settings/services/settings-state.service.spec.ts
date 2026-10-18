@@ -153,4 +153,83 @@ describe('SettingsStateService — Dynamic AI Configuration & Hot-Swap', () => {
     expect(mockApi.deleteConfig).toHaveBeenCalledWith('memory', 'user');
     expect(mockToast.success).toHaveBeenCalledWith(expect.stringContaining('Reset memory to system defaults'));
   });
+
+  it('maps ApiKeyService list, create, and revoke calls through the universal /api/v1/credentials vault (#1050 & #1067)', () => {
+    mockHttp.get.mockReturnValue(
+      of([
+        {
+          credentialId: 'cred-1',
+          name: 'claude-desktop',
+          category: 'AUTH',
+          provider: 'spector',
+          credentialType: 'API_KEY',
+          maskedPreview: 'sk_spec_****90ab',
+          properties: { scopes: ['memory:read', 'memory:write'] },
+          createdAt: '2026-10-18T08:00:00Z',
+          expiresAt: null,
+          lastUsedAt: '2026-10-18T09:00:00Z',
+        },
+        {
+          credentialId: 'cred-llm',
+          name: 'openai-key',
+          category: 'LLM',
+          provider: 'openai',
+          credentialType: 'API_KEY',
+          maskedPreview: 'sk-****1234',
+        },
+      ]),
+    );
+
+    mockHttp.post.mockReturnValue(
+      of({
+        credentialId: 'cred-2',
+        name: 'cursor-agent',
+        category: 'AUTH',
+        provider: 'spector',
+        credentialType: 'API_KEY',
+        rawSecret: 'sk_spec_live_secret_value',
+        maskedPreview: 'sk_spec_****value',
+        properties: { scopes: ['memory:read'] },
+        createdAt: '2026-10-18T09:30:00Z',
+        expiresAt: null,
+      }),
+    );
+
+    mockHttp.delete.mockReturnValue(of(null));
+
+    const realKeyInjector = Injector.create({
+      providers: [
+        { provide: ApiKeyService, useClass: ApiKeyService },
+        { provide: HttpClient, useValue: mockHttp },
+      ],
+    });
+    const apiKeyService = realKeyInjector.get(ApiKeyService);
+
+    let listed: any[] = [];
+    apiKeyService.listApiKeys().subscribe((res) => (listed = res));
+    expect(mockHttp.get).toHaveBeenCalledWith(expect.stringContaining('/credentials'));
+    expect(listed.length).toBe(1);
+    expect(listed[0].name).toBe('claude-desktop');
+    expect(listed[0].keyPrefix).toBe('sk_spec_****90ab');
+
+    let created: any = null;
+    apiKeyService
+      .createApiKey({ name: 'cursor-agent', expiresInDays: null, scopes: ['memory:read'] })
+      .subscribe((res) => (created = res));
+    expect(mockHttp.post).toHaveBeenCalledWith(
+      expect.stringContaining('/credentials'),
+      expect.objectContaining({
+        name: 'cursor-agent',
+        category: 'AUTH',
+        credentialType: 'API_KEY',
+      }),
+    );
+    expect(created?.key).toBe('sk_spec_live_secret_value');
+
+    apiKeyService.revokeApiKey('cursor-agent').subscribe();
+    expect(mockHttp.delete).toHaveBeenCalledWith(
+      expect.stringContaining('/credentials/cursor-agent'),
+    );
+  });
 });
+

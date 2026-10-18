@@ -1,14 +1,17 @@
 /*
  * Copyright 2026 Spectrayan
  *
- * Licensed under the Business Source License 1.1 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     https://github.com/spectrayan/spector/blob/main/spector-cortex/LICENSE
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Change Date: July 6, 2030
- * Change License: Apache License, Version 2.0
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 import { Component, inject, OnInit } from '@angular/core';
@@ -20,8 +23,6 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { SettingsStateService } from './services/settings-state.service';
 import { ProfileSettingsComponent } from './components/profile-settings/profile-settings.component';
-import { PersonalitySettingsComponent } from './components/personality-settings/personality-settings.component';
-import { ValuesSettingsComponent } from './components/values-settings/values-settings.component';
 import { ScoringSettingsComponent } from './components/scoring-settings/scoring-settings.component';
 import { AiConfigSettingsComponent } from './components/ai-config-settings/ai-config-settings.component';
 import { PrivacySettingsComponent } from './components/privacy-settings/privacy-settings.component';
@@ -39,8 +40,6 @@ import { ApiKeysSettingsComponent } from './components/api-keys-settings/api-key
     MatTooltipModule,
     MatProgressBarModule,
     ProfileSettingsComponent,
-    PersonalitySettingsComponent,
-    ValuesSettingsComponent,
     ScoringSettingsComponent,
     AiConfigSettingsComponent,
     PrivacySettingsComponent,

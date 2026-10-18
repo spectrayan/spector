@@ -89,6 +89,7 @@ export class ShellComponent {
     { icon: 'search', label: 'Query', route: '/query' },
     { icon: 'hub', label: 'Graph', route: '/graph' },
     { icon: 'donut_large', label: 'Health', route: '/memory-health' },
+    { icon: 'share', label: 'Sharing', route: '/sharing' },
     { icon: 'tune', label: 'Settings', route: '/settings' },
     {
       icon: 'science',

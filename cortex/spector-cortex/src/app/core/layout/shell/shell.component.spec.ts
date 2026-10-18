@@ -182,6 +182,7 @@ describe('Role-Aware Shell & Command Palette (Issue #1062)', () => {
       '/query',
       '/graph',
       '/memory-health',
+      '/sharing',
       '/settings',
     ]);
     expect(routesShown).not.toContain('/playground');
