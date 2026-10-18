@@ -190,7 +190,7 @@ class ParallelEmbeddingPipelineTest {
 
     @Test
     void batchSizeRespected() {
-        List<Integer> batchSizes = new ArrayList<>();
+        List<Integer> batchSizes = new java.util.concurrent.CopyOnWriteArrayList<>();
         EmbeddingProvider trackingProvider = new EmbeddingProvider() {
             @Override
             public EmbeddingResult embed(String text) {
@@ -198,7 +198,7 @@ class ParallelEmbeddingPipelineTest {
             }
 
             @Override
-            public synchronized List<EmbeddingResult> embedBatch(List<String> texts) {
+            public List<EmbeddingResult> embedBatch(List<String> texts) {
                 batchSizes.add(texts.size());
                 return texts.stream().map(this::embed).toList();
             }

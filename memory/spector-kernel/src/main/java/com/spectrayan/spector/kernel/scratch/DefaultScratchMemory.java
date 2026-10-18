@@ -18,12 +18,14 @@ package com.spectrayan.spector.kernel.scratch;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Default implementation of {@link ScratchMemory} providing per-namespace scratch tracking (R8.1, R8.4, R8.5).
  */
 public final class DefaultScratchMemory implements ScratchMemory {
 
+    private final ReentrantLock releaseLock = new ReentrantLock();
     private final List<DefaultTokenVectorTable> tokenTables;
     private final List<DefaultFloatScratch> floatBuffers;
     private final AtomicLong totalAllocatedBytes;
@@ -72,26 +74,31 @@ public final class DefaultScratchMemory implements ScratchMemory {
     }
 
     @Override
-    public synchronized void releaseAll() {
-        if (closed) {
-            return;
-        }
-        closed = true;
+    public void releaseAll() {
+        releaseLock.lock();
+        try {
+            if (closed) {
+                return;
+            }
+            closed = true;
 
-        for (DefaultTokenVectorTable table : tokenTables) {
-            try {
-                table.close();
-            } catch (Exception ignored) {}
-        }
-        tokenTables.clear();
+            for (DefaultTokenVectorTable table : tokenTables) {
+                try {
+                    table.close();
+                } catch (Exception ignored) {}
+            }
+            tokenTables.clear();
 
-        for (DefaultFloatScratch buffer : floatBuffers) {
-            try {
-                buffer.close();
-            } catch (Exception ignored) {}
-        }
-        floatBuffers.clear();
+            for (DefaultFloatScratch buffer : floatBuffers) {
+                try {
+                    buffer.close();
+                } catch (Exception ignored) {}
+            }
+            floatBuffers.clear();
 
-        totalAllocatedBytes.set(0L);
+            totalAllocatedBytes.set(0L);
+        } finally {
+            releaseLock.unlock();
+        }
     }
 }

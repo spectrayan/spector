@@ -558,6 +558,7 @@ public final class LongMemEvalNaturalRunner {
         java.util.concurrent.atomic.AtomicLong totalGenLatencyMillis = new java.util.concurrent.atomic.AtomicLong(0);
 
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(evalResultsFile.toFile(), true))) {
+            var writerLock = new java.util.concurrent.locks.ReentrantLock();
             var executor = java.util.concurrent.Executors.newFixedThreadPool(8);
             var futures = new ArrayList<java.util.concurrent.CompletableFuture<Void>>();
 
@@ -645,10 +646,13 @@ public final class LongMemEvalNaturalRunner {
 
                     try {
                         String jsonLine = jsonMapper.writeValueAsString(res);
-                        synchronized (writer) {
+                        writerLock.lock();
+                        try {
                             writer.write(jsonLine);
                             writer.newLine();
                             writer.flush();
+                        } finally {
+                            writerLock.unlock();
                         }
                     } catch (IOException e) {
                         log.warn("Failed to write eval result line: {}", e.getMessage());

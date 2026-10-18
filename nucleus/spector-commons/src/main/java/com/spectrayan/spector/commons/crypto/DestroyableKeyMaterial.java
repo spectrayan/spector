@@ -18,6 +18,7 @@ package com.spectrayan.spector.commons.crypto;
 import java.lang.invoke.VarHandle;
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.concurrent.locks.ReentrantLock;
 import javax.security.auth.Destroyable;
 
 /**
@@ -30,6 +31,7 @@ import javax.security.auth.Destroyable;
  */
 public final class DestroyableKeyMaterial implements Destroyable, AutoCloseable {
 
+    private final ReentrantLock lock = new ReentrantLock();
     private final byte[] keyBytes;
     private volatile boolean destroyed;
 
@@ -67,25 +69,40 @@ public final class DestroyableKeyMaterial implements Destroyable, AutoCloseable 
      * Returns a copy of the raw key bytes. Throws {@link IllegalStateException} if this
      * key material has already been destroyed.
      */
-    public synchronized byte[] bytes() {
-        ensureNotDestroyed();
-        return keyBytes.clone();
+    public byte[] bytes() {
+        lock.lock();
+        try {
+            ensureNotDestroyed();
+            return keyBytes.clone();
+        } finally {
+            lock.unlock();
+        }
     }
 
     /**
      * Creates an independent {@link DestroyableKeyMaterial} copy of this key material.
      */
-    public synchronized DestroyableKeyMaterial copy() {
-        ensureNotDestroyed();
-        return new DestroyableKeyMaterial(keyBytes, false);
+    public DestroyableKeyMaterial copy() {
+        lock.lock();
+        try {
+            ensureNotDestroyed();
+            return new DestroyableKeyMaterial(keyBytes, false);
+        } finally {
+            lock.unlock();
+        }
     }
 
     @Override
-    public synchronized void destroy() {
-        if (!destroyed) {
-            Arrays.fill(keyBytes, (byte) 0);
-            VarHandle.fullFence();
-            destroyed = true;
+    public void destroy() {
+        lock.lock();
+        try {
+            if (!destroyed) {
+                Arrays.fill(keyBytes, (byte) 0);
+                VarHandle.fullFence();
+                destroyed = true;
+            }
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -98,13 +115,18 @@ public final class DestroyableKeyMaterial implements Destroyable, AutoCloseable 
      * Verifies that every byte in the internal backing array has been zeroized.
      * Intended for security verification tests.
      */
-    public synchronized boolean isZeroized() {
-        for (byte b : keyBytes) {
-            if (b != 0) {
-                return false;
+    public boolean isZeroized() {
+        lock.lock();
+        try {
+            for (byte b : keyBytes) {
+                if (b != 0) {
+                    return false;
+                }
             }
+            return true;
+        } finally {
+            lock.unlock();
         }
-        return true;
     }
 
     @Override

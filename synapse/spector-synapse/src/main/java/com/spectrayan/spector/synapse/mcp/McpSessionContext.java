@@ -44,8 +44,34 @@ public final class McpSessionContext {
     /** Working memory record in the volatile session working set. */
     public record ActiveWorkingItem(String id, String text, Map<String, Object> metadata, long timestampMs) {}
 
+    private static final class SessionWorkingSet {
+        private final java.util.concurrent.locks.ReentrantLock lock = new java.util.concurrent.locks.ReentrantLock();
+        private final Deque<ActiveWorkingItem> items = new ArrayDeque<>();
+
+        void add(ActiveWorkingItem item) {
+            lock.lock();
+            try {
+                if (items.size() >= MAX_ACTIVE_WORKING_ITEMS) {
+                    items.pollFirst(); // FIFO eviction
+                }
+                items.addLast(item);
+            } finally {
+                lock.unlock();
+            }
+        }
+
+        List<ActiveWorkingItem> snapshot() {
+            lock.lock();
+            try {
+                return List.copyOf(items);
+            } finally {
+                lock.unlock();
+            }
+        }
+    }
+
     private static final ConcurrentHashMap<String, String> SESSION_DEFAULTS = new ConcurrentHashMap<>();
-    private static final ConcurrentHashMap<String, Deque<ActiveWorkingItem>> SESSION_WORKING_SETS = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, SessionWorkingSet> SESSION_WORKING_SETS = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, String> SESSION_OWNERS = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, Long> SESSION_EPOCHS = new ConcurrentHashMap<>();
     private static final ThreadLocal<String> FALLBACK_DEFAULT = new ThreadLocal<>();
@@ -96,16 +122,7 @@ public final class McpSessionContext {
         if (connectionId == null || connectionId.isBlank()) {
             return;
         }
-        SESSION_WORKING_SETS.compute(connectionId, (key, queue) -> {
-            Deque<ActiveWorkingItem> q = queue != null ? queue : new ArrayDeque<>();
-            synchronized (q) {
-                if (q.size() >= MAX_ACTIVE_WORKING_ITEMS) {
-                    q.pollFirst(); // FIFO eviction
-                }
-                q.addLast(item);
-            }
-            return q;
-        });
+        SESSION_WORKING_SETS.computeIfAbsent(connectionId, k -> new SessionWorkingSet()).add(item);
     }
 
     /**
@@ -118,13 +135,11 @@ public final class McpSessionContext {
         if (connectionId == null || connectionId.isBlank()) {
             return List.of();
         }
-        Deque<ActiveWorkingItem> q = SESSION_WORKING_SETS.get(connectionId);
+        SessionWorkingSet q = SESSION_WORKING_SETS.get(connectionId);
         if (q == null) {
             return List.of();
         }
-        synchronized (q) {
-            return List.copyOf(q);
-        }
+        return q.snapshot();
     }
 
     /**

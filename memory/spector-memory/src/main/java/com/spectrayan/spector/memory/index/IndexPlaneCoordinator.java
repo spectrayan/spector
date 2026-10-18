@@ -29,6 +29,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Central coordinator for the Spector Index Plane (ADR-0082).
@@ -50,6 +51,7 @@ public final class IndexPlaneCoordinator implements AutoCloseable {
         CLOSED
     }
 
+    private final ReentrantLock lock = new ReentrantLock();
     private final Map<String, ManagedIndex> indexes = new LinkedHashMap<>();
     private final IndexContext context;
     private volatile State state = State.OPEN;
@@ -61,71 +63,96 @@ public final class IndexPlaneCoordinator implements AutoCloseable {
     /**
      * Registers a managed index with the coordinator.
      */
-    public synchronized IndexPlaneCoordinator register(ManagedIndex index) {
+    public IndexPlaneCoordinator register(ManagedIndex index) {
         Objects.requireNonNull(index, "index");
-        if (state == State.CLOSED) {
-            throw new IllegalStateException("Cannot register index on closed coordinator");
+        lock.lock();
+        try {
+            if (state == State.CLOSED) {
+                throw new IllegalStateException("Cannot register index on closed coordinator");
+            }
+            indexes.put(index.name(), index);
+            if (context != null) {
+                index.attach(context);
+            }
+            return this;
+        } finally {
+            lock.unlock();
         }
-        indexes.put(index.name(), index);
-        if (context != null) {
-            index.attach(context);
-        }
-        return this;
     }
 
     /**
      * Returns an unmodifiable collection of all registered indexes.
      */
-    public synchronized Collection<ManagedIndex> registeredIndexes() {
-        return List.copyOf(indexes.values());
+    public Collection<ManagedIndex> registeredIndexes() {
+        lock.lock();
+        try {
+            return List.copyOf(indexes.values());
+        } finally {
+            lock.unlock();
+        }
     }
 
     /**
      * Returns a registered index by name.
      */
-    public synchronized Optional<ManagedIndex> get(String name) {
-        return Optional.ofNullable(indexes.get(name));
+    public Optional<ManagedIndex> get(String name) {
+        lock.lock();
+        try {
+            return Optional.ofNullable(indexes.get(name));
+        } finally {
+            lock.unlock();
+        }
     }
 
     /**
      * Executes dependency-ordered hydration across all registered indexes.
      * Skips PRIMARY indexes (already mapped in memory) and hydrates DERIVED indexes in topological order.
      */
-    public synchronized CompletionStage<Void> hydrateAll() {
-        if (state == State.READY) {
-            return CompletableFuture.completedFuture(null);
-        }
-        this.state = State.HYDRATING;
-        List<ManagedIndex> sorted = computeTopologicalOrder();
-
-        CompletableFuture<Void> stage = CompletableFuture.completedFuture(null);
-        for (ManagedIndex index : sorted) {
-            if (index.kind() == IndexKind.PRIMARY) {
-                continue; // No-op, already memory-mapped
+    public CompletionStage<Void> hydrateAll() {
+        lock.lock();
+        try {
+            if (state == State.READY) {
+                return CompletableFuture.completedFuture(null);
             }
-            stage = stage.thenCompose(v -> {
-                log.debug("Hydrating index: {} (kind={})", index.name(), index.kind());
-                return index.hydrate();
-            });
-        }
+            this.state = State.HYDRATING;
+            List<ManagedIndex> sorted = computeTopologicalOrder();
 
-        return stage.thenRun(() -> {
-            this.state = State.READY;
-            log.info("IndexPlaneCoordinator: All indexes hydrated. State is READY ({} indexes registered).",
-                    indexes.size());
-        });
+            CompletableFuture<Void> stage = CompletableFuture.completedFuture(null);
+            for (ManagedIndex index : sorted) {
+                if (index.kind() == IndexKind.PRIMARY) {
+                    continue; // No-op, already memory-mapped
+                }
+                stage = stage.thenCompose(v -> {
+                    log.debug("Hydrating index: {} (kind={})", index.name(), index.kind());
+                    return index.hydrate();
+                });
+            }
+
+            return stage.thenRun(() -> {
+                this.state = State.READY;
+                log.info("IndexPlaneCoordinator: All indexes hydrated. State is READY ({} indexes registered).",
+                        indexes.size());
+            });
+        } finally {
+            lock.unlock();
+        }
     }
 
     /**
      * Checkpoints all registered indexes.
      */
-    public synchronized void checkpointAll() {
-        for (ManagedIndex index : indexes.values()) {
-            try {
-                index.checkpoint();
-            } catch (Exception e) {
-                log.warn("Error during checkpoint of index {}: {}", index.name(), e.getMessage(), e);
+    public void checkpointAll() {
+        lock.lock();
+        try {
+            for (ManagedIndex index : indexes.values()) {
+                try {
+                    index.checkpoint();
+                } catch (Exception e) {
+                    log.warn("Error during checkpoint of index {}: {}", index.name(), e.getMessage(), e);
+                }
             }
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -135,40 +162,55 @@ public final class IndexPlaneCoordinator implements AutoCloseable {
      * @param name index identifier
      * @return completion stage that finishes when rehydration completes
      */
-    public synchronized CompletionStage<Void> rebuild(String name) {
-        ManagedIndex index = indexes.get(name);
-        if (index == null) {
-            throw new IllegalArgumentException("Unknown index: " + name);
+    public CompletionStage<Void> rebuild(String name) {
+        lock.lock();
+        try {
+            ManagedIndex index = indexes.get(name);
+            if (index == null) {
+                throw new IllegalArgumentException("Unknown index: " + name);
+            }
+            log.info("Admin rebuild requested for index [{}]", name);
+            return index.rebuild();
+        } finally {
+            lock.unlock();
         }
-        log.info("Admin rebuild requested for index [{}]", name);
-        return index.rebuild();
     }
 
     /**
      * Returns a map of index statistics for all registered indexes.
      */
-    public synchronized Map<String, IndexStats> statsAll() {
-        Map<String, IndexStats> map = new LinkedHashMap<>();
-        for (Map.Entry<String, ManagedIndex> entry : indexes.entrySet()) {
-            map.put(entry.getKey(), entry.getValue().stats());
+    public Map<String, IndexStats> statsAll() {
+        lock.lock();
+        try {
+            Map<String, IndexStats> map = new LinkedHashMap<>();
+            for (Map.Entry<String, ManagedIndex> entry : indexes.entrySet()) {
+                map.put(entry.getKey(), entry.getValue().stats());
+            }
+            return Map.copyOf(map);
+        } finally {
+            lock.unlock();
         }
-        return Map.copyOf(map);
     }
 
     /**
      * Computes the execution order based on dependencies.
      */
-    public synchronized List<ManagedIndex> computeTopologicalOrder() {
-        List<ManagedIndex> result = new ArrayList<>();
-        Set<String> visited = new HashSet<>();
-        Set<String> visiting = new HashSet<>();
+    public List<ManagedIndex> computeTopologicalOrder() {
+        lock.lock();
+        try {
+            List<ManagedIndex> result = new ArrayList<>();
+            Set<String> visited = new HashSet<>();
+            Set<String> visiting = new HashSet<>();
 
-        for (ManagedIndex index : indexes.values()) {
-            if (!visited.contains(index.name())) {
-                dfs(index, visited, visiting, result);
+            for (ManagedIndex index : indexes.values()) {
+                if (!visited.contains(index.name())) {
+                    dfs(index, visited, visiting, result);
+                }
             }
+            return result;
+        } finally {
+            lock.unlock();
         }
-        return result;
     }
 
     private void dfs(ManagedIndex current, Set<String> visited, Set<String> visiting, List<ManagedIndex> result) {
@@ -217,11 +259,16 @@ public final class IndexPlaneCoordinator implements AutoCloseable {
      *
      * @return list of quarantined vertices, or empty if no engine is bound
      */
-    public synchronized List<QuarantinedVertex> inspectQuarantine() {
-        if (reconcileEngine == null || reconcileEngine.quarantineRegistry() == null) {
-            return List.of();
+    public List<QuarantinedVertex> inspectQuarantine() {
+        lock.lock();
+        try {
+            if (reconcileEngine == null || reconcileEngine.quarantineRegistry() == null) {
+                return List.of();
+            }
+            return reconcileEngine.quarantineRegistry().snapshot();
+        } finally {
+            lock.unlock();
         }
-        return reconcileEngine.quarantineRegistry().snapshot();
     }
 
     /**
@@ -230,15 +277,20 @@ public final class IndexPlaneCoordinator implements AutoCloseable {
      * @param edgeId the hyperedge ID to release
      * @return {@code true} if the edge was quarantined and has been released
      */
-    public synchronized boolean unquarantine(int edgeId) {
-        if (reconcileEngine == null || reconcileEngine.quarantineRegistry() == null) {
-            return false;
+    public boolean unquarantine(int edgeId) {
+        lock.lock();
+        try {
+            if (reconcileEngine == null || reconcileEngine.quarantineRegistry() == null) {
+                return false;
+            }
+            boolean released = reconcileEngine.quarantineRegistry().unquarantine(edgeId);
+            if (released) {
+                log.info("Admin un-quarantined hyperedge edgeId={}", edgeId);
+            }
+            return released;
+        } finally {
+            lock.unlock();
         }
-        boolean released = reconcileEngine.quarantineRegistry().unquarantine(edgeId);
-        if (released) {
-            log.info("Admin un-quarantined hyperedge edgeId={}", edgeId);
-        }
-        return released;
     }
 
     /**
@@ -252,15 +304,20 @@ public final class IndexPlaneCoordinator implements AutoCloseable {
     }
 
     @Override
-    public synchronized void close() {
-        this.state = State.CLOSED;
-        for (ManagedIndex index : indexes.values()) {
-            try {
-                index.close();
-            } catch (Exception e) {
-                log.warn("Error closing index {}: {}", index.name(), e.getMessage());
+    public void close() {
+        lock.lock();
+        try {
+            this.state = State.CLOSED;
+            for (ManagedIndex index : indexes.values()) {
+                try {
+                    index.close();
+                } catch (Exception e) {
+                    log.warn("Error closing index {}: {}", index.name(), e.getMessage());
+                }
             }
+            indexes.clear();
+        } finally {
+            lock.unlock();
         }
-        indexes.clear();
     }
 }

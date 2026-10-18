@@ -142,6 +142,7 @@ class DisconnectAndCheckpointEmpiricalTest {
         private final String disconnectOnEventName;
         private final List<String> sentEventNames = new CopyOnWriteArrayList<>();
         private final CountDownLatch completionLatch = new CountDownLatch(1);
+        private final java.util.concurrent.locks.ReentrantLock emitterLock = new java.util.concurrent.locks.ReentrantLock();
         private final AtomicBoolean abortOccurred = new AtomicBoolean(false);
 
         private Runnable onCompletionCallback;
@@ -161,75 +162,105 @@ class DisconnectAndCheckpointEmpiricalTest {
         }
 
         @Override
-        public synchronized void onCompletion(Runnable callback) {
-            this.onCompletionCallback = callback;
-        }
-
-        @Override
-        public synchronized void onError(Consumer<Throwable> callback) {
-            this.onErrorCallback = callback;
-        }
-
-        @Override
-        public synchronized void onTimeout(Runnable callback) {
-            this.onTimeoutCallback = callback;
-        }
-
-        @Override
-        public synchronized void complete() {
-            if (onCompletionCallback != null) {
-                try {
-                    onCompletionCallback.run();
-                } catch (Exception ignored) {}
+        public void onCompletion(Runnable callback) {
+            emitterLock.lock();
+            try {
+                this.onCompletionCallback = callback;
+            } finally {
+                emitterLock.unlock();
             }
-            completionLatch.countDown();
         }
 
         @Override
-        public synchronized void completeWithError(Throwable ex) {
-            abortOccurred.set(true);
-            if (onErrorCallback != null) {
-                try {
-                    onErrorCallback.accept(ex);
-                } catch (Exception ignored) {}
+        public void onError(Consumer<Throwable> callback) {
+            emitterLock.lock();
+            try {
+                this.onErrorCallback = callback;
+            } finally {
+                emitterLock.unlock();
             }
-            completionLatch.countDown();
         }
 
         @Override
-        public synchronized void send(SseEventBuilder builder) throws IOException {
-            int current = sendCount.incrementAndGet();
+        public void onTimeout(Runnable callback) {
+            emitterLock.lock();
+            try {
+                this.onTimeoutCallback = callback;
+            } finally {
+                emitterLock.unlock();
+            }
+        }
 
-            // Extract event name from builder if possible
-            Set<?> dataToSend = builder.build();
-            String eventName = "unknown";
-            for (Object item : dataToSend) {
-                if (item instanceof ResponseBodyEmitter.DataWithMediaType d) {
-                    Object data = d.getData();
-                    if (data instanceof com.spectrayan.spector.synapse.agent.chat.dto.ChatStreamEvent ev) {
-                        eventName = ev.eventType();
-                    } else if (data != null && data.toString().contains(":keepalive")) {
-                        eventName = "keepalive";
-                    } else if (data != null && data.toString().contains("event:")) {
-                        String s = data.toString();
-                        int idx = s.indexOf("event:");
-                        int end = s.indexOf('\n', idx);
-                        if (idx >= 0 && end > idx) {
-                            eventName = s.substring(idx + 6, end).trim();
+        @Override
+        public void complete() {
+            emitterLock.lock();
+            try {
+                if (onCompletionCallback != null) {
+                    try {
+                        onCompletionCallback.run();
+                    } catch (Exception ignored) {}
+                }
+                completionLatch.countDown();
+            } finally {
+                emitterLock.unlock();
+            }
+        }
+
+        @Override
+        public void completeWithError(Throwable ex) {
+            emitterLock.lock();
+            try {
+                abortOccurred.set(true);
+                if (onErrorCallback != null) {
+                    try {
+                        onErrorCallback.accept(ex);
+                    } catch (Exception ignored) {}
+                }
+                completionLatch.countDown();
+            } finally {
+                emitterLock.unlock();
+            }
+        }
+
+        @Override
+        public void send(SseEventBuilder builder) throws IOException {
+            emitterLock.lock();
+            try {
+                int current = sendCount.incrementAndGet();
+
+                // Extract event name from builder if possible
+                Set<?> dataToSend = builder.build();
+                String eventName = "unknown";
+                for (Object item : dataToSend) {
+                    if (item instanceof ResponseBodyEmitter.DataWithMediaType d) {
+                        Object data = d.getData();
+                        if (data instanceof com.spectrayan.spector.synapse.agent.chat.dto.ChatStreamEvent ev) {
+                            eventName = ev.eventType();
+                        } else if (data != null && data.toString().contains(":keepalive")) {
+                            eventName = "keepalive";
+                        } else if (data != null && data.toString().contains("event:")) {
+                            String s = data.toString();
+                            int idx = s.indexOf("event:");
+                            int end = s.indexOf('\n', idx);
+                            if (idx >= 0 && end > idx) {
+                                eventName = s.substring(idx + 6, end).trim();
+                            }
                         }
                     }
                 }
-            }
-            sentEventNames.add(eventName);
+                sentEventNames.add(eventName);
 
-            if (disconnectOnCount > 0 && current == disconnectOnCount) {
-                abortOccurred.set(true);
-                throw new IOException("Simulated client disconnect on write #" + current + " (Broken pipe)");
-            }
+                if (disconnectOnCount > 0 && current == disconnectOnCount) {
+                    abortOccurred.set(true);
+                    throw new IOException("Simulated client disconnect on write #" + current + " (Broken pipe)");
+                }
 
-            if (disconnectOnEventName != null && disconnectOnEventName.equalsIgnoreCase(eventName)) {
-                abortOccurred.set(true);
-                throw new IOException("Simulated client disconnect on event '" + eventName + "' (Connection reset)");
+                if (disconnectOnEventName != null && disconnectOnEventName.equalsIgnoreCase(eventName)) {
+                    abortOccurred.set(true);
+                    throw new IOException("Simulated client disconnect on event '" + eventName + "' (Connection reset)");
+                }
+            } finally {
+                emitterLock.unlock();
             }
         }
 

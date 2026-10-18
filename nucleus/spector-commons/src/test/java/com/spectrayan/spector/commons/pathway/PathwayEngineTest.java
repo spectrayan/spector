@@ -19,8 +19,8 @@ import static org.assertj.core.api.Assertions.*;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -35,7 +35,7 @@ class PathwayEngineTest {
 
     static class TestSignal implements DivergentCapable<TestSignal>, TraceableSignal {
         final List<String> steps = new ArrayList<>();
-        final List<RelayTrace> traces = Collections.synchronizedList(new ArrayList<>());
+        final List<RelayTrace> traces = new CopyOnWriteArrayList<>();
         boolean traceEnabled = false;
 
         @Override
@@ -43,9 +43,7 @@ class PathwayEngineTest {
             final TestSignal fork = new TestSignal();
             fork.steps.addAll(this.steps);
             fork.traceEnabled = this.traceEnabled;
-            synchronized (this.traces) {
-                fork.traces.addAll(this.traces);
-            }
+            fork.traces.addAll(this.traces);
             return fork;
         }
 
@@ -53,9 +51,7 @@ class PathwayEngineTest {
         public void merge(List<TestSignal> forks) {
             for (TestSignal fork : forks) {
                 steps.addAll(fork.steps);
-                synchronized (fork.traces) {
-                    traces.addAll(fork.traces);
-                }
+                traces.addAll(fork.traces);
             }
         }
 

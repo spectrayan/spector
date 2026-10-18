@@ -50,6 +50,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * High-priority {@link ReflectSweepExecutor} that orchestrates reflection sweeps via Spring Batch.
@@ -60,6 +61,7 @@ import java.util.Set;
 public class SpringBatchReflectSweepExecutor implements ReflectSweepExecutor, ApplicationContextAware {
 
     private static final Logger log = LoggerFactory.getLogger(SpringBatchReflectSweepExecutor.class);
+    private static final ReentrantLock CHECKPOINT_DIR_LOCK = new ReentrantLock();
     private static volatile ApplicationContext context;
     private static volatile Path defaultCheckpointDir;
 
@@ -92,7 +94,8 @@ public class SpringBatchReflectSweepExecutor implements ReflectSweepExecutor, Ap
 
     private static ReflectCheckpointStore defaultStore() {
         if (defaultCheckpointDir == null) {
-            synchronized (SpringBatchReflectSweepExecutor.class) {
+            CHECKPOINT_DIR_LOCK.lock();
+            try {
                 if (defaultCheckpointDir == null || !Files.exists(defaultCheckpointDir)) {
                     try {
                         defaultCheckpointDir = createSecureCheckpointDir();
@@ -101,6 +104,8 @@ public class SpringBatchReflectSweepExecutor implements ReflectSweepExecutor, Ap
                         return new InMemoryReflectCheckpointStore();
                     }
                 }
+            } finally {
+                CHECKPOINT_DIR_LOCK.unlock();
             }
         }
         return new FileReflectCheckpointStore(defaultCheckpointDir);

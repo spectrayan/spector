@@ -45,7 +45,10 @@ import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.StampedLock;
 
 import org.slf4j.Logger;
@@ -109,7 +112,8 @@ public final class RuntimeBundle implements AbstractBundle {
 
     private final java.util.concurrent.atomic.AtomicInteger activeLeases = new java.util.concurrent.atomic.AtomicInteger(0);
     private final ThreadLocal<Integer> threadLeaseCount = ThreadLocal.withInitial(() -> 0);
-    private final Object leaseDrainLock = new Object();
+    private final ReentrantLock leaseDrainLock = new ReentrantLock();
+    private final Condition leaseDrained = leaseDrainLock.newCondition();
 
     // Volatile fields — updated atomically under write lock during remap
     private volatile Arena arena;
@@ -282,8 +286,11 @@ public final class RuntimeBundle implements AbstractBundle {
             threadLeaseCount.set(remaining);
         }
         if (activeLeases.decrementAndGet() == 0) {
-            synchronized (leaseDrainLock) {
-                leaseDrainLock.notifyAll();
+            leaseDrainLock.lock();
+            try {
+                leaseDrained.signalAll();
+            } finally {
+                leaseDrainLock.unlock();
             }
         }
     }
@@ -298,7 +305,8 @@ public final class RuntimeBundle implements AbstractBundle {
     private static final long LEASE_DRAIN_TIMEOUT_MS = 10_000L;
 
     private void awaitActiveLeasesDrained() {
-        synchronized (leaseDrainLock) {
+        leaseDrainLock.lock();
+        try {
             long deadline = System.currentTimeMillis() + LEASE_DRAIN_TIMEOUT_MS;
             while (activeLeases.get() > 0) {
                 long remaining = deadline - System.currentTimeMillis();
@@ -309,12 +317,14 @@ public final class RuntimeBundle implements AbstractBundle {
                     throw new IllegalStateException("Timed out waiting for " + leaked + " active region leases to drain on " + bundlePath);
                 }
                 try {
-                    leaseDrainLock.wait(Math.min(remaining, 50));
+                    leaseDrained.await(Math.min(remaining, 50), TimeUnit.MILLISECONDS);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     throw new IllegalStateException("Interrupted while awaiting active leases drain on " + bundlePath, e);
                 }
             }
+        } finally {
+            leaseDrainLock.unlock();
         }
     }
 

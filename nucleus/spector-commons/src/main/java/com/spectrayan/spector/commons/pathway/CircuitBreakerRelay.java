@@ -21,6 +21,7 @@ import org.slf4j.LoggerFactory;
 import java.time.Duration;
 import java.util.EnumSet;
 import java.util.Objects;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * A decorating {@link SynapticRelay} that provides non-blocking adaptive circuit breaking
@@ -52,6 +53,7 @@ public final class CircuitBreakerRelay<S> implements SynapticRelay<S> {
     private final CircuitBreaker breaker;
     private final BreakerRef ref;
     private final OnOpen onOpen;
+    private final ReentrantLock resolveLock = new ReentrantLock();
     private volatile CircuitBreaker resolvedBreaker;
 
     /**
@@ -137,10 +139,13 @@ public final class CircuitBreakerRelay<S> implements SynapticRelay<S> {
             }
         }
         if (resolvedBreaker == null) {
-            synchronized (this) {
+            resolveLock.lock();
+            try {
                 if (resolvedBreaker == null) {
                     resolvedBreaker = new CircuitBreaker(ref.name(), ref.config());
                 }
+            } finally {
+                resolveLock.unlock();
             }
         }
         return resolvedBreaker;

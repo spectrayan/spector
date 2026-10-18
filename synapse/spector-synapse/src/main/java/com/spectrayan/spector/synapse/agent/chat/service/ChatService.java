@@ -836,6 +836,7 @@ public class ChatService {
      * and client disconnect aborts.
      */
     public static class ChatStreamSink implements AutoCloseable {
+        private final java.util.concurrent.locks.ReentrantLock sinkLock = new java.util.concurrent.locks.ReentrantLock();
         private final SseEmitter emitter;
         private final String sessionId;
         private final String turnId;
@@ -870,58 +871,73 @@ public class ChatService {
             this.abortAction = abortAction;
         }
 
-        public synchronized void send(ChatStreamEvent event) {
-            if (closed.get() || aborted.get()) return;
+        public void send(ChatStreamEvent event) {
+            sinkLock.lock();
             try {
-                emitter.send(SseEmitter.event()
-                        .name(event.eventType())
-                        .id(turnId + ":" + event.seq())
-                        .data(event, MediaType.APPLICATION_JSON));
-            } catch (IOException e) {
-                log.warn("[ChatStreamSink] Client disconnected on write for turn '{}': {}", turnId, e.getMessage());
-                triggerAbort();
-            } catch (Exception e) {
-                log.error("[ChatStreamSink] Failed to send event to emitter: {}", e.getMessage(), e);
+                if (closed.get() || aborted.get()) return;
+                try {
+                    emitter.send(SseEmitter.event()
+                            .name(event.eventType())
+                            .id(turnId + ":" + event.seq())
+                            .data(event, MediaType.APPLICATION_JSON));
+                } catch (IOException e) {
+                    log.warn("[ChatStreamSink] Client disconnected on write for turn '{}': {}", turnId, e.getMessage());
+                    triggerAbort();
+                } catch (Exception e) {
+                    log.error("[ChatStreamSink] Failed to send event to emitter: {}", e.getMessage(), e);
+                }
+            } finally {
+                sinkLock.unlock();
             }
         }
 
-        public synchronized void sendKeepalive() {
-            if (closed.get() || aborted.get()) return;
+        public void sendKeepalive() {
+            sinkLock.lock();
             try {
-                emitter.send(SseEmitter.event().comment("keepalive"));
-            } catch (IOException e) {
-                log.info("[ChatStreamSink] Client disconnected during keepalive for turn '{}'", turnId);
-                triggerAbort();
-            } catch (Exception e) {
-                log.debug("[ChatStreamSink] Keepalive send failed: {}", e.getMessage());
+                if (closed.get() || aborted.get()) return;
+                try {
+                    emitter.send(SseEmitter.event().comment("keepalive"));
+                } catch (IOException e) {
+                    log.info("[ChatStreamSink] Client disconnected during keepalive for turn '{}'", turnId);
+                    triggerAbort();
+                } catch (Exception e) {
+                    log.debug("[ChatStreamSink] Keepalive send failed: {}", e.getMessage());
+                }
+            } finally {
+                sinkLock.unlock();
             }
         }
 
-        public synchronized void triggerAbort() {
-            if (!aborted.compareAndSet(false, true)) return;
+        public void triggerAbort() {
+            sinkLock.lock();
+            try {
+                if (!aborted.compareAndSet(false, true)) return;
 
-            log.info("[ChatStreamSink] Aborting turn '{}' (client disconnect)", turnId);
-            if (heartbeatTask != null) {
-                heartbeatTask.cancel(true);
-            }
-
-            if (abortAction != null) {
-                try {
-                    abortAction.run();
-                } catch (Exception e) {
-                    log.warn("[ChatStreamSink] Error running abort action: {}", e.getMessage());
+                log.info("[ChatStreamSink] Aborting turn '{}' (client disconnect)", turnId);
+                if (heartbeatTask != null) {
+                    heartbeatTask.cancel(true);
                 }
-            }
 
-            if (transcriptPort != null) {
-                try {
-                    transcriptPort.updateTurnStatus(turnId, "INTERRUPTED", 0, 0, 0);
-                } catch (Exception e) {
-                    log.error("[ChatStreamSink] Failed to update turn status to INTERRUPTED: {}", e.getMessage());
+                if (abortAction != null) {
+                    try {
+                        abortAction.run();
+                    } catch (Exception e) {
+                        log.warn("[ChatStreamSink] Error running abort action: {}", e.getMessage());
+                    }
                 }
-            }
 
-            close();
+                if (transcriptPort != null) {
+                    try {
+                        transcriptPort.updateTurnStatus(turnId, "INTERRUPTED", 0, 0, 0);
+                    } catch (Exception e) {
+                        log.error("[ChatStreamSink] Failed to update turn status to INTERRUPTED: {}", e.getMessage());
+                    }
+                }
+
+                close();
+            } finally {
+                sinkLock.unlock();
+            }
         }
 
         public int nextSeq() {
@@ -933,14 +949,19 @@ public class ChatService {
         }
 
         @Override
-        public synchronized void close() {
-            if (closed.compareAndSet(false, true)) {
-                if (heartbeatTask != null) {
-                    heartbeatTask.cancel(false);
+        public void close() {
+            sinkLock.lock();
+            try {
+                if (closed.compareAndSet(false, true)) {
+                    if (heartbeatTask != null) {
+                        heartbeatTask.cancel(false);
+                    }
+                    try {
+                        emitter.complete();
+                    } catch (Exception ignored) {}
                 }
-                try {
-                    emitter.complete();
-                } catch (Exception ignored) {}
+            } finally {
+                sinkLock.unlock();
             }
         }
     }

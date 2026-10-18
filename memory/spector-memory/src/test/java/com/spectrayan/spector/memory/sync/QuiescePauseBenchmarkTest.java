@@ -41,7 +41,7 @@ class QuiescePauseBenchmarkTest {
         ExecutorService writerPool = Executors.newFixedThreadPool(NUM_WRITER_THREADS);
         CountDownLatch startLatch = new CountDownLatch(1);
         AtomicBoolean running = new AtomicBoolean(true);
-        List<Long> writerLatenciesNanos = Collections.synchronizedList(new ArrayList<>());
+        ConcurrentLinkedQueue<Long> writerLatenciesNanos = new ConcurrentLinkedQueue<>();
         AtomicLong totalWrites = new AtomicLong();
 
         // 1. Warm-up
@@ -102,10 +102,7 @@ class QuiescePauseBenchmarkTest {
         writerPool.shutdown();
 
         // 4. Calculate statistics
-        List<Long> latencies;
-        synchronized (writerLatenciesNanos) {
-            latencies = new ArrayList<>(writerLatenciesNanos);
-        }
+        List<Long> latencies = new ArrayList<>(writerLatenciesNanos);
         Collections.sort(latencies);
 
         double p50Micros = latencies.get((int) (latencies.size() * 0.50)) / 1_000.0;

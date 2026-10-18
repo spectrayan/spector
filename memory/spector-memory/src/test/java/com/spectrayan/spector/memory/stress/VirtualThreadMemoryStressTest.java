@@ -93,7 +93,7 @@ class VirtualThreadMemoryStressTest {
         AtomicInteger rememberSuccess = new AtomicInteger(0);
         AtomicInteger recallSuccess = new AtomicInteger(0);
         AtomicInteger reminderSuccess = new AtomicInteger(0);
-        List<Throwable> errors = new ArrayList<>();
+        List<Throwable> errors = new java.util.concurrent.CopyOnWriteArrayList<>();
 
         try (ExecutorService virtualExecutor = Executors.newVirtualThreadPerTaskExecutor()) {
             for (int i = 0; i < threadCount; i++) {
@@ -121,9 +121,7 @@ class VirtualThreadMemoryStressTest {
                             }
                         });
                     } catch (Throwable t) {
-                        synchronized (errors) {
-                            errors.add(t);
-                        }
+                        errors.add(t);
                     } finally {
                         latch.countDown();
                     }
@@ -213,7 +211,7 @@ class VirtualThreadMemoryStressTest {
             CountDownLatch latch = new CountDownLatch(writers + readers);
             AtomicInteger writesCompleted = new AtomicInteger(0);
             AtomicInteger readsCompleted = new AtomicInteger(0);
-            List<Throwable> errors = new ArrayList<>();
+            List<Throwable> errors = new java.util.concurrent.CopyOnWriteArrayList<>();
 
             try (ExecutorService virtualExecutor = Executors.newVirtualThreadPerTaskExecutor()) {
                 // Launch writers
@@ -225,9 +223,7 @@ class VirtualThreadMemoryStressTest {
                                     MemoryType.WORKING, MemorySource.OBSERVED, "roll");
                             writesCompleted.incrementAndGet();
                         } catch (Throwable t) {
-                            synchronized (errors) {
-                                errors.add(t);
-                            }
+                            errors.add(t);
                         } finally {
                             latch.countDown();
                         }
@@ -244,9 +240,7 @@ class VirtualThreadMemoryStressTest {
                             assertThat(results).isNotNull();
                             readsCompleted.incrementAndGet();
                         } catch (Throwable t) {
-                            synchronized (errors) {
-                                errors.add(t);
-                            }
+                            errors.add(t);
                         } finally {
                             latch.countDown();
                         }

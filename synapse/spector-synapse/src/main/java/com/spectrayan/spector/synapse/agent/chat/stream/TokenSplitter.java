@@ -20,6 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Objects;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -50,6 +51,7 @@ public final class TokenSplitter {
         TOOL_PENDING
     }
 
+    private final ReentrantLock lock = new ReentrantLock();
     private final BiConsumer<String, Long> thinkingConsumer;
     private final Consumer<String> tokenConsumer;
 
@@ -79,47 +81,57 @@ public final class TokenSplitter {
     /**
      * Ingests a native reasoning delta from the LLM provider.
      */
-    public synchronized void onNativeThinking(String text) {
-        if (text == null || text.isEmpty()) {
-            return;
-        }
-        if (tagBuffer.length() > 0) {
-            if (state == State.THINKING) {
-                emitThinking(tagBuffer.toString());
-            } else {
-                emitToken(tagBuffer.toString());
+    public void onNativeThinking(String text) {
+        lock.lock();
+        try {
+            if (text == null || text.isEmpty()) {
+                return;
             }
-            tagBuffer.setLength(0);
-        }
-        if (state != State.THINKING) {
-            this.state = State.THINKING;
-            this.thinkingDepth = 0;
-            if (this.thinkingStartNano == 0L) {
-                this.thinkingStartNano = System.nanoTime();
+            if (tagBuffer.length() > 0) {
+                if (state == State.THINKING) {
+                    emitThinking(tagBuffer.toString());
+                } else {
+                    emitToken(tagBuffer.toString());
+                }
+                tagBuffer.setLength(0);
             }
+            if (state != State.THINKING) {
+                this.state = State.THINKING;
+                this.thinkingDepth = 0;
+                if (this.thinkingStartNano == 0L) {
+                    this.thinkingStartNano = System.nanoTime();
+                }
+            }
+            emitThinking(text);
+        } finally {
+            lock.unlock();
         }
-        emitThinking(text);
     }
 
     /**
      * Ingests a standard text chunk from the LLM stream.
      */
-    public synchronized void onTextChunk(String chunk) {
-        if (chunk == null || chunk.isEmpty() || state == State.TOOL_PENDING) {
-            return;
-        }
-
-        if (state == State.THINKING && thinkingDepth == 0) {
-            this.state = State.IDLE;
-        }
-
-        for (int i = 0; i < chunk.length(); i++) {
-            char c = chunk.charAt(i);
-            if (state == State.THINKING) {
-                processCharInThinking(c);
-            } else {
-                processCharInText(c);
+    public void onTextChunk(String chunk) {
+        lock.lock();
+        try {
+            if (chunk == null || chunk.isEmpty() || state == State.TOOL_PENDING) {
+                return;
             }
+
+            if (state == State.THINKING && thinkingDepth == 0) {
+                this.state = State.IDLE;
+            }
+
+            for (int i = 0; i < chunk.length(); i++) {
+                char c = chunk.charAt(i);
+                if (state == State.THINKING) {
+                    processCharInThinking(c);
+                } else {
+                    processCharInText(c);
+                }
+            }
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -127,49 +139,74 @@ public final class TokenSplitter {
      * Signals that a tool execution call has been initiated by the LLM.
      * Pauses visible token streaming and transitions to TOOL_PENDING.
      */
-    public synchronized void onToolCall() {
-        if (tagBuffer.length() > 0) {
-            if (state == State.THINKING) {
-                emitThinking(tagBuffer.toString());
-            } else {
-                emitToken(tagBuffer.toString());
+    public void onToolCall() {
+        lock.lock();
+        try {
+            if (tagBuffer.length() > 0) {
+                if (state == State.THINKING) {
+                    emitThinking(tagBuffer.toString());
+                } else {
+                    emitToken(tagBuffer.toString());
+                }
+                tagBuffer.setLength(0);
             }
-            tagBuffer.setLength(0);
+            this.stateBeforeTool = this.state;
+            this.state = State.TOOL_PENDING;
+        } finally {
+            lock.unlock();
         }
-        this.stateBeforeTool = this.state;
-        this.state = State.TOOL_PENDING;
     }
 
     /**
      * Resumes token streaming after tool execution has completed.
      */
-    public synchronized void onToolResume() {
-        this.state = (this.stateBeforeTool != null) ? this.stateBeforeTool : State.IDLE;
+    public void onToolResume() {
+        lock.lock();
+        try {
+            this.state = (this.stateBeforeTool != null) ? this.stateBeforeTool : State.IDLE;
+        } finally {
+            lock.unlock();
+        }
     }
 
     /**
      * Flushes any buffered characters at stream completion.
      */
-    public synchronized void flush() {
-        if (tagBuffer.length() > 0) {
-            String pending = tagBuffer.toString();
-            tagBuffer.setLength(0);
-            if (state == State.THINKING) {
-                emitThinking(pending);
-            } else if (state == State.TEXT || state == State.IDLE) {
-                emitToken(pending);
+    public void flush() {
+        lock.lock();
+        try {
+            if (tagBuffer.length() > 0) {
+                String pending = tagBuffer.toString();
+                tagBuffer.setLength(0);
+                if (state == State.THINKING) {
+                    emitThinking(pending);
+                } else if (state == State.TEXT || state == State.IDLE) {
+                    emitToken(pending);
+                }
             }
+            this.state = State.IDLE;
+            this.thinkingDepth = 0;
+        } finally {
+            lock.unlock();
         }
-        this.state = State.IDLE;
-        this.thinkingDepth = 0;
     }
 
-    public synchronized State getState() {
-        return state;
+    public State getState() {
+        lock.lock();
+        try {
+            return state;
+        } finally {
+            lock.unlock();
+        }
     }
 
-    public synchronized int getBufferLength() {
-        return tagBuffer.length();
+    public int getBufferLength() {
+        lock.lock();
+        try {
+            return tagBuffer.length();
+        } finally {
+            lock.unlock();
+        }
     }
 
     // ── Internal State Machine ─────────────────────────────────────
