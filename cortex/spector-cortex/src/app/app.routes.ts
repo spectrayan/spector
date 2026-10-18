@@ -73,16 +73,22 @@ export const routes: Routes = [
         title: 'Graph — Spector Cortex',
       },
       {
-        path: 'settings',
-        loadComponent: () =>
-          import('./features/settings/settings.component').then((m) => m.SettingsComponent),
-        title: 'Settings — Spector Cortex',
-      },
-      {
         path: 'memory-health',
         loadComponent: () =>
           import('./features/health/health.component').then((m) => m.HealthComponent),
         title: 'Health — Spector Cortex',
+      },
+      {
+        path: 'sharing',
+        loadComponent: () =>
+          import('./features/sharing/sharing.component').then((m) => m.SharingComponent),
+        title: 'Sharing & Access — Spector Cortex',
+      },
+      {
+        path: 'settings',
+        loadComponent: () =>
+          import('./features/settings/settings.component').then((m) => m.SettingsComponent),
+        title: 'Settings — Spector Cortex',
       },
       {
         path: 'admin',

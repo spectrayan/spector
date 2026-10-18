@@ -334,10 +334,23 @@ export class SynapseApiService {
     return this.http.get<any>(`${this.baseUrl}/benchmarks/results`);
   }
 
-  // ─── Namespaces & Grants (ADR-0029 §8.1) ───
+  // ─── Namespaces & Grants (ADR-0029 §8.1, Issue #1067) ───
 
   listNamespaces(): Observable<any[]> {
     return this.http.get<any[]>(`${this.baseUrl}/namespaces`);
+  }
+
+  getNamespace(slugOrId: string): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/namespaces/${encodeURIComponent(slugOrId)}`);
+  }
+
+  createNamespace(request: {
+    slug: string;
+    type?: string;
+    displayName?: string;
+    description?: string;
+  }): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/namespaces`, request);
   }
 
   introspectAccount(): Observable<any> {
@@ -349,15 +362,26 @@ export class SynapseApiService {
   }
 
   listNamespaceGrants(slugOrId: string): Observable<any[]> {
-    return this.http.get<any[]>(`${this.baseUrl}/namespaces/${slugOrId}/grants`);
+    return this.http.get<any[]>(`${this.baseUrl}/namespaces/${encodeURIComponent(slugOrId)}/grants`);
   }
 
-  createNamespaceGrant(slugOrId: string, request: { granteeAccountId: string; role: string; expiresAt?: string; constraints?: any }): Observable<any> {
-    return this.http.post<any>(`${this.baseUrl}/namespaces/${slugOrId}/grants`, request);
+  createNamespaceGrant(
+    slugOrId: string,
+    request: { granteeAccountId: string; role: string; expiresAt?: string; constraints?: any },
+  ): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/namespaces/${encodeURIComponent(slugOrId)}/grants`, request);
   }
 
   revokeNamespaceGrant(slugOrId: string, grantId: string): Observable<void> {
-    return this.http.delete<void>(`${this.baseUrl}/namespaces/${slugOrId}/grants/${grantId}`);
+    return this.http.delete<void>(
+      `${this.baseUrl}/namespaces/${encodeURIComponent(slugOrId)}/grants/${encodeURIComponent(grantId)}`,
+    );
+  }
+
+  listNamespaceAuditEvents(slugOrId: string, limit = 50): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/namespaces/${encodeURIComponent(slugOrId)}/audit`, {
+      params: { limit: String(limit) },
+    });
   }
 
   // ─── Admin Tenant Lifecycle (ADR-0087, Issue #1055) ───

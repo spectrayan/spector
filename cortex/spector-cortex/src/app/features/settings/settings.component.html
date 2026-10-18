@@ -7,7 +7,7 @@
       <h2 class="header-title">Settings</h2>
     </div>
     <div class="header-actions">
-      <button mat-stroked-button (click)="state.resetProfile()" matTooltip="Reset all to defaults">
+      <button mat-stroked-button (click)="state.resetProfile()" matTooltip="Reset salience & scoring to defaults">
         <mat-icon>restart_alt</mat-icon>
         Reset
       </button>
@@ -22,10 +22,10 @@
     <mat-progress-bar mode="indeterminate" class="settings-loader"></mat-progress-bar>
   }
 
-  <!-- ── Tab Group ── -->
+  <!-- ── Tab Group (User Workspace Settings — Issue #1067) ── -->
   <mat-tab-group animationDuration="200ms" class="settings-tabs">
 
-    <!-- ═══ Tab 1: My Profile ═══ -->
+    <!-- ═══ Tab 1: My Profile (Salience Interests & Disinterests) ═══ -->
     <mat-tab>
       <ng-template mat-tab-label>
         <mat-icon class="tab-icon">person</mat-icon>
@@ -34,25 +34,7 @@
       <cortex-profile-settings />
     </mat-tab>
 
-    <!-- ═══ Tab 2: Personality ═══ -->
-    <mat-tab>
-      <ng-template mat-tab-label>
-        <mat-icon class="tab-icon">psychology</mat-icon>
-        <span>Personality</span>
-      </ng-template>
-      <cortex-personality-settings />
-    </mat-tab>
-
-    <!-- ═══ Tab 3: Values & Culture ═══ -->
-    <mat-tab>
-      <ng-template mat-tab-label>
-        <mat-icon class="tab-icon">public</mat-icon>
-        <span>Values &amp; Culture</span>
-      </ng-template>
-      <cortex-values-settings />
-    </mat-tab>
-
-    <!-- ═══ Tab 4: Scoring ═══ -->
+    <!-- ═══ Tab 2: Scoring (ICNU) ═══ -->
     <mat-tab>
       <ng-template mat-tab-label>
         <mat-icon class="tab-icon">science</mat-icon>
@@ -61,16 +43,16 @@
       <cortex-scoring-settings />
     </mat-tab>
 
-    <!-- ═══ Tab 5: AI Configuration ═══ -->
+    <!-- ═══ Tab 3: User-Level Recall & Salience Overrides ═══ -->
     <mat-tab>
       <ng-template mat-tab-label>
-        <mat-icon class="tab-icon">psychology</mat-icon>
-        <span>AI Configuration</span>
+        <mat-icon class="tab-icon">tune</mat-icon>
+        <span>Recall &amp; Salience Overrides</span>
       </ng-template>
       <cortex-ai-config-settings />
     </mat-tab>
 
-    <!-- ═══ Tab 6: Privacy & Security ═══ -->
+    <!-- ═══ Tab 4: Privacy & Security ═══ -->
     <mat-tab>
       <ng-template mat-tab-label>
         <mat-icon class="tab-icon">shield</mat-icon>
@@ -79,7 +61,7 @@
       <cortex-privacy-settings />
     </mat-tab>
 
-    <!-- ═══ Tab 7: API Keys ═══ -->
+    <!-- ═══ Tab 5: API Keys (Universal Credentials Vault) ═══ -->
     <mat-tab>
       <ng-template mat-tab-label>
         <mat-icon class="tab-icon">key</mat-icon>

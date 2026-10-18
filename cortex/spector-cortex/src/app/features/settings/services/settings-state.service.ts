@@ -182,6 +182,7 @@ export class SettingsStateService {
     this.profileId.set(this.auth.currentUser()?.userId || 'default');
     this.loadProfile();
     this.loadAiConfig();
+    this.loadApiKeys();
   }
 
   loadProfile(): void {
