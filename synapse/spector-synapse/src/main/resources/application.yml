@@ -17,6 +17,7 @@ spector:
   # Internal-only flags. Users cannot toggle from UI.
   # LLM-dependent features auto-enable when Ollama is detected.
   features:
+    playground-enabled: ${SPECTOR_PLAYGROUND_ENABLED:false}
     chat-enabled: ${SPECTOR_CHAT_ENABLED:false}
     agent-chat-enabled: ${SPECTOR_AGENT_CHAT_ENABLED:false}
     agent-workspaces-enabled: ${SPECTOR_AGENT_WORKSPACES_ENABLED:false}

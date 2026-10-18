@@ -36,6 +36,18 @@ public interface ChatTranscriptPort {
     ChatSessionRecord createSession(String sessionId, String title);
 
     /**
+     * Creates a new chat session in the operational store with explicit owner, tenant, and namespace scoping.
+     */
+    default ChatSessionRecord createSession(
+            String sessionId,
+            String title,
+            String ownerAccountId,
+            String tenantId,
+            String namespaceId) {
+        return createSession(sessionId, title);
+    }
+
+    /**
      * Lists active chat sessions with preview text and message counts.
      */
     List<ChatSessionSummary> listSessions(int limit);

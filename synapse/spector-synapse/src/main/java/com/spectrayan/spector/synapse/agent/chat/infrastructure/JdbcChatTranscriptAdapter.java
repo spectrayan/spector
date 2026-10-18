@@ -17,6 +17,7 @@ package com.spectrayan.spector.synapse.agent.chat.infrastructure;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.spectrayan.spector.commons.concurrent.MemoryScope;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.synapse.agent.chat.dto.ChatDto.AssistantMessageView;
@@ -29,6 +30,7 @@ import com.spectrayan.spector.synapse.agent.chat.dto.ChatDto.ToolCardView;
 import com.spectrayan.spector.synapse.agent.chat.dto.ChatDto.UserMessageView;
 import com.spectrayan.spector.synapse.agent.chat.service.ChatTranscriptPort;
 import com.spectrayan.spector.synapse.error.SynapseNotFoundException;
+import com.spectrayan.spector.synapse.security.SecurityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
@@ -51,7 +53,8 @@ import java.util.Optional;
  * JDBC implementation of {@link ChatTranscriptPort} using Spring's {@link JdbcClient}.
  *
  * <p>Coordinates durable session management, turn recording, and chronological event replay
- * strictly on the operational relational plane (ADR-0084).</p>
+ * strictly on the operational relational plane (ADR-0084), scoped per authenticated owner,
+ * tenant, and namespace (Issue #1068).</p>
  */
 @Repository
 public class JdbcChatTranscriptAdapter implements ChatTranscriptPort {
@@ -67,25 +70,62 @@ public class JdbcChatTranscriptAdapter implements ChatTranscriptPort {
         this.mapper = Objects.requireNonNull(mapper, "ObjectMapper must not be null");
     }
 
+    private static String currentOwnerId() {
+        String userId = SecurityUtils.getUserId();
+        return (userId != null && !userId.isBlank()) ? userId : "default";
+    }
+
+    private static String currentTenantId() {
+        String tenantId = SecurityUtils.getTenantId();
+        return (tenantId != null && !tenantId.isBlank()) ? tenantId : "default";
+    }
+
+    private static String currentNamespaceId() {
+        if (MemoryScope.isNamespaceActive()) {
+            String ns = MemoryScope.namespaceId();
+            if (ns != null && !ns.isBlank()) {
+                return ns;
+            }
+        }
+        return "default";
+    }
+
     @Override
     @Transactional
     public ChatSessionRecord createSession(String sessionId, String title) {
+        return createSession(sessionId, title, currentOwnerId(), currentTenantId(), currentNamespaceId());
+    }
+
+    @Override
+    @Transactional
+    public ChatSessionRecord createSession(
+            String sessionId,
+            String title,
+            String ownerAccountId,
+            String tenantId,
+            String namespaceId) {
         Objects.requireNonNull(sessionId, "sessionId must not be null");
         Instant now = Instant.now();
         String effectiveTitle = (title != null && !title.isBlank()) ? title.trim() : "New Chat";
+        String effOwner = (ownerAccountId != null && !ownerAccountId.isBlank()) ? ownerAccountId.trim() : currentOwnerId();
+        String effTenant = (tenantId != null && !tenantId.isBlank()) ? tenantId.trim() : currentTenantId();
+        String effNamespace = (namespaceId != null && !namespaceId.isBlank()) ? namespaceId.trim() : currentNamespaceId();
 
         try {
             jdbc.sql("""
-                    INSERT INTO CHAT_SESSION (id, title, status, archived, created_at, updated_at)
-                    VALUES (:id, :title, 'ACTIVE', FALSE, :createdAt, :updatedAt)
+                    INSERT INTO CHAT_SESSION (id, title, status, archived, owner_account_id, tenant_id, namespace_id, created_at, updated_at)
+                    VALUES (:id, :title, 'ACTIVE', FALSE, :ownerAccountId, :tenantId, :namespaceId, :createdAt, :updatedAt)
                     """)
                     .param("id", sessionId)
                     .param("title", effectiveTitle)
+                    .param("ownerAccountId", effOwner)
+                    .param("tenantId", effTenant)
+                    .param("namespaceId", effNamespace)
                     .param("createdAt", Timestamp.from(now))
                     .param("updatedAt", Timestamp.from(now))
                     .update();
 
-            return new ChatSessionRecord(sessionId, effectiveTitle, "ACTIVE", false, now, now);
+            return new ChatSessionRecord(sessionId, effectiveTitle, "ACTIVE", false, effOwner, effTenant, effNamespace, now, now);
         } catch (DataAccessException e) {
             log.error("[JdbcTranscript] Failed to create session '{}'", sessionId, e);
             throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, e, "session_id", "Failed to create chat session: " + sessionId);
@@ -95,6 +135,8 @@ public class JdbcChatTranscriptAdapter implements ChatTranscriptPort {
     @Override
     public List<ChatSessionSummary> listSessions(int limit) {
         int effLimit = limit > 0 ? Math.min(limit, 100) : 20;
+        String ownerAccountId = currentOwnerId();
+        String tenantId = currentTenantId();
 
         String sql = """
                 SELECT s.id, s.title, s.updated_at,
@@ -105,11 +147,15 @@ public class JdbcChatTranscriptAdapter implements ChatTranscriptPort {
                         ORDER BY t.seq ASC, e.seq ASC LIMIT 1) AS first_prompt_json
                 FROM CHAT_SESSION s
                 WHERE s.archived = FALSE
+                  AND s.owner_account_id = :ownerAccountId
+                  AND s.tenant_id = :tenantId
                 ORDER BY s.updated_at DESC
                 LIMIT :limit
                 """;
 
         return jdbc.sql(sql)
+                .param("ownerAccountId", ownerAccountId)
+                .param("tenantId", tenantId)
                 .param("limit", effLimit)
                 .query((rs, rowNum) -> {
                     String id = rs.getString("id");
@@ -145,8 +191,16 @@ public class JdbcChatTranscriptAdapter implements ChatTranscriptPort {
     @Override
     public Optional<ChatSessionRecord> getSession(String sessionId) {
         Objects.requireNonNull(sessionId, "sessionId must not be null");
-        return jdbc.sql("SELECT id, title, status, archived, created_at, updated_at FROM CHAT_SESSION WHERE id = :id")
+        return jdbc.sql("""
+                SELECT id, title, status, archived, owner_account_id, tenant_id, namespace_id, created_at, updated_at
+                FROM CHAT_SESSION
+                WHERE id = :id
+                  AND owner_account_id = :ownerAccountId
+                  AND tenant_id = :tenantId
+                """)
                 .param("id", sessionId)
+                .param("ownerAccountId", currentOwnerId())
+                .param("tenantId", currentTenantId())
                 .query(this::mapSessionRecord)
                 .optional();
     }
@@ -160,11 +214,16 @@ public class JdbcChatTranscriptAdapter implements ChatTranscriptPort {
         int updated = jdbc.sql("""
                 UPDATE CHAT_SESSION
                 SET title = :title, updated_at = :updatedAt
-                WHERE id = :id AND archived = FALSE
+                WHERE id = :id
+                  AND archived = FALSE
+                  AND owner_account_id = :ownerAccountId
+                  AND tenant_id = :tenantId
                 """)
                 .param("id", sessionId)
                 .param("title", title.trim())
                 .param("updatedAt", Timestamp.from(Instant.now()))
+                .param("ownerAccountId", currentOwnerId())
+                .param("tenantId", currentTenantId())
                 .update();
 
         if (updated == 0) {
@@ -176,23 +235,39 @@ public class JdbcChatTranscriptAdapter implements ChatTranscriptPort {
     @Transactional
     public void deleteSession(String sessionId) {
         Objects.requireNonNull(sessionId, "sessionId must not be null");
+        String ownerAccountId = currentOwnerId();
+        String tenantId = currentTenantId();
 
-        // Clean up checkpoints explicitly for thread_id
-        jdbc.sql("DELETE FROM GRAPH_CHECKPOINT WHERE thread_id = :threadId")
-                .param("threadId", sessionId)
-                .update();
-
-        // Deleting from CHAT_SESSION cascades to CHAT_TURN and CHAT_EVENT via DB foreign key
-        int deleted = jdbc.sql("DELETE FROM CHAT_SESSION WHERE id = :id")
+        // Deleting from CHAT_SESSION cascades to CHAT_TURN and CHAT_EVENT via DB foreign key,
+        // scoped strictly to the caller's owned session.
+        int deleted = jdbc.sql("""
+                DELETE FROM CHAT_SESSION
+                WHERE id = :id
+                  AND owner_account_id = :ownerAccountId
+                  AND tenant_id = :tenantId
+                """)
                 .param("id", sessionId)
+                .param("ownerAccountId", ownerAccountId)
+                .param("tenantId", tenantId)
                 .update();
 
-        log.info("[JdbcTranscript] Deleted operational session '{}' (rows={})", sessionId, deleted);
+        if (deleted > 0) {
+            // Clean up checkpoints explicitly for thread_id only when the caller owned the session
+            jdbc.sql("DELETE FROM GRAPH_CHECKPOINT WHERE thread_id = :threadId")
+                    .param("threadId", sessionId)
+                    .update();
+        }
+
+        log.info("[JdbcTranscript] Deleted operational session '{}' for owner='{}' tenant='{}' (rows={})",
+                sessionId, ownerAccountId, tenantId, deleted);
     }
 
     @Override
     @Transactional
     public void startTurn(String turnId, String sessionId, int seq, String model, int primedCount) {
+        if (getSession(sessionId).isEmpty()) {
+            throw new SynapseNotFoundException("ChatSession", sessionId);
+        }
         Instant now = Instant.now();
         jdbc.sql("""
                 INSERT INTO CHAT_TURN (id, session_id, seq, status, model, primed_count, input_tokens, output_tokens, latency_ms, created_at)
@@ -206,9 +281,17 @@ public class JdbcChatTranscriptAdapter implements ChatTranscriptPort {
                 .param("createdAt", Timestamp.from(now))
                 .update();
 
-        jdbc.sql("UPDATE CHAT_SESSION SET updated_at = :now WHERE id = :id")
+        jdbc.sql("""
+                UPDATE CHAT_SESSION
+                SET updated_at = :now
+                WHERE id = :id
+                  AND owner_account_id = :ownerAccountId
+                  AND tenant_id = :tenantId
+                """)
                 .param("id", sessionId)
                 .param("now", Timestamp.from(now))
+                .param("ownerAccountId", currentOwnerId())
+                .param("tenantId", currentTenantId())
                 .update();
     }
 
@@ -256,8 +339,17 @@ public class JdbcChatTranscriptAdapter implements ChatTranscriptPort {
 
     @Override
     public int countTurns(String sessionId) {
-        Integer count = jdbc.sql("SELECT COUNT(*) FROM CHAT_TURN WHERE session_id = :sessionId")
+        Integer count = jdbc.sql("""
+                SELECT COUNT(*)
+                FROM CHAT_TURN t
+                JOIN CHAT_SESSION s ON t.session_id = s.id
+                WHERE t.session_id = :sessionId
+                  AND s.owner_account_id = :ownerAccountId
+                  AND s.tenant_id = :tenantId
+                """)
                 .param("sessionId", sessionId)
+                .param("ownerAccountId", currentOwnerId())
+                .param("tenantId", currentTenantId())
                 .query(Integer.class)
                 .single();
         return count != null ? count : 0;
@@ -268,12 +360,17 @@ public class JdbcChatTranscriptAdapter implements ChatTranscriptPort {
         record TurnRow(String id, int seq, String status, int inTokens, int outTokens, int primedCount) {}
 
         List<TurnRow> turnRows = jdbc.sql("""
-                SELECT id, seq, status, input_tokens, output_tokens, primed_count
-                FROM CHAT_TURN
-                WHERE session_id = :sessionId
-                ORDER BY seq ASC
+                SELECT t.id, t.seq, t.status, t.input_tokens, t.output_tokens, t.primed_count
+                FROM CHAT_TURN t
+                JOIN CHAT_SESSION s ON t.session_id = s.id
+                WHERE t.session_id = :sessionId
+                  AND s.owner_account_id = :ownerAccountId
+                  AND s.tenant_id = :tenantId
+                ORDER BY t.seq ASC
                 """)
                 .param("sessionId", sessionId)
+                .param("ownerAccountId", currentOwnerId())
+                .param("tenantId", currentTenantId())
                 .query((rs, rowNum) -> new TurnRow(
                         rs.getString("id"),
                         rs.getInt("seq"),
@@ -418,6 +515,9 @@ public class JdbcChatTranscriptAdapter implements ChatTranscriptPort {
                 rs.getString("title"),
                 rs.getString("status"),
                 rs.getBoolean("archived"),
+                rs.getString("owner_account_id"),
+                rs.getString("tenant_id"),
+                rs.getString("namespace_id"),
                 rs.getTimestamp("created_at").toInstant(),
                 rs.getTimestamp("updated_at").toInstant()
         );

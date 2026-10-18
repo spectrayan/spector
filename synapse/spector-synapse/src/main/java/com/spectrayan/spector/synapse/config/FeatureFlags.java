@@ -36,6 +36,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *       default to {@code true}.</li>
  * </ul>
  *
+ * @param playgroundEnabled            playground test harness (chat, raw console, persona settings; default false)
  * @param chatEnabled                  chat interface (auto-enabled by Ollama detection)
  * @param agentChatEnabled             autonomous agent chat (auto-enabled by Ollama detection)
  * @param agentWorkspacesEnabled       per-agent workspace isolation
@@ -52,6 +53,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  */
 @ConfigurationProperties(prefix = "spector.features")
 public record FeatureFlags(
+        Boolean playgroundEnabled,
         Boolean chatEnabled,
         Boolean agentChatEnabled,
         Boolean agentWorkspacesEnabled,
@@ -68,11 +70,37 @@ public record FeatureFlags(
 ) {
 
     /**
+     * Backward-compatible 13-parameter constructor defaulting {@code playgroundEnabled} to {@code false}.
+     */
+    public FeatureFlags(
+            Boolean chatEnabled,
+            Boolean agentChatEnabled,
+            Boolean agentWorkspacesEnabled,
+            Boolean tagExtractionEnabled,
+            Boolean entityExtractionEnabled,
+            Boolean reflectionEnabled,
+            Boolean gpuAccelerationEnabled,
+            Boolean clusterModeEnabled,
+            Boolean connectorsEnabled,
+            Boolean benchmarksEnabled,
+            Boolean advancedVisualizationsEnabled,
+            Boolean governanceEnabled,
+            Boolean mcpServerEnabled
+    ) {
+        this(false, chatEnabled, agentChatEnabled, agentWorkspacesEnabled,
+                tagExtractionEnabled, entityExtractionEnabled, reflectionEnabled,
+                gpuAccelerationEnabled, clusterModeEnabled, connectorsEnabled,
+                benchmarksEnabled, advancedVisualizationsEnabled, governanceEnabled,
+                mcpServerEnabled);
+    }
+
+    /**
      * Compact constructor that applies sensible defaults when Spring
      * does not bind a value (i.e., the parameter is {@code null}).
      */
     public FeatureFlags {
-        // LLM-dependent: off by default (auto-enabled by OllamaDetector)
+        // Playground & LLM-dependent: off by default
+        if (playgroundEnabled == null) playgroundEnabled = false;
         if (chatEnabled == null) chatEnabled = false;
         if (agentChatEnabled == null) agentChatEnabled = false;
 
@@ -97,12 +125,13 @@ public record FeatureFlags(
     /**
      * Checks whether the named feature flag is enabled.
      *
-     * @param featureName the camelCase flag name (e.g., "chatEnabled")
+     * @param featureName the camelCase flag name (e.g., "playgroundEnabled", "chatEnabled")
      * @return {@code true} if the flag is enabled, {@code false} otherwise
      * @throws IllegalArgumentException if the feature name is unknown
      */
     public boolean isEnabled(String featureName) {
         return switch (featureName) {
+            case "playgroundEnabled" -> playgroundEnabled;
             case "chatEnabled" -> chatEnabled;
             case "agentChatEnabled" -> agentChatEnabled;
             case "agentWorkspacesEnabled" -> agentWorkspacesEnabled;

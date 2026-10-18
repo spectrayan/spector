@@ -197,4 +197,43 @@ class ChatControllerSessionTest {
         mockMvc.perform(get("/api/v1/chat/sessions/missing-id/messages"))
                 .andExpect(status().isNotFound());
     }
+
+    @Test
+    @DisplayName("Issue #1068: /api/v1/chat/** returns 404 when playgroundEnabled and chatEnabled are default false")
+    void testChatEndpointsReturn404WhenPlaygroundDisabledByDefault() throws Exception {
+        var defaultFlags = new com.spectrayan.spector.synapse.config.FeatureFlags(
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null
+        );
+        var interceptor = new com.spectrayan.spector.synapse.config.FeatureGateInterceptor(defaultFlags, objectMapper);
+        ChatController gatedController = new ChatController(chatService, soulService, transcriptPort);
+        MockMvc gatedMvc = MockMvcBuilders.standaloneSetup(gatedController)
+                .addInterceptors(interceptor)
+                .build();
+
+        gatedMvc.perform(get("/api/v1/chat/sessions"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.feature").value("playgroundEnabled"));
+
+        gatedMvc.perform(get("/api/v1/chat/config"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.feature").value("playgroundEnabled"));
+    }
+
+    @Test
+    @DisplayName("Issue #1068: /api/v1/chat/** allows requests when playgroundEnabled is true")
+    void testChatEndpointsAllowedWhenPlaygroundEnabled() throws Exception {
+        var enabledFlags = new com.spectrayan.spector.synapse.config.FeatureFlags(
+                true, false, false, false, true, true, true, false, false, false, false, true, true, true
+        );
+        var interceptor = new com.spectrayan.spector.synapse.config.FeatureGateInterceptor(enabledFlags, objectMapper);
+        ChatController gatedController = new ChatController(chatService, soulService, transcriptPort);
+        MockMvc gatedMvc = MockMvcBuilders.standaloneSetup(gatedController)
+                .addInterceptors(interceptor)
+                .build();
+
+        when(transcriptPort.listSessions(10)).thenReturn(List.of());
+
+        gatedMvc.perform(get("/api/v1/chat/sessions"))
+                .andExpect(status().isOk());
+    }
 }

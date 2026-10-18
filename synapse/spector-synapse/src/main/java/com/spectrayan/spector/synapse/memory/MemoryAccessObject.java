@@ -321,6 +321,46 @@ public class MemoryAccessObject {
     }
 
     /**
+     * Explains why a specific memory was not returned or outranked for a query.
+     */
+    public com.spectrayan.spector.memory.model.WhyNotExplanation whyNot(
+            SpectorMemory memory,
+            String memoryId,
+            String query,
+            RecallOptions options) {
+        if (!isAvailable(memory)) {
+            return new com.spectrayan.spector.memory.model.WhyNotExplanation(
+                    memoryId,
+                    query,
+                    false,
+                    false,
+                    null,
+                    0.0f,
+                    com.spectrayan.spector.memory.model.WhyNotExplanation.Reason.NOT_FOUND,
+                    "Memory engine unavailable (stub mode)"
+            );
+        }
+        try {
+            RequestMemoryContext reqCtx = resolveCurrentRequestContext();
+            RecallOptions effOptions = options != null ? options : RecallOptions.DEFAULT;
+            if (reqCtx != null) {
+                RecallOptions.Builder builder = effOptions.toBuilder();
+                if (reqCtx.effectiveSalience() != null) {
+                    builder.salienceProfile(reqCtx.effectiveSalience());
+                }
+                if (reqCtx.primarySoul() != null && reqCtx.primarySoul().id() != null && effOptions.personaId() == null) {
+                    builder.personaId(reqCtx.primarySoul().id());
+                }
+                effOptions = builder.build();
+            }
+            return memory.whyNot(memoryId, query, effOptions);
+        } catch (Exception e) {
+            log.error("[MemoryAccessObject] WhyNot failed: {}", e.getMessage(), e);
+            throw new IllegalStateException("Why-not analysis failed: " + e.getMessage(), e);
+        }
+    }
+
+    /**
      * Tag-based metadata browsing — no vector search.
      *
      * <p>Delegates to {@link SpectorMemory#browse(String...)} which uses

@@ -216,9 +216,23 @@ public final class ChatDto {
             String title,
             String status,
             boolean archived,
+            String ownerAccountId,
+            String tenantId,
+            String namespaceId,
             Instant createdAt,
             Instant updatedAt
-    ) {}
+    ) {
+        public ChatSessionRecord(
+                String id,
+                String title,
+                String status,
+                boolean archived,
+                Instant createdAt,
+                Instant updatedAt
+        ) {
+            this(id, title, status, archived, "default", "default", "default", createdAt, updatedAt);
+        }
+    }
 
     /**
      * Operational session summary with typed Instant.
