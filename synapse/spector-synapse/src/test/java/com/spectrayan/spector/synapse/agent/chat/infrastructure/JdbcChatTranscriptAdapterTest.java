@@ -173,4 +173,55 @@ class JdbcChatTranscriptAdapterTest {
         adapter.startTurn("t2", "s1", 1, "model", 0);
         assertThat(adapter.countTurns("s1")).isEqualTo(2);
     }
+
+    @Test
+    @DisplayName("Issue #1068: Sessions are scoped to owner_account_id and tenant_id and invisible across users")
+    void testCrossUserSessionIsolation() {
+        var authContext = org.springframework.security.core.context.SecurityContextHolder.getContext();
+        try {
+            // User A in tenant-alpha creates a session and records a turn
+            var userAAuth = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                    "acct-user-a", "N/A", java.util.List.of());
+            userAAuth.setDetails(java.util.Map.of("tenant_id", "tenant-alpha"));
+            authContext.setAuthentication(userAAuth);
+
+            var sessionA = adapter.createSession("sess-a", "User A Private Chat", "acct-user-a", "tenant-alpha", "ns-alpha");
+            assertThat(sessionA.ownerAccountId()).isEqualTo("acct-user-a");
+            assertThat(sessionA.tenantId()).isEqualTo("tenant-alpha");
+            assertThat(sessionA.namespaceId()).isEqualTo("ns-alpha");
+
+            adapter.startTurn("turn-a1", "sess-a", 0, "qwen3.5", 1);
+            adapter.appendEvent("ev-a1", "turn-a1", 0, "user", "{\"text\":\"Secret User A prompt\"}");
+
+            assertThat(adapter.listSessions(10)).hasSize(1);
+            assertThat(adapter.getSession("sess-a")).isPresent();
+            assertThat(adapter.loadTurns("sess-a")).hasSize(1);
+
+            // Switch to User B in the same tenant-alpha
+            var userBAuth = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                    "acct-user-b", "N/A", java.util.List.of());
+            userBAuth.setDetails(java.util.Map.of("tenant_id", "tenant-alpha"));
+            authContext.setAuthentication(userBAuth);
+
+            // User B cannot see, load, rename, count turns, start turns on, or delete User A's session
+            assertThat(adapter.listSessions(10)).isEmpty();
+            assertThat(adapter.getSession("sess-a")).isEmpty();
+            assertThat(adapter.loadTurns("sess-a")).isEmpty();
+            assertThat(adapter.countTurns("sess-a")).isZero();
+            assertThatThrownBy(() -> adapter.renameSession("sess-a", "Hijacked Title"))
+                    .isInstanceOf(SynapseNotFoundException.class);
+            assertThatThrownBy(() -> adapter.startTurn("turn-b-hijack", "sess-a", 1, "qwen3.5", 0))
+                    .isInstanceOf(SynapseNotFoundException.class);
+
+            adapter.deleteSession("sess-a"); // No-op for User B
+
+            // Switch back to User A and verify session and turns are untouched
+            authContext.setAuthentication(userAAuth);
+            assertThat(adapter.getSession("sess-a")).isPresent();
+            assertThat(adapter.getSession("sess-a").get().title()).isEqualTo("User A Private Chat");
+            assertThat(adapter.loadTurns("sess-a")).hasSize(1);
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+    }
 }

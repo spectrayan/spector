@@ -625,7 +625,8 @@ public class MemoryService {
                         (double) r.score(), r.memoryType().name(),
                         String.format("%.1f days", r.ageDays()),
                         Arrays.asList(r.synapticTags()),
-                        r.truncated()))
+                        r.truncated(),
+                        MemoryDto.ScoreBreakdownDto.from(r.breakdown())))
                 .toList();
         auditBreakGlassReadIfActive("recall", mapped.stream().map(RecallResult::id).toList());
         return mapped;
@@ -638,6 +639,38 @@ public class MemoryService {
         List<RecallResult> list = recall(request);
         boolean truncated = list.stream().anyMatch(RecallResult::truncated);
         return new RecallResponse(list, truncated, 0, list.size());
+    }
+
+    /**
+     * Diagnoses why a specific memory was not returned or outranked in a recall query.
+     */
+    public MemoryDto.WhyNotResponse whyNot(MemoryDto.WhyNotRequest request) {
+        assertRoleAtLeast(com.spectrayan.spector.synapse.catalog.GrantRole.READER);
+        if (request == null || request.memoryId() == null || request.memoryId().isBlank()) {
+            throw new IllegalArgumentException("memoryId cannot be blank");
+        }
+        if (request.query() == null || request.query().isBlank()) {
+            throw new IllegalArgumentException("query cannot be blank");
+        }
+        String memoryId = request.memoryId().trim();
+        String query = request.query().trim();
+        int topK = request.effectiveTopK();
+
+        SpectorMemory memory = resolveMemory();
+        RecallOptions options = RecallOptions.builder().topK(topK).build();
+        var explanation = mao.whyNot(memory, memoryId, query, options);
+
+        auditBreakGlassReadIfActive("why_not", List.of(memoryId));
+        return new MemoryDto.WhyNotResponse(
+                explanation.memoryId(),
+                explanation.query(),
+                explanation.exists(),
+                explanation.suppressed(),
+                MemoryDto.ScoreBreakdownDto.from(explanation.breakdown()),
+                explanation.scoreGap(),
+                explanation.reason() != null ? explanation.reason().name() : "NOT_FOUND",
+                explanation.summary()
+        );
     }
 
     /**

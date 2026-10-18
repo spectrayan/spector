@@ -291,6 +291,21 @@ public class MemoryController {
     }
 
     /**
+     * Explains why a specific memory was NOT recalled or ranked lower for a query.
+     *
+     * <p>{@code POST /api/v1/memory/why-not}</p>
+     */
+    @PostMapping("/why-not")
+    @Operation(operationId = "whyNotMemory", summary = "Explain why a specific memory was excluded or outranked in a recall query")
+    public ResponseEntity<MemoryDto.WhyNotResponse> whyNot(@RequestBody MemoryDto.WhyNotRequest request) {
+        MemoryDto.WhyNotResponse response = memoryService.whyNot(request);
+        if (request != null && request.memoryId() != null && !request.memoryId().isBlank()) {
+            auditBreakGlassReadIfNeeded("why_not", List.of(request.memoryId().trim()));
+        }
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * Cross-rememberer federated recall (ADR-0029 §7).
      *
      * <p>{@code POST /api/v1/memory/federated-recall}</p>

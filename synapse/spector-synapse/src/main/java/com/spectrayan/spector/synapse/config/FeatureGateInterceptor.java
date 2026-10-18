@@ -89,20 +89,27 @@ public class FeatureGateInterceptor implements HandlerInterceptor {
             return true; // No feature gate — allow through
         }
 
-        String featureName = gate.value();
-
-        if (featureFlags.isEnabled(featureName)) {
-            return true; // Feature is enabled — allow through
+        String[] featureNames = gate.value();
+        if (featureNames == null || featureNames.length == 0) {
+            return true;
         }
+
+        for (String name : featureNames) {
+            if (featureFlags.isEnabled(name)) {
+                return true; // At least one feature flag is enabled — allow through
+            }
+        }
+
+        String primaryFeature = featureNames[0];
 
         // Feature is disabled — block with 404
         log.debug("Feature gate '{}' blocked request to {} {}",
-                featureName, request.getMethod(), request.getRequestURI());
+                primaryFeature, request.getMethod(), request.getRequestURI());
 
-        String kebabName = toKebabCase(featureName);
+        String kebabName = toKebabCase(primaryFeature);
         var errorBody = Map.of(
-                "error", "Feature '" + featureName + "' is not enabled",
-                "feature", featureName,
+                "error", "Feature '" + primaryFeature + "' is not enabled",
+                "feature", primaryFeature,
                 "enableHint", "Set spector.features." + kebabName + "=true or ensure Ollama is running"
         );
 

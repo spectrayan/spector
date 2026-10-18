@@ -497,7 +497,15 @@ export class MemoryTableService {
             memoryType: item.memoryType || item.tier || 'SEMANTIC',
             source: item.source || 'OBSERVED',
             synapticTags: item.tags || [],
-            breakdown: {
+            breakdown: item.breakdown ? {
+              similarity: item.breakdown.similarity ?? item.cognitiveScore ?? 0,
+              importanceDecay: item.breakdown.importanceDecay ?? 1.0,
+              tagBoostFactor: item.breakdown.tagBoostFactor ?? 1.0,
+              habituationPenalty: item.breakdown.habituationPenalty ?? 1.0,
+              graphBoost: item.breakdown.graphBoost ?? 1.0,
+              valenceAlignment: item.breakdown.valenceAlignment ?? 1.0,
+              finalScore: item.breakdown.finalScore ?? item.cognitiveScore ?? 0
+            } : {
               similarity: item.cognitiveScore ?? 0,
               importanceDecay: 1.0,
               tagBoostFactor: 1.0,
@@ -520,6 +528,14 @@ export class MemoryTableService {
           profile: profile || 'BALANCED'
         } as RecallResponse;
       })
+    );
+  }
+
+  /** Explains why a candidate memory was excluded or ranked lower for a given query. */
+  whyNot(memoryId: string, query: string, topK: number = 5): Observable<{ memoryId: string; query: string; topK: number; diagnosticReport: string }> {
+    return this.http.post<{ memoryId: string; query: string; topK: number; diagnosticReport: string }>(
+      `${this.API}/why-not`,
+      { memoryId, query, topK }
     );
   }
 

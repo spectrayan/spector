@@ -65,8 +65,8 @@ import java.util.Optional;
  * via HTTP endpoints. All request/response types use proper Java record DTOs from
  * {@link com.spectrayan.spector.synapse.agent.chat.dto.ChatDto}.</p>
  *
- * <p>Gated by the {@code chatEnabled} feature flag — returns HTTP 404
- * when chat is disabled (e.g., Ollama not detected).</p>
+ * <p>Gated by the {@code playgroundEnabled} (or {@code chatEnabled}) feature flag —
+ * returns HTTP 404 when both are disabled (default off).</p>
  *
  * <h3>Endpoints</h3>
  * <ul>
@@ -82,7 +82,7 @@ import java.util.Optional;
  */
 @RestController
 @RequestMapping("/api/v1/chat")
-@FeatureGate("chatEnabled")
+@FeatureGate({"playgroundEnabled", "chatEnabled"})
 public class ChatController {
 
     private static final Logger log = LoggerFactory.getLogger(ChatController.class);

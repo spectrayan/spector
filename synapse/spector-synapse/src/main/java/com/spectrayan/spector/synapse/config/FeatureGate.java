@@ -43,9 +43,10 @@ import java.lang.annotation.Target;
 public @interface FeatureGate {
 
     /**
-     * The camelCase name of the feature flag to check (e.g., "chatEnabled").
+     * The camelCase name(s) of the feature flag(s) to check (e.g., {@code "playgroundEnabled"}, {@code "chatEnabled"}).
+     * When multiple flags are specified, the gate allows the request if <em>any</em> of the flags is enabled.
      *
-     * @return the feature flag name
+     * @return the feature flag name(s)
      */
-    String value();
+    String[] value();
 }

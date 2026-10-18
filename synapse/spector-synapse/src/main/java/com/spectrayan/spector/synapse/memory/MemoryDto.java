@@ -400,7 +400,63 @@ public final class MemoryDto {
     ) {}
 
     /**
-     * Cognitive recall result with memory type annotation and truncation status.
+     * Decomposed 6-phase score breakdown for a single recall result.
+     */
+    public record ScoreBreakdownDto(
+            float similarity,
+            float importanceDecay,
+            float tagBoostFactor,
+            float habituationPenalty,
+            float graphBoost,
+            float valenceAlignment,
+            float finalScore
+    ) {
+        public static ScoreBreakdownDto from(com.spectrayan.spector.memory.model.ScoreBreakdown b) {
+            if (b == null) {
+                return null;
+            }
+            return new ScoreBreakdownDto(
+                    b.similarity(),
+                    b.importanceDecay(),
+                    b.tagBoostFactor(),
+                    b.habituationPenalty(),
+                    b.graphBoost(),
+                    b.valenceAlignment(),
+                    b.finalScore()
+            );
+        }
+    }
+
+    /**
+     * Request to diagnose why a specific memory was excluded or outranked in a recall query.
+     */
+    public record WhyNotRequest(
+            @JsonProperty("memoryId") String memoryId,
+            @JsonProperty("query") String query,
+            @JsonProperty("topK") Integer topK
+    ) {
+        public int effectiveTopK() {
+            return topK != null && topK > 0 ? topK : 5;
+        }
+    }
+
+    /**
+     * Diagnostic explanation for why a specific memory was not recalled or ranked lower.
+     */
+    public record WhyNotResponse(
+            @JsonProperty("memoryId") String memoryId,
+            @JsonProperty("query") String query,
+            @JsonProperty("exists") boolean exists,
+            @JsonProperty("suppressed") boolean suppressed,
+            @JsonInclude(JsonInclude.Include.NON_NULL)
+            @JsonProperty("breakdown") ScoreBreakdownDto breakdown,
+            @JsonProperty("scoreGap") float scoreGap,
+            @JsonProperty("reason") String reason,
+            @JsonProperty("summary") String summary
+    ) {}
+
+    /**
+     * Cognitive recall result with memory type annotation, truncation status, and score breakdown.
      */
     public record RecallResult(
             String id,
@@ -410,11 +466,19 @@ public final class MemoryDto {
             String memoryType,
             String ageDescription,
             List<String> tags,
-            @JsonProperty("truncated") boolean truncated
+            @JsonProperty("truncated") boolean truncated,
+            @JsonInclude(JsonInclude.Include.NON_NULL)
+            @JsonProperty("breakdown") ScoreBreakdownDto breakdown
     ) {
         public RecallResult(String id, String text, String tier, double cognitiveScore,
+                            String memoryType, String ageDescription, List<String> tags,
+                            boolean truncated) {
+            this(id, text, tier, cognitiveScore, memoryType, ageDescription, tags, truncated, null);
+        }
+
+        public RecallResult(String id, String text, String tier, double cognitiveScore,
                             String memoryType, String ageDescription, List<String> tags) {
-            this(id, text, tier, cognitiveScore, memoryType, ageDescription, tags, false);
+            this(id, text, tier, cognitiveScore, memoryType, ageDescription, tags, false, null);
         }
     }
 

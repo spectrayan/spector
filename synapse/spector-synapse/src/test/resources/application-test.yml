@@ -12,6 +12,7 @@ spector:
   api-key: test-key
   data-dir: ${java.io.tmpdir}/spector-test
   features:
+    playground-enabled: true
     chat-enabled: true
     agent-chat-enabled: true
     agent-workspaces-enabled: true

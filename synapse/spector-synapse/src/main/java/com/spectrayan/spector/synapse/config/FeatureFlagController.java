@@ -61,6 +61,7 @@ public class FeatureFlagController {
     @GetMapping
     public ResponseEntity<Map<String, Boolean>> getFeatures() {
         var flags = new LinkedHashMap<String, Boolean>();
+        flags.put("playgroundEnabled", featureFlags.playgroundEnabled());
         flags.put("chatEnabled", featureFlags.chatEnabled());
         flags.put("agentChatEnabled", featureFlags.agentChatEnabled());
         flags.put("agentWorkspacesEnabled", featureFlags.agentWorkspacesEnabled());
@@ -89,6 +90,8 @@ public class FeatureFlagController {
     @GetMapping("/manifest")
     public ResponseEntity<List<Map<String, Object>>> getManifest() {
         var manifest = List.of(
+                manifestEntry("playgroundEnabled", "Playground test harness (chat, raw console, persona settings)",
+                        "ui", false, featureFlags.playgroundEnabled(), false),
                 manifestEntry("chatEnabled", "Chat interface for LLM conversations",
                         "llm", false, featureFlags.chatEnabled(), true),
                 manifestEntry("agentChatEnabled", "Autonomous agent chat with tool use",
