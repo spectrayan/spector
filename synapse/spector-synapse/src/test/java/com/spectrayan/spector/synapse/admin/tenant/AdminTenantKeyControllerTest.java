@@ -271,4 +271,121 @@ class AdminTenantKeyControllerTest {
                 .andExpect(jsonPath("$.byokEnabled", is(false)))
                 .andExpect(jsonPath("$.status", is("UNCONFIGURED")));
     }
+
+    @Test
+    @DisplayName("Issue #1072: KEK rotation re-wraps DEKs without rewriting data files, and DEK rotation advances version to v2 while shredding v1")
+    void kekRotationAndDekRotationLifecycle() throws Exception {
+        // 1. Configure initial KEK (acme-kek-v1)
+        mvc.perform(put("/api/v1/admin/tenants/acme-byok/keys")
+                        .with(authentication(tenantAdminAuth("acme-admin", "acme-byok")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"provider\":\"local-file\",\"kekKeyId\":\"acme-kek-v1\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.kekKeyId", is("acme-kek-v1")));
+
+        // 2. Provision v1 DEK for ns-alpha and capture its 32-byte key material + encrypt a test payload
+        byte[] originalDekBytes;
+        byte[] cipherUnderV1;
+        try (var encV1 = tenantKeyService.createNamespaceDataEncryptor("acme-byok", "ns-alpha")) {
+            try (DestroyableKeyMaterial dekV1 = tenantKeyService.getOrProvisionNamespaceDek("acme-byok", "ns-alpha")) {
+                originalDekBytes = dekV1.bytes();
+            }
+            cipherUnderV1 = encV1.encryptText("confidential-alpha-payload".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+
+        // 3. Rotate KEK to acme-kek-v2 via POST /rotate-kek -> re-wraps DEK without rewriting data files
+        mvc.perform(post("/api/v1/admin/tenants/acme-byok/keys/rotate-kek")
+                        .with(authentication(tenantAdminAuth("acme-admin", "acme-byok")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"newKekKeyId\":\"acme-kek-v2\",\"newKekVersion\":\"v2\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tenantId", is("acme-byok")))
+                .andExpect(jsonPath("$.previousKekKeyId", is("acme-kek-v1")))
+                .andExpect(jsonPath("$.newKekKeyId", is("acme-kek-v2")))
+                .andExpect(jsonPath("$.newKekVersion", is("v2")))
+                .andExpect(jsonPath("$.rewrappedDekCount", is(1)))
+                .andExpect(jsonPath("$.dataFilesRewritten", is(false)));
+
+        // Evict cache and verify unwrapping from DB under acme-kek-v2 yields the exact same 32-byte DEK
+        dekCache.clear();
+        try (DestroyableKeyMaterial dekAfterKekRotate = tenantKeyService.getOrProvisionNamespaceDek("acme-byok", "ns-alpha");
+             var encAfterKekRotate = tenantKeyService.createNamespaceDataEncryptor("acme-byok", "ns-alpha")) {
+            assertThat(dekAfterKekRotate.bytes()).isEqualTo(originalDekBytes);
+            byte[] decrypted = encAfterKekRotate.decryptText(cipherUnderV1);
+            assertThat(new String(decrypted, java.nio.charset.StandardCharsets.UTF_8))
+                    .isEqualTo("confidential-alpha-payload");
+        }
+
+        // 4. Rotate namespace DEK via POST /rotate-dek -> advances to dek_version = 2 and marks v1 ROTATED
+        mvc.perform(post("/api/v1/admin/tenants/acme-byok/keys/rotate-dek")
+                        .with(authentication(tenantAdminAuth("acme-admin", "acme-byok")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"namespaceId\":\"ns-alpha\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tenantId", is("acme-byok")))
+                .andExpect(jsonPath("$.rotatedNamespaceCount", is(1)))
+                .andExpect(jsonPath("$.namespaces[0].namespaceId", is("ns-alpha")))
+                .andExpect(jsonPath("$.namespaces[0].previousDekVersion", is(1)))
+                .andExpect(jsonPath("$.namespaces[0].newDekVersion", is(2)));
+
+        assertThat(dekCache.getIfPresent("acme-byok", "ns-alpha", 1)).isEmpty();
+        assertThat(dekCache.getIfPresent("acme-byok", "ns-alpha", 2)).isPresent();
+
+        String v1Status = jdbc.queryForObject(
+                "SELECT status FROM namespace_encryption_key WHERE tenant_id = 'acme-byok' AND namespace_id = 'ns-alpha' AND dek_version = 1",
+                Map.of(),
+                String.class);
+        assertThat(v1Status).isEqualTo("ROTATED");
+
+        // 5. Cryptographic erasure hook destroys all DEK rows for ns-alpha
+        List<String> destroyed = tenantKeyService.destroyNamespaceDeksForErasure("acme-admin", "ns-alpha", "dpo-op");
+        assertThat(destroyed).hasSize(2);
+        assertThat(dekCache.getIfPresent("acme-byok", "ns-alpha", 2)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Issue #1072: KEK revocation (crypto-shred) evicts and zeroizes DekCache, marks KEY_REVOKED, and fails closed with SPE-820-010")
+    void revokeTenantKeyCryptoShredsDeksAndFailsClosedWithSpe820010() throws Exception {
+        // 1. Configure BYOK KEK and provision a namespace DEK + active EnvelopeDataEncryptor
+        mvc.perform(put("/api/v1/admin/tenants/acme-byok/keys")
+                        .with(authentication(tenantAdminAuth("acme-admin", "acme-byok")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"provider\":\"local-file\",\"kekKeyId\":\"acme-shred-kek\"}"))
+                .andExpect(status().isOk());
+
+        var activeEncryptor = tenantKeyService.createNamespaceDataEncryptor("acme-byok", "ns-shred");
+        assertThat(dekCache.getIfPresent("acme-byok", "ns-shred", 1)).isPresent();
+        assertThat(activeEncryptor.isDestroyed()).isFalse();
+
+        // 2. Revoke / crypto-shred tenant key via POST /api/v1/admin/tenants/acme-byok/keys/revoke
+        mvc.perform(post("/api/v1/admin/tenants/acme-byok/keys/revoke")
+                        .with(authentication(tenantAdminAuth("acme-admin", "acme-byok")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"Emergency tenant offboarding crypto-shred\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tenantId", is("acme-byok")))
+                .andExpect(jsonPath("$.status", is("KEY_REVOKED")))
+                .andExpect(jsonPath("$.healthStatus", is("REVOKED")))
+                .andExpect(jsonPath("$.revokedNamespaceDekCount", is(1)))
+                .andExpect(jsonPath("$.evictedCachedDeks", is(1)));
+
+        // 3. Cached DEK is evicted and active encryptor key material is immediately zeroized
+        assertThat(dekCache.getIfPresent("acme-byok", "ns-shred", 1)).isEmpty();
+        assertThat(activeEncryptor.isDestroyed()).isTrue();
+
+        // 4. Subsequent DEK provisioning or encryptor operations fail closed with ErrorCode.BYOK_KEY_REVOKED (SPE-820-010)
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                        tenantKeyService.getOrProvisionNamespaceDek("acme-byok", "ns-shred"))
+                .isInstanceOf(com.spectrayan.spector.commons.error.SpectorMemoryException.class)
+                .satisfies(ex -> assertThat(((com.spectrayan.spector.commons.error.SpectorMemoryException) ex).errorCode())
+                        .isEqualTo(com.spectrayan.spector.commons.error.ErrorCode.BYOK_KEY_REVOKED));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                        activeEncryptor.encryptText("post-revocation-write".getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+                .isInstanceOf(com.spectrayan.spector.memory.error.SpectorEncryptionException.class)
+                .satisfies(ex -> assertThat(((com.spectrayan.spector.memory.error.SpectorEncryptionException) ex).errorCode())
+                        .isEqualTo(com.spectrayan.spector.commons.error.ErrorCode.BYOK_KEY_REVOKED));
+
+        activeEncryptor.close();
+    }
 }

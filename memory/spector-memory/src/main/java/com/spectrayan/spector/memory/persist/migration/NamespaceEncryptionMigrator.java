@@ -233,6 +233,175 @@ public final class NamespaceEncryptionMigrator {
         return future;
     }
 
+    /**
+     * Re-encrypts an already-encrypted namespace in-place from {@code oldEncryptor} ({@code dek_vN})
+     * to {@code newEncryptor} ({@code dek_v(N+1)}), including runtime bundle, partition bundles,
+     * {@code ENC1:} text blobs, 128-bit keyed synaptic tags, and WAL chunks.
+     */
+    public static MigrationSummary rekey(
+            Path namespaceDir,
+            DataEncryptor oldEncryptor,
+            DataEncryptor newEncryptor) throws IOException {
+        Objects.requireNonNull(namespaceDir, "namespaceDir must not be null");
+        if (oldEncryptor == null || !oldEncryptor.isEnabled()
+                || newEncryptor == null || !newEncryptor.isEnabled()) {
+            throw new SpectorEncryptionException(
+                    ErrorCode.MEMORY_ENCRYPTION_KEY_MISSING,
+                    "Namespace DEK re-keying requires enabled oldEncryptor and newEncryptor for " + namespaceDir);
+        }
+        if (!Files.exists(namespaceDir)) {
+            return new MigrationSummary(namespaceDir, 0, 0, 0, false);
+        }
+
+        Path runtimeBundlePath = StoragePaths.runtimeBundleFile(namespaceDir);
+        Path partitionsRoot = StoragePaths.partitionsDir(namespaceDir);
+        Path walDir = StoragePaths.walDir(namespaceDir);
+
+        RuntimeBundle runtimeBundle = null;
+        Map<Integer, PartitionBundle> partitionBundles = new LinkedHashMap<>();
+        int recordsReKeyed = 0;
+        int walEventsEncrypted = 0;
+        boolean runtimeEncrypted = false;
+
+        try {
+            if (Files.exists(runtimeBundlePath)) {
+                runtimeBundle = RuntimeBundle.Init.open(runtimeBundlePath, oldEncryptor);
+                runtimeEncrypted = true;
+            }
+
+            PartitionBundle defaultPartitionBundle = null;
+            if (Files.exists(partitionsRoot) && Files.isDirectory(partitionsRoot)) {
+                List<Path> partDirs;
+                try (var stream = Files.list(partitionsRoot)) {
+                    partDirs = stream
+                            .filter(Files::isDirectory)
+                            .sorted(Comparator.comparing(p -> p.getFileName().toString()))
+                            .toList();
+                }
+                for (Path partDir : partDirs) {
+                    Path bundleFile = resolvePartitionBundleFile(partDir);
+                    if (bundleFile != null && Files.exists(bundleFile)) {
+                        int seq = parsePartitionSeq(partDir.getFileName().toString());
+                        PartitionBundle pb = PartitionBundle.Init.open(bundleFile, oldEncryptor);
+                        if (pb.hasRegion(RegionId.TEXT)) {
+                            com.spectrayan.spector.kernel.store.TextBlobMemory textMem =
+                                    com.spectrayan.spector.kernel.store.TextBlobMemory.fromRegionRef(
+                                            pb.regionRef(RegionId.TEXT), pb.bundlePath(), false, oldEncryptor);
+                            textMem.rekeyEncryptedEntries(oldEncryptor, newEncryptor);
+                        }
+                        partitionBundles.put(seq, pb);
+                        defaultPartitionBundle = pb;
+                    }
+                }
+            }
+
+            // Re-stamp 128-bit synaptic tag masks in engram headers using newEncryptor's keyed SipHash-2-4
+            if (runtimeBundle != null && runtimeBundle.hasRegion(RegionId.INDEX_MIDX)
+                    && runtimeBundle.hasRegion(RegionId.INDEX_IDPL)) {
+                MemoryIndex index = MemoryIndex.fromRegionRefs(
+                        runtimeBundle.regionRef(RegionId.INDEX_MIDX),
+                        runtimeBundle.regionRef(RegionId.INDEX_IDPL),
+                        runtimeBundle.bundlePath(),
+                        false);
+
+                for (String id : index.allIds()) {
+                    MemoryLocation loc = index.locate(id);
+                    if (loc == null) {
+                        continue;
+                    }
+                    String[] tags = index.tags(id);
+                    long lo = 0L;
+                    long hi = 0L;
+                    if (tags != null) {
+                        for (String tag : tags) {
+                            if (tag != null && !tag.isEmpty()) {
+                                SynapticTag128 t = newEncryptor.encodeTag128(tag);
+                                lo |= t.lo();
+                                hi |= t.hi();
+                            }
+                        }
+                    }
+
+                    if (writeTierSynapticTags(loc, lo, hi, runtimeBundle, partitionBundles, defaultPartitionBundle)) {
+                        recordsReKeyed++;
+                    }
+                }
+            }
+
+            // Re-key WAL chunks under newEncryptor
+            if (Files.exists(walDir) && Files.isDirectory(walDir)) {
+                try (MemoryWal wal = new MemoryWal(walDir, oldEncryptor)) {
+                    WalEvent snapEvent = wal.appendSnapshotMark("dek-rekey", wal.highWaterMark());
+                    wal.flush();
+                    wal.rekeyAllChunks(newEncryptor);
+                    walEventsEncrypted = wal.size();
+                    if (runtimeBundle != null) {
+                        runtimeBundle.writeCheckpointWalWatermark(snapEvent.sequence());
+                    }
+                }
+            }
+
+            // Rebind encryptor to newEncryptor and flush all partition bundles and runtime bundle
+            for (PartitionBundle pb : partitionBundles.values()) {
+                pb.rebindEncryptor(newEncryptor);
+            }
+            if (runtimeBundle != null) {
+                runtimeBundle.rebindEncryptor(newEncryptor);
+            }
+        } catch (com.spectrayan.spector.commons.error.SpectorMemoryException e) {
+            throw SpectorEncryptionException.from(e, e.getMessage());
+        } finally {
+            for (PartitionBundle pb : partitionBundles.values()) {
+                try {
+                    pb.close();
+                } catch (Exception ignored) {
+                }
+            }
+            if (runtimeBundle != null) {
+                try {
+                    runtimeBundle.close();
+                } catch (Exception ignored) {
+                }
+            }
+        }
+
+        writeEncryptionMetadata(namespaceDir);
+        log.info("[NamespaceEncryptionMigrator] Re-keyed namespace '{}' to new DEK "
+                        + "(partitions={}, recordsReKeyed={}, walEvents={})",
+                namespaceDir.getFileName(), partitionBundles.size(), recordsReKeyed, walEventsEncrypted);
+
+        return new MigrationSummary(
+                namespaceDir,
+                partitionBundles.size(),
+                recordsReKeyed,
+                walEventsEncrypted,
+                runtimeEncrypted);
+    }
+
+    /**
+     * Submits an asynchronous DEK re-keying job onto the supplied {@link SpectorTaskQueue}.
+     */
+    public static CompletableFuture<MigrationSummary> rekeyAsync(
+            Path namespaceDir,
+            DataEncryptor oldEncryptor,
+            DataEncryptor newEncryptor,
+            SpectorTaskQueue<Runnable> taskQueue) {
+        Objects.requireNonNull(taskQueue, "taskQueue must not be null");
+        CompletableFuture<MigrationSummary> future = new CompletableFuture<>();
+        boolean accepted = taskQueue.submit("rekey-encrypt-" + namespaceDir.getFileName(), () -> {
+            try {
+                future.complete(rekey(namespaceDir, oldEncryptor, newEncryptor));
+            } catch (Throwable t) {
+                future.completeExceptionally(t);
+            }
+        });
+        if (!accepted) {
+            future.completeExceptionally(new IllegalStateException(
+                    "Task queue rejected DEK re-keying task for " + namespaceDir));
+        }
+        return future;
+    }
+
     private static Path resolvePartitionBundleFile(Path partDir) {
         Path v4Bundle = StoragePaths.partitionBundleFile(partDir);
         if (Files.exists(v4Bundle)) {

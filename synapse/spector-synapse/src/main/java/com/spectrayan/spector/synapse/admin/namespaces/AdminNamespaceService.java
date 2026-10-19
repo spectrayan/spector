@@ -599,6 +599,8 @@ public class AdminNamespaceService {
         auditDetails.put("replicaPropagationDispatched", report.replicaPropagationDispatched());
         auditDetails.put("replicaAcks", report.replicaAcks());
         auditDetails.put("erasureMechanism", report.erasureMechanism());
+        auditDetails.put("cryptoErasePerformed", report.cryptoErasePerformed());
+        auditDetails.put("destroyedKeyIds", report.destroyedKeyIds());
         if (request != null && request.reason() != null && !request.reason().isBlank()) {
             auditDetails.put("reason", request.reason().trim());
         }

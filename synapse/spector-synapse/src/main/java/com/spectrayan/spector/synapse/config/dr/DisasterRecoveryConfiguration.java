@@ -113,7 +113,8 @@ public class DisasterRecoveryConfiguration {
     public TenantErasureService tenantErasureService(
             SynapseProperties properties,
             AccountCatalog accountCatalog,
-            ObjectProvider<ObjectStoreClient> objectStoreClientProvider
+            ObjectProvider<ObjectStoreClient> objectStoreClientProvider,
+            ObjectProvider<com.spectrayan.spector.synapse.admin.tenant.TenantKeyService> tenantKeyServiceProvider
     ) {
         DisasterRecoveryProperties drProps = properties.getDr();
         String bucket = drProps != null ? drProps.getObjectStoreBucket() : null;
@@ -123,7 +124,14 @@ public class DisasterRecoveryConfiguration {
                 accountCatalog,
                 objectStoreClientProvider.getIfAvailable(),
                 bucket,
-                properties.remembererRoot()
+                properties.remembererRoot(),
+                null,
+                (accountId, namespaceId, operator) -> {
+                    var keyService = tenantKeyServiceProvider.getIfAvailable();
+                    return keyService != null
+                            ? keyService.destroyNamespaceDeksForErasure(accountId, namespaceId, operator)
+                            : java.util.List.of();
+                }
         );
     }
 }

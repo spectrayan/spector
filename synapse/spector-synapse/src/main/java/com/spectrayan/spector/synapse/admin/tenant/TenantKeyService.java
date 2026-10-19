@@ -24,39 +24,58 @@ import com.spectrayan.spector.commons.crypto.WrappedKeyResult;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorException;
 import com.spectrayan.spector.commons.error.SpectorMemoryException;
+import com.spectrayan.spector.memory.persist.EnvelopeDataEncryptor;
+import com.spectrayan.spector.memory.persist.migration.NamespaceEncryptionMigrator;
 import com.spectrayan.spector.synapse.admin.audit.AuditLogService;
 import com.spectrayan.spector.synapse.admin.tenant.dto.TenantKeyDto.ConfigureTenantKeyRequest;
+import com.spectrayan.spector.synapse.admin.tenant.dto.TenantKeyDto.DekRotationItem;
+import com.spectrayan.spector.synapse.admin.tenant.dto.TenantKeyDto.DekRotationResponse;
+import com.spectrayan.spector.synapse.admin.tenant.dto.TenantKeyDto.KekRotationResponse;
+import com.spectrayan.spector.synapse.admin.tenant.dto.TenantKeyDto.RevokeTenantKeyRequest;
+import com.spectrayan.spector.synapse.admin.tenant.dto.TenantKeyDto.RotateNamespaceDekRequest;
+import com.spectrayan.spector.synapse.admin.tenant.dto.TenantKeyDto.RotateTenantKekRequest;
+import com.spectrayan.spector.synapse.admin.tenant.dto.TenantKeyDto.TenantKeyRevocationResponse;
 import com.spectrayan.spector.synapse.admin.tenant.dto.TenantKeyDto.TenantKeyStatusResponse;
 import com.spectrayan.spector.synapse.admin.tenant.dto.TenantKeyDto.TenantKeyValidationResponse;
+import com.spectrayan.spector.synapse.config.SynapseProperties;
 import com.spectrayan.spector.synapse.error.SynapseNotFoundException;
+import com.spectrayan.spector.kernel.storage.NamespacePathResolver;
+import com.spectrayan.spector.synapse.memory.NamespaceResolver;
 import com.spectrayan.spector.synapse.security.kms.KeyProviderRegistry;
 import com.spectrayan.spector.synapse.security.kms.KmsConnectionContext;
 import com.spectrayan.spector.synapse.security.kms.KmsContextResolver;
 import com.spectrayan.spector.synapse.security.kms.PlatformHkdfKeyProvider;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.DependsOn;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
 /**
  * Service managing per-tenant Customer-Managed Key (BYOK) KEK registration, live KMS
- * wrap/unwrap self-test validation, namespace DEK envelope provisioning, and fail-closed
- * cache eviction on revocation (ADR-0088, Issue #1070).
+ * wrap/unwrap self-test validation, namespace DEK envelope provisioning, KEK/DEK rotation,
+ * and fail-closed crypto-shredding on revocation and erasure (ADR-0088, Issues #1070, #1072).
  */
 @Service
 @DependsOn("flyway")
@@ -100,6 +119,20 @@ public class TenantKeyService {
     private final KmsContextResolver kmsContextResolver;
     private final DekCache dekCache;
     private final AuditLogService auditLogService;
+    private final ObjectProvider<NamespaceResolver> namespaceResolverProvider;
+    private final SynapseProperties synapseProperties;
+    private final java.util.concurrent.ConcurrentHashMap<String, List<java.lang.ref.WeakReference<EnvelopeDataEncryptor>>> activeEncryptorsByTenant =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    public TenantKeyService(
+            JdbcClient jdbc,
+            TenantService tenantService,
+            KeyProviderRegistry keyProviderRegistry,
+            KmsContextResolver kmsContextResolver,
+            DekCache dekCache,
+            AuditLogService auditLogService) {
+        this(jdbc, tenantService, keyProviderRegistry, kmsContextResolver, dekCache, auditLogService, null, null);
+    }
 
     @Autowired
     public TenantKeyService(
@@ -108,13 +141,27 @@ public class TenantKeyService {
             KeyProviderRegistry keyProviderRegistry,
             KmsContextResolver kmsContextResolver,
             DekCache dekCache,
-            @Autowired(required = false) AuditLogService auditLogService) {
+            @Autowired(required = false) AuditLogService auditLogService,
+            @Autowired(required = false) ObjectProvider<NamespaceResolver> namespaceResolverProvider,
+            @Autowired(required = false) SynapseProperties synapseProperties) {
         this.jdbc = Objects.requireNonNull(jdbc, "jdbc must not be null");
         this.tenantService = Objects.requireNonNull(tenantService, "tenantService must not be null");
         this.keyProviderRegistry = Objects.requireNonNull(keyProviderRegistry, "keyProviderRegistry must not be null");
         this.kmsContextResolver = Objects.requireNonNull(kmsContextResolver, "kmsContextResolver must not be null");
         this.dekCache = Objects.requireNonNull(dekCache, "dekCache must not be null");
         this.auditLogService = auditLogService;
+        this.namespaceResolverProvider = namespaceResolverProvider;
+        this.synapseProperties = synapseProperties;
+    }
+
+    @PostConstruct
+    void bindNamespaceEncryptorResolver() {
+        if (namespaceResolverProvider != null) {
+            NamespaceResolver resolver = namespaceResolverProvider.getIfAvailable();
+            if (resolver != null) {
+                resolver.setDataEncryptorResolver(this::resolveOptionalNamespaceDataEncryptor);
+            }
+        }
     }
 
     /**
@@ -404,6 +451,558 @@ public class TenantKeyService {
     }
 
     /**
+     * Rotates the tenant's KEK (`POST /api/v1/admin/tenants/{tenantId}/keys/rotate-kek`).
+     * Unwraps all {@code ACTIVE} {@code namespace_encryption_key} rows using the prior KEK and
+     * re-wraps the identical 32-byte DEKs under the new KEK version/ID without rewriting any
+     * on-disk segment or WAL files (ADR-0088 §8.1, Issue #1072).
+     */
+    @Transactional
+    public KekRotationResponse rotateTenantKek(
+            String tenantId,
+            RotateTenantKekRequest request,
+            String actorId,
+            String actorTenantId) {
+        TenantRecord tenant = requireTenant(tenantId);
+        assertKeyNotRevoked(tenant.tenantId(), null);
+
+        Optional<TenantKekConfigRow> cfgOpt = findKekConfig(tenant.tenantId());
+        String previousProvider = cfgOpt.map(TenantKekConfigRow::provider).orElse(PlatformHkdfKeyProvider.PROVIDER_ID);
+        String previousKekKeyId = cfgOpt.map(TenantKekConfigRow::kekKeyId).orElse("platform-master-v1");
+        String previousKekVersion = cfgOpt.map(TenantKekConfigRow::keyVersion).orElse("v1");
+        String previousCred = cfgOpt.map(TenantKekConfigRow::credentialName).orElse(null);
+        String previousRegion = cfgOpt.map(TenantKekConfigRow::region).orElse(null);
+        String previousEndpoint = cfgOpt.map(TenantKekConfigRow::endpoint).orElse(null);
+
+        String targetProvider = (request != null && request.provider() != null && !request.provider().isBlank())
+                ? KeyProviderRegistry.normalizeProviderId(request.provider())
+                : previousProvider;
+        String targetKekKeyId = (request != null && request.newKekKeyId() != null && !request.newKekKeyId().isBlank())
+                ? request.newKekKeyId().trim()
+                : previousKekKeyId;
+        String targetCred = (request != null && request.credentialName() != null && !request.credentialName().isBlank())
+                ? request.credentialName().trim()
+                : previousCred;
+        String targetRegion = (request != null && request.region() != null && !request.region().isBlank())
+                ? request.region().trim()
+                : previousRegion;
+        String targetEndpoint = (request != null && request.endpoint() != null && !request.endpoint().isBlank())
+                ? request.endpoint().trim()
+                : previousEndpoint;
+
+        KeyProvider newProvider = keyProviderRegistry.getRequiredProvider(targetProvider);
+        KmsConnectionContext candidateCtx = kmsContextResolver.buildContext(
+                tenant.tenantId(),
+                targetProvider,
+                targetKekKeyId,
+                targetCred,
+                targetRegion,
+                targetEndpoint);
+
+        // Verify the target KEK via live wrap/unwrap self-test before touching any namespace DEKs
+        WrappedKeyResult selfTestWrap = kmsContextResolver.withCandidateContext(candidateCtx, () ->
+                performLiveSelfTest(newProvider, tenant.tenantId(), targetKekKeyId));
+
+        String targetKekVersion;
+        if (request != null && request.newKekVersion() != null && !request.newKekVersion().isBlank()) {
+            targetKekVersion = request.newKekVersion().trim();
+        } else if (selfTestWrap.kekVersion() != null
+                && !selfTestWrap.kekVersion().equalsIgnoreCase(previousKekVersion)) {
+            targetKekVersion = selfTestWrap.kekVersion();
+        } else {
+            targetKekVersion = incrementVersionLabel(previousKekVersion);
+        }
+
+        List<NamespaceDekRow> activeDeks = findAllActiveNamespaceDeks(tenant.tenantId());
+        Instant now = Instant.now();
+        int rewrappedCount = 0;
+        int refreshedCacheCount = 0;
+
+        for (NamespaceDekRow row : activeDeks) {
+            KeyProvider oldProvider = keyProviderRegistry.getRequiredProvider(row.kekProvider());
+            try (DestroyableKeyMaterial unwrappedDek = oldProvider.unwrapDek(
+                    tenant.tenantId(), row.kekKeyId(), row.wrappedDek(), row.wrapAad())) {
+                byte[] rawDekBytes = unwrappedDek.bytes();
+                final WrappedKeyResult rewrapped;
+                try {
+                    rewrapped = kmsContextResolver.withCandidateContext(candidateCtx, () ->
+                            newProvider.wrapDek(tenant.tenantId(), targetKekKeyId, rawDekBytes, row.wrapAad()));
+                } finally {
+                    java.util.Arrays.fill(rawDekBytes, (byte) 0);
+                }
+
+                jdbc.sql("""
+                        UPDATE namespace_encryption_key
+                        SET kek_provider = :kekProvider,
+                            kek_key_id = :kekKeyId,
+                            kek_version = :kekVersion,
+                            wrapped_dek = :wrappedDek,
+                            wrap_iv = :wrapIv,
+                            rotated_at = :rotatedAt
+                        WHERE tenant_id = :tenantId
+                          AND namespace_id = :namespaceId
+                          AND dek_version = :dekVersion
+                          AND status = 'ACTIVE'
+                        """)
+                        .param("kekProvider", targetProvider)
+                        .param("kekKeyId", targetKekKeyId)
+                        .param("kekVersion", targetKekVersion)
+                        .param("wrappedDek", Base64.getEncoder().encodeToString(rewrapped.wrappedDek()))
+                        .param("wrapIv", rewrapped.wrapIv().length > 0
+                                ? Base64.getEncoder().encodeToString(rewrapped.wrapIv()) : null)
+                        .param("rotatedAt", Timestamp.from(now))
+                        .param("tenantId", tenant.tenantId())
+                        .param("namespaceId", row.namespaceId())
+                        .param("dekVersion", row.dekVersion())
+                        .update();
+
+                dekCache.put(tenant.tenantId(), row.namespaceId(), row.dekVersion(), unwrappedDek);
+                rewrappedCount++;
+                refreshedCacheCount++;
+            }
+        }
+
+        upsertKekConfig(
+                tenant.tenantId(),
+                targetProvider,
+                targetKekKeyId,
+                targetCred,
+                targetRegion,
+                targetEndpoint,
+                targetKekVersion,
+                "ACTIVE",
+                now,
+                null,
+                now);
+        jdbc.sql("UPDATE tenants SET byok_enabled = TRUE, updated_at = :now WHERE tenant_id = :tenantId")
+                .param("now", Timestamp.from(now))
+                .param("tenantId", tenant.tenantId())
+                .update();
+
+        Map<String, Object> auditDetails = new LinkedHashMap<>();
+        auditDetails.put("provider", targetProvider);
+        auditDetails.put("previousKekKeyId", previousKekKeyId);
+        auditDetails.put("previousKekVersion", previousKekVersion);
+        auditDetails.put("newKekKeyId", targetKekKeyId);
+        auditDetails.put("newKekVersion", targetKekVersion);
+        auditDetails.put("rewrappedDekCount", rewrappedCount);
+        auditDetails.put("dataFilesRewritten", false);
+        recordAudit(actorId, actorTenantId, tenant.tenantId(), "ROTATE_TENANT_KEK", auditDetails);
+
+        log.info("[TenantKeyService] Rotated KEK for tenant='{}' from {}:{} to {}:{} (rewrappedDeks={}, dataFilesRewritten=false)",
+                tenant.tenantId(), previousKekKeyId, previousKekVersion, targetKekKeyId, targetKekVersion, rewrappedCount);
+
+        return new KekRotationResponse(
+                tenant.tenantId(),
+                targetProvider,
+                previousKekKeyId,
+                previousKekVersion,
+                targetKekKeyId,
+                targetKekVersion,
+                rewrappedCount,
+                refreshedCacheCount,
+                false,
+                now);
+    }
+
+    /**
+     * Rotates the Data-Encryption Key (DEK) for one or all namespaces in {@code tenantId}
+     * (`POST /api/v1/admin/tenants/{tenantId}/keys/rotate-dek`).
+     * Provisions {@code dek_version = N + 1}, re-encrypts on-disk bundles, {@code ENC1:} text blobs,
+     * 128-bit keyed synaptic tags, and WAL chunks from {@code dek_vN} to {@code dek_v(N+1)},
+     * marks {@code dek_vN} as {@code ROTATED} (shredding its wrapped ciphertext), and evicts
+     * {@code dek_vN} from {@link DekCache} (ADR-0088 §8.1, Issue #1072).
+     */
+    @Transactional
+    public DekRotationResponse rotateNamespaceDek(
+            String tenantId,
+            RotateNamespaceDekRequest request,
+            String actorId,
+            String actorTenantId) {
+        TenantRecord tenant = requireTenant(tenantId);
+        String requestedNs = (request != null && request.namespaceId() != null && !request.namespaceId().isBlank())
+                ? request.namespaceId().trim()
+                : null;
+        assertKeyNotRevoked(tenant.tenantId(), requestedNs);
+
+        List<String> targetNamespaces;
+        if (requestedNs != null) {
+            targetNamespaces = List.of(requestedNs);
+        } else {
+            targetNamespaces = jdbc.sql("""
+                    SELECT DISTINCT namespace_id FROM namespace_encryption_key
+                    WHERE tenant_id = :tenantId AND status = 'ACTIVE'
+                    ORDER BY namespace_id
+                    """)
+                    .param("tenantId", tenant.tenantId())
+                    .query(String.class)
+                    .list();
+        }
+
+        List<DekRotationItem> rotatedItems = new ArrayList<>();
+        for (String nsId : targetNamespaces) {
+            rotatedItems.add(rotateSingleNamespaceDek(tenant.tenantId(), nsId));
+        }
+
+        Instant now = Instant.now();
+        Map<String, Object> auditDetails = new LinkedHashMap<>();
+        auditDetails.put("rotatedNamespaceCount", rotatedItems.size());
+        auditDetails.put("namespaces", rotatedItems.stream().map(DekRotationItem::namespaceId).toList());
+        recordAudit(actorId, actorTenantId, tenant.tenantId(), "ROTATE_NAMESPACE_DEK", auditDetails);
+
+        return new DekRotationResponse(
+                tenant.tenantId(),
+                rotatedItems.size(),
+                rotatedItems,
+                now);
+    }
+
+    private DekRotationItem rotateSingleNamespaceDek(String tenantId, String namespaceId) {
+        // Ensure a v1 DEK exists if none was provisioned yet
+        Optional<NamespaceDekRow> currentOpt = findActiveNamespaceDek(tenantId, namespaceId);
+        if (currentOpt.isEmpty()) {
+            try (DestroyableKeyMaterial ignored = getOrProvisionNamespaceDek(tenantId, namespaceId)) {
+                currentOpt = findActiveNamespaceDek(tenantId, namespaceId);
+            }
+        }
+        NamespaceDekRow oldRow = currentOpt.orElseThrow(() ->
+                new SynapseNotFoundException("NamespaceEncryptionKey", tenantId + ":" + namespaceId));
+
+        int oldVersion = oldRow.dekVersion();
+        int newVersion = oldVersion + 1;
+
+        Optional<TenantKekConfigRow> kekOpt = findKekConfig(tenantId);
+        String providerId = kekOpt.map(TenantKekConfigRow::provider).orElse(oldRow.kekProvider());
+        String kekKeyId = kekOpt.map(TenantKekConfigRow::kekKeyId).orElse(oldRow.kekKeyId());
+        KeyProvider provider = keyProviderRegistry.getRequiredProvider(providerId);
+        KeyProvider oldProvider = keyProviderRegistry.getRequiredProvider(oldRow.kekProvider());
+
+        byte mode = PlatformHkdfKeyProvider.PROVIDER_ID.equalsIgnoreCase(providerId)
+                ? com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.MODE_PLATFORM_ENVELOPE
+                : com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.MODE_BYOK_ENVELOPE;
+
+        // Evict any hot SpectorMemory instance before re-encrypting its on-disk files
+        evictNamespaceFromResolver(namespaceId);
+
+        byte[] newAad = EnvelopeCipher.buildNamespaceDekAad(tenantId, namespaceId, newVersion);
+        int partitionBundlesEncrypted = 0;
+        int recordsReKeyed = 0;
+        int walEventsEncrypted = 0;
+        boolean runtimeEncrypted = false;
+
+        try (DestroyableKeyMaterial oldDek = dekCache.getOrUnwrap(
+                tenantId, namespaceId, oldVersion, oldRow.kekKeyId(), oldRow.wrappedDek(), oldRow.wrapAad(), oldProvider);
+             DestroyableKeyMaterial newDek = EnvelopeCipher.generateDek();
+             EnvelopeDataEncryptor oldEncryptor = new EnvelopeDataEncryptor(
+                     tenantId, namespaceId, oldVersion, mode, oldRow.kekKeyId(), oldDek.copy());
+             EnvelopeDataEncryptor newEncryptor = new EnvelopeDataEncryptor(
+                     tenantId, namespaceId, newVersion, mode, kekKeyId, newDek.copy())) {
+
+            Path nsDir = resolveNamespaceDir(tenantId, namespaceId);
+            if (nsDir != null && Files.exists(nsDir)) {
+                try {
+                    NamespaceEncryptionMigrator.MigrationSummary summary;
+                    if (Files.exists(nsDir.resolve(".encryption-ready"))) {
+                        summary = NamespaceEncryptionMigrator.rekey(nsDir, oldEncryptor, newEncryptor);
+                    } else {
+                        summary = NamespaceEncryptionMigrator.migrate(nsDir, newEncryptor);
+                    }
+                    partitionBundlesEncrypted = summary.partitionBundlesEncrypted();
+                    recordsReKeyed = summary.recordsReKeyed();
+                    walEventsEncrypted = summary.walEventsEncrypted();
+                    runtimeEncrypted = summary.runtimeBundleEncrypted();
+                } catch (IOException e) {
+                    throw new SpectorMemoryException(
+                            ErrorCode.WAL_WRITE_FAILED,
+                            e,
+                            "Failed re-encrypting namespace " + namespaceId + " to DEK v" + newVersion);
+                }
+            }
+
+            byte[] rawNewBytes = newDek.bytes();
+            final WrappedKeyResult wrappedNew;
+            try {
+                wrappedNew = provider.wrapDek(tenantId, kekKeyId, rawNewBytes, newAad);
+            } finally {
+                java.util.Arrays.fill(rawNewBytes, (byte) 0);
+            }
+
+            Instant now = Instant.now();
+            // Mark previous version ROTATED and shred its wrapped DEK ciphertext so vN cannot be unwrapped
+            jdbc.sql("""
+                    UPDATE namespace_encryption_key
+                    SET status = 'ROTATED',
+                        wrapped_dek = :shreddedMarker,
+                        wrap_iv = NULL,
+                        rotated_at = :rotatedAt
+                    WHERE tenant_id = :tenantId
+                      AND namespace_id = :namespaceId
+                      AND dek_version = :oldVersion
+                    """)
+                    .param("shreddedMarker", Base64.getEncoder().encodeToString(new byte[0]))
+                    .param("rotatedAt", Timestamp.from(now))
+                    .param("tenantId", tenantId)
+                    .param("namespaceId", namespaceId)
+                    .param("oldVersion", oldVersion)
+                    .update();
+
+            // Insert new ACTIVE DEK version (N + 1)
+            jdbc.sql("""
+                    INSERT INTO namespace_encryption_key (
+                        tenant_id, namespace_id, dek_version, kek_provider, kek_key_id, kek_version,
+                        wrapped_dek, wrap_iv, wrap_aad, status, created_at
+                    ) VALUES (
+                        :tenantId, :namespaceId, :dekVersion, :kekProvider, :kekKeyId, :kekVersion,
+                        :wrappedDek, :wrapIv, :wrapAad, 'ACTIVE', :createdAt
+                    )
+                    """)
+                    .param("tenantId", tenantId)
+                    .param("namespaceId", namespaceId)
+                    .param("dekVersion", newVersion)
+                    .param("kekProvider", providerId)
+                    .param("kekKeyId", kekKeyId)
+                    .param("kekVersion", wrappedNew.kekVersion())
+                    .param("wrappedDek", Base64.getEncoder().encodeToString(wrappedNew.wrappedDek()))
+                    .param("wrapIv", wrappedNew.wrapIv().length > 0
+                            ? Base64.getEncoder().encodeToString(wrappedNew.wrapIv()) : null)
+                    .param("wrapAad", Base64.getEncoder().encodeToString(newAad))
+                    .param("createdAt", Timestamp.from(now))
+                    .update();
+
+            dekCache.invalidateNamespace(tenantId, namespaceId);
+            dekCache.put(tenantId, namespaceId, newVersion, newDek);
+        }
+
+        log.info("[TenantKeyService] Rotated DEK for tenant='{}' namespace='{}' from v{} to v{} (recordsReKeyed={})",
+                tenantId, namespaceId, oldVersion, newVersion, recordsReKeyed);
+
+        return new DekRotationItem(
+                namespaceId,
+                oldVersion,
+                newVersion,
+                partitionBundlesEncrypted,
+                recordsReKeyed,
+                walEventsEncrypted,
+                runtimeEncrypted);
+    }
+
+    /**
+     * Revokes / crypto-shreds a tenant's BYOK key (`POST /api/v1/admin/tenants/{tenantId}/keys/revoke`).
+     * Immediately evicts and zeroizes all cached DEKs in {@link DekCache}, closes and zeroizes all
+     * open {@link com.spectrayan.spector.memory.SpectorMemory} instances for the tenant in
+     * {@link NamespaceResolver}, shreds wrapped DEK ciphertexts, and transitions the tenant and
+     * namespace keys to {@code KEY_REVOKED} so all subsequent operations fail closed with
+     * {@link ErrorCode#BYOK_KEY_REVOKED} ({@code SPE-820-010} / {@code SPE-SEC-010}) (ADR-0088 §8.2, Issue #1072).
+     */
+    @Transactional
+    public TenantKeyRevocationResponse revokeTenantKey(
+            String tenantId,
+            RevokeTenantKeyRequest request,
+            String actorId,
+            String actorTenantId) {
+        TenantRecord tenant = requireTenant(tenantId);
+        Optional<TenantKekConfigRow> cfgOpt = findKekConfig(tenant.tenantId());
+        String providerId = cfgOpt.map(TenantKekConfigRow::provider).orElse(PlatformHkdfKeyProvider.PROVIDER_ID);
+        String kekKeyId = cfgOpt.map(TenantKekConfigRow::kekKeyId).orElse("platform-master-v1");
+        String kekVersion = cfgOpt.map(TenantKekConfigRow::keyVersion).orElse("v1");
+        String reason = (request != null && request.reason() != null && !request.reason().isBlank())
+                ? request.reason().trim()
+                : "Administrative BYOK key revocation (crypto-shred)";
+
+        // 1. Evict and zeroize all cached DEKs for the tenant in DekCache and any live EnvelopeDataEncryptors
+        int evictedDeks = dekCache.invalidateTenant(tenant.tenantId());
+        destroyActiveEncryptorsForTenant(tenant.tenantId());
+
+        // 2. Evict and close all open SpectorMemory instances for the tenant (zeroizing off-heap bundles)
+        int evictedMemories = evictTenantFromResolver(tenant.tenantId());
+
+        Instant now = Instant.now();
+        String errMsg = ErrorCode.BYOK_KEY_REVOKED.format(kekKeyId, tenant.tenantId());
+
+        // 3. Shred wrapped DEK ciphertexts and mark all tenant namespace DEKs as KEY_REVOKED
+        int revokedDekRows = jdbc.sql("""
+                UPDATE namespace_encryption_key
+                SET status = 'KEY_REVOKED',
+                    wrapped_dek = :shreddedMarker,
+                    wrap_iv = NULL,
+                    rotated_at = :rotatedAt
+                WHERE tenant_id = :tenantId
+                  AND status = 'ACTIVE'
+                """)
+                .param("shreddedMarker", Base64.getEncoder().encodeToString(new byte[0]))
+                .param("rotatedAt", Timestamp.from(now))
+                .param("tenantId", tenant.tenantId())
+                .update();
+
+        // 4. Transition tenant_kek_config to KEY_REVOKED
+        upsertKekConfig(
+                tenant.tenantId(),
+                providerId,
+                kekKeyId,
+                cfgOpt.map(TenantKekConfigRow::credentialName).orElse(null),
+                cfgOpt.map(TenantKekConfigRow::region).orElse(null),
+                cfgOpt.map(TenantKekConfigRow::endpoint).orElse(null),
+                kekVersion,
+                "KEY_REVOKED",
+                now,
+                errMsg,
+                now);
+
+        Map<String, Object> auditDetails = new LinkedHashMap<>();
+        auditDetails.put("provider", providerId);
+        auditDetails.put("kekKeyId", kekKeyId);
+        auditDetails.put("status", "KEY_REVOKED");
+        auditDetails.put("revokedNamespaceDekCount", revokedDekRows);
+        auditDetails.put("evictedCachedDeks", evictedDeks);
+        auditDetails.put("evictedMemoryInstances", evictedMemories);
+        auditDetails.put("reason", reason);
+        recordAudit(actorId, actorTenantId, tenant.tenantId(), "REVOKE_TENANT_BYOK_KEY", auditDetails);
+
+        log.warn("[TenantKeyService] Crypto-shredded / revoked BYOK key for tenant='{}' keyId='{}' "
+                        + "(revokedDekRows={}, evictedCachedDeks={}, evictedMemories={})",
+                tenant.tenantId(), kekKeyId, revokedDekRows, evictedDeks, evictedMemories);
+
+        return new TenantKeyRevocationResponse(
+                tenant.tenantId(),
+                "KEY_REVOKED",
+                KeyHealthStatus.REVOKED,
+                revokedDekRows,
+                evictedDeks,
+                evictedMemories,
+                reason,
+                now);
+    }
+
+    /**
+     * Permanently destroys all {@code namespace_encryption_key} rows for {@code namespaceId}
+     * and evicts cached DEKs during GDPR / compliance erasure (ADR-0088 §8.2, Issue #1072).
+     *
+     * @param accountId   owning account ID
+     * @param namespaceId namespace ID being erased
+     * @param operator    operator performing the erasure
+     * @return list of destroyed key identifiers recorded in {@link com.spectrayan.spector.synapse.dr.ErasureAuditReport}
+     */
+    @Transactional
+    public List<String> destroyNamespaceDeksForErasure(String accountId, String namespaceId, String operator) {
+        if (namespaceId == null || namespaceId.isBlank()) {
+            return List.of();
+        }
+        String normNs = namespaceId.trim();
+        List<NamespaceDekRow> rows = jdbc.sql("""
+                SELECT tenant_id, namespace_id, dek_version, kek_provider, kek_key_id, kek_version,
+                       wrapped_dek, wrap_iv, wrap_aad, status, created_at, rotated_at
+                FROM namespace_encryption_key
+                WHERE namespace_id = :namespaceId
+                ORDER BY dek_version ASC
+                """)
+                .param("namespaceId", normNs)
+                .query(this::mapNamespaceDekRow)
+                .list();
+
+        if (rows.isEmpty()) {
+            return List.of();
+        }
+
+        List<String> destroyedKeyIds = new ArrayList<>(rows.size());
+        for (NamespaceDekRow row : rows) {
+            dekCache.invalidateNamespace(row.tenantId(), row.namespaceId());
+            destroyActiveEncryptorsForNamespace(row.tenantId(), row.namespaceId());
+            destroyedKeyIds.add(row.tenantId() + ":" + row.namespaceId() + ":dek-v" + row.dekVersion()
+                    + "@" + row.kekKeyId());
+        }
+
+        jdbc.sql("DELETE FROM namespace_encryption_key WHERE namespace_id = :namespaceId")
+                .param("namespaceId", normNs)
+                .update();
+
+        String tenantId = rows.getFirst().tenantId();
+        recordAudit(
+                operator != null ? operator : "system",
+                tenantId,
+                tenantId,
+                "CRYPTO_SHRED_NAMESPACE_DEK",
+                Map.of(
+                        "namespaceId", normNs,
+                        "accountId", accountId != null ? accountId : "",
+                        "destroyedKeyIds", destroyedKeyIds
+                ));
+
+        log.info("[TenantKeyService] Destroyed {} namespace DEK(s) for erased namespace='{}': {}",
+                destroyedKeyIds.size(), normNs, destroyedKeyIds);
+        return List.copyOf(destroyedKeyIds);
+    }
+
+    /**
+     * Checks whether the tenant's KEK or the namespace's DEK has been revoked (`KEY_REVOKED` or `REVOKED`),
+     * or if the underlying {@link KeyProvider} reports {@link KeyHealthStatus#REVOKED} / {@link KeyHealthStatus#DISABLED}.
+     */
+    public boolean isTenantKeyRevoked(String tenantId, String namespaceId) {
+        if (tenantId == null || tenantId.isBlank()) {
+            return false;
+        }
+        String normTenant = tenantId.trim();
+        Optional<TenantKekConfigRow> cfgOpt = findKekConfig(normTenant);
+        if (cfgOpt.isPresent()) {
+            TenantKekConfigRow cfg = cfgOpt.get();
+            if ("REVOKED".equalsIgnoreCase(cfg.status())
+                    || "KEY_REVOKED".equalsIgnoreCase(cfg.status())
+                    || "DISABLED".equalsIgnoreCase(cfg.status())) {
+                return true;
+            }
+            try {
+                KeyProvider provider = keyProviderRegistry.getRequiredProvider(cfg.provider());
+                KeyHealthStatus health = provider.checkKeyHealth(normTenant, cfg.kekKeyId());
+                if (health == KeyHealthStatus.REVOKED || health == KeyHealthStatus.DISABLED) {
+                    dekCache.invalidateTenant(normTenant);
+                    return true;
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        if (namespaceId != null && !namespaceId.isBlank()) {
+            Integer revokedCount = jdbc.sql("""
+                    SELECT COUNT(*) FROM namespace_encryption_key
+                    WHERE tenant_id = :tenantId AND namespace_id = :namespaceId
+                      AND status IN ('KEY_REVOKED', 'REVOKED')
+                    """)
+                    .param("tenantId", normTenant)
+                    .param("namespaceId", namespaceId.trim())
+                    .query(Integer.class)
+                    .single();
+            if (revokedCount != null && revokedCount > 0 && findActiveNamespaceDek(normTenant, namespaceId.trim()).isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void assertKeyNotRevoked(String tenantId, String namespaceId) {
+        if (isTenantKeyRevoked(tenantId, namespaceId)) {
+            Optional<TenantKekConfigRow> cfgOpt = findKekConfig(tenantId);
+            String kekKeyId = cfgOpt.map(TenantKekConfigRow::kekKeyId).orElse("revoked-kek");
+            dekCache.invalidateTenant(tenantId);
+            throw new SpectorMemoryException(ErrorCode.BYOK_KEY_REVOKED, kekKeyId, tenantId);
+        }
+    }
+
+    private com.spectrayan.spector.memory.persist.DataEncryptor resolveOptionalNamespaceDataEncryptor(
+            String tenantId,
+            String namespaceId) {
+        if (tenantId == null || tenantId.isBlank() || namespaceId == null || namespaceId.isBlank()) {
+            return com.spectrayan.spector.memory.persist.DataEncryptor.NOOP;
+        }
+        String normTenant = tenantId.trim();
+        String normNs = namespaceId.trim();
+        assertKeyNotRevoked(normTenant, normNs);
+
+        Optional<TenantKekConfigRow> cfgOpt = findKekConfig(normTenant);
+        Optional<NamespaceDekRow> activeDekOpt = findActiveNamespaceDek(normTenant, normNs);
+        if (cfgOpt.isEmpty() && activeDekOpt.isEmpty()) {
+            return com.spectrayan.spector.memory.persist.DataEncryptor.NOOP;
+        }
+        return createNamespaceDataEncryptor(normTenant, normNs);
+    }
+
+    /**
      * Provisions or retrieves the active wrapped DEK for {@code (tenantId, namespaceId)} and returns
      * its unwrapped {@link DestroyableKeyMaterial} via {@link DekCache} (ADR-0088 §3, §7).
      */
@@ -414,18 +1013,28 @@ public class TenantKeyService {
         String normTenant = tenantId.trim();
         String normNs = namespaceId.trim();
 
+        assertKeyNotRevoked(normTenant, normNs);
+
         Optional<NamespaceDekRow> existingOpt = findActiveNamespaceDek(normTenant, normNs);
         if (existingOpt.isPresent()) {
             NamespaceDekRow row = existingOpt.get();
             KeyProvider provider = keyProviderRegistry.getRequiredProvider(row.kekProvider());
-            return dekCache.getOrUnwrap(
-                    normTenant,
-                    normNs,
-                    row.dekVersion(),
-                    row.kekKeyId(),
-                    row.wrappedDek(),
-                    row.wrapAad(),
-                    provider);
+            try {
+                return dekCache.getOrUnwrap(
+                        normTenant,
+                        normNs,
+                        row.dekVersion(),
+                        row.kekKeyId(),
+                        row.wrappedDek(),
+                        row.wrapAad(),
+                        provider);
+            } catch (SpectorException se) {
+                if (se.errorCode() == ErrorCode.BYOK_KEY_REVOKED) {
+                    dekCache.invalidateTenant(normTenant);
+                    evictTenantFromResolver(normTenant);
+                }
+                throw se;
+            }
         }
 
         // Provision new v1 DEK wrapped under tenant KEK (or platform HKDF if tenant has no BYOK KEK)
@@ -493,16 +1102,59 @@ public class TenantKeyService {
             byte mode = PlatformHkdfKeyProvider.PROVIDER_ID.equalsIgnoreCase(kekProvider)
                     ? com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.MODE_PLATFORM_ENVELOPE
                     : com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.MODE_BYOK_ENVELOPE;
-            return new com.spectrayan.spector.memory.persist.EnvelopeDataEncryptor(
+            EnvelopeDataEncryptor encryptor = new com.spectrayan.spector.memory.persist.EnvelopeDataEncryptor(
                     normTenant,
                     normNs,
                     dekVersion,
                     mode,
                     kekKeyId,
-                    dek);
+                    dek,
+                    () -> isTenantKeyRevoked(normTenant, normNs));
+            registerActiveEncryptor(normTenant, encryptor);
+            return encryptor;
         } catch (RuntimeException e) {
             dek.close();
             throw e;
+        }
+    }
+
+    private void registerActiveEncryptor(String tenantId, EnvelopeDataEncryptor encryptor) {
+        activeEncryptorsByTenant.compute(tenantId, (k, existing) -> {
+            List<java.lang.ref.WeakReference<EnvelopeDataEncryptor>> next = new ArrayList<>();
+            if (existing != null) {
+                for (java.lang.ref.WeakReference<EnvelopeDataEncryptor> ref : existing) {
+                    EnvelopeDataEncryptor enc = ref.get();
+                    if (enc != null && !enc.isDestroyed()) {
+                        next.add(ref);
+                    }
+                }
+            }
+            next.add(new java.lang.ref.WeakReference<>(encryptor));
+            return next;
+        });
+    }
+
+    private void destroyActiveEncryptorsForTenant(String tenantId) {
+        List<java.lang.ref.WeakReference<EnvelopeDataEncryptor>> refs = activeEncryptorsByTenant.remove(tenantId);
+        if (refs != null) {
+            for (java.lang.ref.WeakReference<EnvelopeDataEncryptor> ref : refs) {
+                EnvelopeDataEncryptor enc = ref.get();
+                if (enc != null) {
+                    enc.destroy();
+                }
+            }
+        }
+    }
+
+    private void destroyActiveEncryptorsForNamespace(String tenantId, String namespaceId) {
+        List<java.lang.ref.WeakReference<EnvelopeDataEncryptor>> refs = activeEncryptorsByTenant.get(tenantId);
+        if (refs != null) {
+            for (java.lang.ref.WeakReference<EnvelopeDataEncryptor> ref : refs) {
+                EnvelopeDataEncryptor enc = ref.get();
+                if (enc != null && namespaceId.equals(enc.namespaceId())) {
+                    enc.destroy();
+                }
+            }
         }
     }
 
@@ -534,6 +1186,88 @@ public class TenantKeyService {
                 .param("namespaceId", namespaceId.trim())
                 .query(this::mapNamespaceDekRow)
                 .optional();
+    }
+
+    public List<NamespaceDekRow> findAllActiveNamespaceDeks(String tenantId) {
+        return jdbc.sql("""
+                SELECT tenant_id, namespace_id, dek_version, kek_provider, kek_key_id, kek_version,
+                       wrapped_dek, wrap_iv, wrap_aad, status, created_at, rotated_at
+                FROM namespace_encryption_key
+                WHERE tenant_id = :tenantId AND status = 'ACTIVE'
+                ORDER BY namespace_id ASC, dek_version DESC
+                """)
+                .param("tenantId", tenantId.trim())
+                .query(this::mapNamespaceDekRow)
+                .list();
+    }
+
+    private void evictNamespaceFromResolver(String namespaceId) {
+        if (namespaceResolverProvider == null || namespaceId == null) {
+            return;
+        }
+        try {
+            NamespaceResolver resolver = namespaceResolverProvider.getIfAvailable();
+            if (resolver != null) {
+                resolver.evict(namespaceId);
+            }
+        } catch (Exception e) {
+            log.debug("[TenantKeyService] Failed to evict namespace '{}' from NamespaceResolver: {}", namespaceId, e.getMessage());
+        }
+    }
+
+    private int evictTenantFromResolver(String tenantId) {
+        if (namespaceResolverProvider == null || tenantId == null) {
+            return 0;
+        }
+        try {
+            NamespaceResolver resolver = namespaceResolverProvider.getIfAvailable();
+            if (resolver != null) {
+                return resolver.evictTenant(tenantId);
+            }
+        } catch (Exception e) {
+            log.debug("[TenantKeyService] Failed to evict tenant '{}' from NamespaceResolver: {}", tenantId, e.getMessage());
+        }
+        return 0;
+    }
+
+    private Path resolveNamespaceDir(String tenantId, String namespaceId) {
+        if (namespaceResolverProvider != null) {
+            NamespaceResolver resolver = namespaceResolverProvider.getIfAvailable();
+            if (resolver != null) {
+                return resolver.resolveNamespaceDirectory(tenantId, namespaceId);
+            }
+        }
+        if (synapseProperties != null) {
+            Path root = synapseProperties.remembererRoot();
+            if (root != null) {
+                boolean tenantRooted = synapseProperties.getNamespace() != null
+                        && synapseProperties.getNamespace().isTenantRootedEnabled();
+                Path dir = NamespacePathResolver.resolve(root, tenantRooted ? tenantId : null, namespaceId).dir();
+                if (tenantRooted && !Files.exists(dir)) {
+                    Path flatDir = NamespacePathResolver.resolve(root, null, namespaceId).dir();
+                    if (Files.exists(flatDir)) {
+                        return flatDir;
+                    }
+                }
+                return dir;
+            }
+        }
+        return null;
+    }
+
+    private static String incrementVersionLabel(String current) {
+        if (current == null || current.isBlank()) {
+            return "v2";
+        }
+        String trimmed = current.trim();
+        if ((trimmed.startsWith("v") || trimmed.startsWith("V")) && trimmed.length() > 1) {
+            try {
+                int num = Integer.parseInt(trimmed.substring(1));
+                return "v" + (num + 1);
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        return trimmed + "-rotated";
     }
 
     private WrappedKeyResult performLiveSelfTest(KeyProvider provider, String tenantId, String kekKeyId) {
@@ -694,7 +1428,7 @@ public class TenantKeyService {
             return KeyHealthStatus.HEALTHY;
         }
         return switch (status.toUpperCase()) {
-            case "REVOKED" -> KeyHealthStatus.REVOKED;
+            case "REVOKED", "KEY_REVOKED" -> KeyHealthStatus.REVOKED;
             case "DISABLED" -> KeyHealthStatus.DISABLED;
             case "UNREACHABLE" -> KeyHealthStatus.UNREACHABLE;
             default -> KeyHealthStatus.HEALTHY;
@@ -733,7 +1467,7 @@ public class TenantKeyService {
                 rs.getString("kek_provider"),
                 rs.getString("kek_key_id"),
                 rs.getString("kek_version"),
-                Base64.getDecoder().decode(wrappedB64),
+                wrappedB64 != null && !wrappedB64.isBlank() ? Base64.getDecoder().decode(wrappedB64) : new byte[0],
                 ivB64 != null && !ivB64.isBlank() ? Base64.getDecoder().decode(ivB64) : new byte[0],
                 aadB64 != null && !aadB64.isBlank() ? Base64.getDecoder().decode(aadB64) : new byte[0],
                 rs.getString("status"),

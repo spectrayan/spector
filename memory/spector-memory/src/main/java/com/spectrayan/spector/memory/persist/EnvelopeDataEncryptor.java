@@ -156,6 +156,26 @@ public final class EnvelopeDataEncryptor implements DataEncryptor, Destroyable, 
                 null);
     }
 
+    public EnvelopeDataEncryptor(
+            String tenantId,
+            String namespaceId,
+            int dekVersion,
+            byte encryptionMode,
+            String kekKeyId,
+            DestroyableKeyMaterial namespaceDek,
+            BooleanSupplier keyRevokedProbe) {
+        this(
+                tenantId,
+                namespaceId,
+                namespaceDek,
+                dekVersion,
+                encryptionMode,
+                null,
+                hashKekKeyId(kekKeyId),
+                keyRevokedProbe,
+                null);
+    }
+
     private static byte[] hashKekKeyId(String kekKeyId) {
         if (kekKeyId == null || kekKeyId.isBlank()) {
             return new byte[32];

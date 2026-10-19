@@ -386,6 +386,70 @@ public class NamespaceResolver implements AutoCloseable {
         }
     }
 
+    /**
+     * Evicts and closes all cached namespace memory instances belonging to {@code tenantId},
+     * zeroizing off-heap encrypted memory segments upon closure (ADR-0088 §8.2, Issue #1072).
+     *
+     * @param tenantId the tenant identifier
+     * @return number of evicted namespace instances
+     */
+    public int evictTenant(String tenantId) {
+        if (tenantId == null || tenantId.isBlank()) {
+            return 0;
+        }
+        int evictedCount = 0;
+        for (var entry : new java.util.ArrayList<>(cache.entrySet())) {
+            String nsId = entry.getKey();
+            MemoryHandle handle = entry.getValue();
+            String handleTenant = handle.tenantId;
+            if ((handleTenant == null || handleTenant.isBlank()) && handle.ownerAccountId != null) {
+                try {
+                    Account owner = catalog.getAccount(handle.ownerAccountId);
+                    if (owner != null) {
+                        handleTenant = owner.tenantId();
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+            if (tenantId.equals(handleTenant)) {
+                evict(nsId);
+                evictedCount++;
+            }
+        }
+        return evictedCount;
+    }
+
+    /**
+     * Resolves the on-disk directory path for a namespace given its tenant and namespaceId,
+     * honoring dual-read fallback when applicable.
+     */
+    public Path resolveNamespaceDirectory(String tenantId, String namespaceId) {
+        boolean tenantRooted = synapseProps != null
+                && synapseProps.getNamespace() != null
+                && synapseProps.getNamespace().isTenantRootedEnabled();
+        String effectiveTenant = (tenantRooted && tenantId != null && !tenantId.isBlank()) ? tenantId : null;
+        Placement placement = NamespacePathResolver.resolve(basePath(), effectiveTenant, namespaceId);
+        Path dir = placement.dir();
+        if (effectiveTenant != null && !Files.exists(dir)) {
+            Placement flatPlacement = NamespacePathResolver.resolve(basePath(), null, namespaceId);
+            if (Files.exists(flatPlacement.dir())) {
+                return flatPlacement.dir();
+            }
+        }
+        return dir;
+    }
+
+    @FunctionalInterface
+    public interface DataEncryptorResolver {
+        com.spectrayan.spector.memory.persist.DataEncryptor resolve(String tenantId, String namespaceId);
+    }
+
+    private volatile DataEncryptorResolver dataEncryptorResolver;
+
+    public void setDataEncryptorResolver(DataEncryptorResolver dataEncryptorResolver) {
+        this.dataEncryptorResolver = dataEncryptorResolver;
+    }
+
     private final java.util.List<java.util.function.Consumer<String>> evictionListeners = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     @FunctionalInterface
@@ -544,24 +608,24 @@ public class NamespaceResolver implements AutoCloseable {
                 boolean tenantRooted = synapseProps != null
                         && synapseProps.getNamespace() != null
                         && synapseProps.getNamespace().isTenantRootedEnabled();
-                String tenantId = tenantRooted
-                        ? placementTenantIdFor(namespaceId, ownerAccountId, accountId, account)
-                        : null;
+                String resolvedOwnerTenant = null;
+                try {
+                    resolvedOwnerTenant = placementTenantIdFor(namespaceId, ownerAccountId, accountId, account);
+                } catch (Exception e) {
+                    if (tenantRooted) {
+                        throw e;
+                    }
+                }
+                String tenantId = tenantRooted ? resolvedOwnerTenant : null;
                 SpectorMemory instance = buildInstance(tenantId, namespaceId, ownerAccountId != null ? ownerAccountId : accountId);
-                handle = new MemoryHandle(namespaceId, ownerAccountId, accountId, instance);
+                handle = new MemoryHandle(namespaceId, ownerAccountId, resolvedOwnerTenant, accountId, instance);
                 cache.put(namespaceId, handle);
                 notifyOpen(tenantId, namespaceId, instance);
                 if (meterRegistry != null) {
-                    String metricTenantId = tenantId;
-                    if (metricTenantId == null || metricTenantId.isBlank()) {
-                        try {
-                            metricTenantId = placementTenantIdFor(namespaceId, ownerAccountId, accountId, account);
-                        } catch (Exception ignored) {
-                            metricTenantId = "default";
-                        }
-                    }
+                    String metricTenantId = resolvedOwnerTenant != null && !resolvedOwnerTenant.isBlank()
+                            ? resolvedOwnerTenant : "default";
                     new com.spectrayan.spector.metrics.observation.SpectorMemoryGauges(
-                            handle.memory, namespaceId, metricTenantId != null ? metricTenantId : "default")
+                            handle.memory, namespaceId, metricTenantId)
                             .bindTo(meterRegistry);
                 }
             } finally {
@@ -920,9 +984,24 @@ public class NamespaceResolver implements AutoCloseable {
         SalienceProfileProvider salience = salienceProvider != null ? salienceProvider.getIfAvailable() : null;
         org.springframework.cache.CacheManager springCacheManager = cacheManagerProvider != null
                 ? cacheManagerProvider.getIfAvailable() : null;
-        com.spectrayan.spector.memory.persist.DataEncryptor encryptor = encryptorProvider != null
-                ? encryptorProvider.getIfAvailable(() -> com.spectrayan.spector.memory.persist.DataEncryptor.NOOP)
-                : com.spectrayan.spector.memory.persist.DataEncryptor.NOOP;
+        String encryptorTenantId = tenantId;
+        if (encryptorTenantId == null || encryptorTenantId.isBlank()) {
+            try {
+                encryptorTenantId = placementTenantIdFor(namespaceId, ownerAccountId, ownerAccountId, null);
+            } catch (Exception ignored) {
+            }
+        }
+        com.spectrayan.spector.memory.persist.DataEncryptor resolvedByokEncryptor = null;
+        DataEncryptorResolver resolver = this.dataEncryptorResolver;
+        if (resolver != null && encryptorTenantId != null && !encryptorTenantId.isBlank()) {
+            resolvedByokEncryptor = resolver.resolve(encryptorTenantId, namespaceId);
+        }
+        com.spectrayan.spector.memory.persist.DataEncryptor encryptor =
+                (resolvedByokEncryptor != null && resolvedByokEncryptor.isEnabled())
+                        ? resolvedByokEncryptor
+                        : (encryptorProvider != null
+                                ? encryptorProvider.getIfAvailable(() -> com.spectrayan.spector.memory.persist.DataEncryptor.NOOP)
+                                : com.spectrayan.spector.memory.persist.DataEncryptor.NOOP);
         ObjectMapper mapper = jsonMapper;
 
         io.micrometer.observation.ObservationRegistry obsRegistry = observationRegistryProvider != null
@@ -963,6 +1042,9 @@ public class NamespaceResolver implements AutoCloseable {
             }
 
             builder.persistence(effectiveDir);
+            if (encryptor != null && encryptor.isEnabled()) {
+                builder.dataEncryptor(encryptor);
+            }
             // Legal hold is enforced inside the engine, not at the API boundary. Record deletion reaches the
             // engine through the REST controller and its bulk endpoint, MCP tools, the embedded Java API and
             // both chat-memory bulk paths; a check on any one of those is not enforcement. Scoped to this
@@ -1444,17 +1526,23 @@ public class NamespaceResolver implements AutoCloseable {
 
         private final String namespaceId;
         private final String ownerAccountId;
+        private final String tenantId;
         private final java.util.Set<String> accessingAccounts = ConcurrentHashMap.newKeySet();
         private final SpectorMemory memory;
         private volatile long lastAccessNanos;
 
         MemoryHandle(SpectorMemory memory) {
-            this(null, null, null, memory);
+            this(null, null, null, null, memory);
         }
 
         MemoryHandle(String namespaceId, String ownerAccountId, String initialAccountId, SpectorMemory memory) {
+            this(namespaceId, ownerAccountId, null, initialAccountId, memory);
+        }
+
+        MemoryHandle(String namespaceId, String ownerAccountId, String tenantId, String initialAccountId, SpectorMemory memory) {
             this.namespaceId = namespaceId;
             this.ownerAccountId = ownerAccountId != null ? ownerAccountId : initialAccountId;
+            this.tenantId = tenantId;
             if (initialAccountId != null) {
                 this.accessingAccounts.add(initialAccountId);
             }
