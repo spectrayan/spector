@@ -211,4 +211,60 @@ class TenantErasureServiceTest {
         assertThat(report.replicaAcks()).isEqualTo(2);
         assertThat(report.unreachableReplicas()).containsExactly("node-3:9090");
     }
+
+    @Test
+    @DisplayName("Issue #1072: Cryptographic erasure destroys namespace DEKs and sets cryptoErasePerformed=true with CRYPTO_SHRED_AND_FILESYSTEM_UNLINK")
+    void testCryptographicErasureDestroysNamespaceDeksAndReportsCryptoShredMechanism() {
+        String accountId = "acc-crypto-erase";
+        catalog.getOrCreateAccount(accountId);
+        NamespaceRecord ns = catalog.createNamespace(accountId, "encrypted-vault", NamespaceType.PROJECT);
+
+        List<String> destroyedTracker = new ArrayList<>();
+        TenantErasureService cryptoErasureService = new TenantErasureService(
+                catalog,
+                s3Client,
+                BUCKET,
+                remembererDir,
+                null,
+                (acc, nsId, op) -> {
+                    String keyId = "tenant-acme:" + nsId + ":dek-v1@kms:key-1";
+                    destroyedTracker.add(keyId);
+                    return List.of(keyId);
+                }
+        );
+
+        ErasureAuditReport report = cryptoErasureService.eraseNamespace(accountId, "encrypted-vault", false, "dpo-auditor");
+        assertThat(report.cryptoErasePerformed()).isTrue();
+        assertThat(report.erasureMechanism()).isEqualTo(ErasureAuditReport.MECHANISM_CRYPTO_SHRED_AND_PHYSICAL);
+        assertThat(report.destroyedKeyIds()).containsExactly("tenant-acme:" + ns.namespaceId() + ":dek-v1@kms:key-1");
+        assertThat(destroyedTracker).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("Issue #1072, V8: Legal hold strictly prevents cryptographic DEK destruction during erasure")
+    void testLegalHoldPreventsCryptographicErasureFromDestroyingDeks() {
+        String accountId = "acc-legal-crypto";
+        catalog.getOrCreateAccount(accountId);
+        catalog.createNamespace(accountId, "held-encrypted-ns", NamespaceType.PROJECT);
+        catalog.setLegalHold(accountId, "held-encrypted-ns", true);
+
+        List<String> destroyedTracker = new ArrayList<>();
+        TenantErasureService cryptoErasureService = new TenantErasureService(
+                catalog,
+                s3Client,
+                BUCKET,
+                remembererDir,
+                null,
+                (acc, nsId, op) -> {
+                    destroyedTracker.add(nsId);
+                    return List.of("should-never-be-destroyed");
+                }
+        );
+
+        assertThatThrownBy(() -> cryptoErasureService.eraseNamespace(accountId, "held-encrypted-ns", false, "dpo-auditor"))
+                .isInstanceOf(NamespaceLegalHoldException.class);
+        assertThat(destroyedTracker)
+                .as("Legal hold must block erasure before any DEK is destroyed")
+                .isEmpty();
+    }
 }

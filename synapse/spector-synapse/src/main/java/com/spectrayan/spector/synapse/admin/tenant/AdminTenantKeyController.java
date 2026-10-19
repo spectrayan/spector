@@ -16,6 +16,12 @@
 package com.spectrayan.spector.synapse.admin.tenant;
 
 import com.spectrayan.spector.synapse.admin.tenant.dto.TenantKeyDto.ConfigureTenantKeyRequest;
+import com.spectrayan.spector.synapse.admin.tenant.dto.TenantKeyDto.DekRotationResponse;
+import com.spectrayan.spector.synapse.admin.tenant.dto.TenantKeyDto.KekRotationResponse;
+import com.spectrayan.spector.synapse.admin.tenant.dto.TenantKeyDto.RevokeTenantKeyRequest;
+import com.spectrayan.spector.synapse.admin.tenant.dto.TenantKeyDto.RotateNamespaceDekRequest;
+import com.spectrayan.spector.synapse.admin.tenant.dto.TenantKeyDto.RotateTenantKekRequest;
+import com.spectrayan.spector.synapse.admin.tenant.dto.TenantKeyDto.TenantKeyRevocationResponse;
 import com.spectrayan.spector.synapse.admin.tenant.dto.TenantKeyDto.TenantKeyStatusResponse;
 import com.spectrayan.spector.synapse.admin.tenant.dto.TenantKeyDto.TenantKeyValidationResponse;
 import com.spectrayan.spector.synapse.catalog.exception.CrossTenantAccessException;
@@ -37,8 +43,9 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Objects;
 
 /**
- * REST controller for configuring, inspecting, and validating per-tenant Customer-Managed Key
- * (BYOK) KEK references at {@code /api/v1/admin/tenants/{tenantId}/keys} (ADR-0088 §5, Issue #1070).
+ * REST controller for configuring, inspecting, validating, rotating, and revoking per-tenant
+ * Customer-Managed Key (BYOK) KEK references and namespace DEKs at
+ * {@code /api/v1/admin/tenants/{tenantId}/keys} (ADR-0088 §5, §8, Issues #1070, #1072).
  *
  * <p><strong>Authorization Invariant</strong>: Accessible to {@code super-admin} (for any tenant)
  * and tenant {@code admin} (for their own tenant only). Cross-tenant access by a tenant
@@ -99,6 +106,61 @@ public class AdminTenantKeyController {
         TenantKeyValidationResponse validation = tenantKeyService.validateTenantKey(
                 tenantId, actorId, actorTenantId);
         return ResponseEntity.ok(validation);
+    }
+
+    /**
+     * Rotates the tenant's KEK (`POST /api/v1/admin/tenants/{tenantId}/keys/rotate-kek`) by
+     * re-wrapping all active namespace DEKs under the new KEK version/ID without rewriting on-disk data.
+     */
+    @PostMapping("/rotate-kek")
+    public ResponseEntity<KekRotationResponse> rotateTenantKek(
+            @PathVariable String tenantId,
+            @RequestBody(required = false) RotateTenantKekRequest request) {
+        enforceTenantAccess(tenantId);
+        String actorId = SecurityUtils.getUserId();
+        String actorTenantId = SecurityUtils.getTenantId();
+        log.info("[AdminTenantKeyController] rotateTenantKek tenantId={} by actor={}", tenantId, actorId);
+        KekRotationResponse response = tenantKeyService.rotateTenantKek(
+                tenantId, request, actorId, actorTenantId);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Rotates namespace DEK(s) (`POST /api/v1/admin/tenants/{tenantId}/keys/rotate-dek`) by
+     * provisioning {@code dek_version = N + 1}, re-encrypting on-disk bundles, text blobs,
+     * synaptic tags, and WAL chunks, and marking {@code dek_vN} as {@code ROTATED}.
+     */
+    @PostMapping("/rotate-dek")
+    public ResponseEntity<DekRotationResponse> rotateNamespaceDek(
+            @PathVariable String tenantId,
+            @RequestBody(required = false) RotateNamespaceDekRequest request) {
+        enforceTenantAccess(tenantId);
+        String actorId = SecurityUtils.getUserId();
+        String actorTenantId = SecurityUtils.getTenantId();
+        log.info("[AdminTenantKeyController] rotateNamespaceDek tenantId={} namespaceId={} by actor={}",
+                tenantId, request != null ? request.namespaceId() : "ALL", actorId);
+        DekRotationResponse response = tenantKeyService.rotateNamespaceDek(
+                tenantId, request, actorId, actorTenantId);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Revokes / crypto-shreds the tenant's BYOK key (`POST /api/v1/admin/tenants/{tenantId}/keys/revoke`),
+     * evicting and zeroizing all cached DEKs and open memory instances and transitioning the tenant to
+     * {@code KEY_REVOKED}.
+     */
+    @PostMapping("/revoke")
+    public ResponseEntity<TenantKeyRevocationResponse> revokeTenantKey(
+            @PathVariable String tenantId,
+            @RequestBody(required = false) RevokeTenantKeyRequest request) {
+        enforceTenantAccess(tenantId);
+        String actorId = SecurityUtils.getUserId();
+        String actorTenantId = SecurityUtils.getTenantId();
+        log.warn("[AdminTenantKeyController] revokeTenantKey (crypto-shred) tenantId={} by actor={}",
+                tenantId, actorId);
+        TenantKeyRevocationResponse response = tenantKeyService.revokeTenantKey(
+                tenantId, request, actorId, actorTenantId);
+        return ResponseEntity.ok(response);
     }
 
     /**

@@ -50,11 +50,21 @@ public class TenantErasureService {
 
     private static final Logger log = LoggerFactory.getLogger(TenantErasureService.class);
 
+    /**
+     * Callback invoked during namespace erasure to destroy all wrapped DEKs for the namespace
+     * and evict cached plaintext DEKs (ADR-0088 §8.2, Issue #1072).
+     */
+    @FunctionalInterface
+    public interface NamespaceKeyDestroyer {
+        List<String> destroyKeys(String accountId, String namespaceId, String operator);
+    }
+
     private final AccountCatalog accountCatalog;
     private final ObjectStoreClient objectStoreClient;
     private final String drBucket;
     private final Path remembererBasePath;
     private final ReplicaErasureDispatcher replicaErasureDispatcher;
+    private final NamespaceKeyDestroyer namespaceKeyDestroyer;
 
     public TenantErasureService(
             AccountCatalog accountCatalog,
@@ -62,7 +72,7 @@ public class TenantErasureService {
             String drBucket,
             Path remembererBasePath
     ) {
-        this(accountCatalog, objectStoreClient, drBucket, remembererBasePath, (ReplicaErasureDispatcher) null);
+        this(accountCatalog, objectStoreClient, drBucket, remembererBasePath, (ReplicaErasureDispatcher) null, null);
     }
 
     public TenantErasureService(
@@ -72,11 +82,23 @@ public class TenantErasureService {
             Path remembererBasePath,
             ReplicaErasureDispatcher replicaErasureDispatcher
     ) {
+        this(accountCatalog, objectStoreClient, drBucket, remembererBasePath, replicaErasureDispatcher, null);
+    }
+
+    public TenantErasureService(
+            AccountCatalog accountCatalog,
+            ObjectStoreClient objectStoreClient,
+            String drBucket,
+            Path remembererBasePath,
+            ReplicaErasureDispatcher replicaErasureDispatcher,
+            NamespaceKeyDestroyer namespaceKeyDestroyer
+    ) {
         this.accountCatalog = Objects.requireNonNull(accountCatalog, "accountCatalog must not be null");
         this.objectStoreClient = objectStoreClient;
         this.drBucket = drBucket;
         this.remembererBasePath = remembererBasePath;
         this.replicaErasureDispatcher = replicaErasureDispatcher;
+        this.namespaceKeyDestroyer = namespaceKeyDestroyer;
     }
 
     /**
@@ -115,6 +137,16 @@ public class TenantErasureService {
         // 1b. Tombstone / deregister from Catalog BEFORE file deletion (G24)
         // If tombstone fails (e.g. concurrent legal hold set), no data is destroyed
         accountCatalog.tombstone(accountId, slugOrId);
+
+        // 1c. Cryptographic Erasure (ADR-0088 §8.2, Issue #1072):
+        // Destroy wrapped DEK rows in namespace_encryption_key and evict DekCache BEFORE physical unlink
+        List<String> destroyedKeyIds = List.of();
+        if (namespaceKeyDestroyer != null) {
+            List<String> destroyed = namespaceKeyDestroyer.destroyKeys(accountId, namespaceId, operator);
+            if (destroyed != null && !destroyed.isEmpty()) {
+                destroyedKeyIds = List.copyOf(destroyed);
+            }
+        }
 
         // 2. Local File Deletion via staged atomic rename (Req R6.2, G25)
         AtomicInteger deletedFilesCount = new AtomicInteger(0);
@@ -203,11 +235,13 @@ public class TenantErasureService {
                 objectStoreKeysDeleted,
                 replicaDispatched,
                 replicaAcks,
-                unreachableReplicas
+                unreachableReplicas,
+                destroyedKeyIds
         );
 
-        log.info("[Erasure] Completed unlinking and deletion of namespace={} localFiles={} localBytes={} cloudKeys={} replicaAcks={}",
-                namespaceId, report.localFilesDeleted(), report.localBytesDeleted(), report.objectStoreKeysDeleted(), replicaAcks);
+        log.info("[Erasure] Completed unlinking and deletion of namespace={} localFiles={} localBytes={} cloudKeys={} cryptoErased={} destroyedKeys={} replicaAcks={}",
+                namespaceId, report.localFilesDeleted(), report.localBytesDeleted(), report.objectStoreKeysDeleted(),
+                report.cryptoErasePerformed(), report.destroyedKeyIds().size(), replicaAcks);
 
         return report;
     }

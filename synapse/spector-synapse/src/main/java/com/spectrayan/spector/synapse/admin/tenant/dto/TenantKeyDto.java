@@ -85,4 +85,85 @@ public final class TenantKeyDto {
             String errorCode,
             String message) {
     }
+
+    /**
+     * Request payload for rotating a tenant's KEK (`POST /api/v1/admin/tenants/{tenantId}/keys/rotate-kek`).
+     * Re-wraps all active namespace DEKs under the new KEK version/ID without rewriting on-disk data files.
+     */
+    public record RotateTenantKekRequest(
+            String newKekKeyId,
+            String newKekVersion,
+            String provider,
+            String credentialName,
+            String region,
+            String endpoint) {
+    }
+
+    /**
+     * Content-free response from a tenant KEK rotation (`POST /rotate-kek`).
+     */
+    public record KekRotationResponse(
+            String tenantId,
+            String provider,
+            String previousKekKeyId,
+            String previousKekVersion,
+            String newKekKeyId,
+            String newKekVersion,
+            int rewrappedDekCount,
+            int refreshedCachedDeks,
+            boolean dataFilesRewritten,
+            Instant rotatedAt) {
+    }
+
+    /**
+     * Request payload for rotating namespace DEK(s) (`POST /api/v1/admin/tenants/{tenantId}/keys/rotate-dek`).
+     * If {@code namespaceId} is omitted or blank, all active encrypted namespaces in the tenant are rotated.
+     */
+    public record RotateNamespaceDekRequest(
+            String namespaceId) {
+    }
+
+    /**
+     * Per-namespace summary of a DEK rotation from {@code previousDekVersion} to {@code newDekVersion}.
+     */
+    public record DekRotationItem(
+            String namespaceId,
+            int previousDekVersion,
+            int newDekVersion,
+            int partitionBundlesEncrypted,
+            int recordsReKeyed,
+            int walEventsEncrypted,
+            boolean runtimeBundleEncrypted) {
+    }
+
+    /**
+     * Content-free response from a namespace DEK rotation (`POST /rotate-dek`).
+     */
+    public record DekRotationResponse(
+            String tenantId,
+            int rotatedNamespaceCount,
+            java.util.List<DekRotationItem> namespaces,
+            Instant rotatedAt) {
+    }
+
+    /**
+     * Request payload for revoking / crypto-shredding a tenant's BYOK key (`POST /api/v1/admin/tenants/{tenantId}/keys/revoke`).
+     */
+    public record RevokeTenantKeyRequest(
+            String reason) {
+    }
+
+    /**
+     * Content-free response from a tenant BYOK key revocation / crypto-shred operation (`POST /revoke`).
+     */
+    public record TenantKeyRevocationResponse(
+            String tenantId,
+            String status,
+            KeyHealthStatus healthStatus,
+            int revokedNamespaceDekCount,
+            int evictedCachedDeks,
+            int evictedMemoryInstances,
+            String reason,
+            Instant revokedAt) {
+    }
 }
