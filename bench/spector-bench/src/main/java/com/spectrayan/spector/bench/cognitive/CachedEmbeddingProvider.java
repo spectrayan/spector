@@ -46,6 +46,7 @@ public final class CachedEmbeddingProvider implements EmbeddingProvider {
 
     private static final Logger log = LoggerFactory.getLogger(CachedEmbeddingProvider.class);
 
+    private final java.util.concurrent.locks.ReentrantLock flushLock = new java.util.concurrent.locks.ReentrantLock();
     private final EmbeddingProvider delegate;
     private final Path cacheFile;
     private final Map<String, EmbeddingResult> cache = new LinkedHashMap<>();
@@ -137,10 +138,15 @@ public final class CachedEmbeddingProvider implements EmbeddingProvider {
         return delegate.maxTokens();
     }
 
-    public synchronized void flush() {
-        if (dirty) {
-            saveCache();
-            dirty = false;
+    public void flush() {
+        flushLock.lock();
+        try {
+            if (dirty) {
+                saveCache();
+                dirty = false;
+            }
+        } finally {
+            flushLock.unlock();
         }
     }
 

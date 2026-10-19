@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 
 import org.slf4j.Logger;
@@ -85,7 +86,7 @@ public class SpectorRuntime implements AutoCloseable {
     private final BulkheadRegistry bulkheadRegistry = BulkheadRegistry.create();
 
     // ── Process-Wide Shared Pathway Engines (ADR-0029 §8.1, Task 10.4) ──
-    private final Object engineLock = new Object();
+    private final ReentrantLock engineLock = new ReentrantLock();
     private volatile RememberPathway rememberPathway;
     private volatile RecallPathway recallPathway;
     private volatile ReflectPathway reflectPathway;
@@ -195,7 +196,8 @@ public class SpectorRuntime implements AutoCloseable {
         }
 
         // Wire shared engines
-        synchronized (engineLock) {
+        engineLock.lock();
+        try {
             if (rememberPathway != null) {
                 builder.rememberPathway(rememberPathway);
             }
@@ -211,6 +213,8 @@ public class SpectorRuntime implements AutoCloseable {
             if (wanderPathway != null) {
                 builder.wanderPathway(wanderPathway);
             }
+        } finally {
+            engineLock.unlock();
         }
         builder.expressPathway(expressPathway);
         builder.decidePathway(decidePathway);
@@ -224,7 +228,8 @@ public class SpectorRuntime implements AutoCloseable {
 
         // Capture shared recall pathway from the first attached instance if not explicitly passed to builder
         if (recallPathway == null) {
-            synchronized (engineLock) {
+            engineLock.lock();
+            try {
                 if (memory instanceof DefaultSpectorMemory dsm) {
                     if (recallPathway == null) {
                         recallPathway = dsm.recallPathway();
@@ -243,6 +248,8 @@ public class SpectorRuntime implements AutoCloseable {
                         registerPathwaySafe(WanderPathway.class, wanderPathway);
                     }
                 }
+            } finally {
+                engineLock.unlock();
             }
         }
 

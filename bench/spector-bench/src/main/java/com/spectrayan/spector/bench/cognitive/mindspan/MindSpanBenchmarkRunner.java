@@ -40,6 +40,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -635,6 +636,7 @@ public final class MindSpanBenchmarkRunner {
         List<Double> cognitiveNdcgs = new ArrayList<>();
         List<Double> baselineNdcgs = new ArrayList<>();
         List<Double> similarityNdcgs = new ArrayList<>();
+        ReentrantLock ndcgLock = new ReentrantLock();
 
         AtomicInteger wins = new AtomicInteger(0);
         AtomicInteger ties = new AtomicInteger(0);
@@ -646,6 +648,7 @@ public final class MindSpanBenchmarkRunner {
         Path candidatesFile = outputDir.resolve("retrieved_candidates.jsonl");
         boolean appendCandidates = rerunFailedOnly && Files.exists(candidatesFile);
         BufferedWriter candidatesWriter = new BufferedWriter(new FileWriter(candidatesFile.toFile(), appendCandidates));
+        ReentrantLock candidatesWriterLock = new ReentrantLock();
 
         for (MindSpanQuery query : queriesToEvaluate) {
             CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
@@ -703,7 +706,8 @@ public final class MindSpanBenchmarkRunner {
                 double simNdcg = metrics.ndcgAtK(simIds, qrel, 10);
                 double baseNdcg = metrics.ndcgAtK(baseIds, qrel, 10);
 
-                synchronized (cognitiveNdcgs) {
+                ndcgLock.lock();
+                try {
                     cognitiveNdcgs.add(cogNdcg);
                     similarityNdcgs.add(simNdcg);
                     baselineNdcgs.add(baseNdcg);
@@ -711,6 +715,8 @@ public final class MindSpanBenchmarkRunner {
                     if (cogNdcg > baseNdcg + 0.001) wins.incrementAndGet();
                     else if (Math.abs(cogNdcg - baseNdcg) <= 0.001) ties.incrementAndGet();
                     else losses.incrementAndGet();
+                } finally {
+                    ndcgLock.unlock();
                 }
 
                 Map<String, Object> candidateLog = new LinkedHashMap<>();
@@ -1069,10 +1075,13 @@ public final class MindSpanBenchmarkRunner {
 
                 try {
                     String candJson = jsonMapper.writeValueAsString(candidateLog);
-                    synchronized (candidatesWriter) {
+                    candidatesWriterLock.lock();
+                    try {
                         candidatesWriter.write(candJson);
                         candidatesWriter.newLine();
                         candidatesWriter.flush();
+                    } finally {
+                        candidatesWriterLock.unlock();
                     }
                 } catch (IOException e) {
                     log.warn("Failed to write candidate log: {}", e.getMessage());
@@ -2009,14 +2018,20 @@ public final class MindSpanBenchmarkRunner {
     }
 
     private static class TrackMetrics {
+        private final ReentrantLock lock = new ReentrantLock();
         int count = 0;
         double sumNdcg = 0.0;
         int correctCount = 0;
 
-        synchronized void record(double ndcg, boolean isCorrect) {
-            count++;
-            sumNdcg += ndcg;
-            if (isCorrect) correctCount++;
+        void record(double ndcg, boolean isCorrect) {
+            lock.lock();
+            try {
+                count++;
+                sumNdcg += ndcg;
+                if (isCorrect) correctCount++;
+            } finally {
+                lock.unlock();
+            }
         }
 
         double avgNdcg() { return count > 0 ? sumNdcg / count : 0.0; }

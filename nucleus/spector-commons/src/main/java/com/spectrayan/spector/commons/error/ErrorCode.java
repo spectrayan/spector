@@ -375,6 +375,14 @@ public enum ErrorCode {
     PATHWAY_MISCONFIGURED      (310_025, ErrorCategory.MEMORY,
             "Cognitive pathway misconfigured at {}: {}"),
 
+    /** AES-256-GCM authentication tag or AAD verification failed during memory decryption (ADR-0088, Issue #1070). */
+    MEMORY_AUTH_TAG_MISMATCH   (310_026, ErrorCategory.MEMORY,
+            "AES-256-GCM authentication tag verification failed for {}"),
+
+    /** External KMS is unreachable or denied DEK unwrap after cache TTL expiry; failing closed (ADR-0088, Issue #1070). */
+    KMS_UNAVAILABLE_FAIL_CLOSED(310_027, ErrorCategory.MEMORY,
+            "External KMS unavailable or denied DEK unwrap for tenant '{}' (key '{}'): {}"),
+
     // ══════════════════════════════════════════════════════════════════════
     // GPU (SPE-400-xxx)
     // ══════════════════════════════════════════════════════════════════════
@@ -681,7 +689,15 @@ public enum ErrorCode {
 
     /** Break-glass access or approval denied due to self-approval, expiry, revocation, or read-only violation (Issue #1060). */
     BREAK_GLASS_ACCESS_DENIED     (820_005, ErrorCategory.SECURITY,
-            "Break-glass access denied: {}");
+            "Break-glass access denied: {}"),
+
+    /** Customer-managed BYOK key in external KMS is disabled, scheduled for deletion, or revoked (ADR-0088, Issue #1070). */
+    BYOK_KEY_REVOKED              (820_010, ErrorCategory.SECURITY,
+            "BYOK customer-managed key '{}' for tenant '{}' is disabled or revoked in external KMS"),
+
+    /** Tenant BYOK KMS configuration or wrap/unwrap self-test failed (ADR-0088, Issue #1070). */
+    KMS_CONFIGURATION_INVALID     (820_011, ErrorCategory.SECURITY,
+            "Invalid BYOK KMS configuration for tenant '{}': {}");
 
     // ══════════════════════════════════════════════════════════════════════
 
@@ -801,6 +817,12 @@ public enum ErrorCode {
         }
         if ("SPE-SEC-005".equals(normalized)) {
             return BREAK_GLASS_ACCESS_DENIED;
+        }
+        if ("SPE-SEC-010".equals(normalized)) {
+            return BYOK_KEY_REVOKED;
+        }
+        if ("SPE-SEC-011".equals(normalized)) {
+            return KMS_CONFIGURATION_INVALID;
         }
         if (normalized.length() < 11) {
             return null;

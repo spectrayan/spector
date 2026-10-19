@@ -33,6 +33,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.locks.ReentrantLock;
 /**
  * Shared singleton context for all E2E test classes.
  *
@@ -42,7 +43,7 @@ import java.util.List;
  * test class independently runnable.</p>
  *
  * <h3>Thread Safety</h3>
- * <p>Uses {@code synchronized} on the class lock. JUnit 5 test classes call
+ * <p>Uses {@link ReentrantLock}. JUnit 5 test classes call
  * {@link #get()} from their {@code @BeforeAll} methods  --  all of which run on
  * the same thread in the default sequential executor.</p>
  */
@@ -53,6 +54,7 @@ public final class E2EMemoryContext {
     /** Embedding model used for all tests. */
     static final String EMBEDDING_MODEL = System.getProperty("ollama.embedding.model", "qwen3-embedding:0.6b");
 
+    private static final ReentrantLock LOCK = new ReentrantLock();
     private static SpectorMemory memory;
     private static OllamaEmbeddingProvider embeddingProvider;
     private static List<SeedMemory> seedMemories;
@@ -66,11 +68,16 @@ public final class E2EMemoryContext {
      *
      * @return this context (singleton)
      */
-    public static synchronized E2EMemoryContext get() {
-        if (memory == null) {
-            initialize();
+    public static E2EMemoryContext get() {
+        LOCK.lock();
+        try {
+            if (memory == null) {
+                initialize();
+            }
+            return INSTANCE;
+        } finally {
+            LOCK.unlock();
         }
-        return INSTANCE;
     }
 
     private static final E2EMemoryContext INSTANCE = new E2EMemoryContext();
@@ -117,22 +124,27 @@ public final class E2EMemoryContext {
      * Ingests all seed memories into the shared memory instance.
      * Called once, guarded by the {@link #ingested} flag.
      */
-    public synchronized void ingestIfNeeded() {
-        if (ingested) return;
+    public void ingestIfNeeded() {
+        LOCK.lock();
+        try {
+            if (ingested) return;
 
-        log.info("=== Ingesting {} seed memories ===", seedMemories.size());
-        long start = System.currentTimeMillis();
+            log.info("=== Ingesting {} seed memories ===", seedMemories.size());
+            long start = System.currentTimeMillis();
 
-        for (SeedMemory seed : seedMemories) {
-            memory.remember(seed.id(), seed.text(), seed.type(), seed.source(), seed.tags());
+            for (SeedMemory seed : seedMemories) {
+                memory.remember(seed.id(), seed.text(), seed.type(), seed.source(), seed.tags());
+            }
+
+            long elapsed = System.currentTimeMillis() - start;
+            log.info("[x] Ingested {} memories in {}ms ({}ms/memory)",
+                    seedMemories.size(), elapsed,
+                    String.format("%.1f", (double) elapsed / seedMemories.size()));
+
+            ingested = true;
+        } finally {
+            LOCK.unlock();
         }
-
-        long elapsed = System.currentTimeMillis() - start;
-        log.info("[x] Ingested {} memories in {}ms ({}ms/memory)",
-                seedMemories.size(), elapsed,
-                String.format("%.1f", (double) elapsed / seedMemories.size()));
-
-        ingested = true;
     }
 
     //  Initialization 
@@ -140,7 +152,7 @@ public final class E2EMemoryContext {
     private static void initialize() {
         log.info("=”===============================================================—");
         log.info("=‘  Spector Memory E2E  --  Initializing shared context           =‘");
-        log.info("=š===============================================================");
+        log.info("=š=============================================================== ");
 
         // Load seed data from markdown files
         seedMemories = E2ESeedData.loadAll();
@@ -214,12 +226,17 @@ public final class E2EMemoryContext {
      * Closes the shared memory instance. Called by JVM shutdown hook
      * or explicitly if needed.
      */
-    public static synchronized void shutdown() {
-        if (memory != null) {
-            log.info("E2EMemoryContext shutting down");
-            memory.close();
-            memory = null;
-            ingested = false;
+    public static void shutdown() {
+        LOCK.lock();
+        try {
+            if (memory != null) {
+                log.info("E2EMemoryContext shutting down");
+                memory.close();
+                memory = null;
+                ingested = false;
+            }
+        } finally {
+            LOCK.unlock();
         }
     }
 

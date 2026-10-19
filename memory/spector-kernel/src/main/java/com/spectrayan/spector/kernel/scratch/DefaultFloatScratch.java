@@ -19,6 +19,7 @@ import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.util.Objects;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 
 /**
@@ -26,6 +27,7 @@ import java.util.function.Consumer;
  */
 public final class DefaultFloatScratch implements FloatScratch {
 
+    private final ReentrantLock closeLock = new ReentrantLock();
     private final int capacity;
     private final long byteSize;
     private final Arena arena;
@@ -132,7 +134,8 @@ public final class DefaultFloatScratch implements FloatScratch {
         if (closed) {
             return;
         }
-        synchronized (this) {
+        closeLock.lock();
+        try {
             if (closed) {
                 return;
             }
@@ -144,6 +147,8 @@ public final class DefaultFloatScratch implements FloatScratch {
                     onCloseCallback.accept(this);
                 }
             }
+        } finally {
+            closeLock.unlock();
         }
     }
 }

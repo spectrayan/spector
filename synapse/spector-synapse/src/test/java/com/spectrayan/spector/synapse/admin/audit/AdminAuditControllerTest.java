@@ -467,6 +467,28 @@ class AdminAuditControllerTest {
                                     ))))
                             .andExpect(status().isOk()));
 
+            // ── F. AdminTenantKeyController (3 mutating endpoints under /api/v1/admin/tenants/{tenantId}/keys) ──
+            assertProducesAuditEvent(verifiedAdminMutations, "PUT /api/v1/admin/tenants/{tenantId}/keys", () ->
+                    mvc.perform(put("/api/v1/admin/tenants/tenant-alpha/keys")
+                                    .with(user(superAdminId).authorities(SpectorAuthorityMapper.forRole("super-admin")))
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content(mapper.writeValueAsString(Map.of(
+                                            "provider", "local-file",
+                                            "kekKeyId", "tenant-alpha-audit-kek-v1"
+                                    ))))
+                            .andExpect(status().isOk()));
+
+            assertProducesAuditEvent(verifiedAdminMutations,
+                    "POST /api/v1/admin/tenants/{tenantId}/keys/validate", () ->
+                            mvc.perform(post("/api/v1/admin/tenants/tenant-alpha/keys/validate")
+                                            .with(user(superAdminId).authorities(SpectorAuthorityMapper.forRole("super-admin"))))
+                                    .andExpect(status().isOk()));
+
+            assertProducesAuditEvent(verifiedAdminMutations, "DELETE /api/v1/admin/tenants/{tenantId}/keys", () ->
+                    mvc.perform(delete("/api/v1/admin/tenants/tenant-alpha/keys")
+                                    .with(user(superAdminId).authorities(SpectorAuthorityMapper.forRole("super-admin"))))
+                            .andExpect(status().isOk()));
+
             // Assert 100% coverage of all discovered /api/v1/admin/** mutating routes
             assertThat(verifiedAdminMutations)
                     .as("Every mutating /api/v1/admin/** endpoint must be tested and verified to write to audit_event")

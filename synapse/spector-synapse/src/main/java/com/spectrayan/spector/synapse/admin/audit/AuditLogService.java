@@ -32,6 +32,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
 
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
@@ -98,7 +99,7 @@ public class AuditLogService {
     private final EventPublisher eventPublisher;
     private final EventBus<AuditSpectorEvent> auditEventBus;
     private final TsidGenerator tsid = new TsidGenerator(14);
-    private final Object chainLock = new Object();
+    private final ReentrantLock chainLock = new ReentrantLock();
     private final AtomicLong lastTimestampMillis = new AtomicLong(0L);
 
     @Autowired
@@ -345,7 +346,8 @@ public class AuditLogService {
             String detailsJson) {
 
         AuditEventDto dto;
-        synchronized (chainLock) {
+        chainLock.lock();
+        try {
             String id = tsid.generate();
             long nowMillis = lastTimestampMillis.updateAndGet(prev -> Math.max(System.currentTimeMillis(), prev + 1));
             Instant ts = Instant.ofEpochMilli(nowMillis);
@@ -413,6 +415,8 @@ public class AuditLogService {
                     prevHash,
                     entryHash
             );
+        } finally {
+            chainLock.unlock();
         }
 
         log.info("[AUDIT_EVENT] id={} tenant={} actor={} role={} action={} targetType={} targetId={} ns={} outcome={} hash={}",

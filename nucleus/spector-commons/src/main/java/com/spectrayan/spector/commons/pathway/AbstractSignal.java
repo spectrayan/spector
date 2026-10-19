@@ -18,6 +18,7 @@ package com.spectrayan.spector.commons.pathway;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Base implementation of {@link ContextualSignal} and {@link TraceableSignal}.
@@ -26,7 +27,7 @@ public abstract class AbstractSignal implements ContextualSignal, TraceableSigna
 
     private PathwayContext context;
     private final List<RelayTrace> traces = new ArrayList<>();
-    private final Object tracesLock = new Object();
+    private final ReentrantLock tracesLock = new ReentrantLock();
 
     @Override
     public final PathwayContext context() {
@@ -48,15 +49,21 @@ public abstract class AbstractSignal implements ContextualSignal, TraceableSigna
         if (!isTraceEnabled() || trace == null) {
             return;
         }
-        synchronized (tracesLock) {
+        tracesLock.lock();
+        try {
             traces.add(trace);
+        } finally {
+            tracesLock.unlock();
         }
     }
 
     @Override
     public List<RelayTrace> traces() {
-        synchronized (tracesLock) {
+        tracesLock.lock();
+        try {
             return List.copyOf(traces);
+        } finally {
+            tracesLock.unlock();
         }
     }
 }
