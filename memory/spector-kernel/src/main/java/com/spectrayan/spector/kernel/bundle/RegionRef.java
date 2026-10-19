@@ -120,7 +120,9 @@ public final class RegionRef {
             slice.set(java.lang.foreign.ValueLayout.JAVA_INT, 0, 0x434B5054);
             slice.set(java.lang.foreign.ValueLayout.JAVA_INT, 4, 1);
             slice.set(java.lang.foreign.ValueLayout.JAVA_LONG, 8, hwm);
-            slice.force();
+            if (slice.isMapped()) {
+                slice.force();
+            }
         }
     }
 

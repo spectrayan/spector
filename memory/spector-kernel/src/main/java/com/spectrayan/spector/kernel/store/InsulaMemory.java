@@ -85,7 +85,9 @@ public final class InsulaMemory implements Memory<InsularLayout>, AutoCloseable 
             regionSlice.set(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_CHECKSUM, 0);
             regionSlice.set(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_FLAGS, InsularLayout.FLAG_EMPTY);
             regionSlice.set(ValueLayout.JAVA_LONG_UNALIGNED, HEADER_START + 24, 0L); // reserved
-            regionSlice.force();
+            if (regionSlice.isMapped()) {
+                regionSlice.force();
+            }
         } else {
             validateHeader(regionSlice);
         }
@@ -109,7 +111,9 @@ public final class InsulaMemory implements Memory<InsularLayout>, AutoCloseable 
             regionSlice.set(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_CHECKSUM, 0);
             regionSlice.set(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_FLAGS, InsularLayout.FLAG_EMPTY);
             regionSlice.set(ValueLayout.JAVA_LONG_UNALIGNED, HEADER_START + 24, 0L); // reserved
-            regionSlice.force();
+            if (regionSlice.isMapped()) {
+                regionSlice.force();
+            }
         } else {
             validateHeader(regionSlice);
         }

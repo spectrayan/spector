@@ -1259,14 +1259,14 @@ public class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLayout> 
             try {
                 writeSmkmHeaderToSegment(headerSegment, entityCapacity, entityCount,
                         adjSegmentCapacity, adjHighWaterMark);
-                headerSegment.force();
-                entitySegment.force();
+                if (headerSegment.isMapped()) headerSegment.force();
+                if (entitySegment.isMapped()) entitySegment.force();
 
                 if (rawAdjacencyRegion != null) {
                     writeSmkmHeaderToSegment(rawAdjacencyRegion.asSlice(0, DATA_START), 0, 0,
                             adjSegmentCapacity, adjHighWaterMark);
-                    adjacencySegment.force();
-                    rawAdjacencyRegion.force();
+                    if (adjacencySegment.isMapped()) adjacencySegment.force();
+                    if (rawAdjacencyRegion.isMapped()) rawAdjacencyRegion.force();
 
                     Path path = filePath != null ? filePath : mmapFilePath;
                     if (path != null) {
@@ -1291,9 +1291,9 @@ public class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLayout> 
             try {
                 writeSmkmHeaderToSegment(headerSegment, entityCapacity, entityCount,
                         adjSegmentCapacity, adjHighWaterMark);
-                headerSegment.force();
-                entitySegment.force();
-                adjacencySegment.force();
+                if (headerSegment.isMapped()) headerSegment.force();
+                if (entitySegment.isMapped()) entitySegment.force();
+                if (adjacencySegment.isMapped()) adjacencySegment.force();
             } finally {
                 lock.unlockRead(stamp);
             }
@@ -1523,9 +1523,9 @@ public class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLayout> 
         log.info("EntityDirectory closing (entities={}, adjEntries={}, fileBacked={})",
                 entityCount, adjHighWaterMark, fileBacked);
         if (fileBacked && headerSegment != null) {
-            entitySegment.force();
-            adjacencySegment.force();
-            headerSegment.force();
+            if (entitySegment.isMapped()) entitySegment.force();
+            if (adjacencySegment.isMapped()) adjacencySegment.force();
+            if (headerSegment.isMapped()) headerSegment.force();
         }
         if (!bundleManaged && arena != null) {
             arena.close();

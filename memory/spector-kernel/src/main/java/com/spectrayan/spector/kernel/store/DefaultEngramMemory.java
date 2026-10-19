@@ -264,7 +264,7 @@ class DefaultEngramMemory implements EngramMemory {
                 region.force();
             }
         }
-        if (strengthMemory != null && strengthMemory.segment() != null) {
+        if (strengthMemory != null && strengthMemory.segment() != null && strengthMemory.segment().isMapped()) {
             strengthMemory.segment().force();
         }
     }

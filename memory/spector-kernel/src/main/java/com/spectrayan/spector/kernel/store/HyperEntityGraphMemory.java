@@ -950,7 +950,9 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
             try {
                 writeSmkmHeaderToSegment(segment(), entityCapacity, hyperedgeCapacity,
                         nextHyperedgeId, nextVertexOffset, totalHyperedges);
-                segment().force();
+                if (segment().isMapped()) {
+                    segment().force();
+                }
                 log.info("HyperEntityGraphMemory saved to bundle: {} hyperedges, {} vertices",
                         totalHyperedges, nextVertexOffset);
             } finally {

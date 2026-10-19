@@ -871,8 +871,12 @@ public class IndexEntryMemory extends AbstractRecordMemory<IndexEntryLayout> {
                     index++;
                 }
 
-                midxSeg.force();
-                idplSeg.force();
+                if (midxSeg.isMapped()) {
+                    midxSeg.force();
+                }
+                if (idplSeg.isMapped()) {
+                    idplSeg.force();
+                }
                 log.info("MemoryIndex saved to bundle: {} entries", entryCount);
             } catch (Exception e) {
                 throw new SpectorStorageException(ErrorCode.DISK_IO_FAILED, e, "save MemoryIndex to bundle");

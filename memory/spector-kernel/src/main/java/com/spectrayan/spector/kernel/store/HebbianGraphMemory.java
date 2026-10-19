@@ -634,7 +634,9 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
             try {
                 compactIfNeeded();
                 writeSmkmHeader(segment(), capacity, edgeCapacity, totalEdgeCount, currentCycle);
-                segment().force();
+                if (segment().isMapped()) {
+                    segment().force();
+                }
                 log.info("HebbianGraphMemory saved to bundle: capacity={}, edges={}, cycle={}",
                         capacity, totalEdgeCount, currentCycle);
             } finally {

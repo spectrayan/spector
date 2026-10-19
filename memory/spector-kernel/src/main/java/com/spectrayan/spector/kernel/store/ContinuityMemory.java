@@ -109,7 +109,9 @@ public final class ContinuityMemory extends AbstractRecordMemory<ContinuityLayou
             ContinuityLayout.writeTotalSnapshots(regionSlice, 0);
             ContinuityLayout.writeLastSnapshotTimestamp(regionSlice, 0L);
             ContinuityLayout.writeCapacity(regionSlice, recordCapacity);
-            regionSlice.force();
+            if (regionSlice.isMapped()) {
+                regionSlice.force();
+            }
         } else {
             validateHeader(regionSlice);
         }
@@ -135,7 +137,9 @@ public final class ContinuityMemory extends AbstractRecordMemory<ContinuityLayou
             ContinuityLayout.writeTotalSnapshots(regionSlice, 0);
             ContinuityLayout.writeLastSnapshotTimestamp(regionSlice, 0L);
             ContinuityLayout.writeCapacity(regionSlice, recordCapacity);
-            regionSlice.force();
+            if (regionSlice.isMapped()) {
+                regionSlice.force();
+            }
         } else {
             validateHeader(regionSlice);
         }
@@ -276,7 +280,7 @@ public final class ContinuityMemory extends AbstractRecordMemory<ContinuityLayou
             ContinuityLayout.writeLastSnapshotTimestamp(seg, snapshot.timestamp());
             this.count = Math.min(total + 1, capacity);
 
-            if (persistent && !bundleManaged) {
+            if (persistent && !bundleManaged && seg.isMapped()) {
                 seg.asSlice(recordOff, ContinuityLayout.RECORD_STRIDE).force();
             }
 

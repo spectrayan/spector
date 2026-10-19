@@ -412,7 +412,7 @@ public abstract class AbstractMemory<L extends RegionLayout> implements Memory<L
         if (persistent) {
             try {
                 MemorySegment seg = segment();
-                if (seg != null && seg.scope().isAlive()) {
+                if (seg != null && seg.scope().isAlive() && seg.isMapped()) {
                     seg.force();
                 }
             } catch (Exception e) {
@@ -427,7 +427,7 @@ public abstract class AbstractMemory<L extends RegionLayout> implements Memory<L
         if (persistent) {
             try {
                 MemorySegment seg = segment();
-                if (seg != null && seg.scope().isAlive()) {
+                if (seg != null && seg.scope().isAlive() && seg.isMapped()) {
                     seg.force();
                 }
             } catch (Exception e) {
