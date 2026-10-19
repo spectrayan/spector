@@ -39,6 +39,7 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.util.Arrays;
 
 /**
@@ -54,6 +55,7 @@ public final class EncryptedSegmentPageCodec {
     private static final int TAG_BYTES = EnvelopeCipher.GCM_TAG_BYTES;     // 16
     private static final int TAG_BITS = EnvelopeCipher.GCM_TAG_BITS;       // 128
     private static final int PAGE_OVERHEAD_BYTES = NONCE_BYTES + TAG_BYTES; // 28
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private EncryptedSegmentPageCodec() {}
 
@@ -117,7 +119,8 @@ public final class EncryptedSegmentPageCodec {
                         MemorySegment.copy(masterSegment, ValueLayout.JAVA_BYTE, offset,
                                 plainPageBuf, 0, plainPageLen);
 
-                        byte[] nonce = EnvelopeCipher.pageNonce(nsSalt, pageIndex);
+                        byte[] nonce = new byte[NONCE_BYTES];
+                        SECURE_RANDOM.nextBytes(nonce);
                         byte[] aad = buildPageAad(
                                 encryptor.tenantId(),
                                 encryptor.namespaceId(),
@@ -240,12 +243,6 @@ public final class EncryptedSegmentPageCodec {
                         readFully(fc, ByteBuffer.wrap(diskPage), filePos);
 
                         byte[] nonce = Arrays.copyOfRange(diskPage, 0, NONCE_BYTES);
-                        byte[] expectedNonce = EnvelopeCipher.pageNonce(header.nsSalt(), pageIndex);
-                        if (!MessageDigest.isEqual(nonce, expectedNonce)) {
-                            throw new SpectorMemoryException(ErrorCode.MEMORY_AUTH_TAG_MISMATCH,
-                                    "Page nonce sequence mismatch at page " + pageIndex + " in " + sourcePath);
-                        }
-
                         byte[] aad = buildPageAad(
                                 encryptor.tenantId(),
                                 encryptor.namespaceId(),
@@ -321,7 +318,8 @@ public final class EncryptedSegmentPageCodec {
                 long pageIndex = 0;
                 int offset = 0;
                 if (plaintext.length == 0) {
-                    byte[] nonce = EnvelopeCipher.pageNonce(nsSalt, 0L);
+                    byte[] nonce = new byte[NONCE_BYTES];
+                    SECURE_RANDOM.nextBytes(nonce);
                     byte[] aad = buildPageAad(encryptor.tenantId(), encryptor.namespaceId(), segmentType, dekVersion, 0L, 0);
                     cipher.init(Cipher.ENCRYPT_MODE, keySpec, new GCMParameterSpec(TAG_BITS, nonce));
                     cipher.updateAAD(aad);
@@ -330,7 +328,8 @@ public final class EncryptedSegmentPageCodec {
                 } else {
                     while (offset < plaintext.length) {
                         int plainPageLen = Math.min(pageSize, plaintext.length - offset);
-                        byte[] nonce = EnvelopeCipher.pageNonce(nsSalt, pageIndex);
+                        byte[] nonce = new byte[NONCE_BYTES];
+                        SECURE_RANDOM.nextBytes(nonce);
                         byte[] aad = buildPageAad(
                                 encryptor.tenantId(),
                                 encryptor.namespaceId(),
@@ -413,11 +412,6 @@ public final class EncryptedSegmentPageCodec {
                                 "Truncated encrypted page " + pageIndex);
                     }
                     byte[] nonce = Arrays.copyOfRange(fileBytes, filePos, filePos + NONCE_BYTES);
-                    byte[] expectedNonce = EnvelopeCipher.pageNonce(header.nsSalt(), pageIndex);
-                    if (!MessageDigest.isEqual(nonce, expectedNonce)) {
-                        throw new SpectorMemoryException(ErrorCode.MEMORY_AUTH_TAG_MISMATCH,
-                                "Page nonce sequence mismatch at page " + pageIndex);
-                    }
                     byte[] aad = buildPageAad(
                             encryptor.tenantId(),
                             encryptor.namespaceId(),

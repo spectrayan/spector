@@ -1025,6 +1025,37 @@ public final class RuntimeBundle implements AbstractBundle {
         }
     }
 
+    /**
+     * Stamps the 128-bit synaptic tag Bloom filter ({@code tagsLo}, {@code tagsHi}) into the
+     * V2 encoding header at {@code recordOffset} within {@code regionId}.
+     */
+    public boolean writeSynapticTags128(RegionId regionId, long recordOffset, long tagsLo, long tagsHi) {
+        if (!hasRegion(regionId)) {
+            return false;
+        }
+        MemorySegment seg = currentSlice(regionId);
+        if (recordOffset < 0 || recordOffset + com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.HEADER_BYTES > seg.byteSize()) {
+            return false;
+        }
+        seg.set(java.lang.foreign.ValueLayout.JAVA_LONG_UNALIGNED,
+                recordOffset + com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.OFFSET_V2_SYNAPTIC_TAGS_LO, tagsLo);
+        seg.set(java.lang.foreign.ValueLayout.JAVA_LONG_UNALIGNED,
+                recordOffset + com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.OFFSET_V2_SYNAPTIC_TAGS_HI, tagsHi);
+        return true;
+    }
+
+    /**
+     * Updates the WAL high-water mark sequence at byte offset 64 of the {@link RegionId#CHECKPOINT} region.
+     */
+    public void writeCheckpointWalWatermark(long walSequence) {
+        if (hasRegion(RegionId.CHECKPOINT)) {
+            MemorySegment cpSeg = currentSlice(RegionId.CHECKPOINT);
+            if (cpSeg.byteSize() >= 72) {
+                cpSeg.set(java.lang.foreign.ValueLayout.JAVA_LONG_UNALIGNED, 64L, walSequence);
+            }
+        }
+    }
+
     private final AtomicBoolean isClosed = new AtomicBoolean(false);
 
     /**

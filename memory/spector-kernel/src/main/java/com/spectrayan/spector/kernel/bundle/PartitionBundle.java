@@ -653,6 +653,25 @@ public final class PartitionBundle implements AbstractBundle {
     }
 
     /**
+     * Stamps the 128-bit synaptic tag Bloom filter ({@code tagsLo}, {@code tagsHi}) into the
+     * V2 encoding header at {@code recordOffset} within {@code regionId}.
+     */
+    public boolean writeSynapticTags128(RegionId regionId, long recordOffset, long tagsLo, long tagsHi) {
+        if (!hasRegion(regionId)) {
+            return false;
+        }
+        MemorySegment seg = currentSlice(regionId);
+        if (recordOffset < 0 || recordOffset + com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.HEADER_BYTES > seg.byteSize()) {
+            return false;
+        }
+        seg.set(java.lang.foreign.ValueLayout.JAVA_LONG_UNALIGNED,
+                recordOffset + com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.OFFSET_V2_SYNAPTIC_TAGS_LO, tagsLo);
+        seg.set(java.lang.foreign.ValueLayout.JAVA_LONG_UNALIGNED,
+                recordOffset + com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.OFFSET_V2_SYNAPTIC_TAGS_HI, tagsHi);
+        return true;
+    }
+
+    /**
      * Flushes the directory and region data to disk, then closes the arena.
      *
      * <p>After close, all region segments become invalid. Stores backed by
