@@ -61,6 +61,9 @@ public class SpectorBundleCodec {
 
     private static final Logger log = LoggerFactory.getLogger(SpectorBundleCodec.class);
 
+    /** Magic header ("SEC1" = 0x53454331) for ADR-0088 encrypted .smb disaster recovery bundles. */
+    public static final int SEC1_MAGIC = 0x53454331;
+
     /**
      * Packages a directory into a Spector Memory Bundle (.smb archive).
      *
@@ -69,10 +72,67 @@ public class SpectorBundleCodec {
      * @throws IOException if packaging fails
      */
     public void packageBundle(Path sourceDir, Path outputFile) throws IOException {
-        log.info("[SpectorBundleCodec] Packaging bundle from {} to {}", sourceDir, outputFile);
+        packageBundle(sourceDir, outputFile, com.spectrayan.spector.memory.persist.DataEncryptor.NOOP);
+    }
+
+    /**
+     * Packages a directory into a Spector Memory Bundle (.smb archive), optionally wrapping the
+     * archive in an ADR-0088 {@code SEC1} {@code AES-256-GCM} encrypted container when
+     * {@code encryptor.isEnabled()} is true.
+     *
+     * @param sourceDir  directory containing staging export files
+     * @param outputFile target .smb output path
+     * @param encryptor  per-namespace data encryptor (null or NOOP for plaintext)
+     * @throws IOException if packaging fails
+     */
+    public void packageBundle(
+            Path sourceDir,
+            Path outputFile,
+            com.spectrayan.spector.memory.persist.DataEncryptor encryptor) throws IOException {
+        log.info("[SpectorBundleCodec] Packaging bundle from {} to {} (encrypted={})",
+                sourceDir, outputFile, encryptor != null && encryptor.isEnabled());
         
         if (outputFile.getParent() != null) {
             Files.createDirectories(outputFile.getParent());
+        }
+
+        if (encryptor != null && encryptor.isEnabled()) {
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            try (ZipOutputStream zos = new ZipOutputStream(new BufferedOutputStream(baos))) {
+                Files.walk(sourceDir).filter(path -> !Files.isDirectory(path)).forEach(path -> {
+                    String entryName = sourceDir.relativize(path).toString().replace('\\', '/');
+                    ZipEntry entry = new ZipEntry(entryName);
+                    try {
+                        zos.putNextEntry(entry);
+                        Files.copy(path, zos);
+                        zos.closeEntry();
+                    } catch (IOException e) {
+                        throw new RuntimeException("Failed to package entry: " + entryName, e);
+                    }
+                });
+            }
+            byte[] zipBytes = baos.toByteArray();
+            byte[] cipherBytes = encryptor.encryptPayload(zipBytes);
+            java.nio.ByteBuffer header = java.nio.ByteBuffer.allocate(8).order(java.nio.ByteOrder.BIG_ENDIAN);
+            header.putInt(SEC1_MAGIC);
+            header.putInt(cipherBytes.length);
+            header.flip();
+            try (java.nio.channels.FileChannel ch = java.nio.channels.FileChannel.open(
+                    outputFile,
+                    java.nio.file.StandardOpenOption.CREATE,
+                    java.nio.file.StandardOpenOption.WRITE,
+                    java.nio.file.StandardOpenOption.TRUNCATE_EXISTING)) {
+                while (header.hasRemaining()) {
+                    ch.write(header);
+                }
+                java.nio.ByteBuffer body = java.nio.ByteBuffer.wrap(cipherBytes);
+                while (body.hasRemaining()) {
+                    ch.write(body);
+                }
+                ch.force(true);
+            }
+            log.info("[SpectorBundleCodec] Successfully packaged encrypted SEC1 bundle: {}", outputFile);
+            return;
         }
 
         try (ZipOutputStream zos = new ZipOutputStream(new BufferedOutputStream(new FileOutputStream(outputFile.toFile())))) {
@@ -92,6 +152,55 @@ public class SpectorBundleCodec {
     }
 
     /**
+     * Returns {@code true} if {@code bundleFile} starts with the 4-byte {@code "SEC1"} magic header.
+     */
+    public boolean isEncryptedBundle(Path bundleFile) throws IOException {
+        if (bundleFile == null || !Files.exists(bundleFile) || Files.size(bundleFile) < 8) {
+            return false;
+        }
+        try (java.nio.channels.FileChannel ch = java.nio.channels.FileChannel.open(
+                bundleFile, java.nio.file.StandardOpenOption.READ)) {
+            java.nio.ByteBuffer buf = java.nio.ByteBuffer.allocate(4).order(java.nio.ByteOrder.BIG_ENDIAN);
+            while (buf.hasRemaining()) {
+                if (ch.read(buf) < 0) {
+                    return false;
+                }
+            }
+            buf.flip();
+            return buf.getInt() == SEC1_MAGIC;
+        }
+    }
+
+    private Path decryptSec1ToTempFile(
+            Path bundleFile,
+            com.spectrayan.spector.memory.persist.DataEncryptor encryptor) throws IOException {
+        if (encryptor == null || !encryptor.isEnabled()) {
+            throw new com.spectrayan.spector.memory.error.SpectorEncryptionException(
+                    ErrorCode.MEMORY_ENCRYPTION_KEY_MISSING,
+                    "Encrypted SEC1 SMB bundle requires an enabled DataEncryptor: " + bundleFile);
+        }
+        byte[] raw = Files.readAllBytes(bundleFile);
+        if (raw.length < 8) {
+            throw new com.spectrayan.spector.memory.error.SpectorEncryptionException(
+                    ErrorCode.MEMORY_AUTH_TAG_MISMATCH,
+                    "Truncated SEC1 SMB bundle: " + bundleFile);
+        }
+        java.nio.ByteBuffer buf = java.nio.ByteBuffer.wrap(raw).order(java.nio.ByteOrder.BIG_ENDIAN);
+        int magic = buf.getInt();
+        int cipherLen = buf.getInt();
+        if (magic != SEC1_MAGIC || cipherLen <= 0 || 8 + cipherLen > raw.length) {
+            throw new com.spectrayan.spector.memory.error.SpectorEncryptionException(
+                    ErrorCode.MEMORY_AUTH_TAG_MISMATCH,
+                    "Corrupted SEC1 SMB bundle framing: " + bundleFile);
+        }
+        byte[] cipherBytes = java.util.Arrays.copyOfRange(raw, 8, 8 + cipherLen);
+        byte[] plainZip = encryptor.decryptPayload(cipherBytes);
+        Path tempZip = Files.createTempFile("spector-sec1-", ".smb");
+        Files.write(tempZip, plainZip);
+        return tempZip;
+    }
+
+    /**
      * Extracts a Spector Memory Bundle (.smb archive) into a destination directory.
      *
      * <p>Enforces pre-write validation: the archive structure is validated (detecting
@@ -104,6 +213,17 @@ public class SpectorBundleCodec {
      * @throws IOException if extraction fails or security violation occurs
      */
     public void unpackBundle(Path bundleFile, Path targetDir) throws IOException {
+        unpackBundle(bundleFile, targetDir, com.spectrayan.spector.memory.persist.DataEncryptor.NOOP);
+    }
+
+    /**
+     * Extracts a Spector Memory Bundle (.smb archive) into a destination directory, decrypting
+     * an ADR-0088 {@code SEC1} container first when present.
+     */
+    public void unpackBundle(
+            Path bundleFile,
+            Path targetDir,
+            com.spectrayan.spector.memory.persist.DataEncryptor encryptor) throws IOException {
         log.info("[SpectorBundleCodec] Unpacking bundle {} into {}", bundleFile, targetDir);
         Objects.requireNonNull(bundleFile, "bundleFile must not be null");
         Objects.requireNonNull(targetDir, "targetDir must not be null");
@@ -113,6 +233,16 @@ public class SpectorBundleCodec {
                     ErrorCode.CONFIG_FILE_NOT_FOUND,
                     "Bundle file not found: " + bundleFile
             );
+        }
+
+        if (isEncryptedBundle(bundleFile)) {
+            Path tempZip = decryptSec1ToTempFile(bundleFile, encryptor);
+            try {
+                unpackBundle(tempZip, targetDir, com.spectrayan.spector.memory.persist.DataEncryptor.NOOP);
+                return;
+            } finally {
+                Files.deleteIfExists(tempZip);
+            }
         }
 
         // 1. Verify archive structure with ZipFile (validates central directory).
@@ -169,12 +299,31 @@ public class SpectorBundleCodec {
      * @throws IOException if an I/O error occurs
      */
     public SpectorBundleManifest readManifest(Path bundleFile) throws IOException {
+        return readManifest(bundleFile, com.spectrayan.spector.memory.persist.DataEncryptor.NOOP);
+    }
+
+    /**
+     * Reads and parses {@code manifest.json} from an .smb archive, decrypting an ADR-0088
+     * {@code SEC1} container first when present.
+     */
+    public SpectorBundleManifest readManifest(
+            Path bundleFile,
+            com.spectrayan.spector.memory.persist.DataEncryptor encryptor) throws IOException {
         Objects.requireNonNull(bundleFile, "bundleFile must not be null");
         if (!Files.exists(bundleFile)) {
             throw new SpectorValidationException(
                     ErrorCode.CONFIG_FILE_NOT_FOUND,
                     "Bundle file not found: " + bundleFile
             );
+        }
+
+        if (isEncryptedBundle(bundleFile)) {
+            Path tempZip = decryptSec1ToTempFile(bundleFile, encryptor);
+            try {
+                return readManifest(tempZip, com.spectrayan.spector.memory.persist.DataEncryptor.NOOP);
+            } finally {
+                Files.deleteIfExists(tempZip);
+            }
         }
 
         try (ZipFile zipFile = new ZipFile(bundleFile.toFile())) {
