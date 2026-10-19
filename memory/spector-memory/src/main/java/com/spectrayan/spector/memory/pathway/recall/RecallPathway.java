@@ -378,7 +378,9 @@ public final class RecallPathway extends AbstractPathway<RecallSignal, List<Cogn
         if (queryText == null) {
             throw new IllegalArgumentException("queryText cannot be null");
         }
-        final RecallOptions opts = options == null ? RecallOptions.DEFAULT : options;
+        final com.spectrayan.spector.memory.persist.DataEncryptor encryptor =
+                partitionRegistry instanceof PartitionManager pm ? pm.encryptor() : null;
+        final RecallOptions opts = (options == null ? RecallOptions.DEFAULT : options).withKeyedTags(encryptor);
 
         if (opts.recallMode() == RecallMode.REPLAY) {
             return replayRecall(queryText, opts);
@@ -405,7 +407,9 @@ public final class RecallPathway extends AbstractPathway<RecallSignal, List<Cogn
         if (queryVector == null) {
             throw new IllegalArgumentException("queryVector cannot be null");
         }
-        final RecallOptions opts = options == null ? RecallOptions.DEFAULT : options;
+        final com.spectrayan.spector.memory.persist.DataEncryptor encryptor =
+                partitionRegistry instanceof PartitionManager pm ? pm.encryptor() : null;
+        final RecallOptions opts = (options == null ? RecallOptions.DEFAULT : options).withKeyedTags(encryptor);
 
         final RecallSignal signal = RecallSignal.forVectorQuery(queryVector, opts);
         return execute(kernel, signal);

@@ -1074,6 +1074,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 }
                 options = optBuilder.build();
             }
+            options = options.withKeyedTags(partitionManager != null ? partitionManager.encryptor() : null);
             var signal = com.spectrayan.spector.memory.pathway.recall.relay.RecallSignal.forTextQuery(queryText, options);
             bindRecallSignalContext(signal);
             List<CognitiveResult> storeResults = recallPathway.execute(null, signal);

@@ -144,6 +144,9 @@ public class RecallCandidateGatherer {
                 short recallCount = 0;
                 long ts = 0L;
                 byte consolidationFlags = (byte) 0;
+                long recordTagsLo = 0L;
+                long recordTagsHi = 0L;
+                boolean hasHeaderTags = false;
 
                 if (partitionRegistry != null) {
                     CognitiveMemoryRouter router = partitionRegistry.routerFor(loc.colocatedPartition());
@@ -160,6 +163,9 @@ public class RecallCandidateGatherer {
                                     recallCount = (short) header.agentRecallCount();
                                     ts = header.timestampMs();
                                     consolidationFlags = header.consolidationFlags();
+                                    recordTagsLo = header.synapticTagsLo();
+                                    recordTagsHi = header.synapticTagsHi();
+                                    hasHeaderTags = true;
                                     if (options.minTimestamp() != null && ts < options.minTimestamp()) continue;
                                     if (options.maxTimestamp() != null && ts > options.maxTimestamp()) continue;
                                     if (ts > 0) {
@@ -179,6 +185,9 @@ public class RecallCandidateGatherer {
                                 recallCount = (short) header.agentRecallCount();
                                 ts = header.timestampMs();
                                 consolidationFlags = body.consolidationFlags();
+                                recordTagsLo = header.synapticTagsLo();
+                                recordTagsHi = header.synapticTagsHi();
+                                hasHeaderTags = true;
                                 if (options.minTimestamp() != null && ts < options.minTimestamp()) continue;
                                 if (options.maxTimestamp() != null && ts > options.maxTimestamp()) continue;
                                 if (ts > 0) {
@@ -200,14 +209,17 @@ public class RecallCandidateGatherer {
                 if (!isPureTextSearch) {
                     boolean hasHyperfocus = options.hyperfocusMask() != 0L || options.hyperfocusMaskHi() != 0L;
                     boolean hasTagMask = options.synapticTagMask() != 0L || options.synapticTagMaskHi() != 0L;
-                    if (hasHyperfocus) {
-                        var recTags = SynapticTagEncoder.encode128(tags);
-                        var hf = com.spectrayan.spector.core.cognitive.SynapticTag128.of(options.hyperfocusMask(), options.hyperfocusMaskHi());
-                        if (!recTags.matches(hf)) continue;
-                    } else if (hasTagMask) {
-                        var recTags = SynapticTagEncoder.encode128(tags);
-                        var qm = com.spectrayan.spector.core.cognitive.SynapticTag128.of(options.synapticTagMask(), options.synapticTagMaskHi());
-                        if (!recTags.sharesAnyBit(qm)) continue;
+                    if (hasHyperfocus || hasTagMask) {
+                        var recTags = hasHeaderTags
+                                ? com.spectrayan.spector.core.cognitive.SynapticTag128.of(recordTagsLo, recordTagsHi)
+                                : SynapticTagEncoder.encode128(tags);
+                        if (hasHyperfocus) {
+                            var hf = com.spectrayan.spector.core.cognitive.SynapticTag128.of(options.hyperfocusMask(), options.hyperfocusMaskHi());
+                            if (!recTags.matches(hf)) continue;
+                        } else {
+                            var qm = com.spectrayan.spector.core.cognitive.SynapticTag128.of(options.synapticTagMask(), options.synapticTagMaskHi());
+                            if (!recTags.sharesAnyBit(qm)) continue;
+                        }
                     }
                 }
 

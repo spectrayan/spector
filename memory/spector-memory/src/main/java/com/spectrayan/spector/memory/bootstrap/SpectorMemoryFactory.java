@@ -267,7 +267,23 @@ public final class SpectorMemoryFactory {
         //  WAL 
         MemoryWal wal;
         if (cortex.isDisk() && cortex.basePath() != null) {
-            wal = new MemoryWal(StoragePaths.walDir(cortex.basePath()));
+            try {
+                wal = new MemoryWal(StoragePaths.walDir(cortex.basePath()), builder.dataEncryptor());
+            } catch (RuntimeException e) {
+                if (cortex.partitionBundle() != null) {
+                    try {
+                        cortex.partitionBundle().close();
+                    } catch (Exception ignored) {
+                    }
+                }
+                if (cortex.runtimeBundle() != null) {
+                    try {
+                        cortex.runtimeBundle().close();
+                    } catch (Exception ignored) {
+                    }
+                }
+                throw e;
+            }
         } else {
             wal = new MemoryWal();
         }
@@ -632,10 +648,29 @@ public final class SpectorMemoryFactory {
 
         if (checkpointEngine != null) {
             checkpointEngine.setIndexPlaneCoordinator(indexPlaneCoordinator);
+            checkpointEngine.setBundleFlushCallback(() -> {
+                if (cortex.runtimeBundle() != null) {
+                    cortex.runtimeBundle().flush();
+                }
+                var activeHandle = partitionManager.activeHandle();
+                if (activeHandle != null && activeHandle.partitionBundle() != null) {
+                    activeHandle.partitionBundle().flush();
+                }
+            });
         }
 
         // Hydrate all registered indexes deterministically
         indexPlaneCoordinator.hydrateAll().toCompletableFuture().join();
+
+        if (builder.dataEncryptor() != null && builder.dataEncryptor().isEnabled()) {
+            if (cortex.runtimeBundle() != null) {
+                cortex.runtimeBundle().flush();
+            }
+            var activeHandle = partitionManager.activeHandle();
+            if (activeHandle != null && activeHandle.partitionBundle() != null) {
+                activeHandle.partitionBundle().flush();
+            }
+        }
 
         return new SubsystemBundle(
                 rememberPathway, embeddingProvider, recallPathway, reflectPathway, expressPathway, index, cortex.quantizer(),
