@@ -146,18 +146,6 @@ export class AdminSectionShellComponent {
   readonly subtitle = input.required<string>();
 }
 
-@Component({
-  selector: 'cortex-admin-keys',
-  standalone: true,
-  imports: [MatCardModule, AdminSectionShellComponent],
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <cortex-admin-section-shell
-      icon="vpn_key"
-      title="Keys & Encryption"
-      subtitle="BYOK KMS configuration, envelope KEK/DEK status, and key rotation."
-    />
-  `,
-})
-export class AdminKeysComponent {}
+export { AdminKeysComponent } from './pages/admin-keys.component';
+
 
