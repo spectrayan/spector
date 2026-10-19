@@ -40,8 +40,11 @@ public final class EnvelopeCipher {
     public static final String HMAC_SHA256_ALGORITHM = "HmacSHA256";
     public static final int DEK_LENGTH_BYTES = 32;
     public static final int GCM_IV_LENGTH_BYTES = 12;
+    public static final int GCM_NONCE_BYTES = GCM_IV_LENGTH_BYTES;
     public static final int GCM_TAG_LENGTH_BITS = 128;
+    public static final int GCM_TAG_BITS = GCM_TAG_LENGTH_BITS;
     public static final int GCM_TAG_LENGTH_BYTES = 16;
+    public static final int GCM_TAG_BYTES = GCM_TAG_LENGTH_BYTES;
     private static final int SHA256_HASH_LEN = 32;
 
     public static final String SUBKEY_PAYLOAD = "dek_payload";
@@ -52,6 +55,25 @@ public final class EnvelopeCipher {
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private EnvelopeCipher() {
+    }
+
+    /**
+     * Generates a cryptographically random 32-bit salt for per-segment page nonces (ADR-0088 §5.2).
+     */
+    public static int randomSalt32() {
+        return SECURE_RANDOM.nextInt();
+    }
+
+    /**
+     * Constructs a deterministic 96-bit (12-byte) GCM nonce from a 32-bit segment salt and
+     * a 64-bit monotonic page sequence counter (ADR-0088 §5.2).
+     */
+    public static byte[] pageNonce(int nsSalt, long pageSeq) {
+        byte[] nonce = new byte[GCM_IV_LENGTH_BYTES];
+        java.nio.ByteBuffer.wrap(nonce).order(java.nio.ByteOrder.BIG_ENDIAN)
+                .putInt(nsSalt)
+                .putLong(pageSeq);
+        return nonce;
     }
 
     /**
