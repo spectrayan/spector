@@ -467,7 +467,7 @@ class AdminAuditControllerTest {
                                     ))))
                             .andExpect(status().isOk()));
 
-            // ── F. AdminTenantKeyController (3 mutating endpoints under /api/v1/admin/tenants/{tenantId}/keys) ──
+            // ── F. AdminTenantKeyController (6 mutating endpoints under /api/v1/admin/tenants/{tenantId}/keys) ──
             assertProducesAuditEvent(verifiedAdminMutations, "PUT /api/v1/admin/tenants/{tenantId}/keys", () ->
                     mvc.perform(put("/api/v1/admin/tenants/tenant-alpha/keys")
                                     .with(user(superAdminId).authorities(SpectorAuthorityMapper.forRole("super-admin")))
@@ -482,6 +482,37 @@ class AdminAuditControllerTest {
                     "POST /api/v1/admin/tenants/{tenantId}/keys/validate", () ->
                             mvc.perform(post("/api/v1/admin/tenants/tenant-alpha/keys/validate")
                                             .with(user(superAdminId).authorities(SpectorAuthorityMapper.forRole("super-admin"))))
+                                    .andExpect(status().isOk()));
+
+            assertProducesAuditEvent(verifiedAdminMutations,
+                    "POST /api/v1/admin/tenants/{tenantId}/keys/rotate-kek", () ->
+                            mvc.perform(post("/api/v1/admin/tenants/tenant-alpha/keys/rotate-kek")
+                                            .with(user(superAdminId).authorities(SpectorAuthorityMapper.forRole("super-admin")))
+                                            .contentType(MediaType.APPLICATION_JSON)
+                                            .content(mapper.writeValueAsString(Map.of(
+                                                    "newKekKeyId", "tenant-alpha-audit-kek-v2",
+                                                    "newKekVersion", "v2"
+                                            ))))
+                                    .andExpect(status().isOk()));
+
+            assertProducesAuditEvent(verifiedAdminMutations,
+                    "POST /api/v1/admin/tenants/{tenantId}/keys/rotate-dek", () ->
+                            mvc.perform(post("/api/v1/admin/tenants/tenant-alpha/keys/rotate-dek")
+                                            .with(user(superAdminId).authorities(SpectorAuthorityMapper.forRole("super-admin")))
+                                            .contentType(MediaType.APPLICATION_JSON)
+                                            .content(mapper.writeValueAsString(Map.of(
+                                                    "namespaceId", "cov-ns-3"
+                                            ))))
+                                    .andExpect(status().isOk()));
+
+            assertProducesAuditEvent(verifiedAdminMutations,
+                    "POST /api/v1/admin/tenants/{tenantId}/keys/revoke", () ->
+                            mvc.perform(post("/api/v1/admin/tenants/tenant-alpha/keys/revoke")
+                                            .with(user(superAdminId).authorities(SpectorAuthorityMapper.forRole("super-admin")))
+                                            .contentType(MediaType.APPLICATION_JSON)
+                                            .content(mapper.writeValueAsString(Map.of(
+                                                    "reason", "Audit coverage test revocation"
+                                            ))))
                                     .andExpect(status().isOk()));
 
             assertProducesAuditEvent(verifiedAdminMutations, "DELETE /api/v1/admin/tenants/{tenantId}/keys", () ->

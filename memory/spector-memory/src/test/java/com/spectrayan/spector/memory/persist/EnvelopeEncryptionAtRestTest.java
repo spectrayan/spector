@@ -428,25 +428,39 @@ class EnvelopeEncryptionAtRestTest {
         String tenantId = "tenant-rekey";
         String namespaceId = "ns-rekey";
 
-        try (DestroyableKeyMaterial dekV1 = EnvelopeCipher.generateDek();
-             DestroyableKeyMaterial dekV2 = EnvelopeCipher.generateDek();
+        byte[] dekV1Bytes = new byte[32];
+        byte[] dekV2Bytes = new byte[32];
+        for (int i = 0; i < 32; i++) {
+            dekV1Bytes[i] = (byte) (0x41 + i);
+            dekV2Bytes[i] = (byte) (0x71 + i);
+        }
+
+        try (DestroyableKeyMaterial dekV1 = DestroyableKeyMaterial.fromBytes(dekV1Bytes);
+             DestroyableKeyMaterial dekV2 = DestroyableKeyMaterial.fromBytes(dekV2Bytes);
              EnvelopeDataEncryptor encryptorV1 = new EnvelopeDataEncryptor(
                      tenantId, namespaceId, 1, EncryptedSegmentHeader.MODE_BYOK_ENVELOPE, "kms:key-1", dekV1.copy());
              EnvelopeDataEncryptor encryptorV2 = new EnvelopeDataEncryptor(
                      tenantId, namespaceId, 2, EncryptedSegmentHeader.MODE_BYOK_ENVELOPE, "kms:key-1", dekV2.copy())) {
 
-            RecallOptions opts = RecallOptions.builder()
+            RecallOptions allOpts = RecallOptions.builder()
                     .topK(5)
                     .recallMode(com.spectrayan.spector.memory.model.RecallMode.OBSERVE)
-                    .synapticFilter("urgent")
+                    .build();
+            RecallOptions hyperfocusOpts = RecallOptions.builder()
+                    .topK(5)
+                    .recallMode(com.spectrayan.spector.memory.model.RecallMode.OBSERVE)
+                    .hyperfocusMask("urgent")
                     .build();
 
-            List<CognitiveResult> beforeRekey;
+            List<CognitiveResult> beforeAll;
+            List<CognitiveResult> beforeHyperfocus;
             try (SpectorMemory memV1 = buildMemory(tempDir, namespaceId, encryptorV1)) {
                 populateSampleMemories(memV1);
-                beforeRekey = memV1.recall("quantum cryptography", opts);
+                beforeAll = memV1.recall("quantum cryptography lattice key", allOpts);
+                beforeHyperfocus = memV1.recall("quantum cryptography lattice key", hyperfocusOpts);
             }
-            assertThat(beforeRekey).isNotEmpty();
+            assertThat(beforeAll).hasSize(3);
+            assertThat(beforeHyperfocus).hasSize(2);
 
             Path nsDir = tempDir.resolve("namespaces").resolve(namespaceId);
             var summary = com.spectrayan.spector.memory.persist.migration.NamespaceEncryptionMigrator.rekey(
@@ -471,8 +485,10 @@ class EnvelopeEncryptionAtRestTest {
 
             // Opening with new dek_v2 succeeds and preserves full recall + keyed synaptic tag filter parity
             try (SpectorMemory memV2 = buildMemory(tempDir, namespaceId, encryptorV2)) {
-                List<CognitiveResult> afterRekey = memV2.recall("quantum cryptography", opts);
-                assertRecallParity(beforeRekey, afterRekey);
+                List<CognitiveResult> afterAll = memV2.recall("quantum cryptography lattice key", allOpts);
+                List<CognitiveResult> afterHyperfocus = memV2.recall("quantum cryptography lattice key", hyperfocusOpts);
+                assertRecallParity(beforeAll, afterAll);
+                assertRecallParity(beforeHyperfocus, afterHyperfocus);
             }
         }
     }
