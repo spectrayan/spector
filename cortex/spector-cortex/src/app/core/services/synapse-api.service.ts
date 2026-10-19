@@ -739,6 +739,84 @@ export class SynapseApiService {
   clearAllAdminCaches(): Observable<any> {
     return this.http.delete<any>(`${this.baseUrl}/admin/cache`);
   }
+
+  // ─── Admin Tenant BYOK Keys & Encryption (Issues #1070, #1072, #1073) ───
+
+  getTenantKeyStatus(tenantId: string): Observable<any> {
+    return this.http.get<any>(
+      `${this.baseUrl}/admin/tenants/${encodeURIComponent(tenantId)}/keys`
+    );
+  }
+
+  configureTenantKey(
+    tenantId: string,
+    payload: {
+      provider: string;
+      kekKeyId: string;
+      credentialName?: string | null;
+      region?: string | null;
+      endpoint?: string | null;
+    }
+  ): Observable<any> {
+    return this.http.put<any>(
+      `${this.baseUrl}/admin/tenants/${encodeURIComponent(tenantId)}/keys`,
+      payload
+    );
+  }
+
+  validateTenantKey(tenantId: string): Observable<any> {
+    return this.http.post<any>(
+      `${this.baseUrl}/admin/tenants/${encodeURIComponent(tenantId)}/keys/validate`,
+      {}
+    );
+  }
+
+  rotateTenantKek(
+    tenantId: string,
+    payload: {
+      provider?: string | null;
+      newKekKeyId?: string | null;
+      newKekVersion?: string | null;
+      credentialName?: string | null;
+      region?: string | null;
+      endpoint?: string | null;
+    } = {}
+  ): Observable<any> {
+    return this.http.post<any>(
+      `${this.baseUrl}/admin/tenants/${encodeURIComponent(tenantId)}/keys/rotate-kek`,
+      payload
+    );
+  }
+
+  rotateNamespaceDek(
+    tenantId: string,
+    payload: {
+      namespaceId?: string | null;
+    } = {}
+  ): Observable<any> {
+    return this.http.post<any>(
+      `${this.baseUrl}/admin/tenants/${encodeURIComponent(tenantId)}/keys/rotate-dek`,
+      payload
+    );
+  }
+
+  revokeTenantKey(
+    tenantId: string,
+    payload: {
+      reason?: string | null;
+    } = {}
+  ): Observable<any> {
+    return this.http.post<any>(
+      `${this.baseUrl}/admin/tenants/${encodeURIComponent(tenantId)}/keys/revoke`,
+      payload
+    );
+  }
+
+  deleteTenantKey(tenantId: string): Observable<any> {
+    return this.http.delete<any>(
+      `${this.baseUrl}/admin/tenants/${encodeURIComponent(tenantId)}/keys`
+    );
+  }
 }
 
 

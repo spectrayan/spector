@@ -57,7 +57,7 @@ export const ADMIN_ROUTES: Routes = [
   {
     path: 'keys',
     loadComponent: () =>
-      import('./admin-console.component').then(m => m.AdminKeysComponent),
+      import('./pages/admin-keys.component').then(m => m.AdminKeysComponent),
     title: 'Keys & Encryption — Spector Cortex Admin',
   },
   {

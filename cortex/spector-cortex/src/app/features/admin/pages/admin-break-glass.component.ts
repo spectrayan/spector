@@ -88,7 +88,7 @@ import {
         <div class="byok-prohibited-banner" role="alert" id="break-glass-byok-prohibited-banner">
           <mat-icon>vpn_key_off</mat-icon>
           <div class="byok-text">
-            <strong>Break-Glass Access Disabled — Customer-Managed BYOK Encryption Active (SPE-820-004)</strong>
+            <strong>Unavailable: tenant uses BYOK — Customer-Managed Encryption Active (SPE-820-004)</strong>
             <p>
               Tenant <code class="cortex-mono">{{ currentTenant()?.tenantId || 'current' }}</code> has Bring-Your-Own-Key
               (BYOK) envelope encryption enabled. Emergency break-glass access is cryptographically and policy-prohibited
@@ -588,7 +588,8 @@ export class AdminBreakGlassComponent implements OnInit {
   } | null>(null);
 
   readonly isByokTenant = computed(() => {
-    return Boolean(this.currentTenant()?.settings?.byokEnabled);
+    const t = this.currentTenant();
+    return Boolean(t?.byokEnabled || t?.settings?.byokEnabled);
   });
 
   readonly pendingRequests = computed(() =>
@@ -621,6 +622,15 @@ export class AdminBreakGlassComponent implements OnInit {
       .subscribe((tenant) => {
         if (tenant) {
           this.currentTenant.set(tenant);
+        } else if (typeof (this.api as any).getTenantKeyStatus === 'function') {
+          this.api
+            .getTenantKeyStatus(tid)
+            .pipe(catchError(() => of(null)))
+            .subscribe((keyStatus) => {
+              if (keyStatus) {
+                this.currentTenant.set(keyStatus);
+              }
+            });
         }
       });
   }
