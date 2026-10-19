@@ -387,7 +387,11 @@ class EnvelopeEncryptionAtRestTest {
         // Mark namespace at V1.1.0 and run MigrationPipeline -> V1.2.0
         Files.writeString(nsDir.resolve(MigrationPipeline.MANIFEST_FILE), "{\"schemaVersion\": \"1.1.0\"}\n");
 
-        try (DestroyableKeyMaterial dek = EnvelopeCipher.generateDek()) {
+        byte[] deterministicDekBytes = new byte[32];
+        for (int i = 0; i < 32; i++) {
+            deterministicDekBytes[i] = (byte) (0x41 + i);
+        }
+        try (DestroyableKeyMaterial dek = DestroyableKeyMaterial.fromBytes(deterministicDekBytes)) {
             EnvelopeDataEncryptor encryptor = new EnvelopeDataEncryptor(tenantId, namespaceId, 1, dek);
             MigrationPipeline pipeline = new MigrationPipeline(
                     List.of(new V1_1_to_V1_2_EnvelopeEncryptionMigration(encryptor)),

@@ -163,9 +163,6 @@ public class RecallCandidateGatherer {
                                     recallCount = (short) header.agentRecallCount();
                                     ts = header.timestampMs();
                                     consolidationFlags = header.consolidationFlags();
-                                    recordTagsLo = header.synapticTagsLo();
-                                    recordTagsHi = header.synapticTagsHi();
-                                    hasHeaderTags = true;
                                     if (options.minTimestamp() != null && ts < options.minTimestamp()) continue;
                                     if (options.maxTimestamp() != null && ts > options.maxTimestamp()) continue;
                                     if (ts > 0) {
@@ -187,7 +184,7 @@ public class RecallCandidateGatherer {
                                 consolidationFlags = body.consolidationFlags();
                                 recordTagsLo = header.synapticTagsLo();
                                 recordTagsHi = header.synapticTagsHi();
-                                hasHeaderTags = true;
+                                hasHeaderTags = (recordTagsLo != 0L || recordTagsHi != 0L);
                                 if (options.minTimestamp() != null && ts < options.minTimestamp()) continue;
                                 if (options.maxTimestamp() != null && ts > options.maxTimestamp()) continue;
                                 if (ts > 0) {

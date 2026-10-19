@@ -22,7 +22,6 @@ import com.spectrayan.spector.kernel.api.MemoryLocation;
 import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.kernel.bundle.PartitionBundle;
 import com.spectrayan.spector.kernel.bundle.RuntimeBundle;
-import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.kernel.region.RegionId;
 import com.spectrayan.spector.kernel.storage.StoragePaths;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
@@ -34,8 +33,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.lang.foreign.MemorySegment;
-import java.lang.foreign.ValueLayout;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -156,16 +153,8 @@ public final class NamespaceEncryptionMigrator {
                         }
                     }
 
-                    MemorySegment targetSeg = resolveTierSegment(loc, runtimeBundle, partitionBundles, defaultPartitionBundle);
-                    if (targetSeg != null) {
-                        long recordOff = loc.offset();
-                        if (recordOff >= 0 && recordOff + EncodingHeaderFields.HEADER_BYTES <= targetSeg.byteSize()) {
-                            targetSeg.set(ValueLayout.JAVA_LONG_UNALIGNED,
-                                    recordOff + EncodingHeaderFields.OFFSET_V2_SYNAPTIC_TAGS_LO, lo);
-                            targetSeg.set(ValueLayout.JAVA_LONG_UNALIGNED,
-                                    recordOff + EncodingHeaderFields.OFFSET_V2_SYNAPTIC_TAGS_HI, hi);
-                            recordsReKeyed++;
-                        }
+                    if (writeTierSynapticTags(loc, lo, hi, runtimeBundle, partitionBundles, defaultPartitionBundle)) {
+                        recordsReKeyed++;
                     }
                 }
             }
@@ -177,11 +166,8 @@ public final class NamespaceEncryptionMigrator {
                     wal.flush();
                     wal.rewriteAllChunksEncrypted();
                     walEventsEncrypted = wal.size();
-                    if (runtimeBundle != null && runtimeBundle.hasRegion(RegionId.CHECKPOINT)) {
-                        MemorySegment cpSeg = runtimeBundle.currentSlice(RegionId.CHECKPOINT);
-                        if (cpSeg.byteSize() >= 72) {
-                            cpSeg.set(ValueLayout.JAVA_LONG_UNALIGNED, 64L, snapEvent.sequence());
-                        }
+                    if (runtimeBundle != null) {
+                        runtimeBundle.writeCheckpointWalWatermark(snapEvent.sequence());
                     }
                 }
             }
@@ -259,25 +245,27 @@ public final class NamespaceEncryptionMigrator {
         return null;
     }
 
-    private static MemorySegment resolveTierSegment(
+    private static boolean writeTierSynapticTags(
             MemoryLocation loc,
+            long lo,
+            long hi,
             RuntimeBundle runtimeBundle,
             Map<Integer, PartitionBundle> partitionBundles,
             PartitionBundle defaultPartitionBundle) {
         MemoryType type = loc.type();
+        long recordOff = loc.offset();
         if (type == MemoryType.WORKING) {
-            return runtimeBundle != null && runtimeBundle.hasRegion(RegionId.WORKING)
-                    ? runtimeBundle.currentSlice(RegionId.WORKING)
-                    : null;
+            return runtimeBundle != null
+                    && runtimeBundle.writeSynapticTags128(RegionId.WORKING, recordOff, lo, hi);
         }
         PartitionBundle pb = partitionBundles.getOrDefault(loc.colocatedPartition(), defaultPartitionBundle);
         if (pb == null) {
-            return null;
+            return false;
         }
         return switch (type) {
-            case SEMANTIC -> pb.hasRegion(RegionId.SEMANTIC) ? pb.currentSlice(RegionId.SEMANTIC) : null;
-            case PROCEDURAL -> pb.hasRegion(RegionId.PROCEDURAL) ? pb.currentSlice(RegionId.PROCEDURAL) : null;
-            default -> null;
+            case SEMANTIC -> pb.writeSynapticTags128(RegionId.SEMANTIC, recordOff, lo, hi);
+            case PROCEDURAL -> pb.writeSynapticTags128(RegionId.PROCEDURAL, recordOff, lo, hi);
+            default -> false;
         };
     }
 
