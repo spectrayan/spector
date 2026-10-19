@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.kernel.storage;
 
+import com.spectrayan.spector.commons.crypto.DestroyableKeyMaterial;
+
 /**
  * Service Provider Interface for byte payload encryption at rest in storage layers.
  */
@@ -40,9 +42,80 @@ public interface PayloadEncryptor {
     }
 
     /**
+     * Encrypts UTF-8 text bytes.
+     *
+     * @param plaintext unencrypted UTF-8 text bytes
+     * @return ciphertext bytes
+     */
+    default byte[] encryptText(byte[] plaintext) {
+        return encrypt(plaintext);
+    }
+
+    /**
+     * Decrypts UTF-8 text bytes.
+     *
+     * @param ciphertext encrypted text bytes
+     * @return decrypted UTF-8 text bytes
+     */
+    default byte[] decryptText(byte[] ciphertext) {
+        return decrypt(ciphertext);
+    }
+
+    /**
      * Returns true if encryption is active and enabled.
      */
     default boolean isEnabled() {
         return true;
     }
+
+    /**
+     * Returns the tenant ID bound into authenticated encryption AAD.
+     */
+    default String tenantId() {
+        return "default";
+    }
+
+    /**
+     * Returns the namespace ID bound into authenticated encryption AAD.
+     */
+    default String namespaceId() {
+        return "default";
+    }
+
+    /**
+     * Returns the active DEK version (>= 1).
+     */
+    default int dekVersion() {
+        return 1;
+    }
+
+    /**
+     * Returns the encryption mode byte written to {@link EncryptedSegmentHeader}.
+     */
+    default byte encryptionMode() {
+        return isEnabled() ? EncryptedSegmentHeader.MODE_PLATFORM_ENVELOPE : EncryptedSegmentHeader.MODE_PLAINTEXT;
+    }
+
+    /**
+     * Returns the 16-byte DEK identifier written to {@link EncryptedSegmentHeader}.
+     */
+    default byte[] dekIdBytes() {
+        return new byte[16];
+    }
+
+    /**
+     * Returns the 32-byte KEK key URI hash written to {@link EncryptedSegmentHeader}.
+     */
+    default byte[] kekKeyIdHashBytes() {
+        return new byte[32];
+    }
+
+    /**
+     * Derives a fresh 256-bit segment subkey ({@code SDK}) for the given segment type.
+     * The caller is responsible for closing/destroying the returned {@link DestroyableKeyMaterial}.
+     */
+    default DestroyableKeyMaterial segmentSubkey(byte segmentType) {
+        return null;
+    }
 }
+

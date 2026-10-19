@@ -49,6 +49,21 @@ public class SpectorEncryptionException extends SpectorMemoryException {
         this.details = details;
     }
 
+    public SpectorEncryptionException(ErrorCode errorCode, String details, Throwable cause) {
+        super(errorCode, cause, details);
+        this.details = details;
+    }
+
+    public static SpectorEncryptionException from(Throwable cause, String details) {
+        if (cause instanceof SpectorEncryptionException see) {
+            return see;
+        }
+        if (cause instanceof com.spectrayan.spector.commons.error.SpectorException se) {
+            return new SpectorEncryptionException(se.errorCode(), cause, details);
+        }
+        return new SpectorEncryptionException(ErrorCode.MEMORY_ENCRYPTION_FAILED, cause, details);
+    }
+
     public String getDetails() {
         return details;
     }

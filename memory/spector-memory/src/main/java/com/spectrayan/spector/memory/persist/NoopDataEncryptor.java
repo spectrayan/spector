@@ -31,6 +31,8 @@ import com.spectrayan.spector.kernel.score.SynapticTagEncoder;
  */
 public final class NoopDataEncryptor implements DataEncryptor {
 
+    public static final NoopDataEncryptor INSTANCE = new NoopDataEncryptor();
+
     NoopDataEncryptor() {}
 
     @Override
@@ -56,6 +58,11 @@ public final class NoopDataEncryptor implements DataEncryptor {
     @Override
     public long encodeTag(String tag) {
         return SynapticTagEncoder.encodeTag(tag);
+    }
+
+    @Override
+    public com.spectrayan.spector.core.cognitive.SynapticTag128 encodeTag128(String tag) {
+        return SynapticTagEncoder.encodeTag128(tag);
     }
 
     @Override

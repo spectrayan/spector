@@ -68,6 +68,7 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
     private final Map<Long, TextPosition> hashToPosition = new java.util.HashMap<>();
     private final AtomicInteger decryptFailCount = new AtomicInteger();
     private final ReentrantLock writeLock = new ReentrantLock();
+    private final com.spectrayan.spector.kernel.storage.PayloadEncryptor encryptor;
 
     /**
      * Creates a TextBlobMemory for the given file path (no encryption).
@@ -84,8 +85,8 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
      * @param file      path to the text.dat file
      * @param encryptor data encryptor for text-at-rest (null → NOOP)
      */
-    public TextBlobMemory(Path file, Object ignored) {
-        this(file, null, 0L);
+    public TextBlobMemory(Path file, Object encryptor) {
+        this(file, encryptor, 0L);
     }
 
     /**
@@ -95,14 +96,14 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
      * @param encryptor              data encryptor for text-at-rest (null → NOOP)
      * @param configuredSegmentSize  configured segment size in bytes, or {@code 0} for default (32 MB)
      */
-    public TextBlobMemory(Path file, Object ignored, long configuredSegmentSize) {
-        this(file, null, migrateLegacyIfNeeded(file), configuredSegmentSize);
+    public TextBlobMemory(Path file, Object encryptor, long configuredSegmentSize) {
+        this(file, encryptor, migrateLegacyIfNeeded(file), configuredSegmentSize);
     }
 
-    private TextBlobMemory(Path file, Object ignored, Map<String, TextEntry> legacyEntries, long configuredSegmentSize) {
+    private TextBlobMemory(Path file, Object encryptor, Map<String, TextEntry> legacyEntries, long configuredSegmentSize) {
         super(SystemMemoryId.CORTEX_TEXT.id(), new TextBlobLayout(), 0, calculateInitialSize(file, legacyEntries, configuredSegmentSize), file);
         this.file = file;
-        
+        this.encryptor = encryptor instanceof com.spectrayan.spector.kernel.storage.PayloadEncryptor pe ? pe : null;
         this.entryCount = 0;
 
         if (legacyEntries != null && !legacyEntries.isEmpty()) {
@@ -128,23 +129,23 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
      */
     public static TextBlobMemory fromBundle(Arena arena, MemorySegment regionSlice,
                                                Path bundlePath, boolean isNew,
-                                               Object ignored) {
-        return new TextBlobMemory(arena, regionSlice, bundlePath, isNew, null);
+                                               Object encryptor) {
+        return new TextBlobMemory(arena, regionSlice, bundlePath, isNew, encryptor);
     }
 
     public static TextBlobMemory fromRegionRef(RegionRef regionRef, Path bundlePath,
-                                               boolean isNew, Object ignored) {
-        return new TextBlobMemory(regionRef, bundlePath, isNew, null);
+                                               boolean isNew, Object encryptor) {
+        return new TextBlobMemory(regionRef, bundlePath, isNew, encryptor);
     }
 
     private TextBlobMemory(RegionRef regionRef, Path bundlePath,
-                           boolean isNew, Object ignored) {
+                           boolean isNew, Object encryptor) {
         super(SystemMemoryId.CORTEX_TEXT.id(), new TextBlobLayout(), 0,
               regionRef,
               isNew ? 0 : (int) RegionPreamble.readCount(regionRef.resolve(), 0),
               true, bundlePath);
         this.file = bundlePath;
-        
+        this.encryptor = encryptor instanceof com.spectrayan.spector.kernel.storage.PayloadEncryptor pe ? pe : null;
         this.entryCount = 0;
         if (isNew) {
             long now = System.currentTimeMillis();
@@ -159,13 +160,13 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
     }
 
     private TextBlobMemory(Arena arena, MemorySegment regionSlice, Path bundlePath,
-                              boolean isNew, Object ignored) {
+                              boolean isNew, Object encryptor) {
         super(SystemMemoryId.CORTEX_TEXT.id(), new TextBlobLayout(), 0,
               arena, regionSlice,
               isNew ? 0 : (int) RegionPreamble.readCount(regionSlice, 0),
               true, bundlePath, null, true);  // bundleManaged=true
         this.file = bundlePath;
-        
+        this.encryptor = encryptor instanceof com.spectrayan.spector.kernel.storage.PayloadEncryptor pe ? pe : null;
         this.entryCount = 0;
         if (isNew) {
             long now = System.currentTimeMillis();
@@ -291,6 +292,8 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
      */
     public record TextPosition(long textOffset, int textLength) {}
 
+    private static final String ENCRYPTED_TEXT_PREFIX = "\u0000ENC1:";
+
     /**
      * Appends a single text entry to the file and returns its byte position.
      *
@@ -303,15 +306,22 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
         writeLock.lock();
         try {
             byte[] idBytes = id.getBytes(StandardCharsets.UTF_8);
-            byte[] textBytes = text.getBytes(StandardCharsets.UTF_8);
+            byte[] plainBytes = text.getBytes(StandardCharsets.UTF_8);
 
-            long hash = XxHash64.hash(textBytes);
+            long hash = XxHash64.hash(plainBytes);
             TextPosition existing = hashToPosition.get(hash);
-            if (existing != null && existing.textLength() == textBytes.length) {
+            if (existing != null && (encryptor == null || !encryptor.isEnabled()) && existing.textLength() == plainBytes.length) {
                 textPositionMap.put(id, existing);
                 entryCount++;
                 return existing;
             }
+
+            String storedText = text;
+            if (encryptor != null && encryptor.isEnabled() && !text.isEmpty() && !text.startsWith(ENCRYPTED_TEXT_PREFIX)) {
+                byte[] encBytes = encryptor.encryptText(plainBytes);
+                storedText = ENCRYPTED_TEXT_PREFIX + java.util.Base64.getEncoder().encodeToString(encBytes);
+            }
+            byte[] textBytes = storedText.getBytes(StandardCharsets.UTF_8);
 
             int entrySize = 1 + 4 + idBytes.length + 4 + textBytes.length;
 
@@ -348,7 +358,7 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
         MemorySegment seg = segment();
         if (seg == null || textOffset + textLength > seg.byteSize()) return null;
         String raw = decodeUtf8FromSegment(seg, textOffset, textLength);
-        return raw;
+        return decryptIfNeeded(raw);
     }
 
     /**
@@ -406,7 +416,7 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
                 TextPosition pos = new TextPosition(textOffset, textLen);
                 textPositionMap.put(id, pos);
 
-                byte[] textBytes = text.getBytes(StandardCharsets.UTF_8);
+                byte[] textBytes = rawText.getBytes(StandardCharsets.UTF_8);
                 long hash = XxHash64.hash(textBytes);
                 hashToPosition.put(hash, pos);
 
@@ -453,7 +463,7 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
             persistCount();
 
             for (TextEntry entry : entries.values()) {
-                write(entry.id(), entry.tier(), entry.text());
+                write(entry.id(), entry.tier(), entry.text() != null ? entry.text() : "");
             }
             flush();
             this.entryCount = entries.size();
@@ -474,7 +484,34 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
         return file;
     }
 
-    private String decryptIfNeeded(String raw) { return raw; }
+    private String decryptIfNeeded(String raw) {
+        if (raw == null || raw.isEmpty()) {
+            return raw;
+        }
+        if (raw.startsWith(ENCRYPTED_TEXT_PREFIX)) {
+            if (encryptor == null || !encryptor.isEnabled()) {
+                decryptFailCount.incrementAndGet();
+                throw new com.spectrayan.spector.commons.error.SpectorMemoryException(
+                        com.spectrayan.spector.commons.error.ErrorCode.MEMORY_ENCRYPTION_KEY_MISSING,
+                        file != null ? file.toString() : "text.dat");
+            }
+            try {
+                byte[] cipherBytes = java.util.Base64.getDecoder().decode(raw.substring(ENCRYPTED_TEXT_PREFIX.length()));
+                byte[] plainBytes = encryptor.decryptText(cipherBytes);
+                return new String(plainBytes, StandardCharsets.UTF_8);
+            } catch (com.spectrayan.spector.commons.error.SpectorMemoryException e) {
+                decryptFailCount.incrementAndGet();
+                throw e;
+            } catch (RuntimeException e) {
+                decryptFailCount.incrementAndGet();
+                throw new com.spectrayan.spector.commons.error.SpectorMemoryException(
+                        com.spectrayan.spector.commons.error.ErrorCode.MEMORY_AUTH_TAG_MISMATCH,
+                        e,
+                        "Failed to decrypt text entry in " + file);
+            }
+        }
+        return raw;
+    }
 
 
 

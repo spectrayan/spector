@@ -159,8 +159,144 @@ public record RecallOptions(
         boolean enableSpacetime,
         float spacetimeHarmonicWeight,
         //  Partition Visit Budget (R3 / F6)
-        int partitionVisitBudget
+        int partitionVisitBudget,
+        //  Raw tag strings for keyed HMAC re-encoding on encrypted namespaces (ADR-0088)
+        String[] synapticFilterTags,
+        String[] hyperfocusTags
 ) {
+
+    public RecallOptions(
+            int topK,
+            long synapticTagMask,
+            long synapticTagMaskHi,
+            float minImportance,
+            MemoryType[] memoryTypes,
+            byte minValence,
+            byte maxValence,
+            float alpha,
+            float beta,
+            float tagRelevanceBoost,
+            int semanticCandidateMultiplier,
+            long hyperfocusMask,
+            long hyperfocusMaskHi,
+            float hyperfocusBoost,
+            boolean lateralMode,
+            float lateralDistanceThreshold,
+            int lateralMaxResults,
+            float lateralMinTagOverlap,
+            float strictnessCoefficient,
+            byte queryValence,
+            boolean enableValenceAlignment,
+            com.spectrayan.spector.config.properties.TwoFactorProperties twoFactorConfig,
+            RecallMode recallMode,
+            float gamma,
+            boolean enableTextSearch,
+            TextSearchMode textSearchMode,
+            ScoringMode scoringMode,
+            List<ExtractedEntity> entityHints,
+            boolean enableTrace,
+            Long minTimestamp,
+            Long maxTimestamp,
+            float graphExpansionThreshold,
+            Instant replayTimestamp,
+            int maxReplayEvents,
+            boolean enableReranker,
+            int rerankerDepth,
+            boolean enableMmr,
+            float mmrLambda,
+            boolean autoProfile,
+            boolean includeContradictions,
+            boolean allowSimulated,
+            CognitiveProfile resolvedProfile,
+            boolean adaptiveTemperature,
+            float baseTemperature,
+            float temperatureSurpriseCoefficient,
+            float minTemperature,
+            float maxTemperature,
+            ConflictMode conflictMode,
+            float minTrustScore,
+            String personaId,
+            AismeProperties aismeConfig,
+            ScoreFusionMode scoreFusionMode,
+            boolean enableLateralInhibition,
+            float lateralInhibitionThreshold,
+            int lateralInhibitionOverscanFactor,
+            int lateralInhibitionMaxCandidates,
+            float lateralInhibitionSoftKappa,
+            float lateralInhibitionHardKappa,
+            boolean lateralInhibitionContradictionHeuristic,
+            boolean lateralInhibitionRifEnabled,
+            boolean enableAssociativePrior,
+            float associativePriorDelta,
+            float associativePriorStdpWeight,
+            float associativePriorHubWeight,
+            boolean allowFuture,
+            boolean enableSpacetime,
+            float spacetimeHarmonicWeight,
+            int partitionVisitBudget) {
+        this(topK, synapticTagMask, synapticTagMaskHi, minImportance, memoryTypes, minValence, maxValence,
+                alpha, beta, tagRelevanceBoost, semanticCandidateMultiplier,
+                hyperfocusMask, hyperfocusMaskHi, hyperfocusBoost,
+                lateralMode, lateralDistanceThreshold, lateralMaxResults, lateralMinTagOverlap,
+                strictnessCoefficient, queryValence, enableValenceAlignment,
+                twoFactorConfig, recallMode, gamma, enableTextSearch, textSearchMode,
+                scoringMode, entityHints, enableTrace, minTimestamp, maxTimestamp,
+                graphExpansionThreshold, replayTimestamp, maxReplayEvents,
+                enableReranker, rerankerDepth, enableMmr, mmrLambda,
+                autoProfile, includeContradictions, allowSimulated, resolvedProfile,
+                adaptiveTemperature, baseTemperature, temperatureSurpriseCoefficient, minTemperature, maxTemperature,
+                conflictMode, minTrustScore, personaId, aismeConfig, scoreFusionMode,
+                enableLateralInhibition, lateralInhibitionThreshold, lateralInhibitionOverscanFactor,
+                lateralInhibitionMaxCandidates, lateralInhibitionSoftKappa, lateralInhibitionHardKappa,
+                lateralInhibitionContradictionHeuristic, lateralInhibitionRifEnabled,
+                enableAssociativePrior, associativePriorDelta, associativePriorStdpWeight, associativePriorHubWeight,
+                allowFuture, enableSpacetime, spacetimeHarmonicWeight, partitionVisitBudget,
+                null, null);
+    }
+
+    /**
+     * Re-encodes any tag-based {@link Builder#synapticFilter(String...)} or
+     * {@link Builder#hyperfocusMask(String...)} masks using the namespace's keyed
+     * {@link com.spectrayan.spector.memory.persist.DataEncryptor} when encryption is enabled.
+     */
+    public RecallOptions withKeyedTags(com.spectrayan.spector.memory.persist.DataEncryptor encryptor) {
+        if (encryptor == null || !encryptor.isEnabled()) {
+            return this;
+        }
+        boolean hasSynapticTags = synapticFilterTags != null && synapticFilterTags.length > 0;
+        boolean hasHyperfocusTags = hyperfocusTags != null && hyperfocusTags.length > 0;
+        if (!hasSynapticTags && !hasHyperfocusTags) {
+            return this;
+        }
+        Builder b = toBuilder();
+        if (hasSynapticTags) {
+            long lo = 0L;
+            long hi = 0L;
+            for (String tag : synapticFilterTags) {
+                if (tag != null && !tag.isBlank()) {
+                    var t = encryptor.encodeTag128(tag);
+                    lo |= t.lo();
+                    hi |= t.hi();
+                }
+            }
+            b.synapticTagMask = lo;
+            b.synapticTagMaskHi = hi;
+        }
+        if (hasHyperfocusTags) {
+            long lo = 0L;
+            long hi = 0L;
+            for (String tag : hyperfocusTags) {
+                if (tag != null && !tag.isBlank()) {
+                    var t = encryptor.encodeTag128(tag);
+                    lo |= t.lo();
+                    hi |= t.hi();
+                }
+            }
+            b.hyperfocusMask = lo;
+            b.hyperfocusMaskHi = hi;
+        }
+        return b.build();
+    }
 
     /**
      * Alias for {@link #partitionVisitBudget()}.
@@ -563,7 +699,11 @@ public record RecallOptions(
          * Synaptic tag filter using Bloom filter matching.
          * Only memories whose tags match ALL specified tags will be considered.
          */
+        private String[] synapticFilterTags = null;
+        private String[] hyperfocusTags = null;
+
         public Builder synapticFilter(String... tags) {
+            this.synapticFilterTags = tags != null ? tags.clone() : null;
             com.spectrayan.spector.core.cognitive.SynapticTag128 tag128 = SynapticTagEncoder.encode128(tags);
             this.synapticTagMask = tag128.lo();
             this.synapticTagMaskHi = tag128.hi();
@@ -713,6 +853,7 @@ public record RecallOptions(
          * Encodes tags into a Bloom filter mask for strict equality gating.
          */
         public Builder hyperfocusMask(String... tags) {
+            this.hyperfocusTags = tags != null ? tags.clone() : null;
             com.spectrayan.spector.core.cognitive.SynapticTag128 tag128 = SynapticTagEncoder.encode128(tags);
             this.hyperfocusMask = tag128.lo();
             this.hyperfocusMaskHi = tag128.hi();
@@ -1284,7 +1425,9 @@ public record RecallOptions(
                     allowFuture,
                     enableSpacetime,
                     spacetimeHarmonicWeight,
-                    partitionVisitBudget);
+                    partitionVisitBudget,
+                    synapticFilterTags,
+                    hyperfocusTags);
             return options;
         }
     }
@@ -1455,6 +1598,8 @@ public record RecallOptions(
         b.maxReplayEvents = this.maxReplayEvents;
         b.enableReranker = this.enableReranker;
         b.rerankerDepth = this.rerankerDepth;
+        b.enableMmr = this.enableMmr;
+        b.mmrLambda = this.mmrLambda;
         b.autoProfile = this.autoProfile;
         b.includeContradictions = this.includeContradictions;
         b.allowSimulated = this.allowSimulated;
@@ -1464,6 +1609,10 @@ public record RecallOptions(
         b.temperatureSurpriseCoefficient = this.temperatureSurpriseCoefficient;
         b.minTemperature = this.minTemperature;
         b.maxTemperature = this.maxTemperature;
+        b.conflictMode = this.conflictMode;
+        b.minTrustScore = this.minTrustScore;
+        b.personaId = this.personaId;
+        b.aismeConfig = this.aismeConfig;
         b.scoreFusionMode = this.scoreFusionMode;
         b.enableLateralInhibition = this.enableLateralInhibition;
         b.lateralInhibitionThreshold = this.lateralInhibitionThreshold;
@@ -1481,6 +1630,8 @@ public record RecallOptions(
         b.enableSpacetime = this.enableSpacetime;
         b.spacetimeHarmonicWeight = this.spacetimeHarmonicWeight;
         b.partitionVisitBudget = this.partitionVisitBudget;
+        b.synapticFilterTags = this.synapticFilterTags != null ? this.synapticFilterTags.clone() : null;
+        b.hyperfocusTags = this.hyperfocusTags != null ? this.hyperfocusTags.clone() : null;
         return b;
     }
 }

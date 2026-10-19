@@ -383,6 +383,10 @@ public enum ErrorCode {
     KMS_UNAVAILABLE_FAIL_CLOSED(310_027, ErrorCategory.MEMORY,
             "External KMS unavailable or denied DEK unwrap for tenant '{}' (key '{}'): {}"),
 
+    /** Encrypted memory segment or WAL encountered without an active DataEncryptor key (ADR-0088, Issue #1071). */
+    MEMORY_ENCRYPTION_KEY_MISSING(310_028, ErrorCategory.MEMORY,
+            "Encrypted memory resource requires an active DataEncryptor key: {}"),
+
     // ══════════════════════════════════════════════════════════════════════
     // GPU (SPE-400-xxx)
     // ══════════════════════════════════════════════════════════════════════

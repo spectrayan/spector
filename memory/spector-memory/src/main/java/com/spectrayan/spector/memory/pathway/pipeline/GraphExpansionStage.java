@@ -839,9 +839,19 @@ public final class GraphExpansionStage {
             if (!typeAllowed) return false;
         }
 
-        // 2. Synaptic Tag Gating
-        String[] tags = index.tags(neighborId);
-        var recordTags = SynapticTagEncoder.encode128(tags);
+        // 2. Valence Gating & Tombstone & Contradiction & Synaptic Tag Gating
+        CognitiveMemoryRouter router = partitionRegistry != null
+                ? partitionRegistry.routerFor(loc.colocatedPartition()) : null;
+        if (router == null) return false;
+
+        EncodingHeader header = router.readHeader(loc);
+        if (header == null) return false;
+
+        var recordTags = (loc.type() != MemoryType.EPISODIC
+                && (header.synapticTagsLo() != 0L || header.synapticTagsHi() != 0L))
+                ? com.spectrayan.spector.core.cognitive.SynapticTag128.of(
+                        header.synapticTagsLo(), header.synapticTagsHi())
+                : SynapticTagEncoder.encode128(index.tags(neighborId));
         if (options.hyperfocusMask() != 0L || options.hyperfocusMaskHi() != 0L) {
             var hf = com.spectrayan.spector.core.cognitive.SynapticTag128.of(options.hyperfocusMask(), options.hyperfocusMaskHi());
             if (!recordTags.matches(hf)) {
@@ -853,15 +863,6 @@ public final class GraphExpansionStage {
                 return false;
             }
         }
-
-
-        // 3. Valence Gating & Tombstone & Contradiction
-        CognitiveMemoryRouter router = partitionRegistry != null
-                ? partitionRegistry.routerFor(loc.colocatedPartition()) : null;
-        if (router == null) return false;
-
-        EncodingHeader header = router.readHeader(loc);
-        if (header == null) return false;
 
         if (EncodingHeaderFields.isTombstoned(header.flags())) {
             return false;

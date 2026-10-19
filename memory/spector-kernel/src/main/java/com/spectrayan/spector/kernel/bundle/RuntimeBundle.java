@@ -124,16 +124,32 @@ public final class RuntimeBundle implements AbstractBundle {
     private volatile Map<RegionId, MemorySegment> regionSlices;
 
     private final boolean isNew;
+    private final com.spectrayan.spector.kernel.storage.PayloadEncryptor encryptor;
 
     private RuntimeBundle(Arena arena, MemorySegment masterSegment,
                            BundleDirectory directory, Path bundlePath,
                            boolean isNew) {
+        this(arena, masterSegment, directory, bundlePath, isNew, null);
+    }
+
+    private RuntimeBundle(Arena arena, MemorySegment masterSegment,
+                           BundleDirectory directory, Path bundlePath,
+                           boolean isNew,
+                           com.spectrayan.spector.kernel.storage.PayloadEncryptor encryptor) {
         this.arena = arena;
         this.masterSegment = masterSegment;
         this.directory = directory;
         this.bundlePath = bundlePath;
         this.isNew = isNew;
+        this.encryptor = encryptor;
         this.regionSlices = buildSliceMap(masterSegment, directory);
+    }
+
+    /**
+     * Returns true if this runtime bundle is backed by an active {@link com.spectrayan.spector.kernel.storage.PayloadEncryptor}.
+     */
+    public boolean isEncrypted() {
+        return encryptor != null && encryptor.isEnabled();
     }
 
     // ── Init factory (follows EntityDirectory.Init pattern) ──
@@ -153,6 +169,14 @@ public final class RuntimeBundle implements AbstractBundle {
          * @return an open RuntimeBundle ready for use
          */
         public static RuntimeBundle mmap(Path path, List<RegionSizeSpec> specs) {
+            return mmap(path, specs, null);
+        }
+
+        /**
+         * Creates a new runtime bundle file with optional at-rest page encryption.
+         */
+        public static RuntimeBundle mmap(Path path, List<RegionSizeSpec> specs,
+                                         com.spectrayan.spector.kernel.storage.PayloadEncryptor encryptor) {
             BundleFileLayoutCalculator.BundleComputedLayout computed =
                     BundleFileLayoutCalculator.compute(BundleSubHeader.MAGIC_RUNTIME, specs);
 
@@ -161,6 +185,18 @@ public final class RuntimeBundle implements AbstractBundle {
 
             Arena arena = Arena.ofShared();
             try {
+                if (encryptor != null && encryptor.isEnabled()) {
+                    MemorySegment offHeap = arena.allocate(totalFileSize, 4096);
+                    dir.write(offHeap);
+                    com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.writeEncryptedSegment(
+                            path, offHeap,
+                            com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.SEGMENT_TYPE_RUNTIME_BUNDLE,
+                            encryptor);
+                    log.info("Created encrypted runtime bundle: {} ({} regions, {}KB)",
+                            path, specs.size(), totalFileSize / 1024);
+                    return new RuntimeBundle(arena, offHeap, dir, path, true, encryptor);
+                }
+
                 try (FileChannel fc = FileChannel.open(path,
                         StandardOpenOption.CREATE_NEW, StandardOpenOption.READ, StandardOpenOption.WRITE)) {
                     fc.write(ByteBuffer.allocate(1), totalFileSize - 1);
@@ -169,8 +205,11 @@ public final class RuntimeBundle implements AbstractBundle {
                     dir.write(mapped);
                     log.info("Created runtime bundle: {} ({} regions, {}KB)",
                             path, specs.size(), totalFileSize / 1024);
-                    return new RuntimeBundle(arena, mapped, dir, path, true);
+                    return new RuntimeBundle(arena, mapped, dir, path, true, null);
                 }
+            } catch (RuntimeException e) {
+                arena.close();
+                throw e;
             } catch (IOException e) {
                 arena.close();
                 throw new UncheckedIOException("Failed to create runtime bundle: " + path, e);
@@ -184,9 +223,46 @@ public final class RuntimeBundle implements AbstractBundle {
          * @return an open RuntimeBundle
          */
         public static RuntimeBundle open(Path path) {
+            return open(path, null);
+        }
+
+        /**
+         * Opens an existing runtime bundle file with optional at-rest page encryption.
+         */
+        public static RuntimeBundle open(Path path,
+                                         com.spectrayan.spector.kernel.storage.PayloadEncryptor encryptor) {
             Arena arena = Arena.ofShared();
             try {
+                boolean encryptedFile = com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.isEncryptedFile(path);
+                if (encryptedFile) {
+                    MemorySegment decrypted = com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.readEncryptedSegment(
+                            path,
+                            com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.SEGMENT_TYPE_RUNTIME_BUNDLE,
+                            encryptor,
+                            arena);
+                    BundleDirectory dir = BundleDirectory.read(decrypted, BundleSubHeader.MAGIC_RUNTIME);
+                    log.info("Opened encrypted runtime bundle: {} ({} live regions, {}KB)",
+                            path, dir.liveRegionCount(), decrypted.byteSize() / 1024);
+                    return new RuntimeBundle(arena, decrypted, dir, path, false, encryptor);
+                }
+
                 long fileSize = Files.size(path);
+                if (encryptor != null && encryptor.isEnabled()) {
+                    // Opening a legacy plaintext bundle with encryption now enabled: load into off-heap and encrypt on disk
+                    MemorySegment offHeap = arena.allocate(Math.max(4096L, fileSize), 4096);
+                    byte[] rawBytes = Files.readAllBytes(path);
+                    MemorySegment.copy(rawBytes, 0, offHeap, java.lang.foreign.ValueLayout.JAVA_BYTE, 0, rawBytes.length);
+                    java.util.Arrays.fill(rawBytes, (byte) 0);
+                    BundleDirectory dir = BundleDirectory.read(offHeap, BundleSubHeader.MAGIC_RUNTIME);
+                    com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.writeEncryptedSegment(
+                            path, offHeap,
+                            com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.SEGMENT_TYPE_RUNTIME_BUNDLE,
+                            encryptor);
+                    log.info("Upgraded and opened runtime bundle with at-rest encryption: {} ({} live regions, {}KB)",
+                            path, dir.liveRegionCount(), fileSize / 1024);
+                    return new RuntimeBundle(arena, offHeap, dir, path, false, encryptor);
+                }
+
                 try (FileChannel fc = FileChannel.open(path,
                         StandardOpenOption.READ, StandardOpenOption.WRITE)) {
                     MemorySegment mapped = fc.map(FileChannel.MapMode.READ_WRITE, 0, fileSize, arena);
@@ -197,8 +273,11 @@ public final class RuntimeBundle implements AbstractBundle {
                     BundleDirectory dir = BundleDirectory.read(mapped, BundleSubHeader.MAGIC_RUNTIME);
                     log.info("Opened runtime bundle: {} ({} live regions, {}KB)",
                             path, dir.liveRegionCount(), fileSize / 1024);
-                    return new RuntimeBundle(arena, mapped, dir, path, false);
+                    return new RuntimeBundle(arena, mapped, dir, path, false, null);
                 }
+            } catch (RuntimeException e) {
+                arena.close();
+                throw e;
             } catch (IOException e) {
                 arena.close();
                 throw new UncheckedIOException("Failed to open runtime bundle: " + path, e);
@@ -223,7 +302,7 @@ public final class RuntimeBundle implements AbstractBundle {
             dir.write(segment);
 
             log.info("Created in-memory runtime bundle ({} regions, {}KB)", specs.size(), totalSize / 1024);
-            return new RuntimeBundle(arena, segment, dir, null, true);
+            return new RuntimeBundle(arena, segment, dir, null, true, null);
         }
     }
 
@@ -595,6 +674,49 @@ public final class RuntimeBundle implements AbstractBundle {
             MemorySegment.copy(masterSegment, oldEntry.offset(),
                     MemorySegment.ofArray(oldData), 0, oldEntry.allocatedSize());
 
+            if (isEncrypted()) {
+                long oldSegmentSize = masterSegment.byteSize();
+                long tailOffset = BundleFileLayoutCalculator.alignToPage(oldSegmentSize);
+                long newSegmentSize = tailOffset + newAllocatedSize;
+
+                Arena newArena = Arena.ofShared();
+                MemorySegment newOffHeap = newArena.allocate(newSegmentSize, 4096);
+                MemorySegment.copy(masterSegment, 0, newOffHeap, 0, oldSegmentSize);
+                MemorySegment.copy(MemorySegment.ofArray(oldData), 0, newOffHeap, tailOffset, oldData.length);
+                java.util.Arrays.fill(oldData, (byte) 0);
+
+                RegionEntry newEntry = new RegionEntry(
+                        regionId, oldEntry.flags(), tailOffset, newAllocatedSize,
+                        oldEntry.usedSize(), oldEntry.capacity() * 2,
+                        oldEntry.stride(), oldEntry.layoutId(), oldEntry.schemaVersion());
+                BundleDirectory newDir = directory.withUpdatedRegion(regionId, newEntry);
+                newDir.write(newOffHeap);
+
+                awaitActiveLeasesDrained();
+                if (masterSegment != null && arena != null && arena.scope().isAlive()) {
+                    masterSegment.fill((byte) 0);
+                    java.lang.invoke.VarHandle.fullFence();
+                }
+                closeArenaAfterDrain();
+
+                com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.writeEncryptedSegment(
+                        bundlePath, newOffHeap,
+                        com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.SEGMENT_TYPE_RUNTIME_BUNDLE,
+                        encryptor);
+
+                this.arena = newArena;
+                this.masterSegment = newOffHeap;
+                this.directory = newDir;
+                this.regionSlices = buildSliceMap(newOffHeap, newDir);
+                generations.computeIfAbsent(regionId, _ -> new java.util.concurrent.atomic.AtomicInteger(0)).incrementAndGet();
+
+                log.info("Grew region {} in encrypted runtime bundle: {} ({}KB → {}KB, tail@{})",
+                        regionId, bundlePath,
+                        oldEntry.allocatedSize() / 1024, newAllocatedSize / 1024,
+                        tailOffset);
+                return;
+            }
+
             // Close old arena after draining active leases — unmaps entire bundle
             closeArenaAfterDrain();
             log.debug("Unmapped bundle for growth: {} (region {})", bundlePath, regionId);
@@ -689,7 +811,7 @@ public final class RuntimeBundle implements AbstractBundle {
     public long deadSpaceBytes() {
         if (bundlePath == null) return 0L;
         try {
-            long fileSize = Files.size(bundlePath);
+            long fileSize = isEncrypted() && masterSegment != null ? masterSegment.byteSize() : Files.size(bundlePath);
             long dataStart = BundleDirectory.dataStartOffset(directory.maxRegions());
             long liveAllocated = 0;
             for (RegionEntry entry : directory.liveRegions()) {
@@ -710,7 +832,7 @@ public final class RuntimeBundle implements AbstractBundle {
     public float fragmentationRatio() {
         if (bundlePath == null) return 0f;
         try {
-            long fileSize = Files.size(bundlePath);
+            long fileSize = isEncrypted() && masterSegment != null ? masterSegment.byteSize() : Files.size(bundlePath);
             if (fileSize == 0) return 0f;
             long dead = deadSpaceBytes();
             return (float) dead / fileSize;
@@ -747,7 +869,7 @@ public final class RuntimeBundle implements AbstractBundle {
 
         long stamp = remapLock.writeLock();
         try {
-            long initialFileSize = Files.size(bundlePath);
+            long initialFileSize = isEncrypted() && masterSegment != null ? masterSegment.byteSize() : Files.size(bundlePath);
             List<RegionEntry> live = directory.liveRegions();
             long dataStart = BundleDirectory.dataStartOffset(directory.maxRegions());
 
@@ -796,6 +918,44 @@ public final class RuntimeBundle implements AbstractBundle {
             }
 
             long newTotalFileSize = BundleFileLayoutCalculator.alignToPage(currentOffset);
+
+            if (isEncrypted()) {
+                Arena newArena = Arena.ofShared();
+                MemorySegment newOffHeap = newArena.allocate(newTotalFileSize, 4096);
+                for (int i = 0; i < compactedEntries.size(); i++) {
+                    RegionEntry entry = compactedEntries.get(i);
+                    byte[] payload = regionPayloads.get(i);
+                    MemorySegment.copy(MemorySegment.ofArray(payload), 0,
+                            newOffHeap, entry.offset(), payload.length);
+                    java.util.Arrays.fill(payload, (byte) 0);
+                }
+
+                BundleDirectory newDir = new BundleDirectory(
+                        directory.bundleMagic(), directory.maxRegions(), compactedEntries);
+                newDir.write(newOffHeap);
+
+                awaitActiveLeasesDrained();
+                if (masterSegment != null && arena != null && arena.scope().isAlive()) {
+                    masterSegment.fill((byte) 0);
+                    java.lang.invoke.VarHandle.fullFence();
+                }
+                closeArenaAfterDrain();
+
+                com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.writeEncryptedSegment(
+                        bundlePath, newOffHeap,
+                        com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.SEGMENT_TYPE_RUNTIME_BUNDLE,
+                        encryptor);
+
+                this.arena = newArena;
+                this.masterSegment = newOffHeap;
+                this.directory = newDir;
+                this.regionSlices = buildSliceMap(newOffHeap, newDir);
+
+                long reclaimed = Math.max(0L, initialFileSize - newTotalFileSize);
+                log.info("Compacted encrypted runtime bundle: {} ({}KB → {}KB, reclaimed {}KB)",
+                        bundlePath, initialFileSize / 1024, newTotalFileSize / 1024, reclaimed / 1024);
+                return reclaimed;
+            }
 
             // 2. Unmap old master segment
             closeArenaAfterDrain();
@@ -848,9 +1008,51 @@ public final class RuntimeBundle implements AbstractBundle {
      * Flushes the directory to the master segment and forces the segment to disk.
      */
     public void flush() {
-        if (bundlePath != null) {
+        if (bundlePath != null && arena != null && arena.scope().isAlive()) {
             directory.write(masterSegment);
-            masterSegment.force();
+            if (isEncrypted()) {
+                try {
+                    com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.writeEncryptedSegment(
+                            bundlePath, masterSegment,
+                            com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.SEGMENT_TYPE_RUNTIME_BUNDLE,
+                            encryptor);
+                } catch (IOException e) {
+                    throw new UncheckedIOException("Failed to flush encrypted runtime bundle: " + bundlePath, e);
+                }
+            } else if (masterSegment.isMapped()) {
+                masterSegment.force();
+            }
+        }
+    }
+
+    /**
+     * Stamps the 128-bit synaptic tag Bloom filter ({@code tagsLo}, {@code tagsHi}) into the
+     * V2 encoding header at {@code recordOffset} within {@code regionId}.
+     */
+    public boolean writeSynapticTags128(RegionId regionId, long recordOffset, long tagsLo, long tagsHi) {
+        if (!hasRegion(regionId)) {
+            return false;
+        }
+        MemorySegment seg = currentSlice(regionId);
+        if (recordOffset < 0 || recordOffset + com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.HEADER_BYTES > seg.byteSize()) {
+            return false;
+        }
+        seg.set(java.lang.foreign.ValueLayout.JAVA_LONG_UNALIGNED,
+                recordOffset + com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.OFFSET_V2_SYNAPTIC_TAGS_LO, tagsLo);
+        seg.set(java.lang.foreign.ValueLayout.JAVA_LONG_UNALIGNED,
+                recordOffset + com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.OFFSET_V2_SYNAPTIC_TAGS_HI, tagsHi);
+        return true;
+    }
+
+    /**
+     * Updates the WAL high-water mark sequence at byte offset 64 of the {@link RegionId#CHECKPOINT} region.
+     */
+    public void writeCheckpointWalWatermark(long walSequence) {
+        if (hasRegion(RegionId.CHECKPOINT)) {
+            MemorySegment cpSeg = currentSlice(RegionId.CHECKPOINT);
+            if (cpSeg.byteSize() >= 72) {
+                cpSeg.set(java.lang.foreign.ValueLayout.JAVA_LONG_UNALIGNED, 64L, walSequence);
+            }
         }
     }
 
@@ -881,8 +1083,12 @@ public final class RuntimeBundle implements AbstractBundle {
         long stamp = remapLock.writeLock();
         try {
             if (bundlePath != null && arena != null && arena.scope().isAlive()) {
-                directory.write(masterSegment);
-                masterSegment.force();
+                flush();
+            }
+            awaitActiveLeasesDrained();
+            if (isEncrypted() && masterSegment != null && arena != null && arena.scope().isAlive()) {
+                masterSegment.fill((byte) 0);
+                java.lang.invoke.VarHandle.fullFence();
             }
             closeArenaAfterDrain();
         } catch (Exception e) {

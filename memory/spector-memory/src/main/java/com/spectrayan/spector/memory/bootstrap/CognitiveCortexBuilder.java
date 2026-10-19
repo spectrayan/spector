@@ -197,13 +197,15 @@ public final class CognitiveCortexBuilder {
             List<RegionSizeSpec> specs = getRuntimeBundleSpecs(builder, quantizedVecBytes);
             if (!isNewRuntime) {
                 try {
-                    runtimeBundle = RuntimeBundle.Init.open(runtimeBundleFile);
+                    runtimeBundle = RuntimeBundle.Init.open(runtimeBundleFile, builder.dataEncryptor());
                     if (runtimeBundle.directory().findRegion(RegionId.WORKING) == null) {
                         log.info("Outdated runtime bundle detected (missing WORKING region), recreating...");
                         runtimeBundle.close();
                         Files.deleteIfExists(runtimeBundleFile);
                         isNewRuntime = true;
                     }
+                } catch (com.spectrayan.spector.commons.error.SpectorMemoryException e) {
+                    throw com.spectrayan.spector.memory.error.SpectorEncryptionException.from(e, e.getMessage());
                 } catch (Exception e) {
                     log.warn("Failed to open existing runtime bundle: {}, recreating...", e.getMessage());
                     try {
@@ -222,7 +224,7 @@ public final class CognitiveCortexBuilder {
                     Object migrationResult = method.invoke(null, basePath, memProps.getDimensions());
                     if (migrationResult != null && migrationResult.toString().contains("MIGRATED")) {
                         log.info("Successfully auto-migrated V3 runtime files to runtime.bundle");
-                        runtimeBundle = RuntimeBundle.Init.open(runtimeBundleFile);
+                        runtimeBundle = RuntimeBundle.Init.open(runtimeBundleFile, builder.dataEncryptor());
                         isNewRuntime = false;
                     }
                 } catch (ClassNotFoundException ignored) {
@@ -232,7 +234,7 @@ public final class CognitiveCortexBuilder {
                 }
             }
             if (isNewRuntime) {
-                runtimeBundle = RuntimeBundle.Init.mmap(runtimeBundleFile, specs);
+                runtimeBundle = RuntimeBundle.Init.mmap(runtimeBundleFile, specs, builder.dataEncryptor());
             }
 
             workingStore = runtimeBundle.openWorking(quantizedVecBytes, memProps.getWorkingCapacity());
@@ -273,10 +275,19 @@ public final class CognitiveCortexBuilder {
                             memProps.getProceduralCapacity(), textSize,
                             quantizedVecBytes,
                             cogLayout.layoutId(), cogLayout.schemaVersion(),
-                            textLayout.layoutId(), textLayout.schemaVersion());
+                            textLayout.layoutId(), textLayout.schemaVersion(),
+                            builder.dataEncryptor());
                 } else {
-                    partitionBundle = PartitionBundle.Init.open(bundleFile);
+                    partitionBundle = PartitionBundle.Init.open(bundleFile, builder.dataEncryptor());
                 }
+            } catch (com.spectrayan.spector.commons.error.SpectorMemoryException e) {
+                if (runtimeBundle != null) {
+                    try {
+                        runtimeBundle.close();
+                    } catch (Exception ignored) {
+                    }
+                }
+                throw com.spectrayan.spector.memory.error.SpectorEncryptionException.from(e, e.getMessage());
             } catch (Exception e) {
                 throw new SpectorValidationException(ErrorCode.INTERNAL_ERROR,
                         "Failed to initialize partition bundle: " + bundleFile, e);

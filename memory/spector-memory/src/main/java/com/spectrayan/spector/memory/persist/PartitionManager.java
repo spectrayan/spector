@@ -281,6 +281,9 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
     /** Returns the active partition sequence number. */
     public int activeSeq() { return activeHandle().seq(); }
 
+    /** Returns the namespace data encryptor (never null). */
+    public DataEncryptor encryptor() { return encryptor; }
+
     /**
      * Discovers existing partitions or creates partition 000 if none exist, returning the
      * newest (active) partition directory.
@@ -433,7 +436,12 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
                                                               int episodicPartitionCapacity,
                                                               int proceduralCapacity,
                                                               DataEncryptor encryptor) {
-        PartitionBundle bundle = PartitionBundle.Init.open(bundleFile).asFrozen();
+        final PartitionBundle bundle;
+        try {
+            bundle = PartitionBundle.Init.open(bundleFile, encryptor).asFrozen();
+        } catch (com.spectrayan.spector.commons.error.SpectorMemoryException e) {
+            throw com.spectrayan.spector.memory.error.SpectorEncryptionException.from(e, e.getMessage());
+        }
 
         SemanticMemory semantic = bundle.openSemantic(semanticCapacity, quantizedVecBytes);
         EpisodicMemory episodic = bundle.openEpisodic(episodicPartitionCapacity);
@@ -518,7 +526,8 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
                         proceduralCapacity, textSize,
                         quantizedVecBytes,
                         cogLayout.layoutId(), cogLayout.schemaVersion(),
-                        textLayout.layoutId(), textLayout.schemaVersion());
+                        textLayout.layoutId(), textLayout.schemaVersion(),
+                        encryptor);
 
                 SemanticMemory newSemantic = newBundle.openSemantic(semanticCapacity, quantizedVecBytes);
                 EpisodicMemory newEpisodic = newBundle.openEpisodic(episodicPartitionCapacity);
@@ -554,6 +563,7 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
                     PartitionSummary frozenSummary = PartitionSummary.fromRouter(
                             oldActive.seq(), oldActive.dir(), frozenRouter, false, epochSecs);
                     frozenBundle.writeSummary(frozenSummary.toHeader());
+                    oldActive.partitionBundle().flush();
                     PartitionHandle frozenHandle = new PartitionHandle(
                             oldActive.seq(), oldActive.dir(), frozenRouter, frozenText, false, frozenBundle,
                             frozenSummary);

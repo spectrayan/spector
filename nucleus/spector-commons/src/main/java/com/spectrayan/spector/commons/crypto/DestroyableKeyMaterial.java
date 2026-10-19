@@ -59,6 +59,13 @@ public final class DestroyableKeyMaterial implements Destroyable, AutoCloseable 
     }
 
     /**
+     * Factory method wrapping a defensive copy of the provided key bytes.
+     */
+    public static DestroyableKeyMaterial fromBytes(byte[] sourceBytes) {
+        return new DestroyableKeyMaterial(sourceBytes, false);
+    }
+
+    /**
      * Returns the length in bytes of this key material.
      */
     public int length() {
@@ -77,6 +84,13 @@ public final class DestroyableKeyMaterial implements Destroyable, AutoCloseable 
         } finally {
             lock.unlock();
         }
+    }
+
+    /**
+     * Returns a defensive copy of the raw key bytes for cryptographic operations.
+     */
+    public byte[] borrowRawBytes() {
+        return bytes();
     }
 
     /**

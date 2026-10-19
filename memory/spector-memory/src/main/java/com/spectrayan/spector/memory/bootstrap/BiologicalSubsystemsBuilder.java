@@ -104,7 +104,13 @@ public final class BiologicalSubsystemsBuilder {
 
         CoActivationMemory coActivationTracker;
         if (cortex.useBundleMode() && cortex.runtimeBundle() != null && cortex.runtimeBundle().hasRegion(RegionId.COACTIVATION)) {
-            coActivationTracker = CoActivationMemory.fromRegionRef(cortex.runtimeBundle().regionRef(RegionId.COACTIVATION), 10_000, 20_000, cortex.runtimeBundle().bundlePath(), cortex.runtimeBundle().isNew(), cortex.runtimeBundle().checkpointRef() != null ? cortex.runtimeBundle().checkpointRef().resolve() : null);
+            coActivationTracker = CoActivationMemory.fromRegionRef(
+                    cortex.runtimeBundle().regionRef(RegionId.COACTIVATION),
+                    memProps.getCoactivationPairCapacity(),
+                    memProps.getCoactivationEdgeCapacity(),
+                    cortex.runtimeBundle().bundlePath(),
+                    cortex.runtimeBundle().isNew(),
+                    cortex.runtimeBundle().checkpointRef() != null ? cortex.runtimeBundle().checkpointRef().resolve() : null);
         } else {
             coActivationTracker = new CoActivationMemory();
         }

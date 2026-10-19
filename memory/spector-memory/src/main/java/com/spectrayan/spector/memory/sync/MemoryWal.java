@@ -87,6 +87,12 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
     /** Record magic for Version 2: 'W' and 'A' (0x5741) */
     static final short RECORD_MAGIC = 0x5741;
 
+    /** Frame flag bit 0: payload is Deflate-compressed. */
+    static final byte FLAG_COMPRESSED = 0x01;
+
+    /** Frame flag bit 1: payload is AES-256-GCM encrypted (ADR-0088). */
+    static final byte FLAG_ENCRYPTED = 0x02;
+
     /** File header size: 4B magic + 4B version = 8 bytes. */
     static final int FILE_HEADER_BYTES = 8;
 
@@ -98,6 +104,7 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
     private final boolean compressionEnabled;
     private final int compressionThreshold;
     private final boolean fsyncPerWrite;
+    private final com.spectrayan.spector.memory.persist.DataEncryptor encryptor;
     private final AtomicLong sequenceCounter;
     private final ReentrantLock writeLock = new ReentrantLock();
 
@@ -109,22 +116,33 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
     private Path activeChunkPath;
     private long activeChunkBytes;
     private int chunkIndex;
+    private boolean sawUnencryptedFramesOnRecovery;
 
     /**
-     * Opens or creates a file-backed WAL with custom configurations.
+     * Opens or creates a file-backed WAL with custom configurations and optional envelope encryption.
      *
      * @param walDir               directory for WAL chunk files
      * @param maxChunkBytes        maximum bytes per chunk before rolling (default: 8MB)
      * @param compressionEnabled   whether text/payload compression is enabled
      * @param compressionThreshold byte threshold above which payload compression is triggered
      * @param fsyncPerWrite        whether to physically fsync the disk on every individual write
+     * @param encryptor            data encryptor for WAL frame payloads (nullable)
      */
-    public MemoryWal(Path walDir, long maxChunkBytes, boolean compressionEnabled, int compressionThreshold, boolean fsyncPerWrite) {
+    public MemoryWal(
+            Path walDir,
+            long maxChunkBytes,
+            boolean compressionEnabled,
+            int compressionThreshold,
+            boolean fsyncPerWrite,
+            com.spectrayan.spector.memory.persist.DataEncryptor encryptor) {
         this.walDir = walDir;
         this.maxChunkBytes = maxChunkBytes;
         this.compressionEnabled = compressionEnabled;
         this.compressionThreshold = compressionThreshold;
         this.fsyncPerWrite = fsyncPerWrite;
+        this.encryptor = encryptor != null
+                ? encryptor
+                : com.spectrayan.spector.memory.persist.NoopDataEncryptor.INSTANCE;
         this.sequenceCounter = new AtomicLong(0);
 
         if (walDir != null) {
@@ -140,11 +158,29 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
             // Open (or create) the active chunk
             openActiveChunk();
 
-            log.info("MemoryWal opened: dir={}, chunks={}, recovered={} events, hwm={}, compression={}, fsyncPerWrite={}",
-                    walDir, chunkIndex + 1, events.size(), sequenceCounter.get(), compressionEnabled, fsyncPerWrite);
+            if (sawUnencryptedFramesOnRecovery && this.encryptor.isEnabled()) {
+                rewriteAllChunksEncrypted();
+            }
+
+            log.info("MemoryWal opened: dir={}, chunks={}, recovered={} events, hwm={}, compression={}, fsyncPerWrite={}, encrypted={}",
+                    walDir, chunkIndex + 1, events.size(), sequenceCounter.get(), compressionEnabled, fsyncPerWrite, this.encryptor.isEnabled());
         } else {
             log.info("MemoryWal opened: in-memory mode");
         }
+    }
+
+    /**
+     * Opens or creates a file-backed WAL with custom configurations.
+     *
+     * @param walDir               directory for WAL chunk files
+     * @param maxChunkBytes        maximum bytes per chunk before rolling (default: 8MB)
+     * @param compressionEnabled   whether text/payload compression is enabled
+     * @param compressionThreshold byte threshold above which payload compression is triggered
+     * @param fsyncPerWrite        whether to physically fsync the disk on every individual write
+     */
+    public MemoryWal(Path walDir, long maxChunkBytes, boolean compressionEnabled, int compressionThreshold, boolean fsyncPerWrite) {
+        this(walDir, maxChunkBytes, compressionEnabled, compressionThreshold, fsyncPerWrite,
+                com.spectrayan.spector.memory.persist.NoopDataEncryptor.INSTANCE);
     }
 
     /**
@@ -154,7 +190,18 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
      * @param maxChunkBytes maximum bytes per chunk before rolling (default: 8MB)
      */
     public MemoryWal(Path walDir, long maxChunkBytes) {
-        this(walDir, maxChunkBytes, false, 1024, false);
+        this(walDir, maxChunkBytes, false, 1024, false,
+                com.spectrayan.spector.memory.persist.NoopDataEncryptor.INSTANCE);
+    }
+
+    /**
+     * Opens or creates a file-backed WAL with default chunk size (8 MB) and custom encryptor.
+     *
+     * @param walDir    directory for WAL chunk files
+     * @param encryptor data encryptor for WAL payloads
+     */
+    public MemoryWal(Path walDir, com.spectrayan.spector.memory.persist.DataEncryptor encryptor) {
+        this(walDir, DEFAULT_MAX_CHUNK_BYTES, false, 1024, false, encryptor);
     }
 
     /**
@@ -163,14 +210,16 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
      * @param walDir directory for WAL chunk files
      */
     public MemoryWal(Path walDir) {
-        this(walDir, DEFAULT_MAX_CHUNK_BYTES, false, 1024, false);
+        this(walDir, DEFAULT_MAX_CHUNK_BYTES, false, 1024, false,
+                com.spectrayan.spector.memory.persist.NoopDataEncryptor.INSTANCE);
     }
 
     /**
      * Creates an in-memory WAL (no file persistence).
      */
     public MemoryWal() {
-        this(null, Long.MAX_VALUE, false, 1024, false);
+        this(null, Long.MAX_VALUE, false, 1024, false,
+                com.spectrayan.spector.memory.persist.NoopDataEncryptor.INSTANCE);
     }
 
     /**
@@ -565,6 +614,43 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
     }
 
     /**
+     * Rewrites all recovered WAL events into encrypted chunk files on disk,
+     * removing any legacy plaintext chunk files.
+     */
+    public void rewriteAllChunksEncrypted() {
+        if (walDir == null || !encryptor.isEnabled()) {
+            return;
+        }
+        writeLock.lock();
+        try {
+            if (activeChannel != null) {
+                activeChannel.force(true);
+                activeChannel.close();
+                activeChannel = null;
+            }
+            for (Path chunk : findChunkFiles()) {
+                Files.deleteIfExists(chunk);
+            }
+            chunkIndex = 0;
+            openActiveChunk();
+            for (WalEvent event : events) {
+                writeEventToChannel(event);
+                if (activeChunkBytes >= maxChunkBytes) {
+                    rollChunk();
+                }
+            }
+            if (activeChannel != null) {
+                activeChannel.force(true);
+            }
+            sawUnencryptedFramesOnRecovery = false;
+        } catch (IOException e) {
+            throw new SpectorStorageException(ErrorCode.WAL_WRITE_FAILED, e, "rewriteAllChunksEncrypted");
+        } finally {
+            writeLock.unlock();
+        }
+    }
+
+    /**
      * Serializes and writes a single event to the active FileChannel.
      */
     private void writeEventToChannel(WalEvent event) throws IOException {
@@ -575,7 +661,17 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
 
         if (compressionEnabled && rawPayload.length > compressionThreshold) {
             payload = compress(rawPayload);
-            flags |= 1; // Bit 0: Compressed
+            flags |= FLAG_COMPRESSED;
+        }
+
+        if (encryptor != null && encryptor.isEnabled()) {
+            if (encryptor instanceof com.spectrayan.spector.memory.persist.EnvelopeDataEncryptor envelope) {
+                payload = envelope.encryptWalPayload(
+                        event.sequence(), (byte) event.type().ordinal(), event.memoryId(), payload);
+            } else {
+                payload = encryptor.encryptPayload(payload);
+            }
+            flags |= FLAG_ENCRYPTED;
         }
 
         int idLen = idBytes.length;
@@ -807,20 +903,36 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
         byte[] payloadBytes = new byte[payloadLen];
         varBuf.get(payloadBytes);
 
-        // Verify Payload CRC-32C
-        int computedPayloadCrc = calculateCrc32(payloadBytes);
-        if (payloadCrc != computedPayloadCrc) {
-            handleMiddleLogCorruption(source, ch, startPos, "Payload CRC mismatch: expected " + payloadCrc + ", got " + computedPayloadCrc);
-            return null;
+        String memoryId = new String(idBytes, StandardCharsets.UTF_8);
+
+        if ((flags & FLAG_ENCRYPTED) != 0) {
+            // Cryptographically authenticate & decrypt payload via AES-256-GCM before CRC/decompression
+            if (encryptor == null || !encryptor.isEnabled()) {
+                throw new com.spectrayan.spector.memory.error.SpectorEncryptionException(
+                        ErrorCode.MEMORY_ENCRYPTION_KEY_MISSING,
+                        "Encrypted WAL frame (seq=" + sequence + ") encountered without an active DataEncryptor in " + source);
+            }
+            if (encryptor instanceof com.spectrayan.spector.memory.persist.EnvelopeDataEncryptor envelope) {
+                payloadBytes = envelope.decryptWalPayload(sequence, typeOrd, memoryId, payloadBytes);
+            } else {
+                payloadBytes = encryptor.decryptPayload(payloadBytes);
+            }
+        } else {
+            sawUnencryptedFramesOnRecovery = true;
+            // Verify Payload CRC-32C for unencrypted frames
+            int computedPayloadCrc = calculateCrc32(payloadBytes);
+            if (payloadCrc != computedPayloadCrc) {
+                handleMiddleLogCorruption(source, ch, startPos, "Payload CRC mismatch: expected " + payloadCrc + ", got " + computedPayloadCrc);
+                return null;
+            }
         }
 
         // Decompress payload if necessary
-        if ((flags & 1) != 0) {
+        if ((flags & FLAG_COMPRESSED) != 0) {
             payloadBytes = decompress(payloadBytes);
         }
 
         WalEvent.EventType type = WalEvent.EventType.values()[typeOrd];
-        String memoryId = new String(idBytes, StandardCharsets.UTF_8);
         Instant timestamp = Instant.ofEpochMilli(timestampMs);
 
         return new WalEvent(sequence, type, memoryId, epoch, timestamp, payloadBytes);

@@ -46,6 +46,9 @@ public record SchemaVersion(int major, int minor, int patch)
     /** Added encryption marker support. */
     public static final SchemaVersion V1_1_0 = new SchemaVersion(1, 1, 0);
 
+    /** ADR-0088: Per-namespace AES-256-GCM envelope encryption for memory payloads, vectors, and WAL. */
+    public static final SchemaVersion V1_2_0 = new SchemaVersion(1, 2, 0);
+
     /** Sharded directory layout + analytics metadata. */
     public static final SchemaVersion V2_0_0 = new SchemaVersion(2, 0, 0);
 

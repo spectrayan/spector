@@ -73,11 +73,11 @@ public class EntityDirectoryMemory implements AutoCloseable {
      */
     public void flush() {
         MemorySegment dir = directoryRegion.resolve();
-        if (dir != null) {
+        if (dir != null && dir.isMapped()) {
             dir.force();
         }
         MemorySegment names = namesRegion.resolve();
-        if (names != null) {
+        if (names != null && names.isMapped()) {
             names.force();
         }
     }

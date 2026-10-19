@@ -473,6 +473,39 @@ public class TenantKeyService {
         }
     }
 
+    /**
+     * Provisions or retrieves the active namespace DEK and constructs an ADR-0088
+     * {@link com.spectrayan.spector.memory.persist.EnvelopeDataEncryptor} bound to
+     * {@code (tenantId, namespaceId)}.
+     */
+    @Transactional
+    public com.spectrayan.spector.memory.persist.EnvelopeDataEncryptor createNamespaceDataEncryptor(
+            String tenantId,
+            String namespaceId) {
+        String normTenant = Objects.requireNonNull(tenantId, "tenantId must not be null").trim();
+        String normNs = Objects.requireNonNull(namespaceId, "namespaceId must not be null").trim();
+        DestroyableKeyMaterial dek = getOrProvisionNamespaceDek(normTenant, normNs);
+        try {
+            Optional<NamespaceDekRow> rowOpt = findActiveNamespaceDek(normTenant, normNs);
+            int dekVersion = rowOpt.map(NamespaceDekRow::dekVersion).orElse(1);
+            String kekProvider = rowOpt.map(NamespaceDekRow::kekProvider).orElse(PlatformHkdfKeyProvider.PROVIDER_ID);
+            String kekKeyId = rowOpt.map(NamespaceDekRow::kekKeyId).orElse("platform-master-v1");
+            byte mode = PlatformHkdfKeyProvider.PROVIDER_ID.equalsIgnoreCase(kekProvider)
+                    ? com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.MODE_PLATFORM_ENVELOPE
+                    : com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.MODE_BYOK_ENVELOPE;
+            return new com.spectrayan.spector.memory.persist.EnvelopeDataEncryptor(
+                    normTenant,
+                    normNs,
+                    dekVersion,
+                    mode,
+                    kekKeyId,
+                    dek);
+        } catch (RuntimeException e) {
+            dek.close();
+            throw e;
+        }
+    }
+
     public Optional<TenantKekConfigRow> findKekConfig(String tenantId) {
         if (tenantId == null || tenantId.isBlank()) {
             return Optional.empty();

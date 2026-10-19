@@ -390,12 +390,7 @@ public final class PostIngestSync {
         TextBlobMemory.TextPosition pos = null;
         if (textDataStore != null) {
             try {
-                String textToStore = text;
-                if (encryptor.isEnabled()) {
-                    byte[] encBytes = encryptor.encryptText(text.getBytes(StandardCharsets.UTF_8));
-                    textToStore = java.util.Base64.getEncoder().encodeToString(encBytes);
-                }
-                pos = textDataStore.write(id, type, textToStore);
+                pos = textDataStore.write(id, type, text);
             } catch (RuntimeException e) {
                 log.warn("Failed to write text.dat entry for '{}': {}", id, e.getMessage());
             }

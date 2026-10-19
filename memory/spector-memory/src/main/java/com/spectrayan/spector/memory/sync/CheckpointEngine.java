@@ -111,6 +111,14 @@ public final class CheckpointEngine {
     private volatile EventBus<SpectorLifecycleEvent> eventBus;
     private volatile Map<String, String> eventContext = Map.of();
     private volatile com.spectrayan.spector.memory.index.IndexPlaneCoordinator indexPlaneCoordinator;
+    private volatile Runnable bundleFlushCallback;
+
+    /**
+     * Sets a callback invoked during checkpoint to flush off-heap encrypted bundle pages to disk.
+     */
+    public void setBundleFlushCallback(Runnable callback) {
+        this.bundleFlushCallback = callback;
+    }
 
     /**
      * Sets the active router supplier to dynamically resolve active partition stores across rolls (#446).
@@ -203,8 +211,8 @@ public final class CheckpointEngine {
                 router.forceAll();
             }
     
-            // Step 2: Save MemoryIndex (IDâ†’offset, text, tags, source)
-            // This is critical for crash recovery â€” without it, tier store
+            // Step 2: Save MemoryIndex (ID->offset, text, tags, source)
+            // This is critical for crash recovery — without it, tier store
             // records survive (mmap) but become orphaned (no ID mapping).
             if (index != null && indexPath != null && index.size() > 0) {
                 try {
@@ -255,8 +263,6 @@ public final class CheckpointEngine {
                             indexPlaneCoordinator.checkpointAll());
                 }
             }
-    
-            
             }
             log.info("Quiesce duration: {} ms", quiesceGuard.lastQuiesceDurationNanos() / 1_000_000);
         } else {
@@ -266,8 +272,8 @@ public final class CheckpointEngine {
                 router.forceAll();
             }
     
-            // Step 2: Save MemoryIndex (IDâ†’offset, text, tags, source)
-            // This is critical for crash recovery â€” without it, tier store
+            // Step 2: Save MemoryIndex (ID->offset, text, tags, source)
+            // This is critical for crash recovery — without it, tier store
             // records survive (mmap) but become orphaned (no ID mapping).
             if (index != null && indexPath != null && index.size() > 0) {
                 try {
@@ -318,13 +324,15 @@ public final class CheckpointEngine {
                             indexPlaneCoordinator.checkpointAll());
                 }
             }
-    
-            
         }
 
         // Step 5: Read the WAL high-water mark
         long hwm = wal.highWaterMark();
         if (hwm <= 0) {
+            Runnable flushCb = this.bundleFlushCallback;
+            if (flushCb != null) {
+                saveGraph("EncryptedBundleFlush", flushCb);
+            }
             log.trace("Checkpoint skipped WAL: no WAL events");
             long elapsed = (System.nanoTime() - start) / 1_000_000;
             log.info("Checkpoint complete: hwm=0, index={} entries, elapsed={}ms",
@@ -340,7 +348,12 @@ public final class CheckpointEngine {
         // Step 6: Write HWM to checkpoint.meta (atomic via temp+rename)
         writeCheckpointMeta(hwm);
 
-        // Step 7: Truncate WAL events â‰¤ HWM
+        Runnable flushCb = this.bundleFlushCallback;
+        if (flushCb != null) {
+            saveGraph("EncryptedBundleFlush", flushCb);
+        }
+
+        // Step 7: Truncate WAL events <= HWM
         wal.truncateBefore(hwm);
 
         // Step 8: Notify replication layer (enterprise)
