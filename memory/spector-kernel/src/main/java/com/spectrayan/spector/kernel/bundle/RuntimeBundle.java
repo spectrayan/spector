@@ -124,7 +124,7 @@ public final class RuntimeBundle implements AbstractBundle {
     private volatile Map<RegionId, MemorySegment> regionSlices;
 
     private final boolean isNew;
-    private final com.spectrayan.spector.kernel.storage.PayloadEncryptor encryptor;
+    private volatile com.spectrayan.spector.kernel.storage.PayloadEncryptor encryptor;
 
     private RuntimeBundle(Arena arena, MemorySegment masterSegment,
                            BundleDirectory directory, Path bundlePath,
@@ -150,6 +150,14 @@ public final class RuntimeBundle implements AbstractBundle {
      */
     public boolean isEncrypted() {
         return encryptor != null && encryptor.isEnabled();
+    }
+
+    /**
+     * Rebinds the active {@link com.spectrayan.spector.kernel.storage.PayloadEncryptor} (e.g. during DEK rotation
+     * from {@code vN} to {@code v(N+1)}) so subsequent flushes write under the new DEK version.
+     */
+    public void rebindEncryptor(com.spectrayan.spector.kernel.storage.PayloadEncryptor newEncryptor) {
+        this.encryptor = newEncryptor;
     }
 
     // ── Init factory (follows EntityDirectory.Init pattern) ──
@@ -1083,7 +1091,11 @@ public final class RuntimeBundle implements AbstractBundle {
         long stamp = remapLock.writeLock();
         try {
             if (bundlePath != null && arena != null && arena.scope().isAlive()) {
-                flush();
+                try {
+                    flush();
+                } catch (Exception flushEx) {
+                    log.debug("Skipping runtime bundle flush on close (key may be revoked): {}", flushEx.getMessage());
+                }
             }
             awaitActiveLeasesDrained();
             if (isEncrypted() && masterSegment != null && arena != null && arena.scope().isAlive()) {
@@ -1092,7 +1104,7 @@ public final class RuntimeBundle implements AbstractBundle {
             }
             closeArenaAfterDrain();
         } catch (Exception e) {
-            log.debug("Error flushing/closing runtime bundle: {}", e.getMessage());
+            log.debug("Error closing runtime bundle: {}", e.getMessage());
         } finally {
             remapLock.unlockWrite(stamp);
         }

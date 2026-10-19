@@ -90,7 +90,7 @@ public final class PartitionBundle implements AbstractBundle {
     private final Path bundlePath;
     private final boolean isNew;
     private final boolean canForward;
-    private final com.spectrayan.spector.kernel.storage.PayloadEncryptor encryptor;
+    private volatile com.spectrayan.spector.kernel.storage.PayloadEncryptor encryptor;
     private volatile PartitionBundle rolledTo;
     private final java.util.concurrent.ConcurrentHashMap<RegionId, java.util.concurrent.atomic.AtomicInteger> generations = new java.util.concurrent.ConcurrentHashMap<>();
 
@@ -123,6 +123,15 @@ public final class PartitionBundle implements AbstractBundle {
      */
     public boolean isEncrypted() {
         return encryptor != null && encryptor.isEnabled();
+    }
+
+    /**
+     * Rebinds the active {@link com.spectrayan.spector.kernel.storage.PayloadEncryptor} (e.g., during DEK rotation)
+     * and persists the encrypted bundle immediately under the new key.
+     */
+    public void rebindEncryptor(com.spectrayan.spector.kernel.storage.PayloadEncryptor newEncryptor) {
+        this.encryptor = newEncryptor;
+        flush();
     }
 
     // ── Init factory (follows EntityDirectory.Init pattern) ──

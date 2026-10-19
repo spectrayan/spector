@@ -422,6 +422,61 @@ class EnvelopeEncryptionAtRestTest {
         }
     }
 
+    @Test
+    @DisplayName("DEK rotation re-keys encrypted namespace from dek_v1 to dek_v2, rejects dek_v1, and preserves recall parity under dek_v2")
+    void dekRotationRekeysNamespaceToNewDekVersionAndRejectsOldDek() throws Exception {
+        String tenantId = "tenant-rekey";
+        String namespaceId = "ns-rekey";
+
+        try (DestroyableKeyMaterial dekV1 = EnvelopeCipher.generateDek();
+             DestroyableKeyMaterial dekV2 = EnvelopeCipher.generateDek();
+             EnvelopeDataEncryptor encryptorV1 = new EnvelopeDataEncryptor(
+                     tenantId, namespaceId, 1, EncryptedSegmentHeader.MODE_BYOK_ENVELOPE, "kms:key-1", dekV1.copy());
+             EnvelopeDataEncryptor encryptorV2 = new EnvelopeDataEncryptor(
+                     tenantId, namespaceId, 2, EncryptedSegmentHeader.MODE_BYOK_ENVELOPE, "kms:key-1", dekV2.copy())) {
+
+            RecallOptions opts = RecallOptions.builder()
+                    .topK(5)
+                    .recallMode(com.spectrayan.spector.memory.model.RecallMode.OBSERVE)
+                    .synapticFilter("urgent")
+                    .build();
+
+            List<CognitiveResult> beforeRekey;
+            try (SpectorMemory memV1 = buildMemory(tempDir, namespaceId, encryptorV1)) {
+                populateSampleMemories(memV1);
+                beforeRekey = memV1.recall("quantum cryptography", opts);
+            }
+            assertThat(beforeRekey).isNotEmpty();
+
+            Path nsDir = tempDir.resolve("namespaces").resolve(namespaceId);
+            var summary = com.spectrayan.spector.memory.persist.migration.NamespaceEncryptionMigrator.rekey(
+                    nsDir, encryptorV1, encryptorV2);
+            assertThat(summary.partitionBundlesEncrypted()).isGreaterThanOrEqualTo(1);
+            assertThat(summary.recordsReKeyed()).isEqualTo(3);
+            assertThat(summary.runtimeBundleEncrypted()).isTrue();
+
+            EncryptedSegmentHeader rtHeader = EncryptedSegmentPageCodec.readHeader(StoragePaths.runtimeBundleFile(nsDir));
+            assertThat(rtHeader.dekVersion()).isEqualTo((short) 2);
+            assertThat(rtHeader.dekId()).isEqualTo(encryptorV2.dekIdBytes());
+
+            // Opening with old dek_v1 must fail closed with MEMORY_AUTH_TAG_MISMATCH
+            assertThatThrownBy(() -> buildMemory(tempDir, namespaceId, encryptorV1))
+                    .satisfies(ex -> {
+                        if (ex instanceof SpectorEncryptionException see) {
+                            assertThat(see.errorCode()).isEqualTo(ErrorCode.MEMORY_AUTH_TAG_MISMATCH);
+                        } else if (ex.getCause() instanceof SpectorEncryptionException see) {
+                            assertThat(see.errorCode()).isEqualTo(ErrorCode.MEMORY_AUTH_TAG_MISMATCH);
+                        }
+                    });
+
+            // Opening with new dek_v2 succeeds and preserves full recall + keyed synaptic tag filter parity
+            try (SpectorMemory memV2 = buildMemory(tempDir, namespaceId, encryptorV2)) {
+                List<CognitiveResult> afterRekey = memV2.recall("quantum cryptography", opts);
+                assertRecallParity(beforeRekey, afterRekey);
+            }
+        }
+    }
+
     private static void populateSampleMemories(SpectorMemory memory) {
         memory.remember("id-1", "Quantum cryptography uses lattice-based key encapsulation for post-quantum security",
                 MemoryType.SEMANTIC, MemorySource.USER_STATED, "cryptography", "quantum", "urgent");

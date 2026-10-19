@@ -68,7 +68,7 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
     private final Map<Long, TextPosition> hashToPosition = new java.util.HashMap<>();
     private final AtomicInteger decryptFailCount = new AtomicInteger();
     private final ReentrantLock writeLock = new ReentrantLock();
-    private final com.spectrayan.spector.kernel.storage.PayloadEncryptor encryptor;
+    private volatile com.spectrayan.spector.kernel.storage.PayloadEncryptor encryptor;
 
     /**
      * Creates a TextBlobMemory for the given file path (no encryption).
@@ -468,6 +468,61 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
             flush();
             this.entryCount = entries.size();
             log.debug("Rebuilt text.dat with {} entries (deduplicated): {}", entries.size(), file);
+        } finally {
+            writeLock.unlock();
+        }
+    }
+
+    /**
+     * Re-encrypts all {@code ENC1:} text entries in-place from {@code oldEncryptor} to {@code newEncryptor}
+     * without changing byte offsets or lengths in {@code INDEX_MIDX}.
+     *
+     * @param oldEncryptor previous DEK encryptor
+     * @param newEncryptor new DEK encryptor
+     * @return number of encrypted text entries re-keyed
+     */
+    public int rekeyEncryptedEntries(com.spectrayan.spector.kernel.storage.PayloadEncryptor oldEncryptor,
+                                     com.spectrayan.spector.kernel.storage.PayloadEncryptor newEncryptor) {
+        writeLock.lock();
+        try {
+            int rekeyed = 0;
+            java.util.Iterator<MemorySegment> it = replay(0);
+            while (it.hasNext()) {
+                MemorySegment entrySeg = it.next();
+                int entryLen = (int) entrySeg.byteSize();
+                if (entryLen < 9) {
+                    continue;
+                }
+                int idLen = entrySeg.get(ValueLayout.JAVA_INT_UNALIGNED, 1);
+                if (idLen < 0 || idLen > 10_000 || 5 + idLen + 4 > entryLen) {
+                    continue;
+                }
+                int textLen = entrySeg.get(ValueLayout.JAVA_INT_UNALIGNED, 5 + idLen);
+                if (textLen <= 0 || textLen > 10_000_000 || 5 + idLen + 4 + textLen > entryLen) {
+                    continue;
+                }
+                String rawText = decodeUtf8FromSegment(entrySeg, 5 + idLen + 4, textLen);
+                if (rawText.startsWith(ENCRYPTED_TEXT_PREFIX)
+                        && oldEncryptor != null && oldEncryptor.isEnabled()
+                        && newEncryptor != null && newEncryptor.isEnabled()) {
+                    byte[] cipherBytes = java.util.Base64.getDecoder().decode(
+                            rawText.substring(ENCRYPTED_TEXT_PREFIX.length()));
+                    byte[] plainBytes = oldEncryptor.decryptText(cipherBytes);
+                    byte[] newCipherBytes = newEncryptor.encryptText(plainBytes);
+                    java.util.Arrays.fill(plainBytes, (byte) 0);
+                    String newStoredText = ENCRYPTED_TEXT_PREFIX
+                            + java.util.Base64.getEncoder().encodeToString(newCipherBytes);
+                    byte[] newTextBytes = newStoredText.getBytes(StandardCharsets.UTF_8);
+                    if (newTextBytes.length == textLen) {
+                        MemorySegment.copy(MemorySegment.ofArray(newTextBytes), 0,
+                                entrySeg, 5 + idLen + 4, textLen);
+                        rekeyed++;
+                    }
+                }
+            }
+            this.encryptor = newEncryptor;
+            flush();
+            return rekeyed;
         } finally {
             writeLock.unlock();
         }

@@ -104,7 +104,7 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
     private final boolean compressionEnabled;
     private final int compressionThreshold;
     private final boolean fsyncPerWrite;
-    private final com.spectrayan.spector.memory.persist.DataEncryptor encryptor;
+    private volatile com.spectrayan.spector.memory.persist.DataEncryptor encryptor;
     private final AtomicLong sequenceCounter;
     private final ReentrantLock writeLock = new ReentrantLock();
 
@@ -645,6 +645,24 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
             sawUnencryptedFramesOnRecovery = false;
         } catch (IOException e) {
             throw new SpectorStorageException(ErrorCode.WAL_WRITE_FAILED, e, "rewriteAllChunksEncrypted");
+        } finally {
+            writeLock.unlock();
+        }
+    }
+
+    /**
+     * Rebinds the WAL {@link com.spectrayan.spector.memory.persist.DataEncryptor} and rewrites all
+     * recovered WAL events into freshly encrypted chunk files under {@code newEncryptor}.
+     */
+    public void rekeyAllChunks(com.spectrayan.spector.memory.persist.DataEncryptor newEncryptor) {
+        writeLock.lock();
+        try {
+            this.encryptor = newEncryptor != null
+                    ? newEncryptor
+                    : com.spectrayan.spector.memory.persist.DataEncryptor.NOOP;
+            if (walDir != null && this.encryptor.isEnabled()) {
+                rewriteAllChunksEncrypted();
+            }
         } finally {
             writeLock.unlock();
         }
