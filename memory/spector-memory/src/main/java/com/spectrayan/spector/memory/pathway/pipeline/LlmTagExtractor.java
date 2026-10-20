@@ -147,7 +147,7 @@ public final class LlmTagExtractor implements TagExtractor {
     @Override
     public TagExtractionResult extractWithContext(String id, String text) {
         if (generator == null || !generator.isAvailable()) {
-            log.info("[TagExtract] LLM unavailable for '{}', using fallback", truncId(id));
+            log.warn("[TagExtract] LLM unavailable for '{}', using content fallback", truncId(id));
             return TagExtractionResult.tagsOnly(fallback.extract(id, text));
         }
 
@@ -171,13 +171,12 @@ public final class LlmTagExtractor implements TagExtractor {
             long elapsedMs = (System.nanoTime() - startNs) / 1_000_000;
 
             if (response == null || response.isBlank()) {
-                log.info("[TagExtract] LLM returned empty for '{}' ({}ms), using fallback",
+                log.warn("[TagExtract] LLM returned empty for '{}' ({}ms), using content fallback",
                         truncId(id), elapsedMs);
                 return TagExtractionResult.tagsOnly(fallback.extract(id, text));
             }
 
-            log.info("[TagExtract] LLM raw response for '{}': '{}'", truncId(id),
-                    response.length() > 300 ? response.substring(0, 300) + "..." : response);
+            log.debug("[TagExtract] LLM response for '{}': {} chars", truncId(id), response.length());
 
             // Parse structured response: TAGS: ..., VALENCE: ..., AROUSAL: ...
             String tagLine = null;
@@ -221,9 +220,8 @@ public final class LlmTagExtractor implements TagExtractor {
                 } else if (!response.contains(",") && !response.contains(";") && response.length() > 100) {
                     // Safety: if the response has no commas/semicolons/slashes and is very long,
                     // the model likely echoed the prompt  --  fall back immediately
-                    log.warn("[TagExtract] LLM response for '{}' appears to be prompt echo ({}chars, no delimiters), using fallback. Response: {}",
-                            truncId(id), response.length(),
-                            response.length() > 300 ? response.substring(0, 300) + "..." : response);
+                    log.warn("[TagExtract] LLM response for '{}' appears to be prompt echo ({} chars, no delimiters), "
+                            + "using content fallback", truncId(id), response.length());
                     return TagExtractionResult.tagsOnly(fallback.extract(id, text));
                 } else {
                     tagLine = response;
@@ -273,19 +271,19 @@ public final class LlmTagExtractor implements TagExtractor {
                     .toArray(String[]::new);
 
             if (tags.length == 0) {
-                log.info("[TagExtract] LLM tags parsed to empty for '{}' (raw='{}', {}ms), using fallback",
-                        truncId(id), response.trim(), elapsedMs);
+                log.warn("[TagExtract] LLM tags parsed to empty for '{}' ({} chars, {}ms), using content fallback",
+                        truncId(id), response.length(), elapsedMs);
                 return TagExtractionResult.tagsOnly(fallback.extract(id, text));
             }
 
-            log.info("[TagExtract] LLM extracted {} tags for '{}' in {}ms: [{}] (valence={}, arousal={})",
-                    tags.length, truncId(id), elapsedMs, String.join(", ", tags), valence, Byte.toUnsignedInt(arousal));
+            log.info("[TagExtract] LLM extracted {} tags for '{}' in {}ms (valence={}, arousal={})",
+                    tags.length, truncId(id), elapsedMs, valence, Byte.toUnsignedInt(arousal));
             return new TagExtractionResult(tags, valence, arousal);
 
         } catch (Exception e) {
             long elapsedMs = (System.nanoTime() - startNs) / 1_000_000;
-            log.warn("[TagExtract] LLM failed for '{}' in {}ms: {}, using fallback",
-                    truncId(id), elapsedMs, e.getMessage());
+            log.warn("[TagExtract] LLM failed for '{}' in {}ms ({}), using content fallback",
+                    truncId(id), elapsedMs, e.getClass().getSimpleName());
             return TagExtractionResult.tagsOnly(fallback.extract(id, text));
         }
     }
