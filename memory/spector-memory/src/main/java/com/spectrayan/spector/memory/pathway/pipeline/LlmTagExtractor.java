@@ -130,6 +130,15 @@ public final class LlmTagExtractor implements TagExtractor {
         this.fallback = fallback;
     }
 
+    /**
+     * Returns the extractor used when the LLM is unavailable or fails.
+     *
+     * @return the fallback extractor
+     */
+    public TagExtractor fallback() {
+        return fallback;
+    }
+
     @Override
     public String[] extract(String id, String text) {
         return extractWithContext(id, text).tags();

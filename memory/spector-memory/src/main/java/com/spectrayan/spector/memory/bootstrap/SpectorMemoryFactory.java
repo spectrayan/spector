@@ -123,6 +123,9 @@ import com.spectrayan.spector.kernel.bundle.RuntimeBundle;
 import com.spectrayan.spector.kernel.bundle.PartitionBundle;
 import com.spectrayan.spector.kernel.store.InsulaMemory;
 
+import com.spectrayan.spector.memory.pathway.pipeline.TagExtractor;
+import com.spectrayan.spector.memory.pathway.pipeline.TagExtractors;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -317,6 +320,14 @@ public final class SpectorMemoryFactory {
                 : new DefaultImportanceProvider(
                         bio.surpriseDetector(), bio.flashbulbPolicy(), bio.icnuWeights());
 
+        //  Tag extractor: an explicit builder extractor wins, otherwise spector.memory.tag-extractor (#1137)
+        TagExtractor tagExtractor = builder.tagExtractor() != null
+                ? builder.tagExtractor()
+                : TagExtractors.forMode(memProps.getTagExtractor(), builder.llmProvider());
+        log.info("[SpectorMemoryFactory] ns={} tag extractor: mode={}, extractor={}", builder.namespaceId(),
+                builder.tagExtractor() != null ? "CUSTOM" : memProps.getTagExtractor(),
+                tagExtractor.getClass().getSimpleName());
+
         //  Ingestion target (RememberPathway) 
         int activePartitionIndex = 0;
         RememberPathway rememberPathway = builder.rememberPathway() != null
@@ -331,7 +342,7 @@ public final class SpectorMemoryFactory {
                 .wal(wal)
                 .activePartitionIndex(activePartitionIndex)
                 .importanceProvider(importanceProvider)
-                .tagExtractor(builder.tagExtractor())
+                .tagExtractor(tagExtractor)
                 .semanticIndex(builder.semanticIndex())
                 .sparseEmbeddingProvider(builder.sparseEmbeddingProvider())
                 .dataEncryptor(builder.dataEncryptor())
