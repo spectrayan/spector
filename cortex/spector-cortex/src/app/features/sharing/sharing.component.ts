@@ -434,13 +434,14 @@ import {
       font-size: 0.95rem;
       padding: 2px 10px;
       border-radius: 6px;
-      background: var(--mat-sys-primary-container);
-      color: var(--mat-sys-on-primary-container);
+      background: rgba(10, 133, 255, 0.14);
+      color: var(--primary);
+      border: 1px solid rgba(10, 133, 255, 0.28);
     }
     .page-subtitle {
       margin: 4px 0 0;
       font-size: 0.85rem;
-      color: var(--mat-sys-on-surface-variant);
+      color: var(--muted-foreground);
     }
     .header-actions {
       display: flex;
@@ -453,9 +454,9 @@ import {
       gap: 14px;
       padding: 14px 18px;
       border-radius: 10px;
-      background: var(--mat-sys-error-container);
-      color: var(--mat-sys-on-error-container);
-      border: 1px solid var(--mat-sys-error);
+      background: rgba(239, 68, 68, 0.12);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, 0.35);
       flex-wrap: wrap;
       .banner-text {
         flex: 1;
@@ -473,16 +474,23 @@ import {
     .meta-chip {
       padding: 12px 14px;
       border-radius: 10px;
-      background: var(--mat-sys-surface-container);
-      border: 1px solid var(--mat-sys-outline-variant);
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border-subtle);
+      box-shadow: var(--shadow-card);
       display: flex;
       flex-direction: column;
       gap: 4px;
+      strong {
+        color: var(--foreground);
+      }
     }
     .meta-label {
       font-size: 0.7rem;
       text-transform: uppercase;
-      color: var(--mat-sys-on-surface-variant);
+      letter-spacing: 0.04em;
+      color: var(--muted-foreground);
     }
     .grant-form-grid {
       display: grid;
@@ -499,20 +507,28 @@ import {
         font-size: 0.72rem;
         font-weight: 600;
         text-transform: uppercase;
-        color: var(--mat-sys-on-surface-variant);
+        color: var(--muted-foreground);
       }
     }
     .sharing-input, .sharing-select {
       height: 36px;
       padding: 0 10px;
       border-radius: 8px;
-      border: 1px solid var(--mat-sys-outline-variant);
-      background: var(--mat-sys-surface-container);
-      color: var(--mat-sys-on-surface);
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-surface);
+      color: var(--foreground);
       font-size: 0.84rem;
+      transition: border-color 0.2s ease;
+      &:focus {
+        outline: none;
+        border-color: var(--primary);
+      }
     }
     .table-wrap {
       overflow-x: auto;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
     }
     .sharing-table {
       width: 100%;
@@ -521,12 +537,18 @@ import {
       th, td {
         text-align: left;
         padding: 10px 12px;
-        border-bottom: 1px solid var(--mat-sys-outline-variant);
+        border-bottom: 1px solid var(--border-subtle);
+        color: var(--foreground);
       }
       th {
         font-size: 0.7rem;
         text-transform: uppercase;
-        color: var(--mat-sys-on-surface-variant);
+        letter-spacing: 0.04em;
+        color: var(--muted-foreground);
+        background: rgba(10, 133, 255, 0.04);
+      }
+      tbody tr:last-child td {
+        border-bottom: none;
       }
     }
     .sub-badge {
@@ -536,12 +558,14 @@ import {
       border-radius: 4px;
       font-size: 0.68rem;
       font-weight: 600;
-      background: var(--mat-sys-surface-container-high);
-      color: var(--mat-sys-on-surface-variant);
+      background: rgba(10, 133, 255, 0.12);
+      color: var(--primary);
+      border: 1px solid rgba(10, 133, 255, 0.24);
     }
     .agent-badge {
-      background: var(--mat-sys-tertiary-container);
-      color: var(--mat-sys-on-tertiary-container);
+      background: rgba(34, 211, 238, 0.12);
+      color: var(--accent-cyan);
+      border-color: rgba(34, 211, 238, 0.28);
     }
     .role-pill {
       display: inline-block;
@@ -549,19 +573,29 @@ import {
       border-radius: 9999px;
       font-size: 0.7rem;
       font-weight: 600;
-      background: var(--mat-sys-surface-container-high);
+      background: rgba(127, 142, 163, 0.14);
+      color: var(--foreground);
+      border: 1px solid var(--border-subtle);
     }
     .role-owner, .role-admin {
-      background: var(--mat-sys-primary-container);
-      color: var(--mat-sys-on-primary-container);
+      background: rgba(10, 133, 255, 0.14);
+      color: var(--primary);
+      border-color: rgba(10, 133, 255, 0.3);
     }
     .role-writer {
-      background: var(--mat-sys-secondary-container);
-      color: var(--mat-sys-on-secondary-container);
+      background: rgba(16, 185, 129, 0.14);
+      color: #10b981;
+      border-color: rgba(16, 185, 129, 0.3);
+    }
+    .role-reader {
+      background: rgba(34, 211, 238, 0.12);
+      color: var(--accent-cyan);
+      border-color: rgba(34, 211, 238, 0.28);
     }
     .role-break-glass {
-      background: var(--mat-sys-error-container);
-      color: var(--mat-sys-on-error-container);
+      background: rgba(239, 68, 68, 0.15);
+      color: #ef4444;
+      border-color: rgba(239, 68, 68, 0.35);
     }
     .break-glass-row {
       background: rgba(220, 38, 38, 0.05);

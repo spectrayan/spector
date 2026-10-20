@@ -141,37 +141,36 @@
       color: #fff !important;
       
       &.tombstoned {
-        background-color: rgba(239, 83, 80, 0.15) !important;
-        color: #ef5350 !important;
-        border: 1px solid rgba(239, 83, 80, 0.25) !important;
+        background-color: rgba(239, 68, 68, 0.15) !important;
+        color: #ef4444 !important;
+        border: 1px solid rgba(239, 68, 68, 0.28) !important;
       }
       &.suppressed {
-        background-color: rgba(255, 183, 77, 0.15) !important;
-        color: #ffb74d !important;
-        border: 1px solid rgba(255, 183, 77, 0.25) !important;
+        background-color: rgba(245, 158, 11, 0.15) !important;
+        color: #f59e0b !important;
+        border: 1px solid rgba(245, 158, 11, 0.28) !important;
       }
       &.resolved {
-        background-color: rgba(102, 187, 106, 0.15) !important;
-        color: #66bb6a !important;
-        border: 1px solid rgba(102, 187, 106, 0.25) !important;
+        background-color: rgba(16, 185, 129, 0.15) !important;
+        color: #10b981 !important;
+        border: 1px solid rgba(16, 185, 129, 0.28) !important;
       }
       &.active {
-        background-color: rgba(171, 71, 188, 0.15) !important;
-        color: #ab47bc !important;
-        border: 1px solid rgba(171, 71, 188, 0.25) !important;
+        background-color: rgba(10, 133, 255, 0.15) !important;
+        color: #0a85ff !important;
+        border: 1px solid rgba(10, 133, 255, 0.28) !important;
       }
     }
 
     /* Tag chips */
     &.tag-chip, &.edit-tag-chip {
-      background-color: rgba(0, 255, 204, 0.06) !important;
-      color: #00ffcc !important;
+      background-color: rgba(10, 133, 255, 0.12) !important;
+      color: var(--primary) !important;
       font-size: 11px !important;
-      border: 1px solid rgba(0, 255, 204, 0.12) !important;
+      border: 1px solid rgba(10, 133, 255, 0.24) !important;
 
       &:hover {
-        background-color: rgba(0, 255, 204, 0.12) !important;
-        box-shadow: 0 0 8px rgba(0, 255, 204, 0.15) !important;
+        background-color: rgba(10, 133, 255, 0.2) !important;
       }
     }
 

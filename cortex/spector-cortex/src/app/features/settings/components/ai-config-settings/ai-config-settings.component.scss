@@ -7,8 +7,12 @@
 
 // ── Top Info Card ──
 .info-card {
-  background: var(--mat-sys-surface-container-low);
-  border-color: var(--mat-sys-outline-variant);
+  background: var(--bg-card) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--shadow-card);
 
   .info-header-row {
     display: flex;
@@ -23,20 +27,26 @@
       gap: 12px;
       font-size: 13px;
       line-height: 1.5;
-      color: var(--mat-sys-on-surface-variant);
+      color: var(--muted-foreground);
       flex: 1;
       min-width: 280px;
 
+      strong {
+        color: var(--foreground);
+      }
+
       code {
         font-family: var(--cortex-font-mono, monospace);
-        background: var(--mat-sys-surface-container);
-        padding: 1px 4px;
+        background: var(--bg-surface);
+        border: 1px solid var(--border-subtle);
+        color: var(--primary);
+        padding: 1px 6px;
         border-radius: 4px;
         font-size: 12px;
       }
 
       .info-icon {
-        color: var(--mat-sys-primary);
+        color: var(--primary);
         font-size: 22px;
         width: 22px;
         height: 22px;
@@ -149,13 +159,25 @@
 
 // ── Category Panel Card ──
 .category-panel-card {
-  border-color: var(--mat-sys-outline-variant);
+  background: var(--bg-card) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--shadow-card);
 
   .panel-avatar-icon {
-    font-size: 24px;
-    width: 24px;
-    height: 24px;
-    color: var(--mat-sys-primary);
+    font-size: 20px;
+    width: 28px !important;
+    height: 28px !important;
+    color: var(--primary);
+    background: rgba(10, 133, 255, 0.12);
+    border: 1px solid rgba(10, 133, 255, 0.22);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
   }
 }
 
@@ -176,18 +198,18 @@
   flex-direction: column;
   gap: 8px;
   padding: 14px;
-  background: var(--mat-sys-surface-container-lowest);
-  border: 1px solid var(--mat-sys-outline-variant);
-  border-radius: 8px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 
   &:hover {
-    border-color: var(--mat-sys-primary);
+    border-color: var(--primary);
   }
 
   &.user-overridden {
     border-left: 3px solid #10b981;
-    background: rgba(16, 185, 129, 0.03);
+    background: rgba(16, 185, 129, 0.04);
   }
 
   .property-header {

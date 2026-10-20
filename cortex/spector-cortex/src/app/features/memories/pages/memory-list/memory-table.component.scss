@@ -1,18 +1,18 @@
 :host {
   display: block;
   width: 100%;
-  background: var(--mat-sys-surface);
+  background: var(--bg-void);
 }
 
 .cortex-mono {
-  font-family: 'Roboto Mono', monospace;
+  font-family: 'JetBrains Mono', 'Roboto Mono', monospace;
 }
 
 // ── Page Container ──
 .table-page {
   max-width: 1600px;
   margin: 0 auto;
-  padding: 12px 16px;
+  padding: 16px 20px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -35,8 +35,9 @@
   gap: 8px;
   padding: 10px 14px;
   border-radius: 8px;
-  background: var(--mat-sys-error-container);
-  color: var(--mat-sys-on-error-container);
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.28);
+  color: var(--danger);
   font-size: 13px;
 }
 
@@ -45,8 +46,10 @@
   border-radius: 12px;
   overflow-x: auto;
   overflow-y: hidden;
-  border: 1px solid var(--mat-sys-outline-variant);
-  background: var(--mat-sys-surface-container-lowest);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow-card);
   -webkit-overflow-scrolling: touch;
 }
 
@@ -58,28 +61,28 @@
   table-layout: fixed;
 
   thead {
-    background: var(--mat-sys-surface-container-high);
+    background: var(--bg-surface);
     position: sticky;
     top: 0;
     z-index: 2;
   }
 
   th {
-    padding: 8px 10px;
+    padding: 10px 12px;
     text-align: left;
     font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: var(--mat-sys-on-surface-variant);
-    border-bottom: 1px solid var(--mat-sys-outline-variant);
+    color: var(--muted-foreground);
+    border-bottom: 1px solid var(--border-subtle);
     white-space: nowrap;
     user-select: none;
   }
 
   td {
-    padding: 6px 10px;
-    border-bottom: 1px solid var(--mat-sys-surface-container);
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-subtle);
     vertical-align: middle;
   }
 }
@@ -123,13 +126,17 @@
   font-size: 10px;
   padding: 2px 6px;
   border-radius: 4px;
-  background: var(--mat-sys-surface-container-highest);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--foreground);
   cursor: pointer;
-  transition: background 0.2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease;
   white-space: nowrap;
 
   &:hover {
-    background: var(--mat-sys-primary-container);
+    background: var(--primary-muted);
+    border-color: var(--border-accent);
+    color: var(--primary);
   }
 }
 
@@ -140,7 +147,7 @@
   overflow: hidden;
   font-size: 11px;
   line-height: 1.4;
-  color: var(--mat-sys-on-surface-variant);
+  color: var(--foreground);
 }
 
 .source-file-badge {
@@ -151,8 +158,9 @@
   font-weight: 600;
   padding: 1px 7px 1px 4px;
   border-radius: 4px;
-  background: var(--mat-sys-tertiary-container);
-  color: var(--mat-sys-on-tertiary-container);
+  background: var(--primary-muted);
+  color: var(--primary);
+  border: 1px solid var(--border-accent);
   margin-bottom: 3px;
   white-space: nowrap;
   max-width: 100%;
@@ -178,7 +186,7 @@
   letter-spacing: 0.06em;
   padding: 2px 6px;
   border-radius: 4px;
-  color: var(--cortex-light-overlay);
+  color: #ffffff;
   white-space: nowrap;
 }
 
@@ -288,17 +296,19 @@
 .tag-chip {
   display: inline-block;
   font-size: 9px;
-  font-weight: 500;
+  font-weight: 600;
   padding: 1px 6px;
   border-radius: 4px;
-  background: var(--mat-sys-secondary-container);
-  color: var(--mat-sys-on-secondary-container);
+  background: var(--primary-muted);
+  color: var(--primary);
+  border: 1px solid var(--border-accent);
   margin: 1px 2px;
   white-space: nowrap;
 
   &.more-tag {
-    background: var(--mat-sys-tertiary-container);
-    color: var(--mat-sys-on-tertiary-container);
+    background: var(--bg-surface);
+    color: var(--muted-foreground);
+    border-color: var(--border-subtle);
     font-weight: 700;
     cursor: help;
   }
@@ -311,7 +321,7 @@
   cursor: pointer;
 
   &:hover {
-    background: var(--mat-sys-surface-container);
+    background: var(--bg-elevated);
 
     .action-buttons {
       opacity: 1;
@@ -323,7 +333,7 @@
 
     td {
       text-decoration: line-through;
-      text-decoration-color: var(--mat-sys-error);
+      text-decoration-color: var(--danger);
     }
 
     .col-flags, .col-tags, .col-actions {
@@ -332,10 +342,10 @@
   }
 
   &:nth-child(even) {
-    background: var(--mat-sys-surface-container-low);
+    background: rgba(15, 23, 42, 0.22);
 
     &:hover {
-      background: var(--mat-sys-surface-container);
+      background: var(--bg-elevated);
     }
   }
 }

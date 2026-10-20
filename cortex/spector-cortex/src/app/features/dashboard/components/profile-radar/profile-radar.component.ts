@@ -129,12 +129,12 @@ export class ProfileRadarComponent implements AfterViewInit, OnDestroy {
       this.currentValues[i] += (this.targetValues[i] - this.currentValues[i]) * 0.08;
     }
 
-    // Hardcoded hex colors for canvas compatibility
-    const primary = '#7c4dff';
-    const tertiary = '#00bfa5';
-    const outline = '#444';
-    const onSurface = '#999';
-    const surfaceHigh = '#2a2a3e';
+    // Theme-aligned hex colors for canvas compatibility
+    const primary = this.themeService.getCanvasColor('--primary', '#0a85ff');
+    const tertiary = this.themeService.getCanvasColor('--accent-cyan', '#22d3ee');
+    const outline = this.themeService.getCanvasColor('--border-subtle', '#1d283a');
+    const onSurface = this.themeService.getCanvasColor('--foreground-muted', '#7f8ea3');
+    const surfaceHigh = this.themeService.getCanvasColor('--bg-surface', '#050a18');
 
     const n = AXES.length;
     const angleStep = (Math.PI * 2) / n;
@@ -292,7 +292,7 @@ export class ProfileRadarComponent implements AfterViewInit, OnDestroy {
     ctx.stroke();
 
     // Center label — at actual center, not at dot
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = this.themeService.getCanvasColor('--foreground', '#f8fafc');
     ctx.font = 'bold 13px Inter, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';

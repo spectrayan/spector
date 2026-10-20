@@ -112,9 +112,9 @@ export class ClusterViewComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
-    const primary = this.themeService.getCanvasColor('--mat-sys-primary', '#bb86fc');
-    const onSurface = this.themeService.getCanvasColor('--mat-sys-on-surface-variant', '#aaa');
-    const outline = this.themeService.getCanvasColor('--mat-sys-outline-variant', '#555');
+    const primary = this.themeService.getCanvasColor('--primary', '#0a85ff');
+    const onSurface = this.themeService.getCanvasColor('--foreground-muted', '#7f8ea3');
+    const outline = this.themeService.getCanvasColor('--border-subtle', '#1d283a');
 
     // Draw replication links
     const links = this.state.clusterLinks();

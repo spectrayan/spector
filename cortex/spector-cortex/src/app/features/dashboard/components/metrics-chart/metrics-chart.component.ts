@@ -66,12 +66,12 @@ export class MetricsChartComponent implements AfterViewInit, OnDestroy {
     const history = this.state.metricsHistory();
     if (history.length < 2) return;
 
-    const primary = this.themeService.getCanvasColor('--mat-sys-primary', '#bb86fc');
-    const tertiary = this.themeService.getCanvasColor('--mat-sys-tertiary', '#03dac6');
-    const secondary = this.themeService.getCanvasColor('--mat-sys-secondary', '#c4b5fd');
-    const error = this.themeService.getCanvasColor('--mat-sys-error', '#f44336');
-    const outline = this.themeService.getCanvasColor('--mat-sys-outline-variant', '#555');
-    const onSurface = this.themeService.getCanvasColor('--mat-sys-on-surface-variant', '#aaa');
+    const primary = this.themeService.getCanvasColor('--primary', '#0a85ff');
+    const tertiary = this.themeService.getCanvasColor('--accent-cyan', '#22d3ee');
+    const secondary = this.themeService.getCanvasColor('--tier-procedural', '#10b981');
+    const error = this.themeService.getCanvasColor('--mat-sys-error', '#ef4444');
+    const outline = this.themeService.getCanvasColor('--border-subtle', '#1d283a');
+    const onSurface = this.themeService.getCanvasColor('--foreground-muted', '#7f8ea3');
 
     const padding = { top: 10, right: 10, bottom: 20, left: 35 };
     const chartW = w - padding.left - padding.right;

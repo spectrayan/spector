@@ -15,12 +15,12 @@ import { ThemeService } from '@core/services/theme.service';
 import { GpuKernelEvent } from '@core/models/cortex-events';
 
 const KERNEL_COLORS: Record<string, string> = {
-  cosine_similarity: '#bb86fc',
-  dot_product: '#03dac6',
-  euclidean_dist: '#c4b5fd',
-  hnsw_neighbor_select: '#ffc107',
-  memcpy_h2d: '#66bb6a',
-  memcpy_d2h: '#42a5f5',
+  cosine_similarity: '#0a85ff',
+  dot_product: '#22d3ee',
+  euclidean_dist: '#38bdf8',
+  hnsw_neighbor_select: '#f59e0b',
+  memcpy_h2d: '#10b981',
+  memcpy_d2h: '#60a5fa',
 };
 
 @Component({

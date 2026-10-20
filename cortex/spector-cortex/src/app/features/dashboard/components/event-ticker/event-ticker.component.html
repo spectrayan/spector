@@ -1,16 +1,8 @@
-<mat-card class="ticker-card cortex-glass" appearance="outlined">
+<mat-card class="ticker-card panel cortex-glass" appearance="outlined">
   <mat-card-header class="ticker-header">
-    <div class="header-left">
-      <div class="pulse-icon-wrap">
-        <mat-icon class="pulse-icon">sensors</mat-icon>
-      </div>
-      <div>
-        <mat-card-title class="ticker-title">Live Memory Event Ticker</mat-card-title>
-        <mat-card-subtitle class="ticker-subtitle">
-          Real-time SSE event stream from /api/v1/events
-        </mat-card-subtitle>
-      </div>
-    </div>
+    <mat-icon mat-card-avatar class="panel-icon pulse-icon">sensors</mat-icon>
+    <mat-card-title class="ticker-title">Live Memory Event Ticker</mat-card-title>
+    <mat-card-subtitle class="ticker-subtitle">Real-Time SSE Stream</mat-card-subtitle>
 
     <div class="header-right">
       <span class="status-pill" [class]="'status-' + status()">

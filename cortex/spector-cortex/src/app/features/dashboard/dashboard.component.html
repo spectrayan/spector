@@ -104,6 +104,8 @@
         <cortex-memory-heatmap />
       </mat-card-content>
     </mat-card>
+
+    <cortex-event-ticker style="animation: fade-in-up 0.65s ease both" />
   </main>
 } @else {
   <!-- Normal Dashboard Mode -->
@@ -255,10 +257,8 @@
         <cortex-habituation-meter />
       </mat-card-content>
     </mat-card>
+
+    <!-- Live Memory Event Ticker as 3rd panel of Row 5 -->
+    <cortex-event-ticker style="animation: fade-in-up 1.05s ease both" />
   </main>
 }
-
-<!-- Bottom Live SSE Event Ticker -->
-<section class="ticker-section" style="animation: fade-in-up 1.05s ease both">
-  <cortex-event-ticker />
-</section>

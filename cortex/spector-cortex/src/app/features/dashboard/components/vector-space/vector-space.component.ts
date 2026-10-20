@@ -18,10 +18,10 @@ import { MemoryTableService, MemoryRow } from '@core/services/memory-table.servi
 import * as THREE from 'three';
 
 const TIER_COLORS: Record<string, number> = {
-  WORKING: 0xffb74d,
-  EPISODIC: 0x66bb6a,
-  SEMANTIC: 0x42a5f5,
-  PROCEDURAL: 0xab47bc,
+  WORKING: 0x60a5fa,
+  EPISODIC: 0xa78bfa,
+  SEMANTIC: 0x0a85ff,
+  PROCEDURAL: 0x10b981,
 };
 
 @Component({

@@ -66,10 +66,10 @@ export class DecayCurveComponent implements AfterViewInit, OnDestroy {
     const curve = this.state.decayCurve();
     if (curve.length < 2) return;
 
-    const error = this.themeService.getCanvasColor('--mat-sys-error', '#f44336');
-    const primary = this.themeService.getCanvasColor('--mat-sys-primary', '#bb86fc');
-    const outline = this.themeService.getCanvasColor('--mat-sys-outline-variant', '#555');
-    const onSurface = this.themeService.getCanvasColor('--mat-sys-on-surface-variant', '#aaa');
+    const error = this.themeService.getCanvasColor('--mat-sys-error', '#ef4444');
+    const primary = this.themeService.getCanvasColor('--primary', '#0a85ff');
+    const outline = this.themeService.getCanvasColor('--border-subtle', '#1d283a');
+    const onSurface = this.themeService.getCanvasColor('--foreground-muted', '#7f8ea3');
 
     const pad = { top: 10, right: 10, bottom: 24, left: 35 };
     const cw = w - pad.left - pad.right;

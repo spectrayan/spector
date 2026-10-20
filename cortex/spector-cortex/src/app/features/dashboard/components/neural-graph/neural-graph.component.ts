@@ -22,16 +22,16 @@ import * as THREE from 'three';
 const MAX_NODES = 200;
 const MAX_PARTICLES = 40;  // Hard cap to prevent OOM
 const TIER_COLORS: Record<string, number> = {
-  WORKING: 0xffb74d,
-  EPISODIC: 0x66bb6a,
-  SEMANTIC: 0x42a5f5,
-  PROCEDURAL: 0xab47bc,
+  WORKING: 0x60a5fa,
+  EPISODIC: 0xa78bfa,
+  SEMANTIC: 0x0a85ff,
+  PROCEDURAL: 0x10b981,
 };
 
 const EDGE_COLORS = {
-  hebbian: 0xffffff,
-  temporal: 0x00bcd4,
-  entity: 0xffc107,
+  hebbian: 0x0a85ff,
+  temporal: 0x22d3ee,
+  entity: 0xf59e0b,
 };
 
 interface GraphNode {
@@ -387,7 +387,7 @@ export class NeuralGraphComponent implements AfterViewInit, OnDestroy {
   private createQueryTrail(): void {
     const geometry = new THREE.SphereGeometry(1.8, 20, 20);
     const material = new THREE.MeshBasicMaterial({
-      color: 0xbb86fc,
+      color: 0x0a85ff,
       transparent: true,
       opacity: 0,
     });

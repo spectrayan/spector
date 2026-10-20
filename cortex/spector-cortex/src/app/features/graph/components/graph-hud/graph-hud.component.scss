@@ -16,18 +16,13 @@
   background: $panel-bg;
   backdrop-filter: blur(16px);
   border: 1px solid $panel-border;
-  border-radius: 2px; // Sharp sci-fi corners
+  border-radius: 12px;
   min-width: 190px;
-  box-shadow:
-    0 0 30px rgba(0, 255, 204, 0.05),
-    inset 0 0 20px rgba(0, 255, 204, 0.02);
+  box-shadow: var(--shadow-card);
 }
 
 .hud-corner {
-  &.tl { @include corner-bracket(-1px, auto, -1px, auto, top, left); }
-  &.tr { @include corner-bracket(-1px, auto, auto, -1px, top, right); }
-  &.bl { @include corner-bracket(auto, -1px, -1px, auto, bottom, left); }
-  &.br { @include corner-bracket(auto, -1px, auto, -1px, bottom, right); }
+  display: none;
 }
 
 .hud-title {

@@ -11,7 +11,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 10px 20px;
-  background: var(--mat-sys-surface-container);
+  background: var(--bg-surface);
   border-bottom: 1px solid $panel-border;
   flex-shrink: 0;
   backdrop-filter: blur(12px);
@@ -24,28 +24,32 @@
 }
 
 .page-icon {
-  font-size: 28px;
+  font-size: 24px;
   width: 32px;
   height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--primary-muted);
+  border: 1px solid var(--border-accent);
   color: $cyan-primary;
-  filter: drop-shadow(0 0 6px $cyan-glow);
 }
 
 .page-title {
   margin: 0;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.06em;
   color: $text-bright;
-  text-shadow: 0 0 10px $cyan-glow;
-  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-family: 'Inter', -apple-system, sans-serif;
 }
 
 .page-subtitle {
   margin: 0;
-  font-size: 10px;
+  font-size: 11px;
   color: $text-dim;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
 }
 
 .toolbar-controls {
@@ -59,20 +63,20 @@
   align-items: center;
   gap: 6px;
   padding: 2px 8px;
-  border: 1px solid rgba(0, 255, 204, 0.15);
+  border: 1px solid var(--border-subtle);
   border-radius: 8px;
-  background: rgba(0, 255, 204, 0.04);
+  background: var(--bg-card);
   margin-right: 8px;
   
   .view-label {
     font-size: 10px;
     letter-spacing: 1px;
-    color: rgba(0, 255, 204, 0.5);
+    color: var(--muted-foreground);
     white-space: nowrap;
   }
 
   button {
-    color: rgba(0, 255, 204, 0.6);
+    color: var(--muted-foreground);
   }
 }
 
@@ -83,11 +87,11 @@
   }
 
   .layer-chip.mat-mdc-standard-chip {
-    background-color: rgba(255, 255, 255, 0.03) !important;
-    border: none !important;
+    background-color: var(--bg-card) !important;
+    border: 1px solid var(--border-subtle) !important;
     border-radius: 20px !important;
     color: $text-dim !important;
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
     font-family: 'JetBrains Mono', 'Consolas', monospace !important;
     font-size: 11px !important;
     font-weight: 600 !important;
@@ -112,7 +116,7 @@
     }
 
     &:hover {
-      background-color: rgba(255, 255, 255, 0.06) !important;
+      background-color: var(--bg-elevated) !important;
       color: $text-bright !important;
       --mdc-chip-label-text-color: #{$text-bright};
       
@@ -122,36 +126,32 @@
     }
 
     &.mat-mdc-chip-selected, &.mdc-evolution-chip--selected {
-      background-color: rgba(0, 255, 204, 0.1) !important;
+      background-color: var(--primary-muted) !important;
+      border-color: var(--border-accent) !important;
       color: $cyan-primary !important;
       --mdc-chip-label-text-color: #{$cyan-primary};
-      box-shadow: 0 0 12px rgba(0, 255, 204, 0.1) !important;
 
       .mat-chip-avatar {
         color: $cyan-primary !important;
-        filter: drop-shadow(0 0 3px $cyan-glow) !important;
       }
 
       &.hebbian {
-        background-color: rgba(0, 255, 204, 0.1) !important;
-        color: #00ffcc !important;
-        --mdc-chip-label-text-color: #00ffcc;
-        box-shadow: 0 0 12px rgba(0, 255, 204, 0.15) !important;
-        .mat-chip-avatar { color: #00ffcc !important; }
+        background-color: rgba(10, 133, 255, 0.14) !important;
+        color: #0a85ff !important;
+        --mdc-chip-label-text-color: #0a85ff;
+        .mat-chip-avatar { color: #0a85ff !important; }
       }
       &.temporal {
-        background-color: rgba(0, 188, 212, 0.1) !important;
-        color: #00bcd4 !important;
-        --mdc-chip-label-text-color: #00bcd4;
-        box-shadow: 0 0 12px rgba(0, 188, 212, 0.15) !important;
-        .mat-chip-avatar { color: #00bcd4 !important; }
+        background-color: rgba(34, 211, 238, 0.14) !important;
+        color: #22d3ee !important;
+        --mdc-chip-label-text-color: #22d3ee;
+        .mat-chip-avatar { color: #22d3ee !important; }
       }
       &.entity {
-        background-color: rgba(255, 193, 7, 0.1) !important;
-        color: #ffc107 !important;
-        --mdc-chip-label-text-color: #ffc107;
-        box-shadow: 0 0 12px rgba(255, 193, 7, 0.15) !important;
-        .mat-chip-avatar { color: #ffc107 !important; }
+        background-color: rgba(245, 158, 11, 0.14) !important;
+        color: #f59e0b !important;
+        --mdc-chip-label-text-color: #f59e0b;
+        .mat-chip-avatar { color: #f59e0b !important; }
       }
     }
 

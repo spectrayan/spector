@@ -105,13 +105,13 @@ export class SimdPanelComponent implements AfterViewInit, OnDestroy {
     if (w === 0 || h === 0) return;
     ctx.clearRect(0, 0, w, h);
 
-    // Use hardcoded hex colors to guarantee canvas compatibility
-    const primaryHex = '#7c4dff'; // deep purple
-    const secondaryHex = '#ff5722'; // deep orange
-    const tertiaryHex = '#00bfa5'; // teal
-    const surfaceHex = '#1e1e2e'; // dark surface
-    const outlineHex = '#444'; // subtle border
-    const labelHex = '#999'; // label text
+    // Use theme-aligned hex colors for canvas rendering
+    const primaryHex = this.themeService.getCanvasColor('--primary', '#0a85ff');
+    const secondaryHex = this.themeService.getCanvasColor('--accent-cyan', '#22d3ee');
+    const tertiaryHex = this.themeService.getCanvasColor('--tier-procedural', '#10b981');
+    const surfaceHex = this.themeService.getCanvasColor('--bg-surface', '#050a18');
+    const outlineHex = this.themeService.getCanvasColor('--border-subtle', '#1d283a');
+    const labelHex = this.themeService.getCanvasColor('--foreground-muted', '#7f8ea3');
 
     const laneCount = this.state.simdState()?.laneWidth ?? 16;
     const laneW = Math.floor((w - 32) / laneCount) - 4;

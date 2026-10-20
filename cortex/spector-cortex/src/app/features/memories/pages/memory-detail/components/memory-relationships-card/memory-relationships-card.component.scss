@@ -4,12 +4,15 @@
 }
 
 .card {
-  background: var(--mat-sys-surface-container-low);
-  border-radius: 16px;
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
   height: 100%;
 
   .panel-icon {
-    color: var(--mat-sys-primary);
+    color: var(--primary);
   }
 }
 
@@ -123,7 +126,7 @@
   letter-spacing: 0.06em;
   padding: 2px 6px;
   border-radius: 4px;
-  color: var(--cortex-dark-overlay);
+  color: #ffffff;
   flex-shrink: 0;
 }
 

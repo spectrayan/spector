@@ -187,7 +187,7 @@ export class HealthComponent implements OnInit, OnDestroy, AfterViewInit {
         labels: ['Working', 'Episodic', 'Semantic', 'Procedural'],
         datasets: [{
           data: [0, 0, 0, 0],
-          backgroundColor: ['#c084fc', '#2dd4bf', '#818cf8', '#f87171'],
+          backgroundColor: ['#60a5fa', '#a78bfa', '#0a85ff', '#10b981'],
           borderWidth: 0,
         }],
       },
@@ -208,8 +208,8 @@ export class HealthComponent implements OnInit, OnDestroy, AfterViewInit {
         datasets: [{
           label: 'Total Memories',
           data: [],
-          borderColor: '#818cf8',
-          backgroundColor: 'rgba(129, 140, 248, 0.1)',
+          borderColor: '#0a85ff',
+          backgroundColor: 'rgba(10, 133, 255, 0.12)',
           fill: true,
           tension: 0.3,
         }],

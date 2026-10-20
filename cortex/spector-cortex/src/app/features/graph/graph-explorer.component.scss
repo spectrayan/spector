@@ -17,7 +17,7 @@
   flex-direction: column;
   height: 100%;
   position: relative;
-  background: var(--mat-sys-surface);
+  background: var(--bg-void);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -44,7 +44,7 @@
       $cyan-glow 70%,
       transparent 100%
     );
-    opacity: 0.15;
+    opacity: 0.12;
     animation: scanline-sweep 8s linear infinite;
   }
 }
@@ -60,7 +60,7 @@
 
 .graph-query-bar {
   padding: 8px 20px;
-  background: var(--mat-sys-surface-container-low, var(--mat-sys-surface-container));
+  background: var(--bg-surface);
   border-bottom: 1px solid $panel-border;
   flex-shrink: 0;
   z-index: 19;
@@ -80,7 +80,7 @@
   width: 100%;
   height: 100%;
   cursor: grab;
-  background: var(--mat-sys-surface);
+  background: var(--bg-void);
 
   &:active {
     cursor: grabbing;
@@ -100,7 +100,7 @@
   justify-content: center;
   gap: 16px;
   z-index: 15;
-  background: var(--mat-sys-surface-container-lowest, var(--mat-sys-surface));
+  background: var(--bg-void);
 
   .loading-text {
     color: $cyan-primary;
@@ -176,9 +176,8 @@
   background: $panel-bg;
   backdrop-filter: blur(16px);
   border: 1px solid $panel-border;
-  border-radius: 3px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5),
-              0 0 30px rgba(0, 255, 204, 0.05);
+  border-radius: 10px;
+  box-shadow: var(--shadow-card);
   animation: hover-in 0.15s ease;
 }
 
@@ -199,7 +198,6 @@
   font-size: 12px;
   font-weight: 600;
   color: $text-bright;
-  text-shadow: 0 0 4px $cyan-glow;
 }
 
 .hover-tier {
@@ -208,12 +206,12 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   padding: 2px 8px;
-  border-radius: 2px;
+  border-radius: 4px;
 
-  &[data-tier="SEMANTIC"] { background: rgba(66, 165, 245, 0.2); color: #42a5f5; }
-  &[data-tier="EPISODIC"] { background: rgba(102, 187, 106, 0.2); color: #66bb6a; }
-  &[data-tier="WORKING"] { background: rgba(255, 183, 77, 0.2); color: #ffb74d; }
-  &[data-tier="PROCEDURAL"] { background: rgba(171, 71, 188, 0.2); color: #ab47bc; }
+  &[data-tier="SEMANTIC"] { background: rgba(10, 133, 255, 0.16); color: var(--tier-semantic); }
+  &[data-tier="EPISODIC"] { background: rgba(139, 92, 246, 0.16); color: var(--tier-episodic); }
+  &[data-tier="WORKING"] { background: rgba(245, 158, 11, 0.16); color: var(--tier-working); }
+  &[data-tier="PROCEDURAL"] { background: rgba(16, 185, 129, 0.16); color: var(--tier-procedural); }
 }
 
 .hover-text {
@@ -255,10 +253,10 @@
   border-radius: 2px;
   transition: width 0.2s ease;
 
-  &[data-tier="SEMANTIC"] { background: #42a5f5; box-shadow: 0 0 6px rgba(66, 165, 245, 0.4); }
-  &[data-tier="EPISODIC"] { background: #66bb6a; box-shadow: 0 0 6px rgba(102, 187, 106, 0.4); }
-  &[data-tier="WORKING"] { background: #ffb74d; box-shadow: 0 0 6px rgba(255, 183, 77, 0.4); }
-  &[data-tier="PROCEDURAL"] { background: #ab47bc; box-shadow: 0 0 6px rgba(171, 71, 188, 0.4); }
+  &[data-tier="SEMANTIC"] { background: var(--tier-semantic); }
+  &[data-tier="EPISODIC"] { background: var(--tier-episodic); }
+  &[data-tier="WORKING"] { background: var(--tier-working); }
+  &[data-tier="PROCEDURAL"] { background: var(--tier-procedural); }
 }
 
 .hover-bar-value {
@@ -282,7 +280,7 @@
   padding: 8px 16px;
   background: $panel-bg;
   backdrop-filter: blur(12px);
-  border-radius: 2px;
+  border-radius: 10px;
   border: 1px solid $panel-border;
   font-size: 11px;
   color: $text-dim;
@@ -301,10 +299,10 @@
   border-radius: 50%;
   flex-shrink: 0;
 
-  &.working { background: #ffb74d; box-shadow: 0 0 4px rgba(255, 183, 77, 0.5); }
-  &.episodic { background: #66bb6a; box-shadow: 0 0 4px rgba(102, 187, 106, 0.5); }
-  &.semantic { background: #42a5f5; box-shadow: 0 0 4px rgba(66, 165, 245, 0.5); }
-  &.procedural { background: #ab47bc; box-shadow: 0 0 4px rgba(171, 71, 188, 0.5); }
+  &.working { background: var(--tier-working); }
+  &.episodic { background: var(--tier-episodic); }
+  &.semantic { background: var(--tier-semantic); }
+  &.procedural { background: var(--tier-procedural); }
 }
 
 .legend-separator {
