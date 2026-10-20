@@ -356,6 +356,70 @@ public class AuthController {
     }
 
     /**
+     * Public self-registration endpoint allowing a user to create a new account and sign in
+     * immediately.
+     *
+     * <p>Self-registered accounts are always provisioned in the {@code "default"} tenant with
+     * standard user ({@code editor} / {@code USER}) roles and scopes — never administrative
+     * privileges.</p>
+     *
+     * @param request the signup request body
+     * @return HTTP 201 with an access token and refresh token, or an error response
+     */
+    @PostMapping(value = "/signup", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> signup(@Valid @RequestBody(required = false) AuthDto.SignupRequest request) {
+        if (request == null) {
+            return badRequest("username and password are required");
+        }
+        String username = request.username() != null ? request.username().trim() : null;
+        String password = request.password();
+        if (username == null || username.length() < USERNAME_MIN || username.length() > USERNAME_MAX) {
+            return badRequest("username must be 1-64 characters");
+        }
+        if (password == null || password.length() < PASSWORD_MIN || password.length() > PASSWORD_MAX) {
+            return badRequest("password must be 8-128 characters");
+        }
+
+        String tenantId = "default";
+        if (tenantService != null) {
+            tenantService.assertTenantActive(tenantId);
+        }
+
+        Set<String> roles = Set.of(com.spectrayan.spector.commons.security.SpectorRoles.EDITOR, "USER");
+        Set<String> scopes = com.spectrayan.spector.commons.security.SpectorRoles.EDITOR_SCOPES;
+        String displayName = (request.displayName() != null && !request.displayName().isBlank())
+                ? request.displayName().trim()
+                : username;
+        String email = (request.email() != null && !request.email().isBlank())
+                ? request.email().trim()
+                : null;
+
+        String userId;
+        try {
+            userId = userAccountStore.createUser(
+                    username, password, email, displayName, roles, scopes, false, tenantId);
+        } catch (DuplicateUsernameException e) {
+            log.debug("[Auth] Signup rejected: username already in use");
+            return conflict("username already in use");
+        }
+
+        MintedAccessToken access = tokenMinter.mint(userId, scopes, roles, tenantId);
+        Instant refreshExpiresAt = Instant.now().plus(auth.refresh().ttl());
+        String refreshToken = refreshTokenStore.create(userId, refreshExpiresAt);
+
+        log.info("[Auth] Self-registered new user id={}", userId);
+        LoginResponse body = new LoginResponse(
+                access.token(),
+                AuthDto.BEARER,
+                access.expiresInSeconds(),
+                refreshToken,
+                auth.refresh().ttl().toSeconds());
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body);
+    }
+
+    /**
      * Changes the authenticated caller's password (Requirements 12.2, 12.8).
      *
      * <p>The current password is verified against the stored hash before any change. On success the

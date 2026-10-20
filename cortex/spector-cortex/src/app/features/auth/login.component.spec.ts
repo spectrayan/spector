@@ -28,6 +28,7 @@ describe('LoginComponent', () => {
   let fixture: ComponentFixture<LoginComponent>;
   let mockAuthService: {
     login: ReturnType<typeof vi.fn>;
+    signup: ReturnType<typeof vi.fn>;
     isAuthenticated: ReturnType<typeof vi.fn>;
     authConfig: ReturnType<typeof vi.fn>;
   };
@@ -49,6 +50,12 @@ describe('LoginComponent', () => {
         roles: ['admin'],
         tenantId: 'tenant-1',
         mustChangePassword: false,
+      }),
+      signup: vi.fn().mockResolvedValue({
+        accessToken: 'signup-token',
+        refreshToken: 'signup-refresh',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
       }),
       isAuthenticated: vi.fn().mockReturnValue(false),
       authConfig: vi.fn().mockReturnValue({ authEnabled: true, oidcEnabled: false }),
@@ -133,5 +140,45 @@ describe('LoginComponent', () => {
     expect(component.errorMessage()).toBe('Invalid credentials');
     expect(mockRouter.navigateByUrl).not.toHaveBeenCalled();
     expect(component.loading()).toBe(false);
+  });
+
+  it('toggles to register mode and creates a new account on submit', async () => {
+    expect(component.isRegisterMode()).toBe(false);
+    component.toggleMode();
+    expect(component.isRegisterMode()).toBe(true);
+
+    component.registerForm.setValue({
+      username: 'newuser',
+      displayName: 'New User',
+      email: 'newuser@example.com',
+      password: 'Password123!',
+      confirmPassword: 'Password123!',
+    });
+
+    await component.onSubmitRegister();
+
+    expect(mockAuthService.signup).toHaveBeenCalledWith(
+      'newuser',
+      'Password123!',
+      'newuser@example.com',
+      'New User'
+    );
+    expect(mockRouter.navigateByUrl).toHaveBeenCalledWith('/dashboard');
+  });
+
+  it('rejects registration when passwords do not match', async () => {
+    component.toggleMode();
+    component.registerForm.setValue({
+      username: 'newuser',
+      displayName: '',
+      email: '',
+      password: 'Password123!',
+      confirmPassword: 'DifferentPassword!',
+    });
+
+    await component.onSubmitRegister();
+
+    expect(component.errorMessage()).toBe('Passwords do not match');
+    expect(mockAuthService.signup).not.toHaveBeenCalled();
   });
 });

@@ -69,6 +69,47 @@ alias_env SPECTOR_NODE_ID               SPECTOR_CELL_NODE_ID
 # Ensure data directories exist (if writable)
 mkdir -p /data/memory /data/identity /data/db /data/tmp 2>/dev/null || true
 
+# ── Auto-generate persistent Master Encryption Key if not supplied ──
+if [ -z "${SPECTOR_MASTER_ENCRYPTION_KEY:-}" ]; then
+    MASTER_KEY_FILE="/data/identity/master_encryption_key"
+    if [ ! -w "/data/identity" ]; then
+        MASTER_KEY_FILE="/tmp/master_encryption_key"
+    fi
+    if [ -f "$MASTER_KEY_FILE" ] && [ -s "$MASTER_KEY_FILE" ]; then
+        export SPECTOR_MASTER_ENCRYPTION_KEY="$(cat "$MASTER_KEY_FILE")"
+        echo "[Spector] Loaded persistent master encryption key from ${MASTER_KEY_FILE}"
+    else
+        export SPECTOR_MASTER_ENCRYPTION_KEY="$(head -c 32 /dev/urandom | base64 | tr -d '\n\r')"
+        printf "%s" "$SPECTOR_MASTER_ENCRYPTION_KEY" > "$MASTER_KEY_FILE" 2>/dev/null || true
+        chmod 600 "$MASTER_KEY_FILE" 2>/dev/null || true
+        echo "[Spector] Generated and persisted master encryption key at ${MASTER_KEY_FILE}"
+    fi
+fi
+
+# ── Multi-User Auth Defaults for Docker ──
+export SPECTOR_AUTH_ENABLED="${SPECTOR_AUTH_ENABLED:-true}"
+if [ "${SPECTOR_AUTH_ENABLED}" = "true" ]; then
+    if [ -z "${SPECTOR_AUTH_JWT_SECRET:-}" ]; then
+        JWT_SECRET_FILE="/data/identity/jwt_secret"
+        if [ ! -w "/data/identity" ]; then
+            JWT_SECRET_FILE="/tmp/jwt_secret"
+        fi
+        if [ -f "$JWT_SECRET_FILE" ] && [ -s "$JWT_SECRET_FILE" ]; then
+            export SPECTOR_AUTH_JWT_SECRET="$(cat "$JWT_SECRET_FILE")"
+            echo "[Spector] Loaded persistent JWT secret from ${JWT_SECRET_FILE}"
+        else
+            export SPECTOR_AUTH_JWT_SECRET="$(head -c 48 /dev/urandom | base64 | tr -d '\n\r')"
+            printf "%s" "$SPECTOR_AUTH_JWT_SECRET" > "$JWT_SECRET_FILE" 2>/dev/null || true
+            chmod 600 "$JWT_SECRET_FILE" 2>/dev/null || true
+            echo "[Spector] Generated and persisted JWT secret at ${JWT_SECRET_FILE}"
+        fi
+    fi
+    if [ -z "${SPECTOR_ADMIN_PASSWORD:-}" ]; then
+        export SPECTOR_ADMIN_PASSWORD="admin"
+        echo "[Spector] Default admin credentials: username=admin (set SPECTOR_ADMIN_PASSWORD to override)"
+    fi
+fi
+
 # Start Nginx in background (serves dashboard + proxies API on port 8080)
 echo "[Spector] Starting Nginx on port 8080..."
 nginx -c /etc/nginx/spector-nginx.conf
