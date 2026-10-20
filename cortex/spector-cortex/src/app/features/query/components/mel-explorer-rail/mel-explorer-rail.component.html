@@ -1,0 +1,114 @@
+<aside class="mel-explorer-rail cortex-glass">
+  <!-- Section 1: Cognitive Tiers Summary -->
+  <div class="rail-section tiers-section">
+    <div class="section-header">
+      <div class="title-with-icon">
+        <mat-icon class="section-icon text-primary">layers</mat-icon>
+        <span class="section-title">Cognitive Tiers</span>
+      </div>
+      <span class="ns-pill cortex-mono">ns:{{ namespace() }}</span>
+    </div>
+
+    <div class="tier-grid">
+      @for (t of tierStats(); track t.name) {
+        <button
+          type="button"
+          class="tier-btn"
+          (click)="onProjectTier(t.name)"
+          [matTooltip]="'Insert ' + t.name + ' tier into MEL script'"
+        >
+          <span class="tier-label" [ngClass]="t.colorClass">{{ t.name }}</span>
+          <span class="tier-count cortex-mono">{{ t.count }}</span>
+        </button>
+      }
+    </div>
+  </div>
+
+  <!-- Section 2: MEL-001 Snippet Library -->
+  <div class="rail-section snippets-section">
+    <div class="section-header">
+      <div class="title-with-icon">
+        <mat-icon class="section-icon text-primary">code</mat-icon>
+        <span class="section-title">MEL-001 Snippets</span>
+      </div>
+      <span class="badge-count cortex-mono">{{ filteredSnippets().length }} templates</span>
+    </div>
+
+    <!-- Category filter chips -->
+    <div class="category-chips">
+      @for (cat of categories; track cat) {
+        <button
+          type="button"
+          class="chip-btn"
+          [class.active]="selectedCategory() === cat"
+          (click)="selectedCategory.set(cat)"
+        >
+          {{ cat }}
+        </button>
+      }
+    </div>
+
+    <!-- Snippet List -->
+    <div class="snippets-list">
+      @for (tpl of filteredSnippets(); track tpl.id) {
+        <button
+          type="button"
+          class="snippet-item"
+          (click)="onSelectSnippet(tpl)"
+          [matTooltip]="tpl.description"
+        >
+          <div class="snippet-top">
+            <span class="snippet-verb cortex-mono">{{ tpl.verb }}</span>
+            <span class="snippet-category">{{ tpl.category }}</span>
+          </div>
+          <div class="snippet-label">{{ tpl.label }}</div>
+          <p class="snippet-desc">{{ tpl.description }}</p>
+        </button>
+      }
+    </div>
+  </div>
+
+  <!-- Section 3: Execution History -->
+  <div class="rail-section history-section">
+    <div class="section-header">
+      <div class="title-with-icon">
+        <mat-icon class="section-icon text-primary">history</mat-icon>
+        <span class="section-title">Execution History</span>
+      </div>
+      <span class="badge-count cortex-mono">{{ history().length }} runs</span>
+    </div>
+
+    <div class="history-list">
+      @if (history().length === 0) {
+        <div class="history-empty">
+          <mat-icon>hourglass_empty</mat-icon>
+          <span>No executions in current session</span>
+        </div>
+      } @else {
+        @for (item of history(); track item.id) {
+          <button
+            type="button"
+            class="history-item"
+            (click)="onSelectHistory(item)"
+          >
+            <div class="history-top">
+              <span
+                class="status-pill cortex-mono"
+                [class.status-ok]="item.status === 'OK'"
+                [class.status-err]="item.status === 'ERROR'"
+              >
+                {{ item.status }}
+              </span>
+              <span class="history-latency cortex-mono">{{ item.elapsedMs.toFixed(1) }}ms</span>
+            </div>
+            <div class="history-script cortex-mono">{{ item.verb }}</div>
+            <div class="history-meta">
+              <span>{{ item.candidateCount ? item.candidateCount + ' candidates' : 'executed' }}</span>
+              <span class="history-time">{{ item.timestamp }}</span>
+            </div>
+          </button>
+        }
+      }
+    </div>
+  </div>
+</aside>

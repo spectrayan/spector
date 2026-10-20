@@ -18,6 +18,11 @@ security:
 - ApiKeyAuth: []
 - BearerAuth: []
 tags:
+- name: Admin Break-Glass
+  description: "Emergency time-boxed, dual-admin approved, read-only namespace access\
+    \ for non-BYOK tenants"
+- name: MEL Studio
+  description: "Memory Engine Language execution, validation, and schema workbench"
 - name: Memory
   description: "Cognitive Memory Operations (Remember, Recall, Search, Forget, Reinforce,\
     \ Inspect)"
@@ -733,6 +738,64 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TenantResponse"
+  /api/v1/admin/tenants/{tenantId}/keys:
+    get:
+      tags:
+      - admin-tenant-key-controller
+      operationId: getTenantKeyStatus
+      parameters:
+      - name: tenantId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantKeyStatusResponse"
+    put:
+      tags:
+      - admin-tenant-key-controller
+      operationId: configureTenantKey
+      parameters:
+      - name: tenantId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfigureTenantKeyRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantKeyStatusResponse"
+    delete:
+      tags:
+      - admin-tenant-key-controller
+      operationId: deleteTenantKey
+      parameters:
+      - name: tenantId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantKeyStatusResponse"
   /api/v1/admin/namespaces/{namespaceId}/quotas:
     put:
       tags:
@@ -1398,6 +1461,26 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+  /api/v1/memory/why-not:
+    post:
+      tags:
+      - Memory
+      summary: Explain why a specific memory was excluded or outranked in a recall
+        query
+      operationId: whyNotMemory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WhyNotRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/WhyNotResponse"
   /api/v1/memory/vacuum:
     post:
       tags:
@@ -1841,6 +1924,47 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/BrowseResult"
+  /api/v1/mel/validate:
+    post:
+      tags:
+      - MEL Studio
+      summary: Validate MEL script syntax
+      description: Validates MEL script syntax and returns exact line/column diagnostics
+        for editor squiggles
+      operationId: validate
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MelValidateRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MelValidateResponse"
+  /api/v1/mel/execute:
+    post:
+      tags:
+      - MEL Studio
+      summary: Execute MEL script
+      description: Executes one or more MEL statements bound to the caller's namespace
+      operationId: execute
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MelExecuteRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MelExecuteResponse"
   /api/v1/mcp/tools/{name}/call:
     post:
       tags:
@@ -2117,6 +2241,23 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/AgentChatResponse"
+  /api/v1/auth/signup:
+    post:
+      tags:
+      - auth-controller
+      operationId: signup
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignupRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
   /api/v1/auth/register:
     post:
       tags:
@@ -2446,6 +2587,93 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TenantResponse"
+  /api/v1/admin/tenants/{tenantId}/keys/validate:
+    post:
+      tags:
+      - admin-tenant-key-controller
+      operationId: validateTenantKey
+      parameters:
+      - name: tenantId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantKeyValidationResponse"
+  /api/v1/admin/tenants/{tenantId}/keys/rotate-kek:
+    post:
+      tags:
+      - admin-tenant-key-controller
+      operationId: rotateTenantKek
+      parameters:
+      - name: tenantId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RotateTenantKekRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KekRotationResponse"
+  /api/v1/admin/tenants/{tenantId}/keys/rotate-dek:
+    post:
+      tags:
+      - admin-tenant-key-controller
+      operationId: rotateNamespaceDek
+      parameters:
+      - name: tenantId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RotateNamespaceDekRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DekRotationResponse"
+  /api/v1/admin/tenants/{tenantId}/keys/revoke:
+    post:
+      tags:
+      - admin-tenant-key-controller
+      operationId: revokeTenantKey
+      parameters:
+      - name: tenantId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RevokeTenantKeyRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantKeyRevocationResponse"
   /api/v1/admin/namespaces/{namespaceId}/transfer-ownership:
     post:
       tags:
@@ -2553,6 +2781,127 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminNamespaceResponse"
+  /api/v1/admin/break-glass:
+    get:
+      tags:
+      - Admin Break-Glass
+      summary: List break-glass requests and sessions
+      operationId: listBreakGlassRequests
+      parameters:
+      - name: tenantId
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: namespaceId
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BreakGlassResponse"
+    post:
+      tags:
+      - Admin Break-Glass
+      summary: Submit a time-boxed emergency break-glass access request
+      operationId: requestBreakGlass
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBreakGlassRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BreakGlassResponse"
+  /api/v1/admin/break-glass/{id}/revoke:
+    post:
+      tags:
+      - Admin Break-Glass
+      summary: Manually revoke an active or pending break-glass session
+      operationId: revokeBreakGlass
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RevokeBreakGlassRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BreakGlassResponse"
+  /api/v1/admin/break-glass/{id}/reject:
+    post:
+      tags:
+      - Admin Break-Glass
+      summary: Reject a pending break-glass request
+      operationId: rejectBreakGlass
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RejectBreakGlassRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BreakGlassResponse"
+  /api/v1/admin/break-glass/{id}/approve:
+    post:
+      tags:
+      - Admin Break-Glass
+      summary: Approve a pending break-glass request (requires distinct second admin)
+      operationId: approveBreakGlass
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApproveBreakGlassRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BreakGlassResponse"
   /api/v1/admin/accounts:
     get:
       tags:
@@ -3584,6 +3933,21 @@ paths:
                 items:
                   type: object
                   additionalProperties: {}
+  /api/v1/mel/schema:
+    get:
+      tags:
+      - MEL Studio
+      summary: Get MEL language schema
+      description: "Returns MEL language keywords, tiers, sources, clause templates,\
+        \ and snippet library definitions"
+      operationId: schema
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MelSchemaResponse"
   /api/v1/mcp/tools:
     get:
       tags:
@@ -3647,6 +4011,12 @@ paths:
       - event-controller
       operationId: events
       parameters:
+      - name: topic
+        in: query
+        required: false
+        schema:
+          type: string
+          default: spector
       - name: filter
         in: query
         required: false
@@ -3814,7 +4184,7 @@ paths:
     get:
       tags:
       - config-controller
-      operationId: schema
+      operationId: schema_1
       parameters:
       - name: category
         in: path
@@ -4482,6 +4852,25 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+  /api/v1/admin/break-glass/{id}:
+    get:
+      tags:
+      - Admin Break-Glass
+      summary: Get break-glass session details by ID
+      operationId: getBreakGlassRequest
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BreakGlassResponse"
   /api/v1/admin/audit:
     get:
       tags:
@@ -4855,159 +5244,6 @@ paths:
       responses:
         "200":
           description: OK
-  /api/v1/admin/break-glass:
-    get:
-      tags:
-      - admin-break-glass-controller
-      summary: List break-glass namespace access requests and active sessions
-      operationId: listBreakGlassRequests
-      parameters:
-      - name: tenantId
-        in: query
-        required: false
-        schema:
-          type: string
-      - name: namespaceId
-        in: query
-        required: false
-        schema:
-          type: string
-      - name: status
-        in: query
-        required: false
-        schema:
-          type: string
-          enum:
-          - PENDING_APPROVAL
-          - ACTIVE
-          - EXPIRED
-          - REVOKED
-          - REJECTED
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/BreakGlassResponse"
-    post:
-      tags:
-      - admin-break-glass-controller
-      summary: Submit a time-boxed break-glass namespace access request (non-BYOK tenants only)
-      operationId: createBreakGlassRequest
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateBreakGlassRequest"
-      responses:
-        "201":
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/BreakGlassResponse"
-        "403":
-          description: Forbidden — BYOK tenant or cross-tenant access denied
-  /api/v1/admin/break-glass/{id}:
-    get:
-      tags:
-      - admin-break-glass-controller
-      summary: Get break-glass request details
-      operationId: getBreakGlassRequest
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/BreakGlassResponse"
-  /api/v1/admin/break-glass/{id}/approve:
-    post:
-      tags:
-      - admin-break-glass-controller
-      summary: Approve a pending break-glass request (dual-control by a second distinct admin)
-      operationId: approveBreakGlassRequest
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: string
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ApproveBreakGlassRequest"
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/BreakGlassResponse"
-        "403":
-          description: Forbidden — self-approval or BYOK tenant
-  /api/v1/admin/break-glass/{id}/reject:
-    post:
-      tags:
-      - admin-break-glass-controller
-      summary: Reject a pending break-glass request
-      operationId: rejectBreakGlassRequest
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: string
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RejectBreakGlassRequest"
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/BreakGlassResponse"
-  /api/v1/admin/break-glass/{id}/revoke:
-    post:
-      tags:
-      - admin-break-glass-controller
-      summary: Revoke a pending or active break-glass session (callable by admin or namespace owner)
-      operationId: revokeBreakGlassRequest
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: string
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RevokeBreakGlassRequest"
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/BreakGlassResponse"
 components:
   schemas:
     AcousticModulationMap:
@@ -5815,6 +6051,66 @@ components:
         deletedAt:
           type: string
           format: date-time
+    ConfigureTenantKeyRequest:
+      type: object
+      properties:
+        provider:
+          type: string
+        kekKeyId:
+          type: string
+        credentialName:
+          type: string
+        region:
+          type: string
+        endpoint:
+          type: string
+    TenantKeyStatusResponse:
+      type: object
+      properties:
+        tenantId:
+          type: string
+        byokEnabled:
+          type: boolean
+        provider:
+          type: string
+        kekKeyId:
+          type: string
+        credentialName:
+          type: string
+        region:
+          type: string
+        endpoint:
+          type: string
+        keyVersion:
+          type: string
+        status:
+          type: string
+        healthStatus:
+          type: string
+          enum:
+          - HEALTHY
+          - DISABLED
+          - REVOKED
+          - UNREACHABLE
+        activeNamespaceDekCount:
+          type: integer
+          format: int32
+        lastVerifiedAt:
+          type: string
+          format: date-time
+        lastError:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        supportedProviders:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
     UpdateNamespaceQuotasRequest:
       type: object
       properties:
@@ -6286,6 +6582,36 @@ components:
         valence:
           type: integer
           format: int32
+    WhyNotRequest:
+      type: object
+      properties:
+        memoryId:
+          type: string
+        query:
+          type: string
+        topK:
+          type: integer
+          format: int32
+    WhyNotResponse:
+      type: object
+      properties:
+        memoryId:
+          type: string
+        query:
+          type: string
+        exists:
+          type: boolean
+        suppressed:
+          type: boolean
+        breakdown:
+          $ref: "#/components/schemas/ScoreBreakdownDto"
+        scoreGap:
+          type: number
+          format: float
+        reason:
+          type: string
+        summary:
+          type: string
     VacuumRequest:
       type: object
       properties:
@@ -6510,6 +6836,8 @@ components:
             type: string
         truncated:
           type: boolean
+        breakdown:
+          $ref: "#/components/schemas/ScoreBreakdownDto"
     RecallResponse:
       type: object
       properties:
@@ -6649,13 +6977,13 @@ components:
           format: int64
         truncated:
           type: boolean
-        simulated:
-          type: boolean
-        multimodal:
-          type: boolean
         positivelyReinforced:
           type: boolean
+        simulated:
+          type: boolean
         dreamed:
+          type: boolean
+        multimodal:
           type: boolean
         negativeOutcome:
           type: boolean
@@ -6846,6 +7174,295 @@ components:
           type: array
           items:
             type: string
+    MelValidateRequest:
+      type: object
+      properties:
+        script:
+          type: string
+    MelDiagnostic:
+      type: object
+      properties:
+        line:
+          type: integer
+          format: int32
+        column:
+          type: integer
+          format: int32
+        message:
+          type: string
+        severity:
+          type: string
+    MelStatementSummary:
+      type: object
+      properties:
+        type:
+          type: string
+        summary:
+          type: string
+        line:
+          type: integer
+          format: int32
+        column:
+          type: integer
+          format: int32
+    MelValidateResponse:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        statement_count:
+          type: integer
+          format: int32
+        statements:
+          type: array
+          items:
+            $ref: "#/components/schemas/MelStatementSummary"
+        diagnostics:
+          type: array
+          items:
+            $ref: "#/components/schemas/MelDiagnostic"
+    MelExecuteRequest:
+      type: object
+      properties:
+        script:
+          type: string
+        namespace:
+          type: string
+    CandidateBreakdown:
+      type: object
+      properties:
+        vectorSim:
+          type: number
+          format: float
+        recencyDecay:
+          type: number
+          format: float
+        cognitiveMass:
+          type: number
+          format: float
+        valenceBoost:
+          type: number
+          format: float
+        hebbianCoAct:
+          type: number
+          format: float
+        bm25Lexical:
+          type: number
+          format: float
+        tagMatchRatio:
+          type: number
+          format: float
+    FunnelPhase:
+      type: object
+      properties:
+        phase:
+          type: string
+        label:
+          type: string
+        evaluated:
+          type: integer
+          format: int32
+        survived:
+          type: integer
+          format: int32
+        pruned:
+          type: integer
+          format: int32
+    FunnelTelemetry:
+      type: object
+      properties:
+        totalScanned:
+          type: integer
+          format: int32
+        phase1Alive:
+          type: integer
+          format: int32
+        phase2TagSurvivors:
+          type: integer
+          format: int32
+        phase3ValenceSurvivors:
+          type: integer
+          format: int32
+        phase4MassSurvivors:
+          type: integer
+          format: int32
+        phase5SimdEvaluated:
+          type: integer
+          format: int32
+        phase6FinalReturned:
+          type: integer
+          format: int32
+    MelCandidateItem:
+      type: object
+      properties:
+        rank:
+          type: integer
+          format: int32
+        id:
+          type: string
+        tier:
+          type: string
+        finalScore:
+          type: number
+          format: float
+        scores:
+          $ref: "#/components/schemas/CandidateBreakdown"
+        content:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        importance:
+          type: number
+          format: float
+        valence:
+          type: number
+          format: float
+        arousal:
+          type: number
+          format: float
+        decayFactor:
+          type: number
+          format: float
+        createdAtMs:
+          type: integer
+          format: int64
+        source:
+          type: string
+    MelExecuteResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        output:
+          type: string
+        combined_output:
+          type: string
+        elapsed_ms:
+          type: integer
+          format: int64
+        total_elapsed_ms:
+          type: integer
+          format: int64
+        duration_micros:
+          type: integer
+          format: int64
+        namespace:
+          type: string
+        statement_type:
+          type: string
+        affected_ids:
+          type: array
+          items:
+            type: string
+        candidates:
+          type: array
+          items:
+            $ref: "#/components/schemas/MelCandidateItem"
+        explain_rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/MelExplainRow"
+        funnel:
+          $ref: "#/components/schemas/FunnelTelemetry"
+        funnel_phases:
+          type: array
+          items:
+            $ref: "#/components/schemas/FunnelPhase"
+        diagnostics:
+          type: array
+          items:
+            $ref: "#/components/schemas/MelDiagnostic"
+        statements:
+          type: array
+          items:
+            $ref: "#/components/schemas/MelStatementExecutionResult"
+    MelExplainRow:
+      type: object
+      properties:
+        rank:
+          type: integer
+          format: int32
+        memoryId:
+          type: string
+        tier:
+          type: string
+        fusedScore:
+          type: number
+          format: float
+        vectorSimilarity:
+          type: number
+          format: float
+        bm25Score:
+          type: number
+          format: float
+        recencyDecay:
+          type: number
+          format: float
+        cognitiveMass:
+          type: number
+          format: float
+        storageStrength:
+          type: number
+          format: float
+        valenceFactor:
+          type: number
+          format: float
+        hebbianBoost:
+          type: number
+          format: float
+        freeEnergyPenalty:
+          type: number
+          format: float
+        signal:
+          type: string
+        rawScore:
+          type: number
+          format: float
+        weight:
+          type: number
+          format: float
+        contribution:
+          type: number
+          format: float
+    MelStatementExecutionResult:
+      type: object
+      properties:
+        statement_type:
+          type: string
+        status:
+          type: string
+        output:
+          type: string
+        elapsed_ms:
+          type: integer
+          format: int64
+        duration_micros:
+          type: integer
+          format: int64
+        affected_ids:
+          type: array
+          items:
+            type: string
+        candidates:
+          type: array
+          items:
+            $ref: "#/components/schemas/MelCandidateItem"
+        explain_rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/MelExplainRow"
+        funnel:
+          $ref: "#/components/schemas/FunnelTelemetry"
+        funnel_phases:
+          type: array
+          items:
+            $ref: "#/components/schemas/FunnelPhase"
+        diagnostics:
+          type: array
+          items:
+            $ref: "#/components/schemas/MelDiagnostic"
     CreateCredentialRequest:
       type: object
       properties:
@@ -7035,6 +7652,24 @@ components:
           type: string
         data:
           type: string
+    SignupRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          maxLength: 64
+          minLength: 1
+        password:
+          type: string
+          maxLength: 128
+          minLength: 8
+        email:
+          type: string
+        display_name:
+          type: string
+      required:
+      - password
+      - username
     RegisterRequest:
       type: object
       properties:
@@ -7138,6 +7773,152 @@ components:
           $ref: "#/components/schemas/TenantSettingsDto"
         quotas:
           $ref: "#/components/schemas/TenantQuotasDto"
+    TenantKeyValidationResponse:
+      type: object
+      properties:
+        tenantId:
+          type: string
+        provider:
+          type: string
+        kekKeyId:
+          type: string
+        valid:
+          type: boolean
+        healthStatus:
+          type: string
+          enum:
+          - HEALTHY
+          - DISABLED
+          - REVOKED
+          - UNREACHABLE
+        roundTripVerified:
+          type: boolean
+        evictedCachedDeks:
+          type: integer
+          format: int32
+        verifiedAt:
+          type: string
+          format: date-time
+        errorCode:
+          type: string
+        message:
+          type: string
+    RotateTenantKekRequest:
+      type: object
+      properties:
+        newKekKeyId:
+          type: string
+        newKekVersion:
+          type: string
+        provider:
+          type: string
+        credentialName:
+          type: string
+        region:
+          type: string
+        endpoint:
+          type: string
+    KekRotationResponse:
+      type: object
+      properties:
+        tenantId:
+          type: string
+        provider:
+          type: string
+        previousKekKeyId:
+          type: string
+        previousKekVersion:
+          type: string
+        newKekKeyId:
+          type: string
+        newKekVersion:
+          type: string
+        rewrappedDekCount:
+          type: integer
+          format: int32
+        refreshedCachedDeks:
+          type: integer
+          format: int32
+        dataFilesRewritten:
+          type: boolean
+        rotatedAt:
+          type: string
+          format: date-time
+    RotateNamespaceDekRequest:
+      type: object
+      properties:
+        namespaceId:
+          type: string
+    DekRotationItem:
+      type: object
+      properties:
+        namespaceId:
+          type: string
+        previousDekVersion:
+          type: integer
+          format: int32
+        newDekVersion:
+          type: integer
+          format: int32
+        partitionBundlesEncrypted:
+          type: integer
+          format: int32
+        recordsReKeyed:
+          type: integer
+          format: int32
+        walEventsEncrypted:
+          type: integer
+          format: int32
+        runtimeBundleEncrypted:
+          type: boolean
+    DekRotationResponse:
+      type: object
+      properties:
+        tenantId:
+          type: string
+        rotatedNamespaceCount:
+          type: integer
+          format: int32
+        namespaces:
+          type: array
+          items:
+            $ref: "#/components/schemas/DekRotationItem"
+        rotatedAt:
+          type: string
+          format: date-time
+    RevokeTenantKeyRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+    TenantKeyRevocationResponse:
+      type: object
+      properties:
+        tenantId:
+          type: string
+        status:
+          type: string
+        healthStatus:
+          type: string
+          enum:
+          - HEALTHY
+          - DISABLED
+          - REVOKED
+          - UNREACHABLE
+        revokedNamespaceDekCount:
+          type: integer
+          format: int32
+        evictedCachedDeks:
+          type: integer
+          format: int32
+        evictedMemoryInstances:
+          type: integer
+          format: int32
+        reason:
+          type: string
+        revokedAt:
+          type: string
+          format: date-time
     TransferOwnershipRequest:
       type: object
       properties:
@@ -7195,12 +7976,101 @@ components:
           type: string
         cryptoErasePerformed:
           type: boolean
+        destroyedKeyIds:
+          type: array
+          items:
+            type: string
         incompletenessDisclosure:
           type: string
         uninspectedClasses:
           type: array
           items:
             type: string
+    CreateBreakGlassRequest:
+      type: object
+      properties:
+        namespaceId:
+          type: string
+        justification:
+          type: string
+        ticketRef:
+          type: string
+        durationMinutes:
+          type: integer
+          format: int32
+    BreakGlassResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        namespaceId:
+          type: string
+        ownerAccountId:
+          type: string
+        requesterAccountId:
+          type: string
+        requesterRole:
+          type: string
+        justification:
+          type: string
+        ticketRef:
+          type: string
+        durationMinutes:
+          type: integer
+          format: int32
+        status:
+          type: string
+          enum:
+          - PENDING_APPROVAL
+          - ACTIVE
+          - REJECTED
+          - REVOKED
+          - EXPIRED
+        approverAccountId:
+          type: string
+        approvalComment:
+          type: string
+        grantId:
+          type: string
+        accessScope:
+          type: string
+        exportPermitted:
+          type: boolean
+        mcpPermitted:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        approvedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        revokedAt:
+          type: string
+          format: date-time
+        revokedBy:
+          type: string
+        revokeReason:
+          type: string
+    RevokeBreakGlassRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+    RejectBreakGlassRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+    ApproveBreakGlassRequest:
+      type: object
+      properties:
+        comment:
+          type: string
     CreateAccountRequest:
       type: object
       properties:
@@ -7945,9 +8815,9 @@ components:
           format: byte
         ongoing:
           type: boolean
-        retraction:
-          type: boolean
         inferred:
+          type: boolean
+        retraction:
           type: boolean
         resolved:
           type: boolean
@@ -7975,6 +8845,59 @@ components:
           type: integer
           format: int64
         lastError:
+          type: string
+    MelClauseTemplate:
+      type: object
+      properties:
+        clause:
+          type: string
+        syntax:
+          type: string
+        example:
+          type: string
+    MelSchemaResponse:
+      type: object
+      properties:
+        keywords:
+          type: array
+          items:
+            type: string
+        tiers:
+          type: array
+          items:
+            type: string
+        sources:
+          type: array
+          items:
+            type: string
+        clause_templates:
+          type: array
+          items:
+            $ref: "#/components/schemas/MelClauseTemplate"
+        snippets:
+          type: array
+          items:
+            $ref: "#/components/schemas/MelSnippetTemplate"
+        snippet_library:
+          type: array
+          items:
+            $ref: "#/components/schemas/MelSnippetTemplate"
+    MelSnippetTemplate:
+      type: object
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        verb:
+          type: string
+        category:
+          type: string
+        description:
+          type: string
+        template:
+          type: string
+        code:
           type: string
     ServerSentEventObject: {}
     ParameterDefinition:
@@ -9005,86 +9928,6 @@ components:
           format: int32
         status:
           type: string
-    CreateBreakGlassRequest:
-      type: object
-      required:
-      - namespaceId
-      - justification
-      properties:
-        namespaceId:
-          type: string
-        justification:
-          type: string
-        ticketRef:
-          type: string
-        durationMinutes:
-          type: integer
-          format: int32
-    ApproveBreakGlassRequest:
-      type: object
-      properties:
-        comment:
-          type: string
-    RejectBreakGlassRequest:
-      type: object
-      properties:
-        reason:
-          type: string
-    RevokeBreakGlassRequest:
-      type: object
-      properties:
-        reason:
-          type: string
-    BreakGlassResponse:
-      type: object
-      properties:
-        id:
-          type: string
-        tenantId:
-          type: string
-        namespaceId:
-          type: string
-        ownerAccountId:
-          type: string
-        requesterAccountId:
-          type: string
-        justification:
-          type: string
-        ticketRef:
-          type: string
-        durationMinutes:
-          type: integer
-          format: int32
-        status:
-          type: string
-          enum:
-          - PENDING_APPROVAL
-          - ACTIVE
-          - EXPIRED
-          - REVOKED
-          - REJECTED
-        approverAccountId:
-          type: string
-        approvalComment:
-          type: string
-        approvedAt:
-          type: string
-          format: date-time
-        expiresAt:
-          type: string
-          format: date-time
-        revokedAt:
-          type: string
-          format: date-time
-        revokedBy:
-          type: string
-        revokeReason:
-          type: string
-        grantId:
-          type: string
-        createdAt:
-          type: string
-          format: date-time
   securitySchemes:
     ApiKeyAuth:
       type: apiKey
@@ -9096,4 +9939,3 @@ components:
       description: OAuth2 / OIDC JWT Bearer Token
       scheme: bearer
       bearerFormat: JWT
-

@@ -231,6 +231,11 @@ export class CortexStateService {
     return diag.workingCount + diag.episodicCount + diag.semanticCount + diag.proceduralCount;
   });
 
+  readonly workingMemoryCount = computed(() => this.memoryDiag()?.workingCount ?? 0);
+  readonly episodicMemoryCount = computed(() => this.memoryDiag()?.episodicCount ?? 0);
+  readonly semanticMemoryCount = computed(() => this.memoryDiag()?.semanticCount ?? 0);
+  readonly proceduralMemoryCount = computed(() => this.memoryDiag()?.proceduralCount ?? 0);
+
   readonly latestLatencyMs = computed(() => {
     const trace = this.currentQueryTrace();
     return trace ? (trace.latencyMicros / 1000).toFixed(2) : '—';

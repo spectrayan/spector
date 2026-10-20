@@ -1,0 +1,75 @@
+<div class="why-not-backdrop" (click)="onClose()">
+  <div class="why-not-drawer cortex-glass" (click)="$event.stopPropagation()">
+    <!-- Header -->
+    <div class="drawer-header">
+      <div class="header-left">
+        <mat-icon class="header-icon text-primary">psychology_alt</mat-icon>
+        <div>
+          <h3 class="drawer-title">Counterfactual "Why-Not?" Gating Audit</h3>
+          <p class="drawer-subtitle">
+            Diagnostic trace for <span class="memory-id-badge cortex-mono">{{ memoryId() }}</span>
+            @if (queryCue()) {
+              against cue <span class="query-cue-text cortex-mono">"{{ queryCue() }}"</span>
+            }
+          </p>
+        </div>
+      </div>
+
+      <button type="button" class="close-btn" (click)="onClose()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div class="drawer-body">
+      <!-- Section 1: Gating Funnel Stages -->
+      <div class="phases-timeline">
+        <h4 class="section-heading">Cascading Filter Evaluation (Phases 1–6)</h4>
+        <div class="phases-grid">
+          @for (p of phases; track p.phase) {
+            <div class="phase-tile" [class.passed]="p.passed" [class.failed]="!p.passed">
+              <div class="tile-top">
+                <span class="phase-pill cortex-mono">{{ p.phase }}</span>
+                <span class="status-icon-wrap">
+                  <mat-icon>{{ p.passed ? 'check_circle' : 'cancel' }}</mat-icon>
+                </span>
+              </div>
+              <div class="tile-name">{{ p.name }}</div>
+              <div class="tile-reason cortex-mono">{{ p.reason }}</div>
+              <p class="tile-detail">{{ p.detail }}</p>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Section 2: Counterfactual Suggestions -->
+      <div class="suggestions-section">
+        <h4 class="section-heading">Counterfactual Explanations & Suggestions</h4>
+        <p class="section-desc">Modifying query thresholds or updating synaptic state would allow this candidate to be retrieved:</p>
+
+        <div class="suggestions-list">
+          @for (s of counterfactualSuggestions(); track s.title) {
+            <div class="suggestion-card cortex-glass">
+              <div class="sug-left">
+                <mat-icon class="sug-icon text-cyan">lightbulb</mat-icon>
+                <div>
+                  <div class="sug-title">{{ s.title }}</div>
+                  <p class="sug-desc">{{ s.description }}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                class="apply-btn cortex-mono"
+                (click)="onSelectSuggestion(s.action)"
+                matTooltip="Apply this suggestion to workbench script"
+              >
+                <span>{{ s.action }}</span>
+                <mat-icon>arrow_forward</mat-icon>
+              </button>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,121 @@
+<div class="mel-visual-assist cortex-glass">
+  <!-- Top Bar -->
+  <div class="assist-top-bar">
+    <div class="assist-title-group">
+      <mat-icon class="assist-icon text-primary">tune</mat-icon>
+      <span class="assist-title">Visual Query Assist</span>
+      <span class="sync-pill cortex-mono">Bidirectional MEL Sync</span>
+    </div>
+
+    <div class="assist-actions">
+      <button
+        type="button"
+        class="explain-toggle-btn cortex-mono"
+        [class.active]="state().explain"
+        (click)="onExplainToggle()"
+        [matTooltip]="'Toggle EXPLAIN RECALL (glass-box 6-phase scoring breakdown)'"
+      >
+        <mat-icon class="sparkle-icon">auto_awesome</mat-icon>
+        <span>{{ state().explain ? 'EXPLAIN RECALL' : 'RECALL' }}</span>
+      </button>
+
+      <button
+        type="button"
+        class="collapse-btn"
+        (click)="onToggle()"
+      >
+        <span>{{ isOpen() ? 'Hide Assist' : 'Show Assist' }}</span>
+        <mat-icon>{{ isOpen() ? 'expand_less' : 'expand_more' }}</mat-icon>
+      </button>
+    </div>
+  </div>
+
+  <!-- Expandable Controls Drawer -->
+  @if (isOpen()) {
+    <div class="assist-body">
+      <!-- Row 1: Cue input & Tiers -->
+      <div class="form-grid">
+        <div class="form-group cue-group">
+          <label class="form-label" for="cue-input">Recall Cue</label>
+          <div class="input-with-icon">
+            <mat-icon class="input-icon">search</mat-icon>
+            <input
+              id="cue-input"
+              type="text"
+              class="compact-input cortex-mono"
+              [value]="state().cue"
+              (input)="onCueChange($any($event.target).value)"
+              placeholder="e.g. authentication timeout redis"
+            />
+          </div>
+        </div>
+
+        <div class="form-group tiers-group">
+          <label class="form-label">Project Tiers</label>
+          <div class="tier-pill-row">
+            @for (tier of availableTiers; track tier) {
+              <button
+                type="button"
+                class="tier-pill cortex-mono"
+                [class.selected]="state().tiers.includes(tier)"
+                [attr.data-tier]="tier.toLowerCase()"
+                (click)="onTierToggle(tier)"
+              >
+                {{ tier }}
+              </button>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 2: Tags, Min Importance, Top K -->
+      <div class="form-grid row-2">
+        <div class="form-group tags-group">
+          <label class="form-label" for="tags-input">Synaptic Tag Filter</label>
+          <input
+            id="tags-input"
+            type="text"
+            class="compact-input cortex-mono"
+            [value]="state().tags"
+            (input)="onTagsChange($any($event.target).value)"
+            placeholder="infra, redis, incident"
+          />
+        </div>
+
+        <div class="form-group slider-group">
+          <div class="label-with-val">
+            <label class="form-label" for="imp-slider">Min Importance</label>
+            <span class="value-badge cortex-mono">≥ {{ state().minImportance.toFixed(2) }}</span>
+          </div>
+          <input
+            id="imp-slider"
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            class="range-slider"
+            [value]="state().minImportance"
+            (input)="onImportanceChange(+$any($event.target).value)"
+          />
+        </div>
+
+        <div class="form-group topk-group">
+          <div class="label-with-val">
+            <label class="form-label" for="topk-slider">Top K Limit</label>
+            <span class="value-badge cortex-mono">{{ state().topK }}</span>
+          </div>
+          <input
+            id="topk-slider"
+            type="range"
+            min="1"
+            max="50"
+            step="1"
+            class="range-slider"
+            [value]="state().topK"
+            (input)="onTopKChange(+$any($event.target).value)"
+          />
+        </div>
+      </div>
+    </div>
+  }
+</div>

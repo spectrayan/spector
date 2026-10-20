@@ -1,79 +1,101 @@
-<div class="query-page-layout">
-  <!-- Left Side: Search & Results -->
-  <div class="main-content-area">
-    <header class="page-header">
-      <mat-icon class="page-icon">psychology</mat-icon>
-      <div>
-        <h1 class="page-title">Cognitive Query Playground</h1>
-        <p class="page-subtitle">Recall, explore, and audit memories via multi-layer associative search</p>
+<div class="mel-studio-page">
+  <!-- Top Banner Header -->
+  <header class="mel-studio-header cortex-glass">
+    <div class="header-brand-wrap">
+      <div class="brand-badge-box">
+        <mat-icon class="brand-icon">terminal</mat-icon>
       </div>
-    </header>
-
-    <section class="query-section">
-      <cortex-query-input />
-    </section>
-
-    <!-- Recall Results Panel -->
-    @if (state.recallResults().length > 0) {
-      <section class="results-section">
-        <cortex-query-results-meta
-          [filteredCount]="filteredRecallResults().length"
-          [totalCount]="state.recallResults().length"
-          [queryTimeMs]="state.recallQueryTimeMs()"
-          [totalMemories]="state.recallTotalMemories()"
-          [profile]="state.recallProfile()"
-          [lastQueryText]="state.lastQueryText()"
-          [(filterText)]="filterText"
-        />
-
-        <div class="results-list">
-          @for (result of filteredRecallResults(); track result.id; let i = $index) {
-            <cortex-query-result-card
-              [result]="result"
-              [rank]="i + 1"
-            />
-          }
+      <div class="brand-titles">
+        <div class="brand-row">
+          <h1 class="page-title">MEL Studio & 6-Phase Recall Workbench</h1>
+          <span class="spec-badge cortex-mono">MEL-001 SPEC</span>
         </div>
-      </section>
-    } @else {
-      <div class="no-results-placeholder cortex-glass">
-        <mat-icon class="search-placeholder-icon">insights</mat-icon>
-        <h3>No Recall Query Executed</h3>
-        <p>Type a cognitive query above or select a preset from history to explore retrieval gating pipeline metrics.</p>
+        <p class="page-subtitle">
+          Execute interactive Memory Engine Language statements, test 6-phase cascading filter funnels, and audit cognitive scoring
+        </p>
       </div>
-    }
+    </div>
+
+    <div class="header-actions">
+      <button
+        type="button"
+        class="action-btn-outline"
+        (click)="onQuickExplain()"
+        matTooltip="Quick-run EXPLAIN RECALL on current cue"
+      >
+        <mat-icon>auto_awesome</mat-icon>
+        <span>EXPLAIN RECALL</span>
+      </button>
+
+      <button
+        type="button"
+        class="action-btn-primary"
+        [disabled]="isRunning()"
+        (click)="onRunScript()"
+        matTooltip="Execute current script (Cmd/Ctrl+Enter)"
+      >
+        <mat-icon>{{ isRunning() ? 'hourglass_top' : 'play_arrow' }}</mat-icon>
+        <span>{{ isRunning() ? 'Running...' : 'Run Workbench' }}</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- 12-Column Workbench Grid -->
+  <div class="mel-workbench-grid">
+    <!-- Left Explorer Rail (3 cols) -->
+    <div class="mel-left-column">
+      <cortex-mel-explorer-rail
+        [namespace]="activeNamespace()"
+        [history]="melHistory()"
+        [workingCount]="state.workingMemoryCount()"
+        [episodicCount]="state.episodicMemoryCount()"
+        [semanticCount]="state.semanticMemoryCount()"
+        [proceduralCount]="state.proceduralMemoryCount()"
+        (selectSnippet)="onSelectSnippet($event)"
+        (projectTier)="onProjectTier($event)"
+        (selectHistory)="onSelectHistory($event)"
+      />
+    </div>
+
+    <!-- Right Workbench (9 cols) -->
+    <div class="mel-right-column">
+      <!-- Bidirectional Visual Assist Bar -->
+      <cortex-mel-visual-assist
+        [state]="assistState()"
+        [isOpen]="isAssistOpen()"
+        (toggleOpen)="isAssistOpen.set(!isAssistOpen())"
+        (stateChange)="onAssistStateChange($event)"
+      />
+
+      <!-- MEL Code Editor -->
+      <cortex-mel-editor
+        [script]="script()"
+        [diagnostics]="diagnostics()"
+        [isRunning]="isRunning()"
+        (scriptChange)="onScriptChange($event)"
+        (execute)="onRunScript()"
+        (validate)="onValidate()"
+      />
+
+      <!-- 4-Tab Results & Diagnostics Dock -->
+      <cortex-mel-results-dock
+        [activeTab]="activeTab()"
+        [candidates]="candidates()"
+        [melResponse]="melResponse()"
+        (tabChange)="activeTab.set($event)"
+        (diagnose)="onDiagnose($event)"
+        (reinforce)="onReinforce($event)"
+      />
+    </div>
   </div>
 
-  <!-- Right Side: Playground Controls & Metrics -->
-  <div class="sidebar-panel-area">
-    <cortex-query-playground-settings />
-
-    <!-- Pipeline Gating Funnel Trace component -->
-    @if (state.currentQueryTrace()) {
-      <mat-card appearance="outlined" class="sidebar-card funnel-card cortex-glass">
-        <mat-card-header>
-          <mat-icon mat-card-avatar class="panel-icon">filter_alt</mat-icon>
-          <mat-card-title>Retrieval Pipeline Gating</mat-card-title>
-          <mat-card-subtitle>Step-by-Step Gating Audits</mat-card-subtitle>
-        </mat-card-header>
-        <mat-card-content>
-          <cortex-pipeline-funnel />
-        </mat-card-content>
-      </mat-card>
-    }
-
-    <!-- Query History Timeline -->
-    <section class="history-section">
-      <mat-card appearance="outlined" class="history-card cortex-glass">
-        <mat-card-header>
-          <mat-icon mat-card-avatar class="panel-icon">history</mat-icon>
-          <mat-card-title>Query Trace History</mat-card-title>
-          <mat-card-subtitle>Recent Recall Audits</mat-card-subtitle>
-        </mat-card-header>
-        <mat-card-content>
-          <cortex-query-history />
-        </mat-card-content>
-      </mat-card>
-    </section>
-  </div>
+  <!-- Slide-Up Counterfactual Why-Not Drawer -->
+  @if (diagnosticMemoryId(); as diagId) {
+    <cortex-why-not-drawer
+      [memoryId]="diagId"
+      [queryCue]="assistState().cue"
+      (close)="diagnosticMemoryId.set(null)"
+      (applySuggestion)="onApplySuggestion($event)"
+    />
+  }
 </div>

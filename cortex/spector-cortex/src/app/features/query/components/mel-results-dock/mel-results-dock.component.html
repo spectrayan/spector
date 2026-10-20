@@ -1,0 +1,309 @@
+<div class="mel-results-dock cortex-glass">
+  <!-- Dock Tabs Header -->
+  <div class="dock-header">
+    <div class="dock-tabs">
+      <button
+        type="button"
+        class="dock-tab-btn"
+        [class.active]="activeTab() === 'candidates'"
+        (click)="onSelectTab('candidates')"
+      >
+        <mat-icon class="tab-icon text-primary">auto_awesome</mat-icon>
+        <span>Ranked Candidates</span>
+        <span class="count-pill cortex-mono">{{ candidates().length }}</span>
+      </button>
+
+      <button
+        type="button"
+        class="dock-tab-btn"
+        [class.active]="activeTab() === 'funnel'"
+        (click)="onSelectTab('funnel')"
+      >
+        <mat-icon class="tab-icon text-cyan">filter_alt</mat-icon>
+        <span>6-Phase Funnel</span>
+      </button>
+
+      <button
+        type="button"
+        class="dock-tab-btn"
+        [class.active]="activeTab() === 'explain'"
+        (click)="onSelectTab('explain')"
+      >
+        <mat-icon class="tab-icon text-emerald">table_chart</mat-icon>
+        <span>EXPLAIN Plan</span>
+        <span class="count-pill cortex-mono">{{ explainRows().length }}</span>
+      </button>
+
+      <button
+        type="button"
+        class="dock-tab-btn"
+        [class.active]="activeTab() === 'console'"
+        (click)="onSelectTab('console')"
+      >
+        <mat-icon class="tab-icon text-amber">terminal</mat-icon>
+        <span>REPL Output</span>
+      </button>
+    </div>
+
+    <!-- Execution telemetry badge -->
+    @if (melResponse(); as res) {
+      <div class="telemetry-bar cortex-mono">
+        <span
+          class="status-badge"
+          [class.ok]="res.status === 'OK'"
+          [class.err]="res.status === 'ERROR'"
+        >
+          <mat-icon>{{ res.status === 'OK' ? 'check_circle' : 'error' }}</mat-icon>
+          <span>{{ res.status }}</span>
+        </span>
+        <span class="time-badge">{{ res.total_elapsed_ms.toFixed(1) }}ms</span>
+        <span class="ns-badge">ns:{{ res.namespace }}</span>
+      </div>
+    }
+  </div>
+
+  <!-- Dock Body -->
+  <div class="dock-body">
+    <!-- Tab 1: Ranked Candidates -->
+    @if (activeTab() === 'candidates') {
+      <div class="candidates-tab">
+        @if (candidates().length === 0) {
+          <div class="empty-tab-state">
+            <mat-icon>psychology</mat-icon>
+            <h4>No Recall Candidates Returned</h4>
+            <p>Execute a RECALL or EXPLAIN RECALL statement above to inspect scored candidate engrams.</p>
+          </div>
+        } @else {
+          <div class="candidates-grid">
+            @for (c of candidates(); track c.id) {
+              <div class="candidate-card cortex-glass">
+                <div class="card-header">
+                  <div class="header-left">
+                    <span class="rank-badge cortex-mono">#{{ c.rank }}</span>
+                    <span class="tier-pill cortex-mono" [attr.data-tier]="c.tier.toLowerCase()">
+                      {{ c.tier }}
+                    </span>
+                    <span class="id-text cortex-mono">{{ c.id }}</span>
+                  </div>
+
+                  <div class="header-right">
+                    <span class="fused-score cortex-mono" matTooltip="Fused cognitive recall score">
+                      {{ c.fusedScore.toFixed(3) }}
+                    </span>
+                    <button
+                      type="button"
+                      class="card-action-btn reinforce"
+                      (click)="onReinforce(c.id)"
+                      matTooltip="Strengthen storage S (+0.1)"
+                    >
+                      <mat-icon>add_circle_outline</mat-icon>
+                      <span>Reinforce</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="card-action-btn why-not"
+                      (click)="onDiagnose(c.id)"
+                      matTooltip="Analyze counterfactual why-not gating rejection reasons"
+                    >
+                      <mat-icon>help_outline</mat-icon>
+                      <span>Why-Not?</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Content snippet -->
+                <p class="candidate-content">{{ c.content }}</p>
+
+                <!-- Synaptic tags -->
+                @if (c.synapticTags && c.synapticTags.length > 0) {
+                  <div class="tag-row">
+                    @for (tag of c.synapticTags; track tag) {
+                      <span class="synaptic-tag cortex-mono">#{{ tag }}</span>
+                    }
+                  </div>
+                }
+
+                <!-- 7-Signal Score Grid -->
+                <div class="signals-grid">
+                  <div class="signal-item">
+                    <div class="sig-meta">
+                      <span class="sig-name">Vector Sim</span>
+                      <span class="sig-val cortex-mono">{{ c.vectorSimilarity.toFixed(3) }}</span>
+                    </div>
+                    <div class="sig-track"><div class="sig-bar sim" [style.width.%]="c.vectorSimilarity * 100"></div></div>
+                  </div>
+
+                  <div class="signal-item">
+                    <div class="sig-meta">
+                      <span class="sig-name">BM25 Lexical</span>
+                      <span class="sig-val cortex-mono">{{ c.bm25Score.toFixed(3) }}</span>
+                    </div>
+                    <div class="sig-track"><div class="sig-bar bm25" [style.width.%]="c.bm25Score * 100"></div></div>
+                  </div>
+
+                  <div class="signal-item">
+                    <div class="sig-meta">
+                      <span class="sig-name">Affective Valence</span>
+                      <span class="sig-val cortex-mono">{{ c.valenceFactor.toFixed(3) }}</span>
+                    </div>
+                    <div class="sig-track"><div class="sig-bar valence" [style.width.%]="Math.abs(c.valenceFactor) * 100"></div></div>
+                  </div>
+
+                  <div class="signal-item">
+                    <div class="sig-meta">
+                      <span class="sig-name">Recency Decay</span>
+                      <span class="sig-val cortex-mono">{{ c.decayFactor.toFixed(3) }}</span>
+                    </div>
+                    <div class="sig-track"><div class="sig-bar decay" [style.width.%]="c.decayFactor * 100"></div></div>
+                  </div>
+
+                  <div class="signal-item">
+                    <div class="sig-meta">
+                      <span class="sig-name">Cognitive Mass (Mi)</span>
+                      <span class="sig-val cortex-mono">{{ c.cognitiveMass.toFixed(3) }}</span>
+                    </div>
+                    <div class="sig-track"><div class="sig-bar mass" [style.width.%]="Math.min(100, c.cognitiveMass * 50)"></div></div>
+                  </div>
+
+                  <div class="signal-item">
+                    <div class="sig-meta">
+                      <span class="sig-name">Storage Strength (S)</span>
+                      <span class="sig-val cortex-mono">{{ c.storageStrength.toFixed(3) }}</span>
+                    </div>
+                    <div class="sig-track"><div class="sig-bar strength" [style.width.%]="Math.min(100, c.storageStrength * 50)"></div></div>
+                  </div>
+
+                  <div class="signal-item">
+                    <div class="sig-meta">
+                      <span class="sig-name">Hebbian Co-Act</span>
+                      <span class="sig-val cortex-mono">{{ c.hebbianBoost.toFixed(3) }}</span>
+                    </div>
+                    <div class="sig-track"><div class="sig-bar hebbian" [style.width.%]="c.hebbianBoost * 100"></div></div>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    }
+
+    <!-- Tab 2: 6-Phase Retrieval Funnel -->
+    @if (activeTab() === 'funnel') {
+      <div class="funnel-tab">
+        <div class="funnel-header-desc">
+          <h4>Cascading Filter-Then-Scan 6-Phase Retrieval Funnel</h4>
+          <p>Early-filtering eliminates ≥ 90% of candidates before executing SIMD AVX-512 vector distance operations.</p>
+        </div>
+
+        @if (funnelPhases().length === 0) {
+          <div class="empty-tab-state">
+            <mat-icon>filter_alt</mat-icon>
+            <h4>No Funnel Telemetry Available</h4>
+            <p>Execute an EXPLAIN RECALL query to populate cascading funnel phase telemetry.</p>
+          </div>
+        } @else {
+          <div class="funnel-phases-list">
+            @for (p of funnelPhases(); track p.phaseIndex) {
+              <div class="funnel-phase-card cortex-glass">
+                <div class="phase-top">
+                  <div class="phase-left">
+                    <span class="phase-num cortex-mono">P{{ p.phaseIndex }}</span>
+                    <span class="phase-name">{{ p.name }}</span>
+                  </div>
+                  <div class="phase-counts cortex-mono">
+                    <span class="survivors-pill">{{ p.survivors }} survived</span>
+                    <span class="pruned-pill">-{{ p.pruned }} dropped</span>
+                  </div>
+                </div>
+
+                <div class="funnel-bar-track">
+                  <div
+                    class="funnel-bar-fill"
+                    [style.width.%]="p.survivalPct"
+                    [class.bar-full]="p.survivalPct > 80"
+                    [class.bar-mid]="p.survivalPct <= 80 && p.survivalPct > 30"
+                    [class.bar-low]="p.survivalPct <= 30"
+                  ></div>
+                </div>
+
+                <div class="phase-footer">
+                  <span class="phase-desc">{{ p.description }}</span>
+                  <span class="phase-pct cortex-mono">{{ p.survivalPct.toFixed(1) }}% survival</span>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    }
+
+    <!-- Tab 3: EXPLAIN Plan Matrix -->
+    @if (activeTab() === 'explain') {
+      <div class="explain-tab">
+        @if (explainRows().length === 0) {
+          <div class="empty-tab-state">
+            <mat-icon>table_chart</mat-icon>
+            <h4>No EXPLAIN Plan Matrix Available</h4>
+            <p>Prefix your recall statement with EXPLAIN RECALL to generate the full 7-signal mathematical matrix.</p>
+          </div>
+        } @else {
+          <div class="table-container">
+            <table class="explain-table cortex-mono">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>ID</th>
+                  <th>Tier</th>
+                  <th>Score</th>
+                  <th>Vec Sim</th>
+                  <th>BM25</th>
+                  <th>Recency R(t)</th>
+                  <th>Mass Mi</th>
+                  <th>Strength S</th>
+                  <th>Valence</th>
+                  <th>Hebbian</th>
+                  <th>Free Energy F</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (r of explainRows(); track r.id) {
+                  <tr>
+                    <td class="col-rank">#{{ r.rank }}</td>
+                    <td class="col-id">{{ r.id }}</td>
+                    <td>
+                      <span class="tier-cell" [attr.data-tier]="r.tier.toLowerCase()">{{ r.tier }}</span>
+                    </td>
+                    <td class="col-score">{{ r.fusedScore.toFixed(3) }}</td>
+                    <td>{{ r.vectorSimilarity.toFixed(3) }}</td>
+                    <td>{{ r.bm25Score.toFixed(3) }}</td>
+                    <td>{{ r.decayFactor.toFixed(3) }}</td>
+                    <td>{{ r.cognitiveMass.toFixed(3) }}</td>
+                    <td>{{ r.storageStrength.toFixed(3) }}</td>
+                    <td>{{ r.valenceFactor.toFixed(3) }}</td>
+                    <td>{{ r.hebbianBoost.toFixed(3) }}</td>
+                    <td>{{ r.freeEnergy.toFixed(3) }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- Tab 4: REPL Output -->
+    @if (activeTab() === 'console') {
+      <div class="console-tab">
+        <div class="console-toolbar">
+          <span class="console-title cortex-mono">Terminal Console Stream</span>
+          <button type="button" class="copy-btn" (click)="copyConsole()">
+            <mat-icon>{{ copied() ? 'done' : 'content_copy' }}</mat-icon>
+            <span>{{ copied() ? 'Copied!' : 'Copy Output' }}</span>
+          </button>
+        </div>
+        <pre class="console-terminal cortex-mono">{{ consoleText() }}</pre>
+      </div>
+    }
+  </div>
+</div>

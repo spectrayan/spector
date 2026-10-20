@@ -62,6 +62,12 @@ export const routes: Routes = [
         pathMatch: 'full',
       },
       {
+        path: 'mel',
+        loadComponent: () =>
+          import('./features/query/query.component').then((m) => m.QueryComponent),
+        title: 'MEL Studio — Spector',
+      },
+      {
         path: 'query',
         loadComponent: () =>
           import('./features/query/query.component').then((m) => m.QueryComponent),

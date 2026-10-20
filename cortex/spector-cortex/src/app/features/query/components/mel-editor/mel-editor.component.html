@@ -1,0 +1,100 @@
+<div class="mel-editor-container cortex-glass">
+  <!-- Top Execution Toolbar -->
+  <div class="editor-toolbar">
+    <div class="toolbar-left">
+      <div class="tab-pill cortex-mono">
+        <mat-icon class="tab-icon">terminal</mat-icon>
+        <span>scratchpad.mel</span>
+      </div>
+      <span class="shortcut-hint cortex-mono">⌘+Enter to Run</span>
+    </div>
+
+    <div class="toolbar-right">
+      <button
+        type="button"
+        class="tool-btn"
+        (click)="onFormat()"
+        matTooltip="Format MEL script spacing"
+      >
+        <mat-icon>format_align_left</mat-icon>
+        <span>Format</span>
+      </button>
+
+      <button
+        type="button"
+        class="tool-btn"
+        (click)="validate.emit()"
+        matTooltip="Dry-run syntax validation"
+      >
+        <mat-icon>spellcheck</mat-icon>
+        <span>Validate</span>
+      </button>
+
+      <button
+        type="button"
+        class="run-btn"
+        [disabled]="isRunning()"
+        (click)="execute.emit()"
+        matTooltip="Execute MEL script (Cmd/Ctrl+Enter)"
+      >
+        <mat-icon>{{ isRunning() ? 'hourglass_top' : 'play_arrow' }}</mat-icon>
+        <span>{{ isRunning() ? 'Running...' : 'Run Script' }}</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Editor Workspace with Line Numbers -->
+  <div class="editor-workspace">
+    <!-- Line numbers gutter -->
+    <div class="line-gutter cortex-mono" aria-hidden="true">
+      @for (num of lineNumbers(); track num) {
+        <span class="line-num">{{ num }}</span>
+      }
+    </div>
+
+    <!-- Textarea Input Area -->
+    <div class="textarea-wrapper">
+      <textarea
+        #editorTextarea
+        class="editor-textarea cortex-mono"
+        [value]="script()"
+        (input)="onInput($event)"
+        (keydown)="onKeyDown($event)"
+        placeholder="-- Enter MEL-001 statements (RECALL, REMEMBER, CONSOLIDATE, FORGET, INTROSPECT)..."
+        spellcheck="false"
+        autocomplete="off"
+        autocapitalize="off"
+      ></textarea>
+
+      <!-- Autocomplete popup -->
+      @if (showAutocomplete()) {
+        <div class="autocomplete-popup cortex-glass">
+          <div class="autocomplete-header cortex-mono">MEL Keywords</div>
+          @for (sug of autocompleteSuggestions(); track sug; let i = $index) {
+            <div
+              class="autocomplete-item cortex-mono"
+              [class.selected]="selectedSuggestionIndex() === i"
+              (mousedown)="applySuggestion(sug)"
+            >
+              <mat-icon class="keyword-icon">code</mat-icon>
+              <span>{{ sug }}</span>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- Diagnostics Footer Bar -->
+  @if (diagnostics().length > 0) {
+    <div class="editor-diagnostics">
+      @for (d of diagnostics(); track d.line + '-' + d.column) {
+        <div class="diag-item" [class.diag-error]="d.severity === 'ERROR'" [class.diag-warn]="d.severity === 'WARNING'">
+          <mat-icon class="diag-icon">{{ d.severity === 'ERROR' ? 'error' : 'warning' }}</mat-icon>
+          <span class="diag-loc cortex-mono">[{{ d.line }}:{{ d.column }}]</span>
+          <span class="diag-msg">{{ d.message }}</span>
+        </div>
+      }
+    </div>
+  }
+</div>
