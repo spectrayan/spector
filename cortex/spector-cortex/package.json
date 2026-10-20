@@ -30,7 +30,7 @@
   },
   "devDependencies": {
     "@angular/build": "^22.2.1",
-    "@angular/cli": "^22.2.1",
+    "@angular/cli": "^22.2.3",
     "@angular/compiler-cli": "^22.2.1",
     "@playwright/test": "^1.63.0",
     "@types/dompurify": "^3.0.5",
