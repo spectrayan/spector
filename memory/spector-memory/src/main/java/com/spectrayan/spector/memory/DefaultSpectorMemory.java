@@ -53,7 +53,10 @@ import com.spectrayan.spector.memory.neuromod.amygdala.ValenceTracker;
 import com.spectrayan.spector.memory.neuromod.habituation.HabituationPenalty;
 import com.spectrayan.spector.memory.neuromod.inhibition.SuppressionSet;
 import com.spectrayan.spector.memory.neuromod.neurodivergent.LateralEvaluator;
+import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
 import com.spectrayan.spector.memory.pathway.decide.DecidePathway;
+import com.spectrayan.spector.memory.pathway.pipeline.TagExtractionResult;
+import com.spectrayan.spector.memory.pathway.pipeline.TagExtractors;
 import com.spectrayan.spector.memory.pathway.dream.DreamPathway;
 import com.spectrayan.spector.memory.pathway.express.ExpressPathway;
 import com.spectrayan.spector.memory.pathway.recall.RecallPathway;
@@ -464,10 +467,13 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 rememberChunked(id, text, type, source, hints, null, tags);
             } else {
                 String[] finalTags = tags;
+                var finalHints = hints;
                 if (tags == null || tags.length == 0) {
-                    var tagExtractor = rememberPathway.tagExtractor();
-                    if (tagExtractor != null) {
-                        finalTags = tagExtractor.extract(id, text);
+                    var extraction = extractTags(id, text);
+                    if (extraction != null) {
+                        finalTags = extraction.tags();
+                        finalHints = RememberHints.withAppraisedAffect(
+                                hints, extraction.valence(), extraction.arousal());
                     }
                 }
                 float[] vector = embeddingProvider.embed(text).vector();
@@ -475,7 +481,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 if (sessionId != null) {
                     sessionBufferManager.add(sessionId, id, text, vector, type, System.currentTimeMillis());
                 }
-                rememberPathway.ingestCognitive(id, text, vector, type, finalTags, source, hints);
+                rememberPathway.ingestCognitive(id, text, vector, type, finalTags, source, finalHints);
                 
             }
             checkCircadianTrigger(type);
@@ -545,14 +551,16 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 rememberChunked(id, text, type, source, null, context, tags);
             } else {
                 String[] finalTags = tags;
+                var finalContext = context;
                 if (tags == null || tags.length == 0) {
-                    var tagExtractor = rememberPathway.tagExtractor();
-                    if (tagExtractor != null) {
-                        finalTags = tagExtractor.extract(id, text);
+                    var extraction = extractTags(id, text);
+                    if (extraction != null) {
+                        finalTags = extraction.tags();
+                        finalContext = withAppraisedAffect(context, extraction);
                     }
                 }
                 float[] vector = embeddingProvider.embed(text).vector();
-                rememberPathway.ingestCognitive(id, text, vector, type, finalTags, source, context);
+                rememberPathway.ingestCognitive(id, text, vector, type, finalTags, source, finalContext);
                 
             }
 
@@ -586,10 +594,12 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         acquireLease();
         try {
             String[] finalTags = tags;
+            var finalContext = context;
             if (tags == null || tags.length == 0) {
-                var tagExtractor = rememberPathway.tagExtractor();
-                if (tagExtractor != null) {
-                    finalTags = tagExtractor.extract(id, text);
+                var extraction = extractTags(id, text);
+                if (extraction != null) {
+                    finalTags = extraction.tags();
+                    finalContext = withAppraisedAffect(context, extraction);
                 }
             }
             float[] finalVector = (vector != null && vector.length > 0)
@@ -599,7 +609,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             if (sessionId != null) {
                 sessionBufferManager.add(sessionId, id, text, finalVector, type, System.currentTimeMillis());
             }
-            rememberPathway.ingestCognitive(id, text, finalVector, type, finalTags, source, context);
+            rememberPathway.ingestCognitive(id, text, finalVector, type, finalTags, source, finalContext);
 
             // Process attachments if present in context metadata
             if (context != null && context.hasAttachments()) {
@@ -762,6 +772,30 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     }
 
     /**
+     * Runs the configured tag extractor, including the LLM appraisal of valence and arousal when the
+     * extractor provides one (#1137).
+     *
+     * @return the extraction result, or {@code null} when no extractor is configured
+     */
+    private TagExtractionResult extractTags(String id, String text) {
+        var tagExtractor = rememberPathway.tagExtractor();
+        return tagExtractor != null ? tagExtractor.extractWithContext(id, text) : null;
+    }
+
+    /**
+     * Folds an appraised valence and arousal into a context's hints. Values the caller supplied win.
+     */
+    private static RememberContext withAppraisedAffect(RememberContext context, TagExtractionResult extraction) {
+        if (extraction == null || !extraction.hasEmotionalContext()) {
+            return context;
+        }
+        RememberContext base = context != null ? context : RememberContext.EMPTY;
+        RememberHints merged = RememberHints.withAppraisedAffect(
+                base.hints(), extraction.valence(), extraction.arousal());
+        return base.withHints(merged);
+    }
+
+    /**
      * Returns true if the text should be chunked before ingestion.
      */
     private boolean shouldChunk(String text) {
@@ -855,10 +889,12 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
                 // Extract content-specific tags from this chunk's text (skip LLM extraction if caller tags provided)
                 String[] contentTags;
+                TagExtractionResult chunkExtraction = null;
                 if (provenanceTags != null && provenanceTags.length > 0) {
                     contentTags = new String[0];
                 } else {
-                    contentTags = chunkTagExtractor.extract(chunk.chunkId(), chunk.text());
+                    chunkExtraction = chunkTagExtractor.extractWithContext(chunk.chunkId(), chunk.text());
+                    contentTags = chunkExtraction.tags();
                 }
 
                 // Merge provenance + per-chunk content tags (deduplicated)
@@ -889,6 +925,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                             .build();
                 }
 
+                if (chunkExtraction != null) {
+                    childContext = withAppraisedAffect(childContext, chunkExtraction);
+                }
                 rememberPathway.ingestCognitive(chunk.chunkId(), chunk.text(),
                             embedding.embedding(), type, chunkTags, source, childContext);
                 
@@ -1046,9 +1085,10 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             // Auto-profile & query tag resolution: use ProfileAdaptor and TagExtractor
             if (options.autoProfile()) {
                 var optBuilder = options.toBuilder();
-                var tagExtractor = (rememberPathway != null)
-                        ? rememberPathway.tagExtractor()
-                        : (rememberPathway != null ? rememberPathway.tagExtractor() : null);
+                // Query tagging never calls the LLM: a recall must not pay a generation round-trip.
+                var tagExtractor = rememberPathway != null
+                        ? TagExtractors.forQueries(rememberPathway.tagExtractor())
+                        : null;
                 String[] extracted = tagExtractor != null ? tagExtractor.extract("query", queryText) : null;
                 String[] tags = extracted != null ? extracted : new String[0];
 

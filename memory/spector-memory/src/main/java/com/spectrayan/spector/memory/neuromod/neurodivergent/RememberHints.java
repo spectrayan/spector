@@ -106,6 +106,32 @@ public record RememberHints(float interest, float challenge, float urgency,
      *
      * @return the effective arousal byte (unsigned 0-255)
      */
+    /**
+     * Fills in valence and arousal that the caller left unset (zero) from an
+     * appraisal such as the LLM tag extractor's. Values the caller supplied are
+     * kept, field by field, and the ICNU dimensions are never touched.
+     *
+     * @param base             the caller's hints; may be {@code null}
+     * @param appraisedValence appraised valence, used only where the caller sent 0
+     * @param appraisedArousal appraised arousal, used only where the caller sent 0
+     * @return the merged hints, or {@code base} unchanged when nothing applies
+     */
+    public static RememberHints withAppraisedAffect(RememberHints base, byte appraisedValence,
+                                                    byte appraisedArousal) {
+        if (appraisedValence == 0 && appraisedArousal == 0) {
+            return base;
+        }
+        if (base == null) {
+            return new RememberHints(0f, 0f, 0f, appraisedValence, appraisedArousal);
+        }
+        byte valence = base.valence() != 0 ? base.valence() : appraisedValence;
+        byte arousal = base.arousal() != 0 ? base.arousal() : appraisedArousal;
+        if (valence == base.valence() && arousal == base.arousal()) {
+            return base;
+        }
+        return new RememberHints(base.interest(), base.challenge(), base.urgency(), valence, arousal);
+    }
+
     public byte effectiveArousal() {
         if (Byte.toUnsignedInt(arousal) > 0) {
             return arousal;  // explicitly set, use as-is

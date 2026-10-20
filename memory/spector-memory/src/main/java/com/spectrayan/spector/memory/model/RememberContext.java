@@ -119,6 +119,20 @@ public record RememberContext(
     public static final RememberContext EMPTY = new RememberContext(null, null, null, null, null, null, List.of(), null, null);
 
     /** Returns true if pre-extracted entities are provided. */
+    /**
+     * Returns a copy of this context with different hints, keeping every other component.
+     *
+     * @param newHints the hints to carry; may be {@code null}
+     * @return this context when the hints are the same instance, otherwise a copy
+     */
+    public RememberContext withHints(RememberHints newHints) {
+        if (newHints == hints) {
+            return this;
+        }
+        return new RememberContext(newHints, entities, hebbianEdges, temporalLinks, overrideTimestampMs,
+                metadata, soulContexts, salienceProfile, soulVersion);
+    }
+
     public boolean hasEntities() { return entities != null && !entities.isEmpty(); }
 
     /** Returns true if Hebbian edge hints are provided. */
