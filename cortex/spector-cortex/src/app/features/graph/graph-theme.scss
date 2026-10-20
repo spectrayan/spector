@@ -7,11 +7,11 @@ $hebbian-color: #00ffcc;
 $temporal-color: #00bcd4;
 $entity-color: #ffc107;
 
-// ── Theme-aware aliases using Angular Material tokens ──
-$panel-bg: var(--mat-sys-surface-container);
-$panel-border: var(--mat-sys-outline-variant);
-$text-bright: var(--mat-sys-on-surface);
-$text-dim: var(--mat-sys-on-surface-variant);
+// ── Theme-aware aliases using Angular Material and design system tokens ──
+$panel-bg: var(--bg-card, var(--mat-sys-surface-container));
+$panel-border: var(--border-subtle, var(--mat-sys-outline-variant));
+$text-bright: var(--foreground, var(--mat-sys-on-surface));
+$text-dim: var(--muted-foreground, var(--mat-sys-on-surface-variant));
 $text-muted: var(--mat-sys-outline);
 
 @mixin corner-bracket($top: auto, $bottom: auto, $left: auto, $right: auto, $border-sides...) {

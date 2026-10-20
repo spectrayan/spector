@@ -206,6 +206,9 @@ export class EventStreamService implements OnDestroy {
   }
 
   private dispatchEvent(event: AnyCortexEvent): void {
+    if (typeof (this.state as any)?.pushSseEvent === 'function') {
+      this.state.pushSseEvent(event);
+    }
     switch (event.eventType) {
       case 'spector.query.trace':
       case 'cortex.query.trace':

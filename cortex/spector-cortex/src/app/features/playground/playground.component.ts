@@ -95,7 +95,7 @@ import { CortexStateService } from '../../core/services/cortex-state.service';
       flex-direction: column;
       height: 100%;
       min-height: 0;
-      background: var(--bg-void, #0b0e14);
+      background: var(--bg-void);
       color: var(--text-primary, #e6edf3);
     }
 
@@ -177,7 +177,7 @@ import { CortexStateService } from '../../core/services/cortex-state.service';
       display: flex;
       align-items: center;
       gap: 6px;
-      background: var(--bg-void, #0b0e14);
+      background: var(--bg-void);
       padding: 4px;
       border-radius: 10px;
       border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));

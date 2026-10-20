@@ -153,10 +153,10 @@
 
             <!-- Flags -->
             <td class="col-flags">
-              @if (row.tombstoned) { <span matTooltip="Tombstoned">💀</span> }
-              @if (row.pinned) { <span matTooltip="Pinned">📌</span> }
-              @if (row.resolved) { <span matTooltip="Resolved">✅</span> }
-              @if (row.consolidated) { <span matTooltip="Consolidated">🧠</span> }
+              @if (row.tombstoned) { <span class="flag-pill pill-tombstoned" matTooltip="Tombstoned">Tombstoned</span> }
+              @if (row.pinned) { <span class="flag-pill pill-pinned" matTooltip="Pinned">Pinned</span> }
+              @if (row.resolved) { <span class="flag-pill pill-resolved" matTooltip="Resolved">Resolved</span> }
+              @if (row.consolidated) { <span class="flag-pill pill-consolidated" matTooltip="Consolidated">Consolidated</span> }
             </td>
 
             <!-- Tags -->
@@ -246,13 +246,13 @@
           <span class="valence-value cortex-mono"
                 [class.positive]="row.valence > 0"
                 [class.negative]="row.valence < 0">
-            ❤️ {{ row.valence > 0 ? '+' : '' }}{{ row.valence }}
+            Valence {{ row.valence > 0 ? '+' : '' }}{{ row.valence }}
           </span>
-          <span class="recall-badge">♻️ {{ row.agentRecallCount }}</span>
-          @if (row.tombstoned) { <span>💀</span> }
-          @if (row.pinned) { <span>📌</span> }
-          @if (row.resolved) { <span>✅</span> }
-          @if (row.consolidated) { <span>🧠</span> }
+          <span class="recall-badge">Recalls: {{ row.agentRecallCount }}</span>
+          @if (row.tombstoned) { <span class="flag-pill pill-tombstoned">Tombstoned</span> }
+          @if (row.pinned) { <span class="flag-pill pill-pinned">Pinned</span> }
+          @if (row.resolved) { <span class="flag-pill pill-resolved">Resolved</span> }
+          @if (row.consolidated) { <span class="flag-pill pill-consolidated">Consolidated</span> }
         </div>
 
         @if (row.tags.length > 0) {

@@ -25,6 +25,7 @@ describe('MelApiService (Milestone 4)', () => {
   let httpMock: HttpTestingController;
 
   beforeEach(() => {
+    TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
       providers: [MelApiService],
@@ -35,6 +36,7 @@ describe('MelApiService (Milestone 4)', () => {
 
   afterEach(() => {
     httpMock.verify();
+    TestBed.resetTestingModule();
   });
 
   it('posts execute request to /api/v1/mel/execute', () => {

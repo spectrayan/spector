@@ -90,10 +90,8 @@
       </div>
     } @else {
       <!-- ── Read-only View ── -->
-      <cortex-markdown-preview
+      <cortex-smart-content-viewer
         [content]="memory().text"
-        height="auto"
-        class="borderless"
       />
     }
   </mat-card-content>

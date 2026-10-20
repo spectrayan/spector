@@ -23,9 +23,9 @@ export class ThemeService {
   readonly themeIcon = computed(() => (this.isDark() ? 'dark_mode' : 'light_mode'));
 
   constructor() {
-    if (this.isBrowser) {
-      const saved = localStorage.getItem(THEME_KEY);
-      if (saved !== null) {
+    if (this.isBrowser && typeof localStorage !== 'undefined') {
+      const saved = localStorage?.getItem?.(THEME_KEY);
+      if (saved !== null && saved !== undefined) {
         this.isDark.set(saved === 'dark');
       }
     }
@@ -34,8 +34,10 @@ export class ThemeService {
     effect(() => {
       if (this.isBrowser) {
         const theme = this.isDark() ? 'dark' : 'light';
-        document.documentElement.setAttribute('data-theme', theme);
-        localStorage.setItem(THEME_KEY, theme);
+        document.documentElement?.setAttribute('data-theme', theme);
+        if (typeof localStorage !== 'undefined') {
+          localStorage?.setItem?.(THEME_KEY, theme);
+        }
       }
     });
   }

@@ -1,5 +1,59 @@
+<!-- Dashboard Top Action Bar -->
+<header class="dashboard-action-bar cortex-glass" style="animation: fade-in-up 0.25s ease both">
+  <div class="action-bar-left">
+    <div class="view-mode-toggle">
+      <button mat-button
+              type="button"
+              class="mode-btn"
+              [class.active]="state.viewMode() === 'dashboard'"
+              (click)="setViewMode('dashboard')"
+              data-testid="mode-grid-btn">
+        <mat-icon>grid_view</mat-icon>
+        <span>12-Panel Grid</span>
+      </button>
+      <button mat-button
+              type="button"
+              class="mode-btn"
+              [class.active]="state.viewMode() === 'cluster'"
+              (click)="setViewMode('cluster')"
+              data-testid="mode-cluster-btn">
+        <mat-icon>hub</mat-icon>
+        <span>Cluster Ring</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="action-bar-right">
+    <span class="actions-label">Cognitive Triggers:</span>
+    <button mat-stroked-button type="button" class="trigger-btn dream-btn" (click)="triggerDream()" data-testid="trigger-dream-btn" matTooltip="Trigger generative replay rest cycle across memory tiers">
+      <mat-icon>bedtime</mat-icon>
+      <span>Dream</span>
+    </button>
+    <button mat-stroked-button type="button" class="trigger-btn reflect-btn" (click)="triggerReflect()" data-testid="trigger-reflect-btn" matTooltip="Trigger consolidation & decay reflection">
+      <mat-icon>auto_awesome</mat-icon>
+      <span>Reflect</span>
+    </button>
+    <button mat-stroked-button type="button" class="trigger-btn wander-btn" (click)="triggerWander()" data-testid="trigger-wander-btn" matTooltip="Trigger exploratory associative spreading activation">
+      <mat-icon>explore</mat-icon>
+      <span>Wander</span>
+    </button>
+  </div>
+</header>
+
+<!-- Top 6-Card KPI Summary Row -->
+<section class="kpi-section" style="animation: fade-in-up 0.3s ease both">
+  <cortex-kpi-row
+    [totalCount]="state.totalMemoryCount()"
+    [workingCount]="state.workingMemoryCount()"
+    [episodicCount]="state.episodicMemoryCount()"
+    [semanticCount]="state.semanticMemoryCount()"
+    [proceduralCount]="state.proceduralMemoryCount()"
+    [hebbianCount]="state.hebbianNetworkCount()"
+  />
+</section>
+
 <!-- Query Input Bar -->
-<section class="query-bar" style="animation: fade-in-up 0.3s ease both">
+<section class="query-bar" style="animation: fade-in-up 0.35s ease both">
   <cortex-query-input />
 </section>
 
@@ -203,3 +257,8 @@
     </mat-card>
   </main>
 }
+
+<!-- Bottom Live SSE Event Ticker -->
+<section class="ticker-section" style="animation: fade-in-up 1.05s ease both">
+  <cortex-event-ticker />
+</section>

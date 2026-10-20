@@ -1,0 +1,74 @@
+<div class="smart-viewer-container" [style.max-height]="maxHeight()">
+  <!-- Top Toolbar -->
+  <div class="viewer-toolbar">
+    <div class="toolbar-left">
+      <span class="format-badge" [class]="'badge-' + detectedFormat()" data-testid="format-badge">
+        <mat-icon class="badge-icon">
+          @if (detectedFormat() === 'json') { data_object }
+          @else if (detectedFormat() === 'markdown') { article }
+          @else { text_snippet }
+        </mat-icon>
+        <span>{{ detectedFormat().toUpperCase() }}</span>
+      </span>
+
+      <span class="meta-stats cortex-mono">
+        {{ wordCount() }} words · {{ charCount() }} chars
+      </span>
+    </div>
+
+    <div class="toolbar-right">
+      <div class="format-tabs">
+        <button type="button"
+                class="tab-btn"
+                [class.active]="selectedTab() === 'auto'"
+                (click)="selectTab('auto')">
+          Auto
+        </button>
+        <button type="button"
+                class="tab-btn"
+                [class.active]="selectedTab() === 'json'"
+                (click)="selectTab('json')">
+          JSON
+        </button>
+        <button type="button"
+                class="tab-btn"
+                [class.active]="selectedTab() === 'markdown'"
+                (click)="selectTab('markdown')">
+          Markdown
+        </button>
+        <button type="button"
+                class="tab-btn"
+                [class.active]="selectedTab() === 'raw'"
+                (click)="selectTab('raw')">
+          Raw
+        </button>
+      </div>
+
+      <button mat-button class="copy-btn" (click)="copyContent()" [matTooltip]="copied() ? 'Copied!' : 'Copy content'">
+        <mat-icon>{{ copied() ? 'check' : 'content_copy' }}</mat-icon>
+        <span [class.text-copied]="copied()">{{ copied() ? 'Copied' : 'Copy' }}</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Content Section -->
+  <div class="viewer-content">
+    @if (effectiveFormat() === 'json') {
+      @if (parsedJsonResult().success) {
+        <pre class="json-code cortex-mono">{{ parsedJsonResult().formatted }}</pre>
+      } @else {
+        <div class="json-error-banner">
+          <mat-icon>warning</mat-icon>
+          <span>{{ parsedJsonResult().error }}. Displaying raw content below.</span>
+        </div>
+        <pre class="raw-code cortex-mono">{{ content() }}</pre>
+      }
+    } @else if (effectiveFormat() === 'markdown') {
+      <div class="markdown-wrap">
+        <cortex-markdown-preview [content]="content()" height="auto" class="borderless" />
+      </div>
+    } @else {
+      <pre class="raw-code cortex-mono">{{ content() }}</pre>
+    }
+  </div>
+</div>

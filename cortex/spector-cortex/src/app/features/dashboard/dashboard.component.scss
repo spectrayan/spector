@@ -3,13 +3,148 @@
   flex-direction: column;
   height: 100%;
   width: 100%;
-  overflow: hidden;
-  background: var(--mat-sys-surface);
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--bg-void);
+}
+
+// ── Dashboard Action Bar ─────────────────────────────────────────────
+.dashboard-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 14px 0;
+  padding: 8px 14px;
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  flex-shrink: 0;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+}
+
+.action-bar-left {
+  display: flex;
+  align-items: center;
+}
+
+.view-mode-toggle {
+  display: flex;
+  align-items: center;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+
+  .mode-btn {
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    padding: 6px 12px;
+    height: 28px;
+    border-radius: 6px;
+    color: var(--muted-foreground);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+
+    &.active {
+      background: var(--primary);
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(10, 133, 255, 0.25);
+    }
+  }
+}
+
+.action-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+
+  .actions-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted-foreground);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .trigger-btn {
+    height: 30px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 10px;
+    border-color: var(--border-subtle);
+    background: var(--bg-surface);
+    transition: all 0.2s var(--ease-fluid, ease);
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+
+    &.dream-btn {
+      color: var(--tier-episodic);
+      &:hover {
+        background: rgba(167, 139, 250, 0.12);
+        border-color: var(--tier-episodic);
+      }
+    }
+
+    &.reflect-btn {
+      color: var(--tier-semantic);
+      &:hover {
+        background: rgba(139, 92, 246, 0.12);
+        border-color: var(--tier-semantic);
+      }
+    }
+
+    &.wander-btn {
+      color: var(--accent-cyan);
+      &:hover {
+        background: rgba(34, 211, 238, 0.12);
+        border-color: var(--accent-cyan);
+      }
+    }
+  }
+}
+
+// ── KPI Section ──────────────────────────────────────────────────────
+.kpi-section {
+  margin: 10px 14px 0;
+  flex-shrink: 0;
 }
 
 // ── Query Bar ────────────────────────────────────────────────────────
 .query-bar {
-  margin: 8px 12px 0;
+  margin: 8px 14px 0;
+  flex-shrink: 0;
+}
+
+// ── Ticker Section ───────────────────────────────────────────────────
+.ticker-section {
+  margin: 14px 14px 20px;
   flex-shrink: 0;
 }
 
