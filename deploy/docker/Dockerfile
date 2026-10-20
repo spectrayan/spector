@@ -70,12 +70,24 @@ LABEL org.opencontainers.image.url="https://github.com/spectrayan/spector"
 LABEL org.opencontainers.image.source="https://github.com/spectrayan/spector"
 LABEL org.opencontainers.image.licenses="Apache-2.0 AND BSL-1.1"
 
-# Install tini and curl (health checks), no Nginx needed
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install tini and curl (health checks), no Nginx needed; apply latest OS security patches
+ARG SECURITY_PATCH_EPOCH=2026-10-19
+RUN apt-get update && apt-get dist-upgrade -y --no-install-recommends \
+    && apt-get install -y --no-install-recommends \
     tini \
     curl \
     ca-certificates \
-    && apt-get --only-upgrade install -y perl-base gpgv libexpat1 openssl libssl3t64 openssl-provider-legacy libfreetype6 \
+    && apt-get --only-upgrade install -y \
+    curl \
+    libcurl4t64 \
+    libpng16-16t64 \
+    perl-base \
+    gpgv \
+    libexpat1 \
+    openssl \
+    libssl3t64 \
+    openssl-provider-legacy \
+    libfreetype6 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user spector (UID/GID 1000)
@@ -90,6 +102,21 @@ RUN chown -R 1000:1000 /app
 
 # Copy gateway fat JAR only — no Cortex frontend, no /data volume
 COPY --chown=1000:1000 --from=builder-gateway /build/spector-gateway.jar /app/spector-gateway.jar
+
+# Re-apply latest OS security patches after artifact copy so BuildKit cache never pins stale CVEs
+RUN apt-get update && apt-get dist-upgrade -y --no-install-recommends \
+    && apt-get --only-upgrade install -y \
+    curl \
+    libcurl4t64 \
+    libpng16-16t64 \
+    perl-base \
+    gpgv \
+    libexpat1 \
+    openssl \
+    libssl3t64 \
+    openssl-provider-legacy \
+    libfreetype6 \
+    && rm -rf /var/lib/apt/lists/*
 
 # Gateway JVM: lightweight heap, no Panama/incubator, no native-access
 ENV JAVA_OPTS="-Xms64m -Xmx256m -XX:+UseG1GC -XX:MaxGCPauseMillis=100"
@@ -126,13 +153,25 @@ LABEL org.opencontainers.image.source="https://github.com/spectrayan/spector"
 LABEL org.opencontainers.image.licenses="Apache-2.0 AND BSL-1.1"
 
 # Install Nginx, tini, and network utilities, and upgrade packages with known vulnerabilities
-RUN apt-get update && apt-get install -y --no-install-recommends \
+ARG SECURITY_PATCH_EPOCH=2026-10-19
+RUN apt-get update && apt-get dist-upgrade -y --no-install-recommends \
+    && apt-get install -y --no-install-recommends \
     nginx \
     tini \
     curl \
     wget \
     ca-certificates \
-    && apt-get --only-upgrade install -y perl-base gpgv libexpat1 openssl libssl3t64 openssl-provider-legacy libfreetype6 \
+    && apt-get --only-upgrade install -y \
+    curl \
+    libcurl4t64 \
+    libpng16-16t64 \
+    perl-base \
+    gpgv \
+    libexpat1 \
+    openssl \
+    libssl3t64 \
+    openssl-provider-legacy \
+    libfreetype6 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user spector (UID/GID 1000) and purge unused pebble binary
@@ -158,7 +197,20 @@ COPY --chown=1000:1000 --from=builder-cortex /build/dist/spector-cortex/browser/
 COPY --chown=1000:1000 deploy/docker/spector-docker.yml /app/spector.yml
 COPY --chown=1000:1000 deploy/docker/nginx.conf /etc/nginx/spector-nginx.conf
 COPY --chown=1000:1000 deploy/docker/entrypoint.sh /app/entrypoint.sh
-RUN sed -i 's/\r$//' /app/entrypoint.sh && chmod +x /app/entrypoint.sh
+RUN sed -i 's/\r$//' /app/entrypoint.sh && chmod +x /app/entrypoint.sh \
+    && apt-get update && apt-get dist-upgrade -y --no-install-recommends \
+    && apt-get --only-upgrade install -y \
+    curl \
+    libcurl4t64 \
+    libpng16-16t64 \
+    perl-base \
+    gpgv \
+    libexpat1 \
+    openssl \
+    libssl3t64 \
+    openssl-provider-legacy \
+    libfreetype6 \
+    && rm -rf /var/lib/apt/lists/*
 
 # Environment settings
 ENV SPECTOR_DATA_DIR=/data
