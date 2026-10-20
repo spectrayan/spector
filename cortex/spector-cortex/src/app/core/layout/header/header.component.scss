@@ -61,13 +61,18 @@
   align-items: center;
   gap: 6px;
   height: 34px;
-  padding: 0 12px !important;
-  border-radius: 9999px !important;
+  padding: 0 10px 0 12px;
+  border-radius: 9999px;
   background: var(--bg-hover);
   border: 1px solid var(--border-subtle);
+  font-family: inherit;
   font-size: 12px;
+  line-height: 1;
   color: var(--foreground);
-  transition: all 0.18s var(--ease-fluid);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: transform 0.18s var(--ease-fluid), opacity 0.18s var(--ease-fluid), background-color 0.18s var(--ease-fluid), border-color 0.18s var(--ease-fluid);
 
   &:hover {
     background: var(--bg-active);
@@ -78,12 +83,18 @@
     font-size: 16px;
     width: 16px;
     height: 16px;
+    line-height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     color: var(--primary);
+    flex-shrink: 0;
   }
 
   .ns-active-slug {
     font-size: 12px;
     font-weight: 600;
+    line-height: 1;
     color: var(--foreground);
     max-width: 140px;
     overflow: hidden;
@@ -95,7 +106,12 @@
     font-size: 16px;
     width: 16px;
     height: 16px;
+    line-height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     color: var(--foreground-muted);
+    flex-shrink: 0;
   }
 }
 
@@ -268,31 +284,37 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  height: 32px;
-  padding: 0 10px !important;
-  border-radius: 8px !important;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 8px;
   background: var(--bg-hover);
   border: 1px solid var(--border-subtle);
+  font-family: inherit;
+  line-height: 1;
   color: var(--foreground-muted);
   cursor: pointer;
-  transition: all 0.18s var(--ease-fluid);
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: transform 0.18s var(--ease-fluid), opacity 0.18s var(--ease-fluid), background-color 0.18s var(--ease-fluid), border-color 0.18s var(--ease-fluid), color 0.18s var(--ease-fluid);
 
   kbd {
     display: inline-flex;
     align-items: center;
-    padding: 1px 6px;
+    justify-content: center;
+    padding: 2px 6px;
     font-size: 11px;
     font-weight: 600;
     border-radius: 4px;
     background: var(--bg-surface);
     border: 1px solid var(--border-subtle);
     color: var(--foreground);
-    line-height: 1.4;
+    line-height: 1;
   }
 
   .cmd-label {
     font-size: 12px;
     font-weight: 500;
+    line-height: 1;
   }
 
   &:hover {
@@ -305,11 +327,25 @@
 // ── Notification Bell ────────────────────────────────────────────────
 .notif-bell {
   position: relative;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 34px !important;
+  height: 34px !important;
+  padding: 0 !important;
   color: var(--foreground-muted);
+  flex-shrink: 0;
   transition: color 0.18s var(--ease-fluid);
 
   &:hover {
     color: var(--foreground);
+  }
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    line-height: 20px;
   }
 
   ::ng-deep .mat-badge-content {
@@ -470,8 +506,22 @@
 
 // ── Theme Toggle ─────────────────────────────────────────────────────
 .theme-toggle-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 34px !important;
+  height: 34px !important;
+  padding: 0 !important;
   color: var(--foreground-muted);
+  flex-shrink: 0;
   transition: color 0.18s var(--ease-fluid);
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    line-height: 20px;
+  }
 
   &:hover {
     color: var(--foreground);
@@ -483,12 +533,18 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  height: 36px;
-  padding: 0 10px !important;
-  border-radius: 9999px !important;
+  height: 34px;
+  padding: 0 10px 0 6px;
+  border-radius: 9999px;
   background: var(--bg-hover);
   border: 1px solid var(--border-subtle);
-  transition: all 0.18s var(--ease-fluid);
+  font-family: inherit;
+  line-height: 1;
+  color: var(--foreground);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: transform 0.18s var(--ease-fluid), opacity 0.18s var(--ease-fluid), background-color 0.18s var(--ease-fluid), border-color 0.18s var(--ease-fluid);
 
   &:hover {
     background: var(--bg-active);
@@ -496,48 +552,64 @@
   }
 
   .user-avatar-mini {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
+    background: rgba(10, 133, 255, 0.14);
     color: var(--primary);
+    flex-shrink: 0;
 
     mat-icon {
-      font-size: 20px;
-      width: 20px;
-      height: 20px;
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      line-height: 18px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
   }
 
   .user-name-text {
     font-size: 12px;
     font-weight: 600;
+    line-height: 1;
     color: var(--foreground);
-    max-width: 100px;
+    max-width: 110px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   .user-role-badge {
+    display: inline-flex;
+    align-items: center;
     font-size: 9px;
     font-weight: 700;
+    line-height: 1;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    padding: 2px 6px;
+    padding: 3px 6px;
     border-radius: 9999px;
     background: rgba(10, 133, 255, 0.15);
     color: var(--primary);
     border: 1px solid rgba(10, 133, 255, 0.3);
+    flex-shrink: 0;
   }
 
   .user-chevron {
     font-size: 16px;
     width: 16px;
     height: 16px;
+    line-height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     color: var(--foreground-muted);
+    flex-shrink: 0;
   }
 }
 

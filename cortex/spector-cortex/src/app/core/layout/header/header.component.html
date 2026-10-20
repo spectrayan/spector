@@ -12,7 +12,7 @@
 
   <!-- Dynamic Namespace Selector with Inline + New Namespace -->
   <button
-    mat-button
+    type="button"
     [matMenuTriggerFor]="namespaceMenu"
     class="namespace-switcher-btn"
     id="namespace-switcher-trigger"
@@ -106,7 +106,7 @@
 
   <!-- Visible ⌘K Command Palette Button -->
   <button
-    mat-button
+    type="button"
     class="command-palette-btn"
     (click)="openCommandPalette()"
     matTooltip="Command Palette (⌘K)"
@@ -126,6 +126,7 @@
     id="header-btn-notifications"
   >
     <mat-icon
+      aria-hidden="false"
       [matBadge]="notif.unreadCount()"
       matBadgeColor="accent"
       matBadgeSize="small"
@@ -210,15 +211,15 @@
 
   <!-- Role-Badged User Profile Menu -->
   <button
-    mat-button
+    type="button"
     [matMenuTriggerFor]="userMenu"
     class="user-profile-btn"
     matTooltip="Account & Settings"
     id="user-menu-trigger"
   >
-    <div class="user-avatar-mini">
+    <span class="user-avatar-mini">
       <mat-icon>account_circle</mat-icon>
-    </div>
+    </span>
     <span class="user-name-text">{{ auth.currentUser()?.username || 'User' }}</span>
     <span class="user-role-badge cortex-mono">{{ auth.currentUser()?.roles?.[0] || 'user' }}</span>
     <mat-icon class="user-chevron">expand_more</mat-icon>
