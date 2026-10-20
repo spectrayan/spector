@@ -39,7 +39,7 @@ export class OnboardingTourService {
   readonly steps: TourStep[] = [
     {
       id: 'welcome',
-      title: 'Welcome to Cortex',
+      title: 'Welcome to Spector',
       description: 'Your cognitive memory engine\'s neural interface. Let\'s take a quick tour of the key features.',
       targetSelector: '.cortex-header',
       position: 'bottom',

@@ -112,7 +112,7 @@ public class FeatureFlagController {
                         "integration", false, featureFlags.connectorsEnabled(), false),
                 manifestEntry("benchmarksEnabled", "Performance benchmark endpoints",
                         "infrastructure", false, featureFlags.benchmarksEnabled(), false),
-                manifestEntry("advancedVisualizationsEnabled", "Cortex UI advanced visualization features",
+                manifestEntry("advancedVisualizationsEnabled", "Spector UI advanced visualization features",
                         "ui", true, featureFlags.advancedVisualizationsEnabled(), false),
                 manifestEntry("governanceEnabled", "Data governance and audit trail",
                         "platform", true, featureFlags.governanceEnabled(), false),

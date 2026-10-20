@@ -27,56 +27,56 @@ export const ADMIN_ROUTES: Routes = [
     path: 'overview',
     loadComponent: () =>
       import('./pages/admin-overview.component').then(m => m.AdminOverviewComponent),
-    title: 'Admin Overview — Spector Cortex',
+    title: 'Admin Overview — Spector Admin',
   },
   {
     path: 'tenants',
     canActivate: [roleGuard('super-admin')],
     loadComponent: () =>
       import('./pages/admin-tenants.component').then(m => m.AdminTenantsComponent),
-    title: 'Tenants — Spector Cortex Admin',
+    title: 'Tenants — Spector Admin',
   },
   {
     path: 'accounts',
     loadComponent: () =>
       import('./pages/admin-accounts.component').then(m => m.AdminAccountsComponent),
-    title: 'Accounts & Agents — Spector Cortex Admin',
+    title: 'Accounts & Agents — Spector Admin',
   },
   {
     path: 'namespaces',
     loadComponent: () =>
       import('./pages/admin-namespaces.component').then(m => m.AdminNamespacesComponent),
-    title: 'Namespaces — Spector Cortex Admin',
+    title: 'Namespaces — Spector Admin',
   },
   {
     path: 'analytics',
     loadComponent: () =>
       import('./pages/admin-analytics.component').then(m => m.AdminAnalyticsComponent),
-    title: 'Analytics — Spector Cortex Admin',
+    title: 'Analytics — Spector Admin',
   },
   {
     path: 'keys',
     loadComponent: () =>
       import('./pages/admin-keys.component').then(m => m.AdminKeysComponent),
-    title: 'Keys & Encryption — Spector Cortex Admin',
+    title: 'Keys & Encryption — Spector Admin',
   },
   {
     path: 'infra',
     loadComponent: () =>
       import('./pages/admin-infra.component').then(m => m.AdminInfraComponent),
-    title: 'Infrastructure — Spector Cortex Admin',
+    title: 'Infrastructure — Spector Admin',
   },
   {
     path: 'audit',
     loadComponent: () =>
       import('./pages/admin-audit.component').then(m => m.AdminAuditComponent),
-    title: 'Audit Log — Spector Cortex Admin',
+    title: 'Audit Log — Spector Admin',
   },
   {
     path: 'break-glass',
     loadComponent: () =>
       import('./pages/admin-break-glass.component').then(m => m.AdminBreakGlassComponent),
-    title: 'Break-Glass Access — Spector Cortex Admin',
+    title: 'Break-Glass Access — Spector Admin',
   },
 ];
 

@@ -4,19 +4,30 @@
 // SSE event payloads from the Spector node backend.
 // Maps to the Java SpectorEvent hierarchy in spector-node.
 
-/** Base interface for all cortex SSE events. */
+/** Base interface for all cortex/spector SSE events. */
 export interface CortexEvent {
   readonly eventType: string;
   readonly timestamp: number;
   readonly nodeId: string;
 }
 
+export type QueryTraceEventType = 'spector.query.trace' | 'cortex.query.trace';
+export type SimdLaneEventType = 'spector.simd.lane' | 'cortex.simd.lane';
+export type MemoryDiagnosticEventType = 'spector.memory.diagnostic' | 'cortex.memory.diagnostic';
+export type GraphPulseEventType = 'spector.graph.pulse' | 'cortex.graph.pulse';
+export type ReflectCycleEventType = 'spector.reflect.cycle' | 'cortex.reflect.cycle';
+export type MemorySnapshotEventType = 'spector.memory.snapshot' | 'cortex.memory.snapshot';
+export type GpuKernelEventType = 'spector.gpu.kernel' | 'cortex.gpu.kernel';
+export type ClusterTopologyEventType = 'spector.cluster.topology' | 'cortex.cluster.topology';
+export type EmbeddingProjectionEventType = 'spector.embedding.projection' | 'cortex.embedding.projection';
+export type MetricsTickEventType = 'spector.metrics.tick' | 'cortex.metrics.tick';
+
 /**
  * Query trace event — emitted after each recall pipeline execution.
  * Shows per-phase record survival counts for the scoring funnel.
  */
 export interface QueryTraceEvent extends CortexEvent {
-  readonly eventType: 'cortex.query.trace';
+  readonly eventType: QueryTraceEventType;
   readonly queryText: string;
   readonly cognitiveProfile: string;
   readonly synapticTagMask: number;
@@ -38,7 +49,7 @@ export interface QueryTraceEvent extends CortexEvent {
  * Reports which SIMD kernel was used, the lane width, vectors processed, and duration.
  */
 export interface SimdLaneEvent extends CortexEvent {
-  readonly eventType: 'cortex.simd.lane';
+  readonly eventType: SimdLaneEventType;
   readonly kernelName: string;
   readonly laneWidth: number;
   readonly vectorsProcessed: number;
@@ -51,7 +62,7 @@ export interface SimdLaneEvent extends CortexEvent {
  * Emitted every ~1s when dashboard is connected.
  */
 export interface MemoryDiagnosticEvent extends CortexEvent {
-  readonly eventType: 'cortex.memory.diagnostic';
+  readonly eventType: MemoryDiagnosticEventType;
   readonly offHeapBytes: number;
   readonly pinnedBytes: number;
   readonly jvmHeapUsed: number;
@@ -77,7 +88,7 @@ export interface MemoryDiagnosticEvent extends CortexEvent {
  * activation, temporal chain traversal, and entity BFS stats.
  */
 export interface GraphPulseEvent extends CortexEvent {
-  readonly eventType: 'cortex.graph.pulse';
+  readonly eventType: GraphPulseEventType;
   readonly nodesVisited: number;
   readonly edgesTraversed: number;
   readonly maxDepth: number;
@@ -88,7 +99,7 @@ export interface GraphPulseEvent extends CortexEvent {
  * Reflect cycle event — emitted after memory consolidation.
  */
 export interface ReflectCycleEvent extends CortexEvent {
-  readonly eventType: 'cortex.reflect.cycle';
+  readonly eventType: ReflectCycleEventType;
   readonly hebbianEdgesDecayed: number;
   readonly hebbianEdgesRemoved: number;
   readonly decayFactor: number;
@@ -100,7 +111,7 @@ export interface ReflectCycleEvent extends CortexEvent {
  * Used by the memory diff view to show before/after comparison.
  */
 export interface MemorySnapshotEvent extends CortexEvent {
-  readonly eventType: 'cortex.memory.snapshot';
+  readonly eventType: MemorySnapshotEventType;
   readonly phase: 'pre-reflect' | 'post-reflect';
   readonly reflectCycleId: string;
   readonly hebbianEdgeCount: number;
@@ -118,7 +129,7 @@ export interface MemorySnapshotEvent extends CortexEvent {
  * Used by the GPU timeline panel.
  */
 export interface GpuKernelEvent extends CortexEvent {
-  readonly eventType: 'cortex.gpu.kernel';
+  readonly eventType: GpuKernelEventType;
   readonly streamIndex: number;
   readonly kernelName: string;
   readonly durationMicros: number;
@@ -142,7 +153,7 @@ export interface ClusterNodeInfo {
  * Cluster topology event — emitted periodically with full cluster state.
  */
 export interface ClusterTopologyEvent extends CortexEvent {
-  readonly eventType: 'cortex.cluster.topology';
+  readonly eventType: ClusterTopologyEventType;
   readonly nodes: ClusterNodeInfo[];
   readonly replicationLinks: Array<[string, string]>;
 }
@@ -162,7 +173,7 @@ export interface ProjectedPointDto {
  * coordinates of stored vectors for the vector space panel.
  */
 export interface EmbeddingProjectionEvent extends CortexEvent {
-  readonly eventType: 'cortex.embedding.projection';
+  readonly eventType: EmbeddingProjectionEventType;
   readonly points: ProjectedPointDto[];
   readonly queryProjection: [number, number, number] | null;
 }
@@ -171,7 +182,7 @@ export interface EmbeddingProjectionEvent extends CortexEvent {
  * Live rolling ops/sec metrics tick event.
  */
 export interface MetricsTickEvent extends CortexEvent {
-  readonly eventType: 'cortex.metrics.tick';
+  readonly eventType: MetricsTickEventType;
   readonly recallRate: number;
   readonly rememberRate: number;
   readonly reinforceRate: number;

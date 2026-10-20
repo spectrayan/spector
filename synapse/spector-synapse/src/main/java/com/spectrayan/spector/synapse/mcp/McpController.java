@@ -158,7 +158,7 @@ public class McpController {
     @GetMapping("/info")
     public Map<String, Object> info() {
         return Map.of(
-                "name", "spector-synapse",
+                "name", "spector",
                 "version", "1.0.0",
                 "protocolVersion", "2024-11-05",
                 "capabilities", Map.of(

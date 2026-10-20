@@ -18,12 +18,12 @@ export const MEMORIES_ROUTES: Routes = [
     path: '',
     loadComponent: () =>
       import('./pages/memory-list/memory-table.component').then(m => m.MemoryTableComponent),
-    title: 'Memories — Spector Cortex',
+    title: 'Memories — Spector',
   },
   {
     path: ':id',
     loadComponent: () =>
       import('./pages/memory-detail/memory-detail.component').then(m => m.MemoryDetailComponent),
-    title: 'Memory Detail — Spector Cortex',
+    title: 'Memory Detail — Spector',
   },
 ];

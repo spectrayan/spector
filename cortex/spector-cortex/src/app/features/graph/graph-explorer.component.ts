@@ -557,7 +557,7 @@ export class GraphExplorerComponent implements AfterViewInit, OnDestroy {
     if (navigator.share && navigator.canShare?.({ files: [file] })) {
       try {
         await navigator.share({
-          title: '⬡ Spector Cortex — Neural Graph',
+          title: '⬡ Spector — Neural Graph',
           text: `${this.nodeCount()} nodes · ${this.edgeCount()} synapses — Cognitive memory graph`,
           files: [file],
         });
@@ -646,7 +646,7 @@ export class GraphExplorerComponent implements AfterViewInit, OnDestroy {
       ctx.textAlign = 'right';
       ctx.textBaseline = 'bottom';
 
-      const watermarkText = '⬡ SPECTOR CORTEX';
+      const watermarkText = '⬡ SPECTOR';
       const textMetrics = ctx.measureText(watermarkText);
       const pillW = textMetrics.width + padding * 2;
       const pillH = fontSize * 2;
@@ -968,12 +968,12 @@ export class GraphExplorerComponent implements AfterViewInit, OnDestroy {
 
           // Stage 5: Edge cascade (1000ms)
           this.queryAnimationTimer = setTimeout(() => {
-            this.queryAnimationStage.set('SYNAPSE CASCADE');
+            this.queryAnimationStage.set('HEBBIAN CASCADE');
             this.queryAnimationProgress.set(0.95);
             // Fire particles along edges connecting matched nodes
             const matchedEdges = this.edges.filter(e => matchedIds.has(e.from) && matchedIds.has(e.to));
             this.fireBurst(Math.min(matchedEdges.length * 3 + 5, 30));
-            this.pushDebugLine('QRY', `Animation: Synapse cascade — ${matchedEdges.length} edges activated`);
+            this.pushDebugLine('QRY', `Animation: Hebbian cascade — ${matchedEdges.length} edges activated`);
 
             // Complete (1500ms)
             this.queryAnimationTimer = setTimeout(() => {

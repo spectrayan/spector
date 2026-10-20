@@ -174,7 +174,7 @@ describe('Admin Keys & Encryption Page (#1073)', () => {
           revokedNamespaceDekCount: 4,
           evictedCachedDeks: 4,
           evictedMemoryInstances: 2,
-          reason: 'Emergency administrative crypto-shred via Cortex Admin Console',
+          reason: 'Emergency administrative crypto-shred via Spector Admin Console',
           revokedAt: '2026-10-19T16:30:00Z',
         })
       ),
@@ -358,7 +358,7 @@ describe('Admin Keys & Encryption Page (#1073)', () => {
     comp.executeConfirmedAction();
     fixture.detectChanges();
     expect(apiMock['revokeTenantKey']).toHaveBeenCalledWith('acme', {
-      reason: 'Emergency administrative crypto-shred via Cortex Admin Console',
+      reason: 'Emergency administrative crypto-shred via Spector Admin Console',
     });
   });
 

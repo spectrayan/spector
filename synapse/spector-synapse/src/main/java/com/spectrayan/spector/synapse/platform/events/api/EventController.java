@@ -47,24 +47,32 @@ public class EventController {
     /**
      * Establishes the real-time event stream connection.
      *
-     * @param filter optional comma-separated event types to filter by (e.g. "cortex,ingestion")
+     * @param topic optional topic name (defaults to "spector", accepts "cortex" as legacy alias)
+     * @param filter optional comma-separated event types to filter by (e.g. "spector,cortex,ingestion")
      * @return a Flux streaming ServerSentEvent notifications
      */
     @GetMapping(value = "/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<ServerSentEvent<Object>> events(@RequestParam(required = false, defaultValue = "") String filter) {
-        log.debug("📡 SSE connection request received: filter='{}'", filter);
-        if (filter == null || filter.isBlank()) {
-            return sseEmitter.connect("cortex");
+    public Flux<ServerSentEvent<Object>> events(
+            @RequestParam(name = "topic", required = false, defaultValue = "spector") String topic,
+            @RequestParam(name = "filter", required = false, defaultValue = "") String filter) {
+        log.debug("📡 SSE connection request received: topic='{}', filter='{}'", topic, filter);
+
+        if (filter != null && !filter.isBlank()) {
+            String[] topics = filter.split(",");
+            Flux<ServerSentEvent<Object>> mergedFlux = Flux.empty();
+            for (String t : topics) {
+                String cleanTopic = t.trim();
+                if (!cleanTopic.isEmpty()) {
+                    mergedFlux = Flux.merge(mergedFlux, sseEmitter.connect(cleanTopic));
+                }
+            }
+            return mergedFlux;
         }
 
-        String[] topics = filter.split(",");
-        Flux<ServerSentEvent<Object>> mergedFlux = Flux.empty();
-        for (String topic : topics) {
-            String cleanTopic = topic.trim();
-            if (!cleanTopic.isEmpty()) {
-                mergedFlux = Flux.merge(mergedFlux, sseEmitter.connect(cleanTopic));
-            }
+        String effectiveTopic = (topic != null && !topic.isBlank()) ? topic.trim() : "spector";
+        if ("spector".equalsIgnoreCase(effectiveTopic) || "cortex".equalsIgnoreCase(effectiveTopic)) {
+            return Flux.merge(sseEmitter.connect("spector"), sseEmitter.connect("cortex"));
         }
-        return mergedFlux;
+        return sseEmitter.connect(effectiveTopic);
     }
 }

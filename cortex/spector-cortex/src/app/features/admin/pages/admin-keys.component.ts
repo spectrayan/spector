@@ -1166,7 +1166,7 @@ export class AdminKeysComponent implements OnInit {
         this.loading.set(true);
         this.api
           .revokeTenantKey(tid, {
-            reason: 'Emergency administrative crypto-shred via Cortex Admin Console',
+            reason: 'Emergency administrative crypto-shred via Spector Admin Console',
           })
           .subscribe({
             next: (res) => {
