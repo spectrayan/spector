@@ -135,6 +135,27 @@ public final class AuthDto {
     ) {}
 
     /**
+     * Public self-registration request body for creating a new user account.
+     *
+     * @param username    unique login handle (1–64 characters)
+     * @param password    plaintext password (8–128 characters)
+     * @param email       optional contact email
+     * @param displayName optional human-readable display name
+     */
+    public record SignupRequest(
+            @NotBlank(message = "username is required")
+            @Size(min = 1, max = 64, message = "username length must be between 1 and 64 characters")
+            @JsonProperty("username") String username,
+
+            @NotBlank(message = "password is required")
+            @Size(min = 8, max = 128, message = "password length must be between 8 and 128 characters")
+            @JsonProperty("password") String password,
+
+            @JsonProperty("email") String email,
+            @JsonProperty("display_name") String displayName
+    ) {}
+
+    /**
      * Change-password request body for the authenticated user (Requirements 12.2, 12.8).
      *
      * @param currentPassword the caller's current password (verified before any change)

@@ -28,6 +28,12 @@ export const routes: Routes = [
     title: 'Sign In — Spector Cortex',
   },
   {
+    path: 'register',
+    loadComponent: () =>
+      import('./features/auth/login.component').then((m) => m.LoginComponent),
+    title: 'Create Account — Spector Cortex',
+  },
+  {
     path: '',
     component: ShellComponent,
     canActivate: [authGuard],

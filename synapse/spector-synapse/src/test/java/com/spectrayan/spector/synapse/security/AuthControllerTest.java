@@ -309,6 +309,52 @@ class AuthControllerTest {
         assertThat(((RegisterResponse) response.getBody()).userId()).isEqualTo("USER0000000CD");
     }
 
+    // ── signup (public self-registration) ──
+
+    @Test
+    void signupNullBodyReturns400() {
+        ResponseEntity<?> response = controller.signup(null);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verifyNoInteractions(userAccountStore);
+    }
+
+    @Test
+    void signupShortPasswordReturns400() {
+        ResponseEntity<?> response = controller.signup(
+                new AuthDto.SignupRequest("newuser", "short", null, null));
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verifyNoInteractions(userAccountStore);
+    }
+
+    @Test
+    void signupDuplicateUsernameReturns409() {
+        when(userAccountStore.createUser(eq("newuser"), anyString(), any(), any(), any(), any(), eq(false), eq("default")))
+                .thenThrow(new DuplicateUsernameException("newuser"));
+        ResponseEntity<?> response = controller.signup(
+                new AuthDto.SignupRequest("newuser", "password123", null, null));
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+    }
+
+    @Test
+    void signupSuccessReturns201AndTokens() {
+        when(userAccountStore.createUser(eq("newuser"), eq("password123"), eq("new@example.com"), eq("New User"), any(), any(), eq(false), eq("default")))
+                .thenReturn("USER0000000EF");
+        when(tokenMinter.mint(eq("USER0000000EF"), any(), any(), eq("default")))
+                .thenReturn(sampleAccess());
+        when(refreshTokenStore.create(eq("USER0000000EF"), any()))
+                .thenReturn("signup-refresh-token");
+
+        ResponseEntity<?> response = controller.signup(
+                new AuthDto.SignupRequest("newuser", "password123", "new@example.com", "New User"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        LoginResponse body = (LoginResponse) response.getBody();
+        assertThat(body).isNotNull();
+        assertThat(body.accessToken()).isEqualTo("access.jwt.token");
+        assertThat(body.refreshToken()).isEqualTo("signup-refresh-token");
+        assertThat(body.tokenType()).isEqualTo("Bearer");
+    }
+
     // ── change-password ──
 
     @Test

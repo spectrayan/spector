@@ -62,6 +62,15 @@ export class LoginComponent implements OnInit {
     password: ['', [Validators.required, Validators.maxLength(128)]],
   });
 
+  readonly registerForm: FormGroup = this.fb.group({
+    username: ['', [Validators.required, Validators.maxLength(64)]],
+    displayName: ['', [Validators.maxLength(128)]],
+    email: ['', [Validators.email, Validators.maxLength(255)]],
+    password: ['', [Validators.required, Validators.minLength(8), Validators.maxLength(128)]],
+    confirmPassword: ['', [Validators.required]],
+  });
+
+  readonly isRegisterMode = signal(false);
   readonly loading = signal(false);
   readonly errorMessage = signal<string | null>(null);
   readonly hidePassword = signal(true);
@@ -70,10 +79,25 @@ export class LoginComponent implements OnInit {
     if (this.auth.isAuthenticated()) {
       const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/dashboard';
       this.router.navigateByUrl(returnUrl);
+      return;
+    }
+    const mode = this.route.snapshot.queryParams['mode'];
+    if (mode === 'register' || this.router.url?.startsWith('/register')) {
+      this.isRegisterMode.set(true);
     }
   }
 
+  toggleMode(): void {
+    this.isRegisterMode.set(!this.isRegisterMode());
+    this.errorMessage.set(null);
+  }
+
   async onSubmit(): Promise<void> {
+    if (this.isRegisterMode()) {
+      await this.onSubmitRegister();
+      return;
+    }
+
     if (this.loginForm.invalid || this.loading()) {
       return;
     }
@@ -94,6 +118,42 @@ export class LoginComponent implements OnInit {
         this.errorMessage.set(err.error.message);
       } else {
         this.errorMessage.set('Authentication failed. Please verify connection to Synapse.');
+      }
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  async onSubmitRegister(): Promise<void> {
+    if (this.registerForm.invalid || this.loading()) {
+      return;
+    }
+
+    const { username, displayName, email, password, confirmPassword } = this.registerForm.value;
+    if (password !== confirmPassword) {
+      this.errorMessage.set('Passwords do not match');
+      return;
+    }
+
+    this.loading.set(true);
+    this.errorMessage.set(null);
+
+    try {
+      await this.auth.signup(
+        username.trim(),
+        password,
+        email?.trim() || undefined,
+        displayName?.trim() || undefined
+      );
+      const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/dashboard';
+      await this.router.navigateByUrl(returnUrl);
+    } catch (err: any) {
+      if (err?.status === 409) {
+        this.errorMessage.set('Username is already in use');
+      } else if (err?.error?.message) {
+        this.errorMessage.set(err.error.message);
+      } else {
+        this.errorMessage.set('Account creation failed. Please verify connection to Synapse.');
       }
     } finally {
       this.loading.set(false);

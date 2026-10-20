@@ -148,6 +148,37 @@
   }
 }
 
+.auth-mode-switch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--cortex-hud-border, rgba(200, 210, 230, 0.12));
+
+  .switch-prompt {
+    font-size: 0.85rem;
+    color: var(--cortex-text-muted, rgba(200, 210, 230, 0.75));
+  }
+
+  .switch-link-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    color: #a78bfa;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color 0.15s ease;
+
+    &:hover {
+      color: #c4b5fd;
+      text-decoration: underline;
+    }
+  }
+}
+
 .sso-divider {
   display: flex;
   align-items: center;

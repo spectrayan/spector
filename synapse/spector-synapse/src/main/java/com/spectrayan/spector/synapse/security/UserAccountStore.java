@@ -364,7 +364,7 @@ public class UserAccountStore {
         }
         try {
             createUser(DEFAULT_ADMIN_USERNAME, defaultPassword, "admin@localhost", "Administrator",
-                    Set.of(SpectorRoles.ADMIN, "ADMIN"), SpectorRoles.ADMIN_SCOPES, true);
+                    Set.of(SpectorRoles.SUPER_ADMIN, SpectorRoles.ADMIN, "ADMIN"), SpectorRoles.SUPER_ADMIN_SCOPES, true, "default");
             log.info("Seeded default admin account (must change password on first login)");
         } catch (DuplicateUsernameException e) {
             // Concurrent seed on another node/thread already created it — idempotent success.

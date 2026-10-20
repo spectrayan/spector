@@ -89,18 +89,20 @@ export interface RegisterResponse {
 /** Decoded JWT payload */
 export interface JwtPayload {
   sub: string;          // user TSID (routing, isolation)
-  tenant_id: string;    // tenant TSID
-  username: string;     // login handle (display only)
-  scope: string;
-  roles: string;
+  tenant_id?: string;   // tenant TSID
+  tid?: string;         // alternate tenant claim
+  username?: string;    // login handle (display only)
+  scope?: string | string[];
+  roles?: string | string[];
   jti: string;
   iat: number;
   exp: number;
-  mcp: boolean; // must change password
+  mcp?: boolean; // must change password
 }
 
 const ACCESS_TOKEN_KEY = 'spector_access_token';
 const REFRESH_TOKEN_KEY = 'spector_refresh_token';
+const USERNAME_KEY = 'spector_username';
 const AUTH_API = `${environment.apiUrl}/auth`;
 
 /** Buffer before actual expiry to trigger refresh (60 seconds). */
@@ -137,12 +139,27 @@ export class AuthService {
     if (!t) return null;
     const payload = this.decodeToken(t);
     if (!payload) return null;
+    const rawRoles = payload.roles;
+    const roles = Array.isArray(rawRoles)
+      ? rawRoles
+      : typeof rawRoles === 'string' && rawRoles.length > 0
+        ? rawRoles.split(',')
+        : [];
+    const rawScope = payload.scope;
+    const scopes = Array.isArray(rawScope)
+      ? rawScope
+      : typeof rawScope === 'string' && rawScope.length > 0
+        ? rawScope.split(' ')
+        : [];
+    const storedUsername = isPlatformBrowser(this.platformId)
+      ? localStorage.getItem(USERNAME_KEY)
+      : null;
     return {
       userId: payload.sub,             // TSID (routing)
-      username: payload.username,       // login handle (display)
-      tenantId: payload.tenant_id,     // TSID
-      roles: payload.roles?.split(',') ?? [],
-      scopes: payload.scope?.split(' ') ?? [],
+      username: payload.username || storedUsername || payload.sub, // login handle (display)
+      tenantId: payload.tenant_id || payload.tid || 'default',     // TSID
+      roles,
+      scopes,
     };
   });
 
@@ -277,6 +294,40 @@ export class AuthService {
     if (isPlatformBrowser(this.platformId)) {
       if (accessToken) localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
       if (refreshToken) localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+      if (username) localStorage.setItem(USERNAME_KEY, username.trim());
+    }
+
+    if (accessToken) {
+      this.scheduleRefresh(accessToken);
+    }
+    return response;
+  }
+
+  /**
+   * Public self-registration ("Create New Account") that creates a new account
+   * and immediately signs in the user with the issued JWT tokens.
+   */
+  async signup(username: string, password: string, email?: string,
+               displayName?: string): Promise<LoginResponse> {
+    const response = await firstValueFrom(
+      this.http.post<LoginResponse>(`${AUTH_API}/signup`, {
+        username,
+        password,
+        email: email || undefined,
+        display_name: displayName || undefined,
+      })
+    );
+
+    const accessToken = response.accessToken || response.access_token || '';
+    const refreshToken = response.refreshToken || response.refresh_token || '';
+
+    this.token.set(accessToken);
+    this.mustChangePassword.set(false);
+
+    if (isPlatformBrowser(this.platformId)) {
+      if (accessToken) localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+      if (refreshToken) localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+      if (username) localStorage.setItem(USERNAME_KEY, username.trim());
     }
 
     if (accessToken) {
@@ -466,6 +517,7 @@ export class AuthService {
     if (isPlatformBrowser(this.platformId)) {
       localStorage.removeItem(ACCESS_TOKEN_KEY);
       localStorage.removeItem(REFRESH_TOKEN_KEY);
+      localStorage.removeItem(USERNAME_KEY);
     }
   }
 
