@@ -39,6 +39,7 @@ export class ProfileRadarComponent implements AfterViewInit, OnDestroy {
 
   private ctx!: CanvasRenderingContext2D;
   private animationId = 0;
+  private resizeObserver?: ResizeObserver;
   private currentValues: number[] = new Array(AXES.length).fill(0);
   private targetValues: number[] = new Array(AXES.length).fill(0);
 
@@ -52,7 +53,9 @@ export class ProfileRadarComponent implements AfterViewInit, OnDestroy {
     // React to profile changes — must be in constructor for injection context
     effect(() => {
       const profile = this.state.activeProfile();
+      this.themeService.isDark();
       this.updateTargets(profile);
+      this.scheduleAnimate();
     });
   }
 
@@ -62,25 +65,36 @@ export class ProfileRadarComponent implements AfterViewInit, OnDestroy {
     const canvas = this.canvasRef.nativeElement;
     this.ctx = canvas.getContext('2d')!;
     this.resizeCanvas();
-    this.animate();
+    this.scheduleAnimate();
 
-    const observer = new ResizeObserver(() => this.resizeCanvas());
-    observer.observe(canvas.parentElement!);
+    this.resizeObserver = new ResizeObserver(() => this.resizeCanvas());
+    this.resizeObserver.observe(canvas.parentElement!);
   }
 
   ngOnDestroy(): void {
     cancelAnimationFrame(this.animationId);
+    this.resizeObserver?.disconnect();
+  }
+
+  private scheduleAnimate(): void {
+    if (!this.ctx) return;
+    cancelAnimationFrame(this.animationId);
+    this.animationId = requestAnimationFrame(() => this.animate());
   }
 
   private resizeCanvas(): void {
-    const parent = this.canvasRef.nativeElement.parentElement!;
+    const parent = this.canvasRef.nativeElement.parentElement;
+    if (!parent) return;
     const canvas = this.canvasRef.nativeElement;
     const w = parent.clientWidth || 250;
     const h = parent.clientHeight || 250;
-    const size = Math.min(w, h, 400);
+    const size = Math.min(w, h, 220);
     if (size < 10) return; // Skip if not yet laid out
-    canvas.width = size;
-    canvas.height = size;
+    if (Math.abs(canvas.width - size) > 1 || Math.abs(canvas.height - size) > 1) {
+      canvas.width = size;
+      canvas.height = size;
+      this.scheduleAnimate();
+    }
 
     // Initialize dot at center so it doesn't start at 0,0
     if (this.dotX === 0 && this.dotY === 0) {
@@ -112,8 +126,7 @@ export class ProfileRadarComponent implements AfterViewInit, OnDestroy {
   }
 
   private animate(): void {
-    this.animationId = requestAnimationFrame(() => this.animate());
-
+    if (!this.ctx) return;
     const canvas = this.canvasRef.nativeElement;
     const ctx = this.ctx;
     const w = canvas.width;
@@ -125,8 +138,11 @@ export class ProfileRadarComponent implements AfterViewInit, OnDestroy {
     ctx.clearRect(0, 0, w, h);
 
     // Lerp values
+    let maxDelta = 0;
     for (let i = 0; i < AXES.length; i++) {
-      this.currentValues[i] += (this.targetValues[i] - this.currentValues[i]) * 0.08;
+      const delta = this.targetValues[i] - this.currentValues[i];
+      maxDelta = Math.max(maxDelta, Math.abs(delta));
+      this.currentValues[i] += delta * 0.14;
     }
 
     // Theme-aligned hex colors for canvas compatibility
@@ -254,8 +270,13 @@ export class ProfileRadarComponent implements AfterViewInit, OnDestroy {
     }
 
     // Lerp dot position — 0.15 for fast visible movement
-    this.dotX += (this.targetDotX - this.dotX) * 0.15;
-    this.dotY += (this.targetDotY - this.dotY) * 0.15;
+    const dotDx = this.targetDotX - this.dotX;
+    const dotDy = this.targetDotY - this.dotY;
+    this.dotX += dotDx * 0.15;
+    this.dotY += dotDy * 0.15;
+    if (maxDelta > 0.002 || Math.hypot(dotDx, dotDy) > 0.5) {
+      this.animationId = requestAnimationFrame(() => this.animate());
+    }
 
     // Draw trail line from center to dot position
     const distFromCenter = Math.sqrt((this.dotX - cx) ** 2 + (this.dotY - cy) ** 2);

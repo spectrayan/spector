@@ -15,8 +15,8 @@ html[data-theme='dark'] {
   // Backgrounds (Obsidian-Navy Glass Palette)
   --bg-void: #030712; // Deepest obsidian-navy canvas
   --bg-surface: #050a18; // Header, rail, and container base
-  --bg-card: rgba(8, 15, 32, 0.65); // Translucent glass card surface
-  --bg-elevated: rgba(15, 23, 42, 0.78); // Popovers, tooltips, and elevated modals
+  --bg-card: rgba(8, 15, 32, 0.94); // High-density obsidian-navy card surface
+  --bg-elevated: rgba(15, 23, 42, 0.96); // Popovers, tooltips, and elevated modals
   --bg-hover: rgba(255, 255, 255, 0.05); // Interactive hover surface
   --bg-active: rgba(10, 133, 255, 0.15); // Active selection surface
 
@@ -547,19 +547,31 @@ dialog[open],
 // Drop-in classes for entrance animations.
 .animate-in {
   animation: fade-in-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 }
 
 .animate-scale {
   animation: scale-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 }
 
 .animate-slide-left {
   animation: slide-in-left 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 }
 
 // Staggered grid entrance — add data-index="0", "1", etc. or use CSS nth-child.
 .stagger-children > * {
   animation: fade-in-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 
   @for $i from 1 through 12 {
     &:nth-child(#{$i}) {
@@ -798,8 +810,6 @@ textarea {
 .mat-mdc-card,
 .mat-mdc-card[appearance='outlined'] {
   background: var(--bg-card) !important;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border-subtle) !important;
   border-radius: 12px !important;
   color: var(--foreground) !important;

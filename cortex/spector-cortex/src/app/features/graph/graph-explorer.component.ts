@@ -25,6 +25,7 @@ import {
   AfterViewInit,
   OnDestroy,
   PLATFORM_ID,
+  NgZone,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
@@ -85,6 +86,7 @@ export class GraphExplorerComponent implements AfterViewInit, OnDestroy {
   private canvasContainer!: ElementRef<HTMLDivElement>;
 
   private readonly platformId = inject(PLATFORM_ID);
+  private readonly ngZone = inject(NgZone);
   private readonly memoryService = inject(MemoryTableService);
   private readonly state = inject(CortexStateService);
   private readonly log = inject(LoggerService);
@@ -92,6 +94,9 @@ export class GraphExplorerComponent implements AfterViewInit, OnDestroy {
   private scene!: THREE.Scene;
   private camera!: THREE.PerspectiveCamera;
   private renderer!: THREE.WebGLRenderer;
+  private resizeObserver?: ResizeObserver;
+  private lastW = 0;
+  private lastH = 0;
   private animationId = 0;
   private nodes: ExplorerNode[] = [];
   private edges: ExplorerEdge[] = [];
@@ -352,11 +357,12 @@ export class GraphExplorerComponent implements AfterViewInit, OnDestroy {
     this.initScene();
     this.createParticleTextures();
     this.loadGraphData();
-    this.animate();
+    this.ngZone.runOutsideAngular(() => this.animate());
   }
 
   ngOnDestroy(): void {
     cancelAnimationFrame(this.animationId);
+    this.resizeObserver?.disconnect();
     this.renderer?.dispose();
     if (this.saveTimer) clearTimeout(this.saveTimer);
   }
@@ -1301,14 +1307,18 @@ export class GraphExplorerComponent implements AfterViewInit, OnDestroy {
 
     this.scene = this.activeStrategy.initScene(container, this.camera);
 
-    const observer = new ResizeObserver(() => {
-      const w = container.clientWidth;
-      const h = container.clientHeight;
-      this.camera.aspect = w / h;
-      this.camera.updateProjectionMatrix();
-      this.renderer.setSize(w, h);
+    this.resizeObserver = new ResizeObserver(() => {
+      const w = Math.max(1, container.clientWidth);
+      const h = Math.max(1, container.clientHeight);
+      if (Math.abs(w - this.lastW) > 1 || Math.abs(h - this.lastH) > 1) {
+        this.lastW = w;
+        this.lastH = h;
+        this.camera.aspect = w / h;
+        this.camera.updateProjectionMatrix();
+        this.renderer.setSize(w, h);
+      }
     });
-    observer.observe(container);
+    this.resizeObserver.observe(container);
   }
 
 

@@ -29,6 +29,7 @@ export class SimdPanelComponent implements AfterViewInit, OnDestroy {
 
   private ctx!: CanvasRenderingContext2D;
   private animationId = 0;
+  private resizeObserver?: ResizeObserver;
   private laneIntensities: number[] = new Array(16).fill(0);
   private targetIntensities: number[] = new Array(16).fill(0);
   private laneUtilization: number[] = new Array(16).fill(0); // per-lane vector count ratio
@@ -38,9 +39,11 @@ export class SimdPanelComponent implements AfterViewInit, OnDestroy {
     // React to SIMD events — must be in constructor for injection context
     effect(() => {
       const simd = this.state.simdState();
+      this.themeService.isDark();
       if (simd) {
         this.updateLanes(simd.laneWidth, simd.vectorsProcessed, simd.durationMicros);
       }
+      this.scheduleAnimate();
     });
   }
 
@@ -51,21 +54,34 @@ export class SimdPanelComponent implements AfterViewInit, OnDestroy {
     this.ctx = canvas.getContext('2d')!;
 
     this.resizeCanvas();
-    this.animate();
+    this.scheduleAnimate();
 
-    const observer = new ResizeObserver(() => this.resizeCanvas());
-    observer.observe(canvas.parentElement!);
+    this.resizeObserver = new ResizeObserver(() => this.resizeCanvas());
+    this.resizeObserver.observe(canvas.parentElement!);
   }
 
   ngOnDestroy(): void {
     cancelAnimationFrame(this.animationId);
+    this.resizeObserver?.disconnect();
+  }
+
+  private scheduleAnimate(): void {
+    if (!this.ctx) return;
+    cancelAnimationFrame(this.animationId);
+    this.animationId = requestAnimationFrame(() => this.animate());
   }
 
   private resizeCanvas(): void {
-    const parent = this.canvasRef.nativeElement.parentElement!;
+    const parent = this.canvasRef.nativeElement.parentElement;
+    if (!parent) return;
     const canvas = this.canvasRef.nativeElement;
-    canvas.width = parent.clientWidth;
-    canvas.height = Math.min(parent.clientHeight, 160);
+    const w = Math.max(0, parent.clientWidth);
+    const h = Math.max(0, Math.min(parent.clientHeight, 160));
+    if (Math.abs(canvas.width - w) > 1 || Math.abs(canvas.height - h) > 1) {
+      canvas.width = w;
+      canvas.height = h;
+      this.scheduleAnimate();
+    }
   }
 
   private updateLanes(laneWidth: number, vectorsProcessed: number, durationMicros: number): void {
@@ -94,7 +110,7 @@ export class SimdPanelComponent implements AfterViewInit, OnDestroy {
   private frameCount = 0;
 
   private animate(): void {
-    this.animationId = requestAnimationFrame(() => this.animate());
+    if (!this.ctx) return;
     this.frameCount++;
 
     const canvas = this.canvasRef.nativeElement;
@@ -108,7 +124,6 @@ export class SimdPanelComponent implements AfterViewInit, OnDestroy {
     // Use theme-aligned hex colors for canvas rendering
     const primaryHex = this.themeService.getCanvasColor('--primary', '#0a85ff');
     const secondaryHex = this.themeService.getCanvasColor('--accent-cyan', '#22d3ee');
-    const tertiaryHex = this.themeService.getCanvasColor('--tier-procedural', '#10b981');
     const surfaceHex = this.themeService.getCanvasColor('--bg-surface', '#050a18');
     const outlineHex = this.themeService.getCanvasColor('--border-subtle', '#1d283a');
     const labelHex = this.themeService.getCanvasColor('--foreground-muted', '#7f8ea3');
@@ -118,10 +133,15 @@ export class SimdPanelComponent implements AfterViewInit, OnDestroy {
     const laneHeight = h - 40;
     const startX = (w - (laneW + 4) * laneCount) / 2;
 
+    let isActive = false;
+
     for (let i = 0; i < laneCount; i++) {
       // Lerp intensity and utilization toward targets
       this.laneIntensities[i] += (this.targetIntensities[i] - this.laneIntensities[i]) * 0.15;
       this.laneUtilization[i] += (this.targetUtilization[i] - this.laneUtilization[i]) * 0.12;
+      if (this.laneIntensities[i] > 0.01 || this.laneUtilization[i] > 0.01) {
+        isActive = true;
+      }
 
       // Guarantee minimum visible fill (20%) so user always sees something
       const intensity = Math.max(0.2, this.laneIntensities[i]);
@@ -136,7 +156,7 @@ export class SimdPanelComponent implements AfterViewInit, OnDestroy {
       ctx.roundRect(x, y, laneW, laneHeight, 4);
       ctx.fill();
 
-      // ── Utilization fill (how full/how many vectors) ── orange/warm
+      // ── Utilization fill (how full/how many vectors) ──
       const utilHeight = laneHeight * util;
       const utilY = y + laneHeight - utilHeight;
       ctx.fillStyle = secondaryHex;
@@ -146,7 +166,7 @@ export class SimdPanelComponent implements AfterViewInit, OnDestroy {
       ctx.fill();
       ctx.globalAlpha = 1;
 
-      // ── Intensity fill (throughput speed) ── purple/cool, overlaid
+      // ── Intensity fill (throughput speed) ──
       const fillHeight = laneHeight * intensity;
       const fillY = y + laneHeight - fillHeight;
       ctx.fillStyle = primaryHex;
@@ -154,19 +174,6 @@ export class SimdPanelComponent implements AfterViewInit, OnDestroy {
       ctx.beginPath();
       ctx.roundRect(x, fillY, laneW, fillHeight, [0, 0, 4, 4]);
       ctx.fill();
-
-      // Glow for hot lanes
-      if (intensity > 0.5) {
-        ctx.shadowColor = primaryHex;
-        ctx.shadowBlur = 10 * intensity;
-        ctx.fillStyle = primaryHex;
-        ctx.globalAlpha = intensity * 0.15;
-        ctx.beginPath();
-        ctx.roundRect(x, fillY, laneW, fillHeight, [0, 0, 4, 4]);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-      }
-
       ctx.globalAlpha = 1;
 
       // ── Border ──
@@ -185,8 +192,12 @@ export class SimdPanelComponent implements AfterViewInit, OnDestroy {
 
     // Slowly decay targets
     for (let i = 0; i < 16; i++) {
-      this.targetIntensities[i] *= 0.992;
-      this.targetUtilization[i] *= 0.996;
+      this.targetIntensities[i] *= 0.96;
+      this.targetUtilization[i] *= 0.97;
+    }
+
+    if (isActive) {
+      this.animationId = requestAnimationFrame(() => this.animate());
     }
   }
 }
