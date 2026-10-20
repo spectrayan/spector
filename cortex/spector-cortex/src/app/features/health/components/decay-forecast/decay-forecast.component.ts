@@ -52,10 +52,10 @@ const TIER_STABILITY: Record<string, number> = {
 
 /** Tier labels and their display colors. */
 const TIER_CONFIG = [
-  { key: 'WORKING', label: 'Working', color: '#c084fc', fillColor: 'rgba(192, 132, 252, 0.4)' },
-  { key: 'EPISODIC', label: 'Episodic', color: '#2dd4bf', fillColor: 'rgba(45, 212, 191, 0.4)' },
-  { key: 'SEMANTIC', label: 'Semantic', color: '#818cf8', fillColor: 'rgba(129, 140, 248, 0.4)' },
-  { key: 'PROCEDURAL', label: 'Procedural', color: '#f87171', fillColor: 'rgba(248, 113, 113, 0.4)' },
+  { key: 'WORKING', label: 'Working', color: '#60a5fa', fillColor: 'rgba(96, 165, 250, 0.35)' },
+  { key: 'EPISODIC', label: 'Episodic', color: '#a78bfa', fillColor: 'rgba(167, 139, 250, 0.35)' },
+  { key: 'SEMANTIC', label: 'Semantic', color: '#0a85ff', fillColor: 'rgba(10, 133, 255, 0.35)' },
+  { key: 'PROCEDURAL', label: 'Procedural', color: '#10b981', fillColor: 'rgba(16, 185, 129, 0.35)' },
 ];
 
 /** Time horizons for the forecast projection. */

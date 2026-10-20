@@ -348,7 +348,7 @@ import { CortexSnackbarService } from '../../shared/services/cortex-snackbar.ser
 
     .field-group input,
     .field-group textarea {
-      background: var(--bg-void, #0b0e14);
+      background: var(--bg-void);
       border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
       border-radius: 8px;
       padding: 8px 11px;

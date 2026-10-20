@@ -43,36 +43,54 @@ export class ClusterViewComponent implements AfterViewInit, OnDestroy {
 
   private ctx!: CanvasRenderingContext2D;
   private animationId = 0;
+  private resizeObserver?: ResizeObserver;
   private nodePositions: NodePosition[] = [];
   private lastTime = 0;
 
   constructor() {
     effect(() => {
       const nodes = this.state.clusterNodes();
-      if (this.ctx) this.updateNodePositions(nodes);
+      this.themeService.isDark();
+      if (this.ctx) {
+        this.updateNodePositions(nodes);
+        this.scheduleDraw();
+      }
     });
   }
 
   ngAfterViewInit(): void {
     if (!isPlatformBrowser(this.platformId)) return;
     this.ctx = this.canvasRef.nativeElement.getContext('2d')!;
-    const observer = new ResizeObserver(() => this.resizeCanvas());
-    observer.observe(this.canvasRef.nativeElement.parentElement!);
+    this.resizeObserver = new ResizeObserver(() => this.resizeCanvas());
+    this.resizeObserver.observe(this.canvasRef.nativeElement.parentElement!);
     this.resizeCanvas();
-    this.draw();
+    this.scheduleDraw();
   }
 
   ngOnDestroy(): void {
     cancelAnimationFrame(this.animationId);
+    this.resizeObserver?.disconnect();
+  }
+
+  private scheduleDraw(): void {
+    if (!this.ctx) return;
+    cancelAnimationFrame(this.animationId);
+    this.animationId = requestAnimationFrame(() => this.draw());
   }
 
   private resizeCanvas(): void {
-    const parent = this.canvasRef.nativeElement.parentElement!;
-    this.canvasRef.nativeElement.width = parent.clientWidth;
-    this.canvasRef.nativeElement.height = parent.clientHeight;
-    // Recalculate positions
-    const nodes = this.state.clusterNodes();
-    if (nodes.length > 0) this.updateNodePositions(nodes);
+    const parent = this.canvasRef.nativeElement.parentElement;
+    if (!parent) return;
+    const canvas = this.canvasRef.nativeElement;
+    const w = Math.max(0, parent.clientWidth);
+    const h = Math.max(0, Math.min(parent.clientHeight, 360));
+    if (Math.abs(canvas.width - w) > 1 || Math.abs(canvas.height - h) > 1) {
+      canvas.width = w;
+      canvas.height = h;
+      const nodes = this.state.clusterNodes();
+      if (nodes.length > 0) this.updateNodePositions(nodes);
+      this.scheduleDraw();
+    }
   }
 
   private updateNodePositions(nodes: ClusterNodeInfo[]): void {
@@ -96,7 +114,7 @@ export class ClusterViewComponent implements AfterViewInit, OnDestroy {
   }
 
   private draw(): void {
-    this.animationId = requestAnimationFrame(() => this.draw());
+    if (!this.ctx) return;
     const now = performance.now();
     const dt = (now - this.lastTime) / 1000;
     this.lastTime = now;
@@ -112,9 +130,11 @@ export class ClusterViewComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
-    const primary = this.themeService.getCanvasColor('--mat-sys-primary', '#bb86fc');
-    const onSurface = this.themeService.getCanvasColor('--mat-sys-on-surface-variant', '#aaa');
-    const outline = this.themeService.getCanvasColor('--mat-sys-outline-variant', '#555');
+    this.animationId = requestAnimationFrame(() => this.draw());
+
+    const primary = this.themeService.getCanvasColor('--primary', '#0a85ff');
+    const onSurface = this.themeService.getCanvasColor('--foreground-muted', '#7f8ea3');
+    const outline = this.themeService.getCanvasColor('--border-subtle', '#1d283a');
 
     // Draw replication links
     const links = this.state.clusterLinks();

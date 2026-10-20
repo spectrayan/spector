@@ -25,7 +25,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { MarkdownPreviewComponent } from '@shared/components/markdown-preview/markdown-preview.component';
+import { SmartContentViewerComponent } from '../smart-content-viewer/smart-content-viewer.component';
 
 export interface ReconsolidateEvent {
   mode: 'update' | 'fork';
@@ -42,7 +42,7 @@ export interface ReconsolidateEvent {
     MatButtonModule,
     MatChipsModule,
     MatTooltipModule,
-    MarkdownPreviewComponent,
+    SmartContentViewerComponent,
   ],
   templateUrl: './memory-content-editor.component.html',
   styleUrl: './memory-content-editor.component.scss',

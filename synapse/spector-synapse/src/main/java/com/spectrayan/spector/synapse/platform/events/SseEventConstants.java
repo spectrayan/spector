@@ -29,13 +29,22 @@ public final class SseEventConstants {
     // SSE Topics
     // ═══════════════════════════════════════════════════════════════
 
+    /** Primary topic for cognitive telemetry, graph pulses, SIMD stats, and diagnostics. */
+    public static final String TOPIC_SPECTOR = "spector";
+
+    /** Default SSE topic. */
+    public static final String TOPIC_DEFAULT = "spector";
+
+    /** Default node identifier. */
+    public static final String DEFAULT_NODE_ID = "spector-0";
+
     /** Topic for agent coordination, reasoning, and human-in-the-loop approvals. */
     public static final String TOPIC_AGENT = "agent";
 
     /** Topic for interactive chat streaming, thoughts, and message turns. */
     public static final String TOPIC_CHAT = "chat";
 
-    /** Topic for cognitive telemetry, graph pulses, SIMD stats, and diagnostics. */
+    /** Topic for cognitive telemetry, graph pulses, SIMD stats, and diagnostics (legacy alias). */
     public static final String TOPIC_CORTEX = "cortex";
 
     /** Topic for memory lifecycle events (recalled, consolidated, decayed, stored). */
@@ -46,6 +55,33 @@ public final class SseEventConstants {
 
     /** Topic for connector status and telemetry. */
     public static final String TOPIC_CONNECTORS = "connectors";
+
+    // ═══════════════════════════════════════════════════════════════
+    // Event Types — Spector Telemetry
+    // ═══════════════════════════════════════════════════════════════
+
+    public static final String EVENT_SPECTOR_QUERY_TRACE = "spector.query.trace";
+    public static final String EVENT_SPECTOR_SIMD_LANE = "spector.simd.lane";
+    public static final String EVENT_SPECTOR_MEMORY_DIAGNOSTIC = "spector.memory.diagnostic";
+    public static final String EVENT_SPECTOR_GRAPH_PULSE = "spector.graph.pulse";
+    public static final String EVENT_SPECTOR_REFLECT_CYCLE = "spector.reflect.cycle";
+    public static final String EVENT_SPECTOR_MEMORY_SNAPSHOT = "spector.memory.snapshot";
+    public static final String EVENT_SPECTOR_GPU_KERNEL = "spector.gpu.kernel";
+    public static final String EVENT_SPECTOR_CLUSTER_TOPOLOGY = "spector.cluster.topology";
+    public static final String EVENT_SPECTOR_EMBEDDING_PROJECTION = "spector.embedding.projection";
+    public static final String EVENT_SPECTOR_METRICS_TICK = "spector.metrics.tick";
+
+    // Legacy cortex.* aliases
+    public static final String EVENT_CORTEX_QUERY_TRACE = "cortex.query.trace";
+    public static final String EVENT_CORTEX_SIMD_LANE = "cortex.simd.lane";
+    public static final String EVENT_CORTEX_MEMORY_DIAGNOSTIC = "cortex.memory.diagnostic";
+    public static final String EVENT_CORTEX_GRAPH_PULSE = "cortex.graph.pulse";
+    public static final String EVENT_CORTEX_REFLECT_CYCLE = "cortex.reflect.cycle";
+    public static final String EVENT_CORTEX_MEMORY_SNAPSHOT = "cortex.memory.snapshot";
+    public static final String EVENT_CORTEX_GPU_KERNEL = "cortex.gpu.kernel";
+    public static final String EVENT_CORTEX_CLUSTER_TOPOLOGY = "cortex.cluster.topology";
+    public static final String EVENT_CORTEX_EMBEDDING_PROJECTION = "cortex.embedding.projection";
+    public static final String EVENT_CORTEX_METRICS_TICK = "cortex.metrics.tick";
 
     // ═══════════════════════════════════════════════════════════════
     // Event Types — Agent & Approval

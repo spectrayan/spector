@@ -163,6 +163,8 @@ class AdminAuditControllerTest {
         jdbc.update("DELETE FROM audit_event");
         jdbc.update("DELETE FROM admin_audit_log");
         jdbc.update("DELETE FROM credentials WHERE name IN ('openai-prod-key', 'cov-api-key')");
+        jdbc.update("DELETE FROM namespace_encryption_key WHERE tenant_id IN ('tenant-alpha', 'tenant-beta', 'tenant-cov')");
+        jdbc.update("DELETE FROM tenant_kek_config WHERE tenant_id IN ('tenant-alpha', 'tenant-beta', 'tenant-cov')");
         jdbc.update("DELETE FROM grants WHERE principal_id IN (SELECT user_id FROM users WHERE tenant_id IN ('tenant-alpha', 'tenant-beta', 'tenant-cov') OR username IN ('super-operator-01', 'admin-alpha-01', 'admin-beta-01', 'owner-alpha-01', 'other-alpha-02', 'cov-account-user'))");
         jdbc.update("DELETE FROM namespaces WHERE slug IN ('cov-ns-1', 'cov-ns-2', 'cov-ns-3', 'owner-vault')");
         jdbc.update("DELETE FROM namespaces WHERE owner_account_id IN (SELECT user_id FROM users WHERE tenant_id IN ('tenant-alpha', 'tenant-beta', 'tenant-cov') OR username IN ('super-operator-01', 'admin-alpha-01', 'admin-beta-01', 'owner-alpha-01', 'other-alpha-02', 'cov-account-user'))");

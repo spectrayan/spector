@@ -3,36 +3,178 @@
   flex-direction: column;
   height: 100%;
   width: 100%;
-  overflow: hidden;
-  background: var(--mat-sys-surface);
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--bg-void);
+}
+
+// ── Dashboard Action Bar ─────────────────────────────────────────────
+.dashboard-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 14px 0;
+  padding: 8px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  flex-shrink: 0;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+}
+
+.action-bar-left {
+  display: flex;
+  align-items: center;
+}
+
+.view-mode-toggle {
+  display: flex;
+  align-items: center;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+
+  .mode-btn {
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    padding: 6px 12px;
+    height: 28px;
+    border-radius: 6px;
+    color: var(--muted-foreground);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+
+    &.active {
+      background: var(--primary);
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(10, 133, 255, 0.25);
+    }
+  }
+}
+
+.action-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+
+  .actions-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted-foreground);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .trigger-btn {
+    height: 30px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 10px;
+    border-color: var(--border-subtle);
+    background: var(--bg-surface);
+    transition: all 0.2s var(--ease-fluid, ease);
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+
+    &.dream-btn {
+      color: var(--tier-episodic);
+      &:hover {
+        background: rgba(167, 139, 250, 0.12);
+        border-color: var(--tier-episodic);
+      }
+    }
+
+    &.reflect-btn {
+      color: var(--tier-semantic);
+      &:hover {
+        background: rgba(139, 92, 246, 0.12);
+        border-color: var(--tier-semantic);
+      }
+    }
+
+    &.wander-btn {
+      color: var(--accent-cyan);
+      &:hover {
+        background: rgba(34, 211, 238, 0.12);
+        border-color: var(--accent-cyan);
+      }
+    }
+  }
+}
+
+// ── KPI Section ──────────────────────────────────────────────────────
+.kpi-section {
+  margin: 10px 14px 0;
+  flex-shrink: 0;
 }
 
 // ── Query Bar ────────────────────────────────────────────────────────
 .query-bar {
-  margin: 8px 12px 0;
+  margin: 8px 14px 0;
+  flex-shrink: 0;
+}
+
+// ── Ticker Section ───────────────────────────────────────────────────
+.ticker-section {
+  margin: 14px 14px 20px;
   flex-shrink: 0;
 }
 
 // ── Dashboard Grid ───────────────────────────────────────────────────
 .dashboard-grid {
-  flex: 1;
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   grid-template-rows: 380px;       // first row (hero) is explicit
   grid-auto-rows: 280px;           // remaining rows are fixed 280px
   column-gap: 14px;
   row-gap: 16px;
-  padding: 12px 14px 20px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  min-height: 0;
+  padding: 12px 14px 24px;
+  flex-shrink: 0;
 }
 
 // ── Panel (mat-card) ─────────────────────────────────────────────────
 .panel {
   display: flex;
   flex-direction: column;
+  height: 100%;
+  max-height: 100%;
+  box-sizing: border-box;
   overflow: hidden;
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--shadow-card);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover {
+    border-color: var(--border-hover, rgba(10, 133, 255, 0.35)) !important;
+  }
 
   // mat-card-content should fill remaining space
   .panel-content {
@@ -46,11 +188,12 @@
 }
 
 .panel-icon {
-  color: var(--mat-sys-primary);
+  color: var(--primary);
   font-size: 20px;
-  width: 20px;
-  height: 20px;
-  background: color-mix(in srgb, var(--mat-sys-primary) 12%, transparent);
+  width: 28px !important;
+  height: 28px !important;
+  background: rgba(10, 133, 255, 0.12);
+  border: 1px solid rgba(10, 133, 255, 0.22);
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -74,24 +217,24 @@
 @media (max-width: 1200px) {
   .dashboard-grid {
     grid-template-columns: 1fr 1fr;
-    grid-auto-rows: minmax(260px, auto);
+    grid-auto-rows: 280px;
   }
 
   .panel-neural-graph {
     grid-column: 1 / -1;
-    min-height: 300px;
+    height: 340px;
   }
 
   .panel-vector-space {
     grid-column: span 1;
-    min-height: 280px;
+    height: 280px;
   }
 }
 
 @media (max-width: 768px) {
   .dashboard-grid {
     grid-template-columns: 1fr;
-    grid-auto-rows: minmax(240px, auto);
+    grid-auto-rows: 260px;
     gap: 8px;
     padding: 8px;
   }
@@ -99,22 +242,20 @@
   .panel-neural-graph,
   .panel-vector-space {
     grid-column: 1;
-    min-height: 260px;
+    height: 260px;
   }
 }
 
 // ── Cluster View Grid ────────────────────────────────────────────────
 .cluster-grid {
-  flex: 1;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr 280px;
+  grid-template-rows: 360px 280px;
+  grid-auto-rows: 280px;
   column-gap: 14px;
   row-gap: 16px;
-  padding: 12px 14px 20px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  min-height: 0;
+  padding: 12px 14px 24px;
+  flex-shrink: 0;
 }
 
 .panel-cluster-hero {
@@ -125,7 +266,7 @@
 @media (max-width: 768px) {
   .cluster-grid {
     grid-template-columns: 1fr;
-    grid-auto-rows: minmax(240px, auto);
+    grid-auto-rows: 260px;
     gap: 8px;
     padding: 8px;
   }
@@ -139,7 +280,7 @@
 @media (max-width: 480px) {
   .dashboard-grid {
     grid-template-columns: 1fr;
-    grid-auto-rows: minmax(200px, auto);
+    grid-auto-rows: 240px;
     grid-template-rows: 260px;
     gap: 6px;
     padding: 6px;
@@ -148,11 +289,11 @@
   .panel-neural-graph,
   .panel-vector-space {
     grid-column: 1;
-    min-height: 220px;
+    height: 240px;
   }
 
   .cluster-grid {
-    grid-auto-rows: minmax(200px, auto);
+    grid-auto-rows: 240px;
     gap: 6px;
     padding: 6px;
   }

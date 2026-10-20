@@ -15,12 +15,12 @@ import { ThemeService } from '@core/services/theme.service';
 import { GpuKernelEvent } from '@core/models/cortex-events';
 
 const KERNEL_COLORS: Record<string, string> = {
-  cosine_similarity: '#bb86fc',
-  dot_product: '#03dac6',
-  euclidean_dist: '#c4b5fd',
-  hnsw_neighbor_select: '#ffc107',
-  memcpy_h2d: '#66bb6a',
-  memcpy_d2h: '#42a5f5',
+  cosine_similarity: '#0a85ff',
+  dot_product: '#22d3ee',
+  euclidean_dist: '#38bdf8',
+  hnsw_neighbor_select: '#f59e0b',
+  memcpy_h2d: '#10b981',
+  memcpy_d2h: '#60a5fa',
 };
 
 @Component({
@@ -38,35 +38,51 @@ export class GpuTimelineComponent implements AfterViewInit, OnDestroy {
 
   private ctx!: CanvasRenderingContext2D;
   private animationId = 0;
+  private resizeObserver?: ResizeObserver;
 
   constructor() {
     effect(() => {
       this.state.gpuKernels();
+      this.themeService.isDark();
+      this.scheduleDraw();
     });
   }
 
   ngAfterViewInit(): void {
     if (!isPlatformBrowser(this.platformId)) return;
     this.ctx = this.canvasRef.nativeElement.getContext('2d')!;
-    const observer = new ResizeObserver(() => this.resizeCanvas());
-    observer.observe(this.canvasRef.nativeElement.parentElement!);
+    this.resizeObserver = new ResizeObserver(() => this.resizeCanvas());
+    this.resizeObserver.observe(this.canvasRef.nativeElement.parentElement!);
     this.resizeCanvas();
-    this.draw();
+    this.scheduleDraw();
   }
 
   ngOnDestroy(): void {
     cancelAnimationFrame(this.animationId);
+    this.resizeObserver?.disconnect();
+  }
+
+  private scheduleDraw(): void {
+    if (!this.ctx) return;
+    cancelAnimationFrame(this.animationId);
+    this.animationId = requestAnimationFrame(() => this.draw());
   }
 
   private resizeCanvas(): void {
-    const parent = this.canvasRef.nativeElement.parentElement!;
-    this.canvasRef.nativeElement.width = parent.clientWidth;
-    this.canvasRef.nativeElement.height = parent.clientHeight;
+    const parent = this.canvasRef.nativeElement.parentElement;
+    if (!parent) return;
+    const canvas = this.canvasRef.nativeElement;
+    const w = Math.max(0, parent.clientWidth);
+    const h = Math.max(0, Math.min(parent.clientHeight, 240));
+    if (Math.abs(canvas.width - w) > 1 || Math.abs(canvas.height - h) > 1) {
+      canvas.width = w;
+      canvas.height = h;
+      this.scheduleDraw();
+    }
   }
 
   private draw(): void {
-    this.animationId = requestAnimationFrame(() => this.draw());
-
+    if (!this.ctx) return;
     const canvas = this.canvasRef.nativeElement;
     const ctx = this.ctx;
     const w = canvas.width;
@@ -111,6 +127,9 @@ export class GpuTimelineComponent implements AfterViewInit, OnDestroy {
 
     // Draw kernel bars
     const visibleKernels = kernels.filter((k) => k.timestamp >= timeStart);
+    if (visibleKernels.length > 0) {
+      this.animationId = requestAnimationFrame(() => this.draw());
+    }
 
     for (const kernel of visibleKernels) {
       const x = padding.left + ((kernel.timestamp - timeStart) / timeWindowMs) * chartW;

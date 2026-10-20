@@ -1,0 +1,16 @@
+<div class="kpi-grid">
+  @for (card of cards(); track card.title) {
+    <div class="kpi-card cortex-glass" [attr.data-testid]="card.testId">
+      <div class="card-top">
+        <span class="card-title">{{ card.title }}</span>
+        <div class="icon-wrap" [style.background]="card.bgRgba" [style.color]="card.colorVar">
+          <mat-icon>{{ card.icon }}</mat-icon>
+        </div>
+      </div>
+      <div class="card-value cortex-mono" [style.color]="card.colorVar">
+        {{ card.value }}
+      </div>
+      <p class="card-desc">{{ card.description }}</p>
+    </div>
+  }
+</div>

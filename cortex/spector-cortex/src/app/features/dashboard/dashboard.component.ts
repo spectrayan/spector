@@ -25,6 +25,11 @@ import { HttpClient } from '@angular/common/http';
 import { environment } from '@env/environment';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { KpiRowComponent } from './components/kpi-row/kpi-row.component';
+import { EventTickerComponent } from './components/event-ticker/event-ticker.component';
 import { NeuralGraphComponent } from './components/neural-graph/neural-graph.component';
 import { VectorSpaceComponent } from './components/vector-space/vector-space.component';
 import { PipelineFunnelComponent } from '@shared/components/cognitive/pipeline-funnel/pipeline-funnel.component';
@@ -49,6 +54,11 @@ import { MemoryTableService } from '@core/services/memory-table.service';
   imports: [
     MatCardModule,
     MatIconModule,
+    MatButtonModule,
+    MatTooltipModule,
+    MatSnackBarModule,
+    KpiRowComponent,
+    EventTickerComponent,
     NeuralGraphComponent,
     VectorSpaceComponent,
     PipelineFunnelComponent,
@@ -73,6 +83,7 @@ export class DashboardComponent implements OnInit {
   protected readonly state = inject(CortexStateService);
   private readonly log = inject(LoggerService);
   private readonly memoryService = inject(MemoryTableService);
+  private readonly snackBar = inject(MatSnackBar);
   private lastLoadedNamespace: string | null = null;
 
   constructor() {
@@ -102,6 +113,44 @@ export class DashboardComponent implements OnInit {
         this.log.warn('Dashboard', 'Backend unreachable - falling back to mock data simulation');
         this.state.connectionStatus.set('connected');
         this.state.useMockData.set(true);
+      },
+    });
+  }
+
+  setViewMode(mode: 'dashboard' | 'cluster'): void {
+    this.state.viewMode.set(mode);
+  }
+
+  triggerDream(): void {
+    this.http.post(`${environment.apiUrl}/memory/dream`, { namespace: this.state.currentNamespace() }).subscribe({
+      next: () => {
+        this.snackBar.open('Cognitive dream replay cycle initiated', 'Close', { duration: 3000 });
+      },
+      error: () => {
+        this.snackBar.open('Dream cycle simulated (backend offline)', 'Close', { duration: 3000 });
+      },
+    });
+  }
+
+  triggerReflect(): void {
+    this.memoryService.reflect().subscribe({
+      next: () => {
+        this.snackBar.open('Consolidation reflection completed', 'Close', { duration: 3000 });
+        this.bootstrapTelemetry();
+      },
+      error: () => {
+        this.snackBar.open('Consolidation reflection simulated', 'Close', { duration: 3000 });
+      },
+    });
+  }
+
+  triggerWander(): void {
+    this.http.post(`${environment.apiUrl}/memory/wander`, { namespace: this.state.currentNamespace() }).subscribe({
+      next: () => {
+        this.snackBar.open('Associative wandering spreading activation started', 'Close', { duration: 3000 });
+      },
+      error: () => {
+        this.snackBar.open('Associative wandering activated (simulation)', 'Close', { duration: 3000 });
       },
     });
   }

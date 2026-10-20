@@ -13,7 +13,7 @@
         }
       </div>
       <span class="tier-count cortex-mono">{{ tierCounts()[tier] ?? 0 }}</span>
-      <span class="tier-tombstone">💀 {{ formatRatio(tombstoneRatios()[tier] ?? 0) }}</span>
+      <span class="tier-tombstone"><span class="tombstone-tag">Tombstones:</span> {{ formatRatio(tombstoneRatios()[tier] ?? 0) }}</span>
     </div>
   }
 </div>

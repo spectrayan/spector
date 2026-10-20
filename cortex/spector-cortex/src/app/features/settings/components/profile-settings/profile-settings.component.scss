@@ -98,14 +98,34 @@
 }
 
 .profile-card {
+  background: var(--bg-card) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--shadow-card);
+
   .panel-icon {
     font-size: 20px;
-    width: 20px;
-    height: 20px;
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
   }
 
-  .interests-icon { color: var(--cortex-success, #27ae60); }
-  .disinterests-icon { color: var(--cortex-error, #e74c3c); }
+  .interests-icon {
+    color: #10b981;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+  }
+  .disinterests-icon {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+  }
 }
 
 .entries-list {
@@ -120,19 +140,21 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 8px;
+  padding: 6px 10px;
   border-radius: 8px;
-  background: var(--mat-sys-surface-container-low);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
 
   .entry-topic {
     flex: 1;
     font-family: var(--cortex-font-mono, monospace);
     font-size: 13px;
+    color: var(--foreground);
   }
 
   .entry-badge {
     padding: 2px 8px;
-    border-radius: 4px;
+    border-radius: 6px;
     font-size: 11px;
     font-weight: 600;
     color: #fff;
@@ -144,9 +166,12 @@
   align-items: center;
   justify-content: center;
   height: 60px;
-  color: var(--mat-sys-outline);
+  color: var(--muted-foreground);
   font-size: 13px;
   font-style: italic;
+  background: var(--bg-surface);
+  border: 1px dashed var(--border-subtle);
+  border-radius: 8px;
 }
 
 .add-row {

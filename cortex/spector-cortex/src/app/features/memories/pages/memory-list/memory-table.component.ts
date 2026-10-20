@@ -381,7 +381,7 @@ export class MemoryTableComponent implements OnInit {
   /** Suppress a memory */
   onSuppress(row: MemoryRow, event: MouseEvent): void {
     event.stopPropagation();
-    this.table.suppress(row.id, 'Manual suppression via Cortex UI').subscribe({
+    this.table.suppress(row.id, 'Manual suppression via Spector UI').subscribe({
       next: () => {
         this.toast.success(formatMessage(ERROR_MESSAGES.MEMORY.SUPPRESS_SUCCESS, { id: row.id }));
         this.table.loadPage();

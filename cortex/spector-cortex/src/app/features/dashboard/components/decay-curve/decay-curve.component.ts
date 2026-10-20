@@ -28,35 +28,51 @@ export class DecayCurveComponent implements AfterViewInit, OnDestroy {
 
   private ctx!: CanvasRenderingContext2D;
   private animationId = 0;
+  private resizeObserver?: ResizeObserver;
 
   constructor() {
     effect(() => {
       this.state.decayCurve();
+      this.themeService.isDark();
+      this.scheduleDraw();
     });
   }
 
   ngAfterViewInit(): void {
     if (!isPlatformBrowser(this.platformId)) return;
     this.ctx = this.canvasRef.nativeElement.getContext('2d')!;
-    const observer = new ResizeObserver(() => this.resizeCanvas());
-    observer.observe(this.canvasRef.nativeElement.parentElement!);
+    this.resizeObserver = new ResizeObserver(() => this.resizeCanvas());
+    this.resizeObserver.observe(this.canvasRef.nativeElement.parentElement!);
     this.resizeCanvas();
-    this.draw();
+    this.scheduleDraw();
   }
 
   ngOnDestroy(): void {
     cancelAnimationFrame(this.animationId);
+    this.resizeObserver?.disconnect();
+  }
+
+  private scheduleDraw(): void {
+    if (!this.ctx) return;
+    cancelAnimationFrame(this.animationId);
+    this.animationId = requestAnimationFrame(() => this.draw());
   }
 
   private resizeCanvas(): void {
-    const parent = this.canvasRef.nativeElement.parentElement!;
-    this.canvasRef.nativeElement.width = parent.clientWidth;
-    this.canvasRef.nativeElement.height = parent.clientHeight;
+    const parent = this.canvasRef.nativeElement.parentElement;
+    if (!parent) return;
+    const canvas = this.canvasRef.nativeElement;
+    const w = Math.max(0, parent.clientWidth - 16);
+    const h = Math.max(0, Math.min(parent.clientHeight - 8, 240));
+    if (Math.abs(canvas.width - w) > 1 || Math.abs(canvas.height - h) > 1) {
+      canvas.width = w;
+      canvas.height = h;
+      this.scheduleDraw();
+    }
   }
 
   private draw(): void {
-    this.animationId = requestAnimationFrame(() => this.draw());
-
+    if (!this.ctx) return;
     const canvas = this.canvasRef.nativeElement;
     const ctx = this.ctx;
     const w = canvas.width;
@@ -66,10 +82,10 @@ export class DecayCurveComponent implements AfterViewInit, OnDestroy {
     const curve = this.state.decayCurve();
     if (curve.length < 2) return;
 
-    const error = this.themeService.getCanvasColor('--mat-sys-error', '#f44336');
-    const primary = this.themeService.getCanvasColor('--mat-sys-primary', '#bb86fc');
-    const outline = this.themeService.getCanvasColor('--mat-sys-outline-variant', '#555');
-    const onSurface = this.themeService.getCanvasColor('--mat-sys-on-surface-variant', '#aaa');
+    const error = this.themeService.getCanvasColor('--mat-sys-error', '#ef4444');
+    const primary = this.themeService.getCanvasColor('--primary', '#0a85ff');
+    const outline = this.themeService.getCanvasColor('--border-subtle', '#1d283a');
+    const onSurface = this.themeService.getCanvasColor('--foreground-muted', '#7f8ea3');
 
     const pad = { top: 10, right: 10, bottom: 24, left: 35 };
     const cw = w - pad.left - pad.right;

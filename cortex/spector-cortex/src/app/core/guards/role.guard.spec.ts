@@ -33,6 +33,7 @@ describe('roleGuard', () => {
   };
 
   beforeEach(() => {
+    TestBed.resetTestingModule();
     mockAuthService = {
       whenReady: Promise.resolve(),
       isAuthEnabled: vi.fn().mockReturnValue(true),
@@ -53,6 +54,10 @@ describe('roleGuard', () => {
         { provide: Router, useValue: mockRouter },
       ],
     });
+  });
+
+  afterEach(() => {
+    TestBed.resetTestingModule();
   });
 
   const runGuard = async (allowedRoles: string[], url: string = '/admin') => {

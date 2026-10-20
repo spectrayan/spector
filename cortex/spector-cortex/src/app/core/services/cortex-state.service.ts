@@ -33,6 +33,7 @@ import {
   ClusterTopologyEvent,
   EmbeddingProjectionEvent,
   MetricsTickEvent,
+  AnyCortexEvent,
 } from '../models/cortex-events';
 import { CognitiveProfile, ConnectionStatus } from '../models/memory-types';
 
@@ -221,6 +222,7 @@ export class CortexStateService {
 
   // ── View Mode ──────────────────────────────────────────────────────
   readonly viewMode = signal<ViewMode>('dashboard');
+  readonly recentEvents = signal<AnyCortexEvent[]>([]);
 
   // ── Computed ───────────────────────────────────────────────────────
   readonly isConnected = computed(() => this.connectionStatus() === 'connected');
@@ -229,6 +231,15 @@ export class CortexStateService {
     const diag = this.memoryDiag();
     if (!diag) return 0;
     return diag.workingCount + diag.episodicCount + diag.semanticCount + diag.proceduralCount;
+  });
+
+  readonly workingMemoryCount = computed(() => this.memoryDiag()?.workingCount ?? 0);
+  readonly episodicMemoryCount = computed(() => this.memoryDiag()?.episodicCount ?? 0);
+  readonly semanticMemoryCount = computed(() => this.memoryDiag()?.semanticCount ?? 0);
+  readonly proceduralMemoryCount = computed(() => this.memoryDiag()?.proceduralCount ?? 0);
+  readonly hebbianNetworkCount = computed<string>(() => {
+    const diag = this.memoryDiag();
+    return diag ? `${diag.entityNodes ?? 0} / ${diag.hebbianEdges ?? 0}` : '0 / 0';
   });
 
   readonly latestLatencyMs = computed(() => {
@@ -461,5 +472,21 @@ export class CortexStateService {
     if (event.queryProjection) {
       this.queryVector.set(event.queryProjection);
     }
+  }
+
+  // ── SSE Event Feed Mutations ─────────────────────────────────────────
+
+  pushSseEvent(event: AnyCortexEvent): void {
+    this.recentEvents.update(events => {
+      const max = 50;
+      if (events.length >= max) {
+        events.pop();
+      }
+      return [event, ...events];
+    });
+  }
+
+  clearRecentEvents(): void {
+    this.recentEvents.set([]);
   }
 }

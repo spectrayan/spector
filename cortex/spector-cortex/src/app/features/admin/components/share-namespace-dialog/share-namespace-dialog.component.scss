@@ -5,13 +5,14 @@
   font-size: 18px;
   margin: 0;
   padding: 16px 24px;
+  color: var(--foreground);
 }
 .title-icon {
-  color: var(--mat-sys-primary, #6750a4);
+  color: var(--primary);
 }
 .namespace-slug {
-  font-family: monospace;
-  color: var(--mat-sys-primary, #6750a4);
+  font-family: var(--cortex-font-mono, monospace);
+  color: var(--primary);
   font-weight: 600;
 }
 .dialog-content {
@@ -23,19 +24,20 @@
   margin-bottom: 12px;
 }
 .add-grant-card {
-  background: var(--mat-sys-surface-variant, #f4eff4);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
   padding: 16px;
-  border-radius: 8px;
+  border-radius: 10px;
   margin-bottom: 20px;
 }
 .add-grant-card h3, .grants-section h3 {
   margin-top: 0;
   margin-bottom: 12px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--mat-sys-on-surface-variant, #49454f);
+  letter-spacing: 0.05em;
+  color: var(--muted-foreground);
 }
 .form-row {
   display: flex;
@@ -52,7 +54,7 @@
   flex: 1;
 }
 .grant-btn {
-  height: 52px;
+  height: 40px;
   margin-bottom: 20px;
 }
 .grants-table {
@@ -60,7 +62,9 @@
   background: transparent;
 }
 .account-badge {
-  background: var(--mat-sys-surface-container-high, #ece6f0);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--foreground);
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 12px;
@@ -68,32 +72,37 @@
 .role-chip {
   display: inline-block;
   padding: 2px 8px;
-  border-radius: 12px;
+  border-radius: 9999px;
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
+  border: 1px solid transparent;
 }
 .role-chip[data-role="READER"] {
-  background: #e3f2fd;
-  color: #1565c0;
+  background: rgba(34, 211, 238, 0.12);
+  color: var(--accent-cyan);
+  border-color: rgba(34, 211, 238, 0.28);
 }
 .role-chip[data-role="WRITER"] {
-  background: #e8f5e9;
-  color: #2e7d32;
+  background: rgba(16, 185, 129, 0.14);
+  color: #10b981;
+  border-color: rgba(16, 185, 129, 0.3);
 }
 .role-chip[data-role="ADMIN"] {
-  background: #fff3e0;
-  color: #e65100;
+  background: rgba(245, 158, 11, 0.14);
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.3);
 }
 .role-chip[data-role="OWNER"] {
-  background: #f3e5f5;
-  color: #7b1fa2;
+  background: rgba(10, 133, 255, 0.14);
+  color: var(--primary);
+  border-color: rgba(10, 133, 255, 0.3);
 }
 .empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 24px;
-  color: var(--mat-sys-outline, #79747e);
+  color: var(--muted-foreground);
   gap: 8px;
 }

@@ -113,7 +113,10 @@ public class JwtDecoderConfig {
      * <p>No {@code spector.auth.jwt.issuer} property exists, so this constant is the single source
      * of truth shared by the token minter (task 13.2) and this validating decoder.</p>
      */
-    public static final String SERVER_ISSUER = "spector-synapse";
+    public static final String SERVER_ISSUER = "spector";
+
+    /** Legacy issuer claim accepted for backward compatibility with pre-standardization tokens. */
+    public static final String LEGACY_SERVER_ISSUER = "spector-synapse";
 
     /** HMAC key algorithm required by {@link MacAlgorithm#HS256}. */
     private static final String HMAC_SHA256 = "HmacSHA256";
@@ -180,10 +183,10 @@ public class JwtDecoderConfig {
                 .macAlgorithm(MacAlgorithm.HS256)
                 .build();
 
-        decoder.setJwtValidator(tokenValidator(SERVER_ISSUER));
+        decoder.setJwtValidator(serverTokenValidator());
 
-        log.debug("Configured server HS256 JwtDecoder (issuer='{}', clockSkew={}s)",
-                SERVER_ISSUER, CLOCK_SKEW.toSeconds());
+        log.debug("Configured server HS256 JwtDecoder (issuer='{}' [legacy='{}'], clockSkew={}s)",
+                SERVER_ISSUER, LEGACY_SERVER_ISSUER, CLOCK_SKEW.toSeconds());
         return decoder;
     }
 
@@ -255,7 +258,9 @@ public class JwtDecoderConfig {
         JwtAuthenticationConverter converter = buildJwtAuthenticationConverter();
 
         Map<String, AuthenticationManager> managersByIssuer = new LinkedHashMap<>();
-        managersByIssuer.put(SERVER_ISSUER, authenticationManager(serverDecoder, converter));
+        AuthenticationManager serverAuthManager = authenticationManager(serverDecoder, converter);
+        managersByIssuer.put(SERVER_ISSUER, serverAuthManager);
+        managersByIssuer.put(LEGACY_SERVER_ISSUER, serverAuthManager);
 
         oidcDecoder.ifPresent(decoder -> {
             String issuer = auth.oidc().issuer();
@@ -275,6 +280,29 @@ public class JwtDecoderConfig {
             JwtDecoder serverDecoder,
             Optional<JwtDecoder> oidcDecoder) {
         return jwtAuthenticationManagerResolver(properties.auth(), serverDecoder, oidcDecoder);
+    }
+
+    /**
+     * Composes the server token validator accepting either {@value #SERVER_ISSUER} or
+     * legacy {@value #LEGACY_SERVER_ISSUER}.
+     */
+    private static OAuth2TokenValidator<Jwt> serverTokenValidator() {
+        OAuth2TokenValidator<Jwt> issuerValidator = jwt -> {
+            String iss = jwt.getClaimAsString(JwtClaimNames.ISS);
+            if (SERVER_ISSUER.equals(iss) || LEGACY_SERVER_ISSUER.equals(iss)) {
+                return OAuth2TokenValidatorResult.success();
+            }
+            OAuth2Error error = new OAuth2Error(
+                    "invalid_token",
+                    "The 'iss' claim is not valid: " + iss,
+                    null);
+            return OAuth2TokenValidatorResult.failure(error);
+        };
+
+        return new DelegatingOAuth2TokenValidator<>(
+                new JwtTimestampValidator(CLOCK_SKEW),
+                issuerValidator,
+                subjectRequiredValidator());
     }
 
     /**

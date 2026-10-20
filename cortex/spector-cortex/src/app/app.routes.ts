@@ -25,13 +25,13 @@ export const routes: Routes = [
     path: 'login',
     loadComponent: () =>
       import('./features/auth/login.component').then((m) => m.LoginComponent),
-    title: 'Sign In — Spector Cortex',
+    title: 'Sign In — Spector',
   },
   {
     path: 'register',
     loadComponent: () =>
       import('./features/auth/login.component').then((m) => m.LoginComponent),
-    title: 'Create Account — Spector Cortex',
+    title: 'Create Account — Spector',
   },
   {
     path: '',
@@ -47,14 +47,14 @@ export const routes: Routes = [
         path: 'dashboard',
         loadComponent: () =>
           import('./features/dashboard/dashboard.component').then((m) => m.DashboardComponent),
-        title: 'Dashboard — Spector Cortex',
+        title: 'Dashboard — Spector',
       },
       {
         path: 'playground',
         loadChildren: () =>
           import('./features/playground/playground.routes').then((m) => m.PLAYGROUND_ROUTES),
         canActivate: [featureGuard('playgroundEnabled', 'chatEnabled')],
-        title: 'Playground — Spector Cortex',
+        title: 'Playground — Spector',
       },
       {
         path: 'chat',
@@ -62,10 +62,16 @@ export const routes: Routes = [
         pathMatch: 'full',
       },
       {
+        path: 'mel',
+        loadComponent: () =>
+          import('./features/query/query.component').then((m) => m.QueryComponent),
+        title: 'MEL Studio — Spector',
+      },
+      {
         path: 'query',
         loadComponent: () =>
           import('./features/query/query.component').then((m) => m.QueryComponent),
-        title: 'Query — Spector Cortex',
+        title: 'MEL Studio — Spector',
       },
       {
         path: 'memories',
@@ -76,25 +82,25 @@ export const routes: Routes = [
         path: 'graph',
         loadComponent: () =>
           import('./features/graph/graph-explorer.component').then((m) => m.GraphExplorerComponent),
-        title: 'Graph — Spector Cortex',
+        title: 'Graph — Spector',
       },
       {
         path: 'memory-health',
         loadComponent: () =>
           import('./features/health/health.component').then((m) => m.HealthComponent),
-        title: 'Health — Spector Cortex',
+        title: 'Health — Spector',
       },
       {
         path: 'sharing',
         loadComponent: () =>
           import('./features/sharing/sharing.component').then((m) => m.SharingComponent),
-        title: 'Sharing & Access — Spector Cortex',
+        title: 'Sharing & Access — Spector',
       },
       {
         path: 'settings',
         loadComponent: () =>
           import('./features/settings/settings.component').then((m) => m.SettingsComponent),
-        title: 'Settings — Spector Cortex',
+        title: 'Settings — Spector',
       },
       {
         path: 'admin',

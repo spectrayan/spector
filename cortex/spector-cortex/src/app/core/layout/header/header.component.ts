@@ -36,6 +36,9 @@ import { NotificationService } from '@core/services/notification.service';
 import { AuthService } from '@core/services/auth.service';
 import { SynapseApiService } from '@core/services/synapse-api.service';
 
+import { MatDialog } from '@angular/material/dialog';
+import { NewNamespaceModalComponent } from './components/new-namespace-modal.component';
+
 @Component({
   selector: 'cortex-header',
   imports: [
@@ -61,6 +64,33 @@ export class HeaderComponent implements OnInit {
   protected readonly notif = inject(NotificationService);
   protected readonly auth = inject(AuthService);
   private readonly api = inject(SynapseApiService);
+  private readonly dialog = inject(MatDialog);
+
+  openNewNamespaceModal(): void {
+    const dialogRef = this.dialog.open(NewNamespaceModalComponent, {
+      width: '480px',
+      panelClass: 'cortex-glass-dialog',
+    });
+
+    dialogRef.afterClosed().subscribe((result) => {
+      if (result?.created) {
+        this.loadNamespaces();
+      }
+    });
+  }
+
+  openCommandPalette(): void {
+    if (typeof document !== 'undefined') {
+      document.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'k',
+          metaKey: true,
+          ctrlKey: true,
+          bubbles: true,
+        }),
+      );
+    }
+  }
 
   ngOnInit(): void {
     this.loadNamespaces();
@@ -111,4 +141,3 @@ export class HeaderComponent implements OnInit {
       .subscribe();
   }
 }
-

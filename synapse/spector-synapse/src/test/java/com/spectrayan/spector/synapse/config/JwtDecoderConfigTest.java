@@ -171,6 +171,17 @@ class JwtDecoderConfigTest {
                 .contains("SCOPE_memory:read", "SCOPE_memory:write", "ROLE_USER", "ROLE_ADMIN");
     }
 
+    @Test
+    @DisplayName("Server HS256: a legacy spector-synapse token decodes and validates successfully")
+    void serverDecoderDecodesLegacyToken() throws Exception {
+        String token = mintHs256(SECRET, JwtDecoderConfig.LEGACY_SERVER_ISSUER, SUB, future(),
+                Map.of("scope", "memory:read", "roles", List.of("USER")));
+
+        Jwt decoded = serverDecoder().decode(token);
+        assertThat(decoded.getSubject()).isEqualTo(SUB);
+        assertThat(decoded.getClaimAsString("iss")).isEqualTo(JwtDecoderConfig.LEGACY_SERVER_ISSUER);
+    }
+
     // ── Server HS256: invalid signature (Reqs 3.3, 3.5) ─────────────────────────────────────────
 
     @Test
@@ -258,6 +269,28 @@ class JwtDecoderConfigTest {
         assertThat(result.getName()).isEqualTo(SUB);
         // The scope/role converter contributes SCOPE_/ROLE_ authorities; Spring Security also
         // attaches a FACTOR_BEARER authority to the resulting token, which we don't assert on.
+        assertThat(result.getAuthorities()).extracting("authority")
+                .contains("SCOPE_memory:read", "ROLE_USER");
+    }
+
+    @Test
+    @DisplayName("Routing: the LEGACY_SERVER_ISSUER token resolves the server manager and authenticates")
+    void routingSelectsServerManagerForLegacyServerIssuer() throws Exception {
+        AuthenticationManagerResolver<HttpServletRequest> resolver =
+                config.jwtAuthenticationManagerResolver(serverAuth(), serverDecoder(), Optional.empty());
+
+        String token = mintHs256(SECRET, JwtDecoderConfig.LEGACY_SERVER_ISSUER, SUB, future(),
+                Map.of("scope", "memory:read", "roles", List.of("USER")));
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", "Bearer " + token);
+
+        AuthenticationManager manager = resolver.resolve(request);
+        assertThat(manager).isNotNull();
+
+        Authentication result = manager.authenticate(new BearerTokenAuthenticationToken(token));
+        assertThat(result.isAuthenticated()).isTrue();
+        assertThat(result.getName()).isEqualTo(SUB);
         assertThat(result.getAuthorities()).extracting("authority")
                 .contains("SCOPE_memory:read", "ROLE_USER");
     }

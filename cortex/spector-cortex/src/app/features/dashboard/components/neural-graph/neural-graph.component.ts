@@ -7,6 +7,7 @@ import {
   inject,
   effect,
   PLATFORM_ID,
+  NgZone,
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
@@ -22,16 +23,16 @@ import * as THREE from 'three';
 const MAX_NODES = 200;
 const MAX_PARTICLES = 40;  // Hard cap to prevent OOM
 const TIER_COLORS: Record<string, number> = {
-  WORKING: 0xffb74d,
-  EPISODIC: 0x66bb6a,
-  SEMANTIC: 0x42a5f5,
-  PROCEDURAL: 0xab47bc,
+  WORKING: 0x60a5fa,
+  EPISODIC: 0xa78bfa,
+  SEMANTIC: 0x0a85ff,
+  PROCEDURAL: 0x10b981,
 };
 
 const EDGE_COLORS = {
-  hebbian: 0xffffff,
-  temporal: 0x00bcd4,
-  entity: 0xffc107,
+  hebbian: 0x0a85ff,
+  temporal: 0x22d3ee,
+  entity: 0xf59e0b,
 };
 
 interface GraphNode {
@@ -76,11 +77,16 @@ export class NeuralGraphComponent implements AfterViewInit, OnDestroy {
   protected readonly state = inject(CortexStateService);
   private readonly themeService = inject(ThemeService);
   private readonly platformId = inject(PLATFORM_ID);
+  private readonly ngZone = inject(NgZone);
   private readonly memoryService = inject(MemoryTableService);
 
   private scene!: THREE.Scene;
   private camera!: THREE.PerspectiveCamera;
   private renderer!: THREE.WebGLRenderer;
+  private resizeObserver?: ResizeObserver;
+  private lastW = 0;
+  private lastH = 0;
+  private frameAccumulator = 0;
   private nodes: GraphNode[] = [];
   private graphEdges: GraphEdge[] = [];
   private particles: Particle[] = [];
@@ -197,11 +203,12 @@ export class NeuralGraphComponent implements AfterViewInit, OnDestroy {
     // Apply active cognitive profile colors
     this.applyProfileVisuals(this.state.activeProfile());
 
-    this.animate();
+    this.ngZone.runOutsideAngular(() => this.animate());
   }
 
   ngOnDestroy(): void {
     cancelAnimationFrame(this.animationId);
+    this.resizeObserver?.disconnect();
     this.renderer?.dispose();
   }
 
@@ -238,8 +245,10 @@ export class NeuralGraphComponent implements AfterViewInit, OnDestroy {
 
   private initScene(): void {
     const container = this.canvasContainer.nativeElement;
-    const width = container.clientWidth;
-    const height = container.clientHeight;
+    const width = Math.max(1, container.clientWidth);
+    const height = Math.max(1, Math.min(container.clientHeight, 340));
+    this.lastW = width;
+    this.lastH = height;
 
     this.scene = new THREE.Scene();
 
@@ -248,7 +257,7 @@ export class NeuralGraphComponent implements AfterViewInit, OnDestroy {
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     this.renderer.setSize(width, height);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     this.renderer.setClearColor(0x000000, 0);
     // Enable tone mapping for bloom-like glow
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -260,14 +269,18 @@ export class NeuralGraphComponent implements AfterViewInit, OnDestroy {
     pointLight.position.copy(this.camera.position);
     this.scene.add(pointLight);
 
-    const observer = new ResizeObserver(() => {
-      const w = container.clientWidth;
-      const h = container.clientHeight;
-      this.camera.aspect = w / h;
-      this.camera.updateProjectionMatrix();
-      this.renderer.setSize(w, h);
+    this.resizeObserver = new ResizeObserver(() => {
+      const w = Math.max(1, container.clientWidth);
+      const h = Math.max(1, Math.min(container.clientHeight, 340));
+      if (Math.abs(w - this.lastW) > 1 || Math.abs(h - this.lastH) > 1) {
+        this.lastW = w;
+        this.lastH = h;
+        this.camera.aspect = w / h;
+        this.camera.updateProjectionMatrix();
+        this.renderer.setSize(w, h);
+      }
     });
-    observer.observe(container);
+    this.resizeObserver.observe(container);
   }
 
   private generateNodes(count: number = MAX_NODES): void {
@@ -387,7 +400,7 @@ export class NeuralGraphComponent implements AfterViewInit, OnDestroy {
   private createQueryTrail(): void {
     const geometry = new THREE.SphereGeometry(1.8, 20, 20);
     const material = new THREE.MeshBasicMaterial({
-      color: 0xbb86fc,
+      color: 0x0a85ff,
       transparent: true,
       opacity: 0,
     });
@@ -523,8 +536,11 @@ export class NeuralGraphComponent implements AfterViewInit, OnDestroy {
   private animate(): void {
     this.animationId = requestAnimationFrame(() => this.animate());
     this.timer.update(performance.now() / 1000);
-    const delta = this.timer.getDelta();
-    const time = this.timer.getElapsed();
+    const rawDelta = this.timer.getDelta();
+    this.frameAccumulator += rawDelta;
+    if (this.frameAccumulator < 0.032 && !this.isDragging) return;
+    const delta = this.frameAccumulator;
+    this.frameAccumulator = 0;
     const layers = this.state.graphLayers();
 
     // Camera orbit — auto-rotate when not dragging, user-controlled when dragging

@@ -12,11 +12,12 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 8px 16px;
+  padding: 10px 16px;
   border-radius: 12px;
-  background: var(--mat-sys-surface-container);
+  background: var(--bg-card);
   backdrop-filter: blur(12px);
-  border: 1px solid var(--mat-sys-outline-variant);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-card);
   flex-wrap: wrap;
   min-height: 48px;
 }
@@ -29,26 +30,28 @@
 }
 
 .toolbar-icon {
-  color: var(--mat-sys-primary);
-  font-size: 24px;
-  width: 24px;
-  height: 24px;
+  color: var(--primary);
+  font-size: 22px;
+  width: 22px;
+  height: 22px;
 }
 
 .toolbar-title {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: var(--mat-sys-on-surface);
+  color: var(--foreground);
   white-space: nowrap;
 }
 
 .record-count {
   font-size: 11px;
+  font-weight: 600;
   padding: 2px 8px;
   border-radius: 10px;
-  background: var(--mat-sys-primary-container);
-  color: var(--mat-sys-on-primary-container);
+  background: var(--primary-muted);
+  border: 1px solid var(--border-accent);
+  color: var(--primary);
 }
 
 .toolbar-middle {
@@ -69,8 +72,9 @@
   ::ng-deep .mat-mdc-text-field-wrapper {
     height: 36px;
     padding: 0 12px !important;
-    border-radius: 18px !important;
-    background: var(--mat-sys-surface-container-highest);
+    border-radius: 8px !important;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
   }
 
   ::ng-deep .mat-mdc-form-field-infix {

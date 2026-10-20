@@ -1,18 +1,18 @@
-// ── Static accent colors (same across themes) ──
-$cyan-primary: #00ffcc;
-$cyan-dim: rgba(0, 255, 204, 0.15);
-$cyan-glow: rgba(0, 255, 204, 0.4);
-$cyan-ultra-dim: rgba(0, 255, 204, 0.06);
-$hebbian-color: #00ffcc;
-$temporal-color: #00bcd4;
-$entity-color: #ffc107;
+// ── Static accent colors aligned with Spector Theme ──
+$cyan-primary: #0a85ff;
+$cyan-dim: rgba(10, 133, 255, 0.16);
+$cyan-glow: rgba(10, 133, 255, 0.35);
+$cyan-ultra-dim: rgba(10, 133, 255, 0.08);
+$hebbian-color: #0a85ff;
+$temporal-color: #22d3ee;
+$entity-color: #f59e0b;
 
-// ── Theme-aware aliases using Angular Material tokens ──
-$panel-bg: var(--mat-sys-surface-container);
-$panel-border: var(--mat-sys-outline-variant);
-$text-bright: var(--mat-sys-on-surface);
-$text-dim: var(--mat-sys-on-surface-variant);
-$text-muted: var(--mat-sys-outline);
+// ── Theme-aware aliases using Spector and Angular Material design tokens ──
+$panel-bg: var(--bg-card);
+$panel-border: var(--border-subtle);
+$text-bright: var(--foreground);
+$text-dim: var(--muted-foreground);
+$text-muted: var(--muted-foreground);
 
 @mixin corner-bracket($top: auto, $bottom: auto, $left: auto, $right: auto, $border-sides...) {
   position: absolute;

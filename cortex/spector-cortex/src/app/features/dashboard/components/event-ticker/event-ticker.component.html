@@ -1,0 +1,59 @@
+<mat-card class="ticker-card panel cortex-glass" appearance="outlined">
+  <mat-card-header class="ticker-header">
+    <mat-icon mat-card-avatar class="panel-icon pulse-icon">sensors</mat-icon>
+    <mat-card-title class="ticker-title">Live Memory Event Ticker</mat-card-title>
+    <mat-card-subtitle class="ticker-subtitle">Real-Time SSE Stream</mat-card-subtitle>
+
+    <div class="header-right">
+      <span class="status-pill" [class]="'status-' + status()">
+        {{ status() }}
+      </span>
+
+      <button mat-icon-button class="clear-btn" (click)="clearEvents()" matTooltip="Clear event feed">
+        <mat-icon>delete_outline</mat-icon>
+      </button>
+    </div>
+  </mat-card-header>
+
+  <mat-card-content class="ticker-content">
+    @if (events().length === 0) {
+      <div class="empty-state">
+        <mat-icon class="empty-icon">stream</mat-icon>
+        <span>Waiting for memory events (recall, engrams, consolidation, pulses)...</span>
+      </div>
+    } @else {
+      <div class="events-scroll">
+        @for (ev of events(); track ev.timestamp + '-' + ev.eventType) {
+          <div class="event-row" [class.selected]="selectedEvent() === ev" (click)="selectEvent(ev)">
+            <div class="event-left">
+              <span class="event-badge" [class]="getBadge(ev.eventType).className">
+                {{ getBadge(ev.eventType).label }}
+              </span>
+              <span class="event-node cortex-mono">{{ ev.nodeId || 'spector-0' }}</span>
+              <span class="event-preview cortex-mono">{{ formatPayloadPreview(ev) }}</span>
+            </div>
+
+            <div class="event-right">
+              <span class="event-time cortex-mono">{{ formatTimestamp(ev.timestamp) }}</span>
+              <button mat-icon-button class="inspect-btn" (click)="$event.stopPropagation(); selectEvent(ev)" matTooltip="Inspect payload">
+                <mat-icon>visibility</mat-icon>
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+    }
+  </mat-card-content>
+
+  @if (selectedEvent(); as event) {
+    <div class="payload-drawer">
+      <div class="drawer-header">
+        <span class="drawer-title cortex-mono">Payload: {{ event.eventType }}</span>
+        <button mat-icon-button class="drawer-close" (click)="closePayload()">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+      <pre class="drawer-json cortex-mono">{{ event | json }}</pre>
+    </div>
+  }
+</mat-card>

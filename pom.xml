@@ -296,6 +296,11 @@
                 <artifactId>spector-memory</artifactId>
                 <version>${revision}</version>
             </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-mel</artifactId>
+                <version>${revision}</version>
+            </dependency>
 
             <dependency>
                 <groupId>com.spectrayan</groupId>

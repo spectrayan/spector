@@ -5,23 +5,41 @@
   gap: 16px;
 }
 
-.icnu-card {
+.icnu-card,
+.scoring-card {
+  background: var(--bg-card) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--shadow-card);
+
   .panel-icon {
     font-size: 20px;
-    width: 20px;
-    height: 20px;
-    color: var(--mat-sys-primary);
+    width: 28px !important;
+    height: 28px !important;
+    color: var(--primary);
+    background: rgba(10, 133, 255, 0.12);
+    border: 1px solid rgba(10, 133, 255, 0.22);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
   }
 
   .icnu-sum {
     font-weight: 600;
-    padding: 1px 6px;
-    border-radius: 4px;
-    background: var(--mat-sys-surface-container-high);
+    padding: 1px 8px;
+    border-radius: 6px;
+    background: rgba(10, 133, 255, 0.12);
+    color: var(--primary);
+    border: 1px solid rgba(10, 133, 255, 0.25);
 
     &.warn {
-      background: var(--cortex-error, #e74c3c);
-      color: #fff;
+      background: rgba(239, 68, 68, 0.15);
+      color: #ef4444;
+      border-color: rgba(239, 68, 68, 0.35);
     }
   }
 }
@@ -29,7 +47,7 @@
 .icnu-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px 24px;
+  gap: 16px;
   padding: 8px 0;
 
   @media (max-width: 900px) {
@@ -40,7 +58,11 @@
 .icnu-slider-group {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
 
   .icnu-label {
     display: flex;
@@ -49,9 +71,11 @@
 
     .icnu-letter {
       font-weight: 700;
-      font-size: 16px;
-      width: 20px;
-      height: 20px;
+      font-size: 13px;
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      background: rgba(10, 133, 255, 0.12);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -59,20 +83,22 @@
 
     .icnu-name {
       font-size: 13px;
-      font-weight: 500;
+      font-weight: 600;
+      color: var(--foreground);
     }
 
     .icnu-value {
       margin-left: auto;
       font-size: 13px;
       font-weight: 600;
+      color: var(--primary);
     }
   }
 
   .icnu-desc {
     font-size: 11px;
-    color: var(--mat-sys-outline);
-    margin-top: -4px;
+    color: var(--muted-foreground);
+    margin-top: -2px;
   }
 }
 
@@ -86,32 +112,28 @@
   }
 }
 
-.scoring-card {
-  .panel-icon {
-    font-size: 20px;
-    width: 20px;
-    height: 20px;
-    color: var(--mat-sys-primary);
-  }
-}
-
 .scoring-slider-group {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px 0;
+  gap: 6px;
+  padding: 12px 14px;
+  margin: 6px 0;
+  border-radius: 10px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
 
   .scoring-label {
     display: flex;
     justify-content: space-between;
     font-size: 13px;
-    font-weight: 500;
+    font-weight: 600;
+    color: var(--foreground);
   }
 
   .scoring-desc {
     font-size: 11px;
-    color: var(--mat-sys-outline);
-    margin-top: -4px;
+    color: var(--muted-foreground);
+    margin-top: -2px;
   }
 }
 

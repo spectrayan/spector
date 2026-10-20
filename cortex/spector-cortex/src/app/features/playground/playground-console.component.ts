@@ -470,7 +470,7 @@ export type ConsoleOperation = 'recall' | 'remember' | 'reinforce' | 'why-not';
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: 6px;
-      background: var(--bg-void, #0b0e14);
+      background: var(--bg-void);
       padding: 4px;
       border-radius: 9px;
       border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.07));
@@ -535,7 +535,7 @@ export type ConsoleOperation = 'recall' | 'remember' | 'reinforce' | 'why-not';
     .form-field input,
     .form-field select,
     .form-field textarea {
-      background: var(--bg-void, #0b0e14);
+      background: var(--bg-void);
       border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
       border-radius: 8px;
       padding: 8px 11px;
@@ -585,7 +585,7 @@ export type ConsoleOperation = 'recall' | 'remember' | 'reinforce' | 'why-not';
       flex-direction: column;
       border-radius: 8px;
       border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
-      background: var(--bg-void, #0b0e14);
+      background: var(--bg-void);
       overflow: hidden;
     }
 
@@ -632,7 +632,7 @@ export type ConsoleOperation = 'recall' | 'remember' | 'reinforce' | 'why-not';
     }
 
     .result-card {
-      background: var(--bg-void, #0b0e14);
+      background: var(--bg-void);
       border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.09));
       border-radius: 9px;
       padding: 12px;

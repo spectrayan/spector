@@ -83,6 +83,11 @@ public class HealthController {
     public Map<String, Object> metrics() {
         var runtime = Runtime.getRuntime();
         var mx = ManagementFactory.getRuntimeMXBean();
+        var spectorMetrics = Map.of(
+                "tools", toolRegistry.all().size(),
+                "memoryEngine", memoryService.isEngineAvailable() ? "active" : "stub",
+                "llmModel", llmBridge.modelName()
+        );
         return Map.of(
                 "jvm", Map.of(
                         "version", System.getProperty("java.version"),
@@ -95,11 +100,8 @@ public class HealthController {
                         ),
                         "processors", runtime.availableProcessors()
                 ),
-                "synapse", Map.of(
-                        "tools", toolRegistry.all().size(),
-                        "memoryEngine", memoryService.isEngineAvailable() ? "active" : "stub",
-                        "llmModel", llmBridge.modelName()
-                )
+                "spector", spectorMetrics,
+                "synapse", spectorMetrics
         );
     }
 

@@ -2,7 +2,7 @@
 # ═══════════════════════════════════════════════════════════════════
 # Spector OSS — Container Entrypoint (Nginx + Backend)
 # ═══════════════════════════════════════════════════════════════════
-# Starts Nginx (background) + Spector Synapse Server (foreground)
+# Starts Nginx (background) + Spector Server (foreground)
 #
 # Graceful Shutdown:
 #   On SIGTERM (docker stop), the JVM receives the signal directly
@@ -130,8 +130,8 @@ cleanup() {
 }
 trap cleanup TERM INT
 
-# Start Spector Synapse in background so trap can catch signals
-echo "[Spector] Starting Spector Synapse..."
+# Start Spector Server in background so trap can catch signals
+echo "[Spector] Starting Spector Server..."
 echo "[Spector] Dashboard → http://localhost:8080"
 echo "[Spector] API Backend → http://localhost:7070"
 java \

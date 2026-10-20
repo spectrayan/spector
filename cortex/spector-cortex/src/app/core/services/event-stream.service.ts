@@ -47,7 +47,7 @@ export interface EventStreamConfig {
 
 const DEFAULT_CONFIG: EventStreamConfig = {
   baseUrl: environment.sseBaseUrl || '/api/v1',
-  filter: 'cortex,ingestion',
+  filter: 'spector,cortex,ingestion',
   maxRetries: 10,
   initialRetryMs: 60000, // 60 seconds between retries
 };
@@ -206,34 +206,47 @@ export class EventStreamService implements OnDestroy {
   }
 
   private dispatchEvent(event: AnyCortexEvent): void {
+    if (typeof (this.state as any)?.pushSseEvent === 'function') {
+      this.state.pushSseEvent(event);
+    }
     switch (event.eventType) {
+      case 'spector.query.trace':
       case 'cortex.query.trace':
         this.state.pushQueryTrace(event as QueryTraceEvent);
         break;
+      case 'spector.simd.lane':
       case 'cortex.simd.lane':
         this.state.pushSimdEvent(event as SimdLaneEvent);
         break;
+      case 'spector.memory.diagnostic':
       case 'cortex.memory.diagnostic':
         this.state.pushMemoryDiag(event as MemoryDiagnosticEvent);
         break;
+      case 'spector.graph.pulse':
       case 'cortex.graph.pulse':
         this.state.pushGraphPulse(event as GraphPulseEvent);
         break;
+      case 'spector.reflect.cycle':
       case 'cortex.reflect.cycle':
         this.state.pushReflect(event as ReflectCycleEvent);
         break;
+      case 'spector.memory.snapshot':
       case 'cortex.memory.snapshot':
         this.state.pushMemorySnapshot(event as MemorySnapshotEvent);
         break;
+      case 'spector.gpu.kernel':
       case 'cortex.gpu.kernel':
         this.state.pushGpuKernel(event as GpuKernelEvent);
         break;
+      case 'spector.cluster.topology':
       case 'cortex.cluster.topology':
         this.state.pushClusterTopology(event as ClusterTopologyEvent);
         break;
+      case 'spector.embedding.projection':
       case 'cortex.embedding.projection':
         this.state.pushEmbeddingProjection(event as EmbeddingProjectionEvent);
         break;
+      case 'spector.metrics.tick':
       case 'cortex.metrics.tick':
         this.state.pushMetricsTick(event as MetricsTickEvent);
         break;

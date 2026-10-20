@@ -117,7 +117,7 @@ export class LoginComponent implements OnInit {
       } else if (err?.error?.message) {
         this.errorMessage.set(err.error.message);
       } else {
-        this.errorMessage.set('Authentication failed. Please verify connection to Synapse.');
+        this.errorMessage.set('Authentication failed. Please verify connection to Spector.');
       }
     } finally {
       this.loading.set(false);
@@ -153,7 +153,7 @@ export class LoginComponent implements OnInit {
       } else if (err?.error?.message) {
         this.errorMessage.set(err.error.message);
       } else {
-        this.errorMessage.set('Account creation failed. Please verify connection to Synapse.');
+        this.errorMessage.set('Account creation failed. Please verify connection to Spector.');
       }
     } finally {
       this.loading.set(false);
