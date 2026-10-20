@@ -4,63 +4,128 @@
 <cortex-onboarding-tour />
 
 <div class="shell-layout" [class.admin-console-mode]="isAdminConsole()">
-  <!-- Side Navigation (desktop/tablet) -->
-  <nav class="side-rail" [class.collapsed]="collapsed()">
-    @if (!collapsed()) {
-    <div class="rail-mode-label" [class.admin-mode]="isAdminConsole()">
-      <mat-icon class="mode-icon">{{ isAdminConsole() ? 'admin_panel_settings' : 'workspaces' }}</mat-icon>
-      <span>{{ isAdminConsole() ? 'Admin Console' : 'User Workspace' }}</span>
+  <!-- Side Navigation Rail (Desktop & Tablet) -->
+  <aside class="side-rail" [class.collapsed]="collapsed()" id="cortex-side-rail">
+    <!-- Top Header: Mode Switcher & Toggle -->
+    <div class="rail-header">
+      @if (auth.isAdmin()) {
+        @if (isAdminConsole()) {
+          <!-- In Admin mode: Return to Workspace button -->
+          <a
+            class="mode-switch-btn return-workspace"
+            routerLink="/dashboard"
+            [matTooltip]="
+              collapsed() ? 'Return to Workspace — Switch back to memory workspace' : ''
+            "
+            matTooltipPosition="right"
+            id="side-nav-switch-workspace"
+          >
+            <mat-icon class="switch-icon">arrow_back</mat-icon>
+            @if (!collapsed()) {
+              <div class="switch-text-group">
+                <span class="switch-title">Return to Workspace</span>
+                <span class="switch-subtitle">Cognitive memory workspace</span>
+              </div>
+            }
+          </a>
+        } @else {
+          <!-- In Workspace mode: Admin Console button -->
+          <a
+            class="mode-switch-btn admin-console"
+            routerLink="/admin/overview"
+            [matTooltip]="collapsed() ? 'Admin Console — Cluster topology & fleet telemetry' : ''"
+            matTooltipPosition="right"
+            id="side-nav-switch-admin"
+          >
+            <mat-icon class="switch-icon">shield</mat-icon>
+            @if (!collapsed()) {
+              <div class="switch-text-group">
+                <span class="switch-title">Admin Console</span>
+                <span class="switch-subtitle">Cluster fleet telemetry</span>
+              </div>
+            }
+          </a>
+        }
+      }
+
+      <!-- Collapse / Expand Toggle Button -->
+      <button
+        class="rail-toggle-btn"
+        (click)="toggleSidebar()"
+        [matTooltip]="collapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
+        matTooltipPosition="right"
+        aria-label="Toggle sidebar collapse"
+        id="side-nav-toggle-btn"
+      >
+        <mat-icon>{{ collapsed() ? 'chevron_right' : 'chevron_left' }}</mat-icon>
+      </button>
     </div>
+
+    <!-- Section Label -->
+    @if (!collapsed()) {
+      <div class="rail-section-header">
+        <span>{{ isAdminConsole() ? 'Admin Console' : 'Workspace' }}</span>
+      </div>
+    } @else {
+      <div class="rail-divider"></div>
     }
 
-    @for (item of navItems(); track item.route) {
-    <a class="nav-item" [routerLink]="item.route" routerLinkActive="active" [matTooltip]="collapsed() ? item.label : ''"
-      matTooltipPosition="right" [id]="'side-nav-' + item.label.toLowerCase().replace(' ', '-')">
-      <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
-      @if (!collapsed()) {
-      <span class="nav-label">{{ item.label }}</span>
+    <!-- Navigation List with Title + 1-Line Subtitle -->
+    <div class="nav-list">
+      @for (item of navItems(); track item.route) {
+        <a
+          class="nav-item"
+          [routerLink]="item.route"
+          routerLinkActive="active"
+          [matTooltip]="collapsed() ? item.label + ' — ' + item.subtitle : ''"
+          matTooltipPosition="right"
+          [id]="'side-nav-' + item.label.toLowerCase().replace(' ', '-')"
+        >
+          <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
+          @if (!collapsed()) {
+            <div class="nav-text-col">
+              <span class="nav-title">{{ item.label }}</span>
+              <span class="nav-subtitle">{{ item.subtitle }}</span>
+            </div>
+          }
+        </a>
       }
-    </a>
-    }
+    </div>
 
     <div class="nav-spacer"></div>
 
-    <!-- Admin Console <-> Personal Workspace Switcher -->
-    @if (auth.isAdmin()) {
-      @if (isAdminConsole()) {
-      <a class="nav-item mode-switch-item" routerLink="/dashboard"
-        [matTooltip]="collapsed() ? 'Switch to Personal Workspace' : ''"
-        matTooltipPosition="right" id="side-nav-switch-workspace">
-        <mat-icon class="nav-icon">arrow_back</mat-icon>
-        @if (!collapsed()) {
-        <span class="nav-label">Personal Workspace</span>
-        }
-      </a>
+    <!-- Admin Mode: Translucent Emerald Privacy Contract Active Badge -->
+    @if (isAdminConsole()) {
+      @if (!collapsed()) {
+        <div class="privacy-contract-badge">
+          <div class="privacy-contract-header">
+            <mat-icon class="privacy-lock-icon">lock</mat-icon>
+            <span class="privacy-contract-title">Privacy Contract Active</span>
+          </div>
+          <p class="privacy-contract-desc">
+            Content-free control plane: strictly zero raw engram text, vectors, or tags are
+            transmitted to administrative endpoints.
+          </p>
+        </div>
       } @else {
-      <a class="nav-item mode-switch-item" routerLink="/admin/overview"
-        [matTooltip]="collapsed() ? 'Switch to Admin Console' : ''"
-        matTooltipPosition="right" id="side-nav-switch-admin">
-        <mat-icon class="nav-icon">admin_panel_settings</mat-icon>
-        @if (!collapsed()) {
-        <span class="nav-label">Admin Console</span>
-        }
-      </a>
+        <div
+          class="privacy-contract-collapsed"
+          matTooltip="Privacy Contract Active — Content-free control plane: zero raw text transmitted."
+          matTooltipPosition="right"
+        >
+          <mat-icon class="privacy-lock-icon">lock</mat-icon>
+        </div>
       }
     }
 
-    <!-- Version badge -->
+    <!-- Version Badge (when expanded) -->
     @if (!collapsed()) {
-    <div class="nav-version">
-      <span class="version-text">Spector</span>
-    </div>
+      <div class="rail-footer">
+        <span class="footer-brand">Spector</span>
+        <span class="footer-version cortex-mono">v0.2.0</span>
+      </div>
     }
-
-    <!-- Collapse / Expand toggle -->
-    <button class="nav-toggle" (click)="collapsed.set(!collapsed())" [matTooltip]="collapsed() ? 'Expand' : 'Collapse'"
-      matTooltipPosition="right">
-      <mat-icon>{{ collapsed() ? 'chevron_right' : 'chevron_left' }}</mat-icon>
-    </button>
-  </nav>
+  </aside>
 
   <!-- Main Content -->
   <main class="shell-content">
@@ -71,9 +136,9 @@
 <!-- Bottom Tab Bar (mobile only) -->
 <nav class="bottom-nav">
   @for (item of navItems(); track item.route) {
-  <a class="bottom-nav-item" [routerLink]="item.route" routerLinkActive="bottom-nav-active">
-    <mat-icon class="bottom-nav-icon">{{ item.icon }}</mat-icon>
-    <span class="bottom-nav-label">{{ item.label }}</span>
-  </a>
+    <a class="bottom-nav-item" [routerLink]="item.route" routerLinkActive="bottom-nav-active">
+      <mat-icon class="bottom-nav-icon">{{ item.icon }}</mat-icon>
+      <span class="bottom-nav-label">{{ item.label }}</span>
+    </a>
   }
 </nav>

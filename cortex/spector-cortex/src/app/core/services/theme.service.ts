@@ -10,7 +10,6 @@ const THEME_KEY = 'cortex-theme';
 
 @Injectable({ providedIn: 'root' })
 export class ThemeService {
-
   private readonly platformId = inject(PLATFORM_ID);
   private readonly isBrowser = isPlatformBrowser(this.platformId);
 
@@ -18,10 +17,10 @@ export class ThemeService {
   readonly isDark = signal(true);
 
   /** Theme label for display. */
-  readonly themeLabel = computed(() => this.isDark() ? 'Dark' : 'Light');
+  readonly themeLabel = computed(() => (this.isDark() ? 'Dark' : 'Light'));
 
   /** Theme icon for toggle button. */
-  readonly themeIcon = computed(() => this.isDark() ? 'dark_mode' : 'light_mode');
+  readonly themeIcon = computed(() => (this.isDark() ? 'dark_mode' : 'light_mode'));
 
   constructor() {
     if (this.isBrowser) {
@@ -41,9 +40,25 @@ export class ThemeService {
     });
   }
 
-  /** Toggle between dark and light themes. */
+  /** Toggle between dark and light themes with View Transition API support. */
   toggle(): void {
-    this.isDark.update(v => !v);
+    const commit = () => {
+      this.isDark.update((v) => !v);
+    };
+
+    if (this.isBrowser) {
+      const doc = document as Document & { startViewTransition?: (cb: () => void) => void };
+      const prefersReduced =
+        typeof window !== 'undefined' &&
+        typeof window.matchMedia === 'function' &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      if (typeof doc.startViewTransition === 'function' && !prefersReduced) {
+        doc.startViewTransition(commit);
+        return;
+      }
+    }
+    commit();
   }
 
   /**
@@ -93,9 +108,11 @@ export class ThemeService {
       return fallback;
     }
 
-    const hex = '#' + [match[1], match[2], match[3]]
-      .map(n => parseInt(n, 10).toString(16).padStart(2, '0'))
-      .join('');
+    const hex =
+      '#' +
+      [match[1], match[2], match[3]]
+        .map((n) => parseInt(n, 10).toString(16).padStart(2, '0'))
+        .join('');
 
     this.colorCache.set(cacheKey, hex);
     return hex;

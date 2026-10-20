@@ -15,13 +15,7 @@
  */
 
 import { Component, inject, signal, computed, DestroyRef } from '@angular/core';
-import {
-  RouterOutlet,
-  RouterLink,
-  RouterLinkActive,
-  Router,
-  NavigationEnd,
-} from '@angular/router';
+import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { filter } from 'rxjs/operators';
 import { MatSidenavModule } from '@angular/material/sidenav';
@@ -39,11 +33,14 @@ import { OnboardingTourComponent } from '../onboarding-tour/onboarding-tour.comp
 export interface NavItem {
   icon: string;
   label: string;
+  subtitle: string;
   route: string;
   adminOnly?: boolean;
   superAdminOnly?: boolean;
   featureFlags?: string[];
 }
+
+const SIDEBAR_COLLAPSED_KEY = 'spector.sidebar.collapsed';
 
 @Component({
   selector: 'cortex-shell',
@@ -65,7 +62,7 @@ export interface NavItem {
   styleUrl: './shell.component.scss',
 })
 export class ShellComponent {
-  collapsed = signal(false);
+  readonly collapsed = signal(false);
 
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
@@ -84,16 +81,52 @@ export class ShellComponent {
 
   /** User Workspace (`/`) navigation items. */
   readonly workspaceNavItems: NavItem[] = [
-    { icon: 'dashboard', label: 'Dashboard', route: '/dashboard' },
-    { icon: 'auto_stories', label: 'Memories', route: '/memories' },
-    { icon: 'search', label: 'Query', route: '/query' },
-    { icon: 'hub', label: 'Graph', route: '/graph' },
-    { icon: 'donut_large', label: 'Health', route: '/memory-health' },
-    { icon: 'share', label: 'Sharing', route: '/sharing' },
-    { icon: 'tune', label: 'Settings', route: '/settings' },
+    {
+      icon: 'dashboard',
+      label: 'Overview',
+      subtitle: 'Cognitive telemetry & tiers',
+      route: '/dashboard',
+    },
+    {
+      icon: 'auto_stories',
+      label: 'Memories',
+      subtitle: 'Engram browser & editor',
+      route: '/memories',
+    },
+    {
+      icon: 'terminal',
+      label: 'MEL Studio',
+      subtitle: 'MEL language & 6-phase recall',
+      route: '/query',
+    },
+    {
+      icon: 'hub',
+      label: 'Association Graph',
+      subtitle: '3D synaptic topology',
+      route: '/graph',
+    },
+    {
+      icon: 'donut_large',
+      label: 'Observability',
+      subtitle: 'Storage & decay health',
+      route: '/memory-health',
+    },
+    {
+      icon: 'share',
+      label: 'Sharing & Access',
+      subtitle: 'Permissions & team access',
+      route: '/sharing',
+    },
+    {
+      icon: 'tune',
+      label: 'Settings',
+      subtitle: 'Engine & runtime parameters',
+      route: '/settings',
+    },
     {
       icon: 'science',
       label: 'Playground',
+      subtitle: 'Diagnostic agent sandbox',
       route: '/playground',
       featureFlags: ['playgroundEnabled', 'chatEnabled'],
     },
@@ -101,31 +134,96 @@ export class ShellComponent {
 
   /** Admin Console (`/admin/**`) navigation items. */
   readonly adminNavItems: NavItem[] = [
-    { icon: 'space_dashboard', label: 'Overview', route: '/admin/overview', adminOnly: true },
-    { icon: 'domain', label: 'Tenants', route: '/admin/tenants', superAdminOnly: true },
-    { icon: 'group', label: 'Accounts & Agents', route: '/admin/accounts', adminOnly: true },
-    { icon: 'folder_special', label: 'Namespaces', route: '/admin/namespaces', adminOnly: true },
-    { icon: 'insights', label: 'Analytics', route: '/admin/analytics', adminOnly: true },
-    { icon: 'vpn_key', label: 'Keys & Encryption', route: '/admin/keys', adminOnly: true },
-    { icon: 'dns', label: 'Infra', route: '/admin/infra', adminOnly: true },
-    { icon: 'fact_check', label: 'Audit Log', route: '/admin/audit', adminOnly: true },
-    { icon: 'emergency', label: 'Break-Glass', route: '/admin/break-glass', adminOnly: true },
+    {
+      icon: 'space_dashboard',
+      label: 'Fleet Overview',
+      subtitle: 'Cluster topology & fleet telemetry',
+      route: '/admin/overview',
+      adminOnly: true,
+    },
+    {
+      icon: 'domain',
+      label: 'Tenants',
+      subtitle: 'Tenant partitions & isolation',
+      route: '/admin/tenants',
+      superAdminOnly: true,
+    },
+    {
+      icon: 'group',
+      label: 'Accounts & Agents',
+      subtitle: 'Users, personas & role grants',
+      route: '/admin/accounts',
+      adminOnly: true,
+    },
+    {
+      icon: 'folder_special',
+      label: 'Namespaces',
+      subtitle: 'Lifecycle, quotas & verified erasure',
+      route: '/admin/namespaces',
+      adminOnly: true,
+    },
+    {
+      icon: 'insights',
+      label: 'Analytics',
+      subtitle: 'Recall throughput & cache efficiency',
+      route: '/admin/analytics',
+      adminOnly: true,
+    },
+    {
+      icon: 'vpn_key',
+      label: 'Keys & Encryption',
+      subtitle: 'KMS telemetry & crypto-shredding',
+      route: '/admin/keys',
+      adminOnly: true,
+    },
+    {
+      icon: 'dns',
+      label: 'Infrastructure',
+      subtitle: 'Host nodes, GPU kernels & cluster',
+      route: '/admin/infra',
+      adminOnly: true,
+    },
+    {
+      icon: 'fact_check',
+      label: 'Audit Log',
+      subtitle: 'Immutability & compliance trace',
+      route: '/admin/audit',
+      adminOnly: true,
+    },
+    {
+      icon: 'emergency',
+      label: 'Break-Glass',
+      subtitle: 'Emergency root administrative access',
+      route: '/admin/break-glass',
+      adminOnly: true,
+    },
   ];
 
   /** Filtered nav items based on active layout (Admin Console vs User Workspace), user role, and feature flags. */
   readonly navItems = computed(() => {
-    const source = this.isAdminConsole() && this.auth.isAdmin()
-      ? this.adminNavItems
-      : this.workspaceNavItems;
+    const source =
+      this.isAdminConsole() && this.auth.isAdmin() ? this.adminNavItems : this.workspaceNavItems;
 
-    return source.filter(item =>
-      (!item.superAdminOnly || this.auth.isSuperAdmin()) &&
-      (!item.adminOnly || this.auth.isAdmin()) &&
-      (!item.featureFlags || this.featureFlags.isAnyEnabled(...item.featureFlags))
+    return source.filter(
+      (item) =>
+        (!item.superAdminOnly || this.auth.isSuperAdmin()) &&
+        (!item.adminOnly || this.auth.isAdmin()) &&
+        (!item.featureFlags || this.featureFlags.isAnyEnabled(...item.featureFlags)),
     );
   });
 
   constructor() {
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+        if (saved !== null) {
+          this.collapsed.set(saved === 'true');
+        }
+      } catch {
+        /* storage unavailable */
+      }
+    }
+
     this.router.events
       .pipe(
         filter((e): e is NavigationEnd => e instanceof NavigationEnd),
@@ -137,5 +235,16 @@ export class ShellComponent {
 
     this.eventStream.connect();
   }
-}
 
+  toggleSidebar(): void {
+    const next = !this.collapsed();
+    this.collapsed.set(next);
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next));
+      } catch {
+        /* storage unavailable */
+      }
+    }
+  }
+}

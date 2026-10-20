@@ -1,0 +1,115 @@
+<div class="namespace-modal-container">
+  <div class="modal-header">
+    <div class="title-group">
+      <div class="modal-icon-badge">
+        <mat-icon>add_circle</mat-icon>
+      </div>
+      <div>
+        <h2 mat-dialog-title class="modal-title">Create New Namespace</h2>
+        <p class="modal-subtitle">
+          Provision an isolated memory space for agent or domain cognitive context.
+        </p>
+      </div>
+    </div>
+    <button mat-icon-button (click)="onCancel()" class="close-btn" aria-label="Close modal">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  @if (isSubmitting()) {
+    <mat-progress-bar mode="indeterminate" class="modal-progress"></mat-progress-bar>
+  }
+
+  <mat-dialog-content class="modal-content">
+    @if (errorMessage()) {
+      <div class="error-banner">
+        <mat-icon class="error-icon">error_outline</mat-icon>
+        <span class="error-text">{{ errorMessage() }}</span>
+      </div>
+    }
+
+    <form (ngSubmit)="onSubmit()" class="modal-form">
+      <!-- Namespace Slug / ID -->
+      <mat-form-field appearance="outline" class="form-field">
+        <mat-label>Namespace ID / Slug</mat-label>
+        <input
+          matInput
+          [ngModel]="slug()"
+          (ngModelChange)="onSlugInput($event)"
+          name="slug"
+          placeholder="e.g. research-lab, agent-alpha"
+          required
+          autocomplete="off"
+          autofocus
+        />
+        <mat-icon matSuffix class="field-icon">fingerprint</mat-icon>
+        <mat-hint>Lowercase letters, numbers, and hyphens (min 2 chars)</mat-hint>
+      </mat-form-field>
+
+      <!-- Display Name -->
+      <mat-form-field appearance="outline" class="form-field">
+        <mat-label>Display Name (Optional)</mat-label>
+        <input
+          matInput
+          [ngModel]="displayName()"
+          (ngModelChange)="displayName.set($event)"
+          name="displayName"
+          placeholder="e.g. Research Laboratory"
+          autocomplete="off"
+        />
+        <mat-icon matSuffix class="field-icon">badge</mat-icon>
+      </mat-form-field>
+
+      <!-- Namespace Type -->
+      <mat-form-field appearance="outline" class="form-field">
+        <mat-label>Namespace Scope</mat-label>
+        <mat-select [ngModel]="type()" (ngModelChange)="type.set($event)" name="type">
+          <mat-option value="PERSONAL">
+            <div class="select-option">
+              <mat-icon class="option-icon">person</mat-icon>
+              <span>Personal (Private Workspace)</span>
+            </div>
+          </mat-option>
+          <mat-option value="ORGANIZATION">
+            <div class="select-option">
+              <mat-icon class="option-icon">groups</mat-icon>
+              <span>Organization (Shared Multi-Agent)</span>
+            </div>
+          </mat-option>
+        </mat-select>
+        <mat-icon matSuffix class="field-icon">shield</mat-icon>
+      </mat-form-field>
+
+      <!-- Description -->
+      <mat-form-field appearance="outline" class="form-field">
+        <mat-label>Description (Optional)</mat-label>
+        <textarea
+          matInput
+          rows="2"
+          [ngModel]="description()"
+          (ngModelChange)="description.set($event)"
+          name="description"
+          placeholder="Short description of cognitive context..."
+        ></textarea>
+        <mat-icon matSuffix class="field-icon">description</mat-icon>
+      </mat-form-field>
+    </form>
+  </mat-dialog-content>
+
+  <mat-dialog-actions align="end" class="modal-actions">
+    <button mat-button type="button" (click)="onCancel()" [disabled]="isSubmitting()">
+      Cancel
+    </button>
+    <button
+      mat-flat-button
+      color="primary"
+      type="button"
+      (click)="onSubmit()"
+      [disabled]="!canSubmit()"
+      id="btn-create-namespace-submit"
+    >
+      <mat-icon>add</mat-icon>
+      <span>{{ isSubmitting() ? 'Provisioning...' : 'Create Namespace' }}</span>
+    </button>
+  </mat-dialog-actions>
+</div>

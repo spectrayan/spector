@@ -145,9 +145,10 @@ describe('Role-Aware Shell & Command Palette (Issue #1062)', () => {
 
     for (const item of palette.allItems) {
       if (item.route) {
-        expect(validPaths.has(item.route), `Palette route ${item.route} (${item.id}) must exist`).toBe(
-          true
-        );
+        expect(
+          validPaths.has(item.route),
+          `Palette route ${item.route} (${item.id}) must exist`,
+        ).toBe(true);
       }
     }
 
@@ -164,7 +165,15 @@ describe('Role-Aware Shell & Command Palette (Issue #1062)', () => {
     }
 
     // Explicitly verify retired dead links are absent
-    const deadRoutes = ['/users', '/admin/config', '/connectors', '/providers', '/templates', '/replay', '/studio'];
+    const deadRoutes = [
+      '/users',
+      '/admin/config',
+      '/connectors',
+      '/providers',
+      '/templates',
+      '/replay',
+      '/studio',
+    ];
     const allPaletteRoutes = palette.allItems.map((i) => i.route).filter(Boolean);
     for (const dead of deadRoutes) {
       expect(allPaletteRoutes).not.toContain(dead);
@@ -235,5 +244,32 @@ describe('Role-Aware Shell & Command Palette (Issue #1062)', () => {
     expect(shell.isAdminConsole()).toBe(true);
     expect(shell.navItems().map((i) => i.route)).toContain('/admin/tenants');
     expect(palette.filteredItems().map((i) => i.id)).toContain('nav-admin-tenants');
+  });
+
+  it('ensures all workspace and admin nav items have Title and Subtitle typography (Milestone 3)', () => {
+    const shell = TestBed.runInInjectionContext(() => new ShellComponent());
+
+    for (const item of shell.workspaceNavItems) {
+      expect(item.label, `Workspace item ${item.route} must have a non-empty label`).toBeTruthy();
+      expect(
+        item.subtitle,
+        `Workspace item ${item.route} must have a non-empty subtitle`,
+      ).toBeTruthy();
+    }
+
+    for (const item of shell.adminNavItems) {
+      expect(item.label, `Admin item ${item.route} must have a non-empty label`).toBeTruthy();
+      expect(item.subtitle, `Admin item ${item.route} must have a non-empty subtitle`).toBeTruthy();
+    }
+  });
+
+  it('toggles sidebar collapse state via toggleSidebar() (Milestone 3)', () => {
+    const shell = TestBed.runInInjectionContext(() => new ShellComponent());
+
+    expect(shell.collapsed()).toBe(false);
+    shell.toggleSidebar();
+    expect(shell.collapsed()).toBe(true);
+    shell.toggleSidebar();
+    expect(shell.collapsed()).toBe(false);
   });
 });

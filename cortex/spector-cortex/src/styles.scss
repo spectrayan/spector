@@ -3,16 +3,59 @@
 // ═══════════════════════════════════════════════════════════════════════
 @use '@angular/material' as mat;
 
-// ── M3 Theme Definition ────────────────────────────────────────────────
-// Deep purple seed for neural/brain aesthetic
-:root {
-  --cortex-working: #f59e0b;
-  --cortex-episodic: #a78bfa;
-  --cortex-semantic: #8b5cf6;
-  --cortex-procedural: #3b82f6;
-  --cortex-success: #10b981;
+// ── Complete Semantic CSS Tokens & Glassmorphic Design System ─────────
+// Parity with ebbmem/ui/src/app/globals.css
+
+// ── Dark Mode (Default) ────────────────────────────────────────────────
+:root,
+html,
+html[data-theme='dark'] {
+  color-scheme: dark;
+
+  // Backgrounds (Obsidian-Navy Glass Palette)
+  --bg-void: #030712; // Deepest obsidian-navy canvas
+  --bg-surface: #050a18; // Header, rail, and container base
+  --bg-card: rgba(8, 15, 32, 0.65); // Translucent glass card surface
+  --bg-elevated: rgba(15, 23, 42, 0.78); // Popovers, tooltips, and elevated modals
+  --bg-hover: rgba(255, 255, 255, 0.05); // Interactive hover surface
+  --bg-active: rgba(10, 133, 255, 0.15); // Active selection surface
+
+  // Borders & Outlines
+  --border-subtle: rgba(29, 40, 58, 0.75); // Card & panel borders
+  --border-highlight: rgba(100, 140, 255, 0.25); // Hover & active borders
+  --border-glow: rgba(10, 133, 255, 0.35); // Neon synaptic glow
+
+  // Foreground & Typography
+  --foreground: #e2e8f0; // Primary body text
+  --foreground-muted: #94a3b8; // Secondary / description text
+  --foreground-dim: rgba(148, 163, 184, 0.6); // Metadata / disabled text
+
+  // Brand Accent Palette
+  --primary: #0a85ff; // Spector electric azure
+  --primary-foreground: #ffffff;
+  --accent-cyan: #22d3ee;
+  --accent-purple: #a855f7;
+  --accent-emerald: #10b981;
+  --accent-amber: #f59e0b;
+  --accent-rose: #f43f5e;
+
+  // Cognitive Memory Tiers
+  --tier-working: #f59e0b;
+  --tier-episodic: #a78bfa;
+  --tier-semantic: #8b5cf6;
+  --tier-procedural: #3b82f6;
+
+  // Fluid Motion
+  --ease-fluid: cubic-bezier(0.16, 1, 0.3, 1);
+
+  // ── Backward-Compatible Legacy Aliasing ──
+  --cortex-working: var(--tier-working);
+  --cortex-episodic: var(--tier-episodic);
+  --cortex-semantic: var(--tier-semantic);
+  --cortex-procedural: var(--tier-procedural);
+  --cortex-success: var(--accent-emerald);
   --cortex-error: #ef4444;
-  --cortex-warning: #f59e0b;
+  --cortex-warning: var(--accent-amber);
 
   // Cognitive edge & node association tokens
   --cortex-hebbian: #e0e0e0;
@@ -31,49 +74,133 @@
   --cortex-dark-overlay: #000000;
   --cortex-light-overlay: #ffffff;
 
-  // Premium Cyber-Dark UI Tokens (for custom glass overlays, graphs, widgets)
-  --cortex-hud-bg: rgba(10, 15, 30, 0.75);
-  --cortex-hud-border: rgba(100, 140, 255, 0.12);
-  --cortex-hud-glow: rgba(60, 100, 255, 0.06);
-  --cortex-tooltip-bg: rgba(15, 20, 35, 0.92);
-  --cortex-tooltip-border: rgba(100, 140, 255, 0.2);
-  --cortex-tooltip-glow: rgba(60, 100, 255, 0.08);
-  --cortex-canvas-bg-center: rgba(10, 15, 30, 0.95);
-  --cortex-canvas-bg-edge: rgba(5, 8, 18, 1);
-  --cortex-text-primary: #e0e8ff;
-  --cortex-text-muted: rgba(200, 210, 230, 0.85);
-  --cortex-text-dim: rgba(160, 170, 200, 0.6);
-  --cortex-accent-blue-border: rgba(100, 140, 255, 0.1);
-  --cortex-accent-blue-bg-glow: rgba(100, 140, 255, 0.15);
+  // Legacy HUD Tokens mapped to semantic variables (automatic dark/light contrast)
+  --cortex-hud-bg: var(--bg-card);
+  --cortex-hud-border: var(--border-subtle);
+  --cortex-hud-glow: var(--border-glow);
+  --cortex-tooltip-bg: var(--bg-elevated);
+  --cortex-tooltip-border: var(--border-subtle);
+  --cortex-tooltip-glow: var(--border-glow);
+  --cortex-canvas-bg-center: var(--bg-void);
+  --cortex-canvas-bg-edge: #02040a;
+  --cortex-text-primary: var(--foreground);
+  --cortex-text-muted: var(--foreground-muted);
+  --cortex-text-dim: var(--foreground-dim);
+  --cortex-accent-blue-border: var(--border-subtle);
+  --cortex-accent-blue-bg-glow: rgba(10, 133, 255, 0.15);
 }
 
 html {
-  @include mat.theme((color: (primary: mat.$violet-palette,
+  @include mat.theme(
+    (
+      color: (
+        primary: mat.$violet-palette,
         tertiary: mat.$cyan-palette,
         theme-type: dark,
       ),
-      typography: (brand-family: 'Inter, system-ui, -apple-system, sans-serif',
+      typography: (
+        brand-family: 'Inter, system-ui, -apple-system, sans-serif',
         plain-family: 'Inter, system-ui, -apple-system, sans-serif',
       ),
       density: 0,
-    ));
+    )
+  );
 
   color-scheme: dark;
 }
 
 // ── Light Theme Override ───────────────────────────────────────────────
 html[data-theme='light'] {
-  @include mat.theme((color: (primary: mat.$violet-palette,
+  @include mat.theme(
+    (
+      color: (
+        primary: mat.$violet-palette,
         tertiary: mat.$cyan-palette,
         theme-type: light,
       ),
-      typography: (brand-family: 'Inter, system-ui, -apple-system, sans-serif',
+      typography: (
+        brand-family: 'Inter, system-ui, -apple-system, sans-serif',
         plain-family: 'Inter, system-ui, -apple-system, sans-serif',
       ),
       density: 0,
-    ));
+    )
+  );
 
   color-scheme: light;
+
+  // Backgrounds (Crisp Slate Palette)
+  --bg-void: #f8fafc; // Clean light canvas
+  --bg-surface: #ffffff; // Header, rail, and container base
+  --bg-card: rgba(255, 255, 255, 0.85); // Translucent frosted glass card surface
+  --bg-elevated: #f1f5f9; // Popovers, tooltips, and elevated modals
+  --bg-hover: rgba(0, 0, 0, 0.04); // Interactive hover surface
+  --bg-active: rgba(10, 133, 255, 0.12); // Active selection surface
+
+  // Borders & Outlines
+  --border-subtle: #e2e8f0; // Clean slate border
+  --border-highlight: #cbd5e1; // Hover border
+  --border-glow: rgba(2, 132, 199, 0.25); // Soft blue glow
+
+  // Foreground & Typography
+  --foreground: #0f172a; // Crisp dark slate text
+  --foreground-muted: #64748b; // Secondary slate text
+  --foreground-dim: #94a3b8; // Muted metadata text
+
+  // Brand Accent Palette
+  --primary: #0a85ff;
+  --primary-foreground: #ffffff;
+  --accent-cyan: #0891b2;
+  --accent-purple: #9333ea;
+  --accent-emerald: #059669;
+  --accent-amber: #d97706;
+  --accent-rose: #e11d48;
+
+  // Cognitive Memory Tiers (Tuned for light contrast)
+  --tier-working: #d97706;
+  --tier-episodic: #7c3aed;
+  --tier-semantic: #6d28d9;
+  --tier-procedural: #2563eb;
+
+  // ── Backward-Compatible Legacy Aliasing ──
+  --cortex-working: var(--tier-working);
+  --cortex-episodic: var(--tier-episodic);
+  --cortex-semantic: var(--tier-semantic);
+  --cortex-procedural: var(--tier-procedural);
+  --cortex-success: var(--accent-emerald);
+  --cortex-error: #ef4444;
+  --cortex-warning: var(--accent-amber);
+
+  // Cognitive edge & node association tokens
+  --cortex-hebbian: #475569;
+  --cortex-temporal: #0891b2;
+  --cortex-entity: #d97706;
+  --cortex-knn: #0d9488;
+  --cortex-axes: #94a3b8;
+
+  // Bulk action lifecycle state colors
+  --cortex-reinforce: #2563eb;
+  --cortex-suppress: #ea580c;
+  --cortex-resolve: #16a34a;
+  --cortex-forget: #dc2626;
+
+  // Backdrop colors for high contrast overlays
+  --cortex-dark-overlay: #000000;
+  --cortex-light-overlay: #ffffff;
+
+  // Legacy HUD Tokens mapped to semantic variables
+  --cortex-hud-bg: var(--bg-card);
+  --cortex-hud-border: var(--border-subtle);
+  --cortex-hud-glow: rgba(0, 0, 0, 0.05);
+  --cortex-tooltip-bg: #ffffff;
+  --cortex-tooltip-border: var(--border-subtle);
+  --cortex-tooltip-glow: rgba(0, 0, 0, 0.08);
+  --cortex-canvas-bg-center: #f8fafc;
+  --cortex-canvas-bg-edge: #f1f5f9;
+  --cortex-text-primary: var(--foreground);
+  --cortex-text-muted: var(--foreground-muted);
+  --cortex-text-dim: var(--foreground-dim);
+  --cortex-accent-blue-border: #cbd5e1;
+  --cortex-accent-blue-bg-glow: rgba(10, 133, 255, 0.08);
 }
 
 // ── Google Fonts ───────────────────────────────────────────────────────
@@ -93,9 +220,9 @@ body {
   height: 100%;
   width: 100%;
   overflow: hidden;
-  font-family: var(--mat-sys-body-medium-font);
-  background-color: var(--mat-sys-surface);
-  color: var(--mat-sys-on-surface);
+  font-family: var(--mat-sys-body-medium-font, 'Inter, system-ui, -apple-system, sans-serif');
+  background-color: var(--bg-void);
+  color: var(--foreground);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -121,7 +248,6 @@ body {
 
 // ── Global Keyframe Animations ─────────────────────────────────────────
 @keyframes pulse-glow {
-
   0%,
   100% {
     opacity: 0.4;
@@ -167,7 +293,6 @@ body {
 }
 
 @keyframes breathe {
-
   0%,
   100% {
     transform: scale(1);
@@ -220,7 +345,9 @@ body {
   }
 
   50% {
-    box-shadow: 0 0 24px var(--mat-sys-primary), 0 0 48px var(--mat-sys-primary);
+    box-shadow:
+      0 0 24px var(--mat-sys-primary),
+      0 0 48px var(--mat-sys-primary);
   }
 
   100% {
@@ -228,24 +355,82 @@ body {
   }
 }
 
+// ── View Transitions API ───────────────────────────────────────────────
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 180ms;
+  animation-timing-function: var(--ease-fluid, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+// ── Offscreen Row Virtualization ───────────────────────────────────────
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 48px;
+}
+
+// ── Discrete Transitions & Starting Styles ─────────────────────────────
+dialog[open],
+[popover]:popover-open,
+.cortex-popover-open,
+.modal-fluid-enter {
+  transition-behavior: allow-discrete;
+  @starting-style {
+    opacity: 0;
+    transform: scale(0.96) translateY(-4px);
+  }
+}
+
+// ── Compact Form Controls ──────────────────────────────────────────────
+.form-control-compact,
+.compact-input {
+  height: 36px;
+  min-height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  color: var(--foreground);
+  padding: 0 12px;
+  font-size: 13px;
+  transition:
+    border-color 0.18s var(--ease-fluid),
+    box-shadow 0.18s var(--ease-fluid);
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--border-glow);
+  }
+}
+
+.mat-mdc-form-field.compact-field {
+  --mdc-outlined-text-field-container-shape: 8px;
+  font-size: 13px;
+  .mat-mdc-text-field-wrapper {
+    height: 40px;
+  }
+}
+
 // ── Utility Classes ────────────────────────────────────────────────────
 .cortex-glass {
-  background: color-mix(in srgb, var(--mat-sys-surface-container) 80%, transparent);
+  background: var(--bg-card);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--mat-sys-outline-variant);
+  border: 1px solid var(--border-subtle);
 }
 
 .cortex-card {
-  background: var(--mat-sys-surface-container);
-  border: 1px solid var(--mat-sys-outline-variant);
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
   border-radius: 16px;
   overflow: hidden;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  transition:
+    border-color 0.25s var(--ease-fluid),
+    box-shadow 0.25s var(--ease-fluid),
+    transform 0.25s var(--ease-fluid);
 
   &:hover {
-    border-color: var(--mat-sys-primary);
-    box-shadow: 0 0 20px color-mix(in srgb, var(--mat-sys-primary) 15%, transparent);
+    border-color: var(--border-highlight);
+    box-shadow: 0 8px 24px color-mix(in srgb, var(--primary) 12%, transparent);
   }
 }
 
@@ -268,7 +453,7 @@ body {
 }
 
 // Staggered grid entrance — add data-index="0", "1", etc. or use CSS nth-child.
-.stagger-children>* {
+.stagger-children > * {
   animation: fade-in-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 
   @for $i from 1 through 12 {
@@ -340,7 +525,8 @@ body {
 // Lift + glow on hover for all primary flat buttons.
 .mat-mdc-unelevated-button,
 .mat-mdc-raised-button {
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+  transition:
+    transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
 
   &:hover:not(:disabled) {
@@ -373,7 +559,8 @@ body {
 
 // ── Enhanced Card Hover ───────────────────────────────────────────────
 .mat-mdc-card[appearance='outlined'] {
-  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+  transition:
+    transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
     border-color 0.25s ease,
     box-shadow 0.25s ease;
 
@@ -460,7 +647,6 @@ body {
 
 // Allow natural scroll on mobile
 @media (max-width: 767px) {
-
   html,
   body {
     overflow: auto;
