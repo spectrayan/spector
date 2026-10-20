@@ -64,6 +64,8 @@ public final class EnvelopeDataEncryptor implements DataEncryptor, Destroyable, 
     private final byte[] dekIdBytes;
     private final byte[] kekKeyIdHashBytes;
     private final byte[] domainSalt;
+    private final byte[] textRecordAad;
+    private final byte[] vectorRecordAad;
 
     private final DestroyableKeyMaterial masterDek;
     private final DestroyableKeyMaterial payloadKey;
@@ -104,6 +106,8 @@ public final class EnvelopeDataEncryptor implements DataEncryptor, Destroyable, 
         this.kmsAvailableProbe = kmsAvailableProbe != null ? kmsAvailableProbe : () -> true;
 
         this.domainSalt = buildDomainSalt(tenantId, namespaceId, dekVersion);
+        this.textRecordAad = buildRecordAad(EncryptedSegmentHeader.SEGMENT_TYPE_TEXT);
+        this.vectorRecordAad = buildRecordAad(EncryptedSegmentHeader.SEGMENT_TYPE_VECTOR);
         this.masterDek = namespaceDek;
         this.payloadKey = EnvelopeCipher.deriveSubkey(namespaceDek, tenantId, namespaceId, dekVersion, EnvelopeCipher.SUBKEY_PAYLOAD);
         this.vectorKey = EnvelopeCipher.deriveSubkey(namespaceDek, tenantId, namespaceId, dekVersion, EnvelopeCipher.SUBKEY_VECTOR);
@@ -260,8 +264,7 @@ public final class EnvelopeDataEncryptor implements DataEncryptor, Destroyable, 
             throw new IllegalArgumentException("plaintext must not be null");
         }
         try {
-            byte[] aad = buildRecordAad(EncryptedSegmentHeader.SEGMENT_TYPE_TEXT);
-            return packEnvelope(EnvelopeCipher.encrypt(payloadKey, plaintext, aad));
+            return packEnvelope(EnvelopeCipher.encrypt(payloadKey, plaintext, textRecordAad));
         } catch (RuntimeException e) {
             throw translateException(e, "Failed to encrypt text payload for namespace '" + namespaceId + "'");
         }
@@ -274,8 +277,7 @@ public final class EnvelopeDataEncryptor implements DataEncryptor, Destroyable, 
             throw new IllegalArgumentException("ciphertext must not be null");
         }
         try {
-            byte[] aad = buildRecordAad(EncryptedSegmentHeader.SEGMENT_TYPE_TEXT);
-            return unpackAndDecrypt(payloadKey, ciphertext, aad);
+            return unpackAndDecrypt(payloadKey, ciphertext, textRecordAad);
         } catch (RuntimeException e) {
             throw translateException(e, "Failed to decrypt text payload for namespace '" + namespaceId + "'");
         }
@@ -288,8 +290,7 @@ public final class EnvelopeDataEncryptor implements DataEncryptor, Destroyable, 
             throw new IllegalArgumentException("plaintext must not be null");
         }
         try {
-            byte[] aad = buildRecordAad(EncryptedSegmentHeader.SEGMENT_TYPE_VECTOR);
-            return packEnvelope(EnvelopeCipher.encrypt(vectorKey, plaintext, aad));
+            return packEnvelope(EnvelopeCipher.encrypt(vectorKey, plaintext, vectorRecordAad));
         } catch (RuntimeException e) {
             throw translateException(e, "Failed to encrypt vector/binary payload for namespace '" + namespaceId + "'");
         }
@@ -302,8 +303,7 @@ public final class EnvelopeDataEncryptor implements DataEncryptor, Destroyable, 
             throw new IllegalArgumentException("ciphertext must not be null");
         }
         try {
-            byte[] aad = buildRecordAad(EncryptedSegmentHeader.SEGMENT_TYPE_VECTOR);
-            return unpackAndDecrypt(vectorKey, ciphertext, aad);
+            return unpackAndDecrypt(vectorKey, ciphertext, vectorRecordAad);
         } catch (RuntimeException e) {
             throw translateException(e, "Failed to decrypt vector/binary payload for namespace '" + namespaceId + "'");
         }

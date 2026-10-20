@@ -54,6 +54,24 @@ public final class EnvelopeCipher {
 
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
+    private static final ThreadLocal<Cipher> ENCRYPT_CIPHER = ThreadLocal.withInitial(() -> {
+        try {
+            return Cipher.getInstance(AES_GCM_ALGORITHM);
+        } catch (Exception e) {
+            throw new SpectorMemoryException(ErrorCode.MEMORY_ENCRYPTION_FAILED, e,
+                    "AES-256-GCM cipher initialization failed: " + e.getMessage());
+        }
+    });
+
+    private static final ThreadLocal<Cipher> DECRYPT_CIPHER = ThreadLocal.withInitial(() -> {
+        try {
+            return Cipher.getInstance(AES_GCM_ALGORITHM);
+        } catch (Exception e) {
+            throw new SpectorMemoryException(ErrorCode.MEMORY_ENCRYPTION_FAILED, e,
+                    "AES-256-GCM cipher initialization failed: " + e.getMessage());
+        }
+    });
+
     private EnvelopeCipher() {
     }
 
@@ -293,10 +311,16 @@ public final class EnvelopeCipher {
         }
 
         try {
-            Cipher cipher = Cipher.getInstance(AES_GCM_ALGORITHM);
             GCMParameterSpec spec = new GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv);
             SecretKeySpec keySpec = new SecretKeySpec(keyBytes, "AES");
-            cipher.init(Cipher.ENCRYPT_MODE, keySpec, spec);
+            Cipher cipher = ENCRYPT_CIPHER.get();
+            try {
+                cipher.init(Cipher.ENCRYPT_MODE, keySpec, spec);
+            } catch (java.security.InvalidAlgorithmParameterException retryEx) {
+                cipher = Cipher.getInstance(AES_GCM_ALGORITHM);
+                cipher.init(Cipher.ENCRYPT_MODE, keySpec, spec);
+                ENCRYPT_CIPHER.set(cipher);
+            }
             if (aad != null && aad.length > 0) {
                 cipher.updateAAD(aad);
             }
@@ -343,7 +367,7 @@ public final class EnvelopeCipher {
         }
 
         try {
-            Cipher cipher = Cipher.getInstance(AES_GCM_ALGORITHM);
+            Cipher cipher = DECRYPT_CIPHER.get();
             GCMParameterSpec spec = new GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv);
             SecretKeySpec keySpec = new SecretKeySpec(keyBytes, "AES");
             cipher.init(Cipher.DECRYPT_MODE, keySpec, spec);

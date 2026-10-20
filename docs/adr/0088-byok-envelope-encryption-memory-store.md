@@ -2,7 +2,7 @@
 
 | Field | Value |
 |:---|:---|
-| **Status** | Proposed |
+| **Status** | Accepted |
 | **Date** | 2026-10-18 |
 | **Authors** | Spector Maintainers & Architecture Working Group |
 | **Deciders** | Spector Technical Steering Committee (TSC) |
@@ -413,3 +413,4 @@ public interface KeyProvider {
   - Byte-scan tests asserting zero plaintext text or vector floats appear in on-disk segment/WAL/bundle files of a BYOK namespace ([#1071](https://github.com/spectrayan/spector/issues/1071)).
   - Bit-exact recall parity tests before and after encryption ([#1071](https://github.com/spectrayan/spector/issues/1071)).
   - KEK revocation / crypto-shredding tests verifying `SPE-SEC-010` and unrecoverability of plaintext ([#1072](https://github.com/spectrayan/spector/issues/1072)).
+  - JMH encrypted recall benchmarks ([`EncryptedMemoryRecallBenchmark.java`](../../bench/spector-bench/src/main/java/com/spectrayan/spector/bench/EncryptedMemoryRecallBenchmark.java)) and CI performance regression gate ([`EncryptedRecallPerformanceGateTest.java`](../../bench/spector-bench/src/test/java/com/spectrayan/spector/bench/EncryptedRecallPerformanceGateTest.java)) ([#1074](https://github.com/spectrayan/spector/issues/1074)).
