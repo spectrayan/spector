@@ -100,6 +100,58 @@ Full CRUD with tier filtering, importance bars, valence indicators, synaptic tag
 
 Identity card, cognitive state (importance/valence/arousal gauges), synaptic tags, and full relationship graph showing Hebbian associations, temporal chains, and entity links.
 
+![Spector Memory Detail — Cognitive State](../screenshots/spector-memory-detail-cognitive.png)
+
+Cognitive state gauges and the entity relationship list for a single engram.
+
+---
+
+### 🧪 MEL Studio — 6-Phase Recall Workbench
+
+![Spector MEL Studio](../screenshots/spector-cortex-mel-studio.png)
+
+Run `RECALL` / `EXPLAIN RECALL` statements and inspect the ranked candidates, the 6-phase funnel and the EXPLAIN plan.
+
+---
+
+### 🩺 Memory Health & Diagnostics
+
+![Spector Memory Health](../screenshots/spector-cortex-health.png)
+
+Physical storage, HNSW index, sleep consolidation, tier distribution and scoring dimensions.
+
+---
+
+### 🎛️ Settings — Scoring, Salience & Soul
+
+![Spector Settings — Scoring](../screenshots/spector-cortex-settings-scoring.png)
+
+![Spector Settings — Salience & Emotion](../screenshots/spector-cortex-settings-salience.png)
+
+![Spector Settings — Soul & Identity](../screenshots/spector-cortex-settings-soul.png)
+
+ICNU fusion weights, dual-surprise and flashbulb thresholds, salience overrides, and the agent soul/identity baseline.
+
+---
+
+### 🔐 Sharing & Access and Admin Console
+
+![Spector Sharing & Access](../screenshots/spector-cortex-sharing.png)
+
+![Spector Admin Console](../screenshots/spector-cortex-admin.png)
+
+Namespace grants and audit history, plus the content-free fleet admin overview.
+
+---
+
+### ☀️ Light Theme
+
+Every screen ships in light and dark themes; light captures use the `-light` suffix, for example:
+
+![Spector Memory Table — Light](../screenshots/spector-cortex-memory-table-light.png)
+
+![Spector Memory Detail — Light](../screenshots/spector-memory-detail-light.png)
+
 ---
 
 ## What's Coming to Cortex

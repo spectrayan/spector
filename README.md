@@ -282,6 +282,22 @@ Full CRUD with tier filtering, importance bars, valence indicators, synaptic tag
 Identity, cognitive state (importance/valence/arousal), synaptic tags, and full relationship graph (Hebbian associations, temporal chains, entity links).
 </details>
 
+<details>
+<summary><b>🧪 MEL Studio — 6-phase recall workbench</b></summary>
+<p align="center">
+  <img src="docs/screenshots/spector-cortex-mel-studio.png" alt="Spector MEL Studio" width="800" />
+</p>
+Run RECALL / EXPLAIN RECALL statements and inspect ranked candidates, the 6-phase funnel and the EXPLAIN plan.
+</details>
+
+<details>
+<summary><b>🎛️ Settings — salience & soul</b></summary>
+<p align="center">
+  <img src="docs/screenshots/spector-cortex-settings-salience.png" alt="Spector Settings — Salience &amp; Emotion" width="800" />
+</p>
+Runtime overrides for memory core, recall, spectrum scoring, salience &amp; emotion, and soul &amp; identity.
+</details>
+
 ---
 
 ## 🛠️ Building From Source (Engine Contributors)
