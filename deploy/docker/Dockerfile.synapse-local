@@ -9,16 +9,28 @@ FROM eclipse-temurin:25-jre
 LABEL maintainer="Spectrayan <team@spectrayan.com>"
 LABEL description="Spector Synapse & Cortex UI (local build)"
 
-# Install Nginx, tini, curl, and process utilities
+# Install Nginx, tini, curl, and process utilities, and apply latest OS security patches
 RUN (userdel -r ubuntu 2>/dev/null || true) && \
     (groupdel ubuntu 2>/dev/null || true) && \
     (groupadd -g 1000 spector 2>/dev/null || true) && \
     (id -u 1000 >/dev/null 2>&1 || useradd -u 1000 -g 1000 -m -s /bin/bash spector) && \
-    apt-get update && apt-get install -y --no-install-recommends \
+    apt-get update && apt-get dist-upgrade -y --no-install-recommends && \
+    apt-get install -y --no-install-recommends \
     nginx \
     tini \
     curl \
     procps \
+    && apt-get --only-upgrade install -y \
+    curl \
+    libcurl4t64 \
+    libpng16-16t64 \
+    perl-base \
+    gpgv \
+    libexpat1 \
+    openssl \
+    libssl3t64 \
+    openssl-provider-legacy \
+    libfreetype6 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

@@ -24,8 +24,21 @@ LABEL org.opencontainers.image.url="https://github.com/spectrayan/spector"
 LABEL org.opencontainers.image.source="https://github.com/spectrayan/spector"
 LABEL org.opencontainers.image.licenses="Apache-2.0 AND BSL-1.1"
 
-# Create non-root user
-RUN groupadd -r spector && useradd -r -g spector spector
+# Apply OS security updates and create non-root user
+RUN apt-get update && apt-get dist-upgrade -y --no-install-recommends \
+    && apt-get --only-upgrade install -y \
+    curl \
+    libcurl4t64 \
+    libpng16-16t64 \
+    perl-base \
+    gpgv \
+    libexpat1 \
+    openssl \
+    libssl3t64 \
+    openssl-provider-legacy \
+    libfreetype6 \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd -r spector && useradd -r -g spector spector
 
 WORKDIR /app
 
