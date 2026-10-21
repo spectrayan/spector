@@ -152,6 +152,30 @@ public enum ErrorCode {
     GENERATION_PROVIDER_UNAVAILABLE(110_006, ErrorCategory.CONFIG,
             "No text generation provider available for {}: {}"),
 
+    /** {@code spector mcp} (stdio) was started without an agent token (SPECTOR_TOKEN_FILE). */
+    MCP_TOKEN_REQUIRED        (110_007, ErrorCategory.CONFIG,
+            "An agent token is required to start the MCP server: {}"),
+
+    /** The agent token does not pin exactly one namespace (one {@code ns} or {@code nsid} value). */
+    MCP_TOKEN_NOT_PINNED      (110_008, ErrorCategory.CONFIG,
+            "The agent token must pin exactly one namespace: {}"),
+
+    /** The agent token failed verification (signature, issuer, expiry or subject). */
+    AGENT_TOKEN_INVALID       (110_009, ErrorCategory.CONFIG,
+            "The agent token was rejected: {}"),
+
+    /** A JWT signing or verification key is missing, malformed or too weak. */
+    JWT_KEY_INVALID           (110_010, ErrorCategory.CONFIG,
+            "JWT key is unusable ({}): {}"),
+
+    /** A local embedding model (model-path / vocab-path) is missing, unreadable or inconsistent. */
+    EMBEDDING_MODEL_INVALID   (110_011, ErrorCategory.CONFIG,
+            "Embedding model is unusable ({}): {}"),
+
+    /** A local extraction model (GLiNER model, tokenizer or config) is missing, unreadable or unsupported. */
+    EXTRACTION_MODEL_INVALID  (110_012, ErrorCategory.CONFIG,
+            "Extraction model is unusable ({}): {}"),
+
     // ══════════════════════════════════════════════════════════════════════
     // INDEX (SPE-200-xxx)
     // ══════════════════════════════════════════════════════════════════════
@@ -395,6 +419,14 @@ public enum ErrorCode {
     MEMORY_LLM_APPRAISAL_FAILED(310_029, ErrorCategory.MEMORY,
             "LLM tag extraction failed for '{}' (tag-extractor=llm does not fall back): {}"),
 
+    /** Local model extraction (GLiNER tags or entities) failed; there is no fallback extractor. */
+    MEMORY_EXTRACTION_FAILED  (310_030, ErrorCategory.MEMORY,
+            "Local extraction failed for '{}' (no fallback): {}"),
+
+    /** The on-disk store is already open by another writer; a second writer would corrupt it. */
+    STORE_LOCKED              (310_031, ErrorCategory.MEMORY,
+            "Memory store {} is already open by {}; refusing a second writer"),
+
     // ══════════════════════════════════════════════════════════════════════
     // GPU (SPE-400-xxx)
     // ══════════════════════════════════════════════════════════════════════
@@ -482,6 +514,10 @@ public enum ErrorCode {
     /** Agent attempted to invoke a tool outside its Synapse tool-access policy. */
     TOOL_ACCESS_DENIED        (500_013, ErrorCategory.SERVER,
             "Tool access denied for {}"),
+
+    /** An MCP call named a namespace (argument, header or query parameter) other than the bound one. */
+    MCP_NAMESPACE_MISMATCH    (500_014, ErrorCategory.SERVER,
+            "Namespace '{}' does not match the namespace '{}' this MCP call is bound to by its token"),
 
     // ══════════════════════════════════════════════════════════════════════
     // CLIENT (SPE-510-xxx)
