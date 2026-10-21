@@ -155,6 +155,45 @@ class SpectorAutoConfigurationTest {
     }
 
     @Test
+    void generationTypeNoneDisablesTextGenerationExplicitly() {
+        this.contextRunner
+                .withUserConfiguration(TestDependenciesConfiguration.class)
+                .withPropertyValues("spector.provider.embedding.dimensions=384",
+                        "spector.provider.generation.type=none")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context.getBean(ProviderRegistry.class).activeGenerationName()).isEmpty();
+                    assertThat(context.getBean(LlmProvider.class).isAvailable()).isFalse();
+                    assertThat(context).hasSingleBean(SpectorMemory.class);
+                });
+    }
+
+    @Test
+    void generationTypeNoneWithLlmTagExtractorFailsStartup() {
+        this.contextRunner
+                .withUserConfiguration(TestDependenciesConfiguration.class)
+                .withPropertyValues("spector.provider.embedding.dimensions=384",
+                        "spector.provider.generation.type=none",
+                        "spector.memory.tag-extractor=llm")
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    assertThat(context.getStartupFailure())
+                            .rootCause()
+                            .hasMessageContaining("SPE-110-006")
+                            .hasMessageContaining("tag-extractor=llm");
+                });
+    }
+
+    @Test
+    void isGenerationDisabledAcceptsNoneAndDisabledOnly() {
+        assertThat(SpectorAutoConfiguration.isGenerationDisabled("none")).isTrue();
+        assertThat(SpectorAutoConfiguration.isGenerationDisabled(" Disabled ")).isTrue();
+        assertThat(SpectorAutoConfiguration.isGenerationDisabled("ollama")).isFalse();
+        assertThat(SpectorAutoConfiguration.isGenerationDisabled("")).isFalse();
+        assertThat(SpectorAutoConfiguration.isGenerationDisabled(null)).isFalse();
+    }
+
+    @Test
     public void shouldCreateEmbeddingProviderBean(){
         contextRunner.withUserConfiguration(TestWrapSpringAIAutoConfiguration.class).run(context -> {
             assertThat(context).hasSingleBean(EmbeddingProvider.class);
