@@ -414,11 +414,36 @@ public class SpectorAutoConfiguration {
                 providerRegistry.registerGeneration("ollama", llm);
                 log.info("[Spector] Registered default Ollama text generation provider: model={}, baseUrl={}",
                         genProps.getModel(), genProps.getBaseUrl());
+            } else {
+                var resolved = GenerationProviderResolver.resolve(genProps, System::getenv);
+                providerRegistry.registerGeneration(resolved.name(), resolved.provider());
+                providerRegistry.activateGeneration(resolved.name());
+                // Type and model only: the API key is never logged.
+                log.info("[Spector] Registered text generation provider: type={}, model={}",
+                        resolved.name(), resolved.model());
             }
         } catch (Exception e) {
-            log.warn("[Spector] Failed to register default text generation provider: {}", e.getMessage());
+            if (llmRequired(props)) {
+                // tag-extractor=llm has no keyword fallback, so a missing LLM must stop startup here rather
+                // than surface later as every write failing (or, before this check, as silent keyword tags).
+                log.error("[Spector] tag-extractor=llm needs a text generation provider, and it could not be "
+                        + "created ({}): {}", ErrorCode.GENERATION_PROVIDER_UNAVAILABLE.id(), e.getMessage());
+                throw e instanceof com.spectrayan.spector.commons.error.SpectorConfigException sce
+                        ? sce
+                        : new com.spectrayan.spector.commons.error.SpectorConfigException(
+                                ErrorCode.GENERATION_PROVIDER_UNAVAILABLE, e,
+                                "spector.memory.tag-extractor=llm", e.getClass().getSimpleName());
+            }
+            log.warn("[Spector] Failed to register text generation provider: {}", e.getMessage());
         }
         return new DelegatingLlmProvider(providerRegistry);
+    }
+
+    /** Whether the configuration makes an LLM mandatory (no keyword fallback). */
+    private static boolean llmRequired(SpectorConfigProperties props) {
+        var memory = props.getMemory();
+        return memory != null
+                && memory.getTagExtractor() == com.spectrayan.spector.config.model.TagExtractorMode.LLM;
     }
 
     /**
