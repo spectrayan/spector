@@ -314,6 +314,17 @@ public final class CognitiveMemoryRouter implements com.spectrayan.spector.kerne
     }
 
     /**
+     * Marks the record at the given location as retracted, so recall never releases it. Episodic
+     * records are not retractable and are left unchanged.
+     */
+    public void markRetracted(MemoryLocation loc) {
+        EngramRegion store = stores.get(loc.type());
+        if (store != null) {
+            store.markRetracted(loc.offset());
+        }
+    }
+
+    /**
      * Returns {@code true} if the record at the given location has the tombstone flag set.
      */
     public boolean isTombstoned(MemoryLocation loc) {

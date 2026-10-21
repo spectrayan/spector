@@ -46,9 +46,36 @@ package com.spectrayan.spector.memory.model;
  * @param id       the memory id that was requested
  * @param found    whether the memory existed and was tombstoned. When {@code false} nothing changed
  * @param tombstonedAtEpochMs when the tombstone was applied, or {@code 0} if {@code found} is {@code false}
+ * @param derivedIds memories whose provenance leads back to the forgotten one (transitively), whatever
+ *                   the cascade did to them
+ * @param retractedIds derived memories that were marked retracted by the cascade
+ * @param cascadeTombstonedIds derived memories that were tombstoned by the cascade
+ * @see ForgetCascade
  * @see <a href="https://github.com/spectrayan/spector/issues/983">spectrayan/spector#983</a>
  */
-public record ForgetResult(String id, boolean found, long tombstonedAtEpochMs) {
+public record ForgetResult(String id, boolean found, long tombstonedAtEpochMs,
+                           java.util.List<String> derivedIds,
+                           java.util.List<String> retractedIds,
+                           java.util.List<String> cascadeTombstonedIds) {
+
+    /** Normalises the id lists to immutable copies; {@code null} means none. */
+    public ForgetResult {
+        derivedIds = derivedIds == null ? java.util.List.of() : java.util.List.copyOf(derivedIds);
+        retractedIds = retractedIds == null ? java.util.List.of() : java.util.List.copyOf(retractedIds);
+        cascadeTombstonedIds = cascadeTombstonedIds == null
+                ? java.util.List.of() : java.util.List.copyOf(cascadeTombstonedIds);
+    }
+
+    /**
+     * A result without cascade information.
+     *
+     * @param id the memory id that was requested
+     * @param found whether the memory existed and was tombstoned
+     * @param tombstonedAtEpochMs when the tombstone was applied, or {@code 0}
+     */
+    public ForgetResult(String id, boolean found, long tombstonedAtEpochMs) {
+        this(id, found, tombstonedAtEpochMs, null, null, null);
+    }
 
     /**
      * The memory existed and has been tombstoned.

@@ -274,11 +274,15 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
 
             int firstSeq = Integer.MAX_VALUE, lastSeq = Integer.MIN_VALUE;
             int firstOffsetHint = Integer.MAX_VALUE, lastOffsetHint = Integer.MIN_VALUE;
-            for (int i = 0; i < turns.size(); i++) {
-                int seq = turns.get(i).sequenceId();
-                int off = (int) offsets.get(i).longValue();
-                if (seq < firstSeq) { firstSeq = seq; firstOffsetHint = off; }
-                if (seq > lastSeq) { lastSeq = seq; lastOffsetHint = off; }
+            for (EpisodeRecord turn : turns) {
+                firstSeq = Math.min(firstSeq, turn.sequenceId());
+                lastSeq = Math.max(lastSeq, turn.sequenceId());
+            }
+            // Offset hints span every turn in the batch. They are independent of sequence ids, which
+            // are 0 for turns stored through remember(EPISODIC), and forget's cascade matches on them.
+            for (Long off : offsets) {
+                firstOffsetHint = Math.min(firstOffsetHint, (int) off.longValue());
+                lastOffsetHint = Math.max(lastOffsetHint, (int) off.longValue());
             }
             short turnCount = (short) offsets.size();
 

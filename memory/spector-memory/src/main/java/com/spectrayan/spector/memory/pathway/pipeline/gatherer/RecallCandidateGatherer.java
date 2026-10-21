@@ -173,6 +173,8 @@ public class RecallCandidateGatherer {
                         } else {
                             var body = router.readRecordBody(loc, false);
                             if (body != null) {
+                                // Retracted records (forget cascade, #1144) are never released by recall.
+                                if (EncodingHeaderFields.isRetracted(body.consolidationFlags())) continue;
                                 if (!options.includeContradictions() && EncodingHeaderFields.isContradicted(body.consolidationFlags())) continue;
                                 if (!options.allowSimulated() && (EncodingHeaderFields.isSimulated(body.consolidationFlags()) || EncodingHeaderFields.isDreamed(body.consolidationFlags()))) continue;
 

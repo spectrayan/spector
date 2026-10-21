@@ -349,6 +349,23 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
     }
 
     /**
+     * Tombstones a memory by ID and applies {@code cascade} to memories derived from it.
+     *
+     * <p>Derived memories are found through provenance: semantic facts reflected from the forgotten
+     * episodic turn, and merged memories whose source was the forgotten memory, followed transitively.
+     * {@link #forgetWithResult(String)} uses {@link com.spectrayan.spector.memory.model.ForgetCascade#FLAG}.
+     * The default implementation ignores {@code cascade}.</p>
+     *
+     * @param id the memory id to tombstone
+     * @param cascade what to do with derived memories
+     * @return the outcome, including the derived memories and what happened to them
+     */
+    default com.spectrayan.spector.memory.model.ForgetResult forgetWithResult(
+            String id, com.spectrayan.spector.memory.model.ForgetCascade cascade) {
+        return forgetWithResult(id);
+    }
+
+    /**
      * Physically destroys a memory's content: overwrites its payload bytes with zeros, erases its stored
      * text, and detaches it from every association graph. <b>Irreversible.</b>
      *

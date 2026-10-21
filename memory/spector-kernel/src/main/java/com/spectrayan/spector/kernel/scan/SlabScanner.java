@@ -82,9 +82,13 @@ public final class SlabScanner {
                 continue;
             }
 
-            // Phase 1c: Contradiction & simulation gating
-            if (!filter.includeContradictions() || !filter.allowSimulated()) {
+            // Phase 1c: Retraction, contradiction & simulation gating
+            {
                 final byte cFlags = layout.readConsolidationFlags(segment, offset);
+                // Retracted records (e.g. derived from a forgotten memory) are never scanned into recall.
+                if (EncodingHeaderFields.isRetracted(cFlags)) {
+                    continue;
+                }
                 if (!filter.includeContradictions() && EncodingHeaderFields.isContradicted(cFlags)) {
                     continue;
                 }
