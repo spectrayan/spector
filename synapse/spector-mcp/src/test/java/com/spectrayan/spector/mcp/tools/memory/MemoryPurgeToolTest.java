@@ -91,6 +91,37 @@ class MemoryPurgeToolTest {
     }
 
     @Test
+    @DisplayName("Purge of a forgotten memory returns a receipt naming its prior tombstoned state")
+    void purgeOfTombstonedMemory_returnsReceipt() throws Exception {
+        Instant purgedAt = Instant.parse("2026-10-21T17:15:00Z");
+        var purgeResult = new PurgeResult(
+                "mem-forgotten", "default", true, purgedAt,
+                512, 96, false, 0, 0,
+                0, false, 0, 0, true,
+                PurgeResult.RETAINED_HEADER_FIELDS,
+                PurgeResult.UNREACHABLE_COPIES,
+                PurgeResult.DISCLOSURE_TEXT,
+                true, true
+        );
+        when(memory.purge("mem-forgotten")).thenReturn(purgeResult);
+
+        McpSchema.CallToolResult result = tool.execute(Map.of("memory_id", "mem-forgotten"));
+
+        assertThat(result.isError()).isFalse();
+        String text = ((McpSchema.TextContent) result.content().get(0)).text();
+        assertThat(text)
+                .contains("Receipt:")
+                .contains("memory_id: mem-forgotten")
+                .contains("namespace: default")
+                .contains("purged_at: 2026-10-21T17:15:00Z")
+                .contains("state_before: forgotten (tombstoned)")
+                .contains("text_destroyed: true")
+                .contains("wal_recorded: true")
+                .contains("lexical_index_cleared: true")
+                .contains("96 text bytes overwritten with zeros");
+    }
+
+    @Test
     @DisplayName("Purge with retained shared text includes prominent warning")
     void purgeWithLocalRetention_warnsAboutRetainedSharedText() throws Exception {
         var purgeResult = new PurgeResult(
