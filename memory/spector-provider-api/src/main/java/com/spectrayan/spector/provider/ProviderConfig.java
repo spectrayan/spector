@@ -129,6 +129,17 @@ public record ProviderConfig(
     }
 
     /**
+     * Returns a description with the API key redacted, so a config that reaches a log line or an exception
+     * message never carries the secret. The generated record {@code toString} would print it verbatim.
+     */
+    @Override
+    public String toString() {
+        return "ProviderConfig[name=" + name + ", type=" + type + ", model=" + model
+                + ", apiKey=" + (hasApiKey() ? "***" : "") + ", baseUrl=" + baseUrl
+                + ", dimensions=" + dimensions + ", properties=" + properties.keySet() + "]";
+    }
+
+    /**
      * Returns {@code true} if an API key is set (non-null, non-blank).
      */
     public boolean hasApiKey() {
