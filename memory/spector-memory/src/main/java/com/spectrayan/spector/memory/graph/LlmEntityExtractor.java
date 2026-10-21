@@ -194,15 +194,13 @@ public final class LlmEntityExtractor implements EntityExtractor {
                 return List.of();
             }
 
-            // Log raw response for diagnostics (truncated)
-            String preview = response.length() > 300 ? response.substring(0, 300) + "..." : response;
-            log.info("[EntityExtract] Raw LLM response for '{}': {}", id, preview.replaceAll("\\n", " | "));
+            log.debug("[EntityExtract] LLM response for '{}': {} chars", id, response.length());
 
             return parseResponse(response, id);
 
         } catch (RuntimeException e) {
             SpectorEntityGraphException ex = new SpectorEntityGraphException("LLM extraction", e);
-            log.warn(ex.getMessage());
+            log.warn("{} for '{}' ({})", ex.getMessage(), id, describeCause(e));
             return List.of();
         }
     }
@@ -369,10 +367,22 @@ public final class LlmEntityExtractor implements EntityExtractor {
         }
 
         int attachedRelations = result.stream().mapToInt(e -> e.relations().size()).sum();
-        log.info("[EntityExtract] LLM extracted {} entities, {} relations ({} attached) for '{}': {}",
-                entityNames.size(), relations.size(), attachedRelations, id,
-                entityNames.stream().collect(java.util.stream.Collectors.joining(", ")));
+        log.info("[EntityExtract] LLM extracted {} entities, {} relations ({} attached) for '{}'",
+                entityNames.size(), relations.size(), attachedRelations, id);
         return result;
+    }
+
+    /**
+     * Names the exception chain by class only, so a provider message can never echo prompt or memory text.
+     */
+    private static String describeCause(Throwable e) {
+        StringBuilder sb = new StringBuilder();
+        Throwable t = e;
+        for (int depth = 0; t != null && depth < 4; depth++, t = t.getCause()) {
+            if (depth > 0) sb.append(" <- ");
+            sb.append(t.getClass().getSimpleName());
+        }
+        return sb.toString();
     }
 
     private record RelationTriple(String source, String type, String target) {}

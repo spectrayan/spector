@@ -348,17 +348,18 @@ public record SalienceProfile(
      * positive reappraisal of negative memories.</p>
      *
      * <h4>Algorithm</h4>
+     * <p>Valence is a signed byte everywhere in the engine (-128 very negative, 0 neutral, +127 very
+     * positive; see {@code EncodingHeader} and {@code Valence}), so neutral stays neutral:</p>
      * <pre>
-     *   deviation = rawValence - 128   (center = neutral)
-     *   if deviation &lt; 0:  (negative valence)
-     *     modulated = deviation × valenceAmplification × negativeValenceBuffer
+     *   if rawValence &lt; 0:  (negative valence)
+     *     modulated = rawValence × valenceAmplification × negativeValenceBuffer
      *   else:  (positive valence)
-     *     modulated = deviation × valenceAmplification
-     *   result = clamp(128 + modulated, 0, 255)
+     *     modulated = rawValence × valenceAmplification
+     *   result = clamp(round(modulated), -128, 127)
      * </pre>
      *
-     * @param rawValence raw valence byte (0=very negative, 128=neutral, 255=very positive)
-     * @return personality-modulated valence byte
+     * @param rawValence raw signed valence (-128 very negative, 0 neutral, +127 very positive)
+     * @return personality-modulated signed valence
      */
     public byte modulateValence(byte rawValence) {
         if (!hasPersona() || persona.modifiers().isNeutral()) {
@@ -366,19 +367,16 @@ public record SalienceProfile(
         }
 
         PersonalityModifiers mods = persona.modifiers();
-        int unsigned = Byte.toUnsignedInt(rawValence);
-        float deviation = unsigned - 128f; // center at neutral
-
         float modulated;
-        if (deviation < 0) {
+        if (rawValence < 0) {
             // Negative valence: amplify by neuroticism, buffer by agreeableness
-            modulated = deviation * mods.valenceAmplification() * mods.negativeValenceBuffer();
+            modulated = rawValence * mods.valenceAmplification() * mods.negativeValenceBuffer();
         } else {
             // Positive valence: amplify by neuroticism (extraversion effect implicit)
-            modulated = deviation * mods.valenceAmplification();
+            modulated = rawValence * mods.valenceAmplification();
         }
 
-        return (byte) Math.clamp(Math.round(128f + modulated), 0, 255);
+        return (byte) Math.clamp(Math.round(modulated), -128, 127);
     }
 
     /**
@@ -399,6 +397,10 @@ public record SalienceProfile(
         }
 
         int unsigned = Byte.toUnsignedInt(rawArousal);
+        if (unsigned == 0) {
+            // 0 means no emotional context was appraised; regulation must not invent arousal.
+            return rawArousal;
+        }
         // Compress/expand around midpoint (128)
         float deviation = unsigned - 128f;
         float modulated = deviation * persona.modifiers().arousalCompression();
