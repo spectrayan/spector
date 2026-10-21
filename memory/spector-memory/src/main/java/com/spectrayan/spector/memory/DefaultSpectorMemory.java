@@ -507,6 +507,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 eagerConsolidator.submit(id, type);
             }
         } catch (RuntimeException e) {
+            if (isLlmAppraisalFailure(e)) {
+                throw e; // already carries SPE-310-029 and a clear message; don't bury it in SPE-600-003
+            }
             log.error("Failed to remember '{}': {}", id, e.getMessage(), e);
             throw new SpectorServerException(ErrorCode.INGESTION_PIPELINE_FAILED, e, id);
         } finally {
@@ -592,6 +595,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 eagerConsolidator.submit(id, type);
             }
         } catch (RuntimeException e) {
+            if (isLlmAppraisalFailure(e)) {
+                throw e; // already carries SPE-310-029 and a clear message; don't bury it in SPE-600-003
+            }
             log.error("Failed to remember '{}': {}", id, e.getMessage(), e);
             throw new SpectorServerException(ErrorCode.INGESTION_PIPELINE_FAILED, e, id);
         } finally {
@@ -639,6 +645,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 eagerConsolidator.submit(id, type);
             }
         } catch (RuntimeException e) {
+            if (isLlmAppraisalFailure(e)) {
+                throw e; // already carries SPE-310-029 and a clear message; don't bury it in SPE-600-003
+            }
             log.error("Failed to remember with vector '{}': {}", id, e.getMessage(), e);
             throw new SpectorServerException(ErrorCode.INGESTION_PIPELINE_FAILED, e, id);
         } finally {
@@ -965,6 +974,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                     log.warn("Failed to tombstone chunk '{}' during rollback: {}", chunkId, te.getMessage());
                 }
             }
+            if (e instanceof RuntimeException re && isLlmAppraisalFailure(re)) {
+                throw re;
+            }
             throw new SpectorServerException(ErrorCode.INGESTION_PIPELINE_FAILED, e, id);
         }
     }
@@ -1007,6 +1019,12 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             log.warn("Purge: could not verify tombstoned slot {}@{}: {}", loc.type(), loc.offset(), e.getMessage());
             return false;
         }
+    }
+
+    /** Whether {@code e} is the no-fallback LLM tagging failure, which must reach the caller unwrapped. */
+    private static boolean isLlmAppraisalFailure(RuntimeException e) {
+        return e instanceof com.spectrayan.spector.commons.error.SpectorMemoryException sme
+                && sme.errorCode() == ErrorCode.MEMORY_LLM_APPRAISAL_FAILED;
     }
 
     /** Writes the current tombstone registry to the ledger (DISK mode only). */

@@ -21,9 +21,13 @@ import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.model.LlmRequest;
 import com.spectrayan.spector.provider.model.LlmResponse;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorConfigException;
+
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Tests for {@link TagExtractors}: the configured mode selects the extractor (#1137).
@@ -42,14 +46,18 @@ class TagExtractorsTest {
     }
 
     @Test
-    void llmModeSelectsLlmExtractorWhenProviderPresent() {
+    void llmModeSelectsStrictLlmExtractorWhenProviderPresent() {
         assertThat(TagExtractors.forMode(TagExtractorMode.LLM, new FixedLlm("x")))
-                .isInstanceOf(LlmTagExtractor.class);
+                .isInstanceOfSatisfying(LlmTagExtractor.class, e -> assertThat(e.isStrict()).isTrue());
     }
 
     @Test
-    void llmModeWithoutProviderFallsBackToContent() {
-        assertThat(TagExtractors.forMode(TagExtractorMode.LLM, null)).isInstanceOf(ContentTagExtractor.class);
+    void llmModeWithoutProviderFailsLoudly() {
+        // No silent downgrade to keyword tagging: a missing provider is a configuration error.
+        assertThatThrownBy(() -> TagExtractors.forMode(TagExtractorMode.LLM, null))
+                .isInstanceOfSatisfying(SpectorConfigException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.GENERATION_PROVIDER_UNAVAILABLE))
+                .hasMessageContaining("tag-extractor=llm");
     }
 
     @Test

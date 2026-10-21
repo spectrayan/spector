@@ -15,6 +15,9 @@
  */
 package com.spectrayan.spector.memory;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorConfigException;
+import com.spectrayan.spector.commons.error.SpectorMemoryException;
 import com.spectrayan.spector.config.model.TagExtractorMode;
 import com.spectrayan.spector.config.properties.MemoryProperties;
 import com.spectrayan.spector.kernel.api.MemorySource;
@@ -35,6 +38,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * End-to-end tests for {@code spector.memory.tag-extractor} (#1137): the configured mode reaches the
@@ -96,17 +100,23 @@ class LlmTagAppraisalIntegrationTest {
     }
 
     @Test
-    void llmFailureFallsBackToContentTagsWithNeutralAffect() {
+    void llmFailureRefusesTheWriteInsteadOfFallingBack() {
         var llm = new ScriptedLlm(APPRAISAL);
         llm.failing.set(true);
         memory = build(TagExtractorMode.LLM, llm);
 
-        memory.remember("mem-3", TEXT, MemoryType.EPISODIC, MemorySource.USER_STATED);
+        // No-fallback rule: storing keyword tags and neutral affect would hide a broken LLM configuration.
+        assertThatThrownBy(() -> memory.remember("mem-3", TEXT, MemoryType.EPISODIC, MemorySource.USER_STATED))
+                .isInstanceOfSatisfying(SpectorMemoryException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.MEMORY_LLM_APPRAISAL_FAILED));
+        assertThat(memory.inspect("mem-3")).as("nothing is stored when the appraisal fails").isNull();
+    }
 
-        CognitiveRecord stored = memory.inspect("mem-3");
-        assertThat(stored.valence()).isZero();
-        assertThat(stored.arousal()).isZero();
-        assertThat(stored.tags()).contains("naperville");
+    @Test
+    void llmModeWithoutAProviderFailsAtBuildTime() {
+        assertThatThrownBy(() -> build(TagExtractorMode.LLM, null))
+                .isInstanceOfSatisfying(SpectorConfigException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.GENERATION_PROVIDER_UNAVAILABLE));
     }
 
     @Test
