@@ -6977,13 +6977,13 @@ components:
           format: int64
         truncated:
           type: boolean
-        positivelyReinforced:
+        multimodal:
           type: boolean
         simulated:
           type: boolean
         dreamed:
           type: boolean
-        multimodal:
+        positivelyReinforced:
           type: boolean
         negativeOutcome:
           type: boolean
@@ -8813,13 +8813,13 @@ components:
         flags:
           type: string
           format: byte
-        ongoing:
-          type: boolean
-        inferred:
+        resolved:
           type: boolean
         retraction:
           type: boolean
-        resolved:
+        inferred:
+          type: boolean
+        ongoing:
           type: boolean
     EnrichmentStatusResponse:
       type: object

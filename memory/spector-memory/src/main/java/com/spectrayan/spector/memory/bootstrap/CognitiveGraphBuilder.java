@@ -23,6 +23,8 @@ import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
 import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.LlmEntityExtractor;
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorConfigException;
 import com.spectrayan.spector.memory.graph.NoOpEntityExtractor;
 import com.spectrayan.spector.memory.graph.OntologyConfig;
 import com.spectrayan.spector.kernel.store.TypeRegistryMemory;
@@ -186,24 +188,26 @@ public final class CognitiveGraphBuilder {
             hyperEntityGraph = new HyperEntityGraphMemory(hyperCap, hyperEdgeCap);
         }
 
-        EntityExtractionMode extractionMode = EntityExtractionMode.DICTIONARY;
-        if (builder.entityExtractor() != null) {
-            extractionMode = EntityExtractionMode.CUSTOM;
-        } else if (entityProps.getExtractionMode() != null && !entityProps.getExtractionMode().isBlank()) {
-            try {
-                extractionMode = EntityExtractionMode.valueOf(entityProps.getExtractionMode().toUpperCase(java.util.Locale.ROOT));
-            } catch (Exception ignored) {}
-        }
+        EntityExtractionMode extractionMode = resolveExtractionMode(builder.entityExtractor() != null,
+                entityProps.getExtractionMode());
 
         EntityExtractor entityExtractor;
-        if (extractionMode == EntityExtractionMode.LLM
-                && builder.llmProvider() != null && builder.llmProvider().isAvailable()) {
+        if (extractionMode == EntityExtractionMode.LLM) {
+            if (builder.llmProvider() == null) {
+                // No silent downgrade to the dictionary extractor.
+                throw new SpectorConfigException(ErrorCode.GENERATION_PROVIDER_UNAVAILABLE,
+                        "spector.memory.entity.extraction-mode=llm",
+                        "no generation provider is configured (set spector.provider.generation.*)");
+            }
+            if (!builder.llmProvider().isAvailable()) {
+                log.error("[CognitiveGraphBuilder] entity.extraction-mode=llm but the generation provider '{}' is not "
+                        + "available; entity extraction fails until it is", builder.llmProvider().modelName());
+            }
             entityExtractor = new LlmEntityExtractor(
                     builder.llmProvider(),
                     entityProps.getMaxPerMemory(), entityProps.getMaxRelationsPerMemory(),
                     builder.llmGenerationOptions());
-        } else if (extractionMode == EntityExtractionMode.CUSTOM
-                && builder.entityExtractor() != null) {
+        } else if (extractionMode == EntityExtractionMode.CUSTOM) {
             entityExtractor = builder.entityExtractor();
         } else if (extractionMode != EntityExtractionMode.NONE && entityDirectory != null) {
             entityExtractor = new DictionaryEntityExtractor(entityDirectory, temporalKnowledgeGraph, ontConfig,
@@ -211,6 +215,8 @@ public final class CognitiveGraphBuilder {
         } else {
             entityExtractor = NoOpEntityExtractor.INSTANCE;
         }
+        log.info("[CognitiveGraphBuilder] ns={} entity extraction: mode={}, extractor={}", builder.namespaceId(),
+                extractionMode, entityExtractor.getClass().getSimpleName());
 
         // Auto-heal temporal chain if historical memories exist but chain is unlinked
         if (temporalChain != null && temporalChain.chainLength() == 0 && index != null && index.size() > 1) {
@@ -337,6 +343,30 @@ public final class CognitiveGraphBuilder {
             temporalChain.flush();
             log.info("[CognitiveGraphBuilder] Backfilled {} temporal chain links across {} indexed memories",
                     linkedCount, orderedIds.size());
+        }
+    }
+
+    /**
+     * Resolves {@code spector.memory.entity.extraction-mode}. Blank means {@code DICTIONARY}; a builder
+     * extractor means {@code CUSTOM}; an unknown value fails instead of silently becoming {@code DICTIONARY}.
+     *
+     * @param hasCustomExtractor whether the builder supplies an extractor
+     * @param configured         the configured value (may be {@code null})
+     * @return the mode
+     * @throws SpectorConfigException with {@link ErrorCode#CONFIG_VALUE_INVALID} for an unknown value
+     */
+    static EntityExtractionMode resolveExtractionMode(boolean hasCustomExtractor, String configured) {
+        if (hasCustomExtractor) {
+            return EntityExtractionMode.CUSTOM;
+        }
+        if (configured == null || configured.isBlank()) {
+            return EntityExtractionMode.DICTIONARY;
+        }
+        try {
+            return EntityExtractionMode.valueOf(configured.trim().toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new SpectorConfigException(ErrorCode.CONFIG_VALUE_INVALID, "spector.memory.entity.extraction-mode",
+                    "'" + configured + "' is not one of " + java.util.Arrays.toString(EntityExtractionMode.values()));
         }
     }
 }

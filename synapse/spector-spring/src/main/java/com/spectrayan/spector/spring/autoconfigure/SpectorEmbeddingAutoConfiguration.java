@@ -25,6 +25,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.env.Environment;
 
 import com.spectrayan.spector.commons.cache.SpectorCacheManager;
 import com.spectrayan.spector.provider.ProviderConfig;
@@ -52,6 +53,9 @@ import dev.langchain4j.model.embedding.EmbeddingModel;
 @EnableConfigurationProperties(SpectorConfigProperties.class)
 @ConditionalOnClass(EmbeddingProvider.class)
 public class SpectorEmbeddingAutoConfiguration {
+
+    private static final String TYPE_PROPERTY = "spector.provider.embedding.type";
+    private static final String MODEL_PROPERTY = "spector.provider.embedding.model";
 
     private static final Logger log = LoggerFactory.getLogger(SpectorEmbeddingAutoConfiguration.class);
 
@@ -159,33 +163,26 @@ public class SpectorEmbeddingAutoConfiguration {
     @ConditionalOnMissingBean(EmbeddingProvider.class)
     @ConditionalOnProperty(prefix = "spector.provider.embedding", name = "type", havingValue = "Onnx", matchIfMissing = false)
     EmbeddingProvider spectorOnnxEmbeddingProvider(SpectorConfigProperties props,
-                                                   ObjectProvider<SpectorCacheManager> cacheManagerProvider) {
+                                                   ObjectProvider<SpectorCacheManager> cacheManagerProvider,
+                                                   Environment environment) {
         OnnxProviderFactory onnxProviderFactory = new OnnxProviderFactory(cacheManagerProvider.getIfAvailable());
+        // The factory resolves the model: blank means all-MiniLM-L6-v2; any other name must be a bundled
+        // model or come with model-path. A name the user set is never rewritten (an Ollama name such as
+        // nomic-embed-text used to become MiniLM silently). Only the property class's Ollama default, which
+        // applies when no model is configured at all, is replaced by "no model named".
         var providerConfig = generateProviderConfig(props);
-        String model = providerConfig.model();
-        int dims = providerConfig.dimensions();
-        if (model == null || model.isBlank() || "nomic-embed-text".equalsIgnoreCase(model) || "default".equalsIgnoreCase(model)) {
-            model = "all-MiniLM-L6-v2";
-            dims = 384;
-        } else if (model.toLowerCase(java.util.Locale.ROOT).contains("minilm") || model.toLowerCase(java.util.Locale.ROOT).contains("bge-small")) {
-            dims = 384;
+        if (!environment.containsProperty(MODEL_PROPERTY)) {
+            providerConfig = new ProviderConfig(providerConfig.name(), providerConfig.type(), "",
+                    providerConfig.apiKey(), providerConfig.baseUrl(), providerConfig.dimensions(),
+                    providerConfig.properties());
         }
-        providerConfig = new ProviderConfig(
-                providerConfig.name(),
-                providerConfig.type(),
-                model,
-                providerConfig.apiKey(),
-                providerConfig.baseUrl(),
-                dims,
-                providerConfig.properties()
-        );
         return onnxProviderFactory.createEmbeddingProvider(providerConfig)
                 .orElseThrow(() -> new IllegalStateException("Failed to create ONNX embedding provider"));
     }
 
     @Bean(name = "defaultFallbackOnnxEmbeddingProvider")
     @ConditionalOnMissingBean(EmbeddingProvider.class)
-    @ConditionalOnProperty(prefix = "spector.provider.embedding.fallback", name = "enabled", havingValue = "true", matchIfMissing = true)
+    @ConditionalOnProperty(prefix = "spector.provider.embedding.fallback", name = "enabled", havingValue = "true", matchIfMissing = false)
     EmbeddingProvider defaultFallbackOnnxEmbeddingProvider(SpectorConfigProperties props,
                                                            ObjectProvider<SpectorCacheManager> cacheManagerProvider) {
         log.info("[Spector] No external EmbeddingProvider configured. Auto-configuring in-process fallback ONNX embedder (all-MiniLM-L6-v2-q, 384 dims).");
@@ -211,6 +208,25 @@ public class SpectorEmbeddingAutoConfiguration {
         );
         return onnxProviderFactory.createEmbeddingProvider(fallbackConfig)
                 .orElseThrow(() -> new IllegalStateException("Failed to create fallback ONNX embedding provider"));
+    }
+
+    /**
+     * Last resort when no embedding provider bean matched: fail startup instead of running without
+     * embeddings or with a substitute model. The in-process MiniLM fallback is opt-in
+     * ({@code spector.provider.embedding.fallback.enabled=true}).
+     */
+    @Bean(name = "unmatchedEmbeddingProvider")
+    @ConditionalOnMissingBean(EmbeddingProvider.class)
+    @ConditionalOnProperty(prefix = "spector.provider.embedding.fallback", name = "enabled", havingValue = "false", matchIfMissing = true)
+    EmbeddingProvider unmatchedEmbeddingProvider(Environment environment) {
+        String type = environment.getProperty(TYPE_PROPERTY);
+        String what = type == null || type.isBlank() ? "no value is set" : "'" + type + "' matched no embedding provider";
+        log.error("[Spector] spector.provider.embedding.type: {} ({})", what,
+                com.spectrayan.spector.commons.error.ErrorCode.CONFIG_VALUE_INVALID.id());
+        throw new com.spectrayan.spector.commons.error.SpectorConfigException(
+                com.spectrayan.spector.commons.error.ErrorCode.CONFIG_VALUE_INVALID, TYPE_PROPERTY,
+                what + " (supported: onnx, ollama, openai, azureopenai, anthropic, google, mistral, bedrock); "
+                        + "set fallback.enabled=true to opt in to the in-process all-MiniLM-L6-v2 model");
     }
 
     ProviderConfig generateProviderConfig(SpectorConfigProperties props) {

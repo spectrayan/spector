@@ -439,6 +439,24 @@ public class MemoryProperties implements Serializable {
     }
     public RememberProperties remember() { return remember; }
 
+    /**
+     * Alias for {@code spector.memory.graph.entity.*} so that the documented short form
+     * {@code spector.memory.entity.*} (used by the non-Spring factory) also binds under Spring Boot.
+     * Both names reach the same object; set only one of them.
+     *
+     * @return the entity-graph settings held by {@link #getGraph()}
+     */
+    public GraphProperties.EntityGraphProperties getEntity() { return graph.getEntity(); }
+
+    /**
+     * Alias setter for {@code spector.memory.entity.*}; see {@link #getEntity()}.
+     *
+     * @param entity the entity-graph settings; ignored when {@code null}
+     */
+    public void setEntity(GraphProperties.EntityGraphProperties entity) {
+        if (entity != null) graph.setEntity(entity);
+    }
+
     public GraphProperties getGraph() { return graph; }
     public MemoryProperties setGraph(GraphProperties graph) {
         if (graph != null) this.graph = graph;

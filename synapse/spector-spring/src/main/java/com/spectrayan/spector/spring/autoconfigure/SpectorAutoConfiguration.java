@@ -263,17 +263,19 @@ public class SpectorAutoConfiguration {
                         spectorProps.memory().getCircadian().getOrchestrator());
             }
 
-            // ── Entity extraction (LLM if LlmProvider is present, DICTIONARY fallback) ─────
-            LlmProvider textGen = textGenProvider.getIfAvailable();
+            // ── Entity extraction ─────
+            // generation.type=none: no LLM reaches the memory at all. Otherwise the default NONE is upgraded
+            // to LLM as before. An explicit LLM mode is never downgraded: without a provider the memory
+            // build fails (SPE-110-006) instead of silently using the dictionary extractor.
+            boolean generationDisabled = isGenerationDisabled(props.getProvider().getGeneration().getType());
+            LlmProvider textGen = generationDisabled ? null : textGenProvider.getIfAvailable();
             if (spectorProps.memory() != null && spectorProps.memory().getGraph() != null
                     && spectorProps.memory().getGraph().getEntity() != null) {
                 var entityCfg = spectorProps.memory().getGraph().getEntity();
-                if (textGen != null) {
-                    if ("NONE".equalsIgnoreCase(entityCfg.getExtractionMode())) {
+                if ("NONE".equalsIgnoreCase(entityCfg.getExtractionMode())) {
+                    if (textGen != null) {
                         entityCfg.setExtractionMode(EntityExtractionMode.LLM.name());
-                    }
-                } else {
-                    if ("LLM".equalsIgnoreCase(entityCfg.getExtractionMode()) || "NONE".equalsIgnoreCase(entityCfg.getExtractionMode())) {
+                    } else if (!generationDisabled) {
                         entityCfg.setExtractionMode(EntityExtractionMode.DICTIONARY.name());
                     }
                 }
