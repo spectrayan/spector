@@ -33,5 +33,5 @@ class ClientConfig:
         if self.agent_id:
             h["X-Agent-Id"] = self.agent_id
         if self.namespace:
-            h["X-Namespace"] = self.namespace
+            h["X-Spector-Namespace"] = self.namespace
         return h

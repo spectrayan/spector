@@ -221,7 +221,7 @@ class TestHttpContract(unittest.TestCase):
         self.assertEqual(headers.get("x-api-key"), "sk-contract-key")
         self.assertEqual(headers.get("x-user-id"), "usr_42")
         self.assertEqual(headers.get("x-agent-id"), "agt_99")
-        self.assertEqual(headers.get("x-namespace"), "team_spec")
+        self.assertEqual(headers.get("x-spector-namespace"), "team_spec")
 
     def test_remember_and_store_verbs(self):
         # 1. remember verb: wire body tags must be string (comma-separated), matching RememberRequest in OpenAPI

@@ -165,7 +165,7 @@ describe('TypeScript SDK HTTP Contract & Dual Package', () => {
       assert.equal(recordedHeaders.get('Authorization'), 'Bearer token-jwt');
       assert.equal(recordedHeaders.get('X-User-Id'), 'user-007');
       assert.equal(recordedHeaders.get('X-Agent-Id'), 'agent-47');
-      assert.equal(recordedHeaders.get('X-Namespace'), 'ns-mcp');
+      assert.equal(recordedHeaders.get('X-Spector-Namespace'), 'ns-mcp');
     } finally {
       globalThis.fetch = originalFetch;
     }

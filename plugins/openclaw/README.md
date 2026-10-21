@@ -1,8 +1,8 @@
-# ⚡ @spectrayan/spector — Cognitive Memory for OpenClaw
+# ⚡ @spectrayan/openclaw-spector — Cognitive Memory for OpenClaw
 
 > **Biologically-inspired AI memory that gives your OpenClaw agent the ability to remember, forget, consolidate, and associate — with sub-millisecond recall.**
 
-[![npm](https://img.shields.io/npm/v/@spectrayan/spector.svg)](https://www.npmjs.com/package/@spectrayan/spector)
+[![npm](https://img.shields.io/npm/v/@spectrayan/openclaw-spector.svg)](https://www.npmjs.com/package/@spectrayan/openclaw-spector)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Java](https://img.shields.io/badge/Java-25-orange.svg)](https://openjdk.org/)
 
@@ -58,7 +58,7 @@ openclaw gateway restart
 
 ### 🔜 Coming Soon
 
-> **npm** — `openclaw plugins install @spectrayan/spector`
+> **npm** — `openclaw plugins install @spectrayan/openclaw-spector`
 > Once published to the npm registry, this will be the simplest one-step install.
 
 > **OpenClaw CLI git install** — `openclaw plugins install git:github.com/spectrayan/spector-openclaw@main`
@@ -192,7 +192,7 @@ All settings are managed via OpenClaw's plugin config in `~/.openclaw/openclaw.j
 ```
 OpenClaw Gateway (Node.js)
     ↕  Plugin Slot: memory = "memory-spector"
-@spectrayan/spector (TypeScript)
+@spectrayan/openclaw-spector (TypeScript)
     ├── SpectorBridge (subprocess manager)
     ├── Tool aliases (memory_search → memory_recall)
     ├── Passthrough (12 native Spector tools)

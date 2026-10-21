@@ -14,6 +14,11 @@
 
 import * as runtime from '../runtime';
 import {
+    type AuditEventDto,
+    AuditEventDtoFromJSON,
+    AuditEventDtoToJSON,
+} from '../models/AuditEventDto';
+import {
     type CreateGrantRequest,
     CreateGrantRequestFromJSON,
     CreateGrantRequestToJSON,
@@ -81,6 +86,17 @@ export interface ListGrantsRequest {
      * 
      */
     slugOrId: string;
+}
+
+export interface ListNamespaceAuditEventsRequest {
+    /**
+     * 
+     */
+    slugOrId: string;
+    /**
+     * 
+     */
+    limit?: number;
 }
 
 export interface ResetNamespaceRequest {
@@ -411,6 +427,65 @@ export class NamespaceControllerApi extends runtime.BaseAPI {
      */
     async listGrants(requestParameters: ListGrantsRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Array<GrantResponse>> {
         const response = await this.listGrantsRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
+     * Creates request options for listNamespaceAuditEvents without sending the request
+     */
+    async listNamespaceAuditEventsRequestOpts(requestParameters: ListNamespaceAuditEventsRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['slugOrId'] == null) {
+            throw new runtime.RequiredError(
+                'slugOrId',
+                'Required parameter "slugOrId" was null or undefined when calling listNamespaceAuditEvents().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        if (requestParameters['limit'] != null) {
+            queryParameters['limit'] = requestParameters['limit'];
+        }
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.apiKey) {
+            headerParameters["X-API-Key"] = await this.configuration.apiKey("X-API-Key"); // ApiKeyAuth authentication
+        }
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("BearerAuth", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/namespaces/{slugOrId}/audit`;
+        urlPath = urlPath.replace('{slugOrId}', encodeURIComponent(String(requestParameters['slugOrId'])));
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async listNamespaceAuditEventsRaw(requestParameters: ListNamespaceAuditEventsRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Array<AuditEventDto>>> {
+        const requestOptions = await this.listNamespaceAuditEventsRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => jsonValue.map(AuditEventDtoFromJSON));
+    }
+
+    /**
+     */
+    async listNamespaceAuditEvents(requestParameters: ListNamespaceAuditEventsRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Array<AuditEventDto>> {
+        const response = await this.listNamespaceAuditEventsRaw(requestParameters, initOverrides);
         return await response.value();
     }
 

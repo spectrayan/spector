@@ -2,9 +2,8 @@ name: OpenClaw Plugin CI
 
 on:
   push:
-    paths:
-      - 'plugins/openclaw/**'
-    branches: [main]
+    tags:
+      - 'openclaw-v*'
   pull_request:
     paths:
       - 'plugins/openclaw/**'
@@ -67,10 +66,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Set version from tag
+        if: startsWith(github.ref, 'refs/tags/openclaw-v')
+        run: |
+          VERSION="${GITHUB_REF_NAME#openclaw-v}"
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+
       - name: Build
         run: npm run build
 
       - name: Publish
-        run: npm publish --provenance --access public
+        run: |
+          CURRENT_VER=$(node -p "require('./package.json').version")
+          if npm view "@spectrayan/openclaw-spector@$CURRENT_VER" version >/dev/null 2>&1; then
+            echo "Version $CURRENT_VER of @spectrayan/openclaw-spector is already published on npm. Skipping publish."
+          else
+            npm publish --provenance --access public
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

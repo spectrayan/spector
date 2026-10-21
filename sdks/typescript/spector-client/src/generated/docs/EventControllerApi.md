@@ -10,7 +10,7 @@ All URIs are relative to *http://localhost*
 
 ## events
 
-> Array&lt;any&gt; events(filter)
+> Array&lt;any&gt; events(topic, filter)
 
 
 
@@ -35,6 +35,8 @@ async function example() {
 
   const body = {
     // string (optional)
+    topic: topic_example,
+    // string (optional)
     filter: filter_example,
   } satisfies EventsRequest;
 
@@ -55,6 +57,7 @@ example().catch(console.error);
 
 | Name | Type | Description  | Notes |
 |------------- | ------------- | ------------- | -------------|
+| **topic** | `string` |  | [Optional] [Defaults to `&#39;spector&#39;`] |
 | **filter** | `string` |  | [Optional] [Defaults to `&#39;&#39;`] |
 
 ### Return type

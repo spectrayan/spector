@@ -62,7 +62,7 @@ export interface SaveOverrideRequest {
     requestBody: { [key: string]: any | null; };
 }
 
-export interface SchemaRequest {
+export interface Schema1Request {
     /**
      * 
      */
@@ -505,13 +505,13 @@ export class ConfigControllerApi extends runtime.BaseAPI {
     }
 
     /**
-     * Creates request options for schema without sending the request
+     * Creates request options for schema1 without sending the request
      */
-    async schemaRequestOpts(requestParameters: SchemaRequest): Promise<runtime.RequestOpts> {
+    async schema1RequestOpts(requestParameters: Schema1Request): Promise<runtime.RequestOpts> {
         if (requestParameters['category'] == null) {
             throw new runtime.RequiredError(
                 'category',
-                'Required parameter "category" was null or undefined when calling schema().'
+                'Required parameter "category" was null or undefined when calling schema1().'
             );
         }
 
@@ -545,8 +545,8 @@ export class ConfigControllerApi extends runtime.BaseAPI {
 
     /**
      */
-    async schemaRaw(requestParameters: SchemaRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<{ [key: string]: any | null; }>> {
-        const requestOptions = await this.schemaRequestOpts(requestParameters);
+    async schema1Raw(requestParameters: Schema1Request, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<{ [key: string]: any | null; }>> {
+        const requestOptions = await this.schema1RequestOpts(requestParameters);
         const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.JSONApiResponse<any>(response);
@@ -554,8 +554,8 @@ export class ConfigControllerApi extends runtime.BaseAPI {
 
     /**
      */
-    async schema(requestParameters: SchemaRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<{ [key: string]: any | null; }> {
-        const response = await this.schemaRaw(requestParameters, initOverrides);
+    async schema1(requestParameters: Schema1Request, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<{ [key: string]: any | null; }> {
+        const response = await this.schema1Raw(requestParameters, initOverrides);
         return await response.value();
     }
 

@@ -5,13 +5,13 @@ All URIs are relative to *http://localhost*
 | Method | HTTP request | Description |
 |------------- | ------------- | -------------|
 | [**changePassword**](AuthControllerApi.md#changepasswordoperation) | **POST** /api/v1/auth/change-password |  |
-| [**createApiKey**](AuthControllerApi.md#createapikeyoperation) | **POST** /api/v1/auth/api-keys |  |
+| [**getAuthConfig**](AuthControllerApi.md#getauthconfig) | **GET** /api/v1/auth/config |  |
 | [**listUsers**](AuthControllerApi.md#listusers) | **GET** /api/v1/auth/users |  |
 | [**login**](AuthControllerApi.md#loginoperation) | **POST** /api/v1/auth/login |  |
 | [**logout**](AuthControllerApi.md#logout) | **POST** /api/v1/auth/logout |  |
 | [**refresh**](AuthControllerApi.md#refreshoperation) | **POST** /api/v1/auth/refresh |  |
 | [**register**](AuthControllerApi.md#registeroperation) | **POST** /api/v1/auth/register |  |
-| [**revokeApiKey**](AuthControllerApi.md#revokeapikey) | **DELETE** /api/v1/auth/api-keys/{id} |  |
+| [**signup**](AuthControllerApi.md#signupoperation) | **POST** /api/v1/auth/signup |  |
 | [**updateUser**](AuthControllerApi.md#updateuseroperation) | **PUT** /api/v1/auth/users/{id} |  |
 
 
@@ -87,9 +87,9 @@ example().catch(console.error);
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 
 
-## createApiKey
+## getAuthConfig
 
-> CreateApiKeyResponse createApiKey(createApiKeyRequest)
+> AuthConfigResponse getAuthConfig()
 
 
 
@@ -100,7 +100,7 @@ import {
   Configuration,
   AuthControllerApi,
 } from '';
-import type { CreateApiKeyOperationRequest } from '';
+import type { GetAuthConfigRequest } from '';
 
 async function example() {
   console.log("🚀 Testing  SDK...");
@@ -112,13 +112,8 @@ async function example() {
   });
   const api = new AuthControllerApi(config);
 
-  const body = {
-    // CreateApiKeyRequest (optional)
-    createApiKeyRequest: ...,
-  } satisfies CreateApiKeyOperationRequest;
-
   try {
-    const data = await api.createApiKey(body);
+    const data = await api.getAuthConfig();
     console.log(data);
   } catch (error) {
     console.error(error);
@@ -131,14 +126,11 @@ example().catch(console.error);
 
 ### Parameters
 
-
-| Name | Type | Description  | Notes |
-|------------- | ------------- | ------------- | -------------|
-| **createApiKeyRequest** | [CreateApiKeyRequest](CreateApiKeyRequest.md) |  | [Optional] |
+This endpoint does not need any parameter.
 
 ### Return type
 
-[**CreateApiKeyResponse**](CreateApiKeyResponse.md)
+[**AuthConfigResponse**](AuthConfigResponse.md)
 
 ### Authorization
 
@@ -146,7 +138,7 @@ example().catch(console.error);
 
 ### HTTP request headers
 
-- **Content-Type**: `application/json`
+- **Content-Type**: Not defined
 - **Accept**: `application/json`
 
 
@@ -497,9 +489,9 @@ example().catch(console.error);
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 
 
-## revokeApiKey
+## signup
 
-> object revokeApiKey(id)
+> object signup(signupRequest)
 
 
 
@@ -510,7 +502,7 @@ import {
   Configuration,
   AuthControllerApi,
 } from '';
-import type { RevokeApiKeyRequest } from '';
+import type { SignupOperationRequest } from '';
 
 async function example() {
   console.log("🚀 Testing  SDK...");
@@ -523,12 +515,12 @@ async function example() {
   const api = new AuthControllerApi(config);
 
   const body = {
-    // string
-    id: id_example,
-  } satisfies RevokeApiKeyRequest;
+    // SignupRequest (optional)
+    signupRequest: ...,
+  } satisfies SignupOperationRequest;
 
   try {
-    const data = await api.revokeApiKey(body);
+    const data = await api.signup(body);
     console.log(data);
   } catch (error) {
     console.error(error);
@@ -544,7 +536,7 @@ example().catch(console.error);
 
 | Name | Type | Description  | Notes |
 |------------- | ------------- | ------------- | -------------|
-| **id** | `string` |  | [Defaults to `undefined`] |
+| **signupRequest** | [SignupRequest](SignupRequest.md) |  | [Optional] |
 
 ### Return type
 
@@ -556,7 +548,7 @@ example().catch(console.error);
 
 ### HTTP request headers
 
-- **Content-Type**: Not defined
+- **Content-Type**: `application/json`
 - **Accept**: `application/json`
 
 

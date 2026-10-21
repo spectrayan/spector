@@ -40,6 +40,7 @@ class EventControllerApi:
     @validate_call
     def events(
         self,
+        topic: Optional[StrictStr] = None,
         filter: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
@@ -57,6 +58,8 @@ class EventControllerApi:
         """events
 
 
+        :param topic:
+        :type topic: str
         :param filter:
         :type filter: str
         :param _request_timeout: timeout setting for this request. If one
@@ -82,6 +85,7 @@ class EventControllerApi:
         """ # noqa: E501
 
         _param = self._events_serialize(
+            topic=topic,
             filter=filter,
             _request_auth=_request_auth,
             _content_type=_content_type,
@@ -106,6 +110,7 @@ class EventControllerApi:
     @validate_call
     def events_with_http_info(
         self,
+        topic: Optional[StrictStr] = None,
         filter: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
@@ -123,6 +128,8 @@ class EventControllerApi:
         """events
 
 
+        :param topic:
+        :type topic: str
         :param filter:
         :type filter: str
         :param _request_timeout: timeout setting for this request. If one
@@ -148,6 +155,7 @@ class EventControllerApi:
         """ # noqa: E501
 
         _param = self._events_serialize(
+            topic=topic,
             filter=filter,
             _request_auth=_request_auth,
             _content_type=_content_type,
@@ -172,6 +180,7 @@ class EventControllerApi:
     @validate_call
     def events_without_preload_content(
         self,
+        topic: Optional[StrictStr] = None,
         filter: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
@@ -189,6 +198,8 @@ class EventControllerApi:
         """events
 
 
+        :param topic:
+        :type topic: str
         :param filter:
         :type filter: str
         :param _request_timeout: timeout setting for this request. If one
@@ -214,6 +225,7 @@ class EventControllerApi:
         """ # noqa: E501
 
         _param = self._events_serialize(
+            topic=topic,
             filter=filter,
             _request_auth=_request_auth,
             _content_type=_content_type,
@@ -233,6 +245,7 @@ class EventControllerApi:
 
     def _events_serialize(
         self,
+        topic,
         filter,
         _request_auth,
         _content_type,
@@ -256,6 +269,10 @@ class EventControllerApi:
 
         # process the path parameters
         # process the query parameters
+        if topic is not None:
+            
+            _query_params.append(('topic', topic))
+            
         if filter is not None:
             
             _query_params.append(('filter', filter))

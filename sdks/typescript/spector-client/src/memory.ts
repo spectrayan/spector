@@ -38,6 +38,11 @@ export interface TableOptions {
   tombstoned?: boolean;
 }
 
+export interface ReflectOptions {
+  sessionLimit?: number;
+  consolidationOnly?: boolean;
+}
+
 export class MemoryClient {
   constructor(private readonly transport: Transport) {}
 
@@ -170,6 +175,38 @@ export class MemoryClient {
   async forget(memoryId: string, reason?: string): Promise<void> {
     const body = reason ? { reason } : undefined;
     await this.transport.request('DELETE', `/api/v1/memory/${memoryId}`, { body });
+  }
+
+  /**
+   * Permanently purges and cryptographically zeroes a memory record (GDPR right-to-erasure).
+   */
+  async purge(memoryId: string): Promise<void> {
+    await this.transport.request('DELETE', `/api/v1/memory/${memoryId}/purge`);
+  }
+
+  /**
+   * Triggers generative reflection / dream consolidation.
+   */
+  async reflect(options?: ReflectOptions): Promise<Record<string, unknown>> {
+    const body: Record<string, unknown> = {};
+    if (options?.sessionLimit !== undefined) {
+      body.sessionLimit = options.sessionLimit;
+    }
+    if (options?.consolidationOnly !== undefined) {
+      body.consolidationOnly = options.consolidationOnly;
+    }
+    return this.transport.request('POST', '/api/v1/memory/reflect', {
+      body: Object.keys(body).length > 0 ? body : undefined,
+    });
+  }
+
+  /**
+   * Explains why a candidate memory was excluded or down-ranked for a query.
+   */
+  async whyNot(memoryId: string, query: string, topK: number = 5): Promise<Record<string, unknown>> {
+    return this.transport.request('POST', '/api/v1/memory/why-not', {
+      body: { memoryId, query, topK },
+    });
   }
 
   /**

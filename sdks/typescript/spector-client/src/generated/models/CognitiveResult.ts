@@ -113,19 +113,7 @@ export interface CognitiveResult {
     /**
      * 
      */
-    lateral?: boolean;
-    /**
-     * 
-     */
-    dreamed?: boolean;
-    /**
-     * 
-     */
-    simulated?: boolean;
-    /**
-     * 
-     */
-    multimodal?: boolean;
+    truncated?: boolean;
     /**
      * 
      */
@@ -133,11 +121,27 @@ export interface CognitiveResult {
     /**
      * 
      */
-    hyperfocused?: boolean;
+    simulated?: boolean;
+    /**
+     * 
+     */
+    dreamed?: boolean;
+    /**
+     * 
+     */
+    multimodal?: boolean;
     /**
      * 
      */
     negativeOutcome?: boolean;
+    /**
+     * 
+     */
+    lateral?: boolean;
+    /**
+     * 
+     */
+    hyperfocused?: boolean;
 }
 
 
@@ -226,13 +230,14 @@ export function CognitiveResultFromJSONTyped(json: any, ignoreDiscriminator: boo
         'metadata': json['metadata'] == null ? undefined : json['metadata'],
         'consolidationFlags': json['consolidationFlags'] == null ? undefined : json['consolidationFlags'],
         'timestampMs': json['timestampMs'] == null ? undefined : json['timestampMs'],
-        'lateral': json['lateral'] == null ? undefined : json['lateral'],
-        'dreamed': json['dreamed'] == null ? undefined : json['dreamed'],
-        'simulated': json['simulated'] == null ? undefined : json['simulated'],
-        'multimodal': json['multimodal'] == null ? undefined : json['multimodal'],
+        'truncated': json['truncated'] == null ? undefined : json['truncated'],
         'positivelyReinforced': json['positivelyReinforced'] == null ? undefined : json['positivelyReinforced'],
-        'hyperfocused': json['hyperfocused'] == null ? undefined : json['hyperfocused'],
+        'simulated': json['simulated'] == null ? undefined : json['simulated'],
+        'dreamed': json['dreamed'] == null ? undefined : json['dreamed'],
+        'multimodal': json['multimodal'] == null ? undefined : json['multimodal'],
         'negativeOutcome': json['negativeOutcome'] == null ? undefined : json['negativeOutcome'],
+        'lateral': json['lateral'] == null ? undefined : json['lateral'],
+        'hyperfocused': json['hyperfocused'] == null ? undefined : json['hyperfocused'],
     };
 }
 
@@ -266,13 +271,14 @@ export function CognitiveResultToJSONTyped(value?: CognitiveResult | null, ignor
         'metadata': value['metadata'],
         'consolidationFlags': value['consolidationFlags'],
         'timestampMs': value['timestampMs'],
-        'lateral': value['lateral'],
-        'dreamed': value['dreamed'],
-        'simulated': value['simulated'],
-        'multimodal': value['multimodal'],
+        'truncated': value['truncated'],
         'positivelyReinforced': value['positivelyReinforced'],
-        'hyperfocused': value['hyperfocused'],
+        'simulated': value['simulated'],
+        'dreamed': value['dreamed'],
+        'multimodal': value['multimodal'],
         'negativeOutcome': value['negativeOutcome'],
+        'lateral': value['lateral'],
+        'hyperfocused': value['hyperfocused'],
     };
 }
 

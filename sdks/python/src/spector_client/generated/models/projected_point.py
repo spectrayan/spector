@@ -34,8 +34,7 @@ class ProjectedPoint(BaseModel):
     z: Optional[Union[StrictFloat, StrictInt]] = None
     tier: Optional[StrictStr] = None
     importance: Optional[Union[StrictFloat, StrictInt]] = None
-    label: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["id", "x", "y", "z", "tier", "importance", "label"]
+    __properties: ClassVar[List[str]] = ["id", "x", "y", "z", "tier", "importance"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -93,8 +92,7 @@ class ProjectedPoint(BaseModel):
             "y": obj.get("y"),
             "z": obj.get("z"),
             "tier": obj.get("tier"),
-            "importance": obj.get("importance"),
-            "label": obj.get("label")
+            "importance": obj.get("importance")
         })
         return _obj
 

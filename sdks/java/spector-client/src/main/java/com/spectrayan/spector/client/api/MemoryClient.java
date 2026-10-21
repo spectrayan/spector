@@ -28,8 +28,11 @@ import com.spectrayan.spector.client.generated.model.MemoryStatusResponse;
 import com.spectrayan.spector.client.generated.model.MemoryTableResponse;
 import com.spectrayan.spector.client.generated.model.MemoryTableRow;
 import com.spectrayan.spector.client.generated.model.MemoryVectorResponse;
+import com.spectrayan.spector.client.generated.model.PurgeResult;
 import com.spectrayan.spector.client.generated.model.RecallRequest;
 import com.spectrayan.spector.client.generated.model.RecallResult;
+import com.spectrayan.spector.client.generated.model.ReflectRequest;
+import com.spectrayan.spector.client.generated.model.ReflectResponse;
 import com.spectrayan.spector.client.generated.model.ReinforceByIdRequest;
 import com.spectrayan.spector.client.generated.model.RememberRequest;
 import com.spectrayan.spector.client.generated.model.ResolveRequest;
@@ -40,6 +43,8 @@ import com.spectrayan.spector.client.generated.model.StoreResponse;
 import com.spectrayan.spector.client.generated.model.SuppressRequest;
 import com.spectrayan.spector.client.generated.model.UpdateMemoryRequest;
 import com.spectrayan.spector.client.generated.model.VacuumRequest;
+import com.spectrayan.spector.client.generated.model.WhyNotRequest;
+import com.spectrayan.spector.client.generated.model.WhyNotResponse;
 
 import java.util.Collections;
 import java.util.List;
@@ -211,6 +216,17 @@ public class MemoryClient {
     }
 
     /**
+     * Physically destroy (purge) a memory by ID, zeroing payload/vector bytes and detaching graphs.
+     *
+     * @param id memory ID
+     * @return purge disclosure result
+     */
+    public PurgeResult purge(String id) {
+        Objects.requireNonNull(id, "id must not be null");
+        return SpectorExceptionHandler.execute(() -> memoryApi.purgeMemory(id), id);
+    }
+
+    /**
      * Reinforce a memory via Long-Term Potentiation (LTP).
      *
      * @param id      memory ID
@@ -363,6 +379,60 @@ public class MemoryClient {
     public CompactionResult vacuum(String tier) {
         VacuumRequest request = new VacuumRequest().tier(tier);
         return SpectorExceptionHandler.execute(() -> memoryApi.vacuumMemories(request));
+    }
+
+    /**
+     * Trigger sleep consolidation (reflect) sweep with default parameters.
+     *
+     * @return reflect sweep response
+     */
+    public ReflectResponse reflect() {
+        return reflect(new ReflectRequest());
+    }
+
+    /**
+     * Trigger sleep consolidation (reflect) sweep with custom parameters.
+     *
+     * @param request reflect request specification
+     * @return reflect sweep response
+     */
+    public ReflectResponse reflect(ReflectRequest request) {
+        Objects.requireNonNull(request, "request must not be null");
+        return SpectorExceptionHandler.execute(() -> memoryApi.reflectMemories(
+                request.getSweepId(),
+                request.getSessionLimit(),
+                request.getSessionIdAfter(),
+                request.getFrom(),
+                request.getTo(),
+                request.getConsolidationOnly(),
+                request
+        ));
+    }
+
+    /**
+     * Explain why a specific memory was excluded or outranked in a recall query.
+     *
+     * @param request why-not request specification
+     * @return diagnostic breakdown response
+     */
+    public WhyNotResponse whyNot(WhyNotRequest request) {
+        Objects.requireNonNull(request, "request must not be null");
+        return SpectorExceptionHandler.execute(() -> memoryApi.whyNotMemory(request));
+    }
+
+    /**
+     * Explain why a specific memory was excluded or outranked in a recall query.
+     *
+     * @param memoryId candidate memory ID
+     * @param query    recall query string
+     * @param topK     recall topK limit
+     * @return diagnostic breakdown response
+     */
+    public WhyNotResponse whyNot(String memoryId, String query, int topK) {
+        Objects.requireNonNull(memoryId, "memoryId must not be null");
+        Objects.requireNonNull(query, "query must not be null");
+        WhyNotRequest request = new WhyNotRequest().memoryId(memoryId).query(query).topK(topK);
+        return whyNot(request);
     }
 
     /**

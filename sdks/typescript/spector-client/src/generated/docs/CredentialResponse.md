@@ -22,6 +22,7 @@ Name | Type
 `updatedAt` | Date
 `expiresAt` | Date
 `lastUsedAt` | Date
+`rawSecret` | string
 
 ## Example
 
@@ -46,6 +47,7 @@ const example = {
   "updatedAt": null,
   "expiresAt": null,
   "lastUsedAt": null,
+  "rawSecret": null,
 } satisfies CredentialResponse
 
 console.log(example)

@@ -34,7 +34,7 @@ class CreateCredentialRequest(BaseModel):
     category: StrictStr
     provider: Annotated[str, Field(min_length=0, strict=True, max_length=64)]
     credential_type: Optional[StrictStr] = Field(default=None, alias="credentialType")
-    secret: Annotated[str, Field(min_length=1, strict=True)]
+    secret: Optional[StrictStr] = None
     properties: Optional[Dict[str, Any]] = None
     is_default: Optional[StrictBool] = Field(default=None, alias="isDefault")
     description: Optional[StrictStr] = None
@@ -44,8 +44,8 @@ class CreateCredentialRequest(BaseModel):
     @field_validator('category')
     def category_validate_enum(cls, value):
         """Validates the enum"""
-        if value not in set(['LLM', 'CHANNEL', 'DATABASE', 'BROKER', 'STORAGE', 'APP', 'VAULT']):
-            raise ValueError("must be one of enum values ('LLM', 'CHANNEL', 'DATABASE', 'BROKER', 'STORAGE', 'APP', 'VAULT')")
+        if value not in set(['AUTH', 'LLM', 'EMBEDDING', 'CHANNEL', 'DATABASE', 'BROKER', 'STORAGE', 'APP', 'VAULT']):
+            raise ValueError("must be one of enum values ('AUTH', 'LLM', 'EMBEDDING', 'CHANNEL', 'DATABASE', 'BROKER', 'STORAGE', 'APP', 'VAULT')")
         return value
 
     @field_validator('credential_type')

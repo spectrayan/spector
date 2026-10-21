@@ -98,7 +98,7 @@
     <!-- ───────────────────────── Properties ───────────────────────── -->
     <properties>
         <!-- CI-friendly version (single source of truth) -->
-        <revision>0.1.0-alpha.2</revision>
+        <revision>0.1.0-beta.1</revision>
         <changelist></changelist>
 
         <!-- Java -->

@@ -25,13 +25,14 @@ Name | Type
 `metadata` | { [key: string]: string; }
 `consolidationFlags` | string
 `timestampMs` | number
-`lateral` | boolean
-`dreamed` | boolean
-`simulated` | boolean
-`multimodal` | boolean
+`truncated` | boolean
 `positivelyReinforced` | boolean
-`hyperfocused` | boolean
+`simulated` | boolean
+`dreamed` | boolean
+`multimodal` | boolean
 `negativeOutcome` | boolean
+`lateral` | boolean
+`hyperfocused` | boolean
 
 ## Example
 
@@ -59,13 +60,14 @@ const example = {
   "metadata": null,
   "consolidationFlags": null,
   "timestampMs": null,
-  "lateral": null,
-  "dreamed": null,
-  "simulated": null,
-  "multimodal": null,
+  "truncated": null,
   "positivelyReinforced": null,
-  "hyperfocused": null,
+  "simulated": null,
+  "dreamed": null,
+  "multimodal": null,
   "negativeOutcome": null,
+  "lateral": null,
+  "hyperfocused": null,
 } satisfies CognitiveResult
 
 console.log(example)

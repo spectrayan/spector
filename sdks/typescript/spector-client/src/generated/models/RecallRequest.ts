@@ -43,6 +43,10 @@ export interface RecallRequest {
      * 
      */
     recallMode?: string;
+    /**
+     * 
+     */
+    partitionVisitBudget?: number;
 }
 
 /**
@@ -68,6 +72,7 @@ export function RecallRequestFromJSONTyped(json: any, ignoreDiscriminator: boole
         'tags': json['tags'] == null ? undefined : json['tags'],
         'scoringMode': json['scoringMode'] == null ? undefined : json['scoringMode'],
         'recallMode': json['recallMode'] == null ? undefined : json['recallMode'],
+        'partitionVisitBudget': json['partitionVisitBudget'] == null ? undefined : json['partitionVisitBudget'],
     };
 }
 
@@ -88,6 +93,7 @@ export function RecallRequestToJSONTyped(value?: RecallRequest | null, ignoreDis
         'tags': value['tags'],
         'scoringMode': value['scoringMode'],
         'recallMode': value['recallMode'],
+        'partitionVisitBudget': value['partitionVisitBudget'],
     };
 }
 

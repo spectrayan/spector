@@ -114,6 +114,7 @@ public final class SpectorClient implements AutoCloseable {
         private String baseUri = "http://localhost:8080";
         private String apiKey;
         private String bearerToken;
+        private String namespace;
         private Duration connectTimeout = Duration.ofSeconds(10);
         private Duration readTimeout = Duration.ofSeconds(30);
         private HttpClient customHttpClient;
@@ -144,6 +145,14 @@ public final class SpectorClient implements AutoCloseable {
          */
         public Builder bearerToken(String bearerToken) {
             this.bearerToken = bearerToken;
+            return this;
+        }
+
+        /**
+         * Sets the target memory namespace via the {@code X-Spector-Namespace} header.
+         */
+        public Builder namespace(String namespace) {
+            this.namespace = namespace;
             return this;
         }
 
@@ -229,6 +238,7 @@ public final class SpectorClient implements AutoCloseable {
             final Map<String, String> headersSnapshot = Collections.unmodifiableMap(new LinkedHashMap<>(customHeaders));
             final String finalApiKey = this.apiKey;
             final String finalBearerToken = this.bearerToken;
+            final String finalNamespace = this.namespace;
             final Consumer<HttpRequest.Builder> userInterceptor = this.customInterceptor;
 
             apiClient.setRequestInterceptor(reqBuilder -> {
@@ -237,6 +247,9 @@ public final class SpectorClient implements AutoCloseable {
                 }
                 if (finalBearerToken != null && !finalBearerToken.isBlank()) {
                     reqBuilder.header("Authorization", "Bearer " + finalBearerToken);
+                }
+                if (finalNamespace != null && !finalNamespace.isBlank()) {
+                    reqBuilder.header("X-Spector-Namespace", finalNamespace);
                 }
                 for (Map.Entry<String, String> entry : headersSnapshot.entrySet()) {
                     reqBuilder.header(entry.getKey(), entry.getValue());

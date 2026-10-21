@@ -18,6 +18,10 @@ export interface EventsRequest {
     /**
      * 
      */
+    topic?: string;
+    /**
+     * 
+     */
     filter?: string;
 }
 
@@ -31,6 +35,10 @@ export class EventControllerApi extends runtime.BaseAPI {
      */
     async eventsRequestOpts(requestParameters: EventsRequest): Promise<runtime.RequestOpts> {
         const queryParameters: any = {};
+
+        if (requestParameters['topic'] != null) {
+            queryParameters['topic'] = requestParameters['topic'];
+        }
 
         if (requestParameters['filter'] != null) {
             queryParameters['filter'] = requestParameters['filter'];

@@ -1,5 +1,5 @@
 /**
- * @spectrayan/spector — OpenClaw Plugin Entry Point.
+ * @spectrayan/openclaw-spector — OpenClaw Plugin Entry Point.
  *
  * Registers Spector Cognitive Memory as an OpenClaw memory plugin.
  * This file is the single extension entry point declared in package.json

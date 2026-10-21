@@ -13,6 +13,14 @@
  */
 
 import { mapValues } from '../runtime';
+import type { ScoreBreakdownDto } from './ScoreBreakdownDto';
+import {
+    ScoreBreakdownDtoFromJSON,
+    ScoreBreakdownDtoFromJSONTyped,
+    ScoreBreakdownDtoToJSON,
+    ScoreBreakdownDtoToJSONTyped,
+} from './ScoreBreakdownDto';
+
 /**
  * 
  * @export
@@ -47,6 +55,14 @@ export interface RecallResult {
      * 
      */
     tags?: Array<string>;
+    /**
+     * 
+     */
+    truncated?: boolean;
+    /**
+     * 
+     */
+    breakdown?: ScoreBreakdownDto;
 }
 
 /**
@@ -73,6 +89,8 @@ export function RecallResultFromJSONTyped(json: any, ignoreDiscriminator: boolea
         'memoryType': json['memoryType'] == null ? undefined : json['memoryType'],
         'ageDescription': json['ageDescription'] == null ? undefined : json['ageDescription'],
         'tags': json['tags'] == null ? undefined : json['tags'],
+        'truncated': json['truncated'] == null ? undefined : json['truncated'],
+        'breakdown': json['breakdown'] == null ? undefined : ScoreBreakdownDtoFromJSON(json['breakdown']),
     };
 }
 
@@ -94,6 +112,8 @@ export function RecallResultToJSONTyped(value?: RecallResult | null, ignoreDiscr
         'memoryType': value['memoryType'],
         'ageDescription': value['ageDescription'],
         'tags': value['tags'],
+        'truncated': value['truncated'],
+        'breakdown': ScoreBreakdownDtoToJSON(value['breakdown']),
     };
 }
 

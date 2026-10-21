@@ -45,8 +45,8 @@ class UpdateCredentialRequest(BaseModel):
         if value is None:
             return value
 
-        if value not in set(['LLM', 'CHANNEL', 'DATABASE', 'BROKER', 'STORAGE', 'APP', 'VAULT']):
-            raise ValueError("must be one of enum values ('LLM', 'CHANNEL', 'DATABASE', 'BROKER', 'STORAGE', 'APP', 'VAULT')")
+        if value not in set(['AUTH', 'LLM', 'EMBEDDING', 'CHANNEL', 'DATABASE', 'BROKER', 'STORAGE', 'APP', 'VAULT']):
+            raise ValueError("must be one of enum values ('AUTH', 'LLM', 'EMBEDDING', 'CHANNEL', 'DATABASE', 'BROKER', 'STORAGE', 'APP', 'VAULT')")
         return value
 
     @field_validator('credential_type')

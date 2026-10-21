@@ -18,7 +18,11 @@ from typing_extensions import Annotated
 
 from pydantic import StrictInt, StrictStr
 from typing import Any, Dict, List, Optional
+from spector_client.generated.models.age_distribution_response import AgeDistributionResponse
+from spector_client.generated.models.observability_stats_response import ObservabilityStatsResponse
+from spector_client.generated.models.timeline_response import TimelineResponse
 from spector_client.generated.models.traced_recall_request import TracedRecallRequest
+from spector_client.generated.models.traced_recall_response import TracedRecallResponse
 
 from spector_client.generated.api_client import ApiClient, RequestSerialized
 from spector_client.generated.api_response import ApiResponse
@@ -53,7 +57,7 @@ class ObservabilityControllerApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> Dict[str, Optional[object]]:
+    ) -> AgeDistributionResponse:
         """age_distribution
 
 
@@ -87,7 +91,7 @@ class ObservabilityControllerApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "Dict[str, Optional[object]]",
+            '200': "AgeDistributionResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -115,7 +119,7 @@ class ObservabilityControllerApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[Dict[str, Optional[object]]]:
+    ) -> ApiResponse[AgeDistributionResponse]:
         """age_distribution
 
 
@@ -149,7 +153,7 @@ class ObservabilityControllerApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "Dict[str, Optional[object]]",
+            '200': "AgeDistributionResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -211,7 +215,7 @@ class ObservabilityControllerApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "Dict[str, Optional[object]]",
+            '200': "AgeDistributionResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -541,7 +545,7 @@ class ObservabilityControllerApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> Dict[str, Optional[object]]:
+    ) -> ObservabilityStatsResponse:
         """stats
 
 
@@ -575,7 +579,7 @@ class ObservabilityControllerApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "Dict[str, Optional[object]]",
+            '200': "ObservabilityStatsResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -603,7 +607,7 @@ class ObservabilityControllerApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[Dict[str, Optional[object]]]:
+    ) -> ApiResponse[ObservabilityStatsResponse]:
         """stats
 
 
@@ -637,7 +641,7 @@ class ObservabilityControllerApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "Dict[str, Optional[object]]",
+            '200': "ObservabilityStatsResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -699,7 +703,7 @@ class ObservabilityControllerApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "Dict[str, Optional[object]]",
+            '200': "ObservabilityStatsResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -788,7 +792,7 @@ class ObservabilityControllerApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> Dict[str, Optional[object]]:
+    ) -> TimelineResponse:
         """timeline
 
 
@@ -831,7 +835,7 @@ class ObservabilityControllerApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "Dict[str, Optional[object]]",
+            '200': "TimelineResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -862,7 +866,7 @@ class ObservabilityControllerApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[Dict[str, Optional[object]]]:
+    ) -> ApiResponse[TimelineResponse]:
         """timeline
 
 
@@ -905,7 +909,7 @@ class ObservabilityControllerApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "Dict[str, Optional[object]]",
+            '200': "TimelineResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -979,7 +983,7 @@ class ObservabilityControllerApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "Dict[str, Optional[object]]",
+            '200': "TimelineResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1081,7 +1085,7 @@ class ObservabilityControllerApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> Dict[str, Optional[object]]:
+    ) -> TracedRecallResponse:
         """traced_recall
 
 
@@ -1118,7 +1122,7 @@ class ObservabilityControllerApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "Dict[str, Optional[object]]",
+            '200': "TracedRecallResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1147,7 +1151,7 @@ class ObservabilityControllerApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[Dict[str, Optional[object]]]:
+    ) -> ApiResponse[TracedRecallResponse]:
         """traced_recall
 
 
@@ -1184,7 +1188,7 @@ class ObservabilityControllerApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "Dict[str, Optional[object]]",
+            '200': "TracedRecallResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1250,7 +1254,7 @@ class ObservabilityControllerApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "Dict[str, Optional[object]]",
+            '200': "TracedRecallResponse",
         }
         response_data = self.api_client.call_api(
             *_param,

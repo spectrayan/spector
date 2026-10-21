@@ -26,6 +26,9 @@ export class SpectorClient {
     if (options?.bearerToken) {
       headers['Authorization'] = `Bearer ${options.bearerToken}`;
     }
+    if (options?.namespace) {
+      headers['X-Spector-Namespace'] = options.namespace;
+    }
 
     const config = new Configuration({
       basePath,

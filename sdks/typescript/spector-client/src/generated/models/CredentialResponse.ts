@@ -83,6 +83,10 @@ export interface CredentialResponse {
      * 
      */
     lastUsedAt?: Date;
+    /**
+     * 
+     */
+    rawSecret?: string;
 }
 
 
@@ -90,7 +94,9 @@ export interface CredentialResponse {
  * @export
  */
 export const CredentialResponseCategoryEnum = {
+    Auth: 'AUTH',
     Llm: 'LLM',
+    Embedding: 'EMBEDDING',
     Channel: 'CHANNEL',
     Database: 'DATABASE',
     Broker: 'BROKER',
@@ -149,6 +155,7 @@ export function CredentialResponseFromJSONTyped(json: any, ignoreDiscriminator: 
         'updatedAt': json['updatedAt'] == null ? undefined : (parseDateTime(json['updatedAt'])),
         'expiresAt': json['expiresAt'] == null ? undefined : (parseDateTime(json['expiresAt'])),
         'lastUsedAt': json['lastUsedAt'] == null ? undefined : (parseDateTime(json['lastUsedAt'])),
+        'rawSecret': json['rawSecret'] == null ? undefined : json['rawSecret'],
     };
 }
 
@@ -179,6 +186,7 @@ export function CredentialResponseToJSONTyped(value?: CredentialResponse | null,
         'updatedAt': value['updatedAt'] == null ? value['updatedAt'] : serializeDateTime(value['updatedAt']),
         'expiresAt': value['expiresAt'] == null ? value['expiresAt'] : serializeDateTime(value['expiresAt']),
         'lastUsedAt': value['lastUsedAt'] == null ? value['lastUsedAt'] : serializeDateTime(value['lastUsedAt']),
+        'rawSecret': value['rawSecret'],
     };
 }
 

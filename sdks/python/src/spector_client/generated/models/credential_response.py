@@ -45,7 +45,8 @@ class CredentialResponse(BaseModel):
     updated_at: Optional[datetime] = Field(default=None, alias="updatedAt")
     expires_at: Optional[datetime] = Field(default=None, alias="expiresAt")
     last_used_at: Optional[datetime] = Field(default=None, alias="lastUsedAt")
-    __properties: ClassVar[List[str]] = ["credentialId", "tenantId", "userId", "name", "category", "provider", "credentialType", "maskedPreview", "properties", "isDefault", "description", "version", "createdAt", "updatedAt", "expiresAt", "lastUsedAt"]
+    raw_secret: Optional[StrictStr] = Field(default=None, alias="rawSecret")
+    __properties: ClassVar[List[str]] = ["credentialId", "tenantId", "userId", "name", "category", "provider", "credentialType", "maskedPreview", "properties", "isDefault", "description", "version", "createdAt", "updatedAt", "expiresAt", "lastUsedAt", "rawSecret"]
 
     @field_validator('category')
     def category_validate_enum(cls, value):
@@ -53,8 +54,8 @@ class CredentialResponse(BaseModel):
         if value is None:
             return value
 
-        if value not in set(['LLM', 'CHANNEL', 'DATABASE', 'BROKER', 'STORAGE', 'APP', 'VAULT']):
-            raise ValueError("must be one of enum values ('LLM', 'CHANNEL', 'DATABASE', 'BROKER', 'STORAGE', 'APP', 'VAULT')")
+        if value not in set(['AUTH', 'LLM', 'EMBEDDING', 'CHANNEL', 'DATABASE', 'BROKER', 'STORAGE', 'APP', 'VAULT']):
+            raise ValueError("must be one of enum values ('AUTH', 'LLM', 'EMBEDDING', 'CHANNEL', 'DATABASE', 'BROKER', 'STORAGE', 'APP', 'VAULT')")
         return value
 
     @field_validator('credential_type')
@@ -133,7 +134,8 @@ class CredentialResponse(BaseModel):
             "createdAt": obj.get("createdAt"),
             "updatedAt": obj.get("updatedAt"),
             "expiresAt": obj.get("expiresAt"),
-            "lastUsedAt": obj.get("lastUsedAt")
+            "lastUsedAt": obj.get("lastUsedAt"),
+            "rawSecret": obj.get("rawSecret")
         })
         return _obj
 

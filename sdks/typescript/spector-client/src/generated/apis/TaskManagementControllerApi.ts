@@ -46,7 +46,21 @@ export interface GetRecentAuditHistoryRequest {
     limit?: number;
 }
 
+export interface GetRecentAuditHistory1Request {
+    /**
+     * 
+     */
+    limit?: number;
+}
+
 export interface GetTaskRequest {
+    /**
+     * 
+     */
+    id: string;
+}
+
+export interface GetTask1Request {
     /**
      * 
      */
@@ -64,6 +78,17 @@ export interface GetTaskAuditHistoryRequest {
     limit?: number;
 }
 
+export interface GetTaskAuditHistory1Request {
+    /**
+     * 
+     */
+    id: string;
+    /**
+     * 
+     */
+    limit?: number;
+}
+
 export interface PauseTaskRequest {
     /**
      * 
@@ -71,7 +96,25 @@ export interface PauseTaskRequest {
     id: string;
 }
 
+export interface PauseTask1Request {
+    /**
+     * 
+     */
+    id: string;
+}
+
 export interface RescheduleCronOperationRequest {
+    /**
+     * 
+     */
+    id: string;
+    /**
+     * 
+     */
+    rescheduleCronRequest: RescheduleCronRequest;
+}
+
+export interface RescheduleCron1Request {
     /**
      * 
      */
@@ -93,6 +136,17 @@ export interface RescheduleIntervalOperationRequest {
     rescheduleIntervalRequest: RescheduleIntervalRequest;
 }
 
+export interface RescheduleInterval1Request {
+    /**
+     * 
+     */
+    id: string;
+    /**
+     * 
+     */
+    rescheduleIntervalRequest: RescheduleIntervalRequest;
+}
+
 export interface ResumeTaskRequest {
     /**
      * 
@@ -100,7 +154,21 @@ export interface ResumeTaskRequest {
     id: string;
 }
 
+export interface ResumeTask1Request {
+    /**
+     * 
+     */
+    id: string;
+}
+
 export interface TriggerTaskRequest {
+    /**
+     * 
+     */
+    id: string;
+}
+
+export interface TriggerTask1Request {
     /**
      * 
      */
@@ -137,7 +205,7 @@ export class TaskManagementControllerApi extends runtime.BaseAPI {
             }
         }
 
-        let urlPath = `/api/v1/tasks/audit`;
+        let urlPath = `/tasks/audit`;
 
         return {
             path: urlPath,
@@ -164,6 +232,57 @@ export class TaskManagementControllerApi extends runtime.BaseAPI {
     }
 
     /**
+     * Creates request options for getRecentAuditHistory1 without sending the request
+     */
+    async getRecentAuditHistory1RequestOpts(requestParameters: GetRecentAuditHistory1Request): Promise<runtime.RequestOpts> {
+        const queryParameters: any = {};
+
+        if (requestParameters['limit'] != null) {
+            queryParameters['limit'] = requestParameters['limit'];
+        }
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.apiKey) {
+            headerParameters["X-API-Key"] = await this.configuration.apiKey("X-API-Key"); // ApiKeyAuth authentication
+        }
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("BearerAuth", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/tasks/audit`;
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async getRecentAuditHistory1Raw(requestParameters: GetRecentAuditHistory1Request, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Array<TaskRunAuditRecord>>> {
+        const requestOptions = await this.getRecentAuditHistory1RequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => jsonValue.map(TaskRunAuditRecordFromJSON));
+    }
+
+    /**
+     */
+    async getRecentAuditHistory1(requestParameters: GetRecentAuditHistory1Request = {}, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Array<TaskRunAuditRecord>> {
+        const response = await this.getRecentAuditHistory1Raw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
      * Creates request options for getTask without sending the request
      */
     async getTaskRequestOpts(requestParameters: GetTaskRequest): Promise<runtime.RequestOpts> {
@@ -171,6 +290,61 @@ export class TaskManagementControllerApi extends runtime.BaseAPI {
             throw new runtime.RequiredError(
                 'id',
                 'Required parameter "id" was null or undefined when calling getTask().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.apiKey) {
+            headerParameters["X-API-Key"] = await this.configuration.apiKey("X-API-Key"); // ApiKeyAuth authentication
+        }
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("BearerAuth", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/tasks/{id}`;
+        urlPath = urlPath.replace('{id}', encodeURIComponent(String(requestParameters['id'])));
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async getTaskRaw(requestParameters: GetTaskRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<TaskStatus>> {
+        const requestOptions = await this.getTaskRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => TaskStatusFromJSON(jsonValue));
+    }
+
+    /**
+     */
+    async getTask(requestParameters: GetTaskRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<TaskStatus> {
+        const response = await this.getTaskRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
+     * Creates request options for getTask1 without sending the request
+     */
+    async getTask1RequestOpts(requestParameters: GetTask1Request): Promise<runtime.RequestOpts> {
+        if (requestParameters['id'] == null) {
+            throw new runtime.RequiredError(
+                'id',
+                'Required parameter "id" was null or undefined when calling getTask1().'
             );
         }
 
@@ -204,8 +378,8 @@ export class TaskManagementControllerApi extends runtime.BaseAPI {
 
     /**
      */
-    async getTaskRaw(requestParameters: GetTaskRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<TaskStatus>> {
-        const requestOptions = await this.getTaskRequestOpts(requestParameters);
+    async getTask1Raw(requestParameters: GetTask1Request, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<TaskStatus>> {
+        const requestOptions = await this.getTask1RequestOpts(requestParameters);
         const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.JSONApiResponse(response, (jsonValue) => TaskStatusFromJSON(jsonValue));
@@ -213,8 +387,8 @@ export class TaskManagementControllerApi extends runtime.BaseAPI {
 
     /**
      */
-    async getTask(requestParameters: GetTaskRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<TaskStatus> {
-        const response = await this.getTaskRaw(requestParameters, initOverrides);
+    async getTask1(requestParameters: GetTask1Request, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<TaskStatus> {
+        const response = await this.getTask1Raw(requestParameters, initOverrides);
         return await response.value();
     }
 
@@ -278,6 +452,65 @@ export class TaskManagementControllerApi extends runtime.BaseAPI {
     }
 
     /**
+     * Creates request options for getTaskAuditHistory1 without sending the request
+     */
+    async getTaskAuditHistory1RequestOpts(requestParameters: GetTaskAuditHistory1Request): Promise<runtime.RequestOpts> {
+        if (requestParameters['id'] == null) {
+            throw new runtime.RequiredError(
+                'id',
+                'Required parameter "id" was null or undefined when calling getTaskAuditHistory1().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        if (requestParameters['limit'] != null) {
+            queryParameters['limit'] = requestParameters['limit'];
+        }
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.apiKey) {
+            headerParameters["X-API-Key"] = await this.configuration.apiKey("X-API-Key"); // ApiKeyAuth authentication
+        }
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("BearerAuth", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/tasks/{id}/audit`;
+        urlPath = urlPath.replace('{id}', encodeURIComponent(String(requestParameters['id'])));
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async getTaskAuditHistory1Raw(requestParameters: GetTaskAuditHistory1Request, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Array<TaskRunAuditRecord>>> {
+        const requestOptions = await this.getTaskAuditHistory1RequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => jsonValue.map(TaskRunAuditRecordFromJSON));
+    }
+
+    /**
+     */
+    async getTaskAuditHistory1(requestParameters: GetTaskAuditHistory1Request, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Array<TaskRunAuditRecord>> {
+        const response = await this.getTaskAuditHistory1Raw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
      * Creates request options for listTasks without sending the request
      */
     async listTasksRequestOpts(): Promise<runtime.RequestOpts> {
@@ -325,6 +558,53 @@ export class TaskManagementControllerApi extends runtime.BaseAPI {
     }
 
     /**
+     * Creates request options for listTasks1 without sending the request
+     */
+    async listTasks1RequestOpts(): Promise<runtime.RequestOpts> {
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.apiKey) {
+            headerParameters["X-API-Key"] = await this.configuration.apiKey("X-API-Key"); // ApiKeyAuth authentication
+        }
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("BearerAuth", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/tasks`;
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async listTasks1Raw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Array<TaskStatus>>> {
+        const requestOptions = await this.listTasks1RequestOpts();
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => jsonValue.map(TaskStatusFromJSON));
+    }
+
+    /**
+     */
+    async listTasks1(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Array<TaskStatus>> {
+        const response = await this.listTasks1Raw(initOverrides);
+        return await response.value();
+    }
+
+    /**
      * Creates request options for pauseTask without sending the request
      */
     async pauseTaskRequestOpts(requestParameters: PauseTaskRequest): Promise<runtime.RequestOpts> {
@@ -332,6 +612,61 @@ export class TaskManagementControllerApi extends runtime.BaseAPI {
             throw new runtime.RequiredError(
                 'id',
                 'Required parameter "id" was null or undefined when calling pauseTask().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.apiKey) {
+            headerParameters["X-API-Key"] = await this.configuration.apiKey("X-API-Key"); // ApiKeyAuth authentication
+        }
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("BearerAuth", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/tasks/{id}/pause`;
+        urlPath = urlPath.replace('{id}', encodeURIComponent(String(requestParameters['id'])));
+
+        return {
+            path: urlPath,
+            method: 'POST',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async pauseTaskRaw(requestParameters: PauseTaskRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<TaskActionResponse>> {
+        const requestOptions = await this.pauseTaskRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => TaskActionResponseFromJSON(jsonValue));
+    }
+
+    /**
+     */
+    async pauseTask(requestParameters: PauseTaskRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<TaskActionResponse> {
+        const response = await this.pauseTaskRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
+     * Creates request options for pauseTask1 without sending the request
+     */
+    async pauseTask1RequestOpts(requestParameters: PauseTask1Request): Promise<runtime.RequestOpts> {
+        if (requestParameters['id'] == null) {
+            throw new runtime.RequiredError(
+                'id',
+                'Required parameter "id" was null or undefined when calling pauseTask1().'
             );
         }
 
@@ -365,8 +700,8 @@ export class TaskManagementControllerApi extends runtime.BaseAPI {
 
     /**
      */
-    async pauseTaskRaw(requestParameters: PauseTaskRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<TaskActionResponse>> {
-        const requestOptions = await this.pauseTaskRequestOpts(requestParameters);
+    async pauseTask1Raw(requestParameters: PauseTask1Request, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<TaskActionResponse>> {
+        const requestOptions = await this.pauseTask1RequestOpts(requestParameters);
         const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.JSONApiResponse(response, (jsonValue) => TaskActionResponseFromJSON(jsonValue));
@@ -374,8 +709,8 @@ export class TaskManagementControllerApi extends runtime.BaseAPI {
 
     /**
      */
-    async pauseTask(requestParameters: PauseTaskRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<TaskActionResponse> {
-        const response = await this.pauseTaskRaw(requestParameters, initOverrides);
+    async pauseTask1(requestParameters: PauseTask1Request, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<TaskActionResponse> {
+        const response = await this.pauseTask1Raw(requestParameters, initOverrides);
         return await response.value();
     }
 
@@ -445,6 +780,71 @@ export class TaskManagementControllerApi extends runtime.BaseAPI {
     }
 
     /**
+     * Creates request options for rescheduleCron1 without sending the request
+     */
+    async rescheduleCron1RequestOpts(requestParameters: RescheduleCron1Request): Promise<runtime.RequestOpts> {
+        if (requestParameters['id'] == null) {
+            throw new runtime.RequiredError(
+                'id',
+                'Required parameter "id" was null or undefined when calling rescheduleCron1().'
+            );
+        }
+
+        if (requestParameters['rescheduleCronRequest'] == null) {
+            throw new runtime.RequiredError(
+                'rescheduleCronRequest',
+                'Required parameter "rescheduleCronRequest" was null or undefined when calling rescheduleCron1().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
+
+        if (this.configuration && this.configuration.apiKey) {
+            headerParameters["X-API-Key"] = await this.configuration.apiKey("X-API-Key"); // ApiKeyAuth authentication
+        }
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("BearerAuth", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/tasks/{id}/reschedule-cron`;
+        urlPath = urlPath.replace('{id}', encodeURIComponent(String(requestParameters['id'])));
+
+        return {
+            path: urlPath,
+            method: 'POST',
+            headers: headerParameters,
+            query: queryParameters,
+            body: RescheduleCronRequestToJSON(requestParameters['rescheduleCronRequest']),
+        };
+    }
+
+    /**
+     */
+    async rescheduleCron1Raw(requestParameters: RescheduleCron1Request, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<TaskActionResponse>> {
+        const requestOptions = await this.rescheduleCron1RequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => TaskActionResponseFromJSON(jsonValue));
+    }
+
+    /**
+     */
+    async rescheduleCron1(requestParameters: RescheduleCron1Request, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<TaskActionResponse> {
+        const response = await this.rescheduleCron1Raw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
      * Creates request options for rescheduleInterval without sending the request
      */
     async rescheduleIntervalRequestOpts(requestParameters: RescheduleIntervalOperationRequest): Promise<runtime.RequestOpts> {
@@ -481,7 +881,7 @@ export class TaskManagementControllerApi extends runtime.BaseAPI {
             }
         }
 
-        let urlPath = `/api/v1/tasks/{id}/reschedule-interval`;
+        let urlPath = `/tasks/{id}/reschedule-interval`;
         urlPath = urlPath.replace('{id}', encodeURIComponent(String(requestParameters['id'])));
 
         return {
@@ -510,6 +910,71 @@ export class TaskManagementControllerApi extends runtime.BaseAPI {
     }
 
     /**
+     * Creates request options for rescheduleInterval1 without sending the request
+     */
+    async rescheduleInterval1RequestOpts(requestParameters: RescheduleInterval1Request): Promise<runtime.RequestOpts> {
+        if (requestParameters['id'] == null) {
+            throw new runtime.RequiredError(
+                'id',
+                'Required parameter "id" was null or undefined when calling rescheduleInterval1().'
+            );
+        }
+
+        if (requestParameters['rescheduleIntervalRequest'] == null) {
+            throw new runtime.RequiredError(
+                'rescheduleIntervalRequest',
+                'Required parameter "rescheduleIntervalRequest" was null or undefined when calling rescheduleInterval1().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
+
+        if (this.configuration && this.configuration.apiKey) {
+            headerParameters["X-API-Key"] = await this.configuration.apiKey("X-API-Key"); // ApiKeyAuth authentication
+        }
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("BearerAuth", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/tasks/{id}/reschedule-interval`;
+        urlPath = urlPath.replace('{id}', encodeURIComponent(String(requestParameters['id'])));
+
+        return {
+            path: urlPath,
+            method: 'POST',
+            headers: headerParameters,
+            query: queryParameters,
+            body: RescheduleIntervalRequestToJSON(requestParameters['rescheduleIntervalRequest']),
+        };
+    }
+
+    /**
+     */
+    async rescheduleInterval1Raw(requestParameters: RescheduleInterval1Request, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<TaskActionResponse>> {
+        const requestOptions = await this.rescheduleInterval1RequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => TaskActionResponseFromJSON(jsonValue));
+    }
+
+    /**
+     */
+    async rescheduleInterval1(requestParameters: RescheduleInterval1Request, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<TaskActionResponse> {
+        const response = await this.rescheduleInterval1Raw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
      * Creates request options for resumeTask without sending the request
      */
     async resumeTaskRequestOpts(requestParameters: ResumeTaskRequest): Promise<runtime.RequestOpts> {
@@ -517,6 +982,61 @@ export class TaskManagementControllerApi extends runtime.BaseAPI {
             throw new runtime.RequiredError(
                 'id',
                 'Required parameter "id" was null or undefined when calling resumeTask().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.apiKey) {
+            headerParameters["X-API-Key"] = await this.configuration.apiKey("X-API-Key"); // ApiKeyAuth authentication
+        }
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("BearerAuth", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/tasks/{id}/resume`;
+        urlPath = urlPath.replace('{id}', encodeURIComponent(String(requestParameters['id'])));
+
+        return {
+            path: urlPath,
+            method: 'POST',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async resumeTaskRaw(requestParameters: ResumeTaskRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<TaskActionResponse>> {
+        const requestOptions = await this.resumeTaskRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => TaskActionResponseFromJSON(jsonValue));
+    }
+
+    /**
+     */
+    async resumeTask(requestParameters: ResumeTaskRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<TaskActionResponse> {
+        const response = await this.resumeTaskRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
+     * Creates request options for resumeTask1 without sending the request
+     */
+    async resumeTask1RequestOpts(requestParameters: ResumeTask1Request): Promise<runtime.RequestOpts> {
+        if (requestParameters['id'] == null) {
+            throw new runtime.RequiredError(
+                'id',
+                'Required parameter "id" was null or undefined when calling resumeTask1().'
             );
         }
 
@@ -550,8 +1070,8 @@ export class TaskManagementControllerApi extends runtime.BaseAPI {
 
     /**
      */
-    async resumeTaskRaw(requestParameters: ResumeTaskRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<TaskActionResponse>> {
-        const requestOptions = await this.resumeTaskRequestOpts(requestParameters);
+    async resumeTask1Raw(requestParameters: ResumeTask1Request, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<TaskActionResponse>> {
+        const requestOptions = await this.resumeTask1RequestOpts(requestParameters);
         const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.JSONApiResponse(response, (jsonValue) => TaskActionResponseFromJSON(jsonValue));
@@ -559,8 +1079,8 @@ export class TaskManagementControllerApi extends runtime.BaseAPI {
 
     /**
      */
-    async resumeTask(requestParameters: ResumeTaskRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<TaskActionResponse> {
-        const response = await this.resumeTaskRaw(requestParameters, initOverrides);
+    async resumeTask1(requestParameters: ResumeTask1Request, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<TaskActionResponse> {
+        const response = await this.resumeTask1Raw(requestParameters, initOverrides);
         return await response.value();
     }
 
@@ -572,6 +1092,61 @@ export class TaskManagementControllerApi extends runtime.BaseAPI {
             throw new runtime.RequiredError(
                 'id',
                 'Required parameter "id" was null or undefined when calling triggerTask().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.apiKey) {
+            headerParameters["X-API-Key"] = await this.configuration.apiKey("X-API-Key"); // ApiKeyAuth authentication
+        }
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("BearerAuth", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/tasks/{id}/trigger`;
+        urlPath = urlPath.replace('{id}', encodeURIComponent(String(requestParameters['id'])));
+
+        return {
+            path: urlPath,
+            method: 'POST',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async triggerTaskRaw(requestParameters: TriggerTaskRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<TaskActionResponse>> {
+        const requestOptions = await this.triggerTaskRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => TaskActionResponseFromJSON(jsonValue));
+    }
+
+    /**
+     */
+    async triggerTask(requestParameters: TriggerTaskRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<TaskActionResponse> {
+        const response = await this.triggerTaskRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
+     * Creates request options for triggerTask1 without sending the request
+     */
+    async triggerTask1RequestOpts(requestParameters: TriggerTask1Request): Promise<runtime.RequestOpts> {
+        if (requestParameters['id'] == null) {
+            throw new runtime.RequiredError(
+                'id',
+                'Required parameter "id" was null or undefined when calling triggerTask1().'
             );
         }
 
@@ -605,8 +1180,8 @@ export class TaskManagementControllerApi extends runtime.BaseAPI {
 
     /**
      */
-    async triggerTaskRaw(requestParameters: TriggerTaskRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<TaskActionResponse>> {
-        const requestOptions = await this.triggerTaskRequestOpts(requestParameters);
+    async triggerTask1Raw(requestParameters: TriggerTask1Request, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<TaskActionResponse>> {
+        const requestOptions = await this.triggerTask1RequestOpts(requestParameters);
         const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.JSONApiResponse(response, (jsonValue) => TaskActionResponseFromJSON(jsonValue));
@@ -614,8 +1189,8 @@ export class TaskManagementControllerApi extends runtime.BaseAPI {
 
     /**
      */
-    async triggerTask(requestParameters: TriggerTaskRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<TaskActionResponse> {
-        const response = await this.triggerTaskRaw(requestParameters, initOverrides);
+    async triggerTask1(requestParameters: TriggerTask1Request, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<TaskActionResponse> {
+        const response = await this.triggerTask1Raw(requestParameters, initOverrides);
         return await response.value();
     }
 

@@ -28,7 +28,7 @@ class TestSpectorClientBuilder(unittest.TestCase):
         self.assertEqual(headers["Authorization"], "Bearer jwt-456")
         self.assertEqual(headers["X-User-Id"], "user_alpha")
         self.assertEqual(headers["X-Agent-Id"], "agent_beta")
-        self.assertEqual(headers["X-Namespace"], "team_gamma")
+        self.assertEqual(headers["X-Spector-Namespace"], "team_gamma")
 
     def test_async_builder(self):
         client = AsyncSpectorClient.builder().with_rest(base_url="http://remote:7070").build()

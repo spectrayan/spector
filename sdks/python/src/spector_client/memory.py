@@ -171,6 +171,32 @@ class MemoryClient:
         body = {"reason": reason} if reason else None
         self._transport.request("DELETE", f"/api/v1/memory/{memory_id}", body=body)
 
+    def purge(self, memory_id: str) -> None:
+        """Permanently purges and cryptographically zeroes a memory record (GDPR right-to-erasure)."""
+        self._transport.request("DELETE", f"/api/v1/memory/{memory_id}/purge")
+
+    def reflect(
+        self,
+        session_limit: Optional[int] = None,
+        consolidation_only: Optional[bool] = None,
+    ) -> Dict[str, Any]:
+        """Triggers generative reflection / dream consolidation."""
+        body: Dict[str, Any] = {}
+        if session_limit is not None:
+            body["sessionLimit"] = session_limit
+        if consolidation_only is not None:
+            body["consolidationOnly"] = consolidation_only
+        return self._transport.request("POST", "/api/v1/memory/reflect", body=body or None)
+
+    def why_not(self, memory_id: str, query: str, top_k: int = 5) -> Dict[str, Any]:
+        """Explains why a candidate memory was excluded or down-ranked for a query."""
+        body = {
+            "memoryId": memory_id,
+            "query": query,
+            "topK": top_k,
+        }
+        return self._transport.request("POST", "/api/v1/memory/why-not", body=body)
+
     def reinforce(self, memory_id: str, valence: int = 1) -> None:
         """Reinforces a memory via Long-Term Potentiation (LTP)."""
         body = {"valence": valence}
@@ -393,6 +419,29 @@ class AsyncMemoryClient:
     async def forget(self, memory_id: str, reason: Optional[str] = None) -> None:
         body = {"reason": reason} if reason else None
         await self._transport.request("DELETE", f"/api/v1/memory/{memory_id}", body=body)
+
+    async def purge(self, memory_id: str) -> None:
+        await self._transport.request("DELETE", f"/api/v1/memory/{memory_id}/purge")
+
+    async def reflect(
+        self,
+        session_limit: Optional[int] = None,
+        consolidation_only: Optional[bool] = None,
+    ) -> Dict[str, Any]:
+        body: Dict[str, Any] = {}
+        if session_limit is not None:
+            body["sessionLimit"] = session_limit
+        if consolidation_only is not None:
+            body["consolidationOnly"] = consolidation_only
+        return await self._transport.request("POST", "/api/v1/memory/reflect", body=body or None)
+
+    async def why_not(self, memory_id: str, query: str, top_k: int = 5) -> Dict[str, Any]:
+        body = {
+            "memoryId": memory_id,
+            "query": query,
+            "topK": top_k,
+        }
+        return await self._transport.request("POST", "/api/v1/memory/why-not", body=body)
 
     async def reinforce(self, memory_id: str, valence: int = 1) -> None:
         body = {"valence": valence}

@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-beta.1] - 2026-10-21
+
+### Added — Enterprise Multi-Tenancy, Data-at-Rest Encryption, and Admin Control Plane (#1132, #1135, #1136, #1138, #1139, #1140, #1141)
+- **spector-memory / spector-kernel:** Implemented per-tenant envelope encryption at rest (`EnvelopeKeyService`, `EncryptedPersistenceEngine`, `EncryptedWal`), per-tenant resource quotas (`TenantQuotaEnforcer`), and atomic tenant cryptographic wipe (`TenantWipeService`).
+- **spector-synapse:** Added Tenant Lifecycle API (`/api/v1/admin/tenants`), System Settings & Dynamic Configuration API (`/api/v1/admin/settings`), Backup & Restore Orchestration API (`/api/v1/admin/backups`), and Security Audit Trail API (`/api/v1/admin/audit`).
+- **spector-cortex:** Added Enterprise Admin Console in Angular 22 for tenant management, quota governance, live configuration, backup/restore, and audit log inspection.
+- **deploy/docker:** Enabled multi-user authentication by default in container runtime with automatic master encryption key and JWT secret persistence.
+
+### Added — Multi-Language Client SDK Parity (Java, Python, TypeScript) & OpenClaw Plugin
+- **spector-client (Java, Python, TypeScript):** Synchronized OpenAPI 3.1 generated bindings and added ergonomic client methods for `purge` (`DELETE /api/v1/memory/{id}/purge`), `reflect` (`POST /api/v1/memory/reflect`), and `whyNot` / `why_not` (`POST /api/v1/memory/why-not`).
+- **spector-client (Java, Python, TypeScript):** Standardized multi-tenant namespace header propagation on `X-Spector-Namespace`.
+- **plugins/openclaw:** Published `@spectrayan/openclaw-spector` npm package for OpenClaw cognitive memory integration.
+
+### Fixed — Security & Dependency Hardening (#1119, #1124, #1127, #1129, #1134, #1137)
+- **dependencies:** Upgraded Netty to `4.2.17.Final`, Tomcat to `11.0.25`, LangChain4j to `1.20.0`, Jsoup to `1.23.2`, Protobuf to `4.34.1`, and npm overrides (`hono`, `undici`, `vite`, `@modelcontextprotocol/sdk`) to remediate Dependabot alerts.
+- **spector-cortex:** Hardened client-side URL sanitization and redirect validation against DOM XSS.
+
+## [0.1.0-alpha.4] - 2026-10-18
+
+### Added — Multi-User Authentication, RBAC, and Per-User Memory Isolation (#1112, #1113, #1114)
+- **spector-synapse:** Added JWT session authentication (`/api/v1/auth/login`, `/refresh`, `/logout`), API Key management (`/api/v1/keys`), OIDC resource server support, and per-user namespace isolation (`user:<id>`).
+- **spector-cortex:** Added login flow, user/API key administration views, and namespace selector.
+
+## [0.1.0-alpha.3] - 2026-10-15
+
 ### Added — Bundle Format Version Gating (#995)
 - **spector-kernel:** Added `BundleDirectory.requireReadableVersion()` to refuse bundles whose format version this binary cannot read. Validates preamble version against sub-header, rejects bundles outside `[MIN_READABLE_SCHEMA_VERSION, SCHEMA_VERSION]` range. Prevents silent data reinterpretation on version mismatch.
 - **docs:** Published `docs/memory/bundle-format-compatibility.md` documenting the version gate, known limitation on region-level versions, and upgrade path.

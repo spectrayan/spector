@@ -6,6 +6,7 @@
 
 Name | Type
 ------------ | -------------
+`nextCursor` | string
 `rows` | [Array&lt;MemoryTableRow&gt;](MemoryTableRow.md)
 `totalCount` | number
 `page` | number
@@ -20,6 +21,7 @@ import type { MemoryTableResponse } from ''
 
 // TODO: Update the object below with actual values
 const example = {
+  "nextCursor": null,
   "rows": null,
   "totalCount": null,
   "page": null,

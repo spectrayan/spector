@@ -18,8 +18,9 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional, Union
+from spector_client.generated.models.score_breakdown_dto import ScoreBreakdownDto
 from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
@@ -35,7 +36,9 @@ class RecallResult(BaseModel):
     memory_type: Optional[StrictStr] = Field(default=None, alias="memoryType")
     age_description: Optional[StrictStr] = Field(default=None, alias="ageDescription")
     tags: Optional[List[StrictStr]] = None
-    __properties: ClassVar[List[str]] = ["id", "text", "tier", "cognitiveScore", "memoryType", "ageDescription", "tags"]
+    truncated: Optional[StrictBool] = None
+    breakdown: Optional[ScoreBreakdownDto] = None
+    __properties: ClassVar[List[str]] = ["id", "text", "tier", "cognitiveScore", "memoryType", "ageDescription", "tags", "truncated", "breakdown"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -76,6 +79,9 @@ class RecallResult(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of breakdown
+        if self.breakdown:
+            _dict['breakdown'] = self.breakdown.to_dict()
         return _dict
 
     @classmethod
@@ -94,7 +100,9 @@ class RecallResult(BaseModel):
             "cognitiveScore": obj.get("cognitiveScore"),
             "memoryType": obj.get("memoryType"),
             "ageDescription": obj.get("ageDescription"),
-            "tags": obj.get("tags")
+            "tags": obj.get("tags"),
+            "truncated": obj.get("truncated"),
+            "breakdown": ScoreBreakdownDto.from_dict(obj["breakdown"]) if obj.get("breakdown") is not None else None
         })
         return _obj
 

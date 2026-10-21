@@ -38,6 +38,9 @@ export class McpTransport {
     if (this.options.bearerToken) {
       headers['Authorization'] = `Bearer ${this.options.bearerToken}`;
     }
+    if (this.options.namespace) {
+      headers['X-Spector-Namespace'] = this.options.namespace;
+    }
 
     try {
       const res = await fetch(this.endpoint, {

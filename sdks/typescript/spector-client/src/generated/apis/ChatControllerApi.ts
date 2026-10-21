@@ -34,15 +34,30 @@ import {
     ModelsResponseToJSON,
 } from '../models/ModelsResponse';
 import {
-    type SessionMessagesResponse,
-    SessionMessagesResponseFromJSON,
-    SessionMessagesResponseToJSON,
-} from '../models/SessionMessagesResponse';
+    type RenameSessionRequest,
+    RenameSessionRequestFromJSON,
+    RenameSessionRequestToJSON,
+} from '../models/RenameSessionRequest';
+import {
+    type SessionHistoryResponse,
+    SessionHistoryResponseFromJSON,
+    SessionHistoryResponseToJSON,
+} from '../models/SessionHistoryResponse';
+import {
+    type SessionSummary,
+    SessionSummaryFromJSON,
+    SessionSummaryToJSON,
+} from '../models/SessionSummary';
 import {
     type SessionsResponse,
     SessionsResponseFromJSON,
     SessionsResponseToJSON,
 } from '../models/SessionsResponse';
+import {
+    type SseEmitter,
+    SseEmitterFromJSON,
+    SseEmitterToJSON,
+} from '../models/SseEmitter';
 import {
     type ToolsResponse,
     ToolsResponseFromJSON,
@@ -63,6 +78,13 @@ export interface Chat1Request {
     agentChatRequest: AgentChatRequest;
 }
 
+export interface DeleteSessionRequest {
+    /**
+     * 
+     */
+    id: string;
+}
+
 export interface ListSessionsRequest {
     /**
      * 
@@ -70,11 +92,29 @@ export interface ListSessionsRequest {
     limit?: number;
 }
 
-export interface LoadSessionMessagesRequest {
+export interface LoadSessionHistoryRequest {
     /**
      * 
      */
-    sessionId: string;
+    id: string;
+}
+
+export interface RenameSessionOperationRequest {
+    /**
+     * 
+     */
+    id: string;
+    /**
+     * 
+     */
+    renameSessionRequest: RenameSessionRequest;
+}
+
+export interface StreamChatRequest {
+    /**
+     * 
+     */
+    agentChatRequest: AgentChatRequest;
 }
 
 /**
@@ -244,6 +284,60 @@ export class ChatControllerApi extends runtime.BaseAPI {
     }
 
     /**
+     * Creates request options for deleteSession without sending the request
+     */
+    async deleteSessionRequestOpts(requestParameters: DeleteSessionRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['id'] == null) {
+            throw new runtime.RequiredError(
+                'id',
+                'Required parameter "id" was null or undefined when calling deleteSession().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.apiKey) {
+            headerParameters["X-API-Key"] = await this.configuration.apiKey("X-API-Key"); // ApiKeyAuth authentication
+        }
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("BearerAuth", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/chat/sessions/{id}`;
+        urlPath = urlPath.replace('{id}', encodeURIComponent(String(requestParameters['id'])));
+
+        return {
+            path: urlPath,
+            method: 'DELETE',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async deleteSessionRaw(requestParameters: DeleteSessionRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.deleteSessionRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async deleteSession(requestParameters: DeleteSessionRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+        await this.deleteSessionRaw(requestParameters, initOverrides);
+    }
+
+    /**
      * Creates request options for listModels without sending the request
      */
     async listModelsRequestOpts(): Promise<runtime.RequestOpts> {
@@ -389,13 +483,13 @@ export class ChatControllerApi extends runtime.BaseAPI {
     }
 
     /**
-     * Creates request options for loadSessionMessages without sending the request
+     * Creates request options for loadSessionHistory without sending the request
      */
-    async loadSessionMessagesRequestOpts(requestParameters: LoadSessionMessagesRequest): Promise<runtime.RequestOpts> {
-        if (requestParameters['sessionId'] == null) {
+    async loadSessionHistoryRequestOpts(requestParameters: LoadSessionHistoryRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['id'] == null) {
             throw new runtime.RequiredError(
-                'sessionId',
-                'Required parameter "sessionId" was null or undefined when calling loadSessionMessages().'
+                'id',
+                'Required parameter "id" was null or undefined when calling loadSessionHistory().'
             );
         }
 
@@ -416,8 +510,8 @@ export class ChatControllerApi extends runtime.BaseAPI {
             }
         }
 
-        let urlPath = `/api/v1/chat/sessions/{sessionId}/messages`;
-        urlPath = urlPath.replace('{sessionId}', encodeURIComponent(String(requestParameters['sessionId'])));
+        let urlPath = `/api/v1/chat/sessions/{id}/messages`;
+        urlPath = urlPath.replace('{id}', encodeURIComponent(String(requestParameters['id'])));
 
         return {
             path: urlPath,
@@ -429,17 +523,139 @@ export class ChatControllerApi extends runtime.BaseAPI {
 
     /**
      */
-    async loadSessionMessagesRaw(requestParameters: LoadSessionMessagesRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<SessionMessagesResponse>> {
-        const requestOptions = await this.loadSessionMessagesRequestOpts(requestParameters);
+    async loadSessionHistoryRaw(requestParameters: LoadSessionHistoryRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<SessionHistoryResponse>> {
+        const requestOptions = await this.loadSessionHistoryRequestOpts(requestParameters);
         const response = await this.request(requestOptions, initOverrides);
 
-        return new runtime.JSONApiResponse(response, (jsonValue) => SessionMessagesResponseFromJSON(jsonValue));
+        return new runtime.JSONApiResponse(response, (jsonValue) => SessionHistoryResponseFromJSON(jsonValue));
     }
 
     /**
      */
-    async loadSessionMessages(requestParameters: LoadSessionMessagesRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<SessionMessagesResponse> {
-        const response = await this.loadSessionMessagesRaw(requestParameters, initOverrides);
+    async loadSessionHistory(requestParameters: LoadSessionHistoryRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<SessionHistoryResponse> {
+        const response = await this.loadSessionHistoryRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
+     * Creates request options for renameSession without sending the request
+     */
+    async renameSessionRequestOpts(requestParameters: RenameSessionOperationRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['id'] == null) {
+            throw new runtime.RequiredError(
+                'id',
+                'Required parameter "id" was null or undefined when calling renameSession().'
+            );
+        }
+
+        if (requestParameters['renameSessionRequest'] == null) {
+            throw new runtime.RequiredError(
+                'renameSessionRequest',
+                'Required parameter "renameSessionRequest" was null or undefined when calling renameSession().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
+
+        if (this.configuration && this.configuration.apiKey) {
+            headerParameters["X-API-Key"] = await this.configuration.apiKey("X-API-Key"); // ApiKeyAuth authentication
+        }
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("BearerAuth", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/chat/sessions/{id}`;
+        urlPath = urlPath.replace('{id}', encodeURIComponent(String(requestParameters['id'])));
+
+        return {
+            path: urlPath,
+            method: 'PATCH',
+            headers: headerParameters,
+            query: queryParameters,
+            body: RenameSessionRequestToJSON(requestParameters['renameSessionRequest']),
+        };
+    }
+
+    /**
+     */
+    async renameSessionRaw(requestParameters: RenameSessionOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<SessionSummary>> {
+        const requestOptions = await this.renameSessionRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => SessionSummaryFromJSON(jsonValue));
+    }
+
+    /**
+     */
+    async renameSession(requestParameters: RenameSessionOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<SessionSummary> {
+        const response = await this.renameSessionRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
+     * Creates request options for streamChat without sending the request
+     */
+    async streamChatRequestOpts(requestParameters: StreamChatRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['agentChatRequest'] == null) {
+            throw new runtime.RequiredError(
+                'agentChatRequest',
+                'Required parameter "agentChatRequest" was null or undefined when calling streamChat().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
+
+        if (this.configuration && this.configuration.apiKey) {
+            headerParameters["X-API-Key"] = await this.configuration.apiKey("X-API-Key"); // ApiKeyAuth authentication
+        }
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("BearerAuth", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/chat/stream`;
+
+        return {
+            path: urlPath,
+            method: 'POST',
+            headers: headerParameters,
+            query: queryParameters,
+            body: AgentChatRequestToJSON(requestParameters['agentChatRequest']),
+        };
+    }
+
+    /**
+     */
+    async streamChatRaw(requestParameters: StreamChatRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<SseEmitter>> {
+        const requestOptions = await this.streamChatRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => SseEmitterFromJSON(jsonValue));
+    }
+
+    /**
+     */
+    async streamChat(requestParameters: StreamChatRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<SseEmitter> {
+        const response = await this.streamChatRaw(requestParameters, initOverrides);
         return await response.value();
     }
 

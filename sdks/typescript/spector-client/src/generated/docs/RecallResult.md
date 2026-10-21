@@ -13,6 +13,8 @@ Name | Type
 `memoryType` | string
 `ageDescription` | string
 `tags` | Array&lt;string&gt;
+`truncated` | boolean
+`breakdown` | [ScoreBreakdownDto](ScoreBreakdownDto.md)
 
 ## Example
 
@@ -28,6 +30,8 @@ const example = {
   "memoryType": null,
   "ageDescription": null,
   "tags": null,
+  "truncated": null,
+  "breakdown": null,
 } satisfies RecallResult
 
 console.log(example)

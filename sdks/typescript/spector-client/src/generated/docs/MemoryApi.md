@@ -4,6 +4,7 @@ All URIs are relative to *http://localhost*
 
 | Method | HTTP request | Description |
 |------------- | ------------- | -------------|
+| [**assertFact**](MemoryApi.md#assertfact) | **POST** /api/v1/memory/facts | Assert a temporal fact into the memory graph |
 | [**browseMemories**](MemoryApi.md#browsememories) | **POST** /api/v1/memory/browse | Tag-based memory browsing without vector search |
 | [**bulkForgetMemories**](MemoryApi.md#bulkforgetmemories) | **POST** /api/v1/memory/bulk/forget | Bulk forget memories by ID list |
 | [**bulkReinforceMemories**](MemoryApi.md#bulkreinforcememories) | **POST** /api/v1/memory/bulk/reinforce | Bulk reinforce memories by ID list |
@@ -15,6 +16,7 @@ All URIs are relative to *http://localhost*
 | [**getConsolidationDiff**](MemoryApi.md#getconsolidationdiff) | **GET** /api/v1/memory/consolidation/diff | Latest consolidation snapshot diff |
 | [**getDecayCurve**](MemoryApi.md#getdecaycurve) | **GET** /api/v1/memory/diagnostics/decay | Ebbinghaus forgetting and LTP retention decay curve |
 | [**getEnrichmentStatus**](MemoryApi.md#getenrichmentstatus) | **GET** /api/v1/memory/enrich-graph/status | Real-time telemetry for offline graph enrichment daemon |
+| [**getFacts**](MemoryApi.md#getfacts) | **GET** /api/v1/memory/facts | Query temporal facts about an entity |
 | [**getGraphOverview**](MemoryApi.md#getgraphoverview) | **GET** /api/v1/memory/graph/overview | Sampled overview of associative memory graph |
 | [**getHardwareInfo**](MemoryApi.md#gethardwareinfo) | **GET** /api/v1/memory/hardware | System SIMD Vector API and hardware capabilities |
 | [**getLiveMetrics**](MemoryApi.md#getlivemetrics) | **GET** /api/v1/memory/metrics/live | Recent live rolling ops/sec metrics history |
@@ -30,18 +32,94 @@ All URIs are relative to *http://localhost*
 | [**getTopologyStats**](MemoryApi.md#gettopologystats) | **GET** /api/v1/memory/topology-stats | Topology statistics of entities and relationships |
 | [**getVectorSpaceProjection**](MemoryApi.md#getvectorspaceprojection) | **GET** /api/v1/memory/vector-space/projection | 3D PCA vector space embedding projection |
 | [**ingestMemoryFile**](MemoryApi.md#ingestmemoryfile) | **POST** /api/v1/memory/ingest-file | Ingest a file into memory asynchronously |
+| [**purgeMemory**](MemoryApi.md#purgememory) | **DELETE** /api/v1/memory/{id}/purge | Physically destroy (purge) a memory by ID |
 | [**recallMemories**](MemoryApi.md#recallmemories) | **POST** /api/v1/memory/recall | Cognitive recall with biological scoring |
+| [**recallMemoriesWithResponse**](MemoryApi.md#recallmemorieswithresponse) | **POST** /api/v1/memory/recall/response | Cognitive recall returning full response with truncation metadata |
 | [**reextractGraph**](MemoryApi.md#reextractgraph) | **POST** /api/v1/memory/reextract-graph | Trigger full re-extraction of entities and relationships |
 | [**reflectMemories**](MemoryApi.md#reflectmemories) | **POST** /api/v1/memory/reflect | Trigger sleep consolidation (reflect) sweep |
 | [**reinforceMemory**](MemoryApi.md#reinforcememory) | **POST** /api/v1/memory/{id}/reinforce | Reinforce memory via Long-Term Potentiation (LTP) |
 | [**rememberMemory**](MemoryApi.md#remembermemory) | **POST** /api/v1/memory/remember | Remember a memory asynchronously with cognitive scoring hints |
 | [**resolveMemory**](MemoryApi.md#resolvememory) | **POST** /api/v1/memory/{id}/resolve | Resolve or unresolve a memory (Zeigarnik closure) |
+| [**retractFact**](MemoryApi.md#retractfact) | **DELETE** /api/v1/memory/facts/{factId} | Retract a previously asserted temporal fact |
 | [**searchMemories**](MemoryApi.md#searchmemories) | **POST** /api/v1/memory/search | Semantic similarity search |
-| [**storeMemory**](MemoryApi.md#storememory) | **POST** /api/v1/memory | Store a cognitive memory synchronously |
+| [**storeMemory**](MemoryApi.md#storememory) | **POST** /api/v1/memory/store | Store a cognitive memory synchronously |
+| [**storeMemory1**](MemoryApi.md#storememory1) | **POST** /api/v1/memory | Store a cognitive memory synchronously |
 | [**suppressMemory**](MemoryApi.md#suppressmemory) | **POST** /api/v1/memory/{id}/suppress | Suppress or unsuppress a memory from recall |
 | [**updateMemory**](MemoryApi.md#updatememoryoperation) | **PUT** /api/v1/memory/{id} | Update an existing memory by ID |
 | [**vacuumMemories**](MemoryApi.md#vacuummemories) | **POST** /api/v1/memory/vacuum | Trigger vacuum compaction for a tier |
+| [**whyNotMemory**](MemoryApi.md#whynotmemory) | **POST** /api/v1/memory/why-not | Explain why a specific memory was excluded or outranked in a recall query |
 
+
+
+## assertFact
+
+> FactAssertResponse assertFact(factAssertRequest)
+
+Assert a temporal fact into the memory graph
+
+### Example
+
+```ts
+import {
+  Configuration,
+  MemoryApi,
+} from '';
+import type { AssertFactRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // To configure API key authorization: ApiKeyAuth
+    apiKey: "YOUR API KEY",
+    // Configure HTTP bearer authorization: BearerAuth
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new MemoryApi(config);
+
+  const body = {
+    // FactAssertRequest
+    factAssertRequest: ...,
+  } satisfies AssertFactRequest;
+
+  try {
+    const data = await api.assertFact(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **factAssertRequest** | [FactAssertRequest](FactAssertRequest.md) |  | |
+
+### Return type
+
+[**FactAssertResponse**](FactAssertResponse.md)
+
+### Authorization
+
+[ApiKeyAuth](../README.md#ApiKeyAuth), [BearerAuth](../README.md#BearerAuth)
+
+### HTTP request headers
+
+- **Content-Type**: `application/json`
+- **Accept**: `*/*`
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 
 
 ## browseMemories
@@ -799,6 +877,80 @@ This endpoint does not need any parameter.
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 
 
+## getFacts
+
+> Array&lt;TemporalFact&gt; getFacts(entity, asOf)
+
+Query temporal facts about an entity
+
+### Example
+
+```ts
+import {
+  Configuration,
+  MemoryApi,
+} from '';
+import type { GetFactsRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // To configure API key authorization: ApiKeyAuth
+    apiKey: "YOUR API KEY",
+    // Configure HTTP bearer authorization: BearerAuth
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new MemoryApi(config);
+
+  const body = {
+    // string
+    entity: entity_example,
+    // number (optional)
+    asOf: 789,
+  } satisfies GetFactsRequest;
+
+  try {
+    const data = await api.getFacts(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **entity** | `string` |  | [Defaults to `undefined`] |
+| **asOf** | `number` |  | [Optional] [Defaults to `undefined`] |
+
+### Return type
+
+[**Array&lt;TemporalFact&gt;**](TemporalFact.md)
+
+### Authorization
+
+[ApiKeyAuth](../README.md#ApiKeyAuth), [BearerAuth](../README.md#BearerAuth)
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: `*/*`
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
 ## getGraphOverview
 
 > MemoryGraphResponse getGraphOverview(maxNodes)
@@ -1332,7 +1484,7 @@ This endpoint does not need any parameter.
 
 ## getMemoryTable
 
-> MemoryTableResponse getMemoryTable(page, pageSize, tier, tombstoned)
+> MemoryTableResponse getMemoryTable(cursor, page, pageSize, createdFrom, createdTo, source, tier, tombstoned)
 
 Paginated memory table view for UI and exploration
 
@@ -1356,10 +1508,18 @@ async function example() {
   const api = new MemoryApi(config);
 
   const body = {
+    // string (optional)
+    cursor: cursor_example,
     // number (optional)
     page: 56,
     // number (optional)
     pageSize: 56,
+    // number (optional)
+    createdFrom: 789,
+    // number (optional)
+    createdTo: 789,
+    // string (optional)
+    source: source_example,
     // string (optional)
     tier: tier_example,
     // boolean (optional)
@@ -1383,8 +1543,12 @@ example().catch(console.error);
 
 | Name | Type | Description  | Notes |
 |------------- | ------------- | ------------- | -------------|
+| **cursor** | `string` |  | [Optional] [Defaults to `undefined`] |
 | **page** | `number` |  | [Optional] [Defaults to `0`] |
 | **pageSize** | `number` |  | [Optional] [Defaults to `50`] |
+| **createdFrom** | `number` |  | [Optional] [Defaults to `undefined`] |
+| **createdTo** | `number` |  | [Optional] [Defaults to `undefined`] |
+| **source** | `string` |  | [Optional] [Defaults to `undefined`] |
 | **tier** | `string` |  | [Optional] [Defaults to `undefined`] |
 | **tombstoned** | `boolean` |  | [Optional] [Defaults to `false`] |
 
@@ -1818,6 +1982,77 @@ example().catch(console.error);
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 
 
+## purgeMemory
+
+> PurgeResult purgeMemory(id)
+
+Physically destroy (purge) a memory by ID
+
+### Example
+
+```ts
+import {
+  Configuration,
+  MemoryApi,
+} from '';
+import type { PurgeMemoryRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // To configure API key authorization: ApiKeyAuth
+    apiKey: "YOUR API KEY",
+    // Configure HTTP bearer authorization: BearerAuth
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new MemoryApi(config);
+
+  const body = {
+    // string
+    id: id_example,
+  } satisfies PurgeMemoryRequest;
+
+  try {
+    const data = await api.purgeMemory(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **id** | `string` |  | [Defaults to `undefined`] |
+
+### Return type
+
+[**PurgeResult**](PurgeResult.md)
+
+### Authorization
+
+[ApiKeyAuth](../README.md#ApiKeyAuth), [BearerAuth](../README.md#BearerAuth)
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: `*/*`
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
 ## recallMemories
 
 > Array&lt;RecallResult&gt; recallMemories(recallRequest)
@@ -1870,6 +2105,77 @@ example().catch(console.error);
 ### Return type
 
 [**Array&lt;RecallResult&gt;**](RecallResult.md)
+
+### Authorization
+
+[ApiKeyAuth](../README.md#ApiKeyAuth), [BearerAuth](../README.md#BearerAuth)
+
+### HTTP request headers
+
+- **Content-Type**: `application/json`
+- **Accept**: `*/*`
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## recallMemoriesWithResponse
+
+> RecallResponse recallMemoriesWithResponse(recallRequest)
+
+Cognitive recall returning full response with truncation metadata
+
+### Example
+
+```ts
+import {
+  Configuration,
+  MemoryApi,
+} from '';
+import type { RecallMemoriesWithResponseRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // To configure API key authorization: ApiKeyAuth
+    apiKey: "YOUR API KEY",
+    // Configure HTTP bearer authorization: BearerAuth
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new MemoryApi(config);
+
+  const body = {
+    // RecallRequest
+    recallRequest: ...,
+  } satisfies RecallMemoriesWithResponseRequest;
+
+  try {
+    const data = await api.recallMemoriesWithResponse(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **recallRequest** | [RecallRequest](RecallRequest.md) |  | |
+
+### Return type
+
+[**RecallResponse**](RecallResponse.md)
 
 ### Authorization
 
@@ -2268,6 +2574,77 @@ example().catch(console.error);
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 
 
+## retractFact
+
+> FactRetractResponse retractFact(factId)
+
+Retract a previously asserted temporal fact
+
+### Example
+
+```ts
+import {
+  Configuration,
+  MemoryApi,
+} from '';
+import type { RetractFactRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // To configure API key authorization: ApiKeyAuth
+    apiKey: "YOUR API KEY",
+    // Configure HTTP bearer authorization: BearerAuth
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new MemoryApi(config);
+
+  const body = {
+    // number
+    factId: 56,
+  } satisfies RetractFactRequest;
+
+  try {
+    const data = await api.retractFact(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **factId** | `number` |  | [Defaults to `undefined`] |
+
+### Return type
+
+[**FactRetractResponse**](FactRetractResponse.md)
+
+### Authorization
+
+[ApiKeyAuth](../README.md#ApiKeyAuth), [BearerAuth](../README.md#BearerAuth)
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: `*/*`
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
 ## searchMemories
 
 > Array&lt;SearchResult&gt; searchMemories(searchRequest)
@@ -2371,6 +2748,77 @@ async function example() {
 
   try {
     const data = await api.storeMemory(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **storeRequest** | [StoreRequest](StoreRequest.md) |  | |
+
+### Return type
+
+[**StoreResponse**](StoreResponse.md)
+
+### Authorization
+
+[ApiKeyAuth](../README.md#ApiKeyAuth), [BearerAuth](../README.md#BearerAuth)
+
+### HTTP request headers
+
+- **Content-Type**: `application/json`
+- **Accept**: `*/*`
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## storeMemory1
+
+> StoreResponse storeMemory1(storeRequest)
+
+Store a cognitive memory synchronously
+
+### Example
+
+```ts
+import {
+  Configuration,
+  MemoryApi,
+} from '';
+import type { StoreMemory1Request } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // To configure API key authorization: ApiKeyAuth
+    apiKey: "YOUR API KEY",
+    // Configure HTTP bearer authorization: BearerAuth
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new MemoryApi(config);
+
+  const body = {
+    // StoreRequest
+    storeRequest: ...,
+  } satisfies StoreMemory1Request;
+
+  try {
+    const data = await api.storeMemory1(body);
     console.log(data);
   } catch (error) {
     console.error(error);
@@ -2610,6 +3058,77 @@ example().catch(console.error);
 ### Return type
 
 [**CompactionResult**](CompactionResult.md)
+
+### Authorization
+
+[ApiKeyAuth](../README.md#ApiKeyAuth), [BearerAuth](../README.md#BearerAuth)
+
+### HTTP request headers
+
+- **Content-Type**: `application/json`
+- **Accept**: `*/*`
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## whyNotMemory
+
+> WhyNotResponse whyNotMemory(whyNotRequest)
+
+Explain why a specific memory was excluded or outranked in a recall query
+
+### Example
+
+```ts
+import {
+  Configuration,
+  MemoryApi,
+} from '';
+import type { WhyNotMemoryRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // To configure API key authorization: ApiKeyAuth
+    apiKey: "YOUR API KEY",
+    // Configure HTTP bearer authorization: BearerAuth
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new MemoryApi(config);
+
+  const body = {
+    // WhyNotRequest
+    whyNotRequest: ...,
+  } satisfies WhyNotMemoryRequest;
+
+  try {
+    const data = await api.whyNotMemory(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **whyNotRequest** | [WhyNotRequest](WhyNotRequest.md) |  | |
+
+### Return type
+
+[**WhyNotResponse**](WhyNotResponse.md)
 
 ### Authorization
 

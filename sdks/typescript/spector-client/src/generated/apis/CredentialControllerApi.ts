@@ -38,6 +38,10 @@ export interface CreateCredentialOperationRequest {
      * 
      */
     xTenantID?: string;
+    /**
+     * 
+     */
+    tenantId?: string;
 }
 
 export interface DeleteCredentialRequest {
@@ -49,6 +53,10 @@ export interface DeleteCredentialRequest {
      * 
      */
     xTenantID?: string;
+    /**
+     * 
+     */
+    tenantId?: string;
 }
 
 export interface GetCredentialRequest {
@@ -60,6 +68,10 @@ export interface GetCredentialRequest {
      * 
      */
     xTenantID?: string;
+    /**
+     * 
+     */
+    tenantId?: string;
 }
 
 export interface ListCredentialsRequest {
@@ -67,6 +79,10 @@ export interface ListCredentialsRequest {
      * 
      */
     xTenantID?: string;
+    /**
+     * 
+     */
+    tenantId?: string;
     /**
      * 
      */
@@ -82,6 +98,10 @@ export interface TestCredentialRequest {
      * 
      */
     xTenantID?: string;
+    /**
+     * 
+     */
+    tenantId?: string;
 }
 
 export interface UpdateCredentialOperationRequest {
@@ -97,6 +117,10 @@ export interface UpdateCredentialOperationRequest {
      * 
      */
     xTenantID?: string;
+    /**
+     * 
+     */
+    tenantId?: string;
 }
 
 /**
@@ -116,6 +140,10 @@ export class CredentialControllerApi extends runtime.BaseAPI {
         }
 
         const queryParameters: any = {};
+
+        if (requestParameters['tenantId'] != null) {
+            queryParameters['tenantId'] = requestParameters['tenantId'];
+        }
 
         const headerParameters: runtime.HTTPHeaders = {};
 
@@ -178,6 +206,10 @@ export class CredentialControllerApi extends runtime.BaseAPI {
 
         const queryParameters: any = {};
 
+        if (requestParameters['tenantId'] != null) {
+            queryParameters['tenantId'] = requestParameters['tenantId'];
+        }
+
         const headerParameters: runtime.HTTPHeaders = {};
 
         if (requestParameters['xTenantID'] != null) {
@@ -236,6 +268,10 @@ export class CredentialControllerApi extends runtime.BaseAPI {
 
         const queryParameters: any = {};
 
+        if (requestParameters['tenantId'] != null) {
+            queryParameters['tenantId'] = requestParameters['tenantId'];
+        }
+
         const headerParameters: runtime.HTTPHeaders = {};
 
         if (requestParameters['xTenantID'] != null) {
@@ -287,6 +323,10 @@ export class CredentialControllerApi extends runtime.BaseAPI {
      */
     async listCredentialsRequestOpts(requestParameters: ListCredentialsRequest): Promise<runtime.RequestOpts> {
         const queryParameters: any = {};
+
+        if (requestParameters['tenantId'] != null) {
+            queryParameters['tenantId'] = requestParameters['tenantId'];
+        }
 
         if (requestParameters['userId'] != null) {
             queryParameters['userId'] = requestParameters['userId'];
@@ -349,6 +389,10 @@ export class CredentialControllerApi extends runtime.BaseAPI {
         }
 
         const queryParameters: any = {};
+
+        if (requestParameters['tenantId'] != null) {
+            queryParameters['tenantId'] = requestParameters['tenantId'];
+        }
 
         const headerParameters: runtime.HTTPHeaders = {};
 
@@ -415,6 +459,10 @@ export class CredentialControllerApi extends runtime.BaseAPI {
         }
 
         const queryParameters: any = {};
+
+        if (requestParameters['tenantId'] != null) {
+            queryParameters['tenantId'] = requestParameters['tenantId'];
+        }
 
         const headerParameters: runtime.HTTPHeaders = {};
 

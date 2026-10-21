@@ -28,7 +28,7 @@ from spector_client.models import (
     SseEvent,
 )
 
-__version__ = "0.1.0"
+__version__ = "0.1.0b1"
 
 __all__ = [
     "SpectorClient",
