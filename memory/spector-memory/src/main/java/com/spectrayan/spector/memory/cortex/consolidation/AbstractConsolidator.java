@@ -23,6 +23,9 @@ import com.spectrayan.spector.kernel.store.HyperEntityGraphMemory;
 import com.spectrayan.spector.kernel.id.TsidGenerator;
 import com.spectrayan.spector.memory.cortex.index.MemoryIndex;
 import com.spectrayan.spector.kernel.layout.EngramLayout;
+import com.spectrayan.spector.kernel.layout.ProvenanceLayout;
+import com.spectrayan.spector.kernel.store.ProvenanceEdge;
+import com.spectrayan.spector.kernel.store.ProvenanceMemory;
 import com.spectrayan.spector.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
 import com.spectrayan.spector.kernel.layout.FixedEngramLayout;
@@ -36,9 +39,12 @@ import com.spectrayan.spector.provider.generation.LlmProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.zip.CRC32C;
 
 /**
  * Abstract base class for memory consolidation implementations.
@@ -56,12 +62,16 @@ public abstract class AbstractConsolidator implements Consolidator {
 
     private static final Logger log = LoggerFactory.getLogger(AbstractConsolidator.class);
 
+    /** ID prefix of a memory produced by merging duplicates. */
+    public static final String MERGED_ID_PREFIX = "cns-";
+
     protected final LlmProvider textGenerator;
     protected final EmbeddingProvider embeddingProvider;
     protected final ContradictionDetector contradictionDetector;
     protected final MemoryMerger memoryMerger;
     protected final TsidGenerator tsidGenerator = new TsidGenerator();
     private final AtomicLong unverifiedPairsSkipped = new AtomicLong();
+    private final AtomicReference<ProvenanceMemory> provenanceMemory = new AtomicReference<>();
 
     protected AbstractConsolidator(LlmProvider textGenerator, EmbeddingProvider embeddingProvider) {
         this.textGenerator = textGenerator;
@@ -72,6 +82,15 @@ public abstract class AbstractConsolidator implements Consolidator {
             log.warn("Consolidator: no LLM provider configured; contradiction checks are unavailable, "
                     + "so duplicate merging and CADP resolution are disabled (pairs are left intact)");
         }
+    }
+
+    /**
+     * Attaches the provenance store that merged memories record their lineage in (#1145).
+     *
+     * @param provenance the provenance store, or {@code null} to stop recording lineage
+     */
+    public void attachProvenance(ProvenanceMemory provenance) {
+        provenanceMemory.set(provenance);
     }
 
     /**
@@ -195,7 +214,8 @@ public abstract class AbstractConsolidator implements Consolidator {
             MemoryWal wal) {
 
         MemoryMerger.MergedMemory merged = memoryMerger.merge(recordA, recordB, quantizer);
-        String newId = "cns-" + tsidGenerator.generate();
+        long newTsid = tsidGenerator.generateLong();
+        String newId = MERGED_ID_PREFIX + TsidGenerator.encodeCrockford(newTsid);
 
         // Tombstone old records in off-heap, WAL, and index
         tombstoneRecord(recordA, partitionManager, store, index, wal);
@@ -220,7 +240,7 @@ public abstract class AbstractConsolidator implements Consolidator {
 
         String[] tags = mergeTags(recordA.tags(), recordB.tags());
 
-        rememberPathway.ingestCognitiveWithHeader(
+        boolean ingested = rememberPathway.ingestCognitiveWithHeader(
                 newId,
                 merged.text(),
                 merged.vector(),
@@ -229,6 +249,47 @@ public abstract class AbstractConsolidator implements Consolidator {
                 MemorySource.REFLECTED,
                 header
         );
+        if (ingested) {
+            recordMergeProvenance(newTsid, merged.text(), recordA, recordB);
+        } else {
+            log.warn("Consolidator: merged memory '{}' was not ingested; no provenance recorded", newId);
+        }
+    }
+
+    /**
+     * Writes one provenance row per merged source (semantic or procedural source kind), so
+     * {@code explainAll(newId)} resolves to both originals and a later forget of either
+     * source can reach the merged memory (#1145).
+     */
+    private void recordMergeProvenance(long newTsid, String mergedText, CognitiveRecord... sources) {
+        ProvenanceMemory provenance = provenanceMemory.get();
+        if (provenance == null) {
+            return;
+        }
+        CRC32C crc = new CRC32C();
+        crc.update(mergedText != null ? mergedText.getBytes(StandardCharsets.UTF_8) : new byte[0]);
+        short contentHashHi = (short) (crc.getValue() >>> 16);
+        long now = System.currentTimeMillis();
+        for (int i = 0; i < sources.length; i++) {
+            CognitiveRecord source = sources[i];
+            byte sourceKind = source.memoryType() == MemoryType.PROCEDURAL
+                    ? ProvenanceLayout.SOURCE_PROCEDURAL
+                    : ProvenanceLayout.SOURCE_SEMANTIC;
+            int sourcePartition = Math.max(0, source.partitionIndex());
+            ProvenanceEdge edge = new ProvenanceEdge(
+                    0L, newTsid, (short) 1, (byte) i, (byte) sources.length,
+                    sourcePartition, 0, 0, 0, 0, (short) 0, contentHashHi, now,
+                    sourceKind, ProvenanceLayout.TARGET_SEMANTIC, (byte) 0,
+                    ProvenanceKeys.of(source.id()), sourcePartition);
+            try {
+                if (provenance.append(edge) < 0) {
+                    log.warn("Consolidator: provenance region full; lineage of '{}' from '{}' not recorded",
+                            MERGED_ID_PREFIX + TsidGenerator.encodeCrockford(newTsid), source.id());
+                }
+            } catch (RuntimeException e) {
+                log.warn("Consolidator: failed to record provenance from '{}': {}", source.id(), e.getMessage());
+            }
+        }
     }
 
     /**
@@ -268,7 +329,9 @@ public abstract class AbstractConsolidator implements Consolidator {
             wal.appendForget(record.id());
         }
         if (index != null) {
-            index.remove(record.id());
+            // retire, not remove: like forget(), keep the location so purge can still reach the bytes
+            // and provenance can still resolve the merged source's ID (#1145)
+            index.retire(record.id());
         }
         log.debug("Consolidator: Tombstoned and de-indexed memory '{}'", record.id());
     }

@@ -35,6 +35,8 @@ import com.spectrayan.spector.memory.api.ImportanceEstimator;
 import com.spectrayan.spector.memory.api.ImportanceProvider;
 import com.spectrayan.spector.memory.bootstrap.SpectorMemoryFactory;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
+import com.spectrayan.spector.memory.cortex.consolidation.AbstractConsolidator;
+import com.spectrayan.spector.memory.cortex.consolidation.ProvenanceKeys;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.cortex.adaptor.ProfileAdaptor;
 import com.spectrayan.spector.memory.cortex.consolidation.BatchConsolidator;
@@ -341,6 +343,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.wanderPathway = bundle.wanderPathway();
         this.continuityMemory = bundle.continuityMemory();
         this.provenanceMemory = bundle.provenanceMemory();
+        this.batchConsolidator.attachProvenance(this.provenanceMemory);
         this.decidePathway = bundle.decidePathway();
         this.dreamPathway = bundle.dreamPathway();
         this.skillPathway = com.spectrayan.spector.memory.pathway.skill.SkillPathway.standard();
@@ -1548,18 +1551,18 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         if (provenanceMemory == null || memoryId == null || memoryId.isEmpty()) {
             return java.util.Optional.empty();
         }
-        try {
-            long tsid = com.spectrayan.spector.kernel.id.TsidGenerator.decodeCrockford(memoryId);
-            return provenanceMemory.findByTarget(tsid)
-                    .map(s -> new com.spectrayan.spector.memory.model.MemoryProvenance(
-                            memoryId, s.sessionId(), s.partitionSeq(),
-                            s.firstSeq(), s.lastSeq(), s.turnCount(),
-                            s.passNumber(), s.factIndex(), s.batchFactCount(),
-                            s.consolidatedAtMs()
-                    ));
-        } catch (Exception e) {
-            return java.util.Optional.empty();
+        return provenanceMemory.findByTarget(ProvenanceKeys.of(memoryId))
+                .map(s -> toMemoryProvenance(memoryId, s));
+    }
+
+    @Override
+    public java.util.List<com.spectrayan.spector.memory.model.MemoryProvenance> explainAll(String memoryId) {
+        if (provenanceMemory == null || memoryId == null || memoryId.isEmpty()) {
+            return java.util.List.of();
         }
+        return provenanceMemory.findAllByTarget(ProvenanceKeys.of(memoryId)).stream()
+                .map(s -> toMemoryProvenance(memoryId, s))
+                .toList();
     }
 
     @Override
@@ -1568,14 +1571,56 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             return java.util.List.of();
         }
         return provenanceMemory.findBySession(sessionId).stream()
-                .map(s -> new com.spectrayan.spector.memory.model.MemoryProvenance(
-                        com.spectrayan.spector.kernel.id.TsidGenerator.encodeCrockford(s.targetTsid()),
-                        s.sessionId(), s.partitionSeq(),
-                        s.firstSeq(), s.lastSeq(), s.turnCount(),
-                        s.passNumber(), s.factIndex(), s.batchFactCount(),
-                        s.consolidatedAtMs()
-                ))
+                .map(s -> toMemoryProvenance(
+                        com.spectrayan.spector.kernel.id.TsidGenerator.encodeCrockford(s.targetTsid()), s))
                 .toList();
+    }
+
+    private com.spectrayan.spector.memory.model.MemoryProvenance toMemoryProvenance(
+            String targetId, com.spectrayan.spector.kernel.layout.ProvenanceLayout.ProvenanceState s) {
+        String kind;
+        if (s.sourceKind() == com.spectrayan.spector.kernel.layout.ProvenanceLayout.SOURCE_SEMANTIC) {
+            kind = "SEMANTIC";
+        } else if (s.sourceKind() == com.spectrayan.spector.kernel.layout.ProvenanceLayout.SOURCE_PROCEDURAL) {
+            kind = "PROCEDURAL";
+        } else {
+            kind = com.spectrayan.spector.memory.model.MemoryProvenance.SOURCE_EPISODIC;
+        }
+        boolean memorySource = !com.spectrayan.spector.memory.model.MemoryProvenance.SOURCE_EPISODIC.equals(kind);
+        return new com.spectrayan.spector.memory.model.MemoryProvenance(
+                targetId, s.sessionId(), s.partitionSeq(),
+                s.firstSeq(), s.lastSeq(), s.turnCount(),
+                s.passNumber(), s.factIndex(), s.batchFactCount(),
+                s.consolidatedAtMs(),
+                kind,
+                memorySource ? resolveProvenanceId(s.sourceTsid()) : null);
+    }
+
+    /**
+     * Resolves a provenance key back to a memory ID, live or forgotten. TSID-shaped IDs resolve
+     * directly; other IDs fall back to a scan of the index.
+     */
+    private String resolveProvenanceId(long key) {
+        if (key == 0L) {
+            return null;
+        }
+        String tsid = com.spectrayan.spector.kernel.id.TsidGenerator.encodeCrockford(key);
+        for (String candidate : new String[] { tsid, AbstractConsolidator.MERGED_ID_PREFIX + tsid }) {
+            if (index.locate(candidate) != null || index.locateTombstoned(candidate) != null) {
+                return candidate;
+            }
+        }
+        for (String id : index.allIds()) {
+            if (ProvenanceKeys.of(id) == key) {
+                return id;
+            }
+        }
+        for (String id : index.tombstones().keySet()) {
+            if (ProvenanceKeys.of(id) == key) {
+                return id;
+            }
+        }
+        return null;
     }
 
     @Override

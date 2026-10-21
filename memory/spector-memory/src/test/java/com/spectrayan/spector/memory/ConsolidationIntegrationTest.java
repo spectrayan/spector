@@ -18,6 +18,7 @@ package com.spectrayan.spector.memory;
 import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.CognitiveResult;
+import com.spectrayan.spector.memory.model.MemoryProvenance;
 import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
@@ -105,6 +106,75 @@ class ConsolidationIntegrationTest {
         CognitiveResult merged = results.get(0);
         assertThat(merged.id()).startsWith("cns-");
         assertThat(merged.text()).contains("light theme");
+
+        // #1145: the merged memory carries lineage to both originals
+        List<MemoryProvenance> lineage = memory.explainAll(merged.id());
+        assertThat(lineage).hasSize(2);
+        assertThat(lineage).extracting(MemoryProvenance::sourceKind).containsOnly("SEMANTIC");
+        assertThat(lineage).extracting(MemoryProvenance::sourceId).containsExactlyInAnyOrder("dup-a", "dup-b");
+        assertThat(lineage).extracting(MemoryProvenance::targetId).containsOnly(merged.id());
+        assertThat(memory.explain(merged.id())).isPresent();
+    }
+
+    @Test
+    void testMergeOfMergedMemoryKeepsTransitiveLineage() {
+        // Each merge answers with a distinct text so the merged memories don't collide on content
+        java.util.concurrent.atomic.AtomicInteger merges = new java.util.concurrent.atomic.AtomicInteger();
+        LlmProvider mergingLlm = new LlmProvider() {
+            @Override
+            public LlmResponse generate(LlmRequest request, GenerationOptions options) {
+                String prompt = request.messages().isEmpty() ? "" : request.messages().get(0).text();
+                String reply = prompt.contains("Merge these")
+                        ? "Standup merged note " + merges.incrementAndGet() + "."
+                        : "NO";
+                return new LlmResponse(reply, 10, 10, "mock-llm");
+            }
+
+            @Override
+            public boolean isAvailable() {
+                return true;
+            }
+
+            @Override
+            public String modelName() {
+                return "mock-llm";
+            }
+        };
+
+        float[] vector = new float[DIMENSIONS];
+        vector[7] = 1.0f;
+        embeddingProvider.register("Standup is at nine.", vector);
+        embeddingProvider.register("Daily standup starts at nine.", vector);
+
+        try (SpectorMemory target = buildMemory(mergingLlm)) {
+            target.remember("st-a", "Standup is at nine.", MemoryType.SEMANTIC, MemorySource.OBSERVED, "work");
+            target.remember("st-b", "Daily standup starts at nine.", MemoryType.SEMANTIC, MemorySource.OBSERVED, "work");
+            target.consolidate();
+
+            String firstMerge = mergedIdFor(target, "Standup merged note 1.");
+
+            // st-c duplicates the first merged memory, so the next pass merges the merge
+            String textC = "The standup meeting happens at nine.";
+            embeddingProvider.register(textC, embeddingProvider.embed("Standup merged note 1.").vector());
+            target.remember("st-c", textC, MemoryType.SEMANTIC, MemorySource.OBSERVED, "work");
+            target.consolidate();
+
+            assertThat(target.inspect(firstMerge)).as("first merged memory merged again").isNull();
+            String secondMerge = mergedIdFor(target, "Standup merged note 2.");
+
+            assertThat(target.explainAll(secondMerge)).extracting(MemoryProvenance::sourceId)
+                    .containsExactlyInAnyOrder(firstMerge, "st-c");
+            assertThat(target.explainAll(firstMerge)).extracting(MemoryProvenance::sourceId)
+                    .containsExactlyInAnyOrder("st-a", "st-b");
+        }
+    }
+
+    private static String mergedIdFor(SpectorMemory target, String mergedText) {
+        return target.recall(mergedText, RecallOptions.builder().topK(10).build()).stream()
+                .filter(r -> r.id().startsWith("cns-") && mergedText.equals(r.text()))
+                .map(CognitiveResult::id)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("no merged memory with text: " + mergedText));
     }
 
     @Test
