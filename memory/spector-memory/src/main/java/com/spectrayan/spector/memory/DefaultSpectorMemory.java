@@ -486,13 +486,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             } else {
                 String[] finalTags = tags;
                 var finalHints = hints;
-                if (tags == null || tags.length == 0) {
-                    var extraction = extractTags(id, text);
-                    if (extraction != null) {
-                        finalTags = extraction.tags();
-                        finalHints = RememberHints.withAppraisedAffect(
-                                hints, extraction.valence(), extraction.arousal());
-                    }
+                var extraction = extractTagsFor(id, text, tags);
+                if (extraction != null) {
+                    finalTags = mergeTags(tags, extraction.tags());
+                    finalHints = RememberHints.withAppraisedAffect(
+                            hints, extraction.valence(), extraction.arousal());
                 }
                 float[] vector = embeddingProvider.embed(text).vector();
                 String sessionId = MemoryScope.sessionId();
@@ -573,12 +571,10 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             } else {
                 String[] finalTags = tags;
                 var finalContext = context;
-                if (tags == null || tags.length == 0) {
-                    var extraction = extractTags(id, text);
-                    if (extraction != null) {
-                        finalTags = extraction.tags();
-                        finalContext = withAppraisedAffect(context, extraction);
-                    }
+                var extraction = extractTagsFor(id, text, tags);
+                if (extraction != null) {
+                    finalTags = mergeTags(tags, extraction.tags());
+                    finalContext = withAppraisedAffect(context, extraction);
                 }
                 float[] vector = embeddingProvider.embed(text).vector();
                 rememberPathway.ingestCognitive(id, text, vector, type, finalTags, source, finalContext);
@@ -619,12 +615,10 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         try {
             String[] finalTags = tags;
             var finalContext = context;
-            if (tags == null || tags.length == 0) {
-                var extraction = extractTags(id, text);
-                if (extraction != null) {
-                    finalTags = extraction.tags();
-                    finalContext = withAppraisedAffect(context, extraction);
-                }
+            var extraction = extractTagsFor(id, text, tags);
+            if (extraction != null) {
+                finalTags = mergeTags(tags, extraction.tags());
+                finalContext = withAppraisedAffect(context, extraction);
             }
             float[] finalVector = (vector != null && vector.length > 0)
                     ? vector
@@ -807,6 +801,43 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private TagExtractionResult extractTags(String id, String text) {
         var tagExtractor = rememberPathway.tagExtractor();
         return tagExtractor != null ? tagExtractor.extractWithContext(id, text) : null;
+    }
+
+    /**
+     * Runs the tag extractor for a remember call. Without caller tags the extractor always runs. With
+     * caller tags only an appraising extractor ({@link com.spectrayan.spector.memory.pathway.pipeline.TagExtractor#appraises()}, e.g. the LLM one)
+     * runs, so caller bookkeeping tags no longer switch off the valence/arousal appraisal.
+     *
+     * @return the extraction result, or {@code null} when extraction is skipped or unavailable
+     */
+    private TagExtractionResult extractTagsFor(String id, String text, String[] callerTags) {
+        if (callerTags == null || callerTags.length == 0) {
+            return extractTags(id, text);
+        }
+        var tagExtractor = rememberPathway.tagExtractor();
+        if (tagExtractor == null || !tagExtractor.appraises()) {
+            return null;
+        }
+        return tagExtractor.extractWithContext(id, text);
+    }
+
+    /**
+     * Merges caller tags with extracted tags: caller tags first, then extracted ones, blank values and
+     * duplicates removed (case-sensitive, first occurrence wins).
+     */
+    static String[] mergeTags(String[] callerTags, String[] extractedTags) {
+        var merged = new java.util.LinkedHashSet<String>();
+        for (String[] source : new String[][] {callerTags, extractedTags}) {
+            if (source == null) {
+                continue;
+            }
+            for (String tag : source) {
+                if (tag != null && !tag.isBlank()) {
+                    merged.add(tag.trim());
+                }
+            }
+        }
+        return merged.toArray(String[]::new);
     }
 
     /**
