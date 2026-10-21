@@ -435,6 +435,11 @@ public class ObservedSpectorMemory extends ObservableComponent implements Specto
     }
 
     @Override
+    public int tombstonedCount(MemoryType type) {
+        return delegate.tombstonedCount(type);
+    }
+
+    @Override
     public void setSalienceProfile(SalienceProfile profile) {
         delegate.setSalienceProfile(profile);
     }
