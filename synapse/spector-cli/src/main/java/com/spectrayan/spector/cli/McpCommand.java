@@ -34,6 +34,7 @@ import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.provider.embedding.EmbeddingConfig;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.ollama.OllamaEmbeddingProvider;
 import com.spectrayan.spector.spring.autoconfigure.SpectorConfigProperties;
 
@@ -61,6 +62,7 @@ public class McpCommand implements Runnable {
     private final ObjectProvider<SpectorMemory> memoryProvider;
     private final ObjectProvider<EmbeddingProvider> embedderProvider;
     private final ObjectProvider<SpectorConfigProperties> configPropsProvider;
+    private final ObjectProvider<LlmProvider> llmProviderProvider;
 
     @Option(names = {"--config", "-c"}, description = "Path to spector.yml configuration file.")
     private String configFile;
@@ -95,13 +97,28 @@ public class McpCommand implements Runnable {
         this(memoryProvider, null, null);
     }
 
+    public McpCommand(ObjectProvider<SpectorMemory> memoryProvider,
+                      ObjectProvider<EmbeddingProvider> embedderProvider,
+                      ObjectProvider<SpectorConfigProperties> configPropsProvider) {
+        this(memoryProvider, embedderProvider, configPropsProvider, null);
+    }
+
+    /**
+     * Creates the command with the Spring-managed providers.
+     *
+     * @param llmProviderProvider the configured text generation provider ({@code spector.provider.generation.*}),
+     *                            handed to memories built from CLI flags so {@code tag-extractor: llm}
+     *                            appraisal works there too; may be {@code null}
+     */
     @Autowired
     public McpCommand(@Lazy ObjectProvider<SpectorMemory> memoryProvider,
                       @Lazy ObjectProvider<EmbeddingProvider> embedderProvider,
-                      @Lazy ObjectProvider<SpectorConfigProperties> configPropsProvider) {
+                      @Lazy ObjectProvider<SpectorConfigProperties> configPropsProvider,
+                      @Lazy ObjectProvider<LlmProvider> llmProviderProvider) {
         this.memoryProvider = memoryProvider;
         this.embedderProvider = embedderProvider;
         this.configPropsProvider = configPropsProvider;
+        this.llmProviderProvider = llmProviderProvider;
     }
 
     public boolean hasCustomFlags() {
@@ -179,6 +196,11 @@ public class McpCommand implements Runnable {
         }
         if (embedder != null) {
             builder.embeddingProvider(embedder);
+        }
+        // Without this, a memory built from CLI flags had no LLM at all, so tag-extractor=llm could not work.
+        LlmProvider llm = llmProviderProvider != null ? llmProviderProvider.getIfAvailable() : null;
+        if (llm != null) {
+            builder.llmProvider(llm);
         }
         return builder.build();
     }
