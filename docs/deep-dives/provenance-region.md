@@ -24,9 +24,9 @@ defined in `ProvenanceLayout`:
 
 | Field             | Type   | Offset | Size | Description |
 |:------------------|:-------|-------:|-----:|:------------|
-| `flags`           | byte   |     0  |   1  | `0x01` = live, `0x02` = partial run, `0xFF` = tombstone |
-| `source_kind`     | byte   |     1  |   1  | Source type (1 = episodic log) |
-| `target_kind`     | byte   |     2  |   1  | Target type (1 = semantic, 2 = procedural) |
+| `flags`           | byte   |     0  |   1  | Exclusive state, not a bitmask: `0` = live, `1` = tombstone, `2` = partial run |
+| `source_kind`     | byte   |     1  |   1  | Source type (1 = episodic, 2 = semantic, 3 = procedural) |
+| `target_kind`     | byte   |     2  |   1  | Target type (2 = semantic, 3 = procedural) |
 | `prefix_kind`     | byte   |     3  |   1  | Target ID prefix registry ordinal |
 | `pass_number`     | short  |     4  |   2  | 1-indexed consolidation pass counter |
 | `turn_count`      | short  |     6  |   2  | Number of episodic turns covered |
@@ -41,7 +41,8 @@ defined in `ProvenanceLayout`:
 | `fact_index`      | byte   |    52  |   1  | Index within batch (0-indexed) |
 | `batch_count`     | byte   |    53  |   1  | Total facts in batch |
 | `content_hash_hi` | short  |    54  |   2  | Upper 16 bits of fact CRC32C |
-| *(reserved)*      | -      |    56  |  12  | Reserved for future use |
+| `source_tsid`     | long   |    56  |   8  | Source memory TSID when `source_kind` is semantic or procedural, else 0 |
+| `source_partition`| int    |    64  |   4  | Source partition sequence, or 0 |
 | `crc32c`          | int    |    68  |   4  | CRC32C integrity checksum |
 
 **Total**: 72 bytes per record. Default capacity: **8,192 records**.

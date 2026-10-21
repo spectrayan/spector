@@ -21,9 +21,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * Allocation cache for identity calibration arrays.
  *
  * <h3>Allocation Cache</h3>
- * <p>In uncalibrated mode, {@link CognitiveScorer} and
- * {@link com.spectrayan.spector.kernel.scan.SemanticDeduplicator}
- * create identical identity calibration arrays on every call. This factory
+ * <p>In uncalibrated mode, {@link CognitiveScorer}
+ * creates identical identity calibration arrays on every call. This factory
  * caches arrays by dimension count, eliminating redundant allocations.</p>
  *
  * <h3>Identity Transform</h3>

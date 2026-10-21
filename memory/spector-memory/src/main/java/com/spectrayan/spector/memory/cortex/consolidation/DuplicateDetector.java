@@ -44,7 +44,7 @@ public final class DuplicateDetector {
     }
 
     public DuplicateDetector() {
-        this(0.05f); // default L2 threshold (~0.95+ cosine similarity)
+        this(0.05f); // default L2 threshold: for unit vectors cos = 1 - L2^2 / 2, so L2 <= 0.05 means cosine >= ~0.9988
     }
 
     public record DuplicatePair(int indexA, int indexB, String idA, String idB, float distance) {}
