@@ -127,6 +127,23 @@ public class EmbeddingProperties implements Serializable {
         if (vocabPath != null) this.vocabPath = vocabPath;
     }
 
+    /**
+     * ONNX Runtime intra-op threads per in-process embedding session ({@code type: onnx}); 0 means the
+     * provider default of 1. More threads than 4 gave wrong vectors with onnxruntime 1.20 on an 8-core host.
+     */
+    private int intraOpThreads = 0;
+
+    public int getIntraOpThreads() { return intraOpThreads; }
+    public void setIntraOpThreads(int intraOpThreads) { this.intraOpThreads = intraOpThreads; }
+
+    /** ONNX pooling for {@code model-path} models: {@code mean} (default) or {@code cls} (BGE). */
+    private String poolingMode = "";
+
+    public String getPoolingMode() { return poolingMode; }
+    public void setPoolingMode(String poolingMode) {
+        if (poolingMode != null) this.poolingMode = poolingMode;
+    }
+
     public static class CacheProperties implements Serializable {
         private static final long serialVersionUID = 1L;
 
@@ -191,6 +208,8 @@ public class EmbeddingProperties implements Serializable {
         cp.setModelPath(this.modelPath);
         cp.setExecutionProvider(this.executionProvider);
         cp.setVocabPath(this.vocabPath);
+        cp.setPoolingMode(this.poolingMode);
+        cp.setIntraOpThreads(this.intraOpThreads);
         if (this.cache != null) {
             CacheProperties cacheCp = new CacheProperties();
             cacheCp.setEnabled(this.cache.isEnabled());

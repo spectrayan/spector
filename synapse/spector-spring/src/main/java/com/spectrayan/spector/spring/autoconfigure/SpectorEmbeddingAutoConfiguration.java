@@ -233,6 +233,10 @@ public class SpectorEmbeddingAutoConfiguration {
         // OllamaProviderFactory reads timeout, batchSize and maxConcurrent.
         putIfPresent(properties, "modelPath", embedding.getModelPath());
         putIfPresent(properties, "vocabPath", embedding.getVocabPath());
+        putIfPresent(properties, "poolingMode", embedding.getPoolingMode());
+        if (embedding.getIntraOpThreads() > 0) {
+            properties.put("intraOpThreads", Integer.toString(embedding.getIntraOpThreads()));
+        }
         putIfPresent(properties, "executionProvider", embedding.getExecutionProvider());
         if (embedding.getTimeout() != null && !embedding.getTimeout().isZero()) {
             properties.putIfAbsent("timeout", String.valueOf(embedding.getTimeout().toSeconds()));
