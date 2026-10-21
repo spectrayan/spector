@@ -54,6 +54,8 @@ import java.util.List;
  * @param retainedHeaderFields  header fields deliberately left intact, so the erasure stays auditable
  * @param unreachableCopies     classes of copy this operation cannot reach at all
  * @param disclosure            plain-language statement of what was and was not achieved
+ * @param wasTombstoned         whether the record had already been forgotten (tombstoned) before the purge
+ * @param lexicalIndexCleared   whether the record's terms were removed from the lexical (BM25) index
  */
 public record PurgeResult(
         String memoryId,
@@ -72,8 +74,25 @@ public record PurgeResult(
         boolean walRecorded,
         List<String> retainedHeaderFields,
         List<String> unreachableCopies,
-        String disclosure
+        String disclosure,
+        boolean wasTombstoned,
+        boolean lexicalIndexCleared
 ) {
+
+    /**
+     * Creates a result for a record that was live at purge time and whose lexical-index state is not
+     * reported. Kept for callers that predate {@link #wasTombstoned()} and {@link #lexicalIndexCleared()}.
+     */
+    public PurgeResult(String memoryId, String namespaceId, boolean found, Instant purgedAt,
+                       int payloadBytesZeroed, int textBytesZeroed, boolean inlineTextDropped,
+                       int textRetainedShared, int textSharedWith, int hebbianEdgesRemoved,
+                       boolean temporalUnlinked, int entityLinksRemoved, int hyperedgesRemoved,
+                       boolean walRecorded, List<String> retainedHeaderFields,
+                       List<String> unreachableCopies, String disclosure) {
+        this(memoryId, namespaceId, found, purgedAt, payloadBytesZeroed, textBytesZeroed, inlineTextDropped,
+                textRetainedShared, textSharedWith, hebbianEdgesRemoved, temporalUnlinked, entityLinksRemoved,
+                hyperedgesRemoved, walRecorded, retainedHeaderFields, unreachableCopies, disclosure, false, false);
+    }
 
     /** What the purge actually does to the bytes. */
     public static final String MECHANISM = "IN_PLACE_ZERO_OVERWRITE_AND_GRAPH_DETACH";

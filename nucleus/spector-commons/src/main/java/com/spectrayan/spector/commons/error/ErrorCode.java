@@ -148,6 +148,10 @@ public enum ErrorCode {
     CONFIG_REQUIRED_MISSING   (110_005, ErrorCategory.CONFIG,
             "Required configuration key missing: {}"),
 
+    /** A feature needs a text generation (LLM) provider and none could be created or reached. */
+    GENERATION_PROVIDER_UNAVAILABLE(110_006, ErrorCategory.CONFIG,
+            "No text generation provider available for {}: {}"),
+
     // ══════════════════════════════════════════════════════════════════════
     // INDEX (SPE-200-xxx)
     // ══════════════════════════════════════════════════════════════════════
@@ -386,6 +390,10 @@ public enum ErrorCode {
     /** Encrypted memory segment or WAL encountered without an active DataEncryptor key (ADR-0088, Issue #1071). */
     MEMORY_ENCRYPTION_KEY_MISSING(310_028, ErrorCategory.MEMORY,
             "Encrypted memory resource requires an active DataEncryptor key: {}"),
+
+    /** tag-extractor=llm is configured and the LLM tag extraction / affect appraisal failed; no fallback. */
+    MEMORY_LLM_APPRAISAL_FAILED(310_029, ErrorCategory.MEMORY,
+            "LLM tag extraction failed for '{}' (tag-extractor=llm does not fall back): {}"),
 
     // ══════════════════════════════════════════════════════════════════════
     // GPU (SPE-400-xxx)

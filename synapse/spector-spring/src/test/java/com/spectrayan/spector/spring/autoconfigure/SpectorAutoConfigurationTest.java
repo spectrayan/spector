@@ -109,6 +109,52 @@ class SpectorAutoConfigurationTest {
     }
 
     @Test
+    void openAiGenerationProviderIsRegisteredAndActive() {
+        this.contextRunner
+                .withUserConfiguration(TestDependenciesConfiguration.class)
+                .withPropertyValues("spector.provider.embedding.dimensions=384",
+                        "spector.provider.generation.type=openai",
+                        "spector.provider.generation.api-key=sk-test-not-a-real-key",
+                        "spector.memory.tag-extractor=llm")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    ProviderRegistry registry = context.getBean(ProviderRegistry.class);
+                    assertThat(registry.activeGenerationName()).contains("openai");
+                    LlmProvider llm = context.getBean(LlmProvider.class);
+                    assertThat(llm.isAvailable()).isTrue();
+                    assertThat(llm.modelName()).isEqualTo("gpt-4o-mini");
+                    assertThat(context).hasSingleBean(SpectorMemory.class);
+                });
+    }
+
+    @Test
+    void llmTagExtractorWithoutAUsableProviderFailsStartup() {
+        this.contextRunner
+                .withUserConfiguration(TestDependenciesConfiguration.class)
+                .withPropertyValues("spector.provider.embedding.dimensions=384",
+                        "spector.provider.generation.type=not-a-provider",
+                        "spector.memory.tag-extractor=llm")
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    assertThat(context.getStartupFailure())
+                            .rootCause()
+                            .hasMessageContaining("SPE-110-006");
+                });
+    }
+
+    @Test
+    void unknownGenerationProviderOnlyWarnsWhenNoFeatureNeedsIt() {
+        this.contextRunner
+                .withUserConfiguration(TestDependenciesConfiguration.class)
+                .withPropertyValues("spector.provider.embedding.dimensions=384",
+                        "spector.provider.generation.type=not-a-provider")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context.getBean(LlmProvider.class).isAvailable()).isFalse();
+                });
+    }
+
+    @Test
     public void shouldCreateEmbeddingProviderBean(){
         contextRunner.withUserConfiguration(TestWrapSpringAIAutoConfiguration.class).run(context -> {
             assertThat(context).hasSingleBean(EmbeddingProvider.class);

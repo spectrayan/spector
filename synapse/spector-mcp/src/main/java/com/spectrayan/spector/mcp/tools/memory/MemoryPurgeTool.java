@@ -58,6 +58,15 @@ public final class MemoryPurgeTool extends MemoryToolHandler {
 
         StringBuilder sb = new StringBuilder();
         sb.append("🔥 Memory '").append(memoryId).append("' was PURGED — this is irreversible.\n\n");
+        sb.append("Receipt:\n");
+        sb.append("  • memory_id: ").append(result.memoryId()).append('\n');
+        sb.append("  • namespace: ").append(result.namespaceId()).append('\n');
+        sb.append("  • purged_at: ").append(result.purgedAt()).append('\n');
+        sb.append("  • state_before: ").append(result.wasTombstoned() ? "forgotten (tombstoned)" : "live")
+                .append('\n');
+        sb.append("  • text_destroyed: ").append(result.textDestroyed()).append('\n');
+        sb.append("  • wal_recorded: ").append(result.walRecorded()).append('\n');
+        sb.append("  • lexical_index_cleared: ").append(result.lexicalIndexCleared()).append("\n\n");
         sb.append("Destroyed in this store:\n");
         sb.append("  • ").append(result.payloadBytesZeroed()).append(" payload bytes overwritten with zeros\n");
         if (result.textBytesZeroed() > 0) {

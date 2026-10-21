@@ -124,6 +124,8 @@ class ErrorCodeTest {
         assertThat(ErrorCode.fromId("  SPE-820-005  ")).isSameAs(ErrorCode.BREAK_GLASS_ACCESS_DENIED);
         assertThat(ErrorCode.MEMORY_AUTH_TAG_MISMATCH.id()).isEqualTo("SPE-310-026");
         assertThat(ErrorCode.KMS_UNAVAILABLE_FAIL_CLOSED.id()).isEqualTo("SPE-310-027");
+        assertThat(ErrorCode.MEMORY_LLM_APPRAISAL_FAILED.id()).isEqualTo("SPE-310-029");
+        assertThat(ErrorCode.GENERATION_PROVIDER_UNAVAILABLE.id()).isEqualTo("SPE-110-006");
         assertThat(ErrorCode.BYOK_KEY_REVOKED.id()).isEqualTo("SPE-820-010");
         assertThat(ErrorCode.fromId("SPE-SEC-010")).isSameAs(ErrorCode.BYOK_KEY_REVOKED);
         assertThat(ErrorCode.KMS_CONFIGURATION_INVALID.id()).isEqualTo("SPE-820-011");

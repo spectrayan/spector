@@ -185,6 +185,14 @@ public final class MemoryRememberTool extends MemoryToolHandler {
             if (storedRecord.isPinned()) {
                 sb.append(" ⚡ FLASHBULB (Pinned)");
             }
+            // The stored affect, which with tag-extractor=llm is the LLM's appraisal unless the caller set it.
+            sb.append("\n🎭 Affect: valence=").append(storedRecord.valence())
+              .append(", arousal=").append(Byte.toUnsignedInt(storedRecord.arousal()));
+            String[] storedTags = storedRecord.tags();
+            if (storedTags != null && storedTags.length > 0) {
+                sb.append("\n🏷️ Tags: ").append(String.join(", ",
+                        java.util.Arrays.copyOf(storedTags, Math.min(storedTags.length, 15))));
+            }
         }
 
         return textResult(sb.toString());

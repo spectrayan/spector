@@ -3,8 +3,16 @@ spector:
     enabled: true
     persistence-mode: DISK
     persistence-path: ${SPECTOR_DATA_DIR:~/.spector/data}/memory
+    # content (keyword tags) | llm (LLM tags + valence/arousal appraisal, no keyword fallback) | none
+    tag-extractor: ${SPECTOR_TAG_EXTRACTOR:content}
   provider:
     embedding:
       type: ${SPECTOR_EMBEDDING_PROVIDER:onnx}
       base-url: ${SPECTOR_OLLAMA_BASE_URL:http://localhost:11434}
       model: ${SPECTOR_EMBEDDING_MODEL:all-MiniLM-L6-v2}
+    generation:
+      # ollama (local, default) | openai | anthropic | google | mistral | azure-openai | bedrock
+      # For openai the key comes from OPENAI_API_KEY (or spector.provider.generation.api-key) and the
+      # model defaults to gpt-4o-mini. The key is never logged.
+      type: ${SPECTOR_GENERATION_PROVIDER:ollama}
+      model: ${SPECTOR_GENERATION_MODEL:llama3.2}

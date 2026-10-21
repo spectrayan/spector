@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.memory.pathway.pipeline;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorMemoryException;
 import com.spectrayan.spector.provider.generation.GenerationOptions;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.model.LlmRequest;
@@ -23,6 +25,7 @@ import com.spectrayan.spector.provider.model.LlmResponse;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Tests the affect appraisal and the fallbacks of {@link LlmTagExtractor} (#1137).
@@ -72,6 +75,49 @@ class LlmTagExtractorAppraisalTest {
 
         assertThat(result.tags()).isEqualTo(new ContentTagExtractor().extract("mem-1", TEXT));
         assertThat(result.hasEmotionalContext()).isFalse();
+    }
+
+    @Test
+    void strictExtractorThrowsWhenTheLlmThrows() {
+        var extractor = LlmTagExtractor.strict(new ThrowingLlm());
+
+        assertThatThrownBy(() -> extractor.extractWithContext("mem-1", TEXT))
+                .isInstanceOfSatisfying(SpectorMemoryException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.MEMORY_LLM_APPRAISAL_FAILED))
+                .hasMessageContaining("mem-1")
+                .hasMessageNotContaining(TEXT)
+                .hasCauseInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void strictExtractorThrowsWhenTheLlmIsUnavailable() {
+        var extractor = LlmTagExtractor.strict(new UnavailableLlm());
+
+        assertThatThrownBy(() -> extractor.extractWithContext("mem-1", TEXT))
+                .isInstanceOfSatisfying(SpectorMemoryException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.MEMORY_LLM_APPRAISAL_FAILED))
+                .hasMessageContaining("unavailable");
+    }
+
+    @Test
+    void strictExtractorThrowsWhenTheLlmReturnsBlank() {
+        var extractor = LlmTagExtractor.strict(new TagExtractorsTest.FixedLlm("   "));
+
+        assertThatThrownBy(() -> extractor.extractWithContext("mem-1", TEXT))
+                .isInstanceOf(SpectorMemoryException.class)
+                .hasMessageContaining("empty response");
+    }
+
+    @Test
+    void strictExtractorStillAppraisesAWellFormedReply() {
+        var extractor = LlmTagExtractor.strict(new TagExtractorsTest.FixedLlm(
+                "/woodworking\n/cherry-bookcase\n/valence:60\n/arousal:90"));
+
+        TagExtractionResult result = extractor.extractWithContext("mem-1", TEXT);
+
+        assertThat(result.tags()).contains("woodworking", "cherry-bookcase");
+        assertThat(result.valence()).isEqualTo((byte) 60);
+        assertThat(Byte.toUnsignedInt(result.arousal())).isEqualTo(90);
     }
 
     @Test

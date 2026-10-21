@@ -78,6 +78,11 @@ public class IndexEntryMemory extends AbstractRecordMemory<IndexEntryLayout> {
     private final ConcurrentHashMap<String, MemorySource> sources = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, String[]> tags = new ConcurrentHashMap<>();
 
+    // ── Tombstoned records: id → last location (forgotten, not yet purged) ──
+    // forget() drops an id from the forward index, but its payload and text bytes stay where they were.
+    // purge() needs that location to destroy them, so it is kept here until the purge happens.
+    private final ConcurrentHashMap<String, MemoryLocation> tombstoned = new ConcurrentHashMap<>();
+
     // ── Multimodal metadata: id → metadata map ──
     private final ConcurrentHashMap<String, Map<String, String>> metadataMap = new ConcurrentHashMap<>();
 
@@ -255,6 +260,86 @@ public class IndexEntryMemory extends AbstractRecordMemory<IndexEntryLayout> {
         return locations.get(id);
     }
 
+    /**
+     * Removes {@code id} from the live index like {@link #remove(String)}, but remembers its location so a
+     * later purge can still find and destroy the tombstoned bytes.
+     *
+     * @param id the memory id being forgotten
+     * @return the location that was retired, or {@code null} when the id was not live
+     */
+    public MemoryLocation retire(String id) {
+        MemoryLocation loc = locations.get(id);
+        remove(id);
+        if (loc != null) {
+            tombstoned.put(id, loc);
+        }
+        return loc;
+    }
+
+    /**
+     * Returns the location of a forgotten (tombstoned) record that has not been purged yet.
+     *
+     * @param id the memory id
+     * @return the retired location, or {@code null} when none is known
+     */
+    public MemoryLocation locateTombstoned(String id) {
+        return tombstoned.get(id);
+    }
+
+    /**
+     * Records a tombstoned location, e.g. when restoring the tombstone ledger at startup.
+     *
+     * @param id  the memory id
+     * @param loc its retired location
+     */
+    public void restoreTombstone(String id, MemoryLocation loc) {
+        if (id != null && loc != null && !locations.containsKey(id)) {
+            tombstoned.put(id, loc);
+        }
+    }
+
+    /**
+     * Forgets the retired location of {@code id}, typically once it has been purged.
+     *
+     * @param id the memory id
+     * @return the location that was dropped, or {@code null}
+     */
+    public MemoryLocation clearTombstone(String id) {
+        return tombstoned.remove(id);
+    }
+
+    /**
+     * Marks the payload of every retired location in one tier of one partition as gone, after vacuum has
+     * compacted the tombstoned records out of that region. Their offsets now point at other records, so a
+     * later purge must not zero anything there; the text position is kept because vacuum does not touch the
+     * text store.
+     *
+     * @param type      the tier that was compacted
+     * @param partition the colocated partition sequence that was compacted
+     * @return how many retired locations were updated
+     */
+    public int markTombstonePayloadsCompacted(MemoryType type, int partition) {
+        int[] updated = {0};
+        tombstoned.replaceAll((id, loc) -> {
+            if (loc.type() == type && loc.colocatedPartition() == partition && loc.offset() >= 0) {
+                updated[0]++;
+                return new MemoryLocation(loc.type(), -1L, loc.graphSlot(), loc.colocatedPartition(),
+                        loc.textOffset(), loc.textLength());
+            }
+            return loc;
+        });
+        return updated[0];
+    }
+
+    /**
+     * Returns an immutable snapshot of the retired locations.
+     *
+     * @return id to retired location
+     */
+    public Map<String, MemoryLocation> tombstones() {
+        return Map.copyOf(tombstoned);
+    }
+
     /** Alias for {@link #locate(String)} (ADR-0009). */
     public MemoryLocation location(String id) {
         return locations.get(id);
@@ -294,10 +379,21 @@ public class IndexEntryMemory extends AbstractRecordMemory<IndexEntryLayout> {
      * @return what actually happened to the off-heap bytes
      */
     public TextBlobMemory.EraseOutcome eraseText(String id) {
+        return eraseText(id, locations.get(id));
+    }
+
+    /**
+     * Erases the stored text for {@code id} at an explicit location. Used for tombstoned records, whose
+     * location is no longer in the live index.
+     *
+     * @param id  the memory id whose text should be destroyed
+     * @param loc the record's location; {@code null} means only the on-heap copy can be dropped
+     * @return what actually happened to the off-heap bytes
+     */
+    public TextBlobMemory.EraseOutcome eraseText(String id, MemoryLocation loc) {
         // Drop the on-heap copy regardless of what happens off-heap: it is this index's own duplicate of the
         // content and nothing else shares it.
         texts.remove(id);
-        MemoryLocation loc = locations.get(id);
         if (loc == null) {
             return TextBlobMemory.EraseOutcome.notFound();
         }

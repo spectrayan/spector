@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.memory.pathway.pipeline;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorConfigException;
 import com.spectrayan.spector.config.model.TagExtractorMode;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 
@@ -26,10 +28,11 @@ import org.slf4j.LoggerFactory;
  *
  * <ul>
  *   <li>{@link TagExtractorMode#CONTENT} (default): {@link ContentTagExtractor}, keyword based.</li>
- *   <li>{@link TagExtractorMode#LLM}: {@link LlmTagExtractor} over the memory's generation provider. It
- *       also appraises valence and arousal, and falls back to {@link ContentTagExtractor} per call
- *       when the provider is unavailable or fails. With no provider at all, the content extractor is
- *       used and a warning is logged.</li>
+ *   <li>{@link TagExtractorMode#LLM}: a {@linkplain LlmTagExtractor#strict strict} {@link LlmTagExtractor}
+ *       over the memory's generation provider. It also appraises valence and arousal. There is no
+ *       keyword fallback: with no provider at all this throws {@link ErrorCode#GENERATION_PROVIDER_UNAVAILABLE}
+ *       at build time, and a write whose LLM call fails throws {@link ErrorCode#MEMORY_LLM_APPRAISAL_FAILED}.
+ *       Silently storing keyword tags and neutral affect would hide a broken configuration.</li>
  *   <li>{@link TagExtractorMode#NONE}: {@link TagExtractor#NONE}, no tags.</li>
  * </ul>
  *
@@ -48,6 +51,8 @@ public final class TagExtractors {
      * @param mode        the configured mode; {@code null} means {@link TagExtractorMode#CONTENT}
      * @param llmProvider the memory's generation provider; may be {@code null}
      * @return the extractor to use, never {@code null}
+     * @throws SpectorConfigException with {@link ErrorCode#GENERATION_PROVIDER_UNAVAILABLE} when the mode is
+     *                                {@link TagExtractorMode#LLM} and {@code llmProvider} is {@code null}
      */
     public static TagExtractor forMode(TagExtractorMode mode, LlmProvider llmProvider) {
         TagExtractorMode effective = mode != null ? mode : TagExtractorMode.CONTENT;
@@ -55,15 +60,18 @@ public final class TagExtractors {
             case NONE -> TagExtractor.NONE;
             case LLM -> {
                 if (llmProvider == null) {
-                    log.warn("[TagExtract] tag-extractor=llm but no generation provider is configured; "
-                            + "using the content tag extractor");
-                    yield new ContentTagExtractor();
+                    log.error("[TagExtract] tag-extractor=llm but no generation provider is configured ({})",
+                            ErrorCode.GENERATION_PROVIDER_UNAVAILABLE.id());
+                    throw new SpectorConfigException(ErrorCode.GENERATION_PROVIDER_UNAVAILABLE,
+                            "spector.memory.tag-extractor=llm",
+                            "no generation provider is configured (set spector.provider.generation.*)");
                 }
                 if (!llmProvider.isAvailable()) {
-                    log.warn("[TagExtract] tag-extractor=llm but the generation provider is not available yet; "
-                            + "calls fall back to the content tag extractor until it is");
+                    log.error("[TagExtract] tag-extractor=llm but the generation provider '{}' is not available; "
+                            + "writes will fail with {} until it is", llmProvider.modelName(),
+                            ErrorCode.MEMORY_LLM_APPRAISAL_FAILED.id());
                 }
-                yield new LlmTagExtractor(llmProvider);
+                yield LlmTagExtractor.strict(llmProvider);
             }
             case CONTENT -> new ContentTagExtractor();
         };

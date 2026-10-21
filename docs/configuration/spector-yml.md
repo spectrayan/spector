@@ -47,11 +47,26 @@ Configuration block for generative LLMs under `spector.provider.generation.*`:
 | Property | Type | Default | Options / Range | Description |
 |:---|:---|:---|:---|:---|
 | `type` | String | `ollama` | `ollama`, `openai`, `google`, `anthropic`, `mistral`, `azure`, `bedrock` | Active text generation provider. |
-| `model` | String | `llama3.2` | Model identifier | Model name used for cognitive reflection, AISME dreaming, and entity synthesis. |
+| `model` | String | `llama3.2` | Model identifier | Model name used for cognitive reflection, AISME dreaming, entity synthesis and `tag-extractor: llm` appraisal. With `type: openai` and the model left at the default, `gpt-4o-mini` is used. |
 | `base-url` | String | `http://localhost:11434` | Valid HTTP/S URI | Provider endpoint base URL. |
-| `api-key` | String | `""` | Secret string | Authentication API token for generation provider. |
+| `api-key` | String | `""` | Secret string | Authentication API token for generation provider. With `type: openai` and no key set, the `OPENAI_API_KEY` environment variable is used. The key is never logged. |
 | `timeout` | Duration | `60s` | Standard ISO duration | Timeout window for generative completion calls. |
 | `fallback-model` | String | `qwen3:0.6b` | Model identifier | Low-latency fallback model invoked when primary generation encounters rate limits or errors. |
+
+!!! warning "`tag-extractor: llm` has no keyword fallback"
+    With `spector.memory.tag-extractor: llm`, startup fails with `SPE-110-006` if the generation provider cannot be created (unknown `type`, missing API key), and a write whose LLM tagging call fails is refused with `SPE-310-029` instead of being stored with keyword tags and neutral affect. Use `tag-extractor: content` if you want keyword tagging.
+
+Example: OpenAI for LLM tagging and affect appraisal, with the key in `OPENAI_API_KEY`:
+
+```yaml
+spector:
+  memory:
+    tag-extractor: llm
+  provider:
+    generation:
+      type: openai
+      model: gpt-4o-mini
+```
 | `spector.ssl.insecure` | Boolean | `false` | `true`, `false` | Disables TLS certificate validation (development and self-signed proxy use only). |
 
 ---

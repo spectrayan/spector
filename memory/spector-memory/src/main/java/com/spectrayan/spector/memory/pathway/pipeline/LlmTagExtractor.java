@@ -16,6 +16,8 @@
 package com.spectrayan.spector.memory.pathway.pipeline;
 
 import com.spectrayan.spector.commons.ResourceUtils;
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorMemoryException;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 
 import org.slf4j.Logger;
@@ -38,8 +40,11 @@ import java.util.Set;
  *
  * <h3>Fallback</h3>
  * <p>
- * If the LLM is unavailable or returns an unparseable response,
- * falls back to {@link ContentTagExtractor} for basic keyword extraction.
+ * A lenient extractor falls back to {@link ContentTagExtractor} for basic keyword extraction when the LLM
+ * is unavailable or returns an unparseable response. A {@linkplain #strict strict} extractor, which is what
+ * {@code tag-extractor: llm} configures, never does: it throws {@link SpectorMemoryException} with
+ * {@link ErrorCode#MEMORY_LLM_APPRAISAL_FAILED}, so a write that was meant to be LLM-appraised is refused
+ * instead of being stored with keyword tags and neutral affect.
  * </p>
  *
  * <h3>Performance Note</h3>
@@ -109,6 +114,7 @@ public final class LlmTagExtractor implements TagExtractor {
 
     private final LlmProvider generator;
     private final TagExtractor fallback;
+    private final boolean strict;
 
     /**
      * Creates an LLM tag extractor with the default content-based fallback.
@@ -126,8 +132,39 @@ public final class LlmTagExtractor implements TagExtractor {
      * @param fallback  fallback extractor for when LLM is unavailable
      */
     public LlmTagExtractor(LlmProvider generator, TagExtractor fallback) {
+        this(generator, fallback, false);
+    }
+
+    /**
+     * Creates an LLM tag extractor.
+     *
+     * @param generator the text generation provider
+     * @param fallback  extractor used for recall queries, and for writes when {@code strict} is false
+     * @param strict    when true, an unavailable or failing LLM throws instead of falling back
+     */
+    public LlmTagExtractor(LlmProvider generator, TagExtractor fallback, boolean strict) {
         this.generator = generator;
         this.fallback = fallback;
+        this.strict = strict;
+    }
+
+    /**
+     * Creates an extractor that never falls back to keyword tagging on a write.
+     *
+     * @param generator the text generation provider
+     * @return a strict extractor whose {@link #fallback()} is the content extractor
+     */
+    public static LlmTagExtractor strict(LlmProvider generator) {
+        return new LlmTagExtractor(generator, new ContentTagExtractor(), true);
+    }
+
+    /**
+     * Returns whether this extractor refuses to fall back to keyword tagging.
+     *
+     * @return {@code true} for a strict extractor
+     */
+    public boolean isStrict() {
+        return strict;
     }
 
     /**
@@ -147,8 +184,7 @@ public final class LlmTagExtractor implements TagExtractor {
     @Override
     public TagExtractionResult extractWithContext(String id, String text) {
         if (generator == null || !generator.isAvailable()) {
-            log.warn("[TagExtract] LLM unavailable for '{}', using content fallback", truncId(id));
-            return TagExtractionResult.tagsOnly(fallback.extract(id, text));
+            return fallbackOrFail(id, text, "LLM provider unavailable", null);
         }
 
         long startNs = System.nanoTime();
@@ -171,9 +207,7 @@ public final class LlmTagExtractor implements TagExtractor {
             long elapsedMs = (System.nanoTime() - startNs) / 1_000_000;
 
             if (response == null || response.isBlank()) {
-                log.warn("[TagExtract] LLM returned empty for '{}' ({}ms), using content fallback",
-                        truncId(id), elapsedMs);
-                return TagExtractionResult.tagsOnly(fallback.extract(id, text));
+                return fallbackOrFail(id, text, "LLM returned an empty response after " + elapsedMs + "ms", null);
             }
 
             log.debug("[TagExtract] LLM response for '{}': {} chars", truncId(id), response.length());
@@ -220,9 +254,8 @@ public final class LlmTagExtractor implements TagExtractor {
                 } else if (!response.contains(",") && !response.contains(";") && response.length() > 100) {
                     // Safety: if the response has no commas/semicolons/slashes and is very long,
                     // the model likely echoed the prompt  --  fall back immediately
-                    log.warn("[TagExtract] LLM response for '{}' appears to be prompt echo ({} chars, no delimiters), "
-                            + "using content fallback", truncId(id), response.length());
-                    return TagExtractionResult.tagsOnly(fallback.extract(id, text));
+                    return fallbackOrFail(id, text, "LLM response looks like a prompt echo ("
+                            + response.length() + " chars, no delimiters)", null);
                 } else {
                     tagLine = response;
                 }
@@ -271,21 +304,37 @@ public final class LlmTagExtractor implements TagExtractor {
                     .toArray(String[]::new);
 
             if (tags.length == 0) {
-                log.warn("[TagExtract] LLM tags parsed to empty for '{}' ({} chars, {}ms), using content fallback",
-                        truncId(id), response.length(), elapsedMs);
-                return TagExtractionResult.tagsOnly(fallback.extract(id, text));
+                return fallbackOrFail(id, text, "LLM tags parsed to empty (" + response.length() + " chars, "
+                        + elapsedMs + "ms)", null);
             }
 
             log.info("[TagExtract] LLM extracted {} tags for '{}' in {}ms (valence={}, arousal={})",
                     tags.length, truncId(id), elapsedMs, valence, Byte.toUnsignedInt(arousal));
             return new TagExtractionResult(tags, valence, arousal);
 
+        } catch (SpectorMemoryException e) {
+            throw e;
         } catch (Exception e) {
             long elapsedMs = (System.nanoTime() - startNs) / 1_000_000;
-            log.warn("[TagExtract] LLM failed for '{}' in {}ms ({}), using content fallback",
-                    truncId(id), elapsedMs, e.getClass().getSimpleName());
-            return TagExtractionResult.tagsOnly(fallback.extract(id, text));
+            return fallbackOrFail(id, text, "LLM call failed in " + elapsedMs + "ms ("
+                    + e.getClass().getSimpleName() + ")", e);
         }
+    }
+
+    /**
+     * Strict: logs an error and throws {@link ErrorCode#MEMORY_LLM_APPRAISAL_FAILED}. Lenient: logs a warning
+     * and returns the content extractor's tags. The reason never contains the text or any credential.
+     */
+    private TagExtractionResult fallbackOrFail(String id, String text, String reason, Exception cause) {
+        if (strict) {
+            log.error("[TagExtract] {} for '{}'; tag-extractor=llm does not fall back to keyword tagging "
+                    + "({})", reason, truncId(id), ErrorCode.MEMORY_LLM_APPRAISAL_FAILED.id());
+            throw cause != null
+                    ? new SpectorMemoryException(ErrorCode.MEMORY_LLM_APPRAISAL_FAILED, cause, truncId(id), reason)
+                    : new SpectorMemoryException(ErrorCode.MEMORY_LLM_APPRAISAL_FAILED, truncId(id), reason);
+        }
+        log.warn("[TagExtract] {} for '{}', using content fallback", reason, truncId(id));
+        return TagExtractionResult.tagsOnly(fallback.extract(id, text));
     }
 
     /** Parse a signed byte value from LLM output, clamping to [-128, 127]. */

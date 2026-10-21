@@ -71,6 +71,7 @@ These errors indicate problems with Spector configuration files or values.
 | `SPE-110-003` | Invalid configuration value | Verify the reported field value is within documented bounds. |
 | `SPE-110-004` | Configuration profile not found | Check available profiles in your config file. |
 | `SPE-110-005` | Required configuration key missing | Add the missing key to your config file. |
+| `SPE-110-006` | No text generation provider available | A feature such as `tag-extractor: llm` needs an LLM. Set `spector.provider.generation.type`/`model` and its API key (for OpenAI, `OPENAI_API_KEY`), or switch the feature off. |
 
 ---
 
@@ -136,6 +137,7 @@ These errors relate to the cognitive memory subsystem.
 | `SPE-310-003` | Memory consolidation failed | Check disk space and WAL integrity. |
 | `SPE-310-004` | Memory ID not found | The specified memory ID does not exist in any tier. |
 | `SPE-310-005` | Memory WAL file corrupted | WAL file is unreadable. Recovery may require reinitialization. |
+| `SPE-310-029` | LLM tag extraction failed | `tag-extractor: llm` is set and the LLM call failed or returned nothing usable. The write is refused rather than silently tagged by keywords. Check the generation provider, its API key and quota, or set `tag-extractor: content`. |
 
 ---
 

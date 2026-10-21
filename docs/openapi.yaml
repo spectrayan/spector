@@ -9920,6 +9920,10 @@ components:
             type: string
         disclosure:
           type: string
+        wasTombstoned:
+          type: boolean
+        lexicalIndexCleared:
+          type: boolean
     FactRetractResponse:
       type: object
       properties:

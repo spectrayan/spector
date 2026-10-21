@@ -16,6 +16,7 @@
 package com.spectrayan.spector.cli;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -24,9 +25,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.ObjectProvider;
 
+import com.spectrayan.spector.config.model.TagExtractorMode;
+import com.spectrayan.spector.kernel.api.MemorySource;
+import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingResult;
+import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.spring.autoconfigure.SpectorConfigProperties;
 
 import picocli.CommandLine;
@@ -95,5 +101,50 @@ class McpCommandTest {
         assertThat(cmd.getLastResolvedProperties().getDimensions()).isEqualTo(384);
         assertThat(cmd.getLastResolvedProperties().getPersistencePath()).isEqualTo(tempDir.toAbsolutePath().toString());
         resolved.close();
+    }
+
+    @Test
+    void customFlagsPathPassesTheConfiguredLlmForLlmAppraisal(@TempDir Path tempDir) {
+        @SuppressWarnings("unchecked")
+        ObjectProvider<SpectorMemory> memProv = mock(ObjectProvider.class);
+        @SuppressWarnings("unchecked")
+        ObjectProvider<EmbeddingProvider> embProv = mock(ObjectProvider.class);
+        @SuppressWarnings("unchecked")
+        ObjectProvider<SpectorConfigProperties> cfgProv = mock(ObjectProvider.class);
+        @SuppressWarnings("unchecked")
+        ObjectProvider<LlmProvider> llmProv = mock(ObjectProvider.class);
+
+        EmbeddingProvider embedder = mock(EmbeddingProvider.class);
+        when(embedder.dimensions()).thenReturn(8);
+        when(embedder.modelName()).thenReturn("mock");
+        when(embedder.embed(anyString())).thenReturn(
+                new EmbeddingResult(
+                        new float[] {0.5f, 0.1f, 0.2f, 0.3f, 0.4f, 0.1f, 0.2f, 0.6f}, 4, "mock"));
+        when(embProv.getIfAvailable()).thenReturn(embedder);
+
+        var cfg = new SpectorConfigProperties();
+        cfg.getMemory().setTagExtractor(TagExtractorMode.LLM);
+        when(cfgProv.getIfAvailable()).thenReturn(cfg);
+
+        var llm = mock(LlmProvider.class);
+        when(llm.isAvailable()).thenReturn(true);
+        when(llm.modelName()).thenReturn("scripted");
+        when(llm.generate(anyString()))
+                .thenReturn("/status-updates\n/central-time\n/valence:45\n/arousal:80");
+        when(llmProv.getIfAvailable()).thenReturn(llm);
+
+        McpCommand cmd = new McpCommand(memProv, embProv, cfgProv, llmProv);
+        cmd.setDims(8);
+        cmd.setDataDir(tempDir.toAbsolutePath().toString());
+
+        try (SpectorMemory resolved = cmd.resolveMemory()) {
+            resolved.remember("m1", "Bharat prefers status updates in Central Time.",
+                    MemoryType.SEMANTIC,
+                    MemorySource.USER_STATED);
+            var stored = resolved.inspect("m1");
+            assertThat(stored).isNotNull();
+            assertThat(stored.valence()).isEqualTo((byte) 45);
+            assertThat(stored.tags()).contains("central-time");
+        }
     }
 }
