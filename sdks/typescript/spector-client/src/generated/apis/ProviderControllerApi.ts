@@ -26,7 +26,21 @@ export interface ActivateEmbeddingRequest {
     name: string;
 }
 
+export interface ActivateEmbedding1Request {
+    /**
+     * 
+     */
+    name: string;
+}
+
 export interface ActivateGenerationRequest {
+    /**
+     * 
+     */
+    name: string;
+}
+
+export interface ActivateGeneration1Request {
     /**
      * 
      */
@@ -40,7 +54,21 @@ export interface EmbeddingHealthRequest {
     name: string;
 }
 
+export interface EmbeddingHealth1Request {
+    /**
+     * 
+     */
+    name: string;
+}
+
 export interface GenerationHealthRequest {
+    /**
+     * 
+     */
+    name: string;
+}
+
+export interface GenerationHealth1Request {
     /**
      * 
      */
@@ -108,6 +136,61 @@ export class ProviderControllerApi extends runtime.BaseAPI {
     }
 
     /**
+     * Creates request options for activateEmbedding1 without sending the request
+     */
+    async activateEmbedding1RequestOpts(requestParameters: ActivateEmbedding1Request): Promise<runtime.RequestOpts> {
+        if (requestParameters['name'] == null) {
+            throw new runtime.RequiredError(
+                'name',
+                'Required parameter "name" was null or undefined when calling activateEmbedding1().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.apiKey) {
+            headerParameters["X-API-Key"] = await this.configuration.apiKey("X-API-Key"); // ApiKeyAuth authentication
+        }
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("BearerAuth", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/providers/embedding/{name}/activate`;
+        urlPath = urlPath.replace('{name}', encodeURIComponent(String(requestParameters['name'])));
+
+        return {
+            path: urlPath,
+            method: 'POST',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async activateEmbedding1Raw(requestParameters: ActivateEmbedding1Request, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<{ [key: string]: string; }>> {
+        const requestOptions = await this.activateEmbedding1RequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse<any>(response);
+    }
+
+    /**
+     */
+    async activateEmbedding1(requestParameters: ActivateEmbedding1Request, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<{ [key: string]: string; }> {
+        const response = await this.activateEmbedding1Raw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
      * Creates request options for activateGeneration without sending the request
      */
     async activateGenerationRequestOpts(requestParameters: ActivateGenerationRequest): Promise<runtime.RequestOpts> {
@@ -163,6 +246,61 @@ export class ProviderControllerApi extends runtime.BaseAPI {
     }
 
     /**
+     * Creates request options for activateGeneration1 without sending the request
+     */
+    async activateGeneration1RequestOpts(requestParameters: ActivateGeneration1Request): Promise<runtime.RequestOpts> {
+        if (requestParameters['name'] == null) {
+            throw new runtime.RequiredError(
+                'name',
+                'Required parameter "name" was null or undefined when calling activateGeneration1().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.apiKey) {
+            headerParameters["X-API-Key"] = await this.configuration.apiKey("X-API-Key"); // ApiKeyAuth authentication
+        }
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("BearerAuth", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/providers/generation/{name}/activate`;
+        urlPath = urlPath.replace('{name}', encodeURIComponent(String(requestParameters['name'])));
+
+        return {
+            path: urlPath,
+            method: 'POST',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async activateGeneration1Raw(requestParameters: ActivateGeneration1Request, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<{ [key: string]: string; }>> {
+        const requestOptions = await this.activateGeneration1RequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse<any>(response);
+    }
+
+    /**
+     */
+    async activateGeneration1(requestParameters: ActivateGeneration1Request, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<{ [key: string]: string; }> {
+        const response = await this.activateGeneration1Raw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
      * Creates request options for embeddingHealth without sending the request
      */
     async embeddingHealthRequestOpts(requestParameters: EmbeddingHealthRequest): Promise<runtime.RequestOpts> {
@@ -170,6 +308,61 @@ export class ProviderControllerApi extends runtime.BaseAPI {
             throw new runtime.RequiredError(
                 'name',
                 'Required parameter "name" was null or undefined when calling embeddingHealth().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.apiKey) {
+            headerParameters["X-API-Key"] = await this.configuration.apiKey("X-API-Key"); // ApiKeyAuth authentication
+        }
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("BearerAuth", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/providers/embedding/{name}/health`;
+        urlPath = urlPath.replace('{name}', encodeURIComponent(String(requestParameters['name'])));
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async embeddingHealthRaw(requestParameters: EmbeddingHealthRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<ProviderHealth>> {
+        const requestOptions = await this.embeddingHealthRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => ProviderHealthFromJSON(jsonValue));
+    }
+
+    /**
+     */
+    async embeddingHealth(requestParameters: EmbeddingHealthRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<ProviderHealth> {
+        const response = await this.embeddingHealthRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
+     * Creates request options for embeddingHealth1 without sending the request
+     */
+    async embeddingHealth1RequestOpts(requestParameters: EmbeddingHealth1Request): Promise<runtime.RequestOpts> {
+        if (requestParameters['name'] == null) {
+            throw new runtime.RequiredError(
+                'name',
+                'Required parameter "name" was null or undefined when calling embeddingHealth1().'
             );
         }
 
@@ -203,8 +396,8 @@ export class ProviderControllerApi extends runtime.BaseAPI {
 
     /**
      */
-    async embeddingHealthRaw(requestParameters: EmbeddingHealthRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<ProviderHealth>> {
-        const requestOptions = await this.embeddingHealthRequestOpts(requestParameters);
+    async embeddingHealth1Raw(requestParameters: EmbeddingHealth1Request, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<ProviderHealth>> {
+        const requestOptions = await this.embeddingHealth1RequestOpts(requestParameters);
         const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.JSONApiResponse(response, (jsonValue) => ProviderHealthFromJSON(jsonValue));
@@ -212,8 +405,8 @@ export class ProviderControllerApi extends runtime.BaseAPI {
 
     /**
      */
-    async embeddingHealth(requestParameters: EmbeddingHealthRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<ProviderHealth> {
-        const response = await this.embeddingHealthRaw(requestParameters, initOverrides);
+    async embeddingHealth1(requestParameters: EmbeddingHealth1Request, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<ProviderHealth> {
+        const response = await this.embeddingHealth1Raw(requestParameters, initOverrides);
         return await response.value();
     }
 
@@ -225,6 +418,61 @@ export class ProviderControllerApi extends runtime.BaseAPI {
             throw new runtime.RequiredError(
                 'name',
                 'Required parameter "name" was null or undefined when calling generationHealth().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.apiKey) {
+            headerParameters["X-API-Key"] = await this.configuration.apiKey("X-API-Key"); // ApiKeyAuth authentication
+        }
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("BearerAuth", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/providers/generation/{name}/health`;
+        urlPath = urlPath.replace('{name}', encodeURIComponent(String(requestParameters['name'])));
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async generationHealthRaw(requestParameters: GenerationHealthRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<ProviderHealth>> {
+        const requestOptions = await this.generationHealthRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => ProviderHealthFromJSON(jsonValue));
+    }
+
+    /**
+     */
+    async generationHealth(requestParameters: GenerationHealthRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<ProviderHealth> {
+        const response = await this.generationHealthRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
+     * Creates request options for generationHealth1 without sending the request
+     */
+    async generationHealth1RequestOpts(requestParameters: GenerationHealth1Request): Promise<runtime.RequestOpts> {
+        if (requestParameters['name'] == null) {
+            throw new runtime.RequiredError(
+                'name',
+                'Required parameter "name" was null or undefined when calling generationHealth1().'
             );
         }
 
@@ -258,8 +506,8 @@ export class ProviderControllerApi extends runtime.BaseAPI {
 
     /**
      */
-    async generationHealthRaw(requestParameters: GenerationHealthRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<ProviderHealth>> {
-        const requestOptions = await this.generationHealthRequestOpts(requestParameters);
+    async generationHealth1Raw(requestParameters: GenerationHealth1Request, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<ProviderHealth>> {
+        const requestOptions = await this.generationHealth1RequestOpts(requestParameters);
         const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.JSONApiResponse(response, (jsonValue) => ProviderHealthFromJSON(jsonValue));
@@ -267,8 +515,8 @@ export class ProviderControllerApi extends runtime.BaseAPI {
 
     /**
      */
-    async generationHealth(requestParameters: GenerationHealthRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<ProviderHealth> {
-        const response = await this.generationHealthRaw(requestParameters, initOverrides);
+    async generationHealth1(requestParameters: GenerationHealth1Request, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<ProviderHealth> {
+        const response = await this.generationHealth1Raw(requestParameters, initOverrides);
         return await response.value();
     }
 
@@ -320,6 +568,53 @@ export class ProviderControllerApi extends runtime.BaseAPI {
     }
 
     /**
+     * Creates request options for health2 without sending the request
+     */
+    async health2RequestOpts(): Promise<runtime.RequestOpts> {
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.apiKey) {
+            headerParameters["X-API-Key"] = await this.configuration.apiKey("X-API-Key"); // ApiKeyAuth authentication
+        }
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("BearerAuth", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/providers/health`;
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async health2Raw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<{ [key: string]: ProviderHealth; }>> {
+        const requestOptions = await this.health2RequestOpts();
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => runtime.mapValues(jsonValue, ProviderHealthFromJSON));
+    }
+
+    /**
+     */
+    async health2(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<{ [key: string]: ProviderHealth; }> {
+        const response = await this.health2Raw(initOverrides);
+        return await response.value();
+    }
+
+    /**
      * Creates request options for list without sending the request
      */
     async listRequestOpts(): Promise<runtime.RequestOpts> {
@@ -363,6 +658,53 @@ export class ProviderControllerApi extends runtime.BaseAPI {
      */
     async list(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<{ [key: string]: any | null; }> {
         const response = await this.listRaw(initOverrides);
+        return await response.value();
+    }
+
+    /**
+     * Creates request options for list1 without sending the request
+     */
+    async list1RequestOpts(): Promise<runtime.RequestOpts> {
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.apiKey) {
+            headerParameters["X-API-Key"] = await this.configuration.apiKey("X-API-Key"); // ApiKeyAuth authentication
+        }
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("BearerAuth", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/providers`;
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async list1Raw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<{ [key: string]: any | null; }>> {
+        const requestOptions = await this.list1RequestOpts();
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse<any>(response);
+    }
+
+    /**
+     */
+    async list1(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<{ [key: string]: any | null; }> {
+        const response = await this.list1Raw(initOverrides);
         return await response.value();
     }
 

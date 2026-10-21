@@ -15,7 +15,7 @@ All URIs are relative to *http://localhost*
 
 ## createCredential
 
-> CredentialResponse createCredential(createCredentialRequest, xTenantID)
+> CredentialResponse createCredential(createCredentialRequest, xTenantID, tenantId)
 
 
 
@@ -43,6 +43,8 @@ async function example() {
     createCredentialRequest: ...,
     // string (optional)
     xTenantID: xTenantID_example,
+    // string (optional)
+    tenantId: tenantId_example,
   } satisfies CreateCredentialOperationRequest;
 
   try {
@@ -63,7 +65,8 @@ example().catch(console.error);
 | Name | Type | Description  | Notes |
 |------------- | ------------- | ------------- | -------------|
 | **createCredentialRequest** | [CreateCredentialRequest](CreateCredentialRequest.md) |  | |
-| **xTenantID** | `string` |  | [Optional] [Defaults to `&#39;default&#39;`] |
+| **xTenantID** | `string` |  | [Optional] [Defaults to `undefined`] |
+| **tenantId** | `string` |  | [Optional] [Defaults to `undefined`] |
 
 ### Return type
 
@@ -89,7 +92,7 @@ example().catch(console.error);
 
 ## deleteCredential
 
-> deleteCredential(name, xTenantID)
+> deleteCredential(name, xTenantID, tenantId)
 
 
 
@@ -117,6 +120,8 @@ async function example() {
     name: name_example,
     // string (optional)
     xTenantID: xTenantID_example,
+    // string (optional)
+    tenantId: tenantId_example,
   } satisfies DeleteCredentialRequest;
 
   try {
@@ -137,7 +142,8 @@ example().catch(console.error);
 | Name | Type | Description  | Notes |
 |------------- | ------------- | ------------- | -------------|
 | **name** | `string` |  | [Defaults to `undefined`] |
-| **xTenantID** | `string` |  | [Optional] [Defaults to `&#39;default&#39;`] |
+| **xTenantID** | `string` |  | [Optional] [Defaults to `undefined`] |
+| **tenantId** | `string` |  | [Optional] [Defaults to `undefined`] |
 
 ### Return type
 
@@ -163,7 +169,7 @@ example().catch(console.error);
 
 ## getCredential
 
-> CredentialResponse getCredential(name, xTenantID)
+> CredentialResponse getCredential(name, xTenantID, tenantId)
 
 
 
@@ -191,6 +197,8 @@ async function example() {
     name: name_example,
     // string (optional)
     xTenantID: xTenantID_example,
+    // string (optional)
+    tenantId: tenantId_example,
   } satisfies GetCredentialRequest;
 
   try {
@@ -211,7 +219,8 @@ example().catch(console.error);
 | Name | Type | Description  | Notes |
 |------------- | ------------- | ------------- | -------------|
 | **name** | `string` |  | [Defaults to `undefined`] |
-| **xTenantID** | `string` |  | [Optional] [Defaults to `&#39;default&#39;`] |
+| **xTenantID** | `string` |  | [Optional] [Defaults to `undefined`] |
+| **tenantId** | `string` |  | [Optional] [Defaults to `undefined`] |
 
 ### Return type
 
@@ -237,7 +246,7 @@ example().catch(console.error);
 
 ## listCredentials
 
-> Array&lt;CredentialResponse&gt; listCredentials(xTenantID, userId)
+> Array&lt;CredentialResponse&gt; listCredentials(xTenantID, tenantId, userId)
 
 
 
@@ -264,6 +273,8 @@ async function example() {
     // string (optional)
     xTenantID: xTenantID_example,
     // string (optional)
+    tenantId: tenantId_example,
+    // string (optional)
     userId: userId_example,
   } satisfies ListCredentialsRequest;
 
@@ -284,7 +295,8 @@ example().catch(console.error);
 
 | Name | Type | Description  | Notes |
 |------------- | ------------- | ------------- | -------------|
-| **xTenantID** | `string` |  | [Optional] [Defaults to `&#39;default&#39;`] |
+| **xTenantID** | `string` |  | [Optional] [Defaults to `undefined`] |
+| **tenantId** | `string` |  | [Optional] [Defaults to `undefined`] |
 | **userId** | `string` |  | [Optional] [Defaults to `undefined`] |
 
 ### Return type
@@ -311,7 +323,7 @@ example().catch(console.error);
 
 ## testCredential
 
-> { [key: string]: any | null; } testCredential(name, xTenantID)
+> { [key: string]: any | null; } testCredential(name, xTenantID, tenantId)
 
 
 
@@ -339,6 +351,8 @@ async function example() {
     name: name_example,
     // string (optional)
     xTenantID: xTenantID_example,
+    // string (optional)
+    tenantId: tenantId_example,
   } satisfies TestCredentialRequest;
 
   try {
@@ -359,7 +373,8 @@ example().catch(console.error);
 | Name | Type | Description  | Notes |
 |------------- | ------------- | ------------- | -------------|
 | **name** | `string` |  | [Defaults to `undefined`] |
-| **xTenantID** | `string` |  | [Optional] [Defaults to `&#39;default&#39;`] |
+| **xTenantID** | `string` |  | [Optional] [Defaults to `undefined`] |
+| **tenantId** | `string` |  | [Optional] [Defaults to `undefined`] |
 
 ### Return type
 
@@ -385,7 +400,7 @@ example().catch(console.error);
 
 ## updateCredential
 
-> CredentialResponse updateCredential(name, updateCredentialRequest, xTenantID)
+> CredentialResponse updateCredential(name, updateCredentialRequest, xTenantID, tenantId)
 
 
 
@@ -415,6 +430,8 @@ async function example() {
     updateCredentialRequest: ...,
     // string (optional)
     xTenantID: xTenantID_example,
+    // string (optional)
+    tenantId: tenantId_example,
   } satisfies UpdateCredentialOperationRequest;
 
   try {
@@ -436,7 +453,8 @@ example().catch(console.error);
 |------------- | ------------- | ------------- | -------------|
 | **name** | `string` |  | [Defaults to `undefined`] |
 | **updateCredentialRequest** | [UpdateCredentialRequest](UpdateCredentialRequest.md) |  | |
-| **xTenantID** | `string` |  | [Optional] [Defaults to `&#39;default&#39;`] |
+| **xTenantID** | `string` |  | [Optional] [Defaults to `undefined`] |
+| **tenantId** | `string` |  | [Optional] [Defaults to `undefined`] |
 
 ### Return type
 

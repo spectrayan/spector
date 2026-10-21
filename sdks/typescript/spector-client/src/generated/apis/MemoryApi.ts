@@ -44,6 +44,21 @@ import {
     EnrichmentTriggerResponseToJSON,
 } from '../models/EnrichmentTriggerResponse';
 import {
+    type FactAssertRequest,
+    FactAssertRequestFromJSON,
+    FactAssertRequestToJSON,
+} from '../models/FactAssertRequest';
+import {
+    type FactAssertResponse,
+    FactAssertResponseFromJSON,
+    FactAssertResponseToJSON,
+} from '../models/FactAssertResponse';
+import {
+    type FactRetractResponse,
+    FactRetractResponseFromJSON,
+    FactRetractResponseToJSON,
+} from '../models/FactRetractResponse';
+import {
     type FederatedRecallRequest,
     FederatedRecallRequestFromJSON,
     FederatedRecallRequestToJSON,
@@ -89,10 +104,20 @@ import {
     ProjectionResultToJSON,
 } from '../models/ProjectionResult';
 import {
+    type PurgeResult,
+    PurgeResultFromJSON,
+    PurgeResultToJSON,
+} from '../models/PurgeResult';
+import {
     type RecallRequest,
     RecallRequestFromJSON,
     RecallRequestToJSON,
 } from '../models/RecallRequest';
+import {
+    type RecallResponse,
+    RecallResponseFromJSON,
+    RecallResponseToJSON,
+} from '../models/RecallResponse';
 import {
     type RecallResult,
     RecallResultFromJSON,
@@ -159,6 +184,11 @@ import {
     SuppressRequestToJSON,
 } from '../models/SuppressRequest';
 import {
+    type TemporalFact,
+    TemporalFactFromJSON,
+    TemporalFactToJSON,
+} from '../models/TemporalFact';
+import {
     type TopologyStatsResponse,
     TopologyStatsResponseFromJSON,
     TopologyStatsResponseToJSON,
@@ -173,6 +203,23 @@ import {
     VacuumRequestFromJSON,
     VacuumRequestToJSON,
 } from '../models/VacuumRequest';
+import {
+    type WhyNotRequest,
+    WhyNotRequestFromJSON,
+    WhyNotRequestToJSON,
+} from '../models/WhyNotRequest';
+import {
+    type WhyNotResponse,
+    WhyNotResponseFromJSON,
+    WhyNotResponseToJSON,
+} from '../models/WhyNotResponse';
+
+export interface AssertFactRequest {
+    /**
+     * 
+     */
+    factAssertRequest: FactAssertRequest;
+}
 
 export interface BrowseMemoriesRequest {
     /**
@@ -231,6 +278,17 @@ export interface ForgetMemoryRequest {
     id: string;
 }
 
+export interface GetFactsRequest {
+    /**
+     * 
+     */
+    entity: string;
+    /**
+     * 
+     */
+    asOf?: number;
+}
+
 export interface GetGraphOverviewRequest {
     /**
      * 
@@ -260,11 +318,27 @@ export interface GetMemoryTableRequest {
     /**
      * 
      */
+    cursor?: string;
+    /**
+     * 
+     */
     page?: number;
     /**
      * 
      */
     pageSize?: number;
+    /**
+     * 
+     */
+    createdFrom?: number;
+    /**
+     * 
+     */
+    createdTo?: number;
+    /**
+     * 
+     */
+    source?: string;
     /**
      * 
      */
@@ -304,7 +378,21 @@ export interface IngestMemoryFileRequest {
     source?: string;
 }
 
+export interface PurgeMemoryRequest {
+    /**
+     * 
+     */
+    id: string;
+}
+
 export interface RecallMemoriesRequest {
+    /**
+     * 
+     */
+    recallRequest: RecallRequest;
+}
+
+export interface RecallMemoriesWithResponseRequest {
     /**
      * 
      */
@@ -378,6 +466,13 @@ export interface ResolveMemoryRequest {
     resolveRequest?: ResolveRequest;
 }
 
+export interface RetractFactRequest {
+    /**
+     * 
+     */
+    factId: number;
+}
+
 export interface SearchMemoriesRequest {
     /**
      * 
@@ -386,6 +481,13 @@ export interface SearchMemoriesRequest {
 }
 
 export interface StoreMemoryRequest {
+    /**
+     * 
+     */
+    storeRequest: StoreRequest;
+}
+
+export interface StoreMemory1Request {
     /**
      * 
      */
@@ -421,10 +523,76 @@ export interface VacuumMemoriesRequest {
     vacuumRequest?: VacuumRequest;
 }
 
+export interface WhyNotMemoryRequest {
+    /**
+     * 
+     */
+    whyNotRequest: WhyNotRequest;
+}
+
 /**
  * 
  */
 export class MemoryApi extends runtime.BaseAPI {
+
+    /**
+     * Creates request options for assertFact without sending the request
+     */
+    async assertFactRequestOpts(requestParameters: AssertFactRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['factAssertRequest'] == null) {
+            throw new runtime.RequiredError(
+                'factAssertRequest',
+                'Required parameter "factAssertRequest" was null or undefined when calling assertFact().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
+
+        if (this.configuration && this.configuration.apiKey) {
+            headerParameters["X-API-Key"] = await this.configuration.apiKey("X-API-Key"); // ApiKeyAuth authentication
+        }
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("BearerAuth", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/memory/facts`;
+
+        return {
+            path: urlPath,
+            method: 'POST',
+            headers: headerParameters,
+            query: queryParameters,
+            body: FactAssertRequestToJSON(requestParameters['factAssertRequest']),
+        };
+    }
+
+    /**
+     * Assert a temporal fact into the memory graph
+     */
+    async assertFactRaw(requestParameters: AssertFactRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<FactAssertResponse>> {
+        const requestOptions = await this.assertFactRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => FactAssertResponseFromJSON(jsonValue));
+    }
+
+    /**
+     * Assert a temporal fact into the memory graph
+     */
+    async assertFact(requestParameters: AssertFactRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<FactAssertResponse> {
+        const response = await this.assertFactRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
 
     /**
      * Creates request options for browseMemories without sending the request
@@ -1035,6 +1203,70 @@ export class MemoryApi extends runtime.BaseAPI {
     }
 
     /**
+     * Creates request options for getFacts without sending the request
+     */
+    async getFactsRequestOpts(requestParameters: GetFactsRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['entity'] == null) {
+            throw new runtime.RequiredError(
+                'entity',
+                'Required parameter "entity" was null or undefined when calling getFacts().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        if (requestParameters['entity'] != null) {
+            queryParameters['entity'] = requestParameters['entity'];
+        }
+
+        if (requestParameters['asOf'] != null) {
+            queryParameters['asOf'] = requestParameters['asOf'];
+        }
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.apiKey) {
+            headerParameters["X-API-Key"] = await this.configuration.apiKey("X-API-Key"); // ApiKeyAuth authentication
+        }
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("BearerAuth", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/memory/facts`;
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     * Query temporal facts about an entity
+     */
+    async getFactsRaw(requestParameters: GetFactsRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Array<TemporalFact>>> {
+        const requestOptions = await this.getFactsRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => jsonValue.map(TemporalFactFromJSON));
+    }
+
+    /**
+     * Query temporal facts about an entity
+     */
+    async getFacts(requestParameters: GetFactsRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Array<TemporalFact>> {
+        const response = await this.getFactsRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
      * Creates request options for getGraphOverview without sending the request
      */
     async getGraphOverviewRequestOpts(requestParameters: GetGraphOverviewRequest): Promise<runtime.RequestOpts> {
@@ -1456,12 +1688,28 @@ export class MemoryApi extends runtime.BaseAPI {
     async getMemoryTableRequestOpts(requestParameters: GetMemoryTableRequest): Promise<runtime.RequestOpts> {
         const queryParameters: any = {};
 
+        if (requestParameters['cursor'] != null) {
+            queryParameters['cursor'] = requestParameters['cursor'];
+        }
+
         if (requestParameters['page'] != null) {
             queryParameters['page'] = requestParameters['page'];
         }
 
         if (requestParameters['pageSize'] != null) {
             queryParameters['pageSize'] = requestParameters['pageSize'];
+        }
+
+        if (requestParameters['createdFrom'] != null) {
+            queryParameters['created_from'] = requestParameters['createdFrom'];
+        }
+
+        if (requestParameters['createdTo'] != null) {
+            queryParameters['created_to'] = requestParameters['createdTo'];
+        }
+
+        if (requestParameters['source'] != null) {
+            queryParameters['source'] = requestParameters['source'];
         }
 
         if (requestParameters['tier'] != null) {
@@ -1862,6 +2110,63 @@ export class MemoryApi extends runtime.BaseAPI {
     }
 
     /**
+     * Creates request options for purgeMemory without sending the request
+     */
+    async purgeMemoryRequestOpts(requestParameters: PurgeMemoryRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['id'] == null) {
+            throw new runtime.RequiredError(
+                'id',
+                'Required parameter "id" was null or undefined when calling purgeMemory().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.apiKey) {
+            headerParameters["X-API-Key"] = await this.configuration.apiKey("X-API-Key"); // ApiKeyAuth authentication
+        }
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("BearerAuth", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/memory/{id}/purge`;
+        urlPath = urlPath.replace('{id}', encodeURIComponent(String(requestParameters['id'])));
+
+        return {
+            path: urlPath,
+            method: 'DELETE',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     * Physically destroy (purge) a memory by ID
+     */
+    async purgeMemoryRaw(requestParameters: PurgeMemoryRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<PurgeResult>> {
+        const requestOptions = await this.purgeMemoryRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => PurgeResultFromJSON(jsonValue));
+    }
+
+    /**
+     * Physically destroy (purge) a memory by ID
+     */
+    async purgeMemory(requestParameters: PurgeMemoryRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<PurgeResult> {
+        const response = await this.purgeMemoryRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
      * Creates request options for recallMemories without sending the request
      */
     async recallMemoriesRequestOpts(requestParameters: RecallMemoriesRequest): Promise<runtime.RequestOpts> {
@@ -1917,6 +2222,65 @@ export class MemoryApi extends runtime.BaseAPI {
      */
     async recallMemories(requestParameters: RecallMemoriesRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Array<RecallResult>> {
         const response = await this.recallMemoriesRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
+     * Creates request options for recallMemoriesWithResponse without sending the request
+     */
+    async recallMemoriesWithResponseRequestOpts(requestParameters: RecallMemoriesWithResponseRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['recallRequest'] == null) {
+            throw new runtime.RequiredError(
+                'recallRequest',
+                'Required parameter "recallRequest" was null or undefined when calling recallMemoriesWithResponse().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
+
+        if (this.configuration && this.configuration.apiKey) {
+            headerParameters["X-API-Key"] = await this.configuration.apiKey("X-API-Key"); // ApiKeyAuth authentication
+        }
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("BearerAuth", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/memory/recall/response`;
+
+        return {
+            path: urlPath,
+            method: 'POST',
+            headers: headerParameters,
+            query: queryParameters,
+            body: RecallRequestToJSON(requestParameters['recallRequest']),
+        };
+    }
+
+    /**
+     * Cognitive recall returning full response with truncation metadata
+     */
+    async recallMemoriesWithResponseRaw(requestParameters: RecallMemoriesWithResponseRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<RecallResponse>> {
+        const requestOptions = await this.recallMemoriesWithResponseRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => RecallResponseFromJSON(jsonValue));
+    }
+
+    /**
+     * Cognitive recall returning full response with truncation metadata
+     */
+    async recallMemoriesWithResponse(requestParameters: RecallMemoriesWithResponseRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<RecallResponse> {
+        const response = await this.recallMemoriesWithResponseRaw(requestParameters, initOverrides);
         return await response.value();
     }
 
@@ -2229,6 +2593,63 @@ export class MemoryApi extends runtime.BaseAPI {
     }
 
     /**
+     * Creates request options for retractFact without sending the request
+     */
+    async retractFactRequestOpts(requestParameters: RetractFactRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['factId'] == null) {
+            throw new runtime.RequiredError(
+                'factId',
+                'Required parameter "factId" was null or undefined when calling retractFact().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.apiKey) {
+            headerParameters["X-API-Key"] = await this.configuration.apiKey("X-API-Key"); // ApiKeyAuth authentication
+        }
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("BearerAuth", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/memory/facts/{factId}`;
+        urlPath = urlPath.replace('{factId}', encodeURIComponent(String(requestParameters['factId'])));
+
+        return {
+            path: urlPath,
+            method: 'DELETE',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     * Retract a previously asserted temporal fact
+     */
+    async retractFactRaw(requestParameters: RetractFactRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<FactRetractResponse>> {
+        const requestOptions = await this.retractFactRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => FactRetractResponseFromJSON(jsonValue));
+    }
+
+    /**
+     * Retract a previously asserted temporal fact
+     */
+    async retractFact(requestParameters: RetractFactRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<FactRetractResponse> {
+        const response = await this.retractFactRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
      * Creates request options for searchMemories without sending the request
      */
     async searchMemoriesRequestOpts(requestParameters: SearchMemoriesRequest): Promise<runtime.RequestOpts> {
@@ -2317,7 +2738,7 @@ export class MemoryApi extends runtime.BaseAPI {
             }
         }
 
-        let urlPath = `/api/v1/memory`;
+        let urlPath = `/api/v1/memory/store`;
 
         return {
             path: urlPath,
@@ -2343,6 +2764,65 @@ export class MemoryApi extends runtime.BaseAPI {
      */
     async storeMemory(requestParameters: StoreMemoryRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<StoreResponse> {
         const response = await this.storeMemoryRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
+     * Creates request options for storeMemory1 without sending the request
+     */
+    async storeMemory1RequestOpts(requestParameters: StoreMemory1Request): Promise<runtime.RequestOpts> {
+        if (requestParameters['storeRequest'] == null) {
+            throw new runtime.RequiredError(
+                'storeRequest',
+                'Required parameter "storeRequest" was null or undefined when calling storeMemory1().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
+
+        if (this.configuration && this.configuration.apiKey) {
+            headerParameters["X-API-Key"] = await this.configuration.apiKey("X-API-Key"); // ApiKeyAuth authentication
+        }
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("BearerAuth", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/memory`;
+
+        return {
+            path: urlPath,
+            method: 'POST',
+            headers: headerParameters,
+            query: queryParameters,
+            body: StoreRequestToJSON(requestParameters['storeRequest']),
+        };
+    }
+
+    /**
+     * Store a cognitive memory synchronously
+     */
+    async storeMemory1Raw(requestParameters: StoreMemory1Request, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<StoreResponse>> {
+        const requestOptions = await this.storeMemory1RequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => StoreResponseFromJSON(jsonValue));
+    }
+
+    /**
+     * Store a cognitive memory synchronously
+     */
+    async storeMemory1(requestParameters: StoreMemory1Request, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<StoreResponse> {
+        const response = await this.storeMemory1Raw(requestParameters, initOverrides);
         return await response.value();
     }
 
@@ -2526,6 +3006,65 @@ export class MemoryApi extends runtime.BaseAPI {
      */
     async vacuumMemories(requestParameters: VacuumMemoriesRequest = {}, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<CompactionResult> {
         const response = await this.vacuumMemoriesRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
+     * Creates request options for whyNotMemory without sending the request
+     */
+    async whyNotMemoryRequestOpts(requestParameters: WhyNotMemoryRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['whyNotRequest'] == null) {
+            throw new runtime.RequiredError(
+                'whyNotRequest',
+                'Required parameter "whyNotRequest" was null or undefined when calling whyNotMemory().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
+
+        if (this.configuration && this.configuration.apiKey) {
+            headerParameters["X-API-Key"] = await this.configuration.apiKey("X-API-Key"); // ApiKeyAuth authentication
+        }
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("BearerAuth", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/memory/why-not`;
+
+        return {
+            path: urlPath,
+            method: 'POST',
+            headers: headerParameters,
+            query: queryParameters,
+            body: WhyNotRequestToJSON(requestParameters['whyNotRequest']),
+        };
+    }
+
+    /**
+     * Explain why a specific memory was excluded or outranked in a recall query
+     */
+    async whyNotMemoryRaw(requestParameters: WhyNotMemoryRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<WhyNotResponse>> {
+        const requestOptions = await this.whyNotMemoryRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => WhyNotResponseFromJSON(jsonValue));
+    }
+
+    /**
+     * Explain why a specific memory was excluded or outranked in a recall query
+     */
+    async whyNotMemory(requestParameters: WhyNotMemoryRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<WhyNotResponse> {
+        const response = await this.whyNotMemoryRaw(requestParameters, initOverrides);
         return await response.value();
     }
 

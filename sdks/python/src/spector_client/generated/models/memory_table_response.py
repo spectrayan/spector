@@ -18,7 +18,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt
+from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional, Union
 from spector_client.generated.models.memory_table_row import MemoryTableRow
 from typing import Optional, Set
@@ -29,13 +29,14 @@ class MemoryTableResponse(BaseModel):
     """
     MemoryTableResponse
     """ # noqa: E501
+    next_cursor: Optional[StrictStr] = Field(default=None, alias="nextCursor")
     rows: Optional[List[MemoryTableRow]] = None
     total_count: Optional[StrictInt] = Field(default=None, alias="totalCount")
     page: Optional[StrictInt] = None
     page_size: Optional[StrictInt] = Field(default=None, alias="pageSize")
     tier_counts: Optional[Dict[str, StrictInt]] = Field(default=None, alias="tierCounts")
     tombstone_ratios: Optional[Dict[str, Union[StrictFloat, StrictInt]]] = Field(default=None, alias="tombstoneRatios")
-    __properties: ClassVar[List[str]] = ["rows", "totalCount", "page", "pageSize", "tierCounts", "tombstoneRatios"]
+    __properties: ClassVar[List[str]] = ["nextCursor", "rows", "totalCount", "page", "pageSize", "tierCounts", "tombstoneRatios"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -94,6 +95,7 @@ class MemoryTableResponse(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
+            "nextCursor": obj.get("nextCursor"),
             "rows": [MemoryTableRow.from_dict(_item) for _item in obj["rows"]] if obj.get("rows") is not None else None,
             "totalCount": obj.get("totalCount"),
             "page": obj.get("page"),

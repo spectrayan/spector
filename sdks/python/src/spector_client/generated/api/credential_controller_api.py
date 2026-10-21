@@ -45,6 +45,7 @@ class CredentialControllerApi:
         self,
         create_credential_request: CreateCredentialRequest,
         x_tenant_id: Optional[StrictStr] = None,
+        tenant_id: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -65,6 +66,8 @@ class CredentialControllerApi:
         :type create_credential_request: CreateCredentialRequest
         :param x_tenant_id:
         :type x_tenant_id: str
+        :param tenant_id:
+        :type tenant_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -90,6 +93,7 @@ class CredentialControllerApi:
         _param = self._create_credential_serialize(
             create_credential_request=create_credential_request,
             x_tenant_id=x_tenant_id,
+            tenant_id=tenant_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -115,6 +119,7 @@ class CredentialControllerApi:
         self,
         create_credential_request: CreateCredentialRequest,
         x_tenant_id: Optional[StrictStr] = None,
+        tenant_id: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -135,6 +140,8 @@ class CredentialControllerApi:
         :type create_credential_request: CreateCredentialRequest
         :param x_tenant_id:
         :type x_tenant_id: str
+        :param tenant_id:
+        :type tenant_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -160,6 +167,7 @@ class CredentialControllerApi:
         _param = self._create_credential_serialize(
             create_credential_request=create_credential_request,
             x_tenant_id=x_tenant_id,
+            tenant_id=tenant_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -185,6 +193,7 @@ class CredentialControllerApi:
         self,
         create_credential_request: CreateCredentialRequest,
         x_tenant_id: Optional[StrictStr] = None,
+        tenant_id: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -205,6 +214,8 @@ class CredentialControllerApi:
         :type create_credential_request: CreateCredentialRequest
         :param x_tenant_id:
         :type x_tenant_id: str
+        :param tenant_id:
+        :type tenant_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -230,6 +241,7 @@ class CredentialControllerApi:
         _param = self._create_credential_serialize(
             create_credential_request=create_credential_request,
             x_tenant_id=x_tenant_id,
+            tenant_id=tenant_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -250,6 +262,7 @@ class CredentialControllerApi:
         self,
         create_credential_request,
         x_tenant_id,
+        tenant_id,
         _request_auth,
         _content_type,
         _headers,
@@ -272,6 +285,10 @@ class CredentialControllerApi:
 
         # process the path parameters
         # process the query parameters
+        if tenant_id is not None:
+            
+            _query_params.append(('tenantId', tenant_id))
+            
         # process the header parameters
         if x_tenant_id is not None:
             _header_params['X-Tenant-ID'] = x_tenant_id
@@ -332,6 +349,7 @@ class CredentialControllerApi:
         self,
         name: StrictStr,
         x_tenant_id: Optional[StrictStr] = None,
+        tenant_id: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -352,6 +370,8 @@ class CredentialControllerApi:
         :type name: str
         :param x_tenant_id:
         :type x_tenant_id: str
+        :param tenant_id:
+        :type tenant_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -377,6 +397,7 @@ class CredentialControllerApi:
         _param = self._delete_credential_serialize(
             name=name,
             x_tenant_id=x_tenant_id,
+            tenant_id=tenant_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -402,6 +423,7 @@ class CredentialControllerApi:
         self,
         name: StrictStr,
         x_tenant_id: Optional[StrictStr] = None,
+        tenant_id: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -422,6 +444,8 @@ class CredentialControllerApi:
         :type name: str
         :param x_tenant_id:
         :type x_tenant_id: str
+        :param tenant_id:
+        :type tenant_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -447,6 +471,7 @@ class CredentialControllerApi:
         _param = self._delete_credential_serialize(
             name=name,
             x_tenant_id=x_tenant_id,
+            tenant_id=tenant_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -472,6 +497,7 @@ class CredentialControllerApi:
         self,
         name: StrictStr,
         x_tenant_id: Optional[StrictStr] = None,
+        tenant_id: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -492,6 +518,8 @@ class CredentialControllerApi:
         :type name: str
         :param x_tenant_id:
         :type x_tenant_id: str
+        :param tenant_id:
+        :type tenant_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -517,6 +545,7 @@ class CredentialControllerApi:
         _param = self._delete_credential_serialize(
             name=name,
             x_tenant_id=x_tenant_id,
+            tenant_id=tenant_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -537,6 +566,7 @@ class CredentialControllerApi:
         self,
         name,
         x_tenant_id,
+        tenant_id,
         _request_auth,
         _content_type,
         _headers,
@@ -561,6 +591,10 @@ class CredentialControllerApi:
         if name is not None:
             _path_params['name'] = name
         # process the query parameters
+        if tenant_id is not None:
+            
+            _query_params.append(('tenantId', tenant_id))
+            
         # process the header parameters
         if x_tenant_id is not None:
             _header_params['X-Tenant-ID'] = x_tenant_id
@@ -599,6 +633,7 @@ class CredentialControllerApi:
         self,
         name: StrictStr,
         x_tenant_id: Optional[StrictStr] = None,
+        tenant_id: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -619,6 +654,8 @@ class CredentialControllerApi:
         :type name: str
         :param x_tenant_id:
         :type x_tenant_id: str
+        :param tenant_id:
+        :type tenant_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -644,6 +681,7 @@ class CredentialControllerApi:
         _param = self._get_credential_serialize(
             name=name,
             x_tenant_id=x_tenant_id,
+            tenant_id=tenant_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -669,6 +707,7 @@ class CredentialControllerApi:
         self,
         name: StrictStr,
         x_tenant_id: Optional[StrictStr] = None,
+        tenant_id: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -689,6 +728,8 @@ class CredentialControllerApi:
         :type name: str
         :param x_tenant_id:
         :type x_tenant_id: str
+        :param tenant_id:
+        :type tenant_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -714,6 +755,7 @@ class CredentialControllerApi:
         _param = self._get_credential_serialize(
             name=name,
             x_tenant_id=x_tenant_id,
+            tenant_id=tenant_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -739,6 +781,7 @@ class CredentialControllerApi:
         self,
         name: StrictStr,
         x_tenant_id: Optional[StrictStr] = None,
+        tenant_id: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -759,6 +802,8 @@ class CredentialControllerApi:
         :type name: str
         :param x_tenant_id:
         :type x_tenant_id: str
+        :param tenant_id:
+        :type tenant_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -784,6 +829,7 @@ class CredentialControllerApi:
         _param = self._get_credential_serialize(
             name=name,
             x_tenant_id=x_tenant_id,
+            tenant_id=tenant_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -804,6 +850,7 @@ class CredentialControllerApi:
         self,
         name,
         x_tenant_id,
+        tenant_id,
         _request_auth,
         _content_type,
         _headers,
@@ -828,6 +875,10 @@ class CredentialControllerApi:
         if name is not None:
             _path_params['name'] = name
         # process the query parameters
+        if tenant_id is not None:
+            
+            _query_params.append(('tenantId', tenant_id))
+            
         # process the header parameters
         if x_tenant_id is not None:
             _header_params['X-Tenant-ID'] = x_tenant_id
@@ -872,6 +923,7 @@ class CredentialControllerApi:
     def list_credentials(
         self,
         x_tenant_id: Optional[StrictStr] = None,
+        tenant_id: Optional[StrictStr] = None,
         user_id: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
@@ -891,6 +943,8 @@ class CredentialControllerApi:
 
         :param x_tenant_id:
         :type x_tenant_id: str
+        :param tenant_id:
+        :type tenant_id: str
         :param user_id:
         :type user_id: str
         :param _request_timeout: timeout setting for this request. If one
@@ -917,6 +971,7 @@ class CredentialControllerApi:
 
         _param = self._list_credentials_serialize(
             x_tenant_id=x_tenant_id,
+            tenant_id=tenant_id,
             user_id=user_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
@@ -942,6 +997,7 @@ class CredentialControllerApi:
     def list_credentials_with_http_info(
         self,
         x_tenant_id: Optional[StrictStr] = None,
+        tenant_id: Optional[StrictStr] = None,
         user_id: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
@@ -961,6 +1017,8 @@ class CredentialControllerApi:
 
         :param x_tenant_id:
         :type x_tenant_id: str
+        :param tenant_id:
+        :type tenant_id: str
         :param user_id:
         :type user_id: str
         :param _request_timeout: timeout setting for this request. If one
@@ -987,6 +1045,7 @@ class CredentialControllerApi:
 
         _param = self._list_credentials_serialize(
             x_tenant_id=x_tenant_id,
+            tenant_id=tenant_id,
             user_id=user_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
@@ -1012,6 +1071,7 @@ class CredentialControllerApi:
     def list_credentials_without_preload_content(
         self,
         x_tenant_id: Optional[StrictStr] = None,
+        tenant_id: Optional[StrictStr] = None,
         user_id: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
@@ -1031,6 +1091,8 @@ class CredentialControllerApi:
 
         :param x_tenant_id:
         :type x_tenant_id: str
+        :param tenant_id:
+        :type tenant_id: str
         :param user_id:
         :type user_id: str
         :param _request_timeout: timeout setting for this request. If one
@@ -1057,6 +1119,7 @@ class CredentialControllerApi:
 
         _param = self._list_credentials_serialize(
             x_tenant_id=x_tenant_id,
+            tenant_id=tenant_id,
             user_id=user_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
@@ -1077,6 +1140,7 @@ class CredentialControllerApi:
     def _list_credentials_serialize(
         self,
         x_tenant_id,
+        tenant_id,
         user_id,
         _request_auth,
         _content_type,
@@ -1100,6 +1164,10 @@ class CredentialControllerApi:
 
         # process the path parameters
         # process the query parameters
+        if tenant_id is not None:
+            
+            _query_params.append(('tenantId', tenant_id))
+            
         if user_id is not None:
             
             _query_params.append(('userId', user_id))
@@ -1149,6 +1217,7 @@ class CredentialControllerApi:
         self,
         name: StrictStr,
         x_tenant_id: Optional[StrictStr] = None,
+        tenant_id: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1169,6 +1238,8 @@ class CredentialControllerApi:
         :type name: str
         :param x_tenant_id:
         :type x_tenant_id: str
+        :param tenant_id:
+        :type tenant_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1194,6 +1265,7 @@ class CredentialControllerApi:
         _param = self._test_credential_serialize(
             name=name,
             x_tenant_id=x_tenant_id,
+            tenant_id=tenant_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1219,6 +1291,7 @@ class CredentialControllerApi:
         self,
         name: StrictStr,
         x_tenant_id: Optional[StrictStr] = None,
+        tenant_id: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1239,6 +1312,8 @@ class CredentialControllerApi:
         :type name: str
         :param x_tenant_id:
         :type x_tenant_id: str
+        :param tenant_id:
+        :type tenant_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1264,6 +1339,7 @@ class CredentialControllerApi:
         _param = self._test_credential_serialize(
             name=name,
             x_tenant_id=x_tenant_id,
+            tenant_id=tenant_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1289,6 +1365,7 @@ class CredentialControllerApi:
         self,
         name: StrictStr,
         x_tenant_id: Optional[StrictStr] = None,
+        tenant_id: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1309,6 +1386,8 @@ class CredentialControllerApi:
         :type name: str
         :param x_tenant_id:
         :type x_tenant_id: str
+        :param tenant_id:
+        :type tenant_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1334,6 +1413,7 @@ class CredentialControllerApi:
         _param = self._test_credential_serialize(
             name=name,
             x_tenant_id=x_tenant_id,
+            tenant_id=tenant_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1354,6 +1434,7 @@ class CredentialControllerApi:
         self,
         name,
         x_tenant_id,
+        tenant_id,
         _request_auth,
         _content_type,
         _headers,
@@ -1378,6 +1459,10 @@ class CredentialControllerApi:
         if name is not None:
             _path_params['name'] = name
         # process the query parameters
+        if tenant_id is not None:
+            
+            _query_params.append(('tenantId', tenant_id))
+            
         # process the header parameters
         if x_tenant_id is not None:
             _header_params['X-Tenant-ID'] = x_tenant_id
@@ -1424,6 +1509,7 @@ class CredentialControllerApi:
         name: StrictStr,
         update_credential_request: UpdateCredentialRequest,
         x_tenant_id: Optional[StrictStr] = None,
+        tenant_id: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1446,6 +1532,8 @@ class CredentialControllerApi:
         :type update_credential_request: UpdateCredentialRequest
         :param x_tenant_id:
         :type x_tenant_id: str
+        :param tenant_id:
+        :type tenant_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1472,6 +1560,7 @@ class CredentialControllerApi:
             name=name,
             update_credential_request=update_credential_request,
             x_tenant_id=x_tenant_id,
+            tenant_id=tenant_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1498,6 +1587,7 @@ class CredentialControllerApi:
         name: StrictStr,
         update_credential_request: UpdateCredentialRequest,
         x_tenant_id: Optional[StrictStr] = None,
+        tenant_id: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1520,6 +1610,8 @@ class CredentialControllerApi:
         :type update_credential_request: UpdateCredentialRequest
         :param x_tenant_id:
         :type x_tenant_id: str
+        :param tenant_id:
+        :type tenant_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1546,6 +1638,7 @@ class CredentialControllerApi:
             name=name,
             update_credential_request=update_credential_request,
             x_tenant_id=x_tenant_id,
+            tenant_id=tenant_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1572,6 +1665,7 @@ class CredentialControllerApi:
         name: StrictStr,
         update_credential_request: UpdateCredentialRequest,
         x_tenant_id: Optional[StrictStr] = None,
+        tenant_id: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1594,6 +1688,8 @@ class CredentialControllerApi:
         :type update_credential_request: UpdateCredentialRequest
         :param x_tenant_id:
         :type x_tenant_id: str
+        :param tenant_id:
+        :type tenant_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1620,6 +1716,7 @@ class CredentialControllerApi:
             name=name,
             update_credential_request=update_credential_request,
             x_tenant_id=x_tenant_id,
+            tenant_id=tenant_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1641,6 +1738,7 @@ class CredentialControllerApi:
         name,
         update_credential_request,
         x_tenant_id,
+        tenant_id,
         _request_auth,
         _content_type,
         _headers,
@@ -1665,6 +1763,10 @@ class CredentialControllerApi:
         if name is not None:
             _path_params['name'] = name
         # process the query parameters
+        if tenant_id is not None:
+            
+            _query_params.append(('tenantId', tenant_id))
+            
         # process the header parameters
         if x_tenant_id is not None:
             _header_params['X-Tenant-ID'] = x_tenant_id

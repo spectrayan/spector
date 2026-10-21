@@ -42,7 +42,7 @@ export class RestTransport implements Transport {
       headers['X-Agent-Id'] = this.options.agentId;
     }
     if (this.options.namespace) {
-      headers['X-Namespace'] = this.options.namespace;
+      headers['X-Spector-Namespace'] = this.options.namespace;
     }
 
     return headers;

@@ -34,7 +34,8 @@ class RecallRequest(BaseModel):
     tags: Optional[List[StrictStr]] = None
     scoring_mode: Optional[StrictStr] = Field(default=None, alias="scoringMode")
     recall_mode: Optional[StrictStr] = Field(default=None, alias="recallMode")
-    __properties: ClassVar[List[str]] = ["query", "topK", "depth", "tags", "scoringMode", "recallMode"]
+    partition_visit_budget: Optional[StrictInt] = Field(default=None, alias="partitionVisitBudget")
+    __properties: ClassVar[List[str]] = ["query", "topK", "depth", "tags", "scoringMode", "recallMode", "partitionVisitBudget"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -92,7 +93,8 @@ class RecallRequest(BaseModel):
             "depth": obj.get("depth"),
             "tags": obj.get("tags"),
             "scoringMode": obj.get("scoringMode"),
-            "recallMode": obj.get("recallMode")
+            "recallMode": obj.get("recallMode"),
+            "partitionVisitBudget": obj.get("partitionVisitBudget")
         })
         return _obj
 

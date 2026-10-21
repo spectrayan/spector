@@ -14,20 +14,15 @@
 
 import * as runtime from '../runtime';
 import {
+    type AuthConfigResponse,
+    AuthConfigResponseFromJSON,
+    AuthConfigResponseToJSON,
+} from '../models/AuthConfigResponse';
+import {
     type ChangePasswordRequest,
     ChangePasswordRequestFromJSON,
     ChangePasswordRequestToJSON,
 } from '../models/ChangePasswordRequest';
-import {
-    type CreateApiKeyRequest,
-    CreateApiKeyRequestFromJSON,
-    CreateApiKeyRequestToJSON,
-} from '../models/CreateApiKeyRequest';
-import {
-    type CreateApiKeyResponse,
-    CreateApiKeyResponseFromJSON,
-    CreateApiKeyResponseToJSON,
-} from '../models/CreateApiKeyResponse';
 import {
     type LoginRequest,
     LoginRequestFromJSON,
@@ -44,6 +39,11 @@ import {
     RegisterRequestToJSON,
 } from '../models/RegisterRequest';
 import {
+    type SignupRequest,
+    SignupRequestFromJSON,
+    SignupRequestToJSON,
+} from '../models/SignupRequest';
+import {
     type UpdateUserRequest,
     UpdateUserRequestFromJSON,
     UpdateUserRequestToJSON,
@@ -59,13 +59,6 @@ export interface ChangePasswordOperationRequest {
      * 
      */
     changePasswordRequest?: ChangePasswordRequest;
-}
-
-export interface CreateApiKeyOperationRequest {
-    /**
-     * 
-     */
-    createApiKeyRequest?: CreateApiKeyRequest;
 }
 
 export interface LoginOperationRequest {
@@ -89,11 +82,11 @@ export interface RegisterOperationRequest {
     registerRequest?: RegisterRequest;
 }
 
-export interface RevokeApiKeyRequest {
+export interface SignupOperationRequest {
     /**
      * 
      */
-    id: string;
+    signupRequest?: SignupRequest;
 }
 
 export interface UpdateUserOperationRequest {
@@ -163,14 +156,12 @@ export class AuthControllerApi extends runtime.BaseAPI {
     }
 
     /**
-     * Creates request options for createApiKey without sending the request
+     * Creates request options for getAuthConfig without sending the request
      */
-    async createApiKeyRequestOpts(requestParameters: CreateApiKeyOperationRequest): Promise<runtime.RequestOpts> {
+    async getAuthConfigRequestOpts(): Promise<runtime.RequestOpts> {
         const queryParameters: any = {};
 
         const headerParameters: runtime.HTTPHeaders = {};
-
-        headerParameters['Content-Type'] = 'application/json';
 
         if (this.configuration && this.configuration.apiKey) {
             headerParameters["X-API-Key"] = await this.configuration.apiKey("X-API-Key"); // ApiKeyAuth authentication
@@ -185,30 +176,29 @@ export class AuthControllerApi extends runtime.BaseAPI {
             }
         }
 
-        let urlPath = `/api/v1/auth/api-keys`;
+        let urlPath = `/api/v1/auth/config`;
 
         return {
             path: urlPath,
-            method: 'POST',
+            method: 'GET',
             headers: headerParameters,
             query: queryParameters,
-            body: CreateApiKeyRequestToJSON(requestParameters['createApiKeyRequest']),
         };
     }
 
     /**
      */
-    async createApiKeyRaw(requestParameters: CreateApiKeyOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<CreateApiKeyResponse>> {
-        const requestOptions = await this.createApiKeyRequestOpts(requestParameters);
+    async getAuthConfigRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<AuthConfigResponse>> {
+        const requestOptions = await this.getAuthConfigRequestOpts();
         const response = await this.request(requestOptions, initOverrides);
 
-        return new runtime.JSONApiResponse(response, (jsonValue) => CreateApiKeyResponseFromJSON(jsonValue));
+        return new runtime.JSONApiResponse(response, (jsonValue) => AuthConfigResponseFromJSON(jsonValue));
     }
 
     /**
      */
-    async createApiKey(requestParameters: CreateApiKeyOperationRequest = {}, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<CreateApiKeyResponse> {
-        const response = await this.createApiKeyRaw(requestParameters, initOverrides);
+    async getAuthConfig(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<AuthConfigResponse> {
+        const response = await this.getAuthConfigRaw(initOverrides);
         return await response.value();
     }
 
@@ -456,19 +446,14 @@ export class AuthControllerApi extends runtime.BaseAPI {
     }
 
     /**
-     * Creates request options for revokeApiKey without sending the request
+     * Creates request options for signup without sending the request
      */
-    async revokeApiKeyRequestOpts(requestParameters: RevokeApiKeyRequest): Promise<runtime.RequestOpts> {
-        if (requestParameters['id'] == null) {
-            throw new runtime.RequiredError(
-                'id',
-                'Required parameter "id" was null or undefined when calling revokeApiKey().'
-            );
-        }
-
+    async signupRequestOpts(requestParameters: SignupOperationRequest): Promise<runtime.RequestOpts> {
         const queryParameters: any = {};
 
         const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
 
         if (this.configuration && this.configuration.apiKey) {
             headerParameters["X-API-Key"] = await this.configuration.apiKey("X-API-Key"); // ApiKeyAuth authentication
@@ -483,21 +468,21 @@ export class AuthControllerApi extends runtime.BaseAPI {
             }
         }
 
-        let urlPath = `/api/v1/auth/api-keys/{id}`;
-        urlPath = urlPath.replace('{id}', encodeURIComponent(String(requestParameters['id'])));
+        let urlPath = `/api/v1/auth/signup`;
 
         return {
             path: urlPath,
-            method: 'DELETE',
+            method: 'POST',
             headers: headerParameters,
             query: queryParameters,
+            body: SignupRequestToJSON(requestParameters['signupRequest']),
         };
     }
 
     /**
      */
-    async revokeApiKeyRaw(requestParameters: RevokeApiKeyRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<object>> {
-        const requestOptions = await this.revokeApiKeyRequestOpts(requestParameters);
+    async signupRaw(requestParameters: SignupOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<object>> {
+        const requestOptions = await this.signupRequestOpts(requestParameters);
         const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.JSONApiResponse<any>(response);
@@ -505,8 +490,8 @@ export class AuthControllerApi extends runtime.BaseAPI {
 
     /**
      */
-    async revokeApiKey(requestParameters: RevokeApiKeyRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<object> {
-        const response = await this.revokeApiKeyRaw(requestParameters, initOverrides);
+    async signup(requestParameters: SignupOperationRequest = {}, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<object> {
+        const response = await this.signupRaw(requestParameters, initOverrides);
         return await response.value();
     }
 

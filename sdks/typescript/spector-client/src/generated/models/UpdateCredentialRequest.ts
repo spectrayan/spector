@@ -58,7 +58,9 @@ export interface UpdateCredentialRequest {
  * @export
  */
 export const UpdateCredentialRequestCategoryEnum = {
+    Auth: 'AUTH',
     Llm: 'LLM',
+    Embedding: 'EMBEDDING',
     Channel: 'CHANNEL',
     Database: 'DATABASE',
     Broker: 'BROKER',

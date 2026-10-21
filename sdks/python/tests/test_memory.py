@@ -106,6 +106,31 @@ class TestMemoryClientSync(unittest.TestCase):
         self.assertEqual(transport.last_path, "/api/v1/memory/mem-99/resolve")
         self.assertEqual(transport.last_body, {"resolved": True})
 
+    def test_purge_reflect_why_not(self):
+        transport = MockTransport()
+        client = MemoryClient(transport)
+
+        client.purge("mem-99")
+        self.assertEqual(transport.last_method, "DELETE")
+        self.assertEqual(transport.last_path, "/api/v1/memory/mem-99/purge")
+
+        transport.canned_response = {"status": "COMPLETED"}
+        res = client.reflect(session_limit=10, consolidation_only=True)
+        self.assertEqual(transport.last_method, "POST")
+        self.assertEqual(transport.last_path, "/api/v1/memory/reflect")
+        self.assertEqual(transport.last_body, {"sessionLimit": 10, "consolidationOnly": True})
+        self.assertEqual(res["status"], "COMPLETED")
+
+        transport.canned_response = {"memoryId": "mem-99", "reason": "Tag mismatch"}
+        why = client.why_not("mem-99", "simd query", top_k=5)
+        self.assertEqual(transport.last_method, "POST")
+        self.assertEqual(transport.last_path, "/api/v1/memory/why-not")
+        self.assertEqual(
+            transport.last_body,
+            {"memoryId": "mem-99", "query": "simd query", "topK": 5},
+        )
+        self.assertEqual(why["reason"], "Tag mismatch")
+
 
 class TestMemoryClientAsync(unittest.IsolatedAsyncioTestCase):
     async def test_remember_async(self):

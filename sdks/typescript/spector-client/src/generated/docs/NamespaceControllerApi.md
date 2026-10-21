@@ -9,6 +9,7 @@ All URIs are relative to *http://localhost*
 | [**deleteNamespace**](NamespaceControllerApi.md#deletenamespace) | **DELETE** /api/v1/namespaces/{slugOrId} |  |
 | [**getNamespace**](NamespaceControllerApi.md#getnamespace) | **GET** /api/v1/namespaces/{slugOrId} |  |
 | [**listGrants**](NamespaceControllerApi.md#listgrants) | **GET** /api/v1/namespaces/{slugOrId}/grants |  |
+| [**listNamespaceAuditEvents**](NamespaceControllerApi.md#listnamespaceauditevents) | **GET** /api/v1/namespaces/{slugOrId}/audit |  |
 | [**listNamespaces**](NamespaceControllerApi.md#listnamespaces) | **GET** /api/v1/namespaces |  |
 | [**resetNamespace**](NamespaceControllerApi.md#resetnamespace) | **POST** /api/v1/namespaces/{slugOrId}/reset |  |
 | [**revokeGrant**](NamespaceControllerApi.md#revokegrant) | **DELETE** /api/v1/namespaces/{slugOrId}/grants/{grantId} |  |
@@ -356,6 +357,80 @@ example().catch(console.error);
 ### Return type
 
 [**Array&lt;GrantResponse&gt;**](GrantResponse.md)
+
+### Authorization
+
+[ApiKeyAuth](../README.md#ApiKeyAuth), [BearerAuth](../README.md#BearerAuth)
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: `application/json`
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## listNamespaceAuditEvents
+
+> Array&lt;AuditEventDto&gt; listNamespaceAuditEvents(slugOrId, limit)
+
+
+
+### Example
+
+```ts
+import {
+  Configuration,
+  NamespaceControllerApi,
+} from '';
+import type { ListNamespaceAuditEventsRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // To configure API key authorization: ApiKeyAuth
+    apiKey: "YOUR API KEY",
+    // Configure HTTP bearer authorization: BearerAuth
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new NamespaceControllerApi(config);
+
+  const body = {
+    // string
+    slugOrId: slugOrId_example,
+    // number (optional)
+    limit: 56,
+  } satisfies ListNamespaceAuditEventsRequest;
+
+  try {
+    const data = await api.listNamespaceAuditEvents(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **slugOrId** | `string` |  | [Defaults to `undefined`] |
+| **limit** | `number` |  | [Optional] [Defaults to `undefined`] |
+
+### Return type
+
+[**Array&lt;AuditEventDto&gt;**](AuditEventDto.md)
 
 ### Authorization
 

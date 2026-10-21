@@ -108,4 +108,34 @@ describe('MemoryClient Cognitive Verbs', () => {
     assert.equal(transport.lastPath, '/api/v1/memory/mem-101/resolve');
     assert.deepEqual(transport.lastOptions?.body, { resolved: true });
   });
+
+  it('should execute purge, reflect, and whyNot verbs', async () => {
+    const transport = new MockTransport();
+    const memory = new MemoryClient(transport);
+
+    await memory.purge('mem-101');
+    assert.equal(transport.lastMethod, 'DELETE');
+    assert.equal(transport.lastPath, '/api/v1/memory/mem-101/purge');
+
+    transport.cannedResponse = { status: 'COMPLETED' };
+    const reflectRes = await memory.reflect({ sessionLimit: 10, consolidationOnly: true });
+    assert.equal(transport.lastMethod, 'POST');
+    assert.equal(transport.lastPath, '/api/v1/memory/reflect');
+    assert.deepEqual(transport.lastOptions?.body, {
+      sessionLimit: 10,
+      consolidationOnly: true,
+    });
+    assert.equal(reflectRes.status, 'COMPLETED');
+
+    transport.cannedResponse = { memoryId: 'mem-101', reason: 'Tag mismatch' };
+    const whyRes = await memory.whyNot('mem-101', 'architecture', 5);
+    assert.equal(transport.lastMethod, 'POST');
+    assert.equal(transport.lastPath, '/api/v1/memory/why-not');
+    assert.deepEqual(transport.lastOptions?.body, {
+      memoryId: 'mem-101',
+      query: 'architecture',
+      topK: 5,
+    });
+    assert.equal(whyRes.reason, 'Tag mismatch');
+  });
 });

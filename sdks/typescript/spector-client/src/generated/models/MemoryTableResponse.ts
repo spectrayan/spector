@@ -30,6 +30,10 @@ export interface MemoryTableResponse {
     /**
      * 
      */
+    nextCursor?: string;
+    /**
+     * 
+     */
     rows?: Array<MemoryTableRow>;
     /**
      * 
@@ -70,6 +74,7 @@ export function MemoryTableResponseFromJSONTyped(json: any, ignoreDiscriminator:
     }
     return {
         
+        'nextCursor': json['nextCursor'] == null ? undefined : json['nextCursor'],
         'rows': json['rows'] == null ? undefined : ((json['rows'] as Array<any>).map(MemoryTableRowFromJSON)),
         'totalCount': json['totalCount'] == null ? undefined : json['totalCount'],
         'page': json['page'] == null ? undefined : json['page'],
@@ -90,6 +95,7 @@ export function MemoryTableResponseToJSONTyped(value?: MemoryTableResponse | nul
 
     return {
         
+        'nextCursor': value['nextCursor'],
         'rows': value['rows'] == null ? undefined : ((value['rows'] as Array<any>).map(MemoryTableRowToJSON)),
         'totalCount': value['totalCount'],
         'page': value['page'],

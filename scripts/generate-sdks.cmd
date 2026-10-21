@@ -7,7 +7,7 @@ set "REPO_ROOT=%~dp0.."
 cd "%REPO_ROOT%"
 
 echo [Spector] Generating Python Client SDK...
-call mvn org.openapitools:openapi-generator-maven-plugin:7.25.0:generate ^
+call mvn -N org.openapitools:openapi-generator-maven-plugin:7.25.0:generate ^
     "-Dopenapi.generator.maven.plugin.inputSpec=docs/openapi.yaml" ^
     "-Dopenapi.generator.maven.plugin.generatorName=python" ^
     "-Dopenapi.generator.maven.plugin.output=target/temp-gen-python" ^
@@ -18,11 +18,12 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b %ERRORLEVEL%
 )
 
+if exist "sdks\python\src\spector_client\generated" rmdir /S /Q "sdks\python\src\spector_client\generated"
 xcopy /E /I /Y "target\temp-gen-python\spector_client\generated" "sdks\python\src\spector_client\generated"
 rmdir /S /Q "target\temp-gen-python"
 
 echo [Spector] Generating TypeScript Client SDK...
-call mvn org.openapitools:openapi-generator-maven-plugin:7.25.0:generate ^
+call mvn -N org.openapitools:openapi-generator-maven-plugin:7.25.0:generate ^
     "-Dopenapi.generator.maven.plugin.inputSpec=docs/openapi.yaml" ^
     "-Dopenapi.generator.maven.plugin.generatorName=typescript-fetch" ^
     "-Dopenapi.generator.maven.plugin.output=target/temp-gen-ts" ^
@@ -33,6 +34,7 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b %ERRORLEVEL%
 )
 
+if exist "sdks\typescript\spector-client\src\generated" rmdir /S /Q "sdks\typescript\spector-client\src\generated"
 xcopy /E /I /Y "target\temp-gen-ts\*" "sdks\typescript\spector-client\src\generated\"
 rmdir /S /Q "target\temp-gen-ts"
 

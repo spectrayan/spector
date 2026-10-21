@@ -1,8 +1,16 @@
 # flake8: noqa
 
 # import apis into api package
+from spector_client.generated.api.admin_break_glass_api import AdminBreakGlassApi
+from spector_client.generated.api.mel_studio_api import MELStudioApi
 from spector_client.generated.api.memory_api import MemoryApi
 from spector_client.generated.api.account_default_controller_api import AccountDefaultControllerApi
+from spector_client.generated.api.admin_account_controller_api import AdminAccountControllerApi
+from spector_client.generated.api.admin_analytics_controller_api import AdminAnalyticsControllerApi
+from spector_client.generated.api.admin_audit_controller_api import AdminAuditControllerApi
+from spector_client.generated.api.admin_namespace_controller_api import AdminNamespaceControllerApi
+from spector_client.generated.api.admin_tenant_controller_api import AdminTenantControllerApi
+from spector_client.generated.api.admin_tenant_key_controller_api import AdminTenantKeyControllerApi
 from spector_client.generated.api.agent_approval_controller_api import AgentApprovalControllerApi
 from spector_client.generated.api.agent_controller_api import AgentControllerApi
 from spector_client.generated.api.auth_controller_api import AuthControllerApi

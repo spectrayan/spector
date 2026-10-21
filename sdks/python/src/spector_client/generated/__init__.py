@@ -19,8 +19,16 @@ __version__ = "1.0.0"
 
 # Define package exports
 __all__ = [
+    "AdminBreakGlassApi",
+    "MELStudioApi",
     "MemoryApi",
     "AccountDefaultControllerApi",
+    "AdminAccountControllerApi",
+    "AdminAnalyticsControllerApi",
+    "AdminAuditControllerApi",
+    "AdminNamespaceControllerApi",
+    "AdminTenantControllerApi",
+    "AdminTenantKeyControllerApi",
     "AgentApprovalControllerApi",
     "AgentControllerApi",
     "AuthControllerApi",
@@ -54,35 +62,58 @@ __all__ = [
     "ApiAttributeError",
     "ApiException",
     "AcceptedResponse",
+    "AccountAdminResponse",
+    "AccountAnalyticsRollup",
     "AccountFlags",
     "AccountIntrospectResponse",
+    "AccountNamespaceGrantDto",
+    "AccountQuotaSummaryDto",
     "AccountQuotas",
     "AcousticModulationMap",
+    "AdminNamespaceGrantResponse",
+    "AdminNamespaceResponse",
+    "AgeBucketDto",
+    "AgeDistributionResponse",
     "AgentActionApproval",
     "AgentCard",
     "AgentChatRequest",
     "AgentChatResponse",
     "AgentSoul",
+    "AnalyticsTimeseriesPoint",
+    "AnalyticsTimeseriesResponse",
     "AnnotatedValue",
     "ApprovalDecisionRequest",
+    "ApproveBreakGlassRequest",
+    "AssistantMessageView",
+    "AuditChainVerificationDto",
+    "AuditEventDto",
+    "AuthConfigResponse",
     "BigFiveTraits",
+    "BreakGlassResponse",
     "BrowseRequest",
     "BrowseResult",
     "CacheDetailDto",
     "CacheSummaryDto",
+    "CandidateBreakdown",
     "ChangePasswordRequest",
     "ChatConfig",
+    "ChatTurnView",
     "CognitiveResult",
     "CompactionResult",
+    "ConfigureTenantKeyRequest",
     "ConnectionTestResult",
+    "ConsolidationAndDreamHealth",
     "ConsolidationStats",
-    "CreateApiKeyRequest",
-    "CreateApiKeyResponse",
+    "CreateAccountRequest",
+    "CreateBreakGlassRequest",
     "CreateCredentialRequest",
     "CreateGrantRequest",
     "CreateNamespaceRequest",
+    "CreateTenantRequest",
     "CredentialResponse",
     "CulturalIdentity",
+    "DekRotationItem",
+    "DekRotationResponse",
     "Education",
     "EmbodiedKinesicsDNA",
     "EmotionalBaseline",
@@ -90,25 +121,48 @@ __all__ = [
     "EnrichmentStatusResponse",
     "EnrichmentTriggerResponse",
     "EntityTypeStatsDto",
+    "EraseNamespaceRequest",
+    "ErasureAuditReport",
     "ExecutionRecord",
+    "FactAssertRequest",
+    "FactAssertResponse",
+    "FactRetractResponse",
     "FederatedRecallHit",
     "FederatedRecallRequest",
     "FederatedRecallResponse",
     "FederatedRecallSummary",
+    "FleetAnalyticsRollup",
+    "FunnelPhase",
+    "FunnelTelemetry",
     "GrantConstraints",
     "GrantResponse",
     "GraphEdgeDto",
     "GraphNodeDto",
+    "GrowthStats",
     "IcnuDto",
     "IcnuWeights",
     "IdiolectProfile",
     "IdiosyncraticLexicon",
     "IndexStats",
+    "InitialNamespaceGrantDto",
     "InterestEntry",
     "InterestEntryDto",
     "InterestsRequest",
+    "KekRotationResponse",
     "LegalHoldRequest",
     "LoginRequest",
+    "MelCandidateItem",
+    "MelClauseTemplate",
+    "MelDiagnostic",
+    "MelExecuteRequest",
+    "MelExecuteResponse",
+    "MelExplainRow",
+    "MelSchemaResponse",
+    "MelSnippetTemplate",
+    "MelStatementExecutionResult",
+    "MelStatementSummary",
+    "MelValidateRequest",
+    "MelValidateResponse",
     "MemoryGraphResponse",
     "MemoryStats",
     "MemoryStatusResponse",
@@ -116,9 +170,14 @@ __all__ = [
     "MemoryTableRow",
     "MemoryVectorResponse",
     "ModelsResponse",
+    "NamespaceAnalyticsRollup",
     "NamespaceBias",
+    "NamespaceLegalHoldRequest",
+    "NamespaceQuotasDto",
     "NamespaceResponse",
+    "ObservabilityStatsResponse",
     "OllamaModel",
+    "OwnedAgentSummaryDto",
     "ParameterDefinition",
     "PersonaContext",
     "PersonalityModifiers",
@@ -126,7 +185,11 @@ __all__ = [
     "ProjectedPoint",
     "ProjectionResult",
     "ProviderHealth",
+    "PurgeResult",
+    "QuotaUtilizationRollup",
+    "ReassignTenantRequest",
     "RecallRequest",
+    "RecallResponse",
     "RecallResult",
     "RecallTrace",
     "ReflectRequest",
@@ -135,23 +198,34 @@ __all__ = [
     "RefreshRequest",
     "RegisterRequest",
     "ReinforceByIdRequest",
+    "RejectBreakGlassRequest",
     "RelationTypeStatsDto",
     "RememberRequest",
+    "RenameSessionRequest",
     "RescheduleCronRequest",
     "RescheduleIntervalRequest",
+    "ResetCredentialsRequest",
+    "ResetCredentialsResponse",
     "ResolveRequest",
+    "RevokeBreakGlassRequest",
+    "RevokeTenantKeyRequest",
     "RhetoricalPatterns",
+    "RotateNamespaceDekRequest",
+    "RotateTenantKekRequest",
     "RouteConfig",
     "SalienceSnapshot",
     "SaveProfileRequest",
     "ScoreBreakdown",
+    "ScoreBreakdownDto",
     "ScoringStats",
     "SearchRequest",
     "SearchResult",
-    "SessionMessagesResponse",
+    "SessionHistoryResponse",
     "SessionSummary",
     "SessionsResponse",
     "SetDefaultNamespaceRequest",
+    "SignupRequest",
+    "SseEmitter",
     "StoreRequest",
     "StoreResponse",
     "StylometricFeatures",
@@ -160,27 +234,61 @@ __all__ = [
     "TaskRunAuditRecord",
     "TaskStatus",
     "TemplateDescriptor",
+    "TemporalFact",
+    "TenantAnalyticsRollup",
+    "TenantAuditResponse",
+    "TenantKeyRevocationResponse",
+    "TenantKeyStatusResponse",
+    "TenantKeyValidationResponse",
+    "TenantQuotasDto",
+    "TenantResponse",
+    "TenantSettingsDto",
+    "TenantSummaryItem",
+    "ThinkingView",
+    "ThroughputAndLatency",
+    "TierBreakdown",
+    "TimelineEventDto",
+    "TimelineResponse",
     "TokenUsageDto",
+    "TokenUsageRollup",
     "TokenUsageStats",
+    "ToolCardView",
     "ToolsResponse",
     "TopologyStatsResponse",
     "TraceEvent",
     "TraceStep",
+    "TracedRecallItemDto",
     "TracedRecallRequest",
+    "TracedRecallResponse",
+    "TransferOwnershipRequest",
+    "UpdateAccountRequest",
     "UpdateCredentialRequest",
     "UpdateMemoryRequest",
+    "UpdateNamespaceQuotasRequest",
     "UpdateNamespaceRequest",
+    "UpdateTenantRequest",
     "UpdateUserRequest",
+    "UserMessageView",
     "UserProfileDto",
     "UserSummary",
     "VacuumRequest",
     "VocalProsodyDNA",
     "WeightsRequest",
+    "WhyNotRequest",
+    "WhyNotResponse",
 ]
 
 # import apis into sdk package
+from spector_client.generated.api.admin_break_glass_api import AdminBreakGlassApi as AdminBreakGlassApi
+from spector_client.generated.api.mel_studio_api import MELStudioApi as MELStudioApi
 from spector_client.generated.api.memory_api import MemoryApi as MemoryApi
 from spector_client.generated.api.account_default_controller_api import AccountDefaultControllerApi as AccountDefaultControllerApi
+from spector_client.generated.api.admin_account_controller_api import AdminAccountControllerApi as AdminAccountControllerApi
+from spector_client.generated.api.admin_analytics_controller_api import AdminAnalyticsControllerApi as AdminAnalyticsControllerApi
+from spector_client.generated.api.admin_audit_controller_api import AdminAuditControllerApi as AdminAuditControllerApi
+from spector_client.generated.api.admin_namespace_controller_api import AdminNamespaceControllerApi as AdminNamespaceControllerApi
+from spector_client.generated.api.admin_tenant_controller_api import AdminTenantControllerApi as AdminTenantControllerApi
+from spector_client.generated.api.admin_tenant_key_controller_api import AdminTenantKeyControllerApi as AdminTenantKeyControllerApi
 from spector_client.generated.api.agent_approval_controller_api import AgentApprovalControllerApi as AgentApprovalControllerApi
 from spector_client.generated.api.agent_controller_api import AgentControllerApi as AgentControllerApi
 from spector_client.generated.api.auth_controller_api import AuthControllerApi as AuthControllerApi
@@ -218,35 +326,58 @@ from spector_client.generated.exceptions import ApiException as ApiException
 
 # import models into sdk package
 from spector_client.generated.models.accepted_response import AcceptedResponse as AcceptedResponse
+from spector_client.generated.models.account_admin_response import AccountAdminResponse as AccountAdminResponse
+from spector_client.generated.models.account_analytics_rollup import AccountAnalyticsRollup as AccountAnalyticsRollup
 from spector_client.generated.models.account_flags import AccountFlags as AccountFlags
 from spector_client.generated.models.account_introspect_response import AccountIntrospectResponse as AccountIntrospectResponse
+from spector_client.generated.models.account_namespace_grant_dto import AccountNamespaceGrantDto as AccountNamespaceGrantDto
+from spector_client.generated.models.account_quota_summary_dto import AccountQuotaSummaryDto as AccountQuotaSummaryDto
 from spector_client.generated.models.account_quotas import AccountQuotas as AccountQuotas
 from spector_client.generated.models.acoustic_modulation_map import AcousticModulationMap as AcousticModulationMap
+from spector_client.generated.models.admin_namespace_grant_response import AdminNamespaceGrantResponse as AdminNamespaceGrantResponse
+from spector_client.generated.models.admin_namespace_response import AdminNamespaceResponse as AdminNamespaceResponse
+from spector_client.generated.models.age_bucket_dto import AgeBucketDto as AgeBucketDto
+from spector_client.generated.models.age_distribution_response import AgeDistributionResponse as AgeDistributionResponse
 from spector_client.generated.models.agent_action_approval import AgentActionApproval as AgentActionApproval
 from spector_client.generated.models.agent_card import AgentCard as AgentCard
 from spector_client.generated.models.agent_chat_request import AgentChatRequest as AgentChatRequest
 from spector_client.generated.models.agent_chat_response import AgentChatResponse as AgentChatResponse
 from spector_client.generated.models.agent_soul import AgentSoul as AgentSoul
+from spector_client.generated.models.analytics_timeseries_point import AnalyticsTimeseriesPoint as AnalyticsTimeseriesPoint
+from spector_client.generated.models.analytics_timeseries_response import AnalyticsTimeseriesResponse as AnalyticsTimeseriesResponse
 from spector_client.generated.models.annotated_value import AnnotatedValue as AnnotatedValue
 from spector_client.generated.models.approval_decision_request import ApprovalDecisionRequest as ApprovalDecisionRequest
+from spector_client.generated.models.approve_break_glass_request import ApproveBreakGlassRequest as ApproveBreakGlassRequest
+from spector_client.generated.models.assistant_message_view import AssistantMessageView as AssistantMessageView
+from spector_client.generated.models.audit_chain_verification_dto import AuditChainVerificationDto as AuditChainVerificationDto
+from spector_client.generated.models.audit_event_dto import AuditEventDto as AuditEventDto
+from spector_client.generated.models.auth_config_response import AuthConfigResponse as AuthConfigResponse
 from spector_client.generated.models.big_five_traits import BigFiveTraits as BigFiveTraits
+from spector_client.generated.models.break_glass_response import BreakGlassResponse as BreakGlassResponse
 from spector_client.generated.models.browse_request import BrowseRequest as BrowseRequest
 from spector_client.generated.models.browse_result import BrowseResult as BrowseResult
 from spector_client.generated.models.cache_detail_dto import CacheDetailDto as CacheDetailDto
 from spector_client.generated.models.cache_summary_dto import CacheSummaryDto as CacheSummaryDto
+from spector_client.generated.models.candidate_breakdown import CandidateBreakdown as CandidateBreakdown
 from spector_client.generated.models.change_password_request import ChangePasswordRequest as ChangePasswordRequest
 from spector_client.generated.models.chat_config import ChatConfig as ChatConfig
+from spector_client.generated.models.chat_turn_view import ChatTurnView as ChatTurnView
 from spector_client.generated.models.cognitive_result import CognitiveResult as CognitiveResult
 from spector_client.generated.models.compaction_result import CompactionResult as CompactionResult
+from spector_client.generated.models.configure_tenant_key_request import ConfigureTenantKeyRequest as ConfigureTenantKeyRequest
 from spector_client.generated.models.connection_test_result import ConnectionTestResult as ConnectionTestResult
+from spector_client.generated.models.consolidation_and_dream_health import ConsolidationAndDreamHealth as ConsolidationAndDreamHealth
 from spector_client.generated.models.consolidation_stats import ConsolidationStats as ConsolidationStats
-from spector_client.generated.models.create_api_key_request import CreateApiKeyRequest as CreateApiKeyRequest
-from spector_client.generated.models.create_api_key_response import CreateApiKeyResponse as CreateApiKeyResponse
+from spector_client.generated.models.create_account_request import CreateAccountRequest as CreateAccountRequest
+from spector_client.generated.models.create_break_glass_request import CreateBreakGlassRequest as CreateBreakGlassRequest
 from spector_client.generated.models.create_credential_request import CreateCredentialRequest as CreateCredentialRequest
 from spector_client.generated.models.create_grant_request import CreateGrantRequest as CreateGrantRequest
 from spector_client.generated.models.create_namespace_request import CreateNamespaceRequest as CreateNamespaceRequest
+from spector_client.generated.models.create_tenant_request import CreateTenantRequest as CreateTenantRequest
 from spector_client.generated.models.credential_response import CredentialResponse as CredentialResponse
 from spector_client.generated.models.cultural_identity import CulturalIdentity as CulturalIdentity
+from spector_client.generated.models.dek_rotation_item import DekRotationItem as DekRotationItem
+from spector_client.generated.models.dek_rotation_response import DekRotationResponse as DekRotationResponse
 from spector_client.generated.models.education import Education as Education
 from spector_client.generated.models.embodied_kinesics_dna import EmbodiedKinesicsDNA as EmbodiedKinesicsDNA
 from spector_client.generated.models.emotional_baseline import EmotionalBaseline as EmotionalBaseline
@@ -254,25 +385,48 @@ from spector_client.generated.models.emotional_intelligence import EmotionalInte
 from spector_client.generated.models.enrichment_status_response import EnrichmentStatusResponse as EnrichmentStatusResponse
 from spector_client.generated.models.enrichment_trigger_response import EnrichmentTriggerResponse as EnrichmentTriggerResponse
 from spector_client.generated.models.entity_type_stats_dto import EntityTypeStatsDto as EntityTypeStatsDto
+from spector_client.generated.models.erase_namespace_request import EraseNamespaceRequest as EraseNamespaceRequest
+from spector_client.generated.models.erasure_audit_report import ErasureAuditReport as ErasureAuditReport
 from spector_client.generated.models.execution_record import ExecutionRecord as ExecutionRecord
+from spector_client.generated.models.fact_assert_request import FactAssertRequest as FactAssertRequest
+from spector_client.generated.models.fact_assert_response import FactAssertResponse as FactAssertResponse
+from spector_client.generated.models.fact_retract_response import FactRetractResponse as FactRetractResponse
 from spector_client.generated.models.federated_recall_hit import FederatedRecallHit as FederatedRecallHit
 from spector_client.generated.models.federated_recall_request import FederatedRecallRequest as FederatedRecallRequest
 from spector_client.generated.models.federated_recall_response import FederatedRecallResponse as FederatedRecallResponse
 from spector_client.generated.models.federated_recall_summary import FederatedRecallSummary as FederatedRecallSummary
+from spector_client.generated.models.fleet_analytics_rollup import FleetAnalyticsRollup as FleetAnalyticsRollup
+from spector_client.generated.models.funnel_phase import FunnelPhase as FunnelPhase
+from spector_client.generated.models.funnel_telemetry import FunnelTelemetry as FunnelTelemetry
 from spector_client.generated.models.grant_constraints import GrantConstraints as GrantConstraints
 from spector_client.generated.models.grant_response import GrantResponse as GrantResponse
 from spector_client.generated.models.graph_edge_dto import GraphEdgeDto as GraphEdgeDto
 from spector_client.generated.models.graph_node_dto import GraphNodeDto as GraphNodeDto
+from spector_client.generated.models.growth_stats import GrowthStats as GrowthStats
 from spector_client.generated.models.icnu_dto import IcnuDto as IcnuDto
 from spector_client.generated.models.icnu_weights import IcnuWeights as IcnuWeights
 from spector_client.generated.models.idiolect_profile import IdiolectProfile as IdiolectProfile
 from spector_client.generated.models.idiosyncratic_lexicon import IdiosyncraticLexicon as IdiosyncraticLexicon
 from spector_client.generated.models.index_stats import IndexStats as IndexStats
+from spector_client.generated.models.initial_namespace_grant_dto import InitialNamespaceGrantDto as InitialNamespaceGrantDto
 from spector_client.generated.models.interest_entry import InterestEntry as InterestEntry
 from spector_client.generated.models.interest_entry_dto import InterestEntryDto as InterestEntryDto
 from spector_client.generated.models.interests_request import InterestsRequest as InterestsRequest
+from spector_client.generated.models.kek_rotation_response import KekRotationResponse as KekRotationResponse
 from spector_client.generated.models.legal_hold_request import LegalHoldRequest as LegalHoldRequest
 from spector_client.generated.models.login_request import LoginRequest as LoginRequest
+from spector_client.generated.models.mel_candidate_item import MelCandidateItem as MelCandidateItem
+from spector_client.generated.models.mel_clause_template import MelClauseTemplate as MelClauseTemplate
+from spector_client.generated.models.mel_diagnostic import MelDiagnostic as MelDiagnostic
+from spector_client.generated.models.mel_execute_request import MelExecuteRequest as MelExecuteRequest
+from spector_client.generated.models.mel_execute_response import MelExecuteResponse as MelExecuteResponse
+from spector_client.generated.models.mel_explain_row import MelExplainRow as MelExplainRow
+from spector_client.generated.models.mel_schema_response import MelSchemaResponse as MelSchemaResponse
+from spector_client.generated.models.mel_snippet_template import MelSnippetTemplate as MelSnippetTemplate
+from spector_client.generated.models.mel_statement_execution_result import MelStatementExecutionResult as MelStatementExecutionResult
+from spector_client.generated.models.mel_statement_summary import MelStatementSummary as MelStatementSummary
+from spector_client.generated.models.mel_validate_request import MelValidateRequest as MelValidateRequest
+from spector_client.generated.models.mel_validate_response import MelValidateResponse as MelValidateResponse
 from spector_client.generated.models.memory_graph_response import MemoryGraphResponse as MemoryGraphResponse
 from spector_client.generated.models.memory_stats import MemoryStats as MemoryStats
 from spector_client.generated.models.memory_status_response import MemoryStatusResponse as MemoryStatusResponse
@@ -280,9 +434,14 @@ from spector_client.generated.models.memory_table_response import MemoryTableRes
 from spector_client.generated.models.memory_table_row import MemoryTableRow as MemoryTableRow
 from spector_client.generated.models.memory_vector_response import MemoryVectorResponse as MemoryVectorResponse
 from spector_client.generated.models.models_response import ModelsResponse as ModelsResponse
+from spector_client.generated.models.namespace_analytics_rollup import NamespaceAnalyticsRollup as NamespaceAnalyticsRollup
 from spector_client.generated.models.namespace_bias import NamespaceBias as NamespaceBias
+from spector_client.generated.models.namespace_legal_hold_request import NamespaceLegalHoldRequest as NamespaceLegalHoldRequest
+from spector_client.generated.models.namespace_quotas_dto import NamespaceQuotasDto as NamespaceQuotasDto
 from spector_client.generated.models.namespace_response import NamespaceResponse as NamespaceResponse
+from spector_client.generated.models.observability_stats_response import ObservabilityStatsResponse as ObservabilityStatsResponse
 from spector_client.generated.models.ollama_model import OllamaModel as OllamaModel
+from spector_client.generated.models.owned_agent_summary_dto import OwnedAgentSummaryDto as OwnedAgentSummaryDto
 from spector_client.generated.models.parameter_definition import ParameterDefinition as ParameterDefinition
 from spector_client.generated.models.persona_context import PersonaContext as PersonaContext
 from spector_client.generated.models.personality_modifiers import PersonalityModifiers as PersonalityModifiers
@@ -290,7 +449,11 @@ from spector_client.generated.models.plugin_info import PluginInfo as PluginInfo
 from spector_client.generated.models.projected_point import ProjectedPoint as ProjectedPoint
 from spector_client.generated.models.projection_result import ProjectionResult as ProjectionResult
 from spector_client.generated.models.provider_health import ProviderHealth as ProviderHealth
+from spector_client.generated.models.purge_result import PurgeResult as PurgeResult
+from spector_client.generated.models.quota_utilization_rollup import QuotaUtilizationRollup as QuotaUtilizationRollup
+from spector_client.generated.models.reassign_tenant_request import ReassignTenantRequest as ReassignTenantRequest
 from spector_client.generated.models.recall_request import RecallRequest as RecallRequest
+from spector_client.generated.models.recall_response import RecallResponse as RecallResponse
 from spector_client.generated.models.recall_result import RecallResult as RecallResult
 from spector_client.generated.models.recall_trace import RecallTrace as RecallTrace
 from spector_client.generated.models.reflect_request import ReflectRequest as ReflectRequest
@@ -299,23 +462,34 @@ from spector_client.generated.models.reflect_sweep_progress import ReflectSweepP
 from spector_client.generated.models.refresh_request import RefreshRequest as RefreshRequest
 from spector_client.generated.models.register_request import RegisterRequest as RegisterRequest
 from spector_client.generated.models.reinforce_by_id_request import ReinforceByIdRequest as ReinforceByIdRequest
+from spector_client.generated.models.reject_break_glass_request import RejectBreakGlassRequest as RejectBreakGlassRequest
 from spector_client.generated.models.relation_type_stats_dto import RelationTypeStatsDto as RelationTypeStatsDto
 from spector_client.generated.models.remember_request import RememberRequest as RememberRequest
+from spector_client.generated.models.rename_session_request import RenameSessionRequest as RenameSessionRequest
 from spector_client.generated.models.reschedule_cron_request import RescheduleCronRequest as RescheduleCronRequest
 from spector_client.generated.models.reschedule_interval_request import RescheduleIntervalRequest as RescheduleIntervalRequest
+from spector_client.generated.models.reset_credentials_request import ResetCredentialsRequest as ResetCredentialsRequest
+from spector_client.generated.models.reset_credentials_response import ResetCredentialsResponse as ResetCredentialsResponse
 from spector_client.generated.models.resolve_request import ResolveRequest as ResolveRequest
+from spector_client.generated.models.revoke_break_glass_request import RevokeBreakGlassRequest as RevokeBreakGlassRequest
+from spector_client.generated.models.revoke_tenant_key_request import RevokeTenantKeyRequest as RevokeTenantKeyRequest
 from spector_client.generated.models.rhetorical_patterns import RhetoricalPatterns as RhetoricalPatterns
+from spector_client.generated.models.rotate_namespace_dek_request import RotateNamespaceDekRequest as RotateNamespaceDekRequest
+from spector_client.generated.models.rotate_tenant_kek_request import RotateTenantKekRequest as RotateTenantKekRequest
 from spector_client.generated.models.route_config import RouteConfig as RouteConfig
 from spector_client.generated.models.salience_snapshot import SalienceSnapshot as SalienceSnapshot
 from spector_client.generated.models.save_profile_request import SaveProfileRequest as SaveProfileRequest
 from spector_client.generated.models.score_breakdown import ScoreBreakdown as ScoreBreakdown
+from spector_client.generated.models.score_breakdown_dto import ScoreBreakdownDto as ScoreBreakdownDto
 from spector_client.generated.models.scoring_stats import ScoringStats as ScoringStats
 from spector_client.generated.models.search_request import SearchRequest as SearchRequest
 from spector_client.generated.models.search_result import SearchResult as SearchResult
-from spector_client.generated.models.session_messages_response import SessionMessagesResponse as SessionMessagesResponse
+from spector_client.generated.models.session_history_response import SessionHistoryResponse as SessionHistoryResponse
 from spector_client.generated.models.session_summary import SessionSummary as SessionSummary
 from spector_client.generated.models.sessions_response import SessionsResponse as SessionsResponse
 from spector_client.generated.models.set_default_namespace_request import SetDefaultNamespaceRequest as SetDefaultNamespaceRequest
+from spector_client.generated.models.signup_request import SignupRequest as SignupRequest
+from spector_client.generated.models.sse_emitter import SseEmitter as SseEmitter
 from spector_client.generated.models.store_request import StoreRequest as StoreRequest
 from spector_client.generated.models.store_response import StoreResponse as StoreResponse
 from spector_client.generated.models.stylometric_features import StylometricFeatures as StylometricFeatures
@@ -324,20 +498,46 @@ from spector_client.generated.models.task_action_response import TaskActionRespo
 from spector_client.generated.models.task_run_audit_record import TaskRunAuditRecord as TaskRunAuditRecord
 from spector_client.generated.models.task_status import TaskStatus as TaskStatus
 from spector_client.generated.models.template_descriptor import TemplateDescriptor as TemplateDescriptor
+from spector_client.generated.models.temporal_fact import TemporalFact as TemporalFact
+from spector_client.generated.models.tenant_analytics_rollup import TenantAnalyticsRollup as TenantAnalyticsRollup
+from spector_client.generated.models.tenant_audit_response import TenantAuditResponse as TenantAuditResponse
+from spector_client.generated.models.tenant_key_revocation_response import TenantKeyRevocationResponse as TenantKeyRevocationResponse
+from spector_client.generated.models.tenant_key_status_response import TenantKeyStatusResponse as TenantKeyStatusResponse
+from spector_client.generated.models.tenant_key_validation_response import TenantKeyValidationResponse as TenantKeyValidationResponse
+from spector_client.generated.models.tenant_quotas_dto import TenantQuotasDto as TenantQuotasDto
+from spector_client.generated.models.tenant_response import TenantResponse as TenantResponse
+from spector_client.generated.models.tenant_settings_dto import TenantSettingsDto as TenantSettingsDto
+from spector_client.generated.models.tenant_summary_item import TenantSummaryItem as TenantSummaryItem
+from spector_client.generated.models.thinking_view import ThinkingView as ThinkingView
+from spector_client.generated.models.throughput_and_latency import ThroughputAndLatency as ThroughputAndLatency
+from spector_client.generated.models.tier_breakdown import TierBreakdown as TierBreakdown
+from spector_client.generated.models.timeline_event_dto import TimelineEventDto as TimelineEventDto
+from spector_client.generated.models.timeline_response import TimelineResponse as TimelineResponse
 from spector_client.generated.models.token_usage_dto import TokenUsageDto as TokenUsageDto
+from spector_client.generated.models.token_usage_rollup import TokenUsageRollup as TokenUsageRollup
 from spector_client.generated.models.token_usage_stats import TokenUsageStats as TokenUsageStats
+from spector_client.generated.models.tool_card_view import ToolCardView as ToolCardView
 from spector_client.generated.models.tools_response import ToolsResponse as ToolsResponse
 from spector_client.generated.models.topology_stats_response import TopologyStatsResponse as TopologyStatsResponse
 from spector_client.generated.models.trace_event import TraceEvent as TraceEvent
 from spector_client.generated.models.trace_step import TraceStep as TraceStep
+from spector_client.generated.models.traced_recall_item_dto import TracedRecallItemDto as TracedRecallItemDto
 from spector_client.generated.models.traced_recall_request import TracedRecallRequest as TracedRecallRequest
+from spector_client.generated.models.traced_recall_response import TracedRecallResponse as TracedRecallResponse
+from spector_client.generated.models.transfer_ownership_request import TransferOwnershipRequest as TransferOwnershipRequest
+from spector_client.generated.models.update_account_request import UpdateAccountRequest as UpdateAccountRequest
 from spector_client.generated.models.update_credential_request import UpdateCredentialRequest as UpdateCredentialRequest
 from spector_client.generated.models.update_memory_request import UpdateMemoryRequest as UpdateMemoryRequest
+from spector_client.generated.models.update_namespace_quotas_request import UpdateNamespaceQuotasRequest as UpdateNamespaceQuotasRequest
 from spector_client.generated.models.update_namespace_request import UpdateNamespaceRequest as UpdateNamespaceRequest
+from spector_client.generated.models.update_tenant_request import UpdateTenantRequest as UpdateTenantRequest
 from spector_client.generated.models.update_user_request import UpdateUserRequest as UpdateUserRequest
+from spector_client.generated.models.user_message_view import UserMessageView as UserMessageView
 from spector_client.generated.models.user_profile_dto import UserProfileDto as UserProfileDto
 from spector_client.generated.models.user_summary import UserSummary as UserSummary
 from spector_client.generated.models.vacuum_request import VacuumRequest as VacuumRequest
 from spector_client.generated.models.vocal_prosody_dna import VocalProsodyDNA as VocalProsodyDNA
 from spector_client.generated.models.weights_request import WeightsRequest as WeightsRequest
+from spector_client.generated.models.why_not_request import WhyNotRequest as WhyNotRequest
+from spector_client.generated.models.why_not_response import WhyNotResponse as WhyNotResponse
 

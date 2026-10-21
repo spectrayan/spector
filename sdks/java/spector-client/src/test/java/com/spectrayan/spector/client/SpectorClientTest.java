@@ -50,6 +50,7 @@ class SpectorClientTest {
                 .baseUri("https://api.spector.internal:9090")
                 .apiKey("test-key-123")
                 .bearerToken("jwt-token-456")
+                .namespace("ns-gamma")
                 .header("X-Custom-Tenant", "tenant-alpha")
                 .connectTimeout(Duration.ofSeconds(5))
                 .readTimeout(Duration.ofSeconds(15))
@@ -66,6 +67,7 @@ class SpectorClientTest {
 
             assertThat(req.headers().firstValue("X-API-Key")).contains("test-key-123");
             assertThat(req.headers().firstValue("Authorization")).contains("Bearer jwt-token-456");
+            assertThat(req.headers().firstValue("X-Spector-Namespace")).contains("ns-gamma");
             assertThat(req.headers().firstValue("X-Custom-Tenant")).contains("tenant-alpha");
         }
     }

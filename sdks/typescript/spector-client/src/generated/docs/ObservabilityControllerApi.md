@@ -14,7 +14,7 @@ All URIs are relative to *http://localhost*
 
 ## ageDistribution
 
-> { [key: string]: any | null; } ageDistribution()
+> AgeDistributionResponse ageDistribution()
 
 
 
@@ -55,7 +55,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-**{ [key: string]: any | null; }**
+[**AgeDistributionResponse**](AgeDistributionResponse.md)
 
 ### Authorization
 
@@ -140,7 +140,7 @@ This endpoint does not need any parameter.
 
 ## stats
 
-> { [key: string]: any | null; } stats()
+> ObservabilityStatsResponse stats()
 
 
 
@@ -181,7 +181,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-**{ [key: string]: any | null; }**
+[**ObservabilityStatsResponse**](ObservabilityStatsResponse.md)
 
 ### Authorization
 
@@ -203,7 +203,7 @@ This endpoint does not need any parameter.
 
 ## timeline
 
-> { [key: string]: any | null; } timeline(from, to, limit)
+> TimelineResponse timeline(from, to, limit)
 
 
 
@@ -258,7 +258,7 @@ example().catch(console.error);
 
 ### Return type
 
-**{ [key: string]: any | null; }**
+[**TimelineResponse**](TimelineResponse.md)
 
 ### Authorization
 
@@ -280,7 +280,7 @@ example().catch(console.error);
 
 ## tracedRecall
 
-> { [key: string]: any | null; } tracedRecall(tracedRecallRequest)
+> TracedRecallResponse tracedRecall(tracedRecallRequest)
 
 
 
@@ -329,7 +329,7 @@ example().catch(console.error);
 
 ### Return type
 
-**{ [key: string]: any | null; }**
+[**TracedRecallResponse**](TracedRecallResponse.md)
 
 ### Authorization
 

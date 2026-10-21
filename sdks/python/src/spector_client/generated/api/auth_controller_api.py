@@ -18,12 +18,12 @@ from typing_extensions import Annotated
 
 from pydantic import StrictStr
 from typing import Any, Dict, List, Optional
+from spector_client.generated.models.auth_config_response import AuthConfigResponse
 from spector_client.generated.models.change_password_request import ChangePasswordRequest
-from spector_client.generated.models.create_api_key_request import CreateApiKeyRequest
-from spector_client.generated.models.create_api_key_response import CreateApiKeyResponse
 from spector_client.generated.models.login_request import LoginRequest
 from spector_client.generated.models.refresh_request import RefreshRequest
 from spector_client.generated.models.register_request import RegisterRequest
+from spector_client.generated.models.signup_request import SignupRequest
 from spector_client.generated.models.update_user_request import UpdateUserRequest
 from spector_client.generated.models.user_summary import UserSummary
 
@@ -318,9 +318,8 @@ class AuthControllerApi:
 
 
     @validate_call
-    def create_api_key(
+    def get_auth_config(
         self,
-        create_api_key_request: Optional[CreateApiKeyRequest] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -333,12 +332,10 @@ class AuthControllerApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> CreateApiKeyResponse:
-        """create_api_key
+    ) -> AuthConfigResponse:
+        """get_auth_config
 
 
-        :param create_api_key_request:
-        :type create_api_key_request: CreateApiKeyRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -361,8 +358,7 @@ class AuthControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._create_api_key_serialize(
-            create_api_key_request=create_api_key_request,
+        _param = self._get_auth_config_serialize(
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -370,7 +366,7 @@ class AuthControllerApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CreateApiKeyResponse",
+            '200': "AuthConfigResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -384,9 +380,8 @@ class AuthControllerApi:
 
 
     @validate_call
-    def create_api_key_with_http_info(
+    def get_auth_config_with_http_info(
         self,
-        create_api_key_request: Optional[CreateApiKeyRequest] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -399,12 +394,10 @@ class AuthControllerApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[CreateApiKeyResponse]:
-        """create_api_key
+    ) -> ApiResponse[AuthConfigResponse]:
+        """get_auth_config
 
 
-        :param create_api_key_request:
-        :type create_api_key_request: CreateApiKeyRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -427,8 +420,7 @@ class AuthControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._create_api_key_serialize(
-            create_api_key_request=create_api_key_request,
+        _param = self._get_auth_config_serialize(
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -436,7 +428,7 @@ class AuthControllerApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CreateApiKeyResponse",
+            '200': "AuthConfigResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -450,9 +442,8 @@ class AuthControllerApi:
 
 
     @validate_call
-    def create_api_key_without_preload_content(
+    def get_auth_config_without_preload_content(
         self,
-        create_api_key_request: Optional[CreateApiKeyRequest] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -466,11 +457,9 @@ class AuthControllerApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> RESTResponseType:
-        """create_api_key
+        """get_auth_config
 
 
-        :param create_api_key_request:
-        :type create_api_key_request: CreateApiKeyRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -493,8 +482,7 @@ class AuthControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._create_api_key_serialize(
-            create_api_key_request=create_api_key_request,
+        _param = self._get_auth_config_serialize(
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -502,7 +490,7 @@ class AuthControllerApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "CreateApiKeyResponse",
+            '200': "AuthConfigResponse",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -511,9 +499,8 @@ class AuthControllerApi:
         return response_data.response
 
 
-    def _create_api_key_serialize(
+    def _get_auth_config_serialize(
         self,
-        create_api_key_request,
         _request_auth,
         _content_type,
         _headers,
@@ -539,8 +526,6 @@ class AuthControllerApi:
         # process the header parameters
         # process the form parameters
         # process the body parameter
-        if create_api_key_request is not None:
-            _body_params = create_api_key_request
 
 
         # set the HTTP header `Accept`
@@ -551,19 +536,6 @@ class AuthControllerApi:
                 ]
             )
 
-        # set the HTTP header `Content-Type`
-        if _content_type:
-            _header_params['Content-Type'] = _content_type
-        else:
-            _default_content_type = (
-                self.api_client.select_header_content_type(
-                    [
-                        'application/json'
-                    ]
-                )
-            )
-            if _default_content_type is not None:
-                _header_params['Content-Type'] = _default_content_type
 
         # authentication setting
         _auth_settings: List[str] = [
@@ -572,8 +544,8 @@ class AuthControllerApi:
         ]
 
         return self.api_client.param_serialize(
-            method='POST',
-            resource_path='/api/v1/auth/api-keys',
+            method='GET',
+            resource_path='/api/v1/auth/config',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -1887,9 +1859,9 @@ class AuthControllerApi:
 
 
     @validate_call
-    def revoke_api_key(
+    def signup(
         self,
-        id: StrictStr,
+        signup_request: Optional[SignupRequest] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1903,11 +1875,11 @@ class AuthControllerApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> object:
-        """revoke_api_key
+        """signup
 
 
-        :param id: (required)
-        :type id: str
+        :param signup_request:
+        :type signup_request: SignupRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1930,8 +1902,8 @@ class AuthControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._revoke_api_key_serialize(
-            id=id,
+        _param = self._signup_serialize(
+            signup_request=signup_request,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1953,9 +1925,9 @@ class AuthControllerApi:
 
 
     @validate_call
-    def revoke_api_key_with_http_info(
+    def signup_with_http_info(
         self,
-        id: StrictStr,
+        signup_request: Optional[SignupRequest] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1969,11 +1941,11 @@ class AuthControllerApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> ApiResponse[object]:
-        """revoke_api_key
+        """signup
 
 
-        :param id: (required)
-        :type id: str
+        :param signup_request:
+        :type signup_request: SignupRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1996,8 +1968,8 @@ class AuthControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._revoke_api_key_serialize(
-            id=id,
+        _param = self._signup_serialize(
+            signup_request=signup_request,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2019,9 +1991,9 @@ class AuthControllerApi:
 
 
     @validate_call
-    def revoke_api_key_without_preload_content(
+    def signup_without_preload_content(
         self,
-        id: StrictStr,
+        signup_request: Optional[SignupRequest] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2035,11 +2007,11 @@ class AuthControllerApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> RESTResponseType:
-        """revoke_api_key
+        """signup
 
 
-        :param id: (required)
-        :type id: str
+        :param signup_request:
+        :type signup_request: SignupRequest
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2062,8 +2034,8 @@ class AuthControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._revoke_api_key_serialize(
-            id=id,
+        _param = self._signup_serialize(
+            signup_request=signup_request,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2080,9 +2052,9 @@ class AuthControllerApi:
         return response_data.response
 
 
-    def _revoke_api_key_serialize(
+    def _signup_serialize(
         self,
-        id,
+        signup_request,
         _request_auth,
         _content_type,
         _headers,
@@ -2104,12 +2076,12 @@ class AuthControllerApi:
         _body_params: Optional[bytes] = None
 
         # process the path parameters
-        if id is not None:
-            _path_params['id'] = id
         # process the query parameters
         # process the header parameters
         # process the form parameters
         # process the body parameter
+        if signup_request is not None:
+            _body_params = signup_request
 
 
         # set the HTTP header `Accept`
@@ -2120,6 +2092,19 @@ class AuthControllerApi:
                 ]
             )
 
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
 
         # authentication setting
         _auth_settings: List[str] = [
@@ -2128,8 +2113,8 @@ class AuthControllerApi:
         ]
 
         return self.api_client.param_serialize(
-            method='DELETE',
-            resource_path='/api/v1/auth/api-keys/{id}',
+            method='POST',
+            resource_path='/api/v1/auth/signup',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,

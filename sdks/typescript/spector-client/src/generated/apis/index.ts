@@ -1,6 +1,13 @@
 /* tslint:disable */
 /* eslint-disable */
 export * from './AccountDefaultControllerApi';
+export * from './AdminAccountControllerApi';
+export * from './AdminAnalyticsControllerApi';
+export * from './AdminAuditControllerApi';
+export * from './AdminBreakGlassApi';
+export * from './AdminNamespaceControllerApi';
+export * from './AdminTenantControllerApi';
+export * from './AdminTenantKeyControllerApi';
 export * from './AgentApprovalControllerApi';
 export * from './AgentControllerApi';
 export * from './AuthControllerApi';
@@ -12,6 +19,7 @@ export * from './CredentialControllerApi';
 export * from './EventControllerApi';
 export * from './FeatureFlagControllerApi';
 export * from './HealthControllerApi';
+export * from './MELStudioApi';
 export * from './McpControllerApi';
 export * from './MemoryApi';
 export * from './MigrationControllerApi';

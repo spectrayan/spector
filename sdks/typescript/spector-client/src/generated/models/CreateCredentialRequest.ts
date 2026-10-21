@@ -38,7 +38,7 @@ export interface CreateCredentialRequest {
     /**
      * 
      */
-    secret: string;
+    secret?: string;
     /**
      * 
      */
@@ -62,7 +62,9 @@ export interface CreateCredentialRequest {
  * @export
  */
 export const CreateCredentialRequestCategoryEnum = {
+    Auth: 'AUTH',
     Llm: 'LLM',
+    Embedding: 'EMBEDDING',
     Channel: 'CHANNEL',
     Database: 'DATABASE',
     Broker: 'BROKER',
@@ -95,7 +97,6 @@ export function instanceOfCreateCredentialRequest(value: object): value is Creat
     if (!('name' in value) || value['name'] === undefined) return false;
     if (!('category' in value) || value['category'] === undefined) return false;
     if (!('provider' in value) || value['provider'] === undefined) return false;
-    if (!('secret' in value) || value['secret'] === undefined) return false;
     return true;
 }
 
@@ -113,7 +114,7 @@ export function CreateCredentialRequestFromJSONTyped(json: any, ignoreDiscrimina
         'category': json['category'],
         'provider': json['provider'],
         'credentialType': json['credentialType'] == null ? undefined : json['credentialType'],
-        'secret': json['secret'],
+        'secret': json['secret'] == null ? undefined : json['secret'],
         'properties': json['properties'] == null ? undefined : json['properties'],
         'isDefault': json['isDefault'] == null ? undefined : json['isDefault'],
         'description': json['description'] == null ? undefined : json['description'],

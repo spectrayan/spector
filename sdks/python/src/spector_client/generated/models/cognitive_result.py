@@ -49,14 +49,15 @@ class CognitiveResult(BaseModel):
     metadata: Optional[Dict[str, StrictStr]] = None
     consolidation_flags: Optional[Union[StrictBytes, StrictStr]] = Field(default=None, alias="consolidationFlags")
     timestamp_ms: Optional[StrictInt] = Field(default=None, alias="timestampMs")
-    lateral: Optional[StrictBool] = None
-    dreamed: Optional[StrictBool] = None
-    simulated: Optional[StrictBool] = None
-    multimodal: Optional[StrictBool] = None
+    truncated: Optional[StrictBool] = None
     positively_reinforced: Optional[StrictBool] = Field(default=None, alias="positivelyReinforced")
-    hyperfocused: Optional[StrictBool] = None
+    simulated: Optional[StrictBool] = None
+    dreamed: Optional[StrictBool] = None
+    multimodal: Optional[StrictBool] = None
     negative_outcome: Optional[StrictBool] = Field(default=None, alias="negativeOutcome")
-    __properties: ClassVar[List[str]] = ["id", "text", "score", "importance", "ageDays", "agentRecallCount", "valence", "memoryType", "source", "synapticTags", "decayFactor", "ltpAdjustedDecay", "retrievalMode", "breakdown", "trace", "sourceModality", "metadata", "consolidationFlags", "timestampMs", "lateral", "dreamed", "simulated", "multimodal", "positivelyReinforced", "hyperfocused", "negativeOutcome"]
+    lateral: Optional[StrictBool] = None
+    hyperfocused: Optional[StrictBool] = None
+    __properties: ClassVar[List[str]] = ["id", "text", "score", "importance", "ageDays", "agentRecallCount", "valence", "memoryType", "source", "synapticTags", "decayFactor", "ltpAdjustedDecay", "retrievalMode", "breakdown", "trace", "sourceModality", "metadata", "consolidationFlags", "timestampMs", "truncated", "positivelyReinforced", "simulated", "dreamed", "multimodal", "negativeOutcome", "lateral", "hyperfocused"]
 
     @field_validator('memory_type')
     def memory_type_validate_enum(cls, value):
@@ -174,13 +175,14 @@ class CognitiveResult(BaseModel):
             "metadata": obj.get("metadata"),
             "consolidationFlags": obj.get("consolidationFlags"),
             "timestampMs": obj.get("timestampMs"),
-            "lateral": obj.get("lateral"),
-            "dreamed": obj.get("dreamed"),
-            "simulated": obj.get("simulated"),
-            "multimodal": obj.get("multimodal"),
+            "truncated": obj.get("truncated"),
             "positivelyReinforced": obj.get("positivelyReinforced"),
-            "hyperfocused": obj.get("hyperfocused"),
-            "negativeOutcome": obj.get("negativeOutcome")
+            "simulated": obj.get("simulated"),
+            "dreamed": obj.get("dreamed"),
+            "multimodal": obj.get("multimodal"),
+            "negativeOutcome": obj.get("negativeOutcome"),
+            "lateral": obj.get("lateral"),
+            "hyperfocused": obj.get("hyperfocused")
         })
         return _obj
 

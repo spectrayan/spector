@@ -12,6 +12,7 @@ Name | Type
 `tags` | Array&lt;string&gt;
 `scoringMode` | string
 `recallMode` | string
+`partitionVisitBudget` | number
 
 ## Example
 
@@ -26,6 +27,7 @@ const example = {
   "tags": null,
   "scoringMode": null,
   "recallMode": null,
+  "partitionVisitBudget": null,
 } satisfies RecallRequest
 
 console.log(example)

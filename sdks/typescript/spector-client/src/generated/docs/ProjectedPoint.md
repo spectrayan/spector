@@ -12,7 +12,6 @@ Name | Type
 `z` | number
 `tier` | string
 `importance` | number
-`label` | string
 
 ## Example
 
@@ -27,7 +26,6 @@ const example = {
   "z": null,
   "tier": null,
   "importance": null,
-  "label": null,
 } satisfies ProjectedPoint
 
 console.log(example)

@@ -12,7 +12,7 @@ All URIs are relative to *http://localhost*
 | [**listCategories**](ConfigControllerApi.md#listcategories) | **GET** /api/v1/config/categories |  |
 | [**policy**](ConfigControllerApi.md#policy) | **GET** /api/v1/config/policy |  |
 | [**saveOverride**](ConfigControllerApi.md#saveoverride) | **PUT** /api/v1/config/{category} |  |
-| [**schema**](ConfigControllerApi.md#schema) | **GET** /api/v1/config/schema/{category} |  |
+| [**schema1**](ConfigControllerApi.md#schema1) | **GET** /api/v1/config/schema/{category} |  |
 
 
 
@@ -566,9 +566,9 @@ example().catch(console.error);
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 
 
-## schema
+## schema1
 
-> { [key: string]: any | null; } schema(category)
+> { [key: string]: any | null; } schema1(category)
 
 
 
@@ -579,7 +579,7 @@ import {
   Configuration,
   ConfigControllerApi,
 } from '';
-import type { SchemaRequest } from '';
+import type { Schema1Request } from '';
 
 async function example() {
   console.log("🚀 Testing  SDK...");
@@ -594,10 +594,10 @@ async function example() {
   const body = {
     // string
     category: category_example,
-  } satisfies SchemaRequest;
+  } satisfies Schema1Request;
 
   try {
-    const data = await api.schema(body);
+    const data = await api.schema1(body);
     console.log(data);
   } catch (error) {
     console.error(error);

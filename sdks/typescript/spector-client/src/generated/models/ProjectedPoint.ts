@@ -43,10 +43,6 @@ export interface ProjectedPoint {
      * 
      */
     importance?: number;
-    /**
-     * 
-     */
-    label?: string;
 }
 
 /**
@@ -72,7 +68,6 @@ export function ProjectedPointFromJSONTyped(json: any, ignoreDiscriminator: bool
         'z': json['z'] == null ? undefined : json['z'],
         'tier': json['tier'] == null ? undefined : json['tier'],
         'importance': json['importance'] == null ? undefined : json['importance'],
-        'label': json['label'] == null ? undefined : json['label'],
     };
 }
 
@@ -93,7 +88,6 @@ export function ProjectedPointToJSONTyped(value?: ProjectedPoint | null, ignoreD
         'z': value['z'],
         'tier': value['tier'],
         'importance': value['importance'],
-        'label': value['label'],
     };
 }
 

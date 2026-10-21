@@ -31,8 +31,11 @@ import com.spectrayan.spector.client.generated.model.MemoryStatusResponse;
 import com.spectrayan.spector.client.generated.model.MemoryTableResponse;
 import com.spectrayan.spector.client.generated.model.MemoryTableRow;
 import com.spectrayan.spector.client.generated.model.MemoryVectorResponse;
+import com.spectrayan.spector.client.generated.model.PurgeResult;
 import com.spectrayan.spector.client.generated.model.RecallRequest;
 import com.spectrayan.spector.client.generated.model.RecallResult;
+import com.spectrayan.spector.client.generated.model.ReflectRequest;
+import com.spectrayan.spector.client.generated.model.ReflectResponse;
 import com.spectrayan.spector.client.generated.model.ReinforceByIdRequest;
 import com.spectrayan.spector.client.generated.model.RememberRequest;
 import com.spectrayan.spector.client.generated.model.ResolveRequest;
@@ -43,6 +46,8 @@ import com.spectrayan.spector.client.generated.model.StoreResponse;
 import com.spectrayan.spector.client.generated.model.SuppressRequest;
 import com.spectrayan.spector.client.generated.model.UpdateMemoryRequest;
 import com.spectrayan.spector.client.generated.model.VacuumRequest;
+import com.spectrayan.spector.client.generated.model.WhyNotRequest;
+import com.spectrayan.spector.client.generated.model.WhyNotResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -307,6 +312,39 @@ class MemoryClientTest {
 
         CompactionResult result = client.vacuum("WORKING");
         assertThat(result.getTombstonesRemoved()).isEqualTo(15);
+    }
+
+    @Test
+    @DisplayName("purge() physically destroys memory and returns PurgeResult")
+    void purgeDelegation() throws Exception {
+        PurgeResult purgeResult = new PurgeResult().memoryId("mem-8").found(true);
+        when(mockApi.purgeMemory("mem-8")).thenReturn(purgeResult);
+
+        PurgeResult result = client.purge("mem-8");
+        assertThat(result.getMemoryId()).isEqualTo("mem-8");
+        assertThat(result.getFound()).isTrue();
+    }
+
+    @Test
+    @DisplayName("reflect() triggers sleep consolidation sweep")
+    void reflectDelegation() throws Exception {
+        ReflectResponse reflectResp = new ReflectResponse().consolidatedCount(5);
+        when(mockApi.reflectMemories(any(), any(), any(), any(), any(), any(), any(ReflectRequest.class)))
+                .thenReturn(reflectResp);
+
+        ReflectResponse result = client.reflect();
+        assertThat(result.getConsolidatedCount()).isEqualTo(5);
+    }
+
+    @Test
+    @DisplayName("whyNot() explains why a candidate memory was excluded")
+    void whyNotDelegation() throws Exception {
+        WhyNotResponse whyNotResp = new WhyNotResponse().memoryId("mem-99").reason("LOW_SIMILARITY");
+        when(mockApi.whyNotMemory(any(WhyNotRequest.class))).thenReturn(whyNotResp);
+
+        WhyNotResponse result = client.whyNot("mem-99", "query text", 5);
+        assertThat(result.getMemoryId()).isEqualTo("mem-99");
+        assertThat(result.getReason()).isEqualTo("LOW_SIMILARITY");
     }
 
     @Test

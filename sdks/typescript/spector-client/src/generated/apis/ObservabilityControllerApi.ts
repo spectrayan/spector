@@ -14,10 +14,30 @@
 
 import * as runtime from '../runtime';
 import {
+    type AgeDistributionResponse,
+    AgeDistributionResponseFromJSON,
+    AgeDistributionResponseToJSON,
+} from '../models/AgeDistributionResponse';
+import {
+    type ObservabilityStatsResponse,
+    ObservabilityStatsResponseFromJSON,
+    ObservabilityStatsResponseToJSON,
+} from '../models/ObservabilityStatsResponse';
+import {
+    type TimelineResponse,
+    TimelineResponseFromJSON,
+    TimelineResponseToJSON,
+} from '../models/TimelineResponse';
+import {
     type TracedRecallRequest,
     TracedRecallRequestFromJSON,
     TracedRecallRequestToJSON,
 } from '../models/TracedRecallRequest';
+import {
+    type TracedRecallResponse,
+    TracedRecallResponseFromJSON,
+    TracedRecallResponseToJSON,
+} from '../models/TracedRecallResponse';
 
 export interface TimelineRequest {
     /**
@@ -79,16 +99,16 @@ export class ObservabilityControllerApi extends runtime.BaseAPI {
 
     /**
      */
-    async ageDistributionRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<{ [key: string]: any | null; }>> {
+    async ageDistributionRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<AgeDistributionResponse>> {
         const requestOptions = await this.ageDistributionRequestOpts();
         const response = await this.request(requestOptions, initOverrides);
 
-        return new runtime.JSONApiResponse<any>(response);
+        return new runtime.JSONApiResponse(response, (jsonValue) => AgeDistributionResponseFromJSON(jsonValue));
     }
 
     /**
      */
-    async ageDistribution(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<{ [key: string]: any | null; }> {
+    async ageDistribution(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<AgeDistributionResponse> {
         const response = await this.ageDistributionRaw(initOverrides);
         return await response.value();
     }
@@ -173,16 +193,16 @@ export class ObservabilityControllerApi extends runtime.BaseAPI {
 
     /**
      */
-    async statsRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<{ [key: string]: any | null; }>> {
+    async statsRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<ObservabilityStatsResponse>> {
         const requestOptions = await this.statsRequestOpts();
         const response = await this.request(requestOptions, initOverrides);
 
-        return new runtime.JSONApiResponse<any>(response);
+        return new runtime.JSONApiResponse(response, (jsonValue) => ObservabilityStatsResponseFromJSON(jsonValue));
     }
 
     /**
      */
-    async stats(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<{ [key: string]: any | null; }> {
+    async stats(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<ObservabilityStatsResponse> {
         const response = await this.statsRaw(initOverrides);
         return await response.value();
     }
@@ -232,16 +252,16 @@ export class ObservabilityControllerApi extends runtime.BaseAPI {
 
     /**
      */
-    async timelineRaw(requestParameters: TimelineRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<{ [key: string]: any | null; }>> {
+    async timelineRaw(requestParameters: TimelineRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<TimelineResponse>> {
         const requestOptions = await this.timelineRequestOpts(requestParameters);
         const response = await this.request(requestOptions, initOverrides);
 
-        return new runtime.JSONApiResponse<any>(response);
+        return new runtime.JSONApiResponse(response, (jsonValue) => TimelineResponseFromJSON(jsonValue));
     }
 
     /**
      */
-    async timeline(requestParameters: TimelineRequest = {}, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<{ [key: string]: any | null; }> {
+    async timeline(requestParameters: TimelineRequest = {}, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<TimelineResponse> {
         const response = await this.timelineRaw(requestParameters, initOverrides);
         return await response.value();
     }
@@ -289,16 +309,16 @@ export class ObservabilityControllerApi extends runtime.BaseAPI {
 
     /**
      */
-    async tracedRecallRaw(requestParameters: TracedRecallOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<{ [key: string]: any | null; }>> {
+    async tracedRecallRaw(requestParameters: TracedRecallOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<TracedRecallResponse>> {
         const requestOptions = await this.tracedRecallRequestOpts(requestParameters);
         const response = await this.request(requestOptions, initOverrides);
 
-        return new runtime.JSONApiResponse<any>(response);
+        return new runtime.JSONApiResponse(response, (jsonValue) => TracedRecallResponseFromJSON(jsonValue));
     }
 
     /**
      */
-    async tracedRecall(requestParameters: TracedRecallOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<{ [key: string]: any | null; }> {
+    async tracedRecall(requestParameters: TracedRecallOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<TracedRecallResponse> {
         const response = await this.tracedRecallRaw(requestParameters, initOverrides);
         return await response.value();
     }
