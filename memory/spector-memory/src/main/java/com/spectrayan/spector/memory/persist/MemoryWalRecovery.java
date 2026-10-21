@@ -254,7 +254,8 @@ public final class MemoryWalRecovery {
                         }
                     }
                     case FORGET -> {
-                        index.remove(event.memoryId());
+                        // Keep the location: the forgotten bytes are still on disk until a purge.
+                        index.retire(event.memoryId());
                     }
                     case PURGE -> {
                         // This case is load-bearing for erasure, not bookkeeping. WalRecoveryDispatcher
@@ -264,6 +265,7 @@ public final class MemoryWalRecovery {
                         // resurrection vector.
                         replayPurge(event, memories);
                         index.remove(event.memoryId());
+                        index.clearTombstone(event.memoryId());
                     }
                     default -> {}
                 }

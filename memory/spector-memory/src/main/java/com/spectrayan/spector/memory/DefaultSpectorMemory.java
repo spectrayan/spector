@@ -198,6 +198,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     //  BM25 Binary Persistence (P1: save on close for instant next startup) 
     private final MemoryBM25Index bm25Index;
 
+    //  Forgotten-but-not-purged locations, durable across restarts (DISK mode only; null otherwise) 
+    private final com.spectrayan.spector.memory.persist.TombstoneLedger tombstoneLedger;
+
     //  Chunking for remember() 
     private final com.spectrayan.spector.commons.chunker.TextChunker chunker;
     private volatile com.spectrayan.spector.commons.chunker.ChunkConfig chunkConfig;
@@ -396,6 +399,21 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                     .suppliedExecutor(builder.suppliedExecutor())
                     .quartzScheduler(builder.customQuartzScheduler())
                     .build();
+        }
+
+        //  Tombstone ledger (DISK mode only): restore forgotten-but-not-purged locations so purge can
+        //  still find them after a restart.
+        if (persistenceMode == MemoryPersistenceMode.DISK && bundle.basePath() != null) {
+            this.tombstoneLedger = new com.spectrayan.spector.memory.persist.TombstoneLedger(bundle.basePath());
+            var restored = tombstoneLedger.load();
+            restored.forEach(index::restoreTombstone);
+            if (!restored.isEmpty()) {
+                log.info("Restored {} tombstoned location(s) awaiting purge from {}",
+                        restored.size(), tombstoneLedger.file());
+            }
+            persistTombstones();
+        } else {
+            this.tombstoneLedger = null;
         }
 
         //  JVM Shutdown Hook  (DISK mode only)
@@ -973,6 +991,36 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         }
     }
 
+    /**
+     * Returns whether a tombstoned record's payload is still at its recorded location: the slot is
+     * tombstoned, not yet purged, and no live id owns it.
+     */
+    private boolean tombstonedPayloadStillAt(MemoryLocation loc) {
+        if (loc.offset() < 0) {
+            return false;
+        }
+        try {
+            var router = partitionManager.routerFor(loc.colocatedPartition());
+            return router.isTombstoned(loc) && !router.isPurged(loc)
+                    && index.findIdByOffset(loc.colocatedPartition(), loc.type(), loc.offset()) == null;
+        } catch (RuntimeException e) {
+            log.warn("Purge: could not verify tombstoned slot {}@{}: {}", loc.type(), loc.offset(), e.getMessage());
+            return false;
+        }
+    }
+
+    /** Writes the current tombstone registry to the ledger (DISK mode only). */
+    private void persistTombstones() {
+        if (tombstoneLedger == null) {
+            return;
+        }
+        try {
+            tombstoneLedger.save(index.tombstones());
+        } catch (java.io.IOException e) {
+            log.error("Failed to persist tombstone ledger {}: {}", tombstoneLedger.file(), e.getMessage(), e);
+        }
+    }
+
     /** Sanitizes a memory ID into a valid tag (lowercase, hyphens, no special chars). */
     private static String sanitizeTag(String id) {
         if (id == null) return "unknown";
@@ -1172,7 +1220,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                     com.spectrayan.spector.memory.policy.DeletionRequest.forget(namespaceId, id));
             partitionManager.routerFor(loc.colocatedPartition()).tombstone(loc);
             wal.appendForget(id);
-            index.remove(id);
+            // retire, not remove: the bytes are still on disk, and purge needs this location to reach them.
+            index.retire(id);
+            persistTombstones();
             log.debug("Forget: '{}' tombstoned", id);
             return com.spectrayan.spector.memory.model.ForgetResult.tombstoned(id);
         } finally {
@@ -1192,9 +1242,16 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             if (id == null) { throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "id"); }
 
             MemoryLocation loc = index.locate(id);
+            boolean wasTombstoned = false;
+            if (loc == null) {
+                // A forgotten record is no longer in the live index, but its bytes are still on disk. Purge
+                // is exactly the operation that has to reach them, so look in the tombstone registry too.
+                loc = index.locateTombstoned(id);
+                wasTombstoned = loc != null;
+            }
             if (loc == null) {
                 // Idempotent by contract, same as forget. Reported, not thrown.
-                log.warn("Purge: memory '{}' not found in index — nothing was destroyed", id);
+                log.warn("Purge: memory '{}' not found in index or tombstones — nothing was destroyed", id);
                 return com.spectrayan.spector.memory.model.PurgeResult.notFound(id, namespaceId);
             }
 
@@ -1224,24 +1281,43 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             //    which is independent of the record's bytes, so order is not strictly forced — but doing it
             //    first means a failure leaves a readable record rather than a zeroed record still wired into
             //    spreading activation.
-            var detach = graphFacade != null
+            var detach = graphFacade != null && loc.graphSlot() >= 0
                     ? graphFacade.detachMemory(loc.graphSlot())
                     : new com.spectrayan.spector.memory.graph.CognitiveGraphFacade.DetachReport(0, false, 0, 0);
 
-            // 3. Overwrite the payload.
-            int payloadZeroed = partitionManager.routerFor(loc.colocatedPartition()).purge(loc);
+            // 3. Overwrite the payload. For a tombstoned record, only when the slot still holds that record:
+            //    vacuum may have compacted it away, and the offset may now belong to someone else.
+            int payloadZeroed = 0;
+            if (!wasTombstoned || tombstonedPayloadStillAt(loc)) {
+                payloadZeroed = partitionManager.routerFor(loc.colocatedPartition()).purge(loc);
+            } else {
+                log.info("Purge: payload of tombstoned '{}' is no longer at its recorded slot "
+                        + "(compacted by vacuum); erasing text and references only", id);
+            }
 
             // 4. Erase the text. Two copies exist in a disk-backed store — the off-heap text.dat frame and
             //    an on-heap entry in the index — and an in-memory store has only the latter. Capture whether
             //    the on-heap copy was there before erasing, so the report can distinguish "no off-heap bytes
             //    existed" from "text survived". Deduplication can make the off-heap erase impossible; that
             //    outcome is disclosed rather than swallowed.
-            boolean hadInlineText = index.hasInlineText(id);
-            var textOutcome = index.eraseText(id);
+            //    A tombstoned record's on-heap copy was already dropped by forget; when it had no off-heap
+            //    text position, that on-heap copy was the only one.
+            boolean hadInlineText = index.hasInlineText(id) || (wasTombstoned && !loc.hasTextPosition());
+            var textOutcome = index.eraseText(id, loc);
 
-            // 5. Only now drop the index entry. Every step above needed the location, which index.remove
-            //    destroys — this is why purge cannot simply be bolted onto the end of forget.
+            // 5. Drop the record's terms from the lexical index, which holds tokens derived from the text.
+            boolean lexicalCleared = false;
+            if (bm25Index != null) {
+                bm25Index.remove(id);
+                lexicalCleared = true;
+            }
+
+            // 6. Only now drop the index entry and any tombstone. Every step above needed the location,
+            //    which index.remove destroys.
             index.remove(id);
+            if (index.clearTombstone(id) != null) {
+                persistTombstones();
+            }
 
             var result = new com.spectrayan.spector.memory.model.PurgeResult(
                     id,
@@ -1260,7 +1336,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                     walRecorded,
                     com.spectrayan.spector.memory.model.PurgeResult.RETAINED_HEADER_FIELDS,
                     com.spectrayan.spector.memory.model.PurgeResult.UNREACHABLE_COPIES,
-                    com.spectrayan.spector.memory.model.PurgeResult.DISCLOSURE_TEXT);
+                    com.spectrayan.spector.memory.model.PurgeResult.DISCLOSURE_TEXT,
+                    wasTombstoned,
+                    lexicalCleared);
 
             if (result.hasLocalRetention()) {
                 log.warn("Purge: '{}' destroyed ({} payload bytes zeroed, {} graph refs removed), but its "
@@ -2150,6 +2228,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                             bytesReclaimed[0] += r.bytesReclaimed();
                             if (r.compacted()) {
                                 anyCompacted[0] = true;
+                                // Tombstoned payloads in this region are gone and their offsets reused.
+                                index.markTombstonePayloadsCompacted(t, h.seq());
                             }
                         }
                     }
@@ -2161,6 +2241,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             }
 
             if (anyCompacted[0]) {
+                persistTombstones();
                 if (graphFacade != null) {
                     for (int s : index.tombstonedGraphSlots()) {
                         graphFacade.detachMemory(s);
