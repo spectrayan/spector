@@ -1990,6 +1990,42 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     }
 
     @Override
+    public int tombstonedCount(MemoryType type) {
+        if (type == null) {
+            return 0;
+        }
+        vacuumLock.lock();
+        try {
+            if (type == MemoryType.WORKING) {
+                // Working memory is global; count it once through the active router, as memoryCount does.
+                return countDead(partitionManager.activeRouter().get(MemoryType.WORKING));
+            }
+            int dead = 0;
+            for (var handle : partitionManager.snapshot()) {
+                dead += countDead(handle.router().get(type));
+            }
+            return dead;
+        } finally {
+            vacuumLock.unlock();
+        }
+    }
+
+    private static int countDead(EngramRegion store) {
+        if (store == null) {
+            return 0;
+        }
+        int dead = 0;
+        int size = store.size();
+        for (int i = 0; i < size; i++) {
+            long offset = store.recordOffset(i);
+            if (store.isTombstoned(offset) || store.isPurged(offset)) {
+                dead++;
+            }
+        }
+        return dead;
+    }
+
+    @Override
     public int decay(Duration olderThan, float factor) {
         if (olderThan == null) { throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "olderThan"); }
         if (factor < 0f || factor > 1f) throw new SpectorValidationException(ErrorCode.ARGUMENT_OUT_OF_RANGE, "factor", 0, 1, 0);
