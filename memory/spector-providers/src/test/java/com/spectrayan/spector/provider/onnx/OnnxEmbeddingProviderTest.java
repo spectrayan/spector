@@ -15,6 +15,14 @@
  */
 package com.spectrayan.spector.provider.onnx;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorConfigException;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import dev.langchain4j.model.embedding.onnx.PoolingMode;
+import org.junit.jupiter.api.io.TempDir;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import com.spectrayan.spector.provider.ProviderConfig;
 import com.spectrayan.spector.provider.embedding.EmbeddingResult;
 import dev.langchain4j.data.embedding.Embedding;
@@ -136,8 +144,114 @@ class OnnxEmbeddingProviderTest {
             );
 
             assertThatThrownBy(() -> factory.createEmbeddingProvider(config))
-                    .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("No ONNX embedding model found on classpath");
+                    .isInstanceOfSatisfying(SpectorConfigException.class,
+                            e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.EMBEDDING_MODEL_INVALID));
+        }
+
+        @Test
+        void ollamaModelNameIsNotSwappedForMiniLm() {
+            var config = new ProviderConfig("onnx", "onnx", "nomic-embed-text", "", "", 768, Map.of());
+            assertThatThrownBy(() -> factory.createEmbeddingProvider(config))
+                    .isInstanceOfSatisfying(SpectorConfigException.class,
+                            e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.EMBEDDING_MODEL_INVALID))
+                    .hasMessageContaining("nomic-embed-text");
+        }
+
+        @Test
+        void blankModelUsesBundledMiniLm() {
+            var provider = factory.createEmbeddingProvider(new ProviderConfig("onnx", "onnx", "", "", "", 0, Map.of()));
+            assertThat(provider).isPresent();
+            assertThat(provider.get().dimensions()).isEqualTo(384);
+        }
+    }
+
+    @Nested
+    @DisplayName("model-path loading (G1)")
+    class ModelPathTests {
+
+        private static final Path MODELS = Path.of("/workspace/state/spector-mcp/models");
+
+        @TempDir
+        Path tmp;
+
+        private ProviderConfig pathConfig(int dims, Map<String, String> props) {
+            return new ProviderConfig("onnx", "onnx", "", "", "", dims, props);
+        }
+
+        @Test
+        void missingTokenizerFails() throws Exception {
+            Path model = Files.writeString(tmp.resolve("model.onnx"), "x");
+            assertThatThrownBy(() -> factory.createEmbeddingProvider(pathConfig(0, Map.of("modelPath", model.toString()))))
+                    .isInstanceOfSatisfying(SpectorConfigException.class,
+                            e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.EMBEDDING_MODEL_INVALID))
+                    .hasMessageContaining("vocab-path");
+        }
+
+        @Test
+        void missingModelFileFails() {
+            var props = Map.of("modelPath", tmp.resolve("absent.onnx").toString(),
+                    "vocabPath", tmp.resolve("tokenizer.json").toString());
+            assertThatThrownBy(() -> factory.createEmbeddingProvider(pathConfig(0, props)))
+                    .isInstanceOfSatisfying(SpectorConfigException.class,
+                            e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.EMBEDDING_MODEL_INVALID));
+        }
+
+        @Test
+        void invalidPoolingModeFails() {
+            assertThatThrownBy(() -> OnnxProviderFactory.poolingMode("max"))
+                    .isInstanceOfSatisfying(SpectorConfigException.class,
+                            e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.EMBEDDING_MODEL_INVALID));
+            assertThat(OnnxProviderFactory.poolingMode("")).isEqualTo(PoolingMode.MEAN);
+            assertThat(OnnxProviderFactory.poolingMode("CLS")).isEqualTo(PoolingMode.CLS);
+        }
+
+        @Test
+        void loadsMiniLmFromDiskAndMatchesTheBundledModel() {
+            Path dir = MODELS.resolve("all-MiniLM-L6-v2");
+            assumeTrue(Files.isRegularFile(dir.resolve("model_quantized.onnx")), "local MiniLM not present");
+            var props = Map.of("modelPath", dir.resolve("model_quantized.onnx").toString(),
+                    "vocabPath", dir.resolve("tokenizer.json").toString());
+            EmbeddingProvider fromDisk = factory.createEmbeddingProvider(pathConfig(384, props)).orElseThrow();
+            assertThat(fromDisk.dimensions()).isEqualTo(384);
+            float[] a = fromDisk.embed("Alex works at Acme in Denver.").vector();
+            EmbeddingProvider bundled = factory.createEmbeddingProvider(pathConfig(0, Map.of())).orElseThrow();
+            float[] b = bundled.embed("Alex works at Acme in Denver.").vector();
+            assertThat(cosine(a, b)).isGreaterThan(0.99);
+        }
+
+        @Test
+        void wrongConfiguredDimensionFails() {
+            Path dir = MODELS.resolve("all-MiniLM-L6-v2");
+            assumeTrue(Files.isRegularFile(dir.resolve("model_quantized.onnx")), "local MiniLM not present");
+            var props = Map.of("modelPath", dir.resolve("model_quantized.onnx").toString(),
+                    "vocabPath", dir.resolve("tokenizer.json").toString());
+            assertThatThrownBy(() -> factory.createEmbeddingProvider(pathConfig(768, props)))
+                    .isInstanceOfSatisfying(SpectorConfigException.class,
+                            e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.EMBEDDING_MODEL_INVALID))
+                    .hasMessageContaining("384");
+        }
+
+        @Test
+        void loadsBgeSmallWithClsPooling() {
+            Path dir = MODELS.resolve("bge-small-en-v1.5");
+            assumeTrue(Files.isRegularFile(dir.resolve("model_quantized.onnx")), "local bge-small not present");
+            var props = Map.of("modelPath", dir.resolve("model_quantized.onnx").toString(),
+                    "vocabPath", dir.resolve("tokenizer.json").toString(), "poolingMode", "cls");
+            EmbeddingProvider bge = factory.createEmbeddingProvider(pathConfig(384, props)).orElseThrow();
+            float[] cat = bge.embed("a cat sat on the mat").vector();
+            float[] kitten = bge.embed("a kitten rested on the rug").vector();
+            float[] tax = bge.embed("quarterly tax filing deadline").vector();
+            assertThat(cosine(cat, kitten)).isGreaterThan(cosine(cat, tax));
+        }
+
+        private static double cosine(float[] a, float[] b) {
+            double dot = 0, na = 0, nb = 0;
+            for (int i = 0; i < a.length; i++) {
+                dot += a[i] * b[i];
+                na += a[i] * a[i];
+                nb += b[i] * b[i];
+            }
+            return dot / Math.sqrt(na * nb);
         }
     }
 

@@ -15,14 +15,23 @@
  */
 package com.spectrayan.spector.provider.onnx;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorConfigException;
 import com.spectrayan.spector.provider.AbstractProviderFactory;
 import com.spectrayan.spector.provider.ProviderConfig;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import dev.langchain4j.model.embedding.EmbeddingModel;
+import dev.langchain4j.model.embedding.onnx.PoolingMode;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Optional;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Factory for creating In-Process Native ONNX embedding providers using LangChain4j.
@@ -35,14 +44,34 @@ import java.util.Optional;
  * <h3>Configuration Properties</h3>
  * <ul>
  *   <li>{@code modelPath} (or {@code model-path}) — path to an ONNX model file (optional)</li>
- *   <li>{@code tokenizerPath} (or {@code vocabPath}) — path to the tokenizer file (optional)</li>
+ *   <li>{@code tokenizerPath} (or {@code vocabPath}) — path to the model's {@code tokenizer.json};
+ *       required with {@code modelPath}</li>
+ *   <li>{@code poolingMode} (or {@code pooling-mode}) — {@code mean} (default) or {@code cls} (BGE models)</li>
+ *   <li>{@code intraOpThreads} (or {@code intra-op-threads}) — ONNX Runtime threads per inference
+ *       (default 1; see {@link #DEFAULT_INTRA_OP_THREADS})</li>
  *   <li>{@code executionProvider} — execution backend label reported by the provider
  *       (default: {@code CPU}); it is not passed to the ONNX model</li>
  * </ul>
  *
- * <p>If no model name is configured, {@code all-MiniLM-L6-v2} is used.</p>
+ * <p>If no model name is configured, {@code all-MiniLM-L6-v2} is used. A named model that is not bundled
+ * fails with SPE-110-011; nothing is substituted. With {@code modelPath}, the output size is probed at
+ * load and must match a configured {@code dimensions}.</p>
  */
 public class OnnxProviderFactory extends AbstractProviderFactory {
+
+    private static final Logger log = LoggerFactory.getLogger(OnnxProviderFactory.class);
+
+    /** Model used when no name is configured. */
+    public static final String DEFAULT_MODEL = "all-MiniLM-L6-v2";
+
+    /**
+     * Default ONNX Runtime intra-op threads per embedding session. The runtime's own default (one per core)
+     * returned wrong vectors for a few percent of calls with onnxruntime 1.20; one thread is exact.
+     */
+    public static final int DEFAULT_INTRA_OP_THREADS = 1;
+
+    /** Output size of the bundled models. */
+    static final int BUNDLED_DIMENSIONS = 384;
 
     /**
      * Creates a factory without a cache manager; embedding providers are returned without caching.
@@ -92,13 +121,32 @@ public class OnnxProviderFactory extends AbstractProviderFactory {
      */
     @Override
     protected Optional<EmbeddingProvider> createRawEmbeddingProvider(ProviderConfig config) {
-        String modelName = config.model() != null && !config.model().isBlank() ? config.model() : "all-MiniLM-L6-v2";
-        int dimensions = resolveDimensions(modelName, config.dimensions());
-        String modelPath = config.property("modelPath").orElse(config.property("model-path").orElse(""));
-        String tokenizerPath = config.property("tokenizerPath").orElse(config.property("vocabPath").orElse(""));
         String executionProvider = config.property("executionProvider").orElse("CPU");
-
-        EmbeddingModel delegate = createEmbeddingModel(modelName, modelPath, tokenizerPath);
+        int threads = intraOpThreads(firstProperty(config, "intraOpThreads", "intra-op-threads"));
+        String modelPath = firstProperty(config, "modelPath", "model-path");
+        if (!modelPath.isBlank()) {
+            String tokenizerPath = firstProperty(config, "tokenizerPath", "tokenizer-path", "vocabPath", "vocab-path");
+            PoolingMode pooling = poolingMode(firstProperty(config, "poolingMode", "pooling-mode"));
+            EmbeddingModel delegate = loadFromPath(modelPath, tokenizerPath, pooling, threads);
+            int probed = probeDimensions(delegate, modelPath);
+            if (config.dimensions() > 0 && config.dimensions() != probed) {
+                throw new SpectorConfigException(ErrorCode.EMBEDDING_MODEL_INVALID, "spector.provider.embedding.dimensions",
+                        "is " + config.dimensions() + " but " + Path.of(modelPath).getFileName() + " produces "
+                                + probed + "-dimensional vectors");
+            }
+            String name = config.model() != null && !config.model().isBlank()
+                    ? config.model() : Path.of(modelPath).getFileName().toString();
+            log.info("[ONNX] Loaded embedding model {} from model-path ({} dims, pooling={})", name, probed,
+                    pooling.name().toLowerCase(Locale.ROOT));
+            return Optional.of(new OnnxEmbeddingProvider(delegate, name, probed, executionProvider));
+        }
+        String modelName = config.model() != null && !config.model().isBlank() ? config.model() : DEFAULT_MODEL;
+        EmbeddingModel delegate = createEmbeddingModel(modelName, null, null, threads);
+        int dimensions = BUNDLED_DIMENSIONS;
+        if (config.dimensions() > 0 && config.dimensions() != dimensions) {
+            log.info("[ONNX] Bundled model {} produces {}-dimensional vectors; configured dimensions={} do not apply",
+                    modelName, dimensions, config.dimensions());
+        }
         return Optional.of(new OnnxEmbeddingProvider(delegate, modelName, dimensions, executionProvider));
     }
 
@@ -114,60 +162,141 @@ public class OnnxProviderFactory extends AbstractProviderFactory {
     }
 
     /**
-     * Loads a LangChain4j ONNX embedding model.
+     * Loads a bundled LangChain4j ONNX embedding model by name, or a model from {@code modelPath}.
      *
-     * <p>Resolution order:</p>
-     * <ol>
-     *   <li>If {@code modelPath} is non-blank, builds {@code OnnxEmbeddingModel} from that path
-     *       (and {@code tokenizerPath}, if non-blank). Failure here is not retried with other options.</li>
-     *   <li>If the model name contains {@code bge-small}/{@code bge_small}, tries the pre-packaged
-     *       {@code BgeSmallEnV15QuantizedEmbeddingModel} if it is on the classpath.</li>
-     *   <li>If the model name contains {@code minilm}, or is blank, {@code default}, or {@code onnx},
-     *       tries the pre-packaged {@code AllMiniLmL6V2QuantizedEmbeddingModel} if it is on the classpath.</li>
-     * </ol>
+     * <p>Bundled models: {@code all-MiniLM-L6-v2} (also the model for a blank name) and
+     * {@code bge-small-en-v1.5}, each only if its LangChain4j artifact is on the classpath. Any other name,
+     * including an Ollama model name such as {@code nomic-embed-text}, fails: there is no substitute model.</p>
      *
-     * @param modelName     model name used to select a pre-packaged model
-     * @param modelPath     path to an ONNX model file, or blank/{@code null} to use a pre-packaged model
-     * @param tokenizerPath path to the tokenizer file, or blank/{@code null}
+     * @param modelName     model name used to select a bundled model
+     * @param modelPath     path to an ONNX model file, or blank/{@code null} to use a bundled model
+     * @param tokenizerPath path to the {@code tokenizer.json}; required with {@code modelPath}
      * @return the loaded embedding model
-     * @throws IllegalStateException if the model cannot be built from {@code modelPath}, or no
-     *                               matching pre-packaged model is available
+     * @throws SpectorConfigException (SPE-110-011) if the model cannot be loaded
      */
     public static EmbeddingModel createEmbeddingModel(String modelName, String modelPath, String tokenizerPath) {
-        // 1. If explicit modelPath and tokenizerPath are provided, try OnnxEmbeddingModel builder via reflection
+        return createEmbeddingModel(modelName, modelPath, tokenizerPath, DEFAULT_INTRA_OP_THREADS);
+    }
+
+    /**
+     * As {@link #createEmbeddingModel(String, String, String)}, with an explicit ONNX Runtime intra-op
+     * thread count for the session.
+     *
+     * @param modelName      model name used to select a bundled model
+     * @param modelPath      path to an ONNX model file, or blank/{@code null} to use a bundled model
+     * @param tokenizerPath  path to the {@code tokenizer.json}; required with {@code modelPath}
+     * @param intraOpThreads intra-op threads (at least 1)
+     * @return the loaded embedding model
+     * @throws SpectorConfigException (SPE-110-011) if the model cannot be loaded
+     */
+    public static EmbeddingModel createEmbeddingModel(String modelName, String modelPath, String tokenizerPath,
+                                                      int intraOpThreads) {
         if (modelPath != null && !modelPath.isBlank()) {
-            try {
-                Class<?> clazz = Class.forName("dev.langchain4j.model.embedding.onnx.OnnxEmbeddingModel");
-                var builderMethod = clazz.getMethod("builder");
-                Object builder = builderMethod.invoke(null);
-                builder.getClass().getMethod("pathToModel", String.class).invoke(builder, modelPath);
-                if (tokenizerPath != null && !tokenizerPath.isBlank()) {
-                    builder.getClass().getMethod("pathToTokenizer", String.class).invoke(builder, tokenizerPath);
-                }
-                return (EmbeddingModel) builder.getClass().getMethod("build").invoke(builder);
-            } catch (Exception e) {
-                throw new IllegalStateException("Failed to instantiate OnnxEmbeddingModel from path: " + modelPath, e);
+            return loadFromPath(modelPath, tokenizerPath, PoolingMode.MEAN, intraOpThreads);
+        }
+        String lower = modelName != null ? modelName.trim().toLowerCase(Locale.ROOT) : "";
+        String className;
+        if (lower.isEmpty() || lower.equals("all-minilm-l6-v2") || lower.equals("all-minilm-l6-v2-q")
+                || lower.equals("sentence-transformers/all-minilm-l6-v2")) {
+            return ThreadLimitedOnnxEmbeddingModel.bundledMiniLm(intraOpThreads);
+        } else if (lower.equals("bge-small-en-v1.5") || lower.equals("bge-small-en-v15") || lower.equals("bge-small-en")
+                || lower.equals("baai/bge-small-en-v1.5")) {
+            className = "dev.langchain4j.model.embedding.onnx.bgesmallenv15q.BgeSmallEnV15QuantizedEmbeddingModel";
+        } else {
+            throw new SpectorConfigException(ErrorCode.EMBEDDING_MODEL_INVALID, "spector.provider.embedding.model",
+                    "'" + modelName + "' is not a bundled in-process ONNX model (bundled: all-MiniLM-L6-v2, "
+                            + "bge-small-en-v1.5); set model-path and vocab-path for any other ONNX model");
+        }
+        try {
+            Class<?> clazz = Class.forName(className);
+            return (EmbeddingModel) clazz.getConstructor().newInstance();
+        } catch (ReflectiveOperationException | LinkageError e) {
+            throw new SpectorConfigException(ErrorCode.EMBEDDING_MODEL_INVALID, "spector.provider.embedding.model",
+                    "'" + modelName + "' is not on the classpath (" + className + ")");
+        }
+    }
+
+    private static EmbeddingModel loadFromPath(String modelPath, String tokenizerPath, PoolingMode pooling,
+                                               int intraOpThreads) {
+        requireFile(modelPath, "spector.provider.embedding.model-path");
+        if (tokenizerPath == null || tokenizerPath.isBlank()) {
+            throw new SpectorConfigException(ErrorCode.EMBEDDING_MODEL_INVALID, "spector.provider.embedding.vocab-path",
+                    "is required when model-path is set (the model's tokenizer.json)");
+        }
+        requireFile(tokenizerPath, "spector.provider.embedding.vocab-path");
+        try {
+            return ThreadLimitedOnnxEmbeddingModel.fromFiles(Path.of(modelPath), Path.of(tokenizerPath), pooling,
+                    intraOpThreads);
+        } catch (SpectorConfigException e) {
+            throw e;
+        } catch (RuntimeException | LinkageError e) {
+            throw new SpectorConfigException(ErrorCode.EMBEDDING_MODEL_INVALID, "spector.provider.embedding.model-path",
+                    Path.of(modelPath).getFileName() + " could not be loaded (" + e.getClass().getSimpleName()
+                            + (e.getMessage() != null ? ": " + e.getMessage() : "") + ")");
+        }
+    }
+
+    private static int probeDimensions(EmbeddingModel model, String modelPath) {
+        try {
+            float[] v = model.embed("dimension probe").content().vector();
+            if (v == null || v.length == 0) {
+                throw new IllegalStateException("empty vector");
+            }
+            return v.length;
+        } catch (RuntimeException e) {
+            throw new SpectorConfigException(ErrorCode.EMBEDDING_MODEL_INVALID, "spector.provider.embedding.model-path",
+                    Path.of(modelPath).getFileName() + " failed the probe embedding (" + e.getClass().getSimpleName() + ")");
+        }
+    }
+
+    static int intraOpThreads(String value) {
+        if (value == null || value.isBlank()) {
+            return DEFAULT_INTRA_OP_THREADS;
+        }
+        try {
+            int n = Integer.parseInt(value.trim());
+            if (n >= 1) {
+                return n;
+            }
+        } catch (NumberFormatException e) {
+            // reported below
+        }
+        throw new SpectorConfigException(ErrorCode.EMBEDDING_MODEL_INVALID, "spector.provider.embedding.intra-op-threads",
+                "'" + value + "' is not a whole number of at least 1");
+    }
+
+    static PoolingMode poolingMode(String value) {
+        if (value == null || value.isBlank()) {
+            return PoolingMode.MEAN;
+        }
+        return switch (value.trim().toLowerCase(Locale.ROOT)) {
+            case "mean" -> PoolingMode.MEAN;
+            case "cls" -> PoolingMode.CLS;
+            default -> throw new SpectorConfigException(ErrorCode.EMBEDDING_MODEL_INVALID,
+                    "spector.provider.embedding.pooling-mode", "'" + value + "' is not one of mean, cls");
+        };
+    }
+
+    private static void requireFile(String path, String property) {
+        Path p = Path.of(path);
+        try {
+            if (!Files.isRegularFile(p) || !Files.isReadable(p) || Files.size(p) == 0) {
+                throw new SpectorConfigException(ErrorCode.EMBEDDING_MODEL_INVALID, property,
+                        path + " does not exist, is not readable or is empty");
+            }
+        } catch (IOException e) {
+            throw new SpectorConfigException(ErrorCode.EMBEDDING_MODEL_INVALID, property, path + " is not readable");
+        }
+    }
+
+    private static String firstProperty(ProviderConfig config, String... keys) {
+        for (String k : keys) {
+            Optional<String> v = config.property(k);
+            if (v.isPresent() && !v.get().isBlank()) {
+                return v.get().trim();
             }
         }
-
-        // 2. Try pre-packaged model classes if available on classpath
-        String lower = modelName != null ? modelName.toLowerCase(Locale.ROOT) : "";
-        if (lower.contains("bge-small") || lower.contains("bge_small")) {
-            try {
-                Class<?> clazz = Class.forName("dev.langchain4j.model.embedding.onnx.bgesmallenq.BgeSmallEnV15QuantizedEmbeddingModel");
-                return (EmbeddingModel) clazz.getConstructor().newInstance();
-            } catch (Exception ignored) {}
-        }
-
-        if (lower.contains("all-minilm") || lower.contains("minilm") || lower.isBlank() || lower.equals("default") || lower.equals("onnx")) {
-            try {
-                Class<?> clazz = Class.forName("dev.langchain4j.model.embedding.onnx.allminilml6v2q.AllMiniLmL6V2QuantizedEmbeddingModel");
-                return (EmbeddingModel) clazz.getConstructor().newInstance();
-            } catch (Exception ignored) {}
-        }
-
-        throw new IllegalStateException("No ONNX embedding model found on classpath for model: " + modelName
-                + ". Please specify 'modelPath' in configuration or add langchain4j-embeddings-all-minilm-l6-v2 dependency.");
+        return "";
     }
 
     /**
