@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.memory.cortex.consolidation;
 
+import com.spectrayan.spector.memory.cortex.consolidation.ContradictionDetector.Verdict;
 import com.spectrayan.spector.provider.generation.GenerationOptions;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.model.LlmRequest;
@@ -28,36 +29,40 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ContradictionDetectorTest {
 
     @Test
-    @DisplayName("null textGenerator always returns false")
-    void nullProviderAlwaysReturnsFalse() {
+    @DisplayName("null textGenerator yields UNKNOWN (fail closed), never a contradiction")
+    void nullProviderIsUnknown() {
         ContradictionDetector detector = new ContradictionDetector(null);
+        assertThat(detector.canVerify()).isFalse();
+        assertThat(detector.verdict("A", "B")).isEqualTo(Verdict.UNKNOWN);
         assertThat(detector.areContradictory("A", "B")).isFalse();
     }
 
     @Test
-    @DisplayName("Returns true when LLM detects contradiction (YES)")
+    @DisplayName("Returns CONTRADICTORY when LLM detects contradiction (YES)")
     void contradictionDetected() {
         ContradictionDetector detector = new ContradictionDetector(createMockProvider("YES"));
+        assertThat(detector.verdict("The sky is blue", "The sky is red")).isEqualTo(Verdict.CONTRADICTORY);
         assertThat(detector.areContradictory("The sky is blue", "The sky is red")).isTrue();
     }
 
     @Test
-    @DisplayName("Returns false when LLM detects no contradiction (NO)")
+    @DisplayName("Returns COMPATIBLE when LLM detects no contradiction (NO)")
     void noContradictionDetected() {
         ContradictionDetector detector = new ContradictionDetector(createMockProvider("NO"));
+        assertThat(detector.verdict("The sky is blue", "It is a sunny day")).isEqualTo(Verdict.COMPATIBLE);
         assertThat(detector.areContradictory("The sky is blue", "It is a sunny day")).isFalse();
     }
 
     @Test
-    @DisplayName("Returns true when LLM response contains YES")
-    void llmResponseContainingYesIsContradiction() {
+    @DisplayName("Returns CONTRADICTORY when LLM response starts with YES")
+    void llmResponseStartingWithYesIsContradiction() {
         ContradictionDetector detector = new ContradictionDetector(createMockProvider("YES, they contradict each other"));
-        assertThat(detector.areContradictory("A", "Not A")).isTrue();
+        assertThat(detector.verdict("A", "Not A")).isEqualTo(Verdict.CONTRADICTORY);
     }
 
     @Test
-    @DisplayName("Returns false when LLM throws an exception")
-    void llmExceptionReturnsFalse() {
+    @DisplayName("Returns UNKNOWN when LLM throws an exception")
+    void llmExceptionIsUnknown() {
         LlmProvider throwingProvider = new LlmProvider() {
             @Override
             public LlmResponse generate(LlmRequest request, GenerationOptions options) {
@@ -69,21 +74,37 @@ class ContradictionDetectorTest {
             public boolean isAvailable() { return true; }
         };
         ContradictionDetector detector = new ContradictionDetector(throwingProvider);
+        assertThat(detector.verdict("A", "B")).isEqualTo(Verdict.UNKNOWN);
         assertThat(detector.areContradictory("A", "B")).isFalse();
     }
 
     @Test
-    @DisplayName("Returns false when LLM response is null")
-    void nullResponseReturnsFalse() {
+    @DisplayName("Returns UNKNOWN when LLM response is null")
+    void nullResponseIsUnknown() {
         ContradictionDetector detector = new ContradictionDetector(createMockProvider(null));
-        assertThat(detector.areContradictory("A", "B")).isFalse();
+        assertThat(detector.verdict("A", "B")).isEqualTo(Verdict.UNKNOWN);
+    }
+
+    @Test
+    @DisplayName("Returns UNKNOWN for blank or unparseable replies")
+    void unparseableResponseIsUnknown() {
+        assertThat(new ContradictionDetector(createMockProvider("")).verdict("A", "B")).isEqualTo(Verdict.UNKNOWN);
+        assertThat(new ContradictionDetector(createMockProvider("Maybe")).verdict("A", "B")).isEqualTo(Verdict.UNKNOWN);
+        assertThat(new ContradictionDetector(createMockProvider("NOT SURE")).verdict("A", "B")).isEqualTo(Verdict.UNKNOWN);
+    }
+
+    @Test
+    @DisplayName("Parses replies case-insensitively with trailing punctuation")
+    void parsesCaseInsensitively() {
+        assertThat(ContradictionDetector.parse(" no.")).isEqualTo(Verdict.COMPATIBLE);
+        assertThat(ContradictionDetector.parse("Yes!")).isEqualTo(Verdict.CONTRADICTORY);
     }
 
     @Test
     @DisplayName("Handles blank inputs gracefully")
     void blankInputsHandledGracefully() {
         ContradictionDetector detector = new ContradictionDetector(createMockProvider("NO"));
-        assertThat(detector.areContradictory("", "")).isFalse();
+        assertThat(detector.verdict("", "")).isEqualTo(Verdict.COMPATIBLE);
     }
 
     private LlmProvider createMockProvider(String expectedResponse) {

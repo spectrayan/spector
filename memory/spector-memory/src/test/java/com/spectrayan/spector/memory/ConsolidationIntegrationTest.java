@@ -156,6 +156,77 @@ class ConsolidationIntegrationTest {
     }
 
     @Test
+    void testNoLlmProviderLeavesDuplicatePairIntact() {
+        // #1146: without an LLM there is no contradiction verdict, so the pair must not be merged
+        try (SpectorMemory noLlm = buildMemory(null)) {
+            assertPairSurvivesConsolidation(noLlm);
+        }
+    }
+
+    @Test
+    void testLlmErrorLeavesDuplicatePairIntact() {
+        // #1146: a provider error is "no verdict", not "not contradictory"
+        LlmProvider failing = new LlmProvider() {
+            @Override
+            public LlmResponse generate(LlmRequest request, GenerationOptions options) {
+                throw new IllegalStateException("provider outage");
+            }
+
+            @Override
+            public boolean isAvailable() {
+                return true;
+            }
+
+            @Override
+            public String modelName() {
+                return "failing-llm";
+            }
+        };
+        try (SpectorMemory failingLlm = buildMemory(failing)) {
+            assertPairSurvivesConsolidation(failingLlm);
+        }
+    }
+
+    private SpectorMemory buildMemory(LlmProvider provider) {
+        var builder = DefaultSpectorMemory.builder(new com.spectrayan.spector.config.properties.MemoryProperties()
+                        .setDimensions(DIMENSIONS)
+                        .setWorkingCapacity(20)
+                        .setEpisodicPartitionCapacity(100)
+                        .setSemanticCapacity(100)
+                        .setProceduralCapacity(100))
+                .embeddingProvider(embeddingProvider)
+                .persistenceMode(MemoryPersistenceMode.IN_MEMORY);
+        if (provider != null) {
+            builder.llmProvider(provider);
+        }
+        return builder.build();
+    }
+
+    private void assertPairSurvivesConsolidation(SpectorMemory target) {
+        float[] vector = new float[DIMENSIONS];
+        vector[3] = 1.0f;
+        String textA = "User prefers dark theme.";
+        String textB = "User never wants dark theme.";
+        embeddingProvider.register(textA, vector);
+        embeddingProvider.register(textB, vector);
+
+        target.remember("pair-a", textA, MemoryType.SEMANTIC, MemorySource.OBSERVED, "ui");
+        target.remember("pair-b", textB, MemoryType.SEMANTIC, MemorySource.OBSERVED, "ui");
+
+        target.consolidate();
+
+        CognitiveRecord recordA = target.inspect("pair-a");
+        CognitiveRecord recordB = target.inspect("pair-b");
+        assertThat(recordA).as("pair-a must survive when no verdict is available").isNotNull();
+        assertThat(recordB).as("pair-b must survive when no verdict is available").isNotNull();
+        assertThat(recordA.isTombstoned()).isFalse();
+        assertThat(recordB.isTombstoned()).isFalse();
+        assertThat(recordA.isContradicted()).isFalse();
+        assertThat(recordB.isContradicted()).isFalse();
+        assertThat(target.memoryCount(MemoryType.SEMANTIC)).isEqualTo(2);
+    }
+
+    @Test
     void testReflectStoresLastReflectReportAndTimestamp() {
         assertThat(memory.lastReflectReport()).isNull();
         assertThat(memory.lastReflectTimestamp()).isEqualTo(0L);

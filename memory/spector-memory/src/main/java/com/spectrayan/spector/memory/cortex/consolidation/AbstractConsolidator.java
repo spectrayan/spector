@@ -38,6 +38,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Abstract base class for memory consolidation implementations.
@@ -45,6 +46,11 @@ import java.util.Set;
  * <p>Provides template methods for candidate pair evaluation, CADP contradiction
  * resolution delegation via {@link CadpContradictionResolver}, and non-contradictory
  * duplicate fusion via {@link MemoryMerger}.</p>
+ *
+ * <p>Pairs are merged only when the {@link ContradictionDetector} returns
+ * {@link ContradictionDetector.Verdict#COMPATIBLE}. When no verdict is available
+ * (no LLM provider, provider error, unparseable reply) the pair is skipped and both
+ * records are left intact; skipped pairs are counted in {@link #unverifiedPairsSkipped()}.</p>
  */
 public abstract class AbstractConsolidator implements Consolidator {
 
@@ -55,12 +61,27 @@ public abstract class AbstractConsolidator implements Consolidator {
     protected final ContradictionDetector contradictionDetector;
     protected final MemoryMerger memoryMerger;
     protected final TsidGenerator tsidGenerator = new TsidGenerator();
+    private final AtomicLong unverifiedPairsSkipped = new AtomicLong();
 
     protected AbstractConsolidator(LlmProvider textGenerator, EmbeddingProvider embeddingProvider) {
         this.textGenerator = textGenerator;
         this.embeddingProvider = embeddingProvider;
         this.contradictionDetector = new ContradictionDetector(textGenerator);
         this.memoryMerger = new MemoryMerger(textGenerator, embeddingProvider);
+        if (!contradictionDetector.canVerify()) {
+            log.warn("Consolidator: no LLM provider configured; contradiction checks are unavailable, "
+                    + "so duplicate merging and CADP resolution are disabled (pairs are left intact)");
+        }
+    }
+
+    /**
+     * Returns the number of candidate pairs left untouched because no contradiction
+     * verdict was available (fail-closed, #1146).
+     *
+     * @return cumulative count of skipped pairs
+     */
+    public long unverifiedPairsSkipped() {
+        return unverifiedPairsSkipped.get();
     }
 
     /**
@@ -116,10 +137,17 @@ public abstract class AbstractConsolidator implements Consolidator {
             return false;
         }
 
-        // 1. Contradiction classification
-        boolean isContradictory = contradictionDetector.areContradictory(recordA.text(), recordB.text());
+        // 1. Contradiction classification — fail closed when no verdict is available (#1146)
+        ContradictionDetector.Verdict verdict = contradictionDetector.verdict(recordA.text(), recordB.text());
 
-        if (isContradictory) {
+        if (verdict == ContradictionDetector.Verdict.UNKNOWN) {
+            long skipped = unverifiedPairsSkipped.incrementAndGet();
+            log.warn("Consolidator: no contradiction verdict for '{}' and '{}'; leaving both intact "
+                    + "(unverified pairs skipped so far: {})", recordA.id(), recordB.id(), skipped);
+            return false;
+        }
+
+        if (verdict == ContradictionDetector.Verdict.CONTRADICTORY) {
             log.info("Consolidator: Detected contradiction between '{}' and '{}'", recordA.id(), recordB.id());
             CadpContradictionResolver.resolve(
                     recordA, recordB, partitionManager, store, hyperEntityGraph, entityDirectory, temporalKnowledgeGraph);
