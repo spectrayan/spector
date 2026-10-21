@@ -72,6 +72,12 @@ These errors indicate problems with Spector configuration files or values.
 | `SPE-110-004` | Configuration profile not found | Check available profiles in your config file. |
 | `SPE-110-005` | Required configuration key missing | Add the missing key to your config file. |
 | `SPE-110-006` | No text generation provider available | A feature such as `tag-extractor: llm` needs an LLM. Set `spector.provider.generation.type`/`model` and its API key (for OpenAI, `OPENAI_API_KEY`), or switch the feature off. |
+| `SPE-110-007` | An agent token is required to start the MCP server | `spector mcp` (stdio) needs `SPECTOR_TOKEN_FILE` pointing at a token from `spector token issue`, and `SPECTOR_AUTH_AGENT_JWKS_FILE` pointing at the issuer's public key set. |
+| `SPE-110-008` | The agent token must pin exactly one namespace | Issue the token with a single `--namespace`. MCP calls are bound to that namespace only. |
+| `SPE-110-009` | The agent token was rejected | The signature, issuer, expiry or subject check failed. Issue a fresh token with `spector token issue` and check that the server has the matching public key set. |
+| `SPE-110-010` | JWT key is unusable | HS256 secrets must be at least 32 bytes; agent-token keys must be a valid EC P-256 JWK (private, issuer only) or JWK set (public, servers). |
+| `SPE-110-011` | Embedding model is unusable | A configured local ONNX embedding model cannot be used: `model-path` or `vocab-path` is missing, unreadable or empty, `pooling-mode` is invalid, the probe vector length differs from `dimensions`, or a named model is not available. There is no fallback model. |
+| `SPE-110-012` | Extraction model is unusable | `tag-extractor: gliner` or `entity.extraction-mode: gliner` is set, but the GLiNER model, `tokenizer.json` or `gliner_config.json` under `spector.provider.extraction.*` is missing, unreadable or not a supported GLiNER span model. Nothing is downloaded and there is no fallback extractor. |
 
 ---
 
@@ -138,6 +144,8 @@ These errors relate to the cognitive memory subsystem.
 | `SPE-310-004` | Memory ID not found | The specified memory ID does not exist in any tier. |
 | `SPE-310-005` | Memory WAL file corrupted | WAL file is unreadable. Recovery may require reinitialization. |
 | `SPE-310-029` | LLM tag extraction failed | `tag-extractor: llm` is set and the LLM call failed or returned nothing usable. The write is refused rather than silently tagged by keywords. Check the generation provider, its API key and quota, or set `tag-extractor: content`. |
+| `SPE-310-030` | Local extraction failed | GLiNER inference failed for a memory. A write tagged by `tag-extractor: gliner` is refused; an entity-extraction failure is logged with this code. Memory text is never logged. |
+| `SPE-310-031` | Store already open | Another process (or another memory in the same process) holds the exclusive lock `.spector-store.lock` in the persistence directory. Stop the other writer; the OS releases the lock when that process exits. |
 
 ---
 
@@ -168,6 +176,7 @@ These errors are returned by the Spector REST API, gRPC, or MCP server.
 | `SPE-500-005` | 503 | Service unavailable | Backend service is down. Retry after delay. |
 | `SPE-500-006` | 500 | MCP tool execution failed | Check MCP tool logs for details. |
 | `SPE-500-007` | 500 | gRPC transport error | Check network connectivity between nodes. |
+| `SPE-500-014` | 403 | MCP namespace mismatch | MCP calls are bound to the single namespace pinned by the caller's token. A `namespace` argument, `X-Spector-Namespace` header or `?namespace=` parameter may only repeat that namespace; omit it. |
 
 ---
 
