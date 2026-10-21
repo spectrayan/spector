@@ -535,7 +535,7 @@ export class NeuralGraphComponent implements AfterViewInit, OnDestroy {
 
   private animate(): void {
     this.animationId = requestAnimationFrame(() => this.animate());
-    this.timer.update(performance.now() / 1000);
+    this.timer.update(performance.now());
     const rawDelta = this.timer.getDelta();
     this.frameAccumulator += rawDelta;
     if (this.frameAccumulator < 0.032 && !this.isDragging) return;

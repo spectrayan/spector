@@ -371,4 +371,44 @@ describe('EventStreamService Dual-Topic Dispatching', () => {
       }).not.toThrow();
     });
   });
+
+  describe('SSE stream parsing', () => {
+    const streamOf = (text: string) => {
+      const bytes = new TextEncoder().encode(text);
+      return new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(bytes);
+          controller.close();
+        },
+      });
+    };
+
+    const connectWith = async (text: string) => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(streamOf(text), { status: 200 })));
+      vi.spyOn(service as any, 'scheduleReconnect').mockImplementation(() => undefined);
+      (service as any).doConnect();
+      await vi.waitFor(() => expect(mockState.connectionStatus()).toBe('disconnected'));
+      vi.unstubAllGlobals();
+    };
+
+    it('dispatches data-only broadcast frames by their payload eventType, once per fan-out', async () => {
+      const trace = JSON.stringify({ eventType: 'cortex.query.trace', queryText: 'q', finalTopK: 3 });
+      await connectWith(
+        'event:connected\ndata:connected\n\n' +
+        // EventPublisher.broadcast() emits without an `event:` line, once per subscribed topic
+        `data:${trace}\n\ndata:${trace}\n\ndata:${trace}\n\n` +
+        'event:cortex.metrics.tick\ndata:{"recallRate":1}\n\n',
+      );
+      expect(mockState.pushQueryTrace).toHaveBeenCalledTimes(1);
+      expect(mockState.pushQueryTrace.mock.calls[0][0].queryText).toBe('q');
+      expect(mockState.pushMetricsTick).toHaveBeenCalledTimes(1);
+      expect(mockLogger.warn).not.toHaveBeenCalled();
+    });
+
+    it('ignores data-only frames that carry no eventType', async () => {
+      await connectWith('data:not-json\n\ndata:{"foo":1}\n\n');
+      expect(mockState.pushQueryTrace).not.toHaveBeenCalled();
+      expect(mockLogger.warn).not.toHaveBeenCalled();
+    });
+  });
 });
