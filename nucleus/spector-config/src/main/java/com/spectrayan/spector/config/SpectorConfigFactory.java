@@ -456,6 +456,8 @@ public final class SpectorConfigFactory {
                 props.getInt("spector.recall.max-replay-events", 100000)));
         recall.setIncludeContradictions(props.getBoolean("spector.memory.recall.include-contradictions",
                 props.getBoolean("spector.recall.include-contradictions", false)));
+        recall.setLtpOnRecall(props.getBoolean("spector.memory.recall.ltp-on-recall",
+                props.getBoolean("spector.recall.ltp-on-recall", false)));
 
         var mmr = recall.getMmr();
         boolean defaultMmr = false;

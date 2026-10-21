@@ -246,4 +246,28 @@ class SpectorConfigFactoryTest {
         assertThat(config.plane()).isEqualTo(com.spectrayan.spector.commons.concurrent.ThreadPlane.PLATFORM_SHARED);
         assertThat(config.backpressurePolicy()).isEqualTo(com.spectrayan.spector.commons.concurrent.BackpressurePolicy.BLOCK);
     }
+
+    @Test
+    void recallLtpOnRecall_defaultsOff() {
+        var recall = SpectorConfigFactory.recallProperties(SpectorConfigSource.load());
+
+        assertThat(recall.isLtpOnRecall()).isFalse();
+        assertThat(recall.copy().isLtpOnRecall()).isFalse();
+    }
+
+    @Test
+    void recallLtpOnRecall_enabledFromYaml(@org.junit.jupiter.api.io.TempDir Path dir) throws Exception {
+        Path yml = dir.resolve("spector.yml");
+        java.nio.file.Files.writeString(yml, """
+                spector:
+                  memory:
+                    recall:
+                      ltp-on-recall: true
+                """);
+
+        var recall = SpectorConfigFactory.recallProperties(SpectorConfigSource.load(yml));
+
+        assertThat(recall.isLtpOnRecall()).isTrue();
+        assertThat(recall.copy().isLtpOnRecall()).isTrue();
+    }
 }

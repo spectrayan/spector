@@ -260,6 +260,7 @@ Configurations for multi-stage search, hybrid fusion, and cognitive recall:
 | `recall.mmr.lambda` | Float | `0.5` | 0.0–1.0 | MMR tradeoff parameter: 1.0 = pure relevance, 0.0 = maximal novelty/diversity. |
 | `recall.auto-profile.enabled` | Boolean | `false` | `true`, `false` | Dynamically adapts cognitive retrieval weights based on query intent analysis. |
 | `recall.include-contradictions` | Boolean | `false` | `true`, `false` | Whether to surface memories flagged with opposing belief tags for dialectic reasoning. |
+| `recall.ltp-on-recall` | Boolean | `false` | `true`, `false` | Whether a successful recall strengthens the returned memories (ACT-R recall timestamp, recall count and storage strength, with a 5-minute per-memory cooldown). Off by default, so strength changes only on explicit `reinforce()` / `rehearse()`. |
 | `recall.lateral.enabled` | Boolean | `false` | `true`, `false` | Enables creative multi-hop lateral retrieval through weak associative bridges. |
 | `recall.strictness-coefficient` | Float | `1.0` | 0.1–5.0 | Exponent applied to composite scores to sharpen top-1 margin. |
 | `recall.valence-alignment.enabled` | Boolean | `false` | `true`, `false` | Biases candidate selection towards memories matching current emotional state. |

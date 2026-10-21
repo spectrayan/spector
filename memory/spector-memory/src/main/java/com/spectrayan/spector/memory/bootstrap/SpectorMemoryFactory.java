@@ -455,6 +455,14 @@ public final class SpectorMemoryFactory {
             recallPathway.addListener(new com.spectrayan.spector.memory.pathway.pipeline.HebbianCoActivationListener(bio.coActivationTracker()));
         }
 
+        // #1147: recall-based strengthening is opt-in. Off by default, so strength changes only on
+        // explicit reinforce()/rehearse(); spector.memory.recall.ltp-on-recall=true enables it.
+        if (builder.recallPathway() == null && memProps.getRecall() != null && memProps.getRecall().isLtpOnRecall()) {
+            recallPathway.addListener(new com.spectrayan.spector.memory.pathway.pipeline.LtpReconsolidationListener(
+                    index, partitionManager, wal));
+            log.info("[SpectorMemoryFactory] ns={} recall LTP reconsolidation enabled", builder.namespaceId());
+        }
+
         if (builder.semanticIndex() != null && !builder.semanticIndex().isReadOnly() && builder.semanticIndex().size() == 0) {
             rebuildHnswIfNeeded(builder, partitionManager, index, cortex.quantizer());
         }
