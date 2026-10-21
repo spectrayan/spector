@@ -7,7 +7,7 @@
     "JDK 25": "java/openjdk25"
   },
   "url": "https://github.com/spectrayan/spector/releases/download/v0.1.0-beta.1/spector.jar",
-  "hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "hash": "5ac036fee563480deb6efe195b72a6c4ec540f769f1984b6d880aac835d584c2",
   "bin": "spector.cmd",
   "pre_install": [
     "$cmdPath = \"$dir\\spector.cmd\"",
