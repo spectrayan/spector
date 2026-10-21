@@ -68,6 +68,15 @@ The new Cortex — a fully-featured chat interface powered by [Spector Synapse](
 
 *The 3D neural graph explorer — fly through the cognitive galaxy, explore Hebbian associations, temporal chains, and entity relationships as glowing star constellations.*
 
+#### Quick tour (44 s)
+
+<video controls width="100%" poster="spector-cortex-graph.png">
+  <source src="spector-cortex-neural-graph-short.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+
+*A short walkthrough of the Graph Explorer in the current UI: load the graph, orbit and zoom, select a node, expand its neighborhood, and toggle the Entity and Temporal layers to compare Hebbian and temporal edges.*
+
 ---
 
 ### 📊 Dashboard — 12+ Live Cognitive Panels

@@ -152,6 +152,7 @@ export class EventStreamService implements OnDestroy {
 
       const decoder = new TextDecoder();
       let buffer = '';
+      let lastBroadcastData = '';
 
       const processChunk = (result: ReadableStreamReadResult<Uint8Array>): void => {
         if (result.done) {
@@ -173,9 +174,25 @@ export class EventStreamService implements OnDestroy {
             currentEventType = line.substring(6).trim();
           } else if (line.startsWith('data:')) {
             currentData = line.substring(5).trim();
-          } else if (line === '' && currentEventType && currentData) {
+          } else if (line === '' && currentData) {
+            // Broadcast events (e.g. cortex.query.trace) arrive as data-only
+            // frames with no `event:` line; fall back to the payload's eventType.
+            if (!currentEventType) {
+              try {
+                currentEventType = JSON.parse(currentData)?.eventType ?? '';
+              } catch {
+                currentEventType = '';
+              }
+              // broadcast() fans the same frame out once per subscribed topic
+              if (!currentEventType || currentData === lastBroadcastData) {
+                currentEventType = '';
+                currentData = '';
+                continue;
+              }
+              lastBroadcastData = currentData;
+            }
             // End of event — dispatch
-            if (currentEventType === 'heartbeat' || currentData === '::heartbeat::') {
+            if (currentEventType === 'heartbeat' || currentEventType === 'connected' || currentData === '::heartbeat::') {
               currentEventType = '';
               currentData = '';
               continue;
