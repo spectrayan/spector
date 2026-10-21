@@ -630,7 +630,15 @@ public final class SpectorMemoryBuilder {
                 log.debug("[Spector] Could not probe embedding provider dimensions eagerly: {}", e.getMessage());
             }
         }
-        return new DefaultSpectorMemory(this);
+        try {
+            return new DefaultSpectorMemory(this);
+        } catch (RuntimeException | Error e) {
+            // A failed open must not keep the store locked for the rest of this process.
+            if (persistenceMode() == com.spectrayan.spector.memory.model.MemoryPersistenceMode.DISK) {
+                com.spectrayan.spector.memory.persist.StoreDirectoryLock.release(persistencePath());
+            }
+            throw e;
+        }
     }
 
     // ==============================================================

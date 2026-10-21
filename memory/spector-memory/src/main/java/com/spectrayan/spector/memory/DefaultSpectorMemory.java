@@ -2737,6 +2737,10 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 log.warn("Failed to close RuntimeBundle on close", e);
             }
         }
+        // Last: everything in the directory is flushed and closed, so the next writer may take it.
+        if (persistenceMode == MemoryPersistenceMode.DISK) {
+            com.spectrayan.spector.memory.persist.StoreDirectoryLock.release(persistencePath);
+        }
     }
 
     @Override
