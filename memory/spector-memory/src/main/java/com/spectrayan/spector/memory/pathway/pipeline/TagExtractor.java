@@ -69,6 +69,19 @@ public interface TagExtractor {
     }
 
     /**
+     * Whether this extractor appraises content (valence/arousal) in addition to tagging it.
+     *
+     * <p>An appraising extractor runs even when the caller supplied tags: its tags are merged after
+     * the caller's and its appraised affect is applied unless the caller set valence or arousal.
+     * A non-appraising extractor (the default) is skipped when the caller supplied tags.</p>
+     *
+     * @return {@code true} for appraising extractors such as the LLM extractor
+     */
+    default boolean appraises() {
+        return false;
+    }
+
+    /**
      * A no-op extractor that returns empty tags (disables Bloom filter gating).
      */
     TagExtractor NONE = (id, text) -> new String[0];

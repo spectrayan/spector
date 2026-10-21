@@ -181,6 +181,12 @@ public final class LlmTagExtractor implements TagExtractor {
         return extractWithContext(id, text).tags();
     }
 
+    /** The LLM extractor appraises valence and arousal, so it also runs when the caller supplied tags. */
+    @Override
+    public boolean appraises() {
+        return true;
+    }
+
     @Override
     public TagExtractionResult extractWithContext(String id, String text) {
         if (generator == null || !generator.isAvailable()) {

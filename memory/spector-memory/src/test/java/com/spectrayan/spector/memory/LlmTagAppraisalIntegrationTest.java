@@ -100,6 +100,49 @@ class LlmTagAppraisalIntegrationTest {
     }
 
     @Test
+    void callerTagsAreMergedWithTheLlmAppraisal() {
+        var llm = new ScriptedLlm(APPRAISAL);
+        memory = build(TagExtractorMode.LLM, llm);
+
+        memory.remember("mem-tags", TEXT, MemoryType.EPISODIC, MemorySource.USER_STATED, "project-x", "eldercare");
+
+        CognitiveRecord stored = memory.inspect("mem-tags");
+        assertThat(llm.tagCalls.get()).as("caller tags no longer switch the appraisal off").isEqualTo(1);
+        assertThat(stored.tags()).containsSubsequence("project-x", "eldercare", "paperwork", "frustration");
+        assertThat(stored.tags()).as("duplicates are removed").containsOnlyOnce("eldercare");
+        assertThat(stored.valence()).isEqualTo((byte) -40);
+        assertThat(Byte.toUnsignedInt(stored.arousal())).isEqualTo(120);
+    }
+
+    @Test
+    void callerTagsAreMergedOnTheContextAndPreEmbeddedPaths() {
+        var llm = new ScriptedLlm(APPRAISAL);
+        memory = build(TagExtractorMode.LLM, llm);
+        var context = RememberContext.builder().overrideTimestampMs(1_781_773_980_000L).build();
+
+        memory.remember("mem-ctx-tags", TEXT, MemoryType.EPISODIC, MemorySource.USER_STATED, context, "project-x");
+        memory.remember("mem-vec-tags", TEXT, new float[0], MemoryType.EPISODIC, MemorySource.USER_STATED,
+                context, "project-y");
+
+        assertThat(memory.inspect("mem-ctx-tags").tags()).contains("project-x", "eldercare");
+        assertThat(memory.inspect("mem-ctx-tags").valence()).isEqualTo((byte) -40);
+        assertThat(memory.inspect("mem-vec-tags").tags()).contains("project-y", "eldercare");
+        assertThat(memory.inspect("mem-vec-tags").valence()).isEqualTo((byte) -40);
+        assertThat(llm.tagCalls.get()).isEqualTo(2);
+    }
+
+    @Test
+    void contentModeKeepsCallerTagsWithoutExtraction() {
+        var llm = new ScriptedLlm(APPRAISAL);
+        memory = build(TagExtractorMode.CONTENT, llm);
+
+        memory.remember("mem-content-tags", TEXT, MemoryType.EPISODIC, MemorySource.USER_STATED, "project-x");
+
+        assertThat(memory.inspect("mem-content-tags").tags()).containsExactly("project-x");
+        assertThat(llm.tagCalls.get()).isZero();
+    }
+
+    @Test
     void llmFailureRefusesTheWriteInsteadOfFallingBack() {
         var llm = new ScriptedLlm(APPRAISAL);
         llm.failing.set(true);
