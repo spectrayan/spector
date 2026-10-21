@@ -57,6 +57,7 @@ jobs:
             # Normalize semver pre-release to PEP 440 (e.g. 0.1.0-beta.1 -> 0.1.0b1, 0.1.0-alpha.1 -> 0.1.0a1, 0.1.0-rc.1 -> 0.1.0rc1)
             PEP440_VERSION=$(echo "$VERSION" | sed -E 's/-beta\.?([0-9]*)/b\1/' | sed -E 's/-alpha\.?([0-9]*)/a\1/' | sed -E 's/-rc\.?([0-9]*)/rc\1/')
             sed -i -E "s/^version = .*/version = \"$PEP440_VERSION\"/" pyproject.toml
+            sed -i -E "s/^__version__ = .*/__version__ = \"$PEP440_VERSION\"/" src/spector_client/__init__.py
           fi
           python -m build
           twine check dist/*

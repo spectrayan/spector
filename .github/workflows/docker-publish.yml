@@ -86,12 +86,36 @@ jobs:
             sleep 2
           done
 
+          # Authenticate against default admin credentials (SPECTOR_AUTH_ENABLED=true by default)
+          echo "Testing auth: login with default admin credentials..."
+          LOGIN_RESPONSE=$(curl -sf -X POST http://127.0.0.1:7070/api/v1/auth/login \
+            -H 'Content-Type: application/json' \
+            -d '{"username":"admin","password":"admin"}' \
+            || echo "FAILED")
+
+          if [ "$LOGIN_RESPONSE" = "FAILED" ]; then
+            echo "❌ Auth login failed"
+            docker logs spector-smoke
+            docker stop spector-smoke || true
+            exit 1
+          fi
+
+          ACCESS_TOKEN=$(echo "$LOGIN_RESPONSE" | jq -r '.access_token // empty')
+          if [ -z "$ACCESS_TOKEN" ]; then
+            echo "❌ Failed to extract access_token from login response: $LOGIN_RESPONSE"
+            docker logs spector-smoke
+            docker stop spector-smoke || true
+            exit 1
+          fi
+          echo "✅ Authenticated with default admin account"
+
           # Data-plane assertion: remember a memory, recall it, verify it comes back.
           # Health alone is not coverage — a liveness endpoint tells you the JVM started, not that the
           # engine works. This assertion is required by claim-integrity-remediation R7.3.
           echo "Testing data-plane: remember + recall..."
           REMEMBER_RESPONSE=$(curl -sf -X POST http://127.0.0.1:7070/api/v1/memory/remember \
             -H 'Content-Type: application/json' \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
             -d '{"id":"smoke-test-1","text":"CI smoke test memory","tier":"SEMANTIC","tags":"ci,smoke"}' \
             || echo "FAILED")
 
@@ -108,6 +132,7 @@ jobs:
 
           RECALL_RESPONSE=$(curl -sf -X POST http://127.0.0.1:7070/api/v1/memory/recall \
             -H 'Content-Type: application/json' \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
             -d '{"query":"smoke test","topK":5}' \
             || echo "FAILED")
 
