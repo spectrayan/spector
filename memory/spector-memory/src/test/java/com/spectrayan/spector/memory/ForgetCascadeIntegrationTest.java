@@ -147,6 +147,45 @@ class ForgetCascadeIntegrationTest {
     }
 
     @Test
+    void reflectStoresDistilledFactsWithProvenance() {
+        // #1166: the built-in reflect run must store the facts it distills, not just consume the turns.
+        memory.remember("ep-1", EPISODE, MemoryType.EPISODIC, MemorySource.USER_STATED, "deploy");
+
+        memory.reflect();
+
+        List<MemoryProvenance> lineage = memory.sessionProvenance(0L);
+        assertThat(lineage).isNotEmpty();
+        CognitiveRecord fact = memory.inspect(lineage.get(0).targetId());
+        assertThat(fact).isNotNull();
+        assertThat(fact.memoryType()).isEqualTo(MemoryType.SEMANTIC);
+        assertThat(fact.text()).isEqualTo(FACT);
+    }
+
+    @Test
+    void reflectWithoutRememberPathwayLeavesTurnsUnconsolidated() {
+        // #1166: with nothing to store facts through, the turns stay available for a later sweep.
+        memory.remember("ep-1", EPISODE, MemoryType.EPISODIC, MemorySource.USER_STATED, "deploy");
+        DefaultSpectorMemory dm = (DefaultSpectorMemory) memory;
+        var episodic = dm.partitionManager().routerFor(dm.partitionManager().activeSeq()).episodic();
+        assertThat(episodic.unconsolidatedTurnOffsets()).hasSize(1);
+
+        ReflectSignal signal = ReflectSignal.builder()
+                .partitionManager(dm.partitionManager())
+                .index(dm.index())
+                .embeddingProvider(embeddingProvider)
+                .textGenerator(llm)
+                .templateEngine(TemplateEngine.getDefault())
+                .provenanceMemory(dm.provenanceMemory())
+                .idGenerator(new TsidGenerator())
+                .build();
+        signal.bind(DefaultPathwayContext.builder().build());
+        new EpisodicLogConsolidationRelay().transmit(signal);
+
+        assertThat(episodic.unconsolidatedTurnOffsets()).hasSize(1);
+        assertThat(memory.sessionProvenance(0L)).isEmpty();
+    }
+
+    @Test
     void forgetFlagsFactsDistilledFromTheEpisodeByDefault() {
         List<String> facts = reflectEpisode("ep-1");
         assertThat(recalledIds()).containsAnyElementsOf(facts);
