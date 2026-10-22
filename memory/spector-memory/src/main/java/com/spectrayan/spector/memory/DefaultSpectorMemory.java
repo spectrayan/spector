@@ -25,6 +25,7 @@ import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.commons.observation.MemoryObservationHook;
 import com.spectrayan.spector.config.properties.CircadianProperties;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
+import com.spectrayan.spector.core.similarity.CosineSimilarity;
 import com.spectrayan.spector.kernel.api.*;
 import com.spectrayan.spector.kernel.bundle.RuntimeBundle;
 import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
@@ -35,6 +36,7 @@ import com.spectrayan.spector.memory.api.ImportanceEstimator;
 import com.spectrayan.spector.memory.api.ImportanceProvider;
 import com.spectrayan.spector.memory.bootstrap.SpectorMemoryFactory;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
+import com.spectrayan.spector.memory.cortex.CognitiveVectorAccessor;
 import com.spectrayan.spector.memory.cortex.consolidation.AbstractConsolidator;
 import com.spectrayan.spector.memory.cortex.consolidation.ProvenanceKeys;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
@@ -1221,6 +1223,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             String sessionId = MemoryScope.sessionId();
             storeResults = sessionBufferManager.merge(sessionId, queryText, options, storeResults, embeddingProvider, () -> 0);
             storeResults = applyReleaseGate(storeResults, options);
+            storeResults = stampCosine(storeResults, queryText);
             if (signal.isTruncated()) {
                 storeResults = storeResults.stream().map(r -> r.withTruncated(true)).toList();
             }
@@ -1262,6 +1265,44 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             return result;
         }
         return result.withConsolidationFlags(body.consolidationFlags());
+    }
+
+    /**
+     * Attaches the cosine between the query embedding and the dequantized stored vector.
+     * The ranking {@code score} is left as the fused score. Results that have no stored
+     * vector keep a cosine already set by the session buffer, or none.
+     */
+    private List<CognitiveResult> stampCosine(List<CognitiveResult> results, String queryText) {
+        if (results == null || results.isEmpty() || embeddingProvider == null
+                || index == null || partitionManager == null || quantizer == null) {
+            return results;
+        }
+        float[] query;
+        try {
+            var embedded = embeddingProvider.embed(queryText);
+            query = embedded != null ? embedded.vector() : null;
+        } catch (RuntimeException e) {
+            log.debug("Skipping cosine stamp; query embedding failed: {}", e.getMessage());
+            return results;
+        }
+        if (query == null || query.length == 0) {
+            return results;
+        }
+        CognitiveVectorAccessor accessor = new CognitiveVectorAccessor(index, partitionManager, quantizer);
+        List<CognitiveResult> stamped = new java.util.ArrayList<>(results.size());
+        for (CognitiveResult result : results) {
+            if (result == null || result.id() == null) {
+                stamped.add(result);
+                continue;
+            }
+            float[] stored = accessor.apply(result.id());
+            if (stored == null) {
+                stamped.add(result);
+                continue;
+            }
+            stamped.add(result.withCosine(CosineSimilarity.computeSafe(query, stored)));
+        }
+        return stamped;
     }
 
     @Override

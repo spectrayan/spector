@@ -158,6 +158,9 @@ public final class MemoryRecallTool extends MemoryToolHandler {
             sb.append("ID: ").append(r.id()).append("\n");
             sb.append("Text: ").append(r.text()).append("\n");
             sb.append("Score: ").append(String.format("%.4f", r.score())).append("\n");
+            if (r.hasCosine()) {
+                sb.append("Cosine: ").append(String.format("%.4f", r.cosine())).append("\n");
+            }
 
             // Score breakdown (glass box)
             if (r.hasBreakdown()) {
