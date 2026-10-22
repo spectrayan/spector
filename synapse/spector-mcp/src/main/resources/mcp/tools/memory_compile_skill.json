@@ -29,10 +29,6 @@
       "commit": {
         "type": "boolean",
         "description": "If true, persists the skill to procedural memory. If false (default), performs a dry-run preview and dedup check without persisting."
-      },
-      "namespace": {
-        "type": "string",
-        "description": "Target memory namespace. Omit to use connection default."
       }
     }
   }

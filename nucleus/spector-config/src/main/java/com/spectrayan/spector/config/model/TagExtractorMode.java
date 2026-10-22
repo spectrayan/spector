@@ -22,5 +22,8 @@ public enum TagExtractorMode {
 
     CONTENT,
     LLM,
-    NONE
+    NONE,
+
+    /** Local GLiNER span tags. Requires {@code spector.provider.extraction.*}. */
+    GLINER
 }

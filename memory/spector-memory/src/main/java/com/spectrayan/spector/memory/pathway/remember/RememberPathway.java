@@ -156,7 +156,8 @@ public final class RememberPathway extends AbstractPathway<RememberSignal, Remem
                     surpriseDetector,
                     importanceProvider,
                     workingStore,
-                    quantizer
+                    quantizer,
+                    builder.cortex.cognitiveRouter()
             );
             this.corticalWriteRelay = new CorticalWriteTransactionRelay(
                     quantizer,

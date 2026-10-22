@@ -220,17 +220,23 @@ class McpAgenticNamespaceIsolationTest {
 
         bindJwt(AGENT_ALPHA_1, TENANT_ALPHA, "agent");
 
-        // 1. Calling MCP without namespace when agent has 0 grants -> SPE-800-002
+        // Unpinned tokens are refused before any namespace is opened.
         Map<String, Object> noNsResult = mcpController.callTool("memory_recall", Map.of("query", "secret"));
         assertThat(noNsResult.get("isError")).isEqualTo(true);
-        assertThat(extractText(noNsResult)).contains("SPE-800-002");
+        assertThat(extractText(noNsResult)).contains("SPE-110-008");
 
-        // 2. Calling MCP targeting USER_ALPHA_1's ungranted namespace -> SPE-800-002
-        Map<String, Object> ungrantedResult = mcpController.callTool("memory_recall",
+        Map<String, Object> unpinnedSelector = mcpController.callTool("memory_recall",
                 Map.of("query", "secret", "namespace", nsAlphaShared.namespaceId()));
+        assertThat(unpinnedSelector.get("isError")).isEqualTo(true);
+        assertThat(extractText(unpinnedSelector)).contains("SPE-110-008");
+        verify(memUserAlpha1Shared, never()).recall(anyString(), any(RecallOptions.class));
+
+        // A pin does not grant access. The call still fails closed on the missing grant.
+        bindPinnedJwt(AGENT_ALPHA_1, TENANT_ALPHA, "agent", "alpha-shared", null);
+        Map<String, Object> ungrantedResult = mcpController.callTool("memory_recall",
+                Map.of("query", "secret", "namespace", "alpha-shared"));
         assertThat(ungrantedResult.get("isError")).isEqualTo(true);
         assertThat(extractText(ungrantedResult)).contains("SPE-800-002");
-        verify(memUserAlpha1Shared, never()).recall(anyString(), any(RecallOptions.class));
 
         // 3. Calling agentic ToolRegistry.executeTool without grant -> SPE-800-002
         String agenticDenied = toolRegistry.executeTool(ToolExecutionRequest.builder()
@@ -259,7 +265,7 @@ class McpAgenticNamespaceIsolationTest {
                 null
         ));
 
-        bindJwt(AGENT_ALPHA_1, TENANT_ALPHA, "agent");
+        bindPinnedJwt(AGENT_ALPHA_1, TENANT_ALPHA, "agent", "alpha-shared", null);
 
         // 1. Agent can recall from its sole granted namespace (explicitly or by default resolution)
         Map<String, Object> recallOk = mcpController.callTool("memory_recall",
@@ -307,11 +313,11 @@ class McpAgenticNamespaceIsolationTest {
                 Map.of("text", "authorized agent note", "namespace", "alpha-shared"));
         assertThat(writeAllowedMcp.get("isError")).isEqualTo(false);
 
-        // 5. Agent still cannot access USER_ALPHA_1's ungranted personal default namespace -> SPE-800-002
+        // 5. A selector other than the pinned namespace is rejected before the store is opened.
         Map<String, Object> ownerDefaultDenied = mcpController.callTool("memory_recall",
                 Map.of("query", "secret", "namespace", USER_ALPHA_1));
         assertThat(ownerDefaultDenied.get("isError")).isEqualTo(true);
-        assertThat(extractText(ownerDefaultDenied)).contains("SPE-800-002");
+        assertThat(extractText(ownerDefaultDenied)).contains("SPE-500-014");
         verify(memUserAlpha1Default, never()).recall(anyString(), any(RecallOptions.class));
     }
 
@@ -323,7 +329,7 @@ class McpAgenticNamespaceIsolationTest {
     @DisplayName("User principals across two tenants can access only own/granted namespaces; cross-tenant returns SPE-820-001")
     void userPrincipals_twoTenants_enforcesGrantAndTenantBoundaries() {
         // User Alpha 1 accesses own default namespace
-        bindJwt(USER_ALPHA_1, TENANT_ALPHA, "editor");
+        bindPinnedJwt(USER_ALPHA_1, TENANT_ALPHA, "editor", "default", USER_ALPHA_1);
         Map<String, Object> ownRecall = mcpController.callTool("memory_recall", Map.of("query", "alpha"));
         assertThat(ownRecall.get("isError")).isEqualTo(false);
         assertThat(extractText(ownRecall)).contains("alpha-1-secret-memory");
@@ -332,17 +338,19 @@ class McpAgenticNamespaceIsolationTest {
         Map<String, Object> sameTenantUngranted = mcpController.callTool("memory_recall",
                 Map.of("query", "alpha2", "namespace", USER_ALPHA_2));
         assertThat(sameTenantUngranted.get("isError")).isEqualTo(true);
-        assertThat(extractText(sameTenantUngranted)).contains("SPE-800-002");
+        assertThat(extractText(sameTenantUngranted)).contains("SPE-500-014");
         verify(memUserAlpha2Default, never()).recall(anyString(), any(RecallOptions.class));
 
         // User Alpha 1 targeting User Beta 1's namespace in TENANT_BETA -> SPE-820-001 (SPE-SEC-001)
         Map<String, Object> crossTenantMcp = mcpController.callTool("memory_recall",
                 Map.of("query", "beta", "namespace", USER_BETA_1));
         assertThat(crossTenantMcp.get("isError")).isEqualTo(true);
-        assertThat(extractText(crossTenantMcp)).contains("SPE-820-001");
+        assertThat(extractText(crossTenantMcp)).contains("SPE-500-014");
         verify(memUserBeta1Default, never()).recall(anyString(), any(RecallOptions.class));
 
-        // Agentic tool call from User Alpha 1 targeting User Beta 1's namespace -> SPE-820-001
+        // Agentic tool calls are not MCP: an unpinned token may still name a namespace, and the
+        // grant check rejects the cross-tenant target.
+        bindJwt(USER_ALPHA_1, TENANT_ALPHA, "editor");
         String crossTenantAgentic = toolRegistry.executeTool(ToolExecutionRequest.builder()
                 .id("call-cross-tenant")
                 .name("memory_recall")
@@ -360,7 +368,7 @@ class McpAgenticNamespaceIsolationTest {
     @DisplayName("admin and super-admin roles grant no content access beyond their own/granted namespaces on MCP or agentic tools")
     void adminAndSuperAdmin_noImplicitContentAccess_andBreakGlassRejectedOnMcp() {
         // 1. Tenant admin (ADMIN_ALPHA) can access their own default namespace
-        bindJwt(ADMIN_ALPHA, TENANT_ALPHA, "admin");
+        bindPinnedJwt(ADMIN_ALPHA, TENANT_ALPHA, "admin", "default", ADMIN_ALPHA);
         Map<String, Object> adminOwn = mcpController.callTool("memory_recall", Map.of("query", "own"));
         assertThat(adminOwn.get("isError")).isEqualTo(false);
         assertThat(extractText(adminOwn)).contains("admin-alpha-own-memory");
@@ -369,21 +377,21 @@ class McpAgenticNamespaceIsolationTest {
         Map<String, Object> adminUngranted = mcpController.callTool("memory_recall",
                 Map.of("query", "secret", "namespace", USER_ALPHA_1));
         assertThat(adminUngranted.get("isError")).isEqualTo(true);
-        assertThat(extractText(adminUngranted)).contains("SPE-800-002");
+        assertThat(extractText(adminUngranted)).contains("SPE-500-014");
         verify(memUserAlpha1Default, never()).recall(anyString(), any(RecallOptions.class));
 
         // 3. Platform Operator (SUPER_ADMIN) targeting USER_ALPHA_1's ungranted namespace -> SPE-800-002
-        bindJwt(SUPER_ADMIN, TENANT_ALPHA, "super-admin");
+        bindPinnedJwt(SUPER_ADMIN, TENANT_ALPHA, "super-admin", "default", SUPER_ADMIN);
         Map<String, Object> superAdminUngranted = mcpController.callTool("memory_recall",
                 Map.of("query", "secret", "namespace", USER_ALPHA_1));
         assertThat(superAdminUngranted.get("isError")).isEqualTo(true);
-        assertThat(extractText(superAdminUngranted)).contains("SPE-800-002");
+        assertThat(extractText(superAdminUngranted)).contains("SPE-500-014");
 
         // 4. Platform Operator (SUPER_ADMIN) targeting USER_BETA_1's cross-tenant namespace -> SPE-820-001
         Map<String, Object> superAdminCrossTenant = mcpController.callTool("memory_recall",
                 Map.of("query", "secret", "namespace", USER_BETA_1));
         assertThat(superAdminCrossTenant.get("isError")).isEqualTo(true);
-        assertThat(extractText(superAdminCrossTenant)).contains("SPE-820-001");
+        assertThat(extractText(superAdminCrossTenant)).contains("SPE-500-014");
 
         // 5. Break-glass grant (`bg_grant_...`) does NOT apply to MCP or agentic tools -> SPE-820-005 / SPE-800-002
         catalog.addGrant(new Grant(
@@ -399,7 +407,7 @@ class McpAgenticNamespaceIsolationTest {
                 Instant.now().plusSeconds(600),
                 null
         ));
-        bindJwt(ADMIN_ALPHA, TENANT_ALPHA, "admin");
+        bindPinnedJwt(ADMIN_ALPHA, TENANT_ALPHA, "admin", null, USER_ALPHA_1);
         Map<String, Object> breakGlassMcp = mcpController.callTool("memory_recall",
                 Map.of("query", "secret", "namespace", USER_ALPHA_1));
         assertThat(breakGlassMcp.get("isError")).isEqualTo(true);
@@ -413,7 +421,7 @@ class McpAgenticNamespaceIsolationTest {
     @Test
     @DisplayName("memory_status and memory_introspect stay aggregate-only and never expose raw memory text")
     void statusAndIntrospect_remainAggregateOnly() {
-        bindJwt(USER_ALPHA_1, TENANT_ALPHA, "editor");
+        bindPinnedJwt(USER_ALPHA_1, TENANT_ALPHA, "editor", "default", USER_ALPHA_1);
 
         Map<String, Object> statusRes = mcpController.callTool("memory_status", Map.of());
         assertThat(statusRes.get("isError")).isEqualTo(false);
@@ -439,9 +447,7 @@ class McpAgenticNamespaceIsolationTest {
 
         Map<String, Object> agentDenied = mcpController.callTool("memory_recall", Map.of("query", "alpha"));
         assertThat(agentDenied.get("isError")).isEqualTo(true);
-        assertThat(extractText(agentDenied)).contains("SPE-800-002");
-        assertThat(catalog.getAccount(apiKeyAgent).kind()).isEqualTo(PrincipalKind.AGENT);
-        assertThat(catalog.getAccount(apiKeyAgent).defaultNamespaceId()).isNull();
+        assertThat(extractText(agentDenied)).contains("SPE-110-008");
 
         // 2. API-key authenticated user in TENANT_BETA cannot access TENANT_ALPHA namespace -> SPE-820-001
         UsernamePasswordAuthenticationToken betaUserAuth = new UsernamePasswordAuthenticationToken(
@@ -452,20 +458,20 @@ class McpAgenticNamespaceIsolationTest {
         Map<String, Object> crossTenantDenied = mcpController.callTool("memory_recall",
                 Map.of("query", "alpha", "namespace", USER_ALPHA_1));
         assertThat(crossTenantDenied.get("isError")).isEqualTo(true);
-        assertThat(extractText(crossTenantDenied)).contains("SPE-820-001");
+        assertThat(extractText(crossTenantDenied)).contains("SPE-110-008");
     }
 
     @Test
-    @DisplayName("All memory MCP tools advertise the optional 'namespace' parameter in their JSON input schema")
-    void memoryMcpTools_advertiseOptionalNamespaceParameterInInputSchema() {
+    @DisplayName("Memory MCP tools do not advertise a namespace parameter")
+    void memoryMcpTools_doNotAdvertiseNamespaceParameter() {
         for (String toolName : List.of("memory_remember", "memory_recall", "memory_status", "memory_introspect", "vector_search")) {
             McpToolHandler handler = toolRegistry.get(toolName).orElseThrow();
             assertThat(handler).isNotNull();
             @SuppressWarnings("unchecked")
             Map<String, Object> properties = (Map<String, Object>) handler.inputSchema().get("properties");
             assertThat(properties)
-                    .as("Tool %s should advertise optional 'namespace' property", handler.name())
-                    .containsKey("namespace");
+                    .as("Tool %s must not advertise a namespace property", handler.name())
+                    .doesNotContainKey("namespace");
         }
     }
 
@@ -484,6 +490,28 @@ class McpAgenticNamespaceIsolationTest {
                 .claim("kind", kind)
                 .claim("profile", profile)
                 .build();
+        Authentication auth = new JwtAuthenticationToken(
+                jwt, AuthorityUtils.createAuthorityList("ROLE_" + role, "SCOPE_spector:memory:read", "SCOPE_spector:memory:write"), principalId);
+        SecurityContextHolder.getContext().setAuthentication(auth);
+    }
+
+    private static void bindPinnedJwt(String principalId, String tenantId, String role, String nsSlug, String nsid) {
+        String kind = "agent".equalsIgnoreCase(role) ? "AGENT" : "HUMAN";
+        String profile = "agent".equalsIgnoreCase(role) ? "AGENT" : "HUMAN_SOLO";
+        var builder = Jwt.withTokenValue("tok-" + principalId)
+                .header("alg", "HS256")
+                .subject(principalId)
+                .claim("tenant_id", tenantId)
+                .claim("roles", List.of(role))
+                .claim("kind", kind)
+                .claim("profile", profile);
+        if (nsSlug != null) {
+            builder.claim("ns", List.of(nsSlug));
+        }
+        if (nsid != null) {
+            builder.claim("nsid", List.of(nsid));
+        }
+        Jwt jwt = builder.build();
         Authentication auth = new JwtAuthenticationToken(
                 jwt, AuthorityUtils.createAuthorityList("ROLE_" + role, "SCOPE_spector:memory:read", "SCOPE_spector:memory:write"), principalId);
         SecurityContextHolder.getContext().setAuthentication(auth);

@@ -39,6 +39,29 @@ public interface ImportanceProvider {
     ImportanceResult score(ImportanceContext context);
 
     /**
+     * L2 distance from {@code vector} to the closest vector this provider has seen ingested,
+     * or {@link Float#POSITIVE_INFINITY} when it has seen none.
+     *
+     * <p>Episodic turns do not keep an embedding in the slab, so the write path records the
+     * vector here and both scoring paths consult it.</p>
+     *
+     * @param vector candidate embedding, already L2-normalised
+     * @return nearest ingested distance, or positive infinity
+     */
+    default float nearestIngested(float[] vector) {
+        return Float.POSITIVE_INFINITY;
+    }
+
+    /**
+     * Records a vector that was just ingested, so the next score can see it.
+     *
+     * @param vector ingested embedding; ignored when {@code null} or empty
+     */
+    default void observeIngested(float[] vector) {
+        // Baseline and custom providers may ignore the reference set.
+    }
+
+    /**
      * Returns a baseline provider that always returns neutral importance (1.0).
      * <p>Use for tests, minimal configurations, and backward compatibility.</p>
      *

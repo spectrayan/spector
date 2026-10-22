@@ -169,7 +169,8 @@ public abstract class AbstractConsolidator implements Consolidator {
         if (verdict == ContradictionDetector.Verdict.CONTRADICTORY) {
             log.info("Consolidator: Detected contradiction between '{}' and '{}'", recordA.id(), recordB.id());
             CadpContradictionResolver.resolve(
-                    recordA, recordB, partitionManager, store, hyperEntityGraph, entityDirectory, temporalKnowledgeGraph);
+                    recordA, recordB, partitionManager, store, hyperEntityGraph, entityDirectory,
+                    temporalKnowledgeGraph, wal);
             return true;
         } else if (enableMerge && memoryMerger != null && rememberPathway != null && quantizer != null && index != null) {
             log.info("Consolidator: Merging duplicate memories '{}' and '{}'", recordA.id(), recordB.id());
@@ -201,7 +202,7 @@ public abstract class AbstractConsolidator implements Consolidator {
 
     /**
      * Merges two non-contradictory duplicate records across partitions into a new consolidated memory,
-     * ingests it, and tombstones the original records.
+     * ingests it, and tombstones the original records only once the merged memory is stored.
      */
     protected void mergeDuplicate(
             CognitiveRecord recordA,
@@ -216,10 +217,6 @@ public abstract class AbstractConsolidator implements Consolidator {
         MemoryMerger.MergedMemory merged = memoryMerger.merge(recordA, recordB, quantizer);
         long newTsid = tsidGenerator.generateLong();
         String newId = MERGED_ID_PREFIX + TsidGenerator.encodeCrockford(newTsid);
-
-        // Tombstone old records in off-heap, WAL, and index
-        tombstoneRecord(recordA, partitionManager, store, index, wal);
-        tombstoneRecord(recordB, partitionManager, store, index, wal);
 
         byte semanticFlags = EncodingHeaderFields.withMemoryType(
                 EncodingHeaderFields.FLAG_CONSOLIDATED,
@@ -249,11 +246,17 @@ public abstract class AbstractConsolidator implements Consolidator {
                 MemorySource.REFLECTED,
                 header
         );
-        if (ingested) {
-            recordMergeProvenance(newTsid, merged.text(), recordA, recordB);
-        } else {
-            log.warn("Consolidator: merged memory '{}' was not ingested; no provenance recorded", newId);
+        if (!ingested) {
+            // The originals are only retired once the merged memory is stored, so a rejected ingest
+            // loses nothing (#1168).
+            log.warn("Consolidator: merged memory '{}' was not stored; keeping '{}' and '{}' intact",
+                    newId, recordA.id(), recordB.id());
+            return;
         }
+        // Tombstone old records in off-heap, WAL, and index
+        tombstoneRecord(recordA, partitionManager, store, index, wal);
+        tombstoneRecord(recordB, partitionManager, store, index, wal);
+        recordMergeProvenance(newTsid, merged.text(), recordA, recordB);
     }
 
     /**

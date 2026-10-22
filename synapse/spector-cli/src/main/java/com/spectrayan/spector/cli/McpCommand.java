@@ -25,6 +25,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
+import com.spectrayan.spector.synapse.security.AgentTokenService;
 import com.spectrayan.spector.config.SpectorConfigSource;
 import com.spectrayan.spector.config.SpectorConfigFactory;
 import com.spectrayan.spector.config.model.PersistenceMode;
@@ -45,8 +46,9 @@ import picocli.CommandLine.Option;
  * Starts the high-performance Spector Model Context Protocol (MCP) server over STDIO.
  * <p>
  * Honors all CLI parameter overrides ({@code --config}, {@code --dims}, {@code --capacity},
- * {@code --data-dir}, {@code --namespace}, {@code --ollama-url}, {@code --ollama-model}, {@code --mode})
+ * {@code --data-dir}, {@code --ollama-url}, {@code --ollama-model}, {@code --mode})
  * to instantiate and configure the underlying {@link SpectorMemory} runtime.
+ * The store opened is {@code <persistence-path>/namespaces/<slug>} from {@code SPECTOR_TOKEN_FILE}.
  * </p>
  */
 @Component
@@ -79,8 +81,8 @@ public class McpCommand implements Runnable {
     @Option(names = {"--data-dir"}, description = "Persistence directory for on-disk memory.")
     private String dataDir;
 
-    @Option(names = {"--namespace"}, description = "Tenant / memory namespace.")
-    private String namespace;
+    /** Namespace slug taken from the agent token. Not a command-line option. */
+    private String boundNamespace;
 
     @Option(names = {"--ollama-url"}, description = "Ollama base URL (default: http://localhost:11434).")
     private String ollamaUrl;
@@ -123,7 +125,7 @@ public class McpCommand implements Runnable {
 
     public boolean hasCustomFlags() {
         return configFile != null || dims != null || capacity != null || dataDir != null
-                || namespace != null || ollamaUrl != null || ollamaModel != null || mode != null;
+                || boundNamespace != null || ollamaUrl != null || ollamaModel != null || mode != null;
     }
 
     public MemoryProperties getLastResolvedProperties() {
@@ -191,8 +193,8 @@ public class McpCommand implements Runnable {
 
         this.lastResolvedProperties = memProps;
         var builder = DefaultSpectorMemory.builder(memProps);
-        if (namespace != null && !namespace.isBlank()) {
-            builder.namespaceId(namespace);
+        if (boundNamespace != null && !boundNamespace.isBlank()) {
+            builder.namespaceId(boundNamespace);
         }
         if (embedder != null) {
             builder.embeddingProvider(embedder);
@@ -205,8 +207,31 @@ public class McpCommand implements Runnable {
         return builder.build();
     }
 
+    /**
+     * Rememberer root for the namespace directory. A {@code --data-dir} on this command wins;
+     * otherwise the canonical {@link com.spectrayan.spector.synapse.config.SynapseProperties#remembererRoot()}
+     * is used so this command does not re-derive the root.
+     */
+    private Path persistenceRoot() {
+        if (dataDir != null && !dataDir.isBlank()) {
+            return Path.of(dataDir);
+        }
+        if (configPropsProvider != null) {
+            var props = configPropsProvider.getIfAvailable();
+            if (props instanceof com.spectrayan.spector.synapse.config.SynapseProperties synapse) {
+                return synapse.remembererRoot();
+            }
+        }
+        return Path.of(com.spectrayan.spector.synapse.config.SynapseProperties.DEFAULT_DATA_DIR);
+    }
+
     @Override
     public void run() {
+        AgentTokenService.Pinned pinned = StdioMcpTokens.load();
+        Path root = persistenceRoot();
+        this.boundNamespace = pinned.describe();
+        this.dataDir = root.resolve("namespaces").resolve(pinned.describe()).toString();
+        StdioMcpTokens.install(pinned);
         SpectorMemory memory = resolveMemory();
         if (memory == null) {
             throw new IllegalStateException("SpectorMemory bean is not available in the Spring context. " +
@@ -239,8 +264,7 @@ public class McpCommand implements Runnable {
     public void setCapacity(Integer capacity) { this.capacity = capacity; }
     public String getDataDir() { return dataDir; }
     public void setDataDir(String dataDir) { this.dataDir = dataDir; }
-    public String getNamespace() { return namespace; }
-    public void setNamespace(String namespace) { this.namespace = namespace; }
+    public String getBoundNamespace() { return boundNamespace; }
     public String getOllamaUrl() { return ollamaUrl; }
     public void setOllamaUrl(String ollamaUrl) { this.ollamaUrl = ollamaUrl; }
     public String getOllamaModel() { return ollamaModel; }

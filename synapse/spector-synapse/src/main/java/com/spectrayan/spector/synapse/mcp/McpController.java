@@ -113,8 +113,14 @@ public class McpController {
                 }
             }
         }
+        McpPinnedNamespace.Decision pin = McpPinnedNamespace.decide(
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication(),
+                namespace, authEnabled);
+        if (pin.error() != null) {
+            return errorResponse(pin.error());
+        }
         Optional<McpRequestMemory.DenyReason> deny =
-                McpRequestMemory.bindForCurrentRequest(userMemoryRegistry, authEnabled, namespace, null, tool.isWriteTool());
+                McpRequestMemory.bindForCurrentRequest(userMemoryRegistry, authEnabled, pin.bindSelector(), null, tool.isWriteTool());
         if (deny.isPresent()) {
             return errorResponse(McpRequestMemory.message(deny.get()));
         }

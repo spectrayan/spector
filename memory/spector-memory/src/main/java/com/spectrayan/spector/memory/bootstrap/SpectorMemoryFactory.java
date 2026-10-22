@@ -311,6 +311,7 @@ public final class SpectorMemoryFactory {
                 BiologicalSubsystemsBuilder.build(builder, embeddingProvider, cortex);
 
         //  3-Layer cognitive graph (+ facade) 
+        GlinerSessions.prepare(builder);
         CognitiveGraphBuilder.CognitiveGraphs graphs =
                 CognitiveGraphBuilder.build(builder, cortex, index);
                 
@@ -336,9 +337,14 @@ public final class SpectorMemoryFactory {
                         bio.surpriseDetector(), bio.flashbulbPolicy(), bio.icnuWeights());
 
         //  Tag extractor: an explicit builder extractor wins, otherwise spector.memory.tag-extractor (#1137)
+        java.util.List<String> glinerLabels = GlinerSessions.labels(
+                builder.properties() != null && builder.properties().provider() != null
+                        ? builder.properties().provider().getExtraction().getLabels()
+                        : "");
         TagExtractor tagExtractor = builder.tagExtractor() != null
                 ? builder.tagExtractor()
-                : TagExtractors.forMode(memProps.getTagExtractor(), builder.llmProvider());
+                : TagExtractors.forMode(memProps.getTagExtractor(), builder.llmProvider(),
+                        builder.spanExtractor(), glinerLabels);
         log.info("[SpectorMemoryFactory] ns={} tag extractor: mode={}, extractor={}", builder.namespaceId(),
                 builder.tagExtractor() != null ? "CUSTOM" : memProps.getTagExtractor(),
                 tagExtractor.getClass().getSimpleName());

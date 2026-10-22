@@ -33,7 +33,8 @@ import com.spectrayan.spector.memory.pathway.RelayNames;
  * Governed Persistent Memory (GPM) fail-closed release gate (ADR-0008).
  *
  * <p>Enforces zero-leakage security and epistemic trust verification on memory candidates.
- * Drops retracted or sovereign-restricted records before cortical tier scanning and scoring.</p>
+ * Drops retracted, sovereign-restricted, and under-trust unverified records after
+ * candidates have been assembled.</p>
  */
 public final class GovernedReleaseGateRelay implements SynapticRelay<RecallSignal> {
 

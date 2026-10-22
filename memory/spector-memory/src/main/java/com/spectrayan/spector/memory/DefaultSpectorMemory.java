@@ -25,6 +25,7 @@ import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.commons.observation.MemoryObservationHook;
 import com.spectrayan.spector.config.properties.CircadianProperties;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
+import com.spectrayan.spector.core.similarity.CosineSimilarity;
 import com.spectrayan.spector.kernel.api.*;
 import com.spectrayan.spector.kernel.bundle.RuntimeBundle;
 import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
@@ -35,6 +36,7 @@ import com.spectrayan.spector.memory.api.ImportanceEstimator;
 import com.spectrayan.spector.memory.api.ImportanceProvider;
 import com.spectrayan.spector.memory.bootstrap.SpectorMemoryFactory;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
+import com.spectrayan.spector.memory.cortex.CognitiveVectorAccessor;
 import com.spectrayan.spector.memory.cortex.consolidation.AbstractConsolidator;
 import com.spectrayan.spector.memory.cortex.consolidation.ProvenanceKeys;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
@@ -228,6 +230,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final com.spectrayan.spector.memory.aisme.AismeBundle aismeBundle;
 
     private final com.spectrayan.spector.memory.session.SessionBufferManager sessionBufferManager = new com.spectrayan.spector.memory.session.SessionBufferManager();
+    private final com.spectrayan.spector.memory.affect.AffectAppraiser affectAppraiser;
+    private final com.spectrayan.spector.provider.extraction.SpanExtractor spanExtractor;
 
     // ── Episodic Conversation Architecture (ADR-0006) ──
     private final EpisodicSessionIndex episodicSessionIndex;
@@ -253,6 +257,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         var memProps = builder.properties() != null && builder.properties().memory() != null
                 ? builder.properties().memory()
                 : new com.spectrayan.spector.config.properties.MemoryProperties();
+        this.spanExtractor = builder.spanExtractor();
+        this.affectAppraiser = com.spectrayan.spector.memory.affect.AnchorAffectAppraiser.create(
+                memProps, this.embeddingProvider);
         var remProps = memProps.getRemember() != null
                 ? memProps.getRemember()
                 : new com.spectrayan.spector.config.properties.RememberProperties();
@@ -496,6 +503,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                             hints, extraction.valence(), extraction.arousal());
                 }
                 float[] vector = embeddingProvider.embed(text).vector();
+                finalHints = fillAnchorAffect(finalHints, extraction, vector);
                 String sessionId = MemoryScope.sessionId();
                 if (sessionId != null) {
                     sessionBufferManager.add(sessionId, id, text, vector, type, System.currentTimeMillis());
@@ -580,6 +588,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                     finalContext = withAppraisedAffect(context, extraction);
                 }
                 float[] vector = embeddingProvider.embed(text).vector();
+                finalContext = contextWithAnchorAffect(finalContext, extraction, vector);
                 rememberPathway.ingestCognitive(id, text, vector, type, finalTags, source, finalContext);
                 
             }
@@ -626,6 +635,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             float[] finalVector = (vector != null && vector.length > 0)
                     ? vector
                     : embeddingProvider.embed(text).vector();
+            finalContext = contextWithAnchorAffect(finalContext, extraction, finalVector);
             String sessionId = MemoryScope.sessionId();
             if (sessionId != null) {
                 sessionBufferManager.add(sessionId, id, text, finalVector, type, System.currentTimeMillis());
@@ -844,8 +854,35 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     }
 
     /**
-     * Folds an appraised valence and arousal into a context's hints. Values the caller supplied win.
+     * Fills valence and arousal from soul-anchor centroids when neither the caller nor an
+     * appraising extractor (the configured LLM) already set them.
      */
+    private RememberHints fillAnchorAffect(RememberHints hints, TagExtractionResult extraction, float[] vector) {
+        if (affectAppraiser == null || vector == null || vector.length == 0) {
+            return hints;
+        }
+        var extractor = rememberPathway != null ? rememberPathway.tagExtractor() : null;
+        if (extractor != null && extractor.appraises() && extraction != null) {
+            return hints;
+        }
+        if (hints != null && hints.valence() != 0 && Byte.toUnsignedInt(hints.arousal()) != 0) {
+            return hints;
+        }
+        var affect = affectAppraiser.appraise(vector);
+        return RememberHints.withAppraisedAffect(hints, affect.valence(), affect.arousal());
+    }
+
+    private RememberContext contextWithAnchorAffect(RememberContext context, TagExtractionResult extraction,
+                                                     float[] vector) {
+        RememberHints current = context != null ? context.hints() : null;
+        RememberHints filled = fillAnchorAffect(current, extraction, vector);
+        if (filled == current) {
+            return context;
+        }
+        RememberContext base = context != null ? context : RememberContext.EMPTY;
+        return base.withHints(filled);
+    }
+
     private static RememberContext withAppraisedAffect(RememberContext context, TagExtractionResult extraction) {
         if (extraction == null || !extraction.hasEmotionalContext()) {
             return context;
@@ -989,6 +1026,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 if (chunkExtraction != null) {
                     childContext = withAppraisedAffect(childContext, chunkExtraction);
                 }
+                childContext = contextWithAnchorAffect(childContext, chunkExtraction, embedding.embedding());
                 rememberPathway.ingestCognitive(chunk.chunkId(), chunk.text(),
                             embedding.embedding(), type, chunkTags, source, childContext);
                 
@@ -1139,15 +1177,15 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 vector = com.spectrayan.spector.core.similarity.VectorOps.normalize(vector);
             }
 
-            // Step 2: Compute nearest distance (read-only)
-            float nearestDist;
-            var workingStore = partitionManager.cognitiveRouter().working();
-            if (workingStore != null && workingStore.visibleCount() > 0) {
-                nearestDist = workingStore.nearestDistance(
-                        vector, quantizer.mins(), quantizer.scales());
-            } else {
-                nearestDist = com.spectrayan.spector.core.similarity.VectorOps.magnitude(vector);
-            }
+            // Step 2: Nearest distance across working, semantic and procedural slabs, plus
+            // vectors observed on ingest (episodic turns do not keep an embedding).
+            var router = partitionManager.cognitiveRouter();
+            float slab = com.spectrayan.spector.memory.neuromod.dopamine.NoveltyReference.nearest(
+                    router, vector, quantizer.mins(), quantizer.scales());
+            float ingested = importanceProvider != null
+                    ? importanceProvider.nearestIngested(vector)
+                    : Float.POSITIVE_INFINITY;
+            float nearestDist = slab < ingested ? slab : ingested;
 
             // Step 3: Resolve effective salience profile
             com.spectrayan.spector.memory.model.SalienceProfile profile = rememberPathway.salienceProfile();
@@ -1220,6 +1258,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             List<CognitiveResult> storeResults = recallPathway.execute(null, signal);
             String sessionId = MemoryScope.sessionId();
             storeResults = sessionBufferManager.merge(sessionId, queryText, options, storeResults, embeddingProvider, () -> 0);
+            storeResults = applyReleaseGate(storeResults, options);
+            storeResults = stampCosine(storeResults, queryText);
             if (signal.isTruncated()) {
                 storeResults = storeResults.stream().map(r -> r.withTruncated(true)).toList();
             }
@@ -1227,6 +1267,78 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         } finally {
             releaseLease();
         }
+    }
+
+    /**
+     * Re-reads consolidation flags from the live record and applies the release gate.
+     * Scoring and the session buffer can rebuild a result without those flags; the gate has
+     * to see the bits that are actually stored.
+     */
+    private List<CognitiveResult> applyReleaseGate(List<CognitiveResult> results, RecallOptions options) {
+        if (results == null || results.isEmpty()) {
+            return results;
+        }
+        List<CognitiveResult> stamped = new java.util.ArrayList<>(results.size());
+        for (CognitiveResult result : results) {
+            stamped.add(stampLiveFlags(result));
+        }
+        var signal = com.spectrayan.spector.memory.pathway.recall.relay.RecallSignal.forTextQuery("", options);
+        signal.setCandidates(stamped);
+        new com.spectrayan.spector.memory.pathway.recall.relay.GovernedReleaseGateRelay().transmit(signal);
+        return new java.util.ArrayList<>(signal.candidates());
+    }
+
+    private CognitiveResult stampLiveFlags(CognitiveResult result) {
+        if (result == null || index == null || partitionManager == null) {
+            return result;
+        }
+        MemoryLocation loc = index.locate(result.id());
+        if (loc == null) {
+            return result;
+        }
+        var body = partitionManager.routerFor(loc.colocatedPartition()).readRecordBody(loc, false);
+        if (body == null || body.consolidationFlags() == result.consolidationFlags()) {
+            return result;
+        }
+        return result.withConsolidationFlags(body.consolidationFlags());
+    }
+
+    /**
+     * Attaches the cosine between the query embedding and the dequantized stored vector.
+     * The ranking {@code score} is left as the fused score. Results that have no stored
+     * vector keep a cosine already set by the session buffer, or none.
+     */
+    private List<CognitiveResult> stampCosine(List<CognitiveResult> results, String queryText) {
+        if (results == null || results.isEmpty() || embeddingProvider == null
+                || index == null || partitionManager == null || quantizer == null) {
+            return results;
+        }
+        float[] query;
+        try {
+            var embedded = embeddingProvider.embed(queryText);
+            query = embedded != null ? embedded.vector() : null;
+        } catch (RuntimeException e) {
+            log.debug("Skipping cosine stamp; query embedding failed: {}", e.getMessage());
+            return results;
+        }
+        if (query == null || query.length == 0) {
+            return results;
+        }
+        CognitiveVectorAccessor accessor = new CognitiveVectorAccessor(index, partitionManager, quantizer);
+        List<CognitiveResult> stamped = new java.util.ArrayList<>(results.size());
+        for (CognitiveResult result : results) {
+            if (result == null || result.id() == null) {
+                stamped.add(result);
+                continue;
+            }
+            float[] stored = accessor.apply(result.id());
+            if (stored == null) {
+                stamped.add(result);
+                continue;
+            }
+            stamped.add(result.withCosine(CosineSimilarity.computeSafe(query, stored)));
+        }
+        return stamped;
     }
 
     @Override
@@ -1299,6 +1411,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                         cascadeTombstoned.add(derivedId);
                     } else {
                         partitionManager.routerFor(dloc.colocatedPartition()).markRetracted(dloc);
+                        if (wal != null) {
+                            wal.appendMarkRetracted(derivedId, dloc.type(), dloc.offset());
+                        }
                         retracted.add(derivedId);
                     }
                 }
@@ -1577,8 +1692,14 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 // Non-deprecated path: no RememberPathway is threaded through. Soul version
                 // resolves from the context's SoulVersionSource and nested gist writes go
                 // through the PathwayCatalog (ADR-0035 R2.3, §8.1b).
-                ReflectReport report = reflectPathway.reflect(null, partitionManager, index, salienceProfile(),
-                        episodicSessionIndex, spec, null);
+                // Distilled facts are stored through RememberPathway, resolved from this catalog (#1166).
+                com.spectrayan.spector.commons.pathway.DefaultPathwayCatalog catalog = null;
+                if (rememberPathway != null) {
+                    catalog = new com.spectrayan.spector.commons.pathway.DefaultPathwayCatalog();
+                    catalog.register(com.spectrayan.spector.memory.pathway.remember.RememberPathway.class, rememberPathway);
+                }
+                ReflectReport report = reflectPathway.reflect(catalog, null, partitionManager, index,
+                        salienceProfile(), episodicSessionIndex, spec, null);
                 this.lastReflectReport = report;
                 this.lastReflectTimestamp = System.currentTimeMillis();
                 return report;
@@ -2789,6 +2910,13 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private void doClose() {
         log.info("SpectorMemory closing ({} total memories, mode={})",
                 totalMemories(), persistenceMode);
+        if (spanExtractor != null) {
+            try {
+                spanExtractor.close();
+            } catch (Exception e) {
+                log.warn("Failed to close span extractor on close: {}", e.getClass().getSimpleName());
+            }
+        }
 
         long shutdownBudgetMs = 10_000L;
         long deadline = System.currentTimeMillis() + shutdownBudgetMs;

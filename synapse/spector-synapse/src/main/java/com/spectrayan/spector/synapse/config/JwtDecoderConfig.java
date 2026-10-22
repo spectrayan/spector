@@ -66,6 +66,8 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestOperations;
 import org.springframework.web.client.RestTemplate;
 
+import com.spectrayan.spector.config.SpectorConfigSource;
+import com.spectrayan.spector.config.SpectorPropertyConstants;
 import com.spectrayan.spector.config.properties.AuthProperties;
 import com.spectrayan.spector.synapse.security.SpectorAuthorityMapper;
 
@@ -268,6 +270,8 @@ public class JwtDecoderConfig {
             log.debug("Registered OIDC issuer '{}' for JWT routing", issuer);
         });
 
+        registerAgentJwks(managersByIssuer, converter);
+
         AuthenticationManagerResolver<String> byIssuer = managersByIssuer::get;
 
         log.debug("Configured JWT issuer routing over {} issuer(s): {}",
@@ -280,6 +284,48 @@ public class JwtDecoderConfig {
             JwtDecoder serverDecoder,
             Optional<JwtDecoder> oidcDecoder) {
         return jwtAuthenticationManagerResolver(properties.auth(), serverDecoder, oidcDecoder);
+    }
+
+    /**
+     * When {@code SPECTOR_AUTH_AGENT_JWKS_FILE} or {@code spector.auth.agent-jwks-file} is set,
+     * accept ES256 tokens whose issuer is {@code spector-agent}. A configured file that cannot
+     * be read fails startup.
+     */
+    private void registerAgentJwks(Map<String, AuthenticationManager> managersByIssuer,
+                                   JwtAuthenticationConverter converter) {
+        String path = SpectorConfigSource.loadClasspathOnly()
+                .getString(SpectorPropertyConstants.AUTH_AGENT_JWKS_FILE);
+        if (path == null || path.isBlank()) {
+            return;
+        }
+        try {
+            java.nio.file.Path jwksFile = java.nio.file.Path.of(path);
+            com.nimbusds.jose.jwk.JWKSet set = com.nimbusds.jose.jwk.JWKSet.parse(
+                    java.nio.file.Files.readString(jwksFile));
+            com.nimbusds.jose.jwk.JWK jwk = set.getKeys().isEmpty() ? null : set.getKeys().get(0);
+            if (!(jwk instanceof com.nimbusds.jose.jwk.ECKey)) {
+                throw new com.spectrayan.spector.config.error.SpectorConfigValueException(
+                        com.spectrayan.spector.commons.error.ErrorCode.JWT_KEY_INVALID,
+                        "spector.auth.agent-jwks-file", "no EC public key");
+            }
+            NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSource(
+                            new com.nimbusds.jose.jwk.source.ImmutableJWKSet<>(set))
+                    .jwsAlgorithm(SignatureAlgorithm.ES256)
+                    .build();
+            decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+                    new JwtTimestampValidator(CLOCK_SKEW),
+                    new JwtIssuerValidator(com.spectrayan.spector.synapse.security.AgentTokenService.ISSUER)));
+            managersByIssuer.put(com.spectrayan.spector.synapse.security.AgentTokenService.ISSUER,
+                    authenticationManager(decoder, converter));
+            log.info("Registered agent JWKS issuer '{}' from {}", 
+                    com.spectrayan.spector.synapse.security.AgentTokenService.ISSUER, jwksFile);
+        } catch (com.spectrayan.spector.commons.error.SpectorException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new com.spectrayan.spector.config.error.SpectorConfigValueException(
+                    com.spectrayan.spector.commons.error.ErrorCode.JWT_KEY_INVALID, e,
+                    "spector.auth.agent-jwks-file", e.getMessage());
+        }
     }
 
     /**

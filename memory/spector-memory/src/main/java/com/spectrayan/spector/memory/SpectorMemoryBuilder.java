@@ -108,6 +108,7 @@ public final class SpectorMemoryBuilder {
     private MemoryObservationHook hook;
     private TagExtractor tagExtractor;
     private EntityExtractor entityExtractor;
+    private com.spectrayan.spector.provider.extraction.SpanExtractor spanExtractor;
     private List<SensoryExtractor> sensoryExtractors = List.of();
     private AssetStore assetStore;
     private SpectorCacheManager cacheManager;
@@ -637,6 +638,15 @@ public final class SpectorMemoryBuilder {
             if (persistenceMode() == com.spectrayan.spector.memory.model.MemoryPersistenceMode.DISK) {
                 com.spectrayan.spector.memory.persist.StoreDirectoryLock.release(persistencePath());
             }
+            if (spanExtractor != null) {
+                try {
+                    spanExtractor.close();
+                } catch (Exception closeError) {
+                    log.warn("[Spector] Failed to close span extractor after a failed open: {}",
+                            closeError.getClass().getSimpleName());
+                }
+                spanExtractor = null;
+            }
             throw e;
         }
     }
@@ -689,6 +699,11 @@ public final class SpectorMemoryBuilder {
     public MemoryObservationHook hook() { return hook; }
     public TagExtractor tagExtractor() { return tagExtractor; }
     public EntityExtractor entityExtractor() { return entityExtractor; }
+    public com.spectrayan.spector.provider.extraction.SpanExtractor spanExtractor() { return spanExtractor; }
+    public SpectorMemoryBuilder spanExtractor(com.spectrayan.spector.provider.extraction.SpanExtractor spanExtractor) {
+        this.spanExtractor = spanExtractor;
+        return this;
+    }
     public List<SensoryExtractor> sensoryExtractors() { return sensoryExtractors; }
     public AssetStore assetStore() { return assetStore; }
     public SpectorCacheManager cacheManager() { return cacheManager; }

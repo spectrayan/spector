@@ -60,20 +60,12 @@ public final class DefaultImportanceProvider implements ImportanceProvider {
         
         float nearestDistance = ctx.nearestDistance();
 
-        // Step 3: Compute novelty
-        int warmup = surpriseDetector.warmupSamples();
-        if (ctx.readOnly()) {
-            // Read-only peek — don't modify Welford stats
-            zScore = surpriseDetector.stats().isWarm(warmup)
-                    ? surpriseDetector.stats().zScore(nearestDistance) : 0.0;
-            noveltyOnlyImportance = surpriseDetector.stats().isWarm(warmup)
-                    ? SurpriseDetector.zScoreToImportance(zScore) : 1.0f;
-        } else {
-            // Compute and update stats
-            noveltyOnlyImportance = surpriseDetector.computeImportance(nearestDistance);
-            zScore = surpriseDetector.stats().isWarm(warmup)
-                    ? surpriseDetector.stats().zScore(nearestDistance) : 0.0;
-        }
+        // Empty reference: fully novel, and not a flashbulb (that still needs a warm z-score).
+        // Otherwise peek and write share one mapping. The write records the distance after scoring
+        // so a following read-only estimate of the same distance still matches this value.
+        var scored = surpriseDetector.score(nearestDistance, !ctx.readOnly());
+        zScore = scored.z();
+        noveltyOnlyImportance = scored.importance();
 
         float noveltyNorm = Math.clamp(noveltyOnlyImportance / 10.0f, 0f, 1f);
 
@@ -190,6 +182,16 @@ public final class DefaultImportanceProvider implements ImportanceProvider {
                 null, nearestDistance);
 
         return new ImportanceResult(fusedImportance, wouldBeFlashbulb, breakdown);
+    }
+
+    @Override
+    public float nearestIngested(float[] vector) {
+        return surpriseDetector.nearestObserved(vector);
+    }
+
+    @Override
+    public void observeIngested(float[] vector) {
+        surpriseDetector.observe(vector);
     }
 }
 

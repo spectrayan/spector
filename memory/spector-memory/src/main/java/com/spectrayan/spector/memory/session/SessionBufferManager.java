@@ -22,7 +22,9 @@ import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -65,7 +67,27 @@ public final class SessionBufferManager {
         float[] queryVector = embeddingProvider.embed(queryText).vector();
         List<CognitiveResult> bufferedResults = buffer.search(queryText, queryVector, options);
         List<CognitiveResult> merged = new ArrayList<>(primaryResults);
-        merged.addAll(bufferedResults);
+        Map<String, Integer> indexById = new HashMap<>();
+        for (int i = 0; i < merged.size(); i++) {
+            String id = merged.get(i).id();
+            if (id != null) {
+                indexById.putIfAbsent(id, i);
+            }
+        }
+        for (CognitiveResult buffered : bufferedResults) {
+            Integer existing = buffered.id() == null ? null : indexById.get(buffered.id());
+            if (existing != null) {
+                CognitiveResult primary = merged.get(existing);
+                if (!primary.hasCosine() && buffered.hasCosine()) {
+                    merged.set(existing, primary.withCosine(buffered.cosine()));
+                }
+                continue;
+            }
+            if (buffered.id() != null) {
+                indexById.put(buffered.id(), merged.size());
+            }
+            merged.add(buffered);
+        }
         merged.sort(Comparator.comparing(CognitiveResult::score).reversed().thenComparing(CognitiveResult::id));
         return merged.stream().limit(options.topK()).collect(Collectors.toList());
     }

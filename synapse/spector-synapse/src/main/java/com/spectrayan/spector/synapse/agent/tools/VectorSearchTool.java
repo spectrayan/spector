@@ -109,12 +109,6 @@ public class VectorSearchTool extends McpToolHandler {
         tagsProp.put("description", "Comma-separated tags: 'debugging,database'.");
         properties.put("tags", tagsProp);
 
-        // namespace - optional
-        Map<String, Object> namespaceProp = new LinkedHashMap<>();
-        namespaceProp.put("type", "string");
-        namespaceProp.put("description", "Optional target namespace slug or ID (must be owned or granted to the caller).");
-        properties.put("namespace", namespaceProp);
-
         schema.put("properties", properties);
         schema.put("required", List.of("query"));
 

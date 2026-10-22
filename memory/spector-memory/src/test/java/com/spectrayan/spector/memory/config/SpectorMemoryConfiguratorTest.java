@@ -50,7 +50,7 @@ class SpectorMemoryConfiguratorTest {
                   memory:
                     enabled: true
                     capacity: 500
-                    persistence-mode: EPHEMERAL
+                    persistence-mode: IN_MEMORY
                     text-search-mode: HYBRID
                     graph-expansion-mode: GATED
                     graph-expansion-threshold: 0.45

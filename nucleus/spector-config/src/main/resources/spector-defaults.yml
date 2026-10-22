@@ -98,6 +98,17 @@ spector:
       api-key: ""
       timeout: 60s
       fallback-model: "qwen3:0.6b"
+    extraction:
+      type: gliner
+      model-path: ""
+      tokenizer-path: ""
+      config-path: ""
+      relation-model-path: ""
+      entity-threshold: 0.55
+      max-width: 12
+      max-tokens: 384
+      intra-op-threads: 1
+      labels: "person,organization,location"
 
   # ─── Persistence File Names ───
   persistence:
@@ -163,6 +174,11 @@ spector:
       eager-queue-capacity: 256
     default-ingestion-tier: SEMANTIC
     hnsw-prefilter: auto
+    affect:
+      appraiser: none
+      anchors-path: ""
+      deadband: 0.02
+      gain: 4.0
     tag-extractor: content
     tag-extractor-model: ""
     text-search-mode: HYBRID

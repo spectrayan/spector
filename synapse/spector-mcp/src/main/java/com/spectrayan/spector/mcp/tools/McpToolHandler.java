@@ -214,6 +214,10 @@ public abstract class McpToolHandler {
             Map<String, Object> args = request.arguments() != null
                     ? request.arguments()
                     : Map.of();
+            String rejected = com.spectrayan.spector.mcp.McpCallGuard.reject(args);
+            if (rejected != null) {
+                return errorResult(rejected);
+            }
             try {
                 long startNs = System.nanoTime();
                 McpSchema.CallToolResult result = execute(args);

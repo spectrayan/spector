@@ -165,12 +165,15 @@ class DuplicateConfigBanTest {
         //   111  + mutationPolicy(MutationPolicy) — the host deletion/fence policy seam
         //        (memory-durability-contract R1.4a). Its getter is package-private on purpose, so this
         //        cost one slot rather than two.
+        //   113  + spanExtractor() and spanExtractor(SpanExtractor) — the shared GLiNER span session.
+        //        Bootstrap and the factory live outside this package, so the getter cannot be
+        //        package-private.
         //
         // The guard's job is to stop a drift back toward a 193-method config store, not to freeze the
         // builder. A one-slot increase with a named cause preserves that; a blanket raise would not.
         assertThat(publicMethodCount)
                 .as("SpectorMemoryBuilder public method count must not bloat back to pre-#758 levels (~193)")
-                .isLessThanOrEqualTo(111);
+                .isLessThanOrEqualTo(113);
     }
 
     private static class MockEmbeddingProvider implements EmbeddingProvider {

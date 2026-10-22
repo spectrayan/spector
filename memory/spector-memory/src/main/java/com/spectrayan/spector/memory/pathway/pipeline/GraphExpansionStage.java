@@ -768,6 +768,7 @@ public final class GraphExpansionStage {
 
         long ts = 0L;
         byte valence = 0;
+        byte consolidationFlags = 0;
         MemoryType resolvedType = type;
         try {
             MemoryLocation loc = index != null ? index.locate(memId) : null;
@@ -782,6 +783,7 @@ public final class GraphExpansionStage {
                     if (header != null) {
                         ts = header.timestampMs();
                         valence = header.valence();
+                        consolidationFlags = header.consolidationFlags();
                     }
                 }
             }
@@ -791,7 +793,7 @@ public final class GraphExpansionStage {
                 memId, text, score, importance, 0f,
                 0, valence, resolvedType, source,
                 tags, 1.0f, 1.0f, RetrievalMode.STANDARD, breakdown, null,
-                modality, metadata, (byte) 0, ts);
+                modality, metadata, consolidationFlags, ts);
     }
 
 

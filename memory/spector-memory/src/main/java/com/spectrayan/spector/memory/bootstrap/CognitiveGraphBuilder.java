@@ -209,6 +209,18 @@ public final class CognitiveGraphBuilder {
                     builder.llmGenerationOptions());
         } else if (extractionMode == EntityExtractionMode.CUSTOM) {
             entityExtractor = builder.entityExtractor();
+        } else if (extractionMode == EntityExtractionMode.GLINER) {
+            if (builder.spanExtractor() == null) {
+                throw new SpectorConfigException(ErrorCode.EXTRACTION_MODEL_INVALID, "gliner",
+                        "extraction-mode=gliner requires spector.provider.extraction.model-path");
+            }
+            var extraction = builder.properties() != null && builder.properties().provider() != null
+                    ? builder.properties().provider().getExtraction()
+                    : new com.spectrayan.spector.config.properties.ExtractionProperties();
+            entityExtractor = new com.spectrayan.spector.memory.graph.GlinerEntityExtractor(
+                    builder.spanExtractor(),
+                    GlinerSessions.labels(extraction.getLabels()),
+                    entityProps.getMaxPerMemory());
         } else if (extractionMode != EntityExtractionMode.NONE && entityDirectory != null) {
             entityExtractor = new DictionaryEntityExtractor(entityDirectory, temporalKnowledgeGraph, ontConfig,
                     entityProps.getMaxPerMemory() > 0 ? entityProps.getMaxPerMemory() : 15);

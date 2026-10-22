@@ -21,9 +21,10 @@ import com.spectrayan.spector.kernel.engram.EncodingHeader;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
-import com.spectrayan.spector.core.similarity.VectorOps;
 import com.spectrayan.spector.memory.api.ImportanceProvider;
 import com.spectrayan.spector.kernel.store.WorkingMemory;
+import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
+import com.spectrayan.spector.memory.neuromod.dopamine.NoveltyReference;
 import com.spectrayan.spector.memory.neuromod.dopamine.SurpriseDetector;
 import com.spectrayan.spector.memory.model.ImportanceContext;
 import com.spectrayan.spector.memory.model.ImportanceResult;
@@ -40,16 +41,27 @@ public final class DopaminergicSurpriseRelay implements SynapticRelay<RememberSi
     private final ImportanceProvider importanceProvider;
     private final WorkingMemory workingStore;
     private final ScalarQuantizer quantizer;
+    private final CognitiveMemoryRouter router;
 
     public DopaminergicSurpriseRelay(
             final SurpriseDetector surpriseDetector,
             final ImportanceProvider importanceProvider,
             final WorkingMemory workingStore,
             final ScalarQuantizer quantizer) {
+        this(surpriseDetector, importanceProvider, workingStore, quantizer, null);
+    }
+
+    public DopaminergicSurpriseRelay(
+            final SurpriseDetector surpriseDetector,
+            final ImportanceProvider importanceProvider,
+            final WorkingMemory workingStore,
+            final ScalarQuantizer quantizer,
+            final CognitiveMemoryRouter router) {
         this.surpriseDetector = Objects.requireNonNull(surpriseDetector, "surpriseDetector cannot be null");
         this.importanceProvider = importanceProvider != null ? importanceProvider : ImportanceProvider.baseline();
         this.workingStore = workingStore;
         this.quantizer = Objects.requireNonNull(quantizer, "quantizer cannot be null");
+        this.router = router;
     }
 
     @Override
@@ -60,15 +72,7 @@ public final class DopaminergicSurpriseRelay implements SynapticRelay<RememberSi
             return true;
         }
         final float[] vector = signal.vector();
-        final float nearestDist;
-        if (workingStore != null && workingStore.count() > 0 && vector != null) {
-            nearestDist = workingStore.nearestDistance(
-                    vector, quantizer.mins(), quantizer.scales());
-        } else if (vector != null) {
-            nearestDist = VectorOps.magnitude(vector);
-        } else {
-            nearestDist = 0.0f;
-        }
+        final float nearestDist = nearestDistance(vector);
         signal.nearestDist(nearestDist);
 
         final ImportanceContext importanceCtx = new ImportanceContext(
@@ -85,8 +89,34 @@ public final class DopaminergicSurpriseRelay implements SynapticRelay<RememberSi
         final ImportanceResult importanceResult = importanceProvider.score(importanceCtx);
         signal.importance(importanceResult.importance());
         signal.flashbulb(importanceResult.isFlashbulb());
+        if (vector != null && vector.length > 0) {
+            importanceProvider.observeIngested(vector);
+        }
 
         return true;
+    }
+
+    private float nearestDistance(float[] vector) {
+        if (vector == null || vector.length == 0) {
+            return 0.0f;
+        }
+        float slab = router != null
+                ? NoveltyReference.nearest(router, vector, quantizer.mins(), quantizer.scales())
+                : workingOnly(vector);
+        float ingested = importanceProvider.nearestIngested(vector);
+        float best = slab < ingested ? slab : ingested;
+        return best;
+    }
+
+    private float workingOnly(float[] vector) {
+        if (workingStore == null || workingStore.visibleCount() <= 0) {
+            return NoveltyReference.EMPTY;
+        }
+        float dist = workingStore.nearestDistance(vector, quantizer.mins(), quantizer.scales());
+        if (!Float.isFinite(dist) || dist >= Float.MAX_VALUE / 2f) {
+            return NoveltyReference.EMPTY;
+        }
+        return dist;
     }
 
     @Override

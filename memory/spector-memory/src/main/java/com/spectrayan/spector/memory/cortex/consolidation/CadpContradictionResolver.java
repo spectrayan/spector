@@ -22,6 +22,7 @@ import com.spectrayan.spector.kernel.layout.EngramLayout;
 import com.spectrayan.spector.kernel.layout.FixedEngramLayout;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.graph.temporal.TemporalKnowledgeGraph;
+import com.spectrayan.spector.memory.sync.MemoryWal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -101,19 +102,42 @@ public final class CadpContradictionResolver {
             HyperEntityGraphMemory hyperEntityGraph,
             EntityDirectory entityDirectory,
             TemporalKnowledgeGraph temporalKnowledgeGraph) {
+        return resolve(recordA, recordB, partitionManager, store, hyperEntityGraph,
+                entityDirectory, temporalKnowledgeGraph, null);
+    }
+
+    /**
+     * Same as {@link #resolve(CognitiveRecord, CognitiveRecord, com.spectrayan.spector.memory.persist.PartitionManager, EngramRegion, HyperEntityGraphMemory, EntityDirectory, TemporalKnowledgeGraph)}
+     * and, when {@code wal} is present, appends a {@code MARK_CONTRADICTED} event after the loser is flagged.
+     */
+    public static ResolutionResult resolve(
+            CognitiveRecord recordA,
+            CognitiveRecord recordB,
+            com.spectrayan.spector.memory.persist.PartitionManager partitionManager,
+            EngramRegion store,
+            HyperEntityGraphMemory hyperEntityGraph,
+            EntityDirectory entityDirectory,
+            TemporalKnowledgeGraph temporalKnowledgeGraph,
+            MemoryWal wal) {
 
         ResolutionResult result = determineWinnerLoser(recordA, recordB);
         CognitiveRecord winner = result.winner();
         CognitiveRecord loser = result.loser();
 
         // 1. Mark loser contradicted off-heap on the partition where loser physically resides
+        boolean marked = false;
         if (partitionManager != null) {
             var router = partitionManager.routerFor(loser.partitionIndex());
             if (router != null) {
                 router.markContradicted(loser.memoryType(), loser.byteOffset());
+                marked = true;
             }
         } else if (store != null) {
             store.markContradicted(loser.byteOffset());
+            marked = true;
+        }
+        if (marked && wal != null) {
+            wal.appendMarkContradicted(loser.id(), loser.memoryType(), loser.byteOffset());
         }
         log.info("CADP resolved: winner='{}' corrects loser='{}'", winner.id(), loser.id());
 

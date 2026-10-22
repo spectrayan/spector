@@ -22,11 +22,13 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import com.spectrayan.spector.core.cognitive.CognitiveScoreFusionKernel;
 import com.spectrayan.spector.core.similarity.CosineSimilarity;
 import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.RecallOptions;
+import com.spectrayan.spector.memory.model.ScoreBreakdown;
 
 /**
  * Thread-safe ephemeral write buffer for a single session.
@@ -53,29 +55,44 @@ public class SessionWriteBuffer {
         int k = options != null ? options.topK() : 10;
         float minScore = options != null ? options.minImportance() : 0.0f; // Simplified
 
+        float alpha = options != null ? options.alpha() : 0.6f;
+        float beta = options != null ? options.beta() : 0.4f;
+        float tagRelevanceBoost = options != null ? options.tagRelevanceBoost() : 0.0f;
+
         List<CognitiveResult> results = new ArrayList<>();
         for (BufferedEntry entry : entries) {
             // computeSafe: buffered entries may carry a vector of a different dimension than the
             // query if the embedding model changed mid-session. Pre-migration behaviour was to
             // score such entries 0 and skip them, never to throw out of the recall path.
-            float score = CosineSimilarity.computeSafe(queryVector, entry.vector());
-            if (score >= minScore) {
-                // Approximate representation of CognitiveResult for buffered entries
-                results.add(new CognitiveResult(
-                        entry.id(),
-                        entry.text(),
-                        score,
-                        1.0f, // importance
-                        0.0f, // ageDays
-                        0,    // agentRecallCount
-                        (byte) 0, // valence
-                        entry.type(),
-                        MemorySource.USER_STATED, // Simplified default
-                        new String[0],
-                        1.0f,
-                        1.0f
-                ));
+            float cosine = CosineSimilarity.computeSafe(queryVector, entry.vector());
+            if (cosine < minScore) {
+                continue;
             }
+            // The reported score is the same linear blend the store path uses. Cosine stays
+            // on its own field so a buffered hit cannot outrank a fused store hit.
+            float similarity = Math.max(0.0f, cosine);
+            float importance = 1.0f;
+            float decay = 1.0f;
+            float fused = CognitiveScoreFusionKernel.computeLinearBlendScore(
+                    similarity, importance, decay, 0.0f, alpha, beta, tagRelevanceBoost);
+            ScoreBreakdown breakdown = new ScoreBreakdown(
+                    similarity, importance * decay, 1.0f, 1.0f, 1.0f, 1.0f, fused);
+            results.add(new CognitiveResult(
+                    entry.id(),
+                    entry.text(),
+                    fused,
+                    importance,
+                    0.0f, // ageDays
+                    0,    // agentRecallCount
+                    (byte) 0, // valence
+                    entry.type(),
+                    MemorySource.USER_STATED, // Simplified default
+                    new String[0],
+                    1.0f,
+                    1.0f,
+                    CognitiveResult.RetrievalMode.STANDARD,
+                    breakdown
+            ).withCosine(cosine));
         }
 
         results.sort(Comparator.comparing(CognitiveResult::score).reversed());

@@ -17,7 +17,10 @@ package com.spectrayan.spector.memory.pathway.pipeline;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorConfigException;
+import java.util.List;
+
 import com.spectrayan.spector.config.model.TagExtractorMode;
+import com.spectrayan.spector.provider.extraction.SpanExtractor;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 
 import org.slf4j.Logger;
@@ -34,6 +37,8 @@ import org.slf4j.LoggerFactory;
  *       at build time, and a write whose LLM call fails throws {@link ErrorCode#MEMORY_LLM_APPRAISAL_FAILED}.
  *       Silently storing keyword tags and neutral affect would hide a broken configuration.</li>
  *   <li>{@link TagExtractorMode#NONE}: {@link TagExtractor#NONE}, no tags.</li>
+ *   <li>{@link TagExtractorMode#GLINER}: {@link GlinerTagExtractor} over the shared span session.
+ *       A missing model fails startup. An inference error fails the write. There is no keyword fallback.</li>
  * </ul>
  *
  * <p>Mirrors how {@code CognitiveGraphBuilder} maps the entity-extraction mode to an extractor.</p>
@@ -55,9 +60,31 @@ public final class TagExtractors {
      *                                {@link TagExtractorMode#LLM} and {@code llmProvider} is {@code null}
      */
     public static TagExtractor forMode(TagExtractorMode mode, LlmProvider llmProvider) {
+        return forMode(mode, llmProvider, null, List.of());
+    }
+
+    /**
+     * Resolves the extractor, including a GLiNER session when the mode is
+     * {@link TagExtractorMode#GLINER}.
+     *
+     * @param mode         configured mode; {@code null} means content
+     * @param llmProvider  generation provider; required for {@link TagExtractorMode#LLM}
+     * @param spans        open GLiNER session; required for {@link TagExtractorMode#GLINER}
+     * @param glinerLabels prompt labels for GLiNER
+     * @return the extractor
+     */
+    public static TagExtractor forMode(TagExtractorMode mode, LlmProvider llmProvider,
+                                        SpanExtractor spans, List<String> glinerLabels) {
         TagExtractorMode effective = mode != null ? mode : TagExtractorMode.CONTENT;
         return switch (effective) {
             case NONE -> TagExtractor.NONE;
+            case GLINER -> {
+                if (spans == null) {
+                    throw new SpectorConfigException(ErrorCode.EXTRACTION_MODEL_INVALID, "gliner",
+                            "tag-extractor=gliner requires spector.provider.extraction.model-path");
+                }
+                yield new GlinerTagExtractor(spans, glinerLabels == null ? List.of() : glinerLabels);
+            }
             case LLM -> {
                 if (llmProvider == null) {
                     log.error("[TagExtract] tag-extractor=llm but no generation provider is configured ({})",

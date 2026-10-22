@@ -43,6 +43,17 @@ spector:
       model: ""
       base-url: http://localhost:11434
       api-key: ""
+    extraction:
+      type: gliner
+      model-path: ""
+      tokenizer-path: ""
+      config-path: ""
+      relation-model-path: ""
+      entity-threshold: 0.55
+      max-width: 12
+      max-tokens: 384
+      intra-op-threads: 1
+      labels: "person,organization,location"
 
   persistence:
     files:
@@ -62,6 +73,11 @@ spector:
     consolidation-interval: 60s
     default-ingestion-tier: SEMANTIC
     hnsw-prefilter: auto
+    affect:
+      appraiser: none
+      anchors-path: ""
+      deadband: 0.02
+      gain: 4.0
     tag-extractor: content
     tag-extractor-model: ""
     text-search-mode: HYBRID

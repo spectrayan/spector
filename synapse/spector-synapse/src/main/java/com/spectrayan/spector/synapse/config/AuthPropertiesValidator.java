@@ -20,7 +20,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
+
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.config.error.SpectorConfigValueException;
 import com.spectrayan.spector.config.properties.AuthProperties;
+import com.spectrayan.spector.synapse.security.ServerAccessTokenMinter;
 
 import jakarta.annotation.PostConstruct;
 
@@ -90,6 +95,7 @@ public class AuthPropertiesValidator {
 
         // 18.3: required secrets must resolve to a non-empty value when auth is enabled.
         requireNonEmptySecret(KEY_JWT_SECRET, auth.jwt() == null ? null : auth.jwt().secret());
+        requireJwtSecretLength(auth.jwt() == null ? null : auth.jwt().secret());
         requireNonEmptySecret(
                 KEY_ADMIN_PASSWORD,
                 auth.defaultAdmin() == null ? null : auth.defaultAdmin().password());
@@ -103,6 +109,17 @@ public class AuthPropertiesValidator {
         requireInRange(KEY_LOCKOUT_MINUTES, LOCKOUT_MINUTES_LOWER, LOCKOUT_MINUTES_UPPER);
 
         log.info("Auth configuration validated: multi-user authentication is enabled");
+    }
+
+    private void requireJwtSecretLength(String secret) {
+        if (secret == null || secret.isBlank()) {
+            return;
+        }
+        if (secret.getBytes(StandardCharsets.UTF_8).length < ServerAccessTokenMinter.MIN_SECRET_BYTES) {
+            throw new SpectorConfigValueException(
+                    ErrorCode.JWT_KEY_INVALID, KEY_JWT_SECRET,
+                    "shorter than " + ServerAccessTokenMinter.MIN_SECRET_BYTES + " bytes");
+        }
     }
 
     private void requireNonEmptySecret(String key, String boundValue) {

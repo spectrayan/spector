@@ -32,5 +32,8 @@ public enum EntityExtractionMode {
     DICTIONARY,
 
     /** Custom EntityExtractor provided via Builder. */
-    CUSTOM
+    CUSTOM,
+
+    /** Local GLiNER span extraction. Requires {@code spector.provider.extraction.*}. */
+    GLINER
 }

@@ -32,6 +32,9 @@ class SpectorCliProfileRoutingTest {
         assertThat(SpectorCliApplication.determineProfile(new String[]{"--help"})).isEqualTo("cli-remote");
         assertThat(SpectorCliApplication.determineProfile(new String[]{"-h"})).isEqualTo("cli-remote");
         assertThat(SpectorCliApplication.determineProfile(new String[]{"--version"})).isEqualTo("cli-remote");
+        assertThat(SpectorCliApplication.determineProfile(new String[]{"token", "keygen", "--help"})).isEqualTo("cli-remote");
+        assertThat(SpectorCliApplication.determineProfile(new String[]{"adopt-store", "--dry-run"})).isEqualTo("cli-remote");
+        assertThat(SpectorCliApplication.determineProfile(new String[]{"--help"})).isEqualTo("cli-remote");
         assertThat(SpectorCliApplication.determineProfile(new String[]{"-V"})).isEqualTo("cli-remote");
     }
 

@@ -16,9 +16,12 @@
 package com.spectrayan.spector.memory.neuromod.dopamine;
 
 import com.spectrayan.spector.core.cognitive.DopaminergicSurpriseKernel;
-import com.spectrayan.spector.core.similarity.VectorOps;
+import com.spectrayan.spector.core.similarity.EuclideanDistance;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Arrays;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Adaptive surprise detection engine — automatically assigns importance at ingestion time.
@@ -51,8 +54,28 @@ public final class SurpriseDetector {
     /** Minimum samples required before z-score-based importance kicks in. */
     private final int warmupSamples;
 
-    /** Default importance assigned during warmup period. */
-    private static final float DEFAULT_IMPORTANCE = 1.0f;
+    /**
+     * Importance of a memory with no neighbour at all: novelty 1.0 on the 0–10 scale.
+     * An empty store has no distance to learn from, so the sample is not recorded.
+     */
+    public static final float FULL_NOVELTY_IMPORTANCE = DopaminergicSurpriseKernel.MAX_IMPORTANCE;
+
+    /**
+     * Prior for L2 distances between L2-normalised embeddings (mean 1, sd 0.25).
+     * Warm-up blends this prior with the distances seen so far, weighted by how many
+     * samples are still missing, and caps the z-score at the flashbulb boundary.
+     */
+    static final double PRIOR_MEAN = 1.0;
+    static final double PRIOR_SD = 0.25;
+    static final double WARMUP_Z_CAP = DopaminergicSurpriseKernel.DEFAULT_FLASHBULB_THRESHOLD;
+
+    /** Recent ingested vectors kept so episodic writes (no slab vector) still count. */
+    static final int RECENT_VECTORS = 256;
+
+    private final ReentrantLock recentLock = new ReentrantLock();
+    private final float[][] recent = new float[RECENT_VECTORS][];
+    private int recentSize;
+    private int recentNext;
 
     /**
      * Creates a new surprise detector.
@@ -77,27 +100,154 @@ public final class SurpriseDetector {
      * <p>Call this during ingestion: compute the L2 distance from the new vector to
      * the nearest existing centroid or cluster center, then pass that distance here.</p>
      *
-     * @param distanceToNearest L2 distance from new vector to nearest existing memory/centroid
-     * @return importance value (0.1 = mundane, 1.0 = default, 10.0 = extreme surprise)
+     * @param distanceToNearest L2 distance from new vector to nearest existing memory/centroid.
+     *                          A non-finite value means the reference set is empty.
+     * @return importance value (about 0.05 = mundane, 10.0 = fully novel or extreme surprise)
      */
     public float computeImportance(float distanceToNearest) {
-        // Update running statistics
-        stats.update(distanceToNearest);
-
-        // During warmup, return default importance
-        if (!stats.isWarm(warmupSamples)) {
-            return DEFAULT_IMPORTANCE;
+        Scored scored = score(distanceToNearest, true);
+        if (scored.importance() >= 5.0f) {
+            log.debug("Dopamine spike! z-score={}, importance={}", scored.z(), scored.importance());
         }
+        return scored.importance();
+    }
 
-        // Compute z-score against the running distribution
-        double zScore = stats.zScore(distanceToNearest);
-        float importance = zScoreToImportance(zScore);
+    /**
+     * Same mapping as {@link #computeImportance} without recording the distance.
+     *
+     * @param distanceToNearest L2 distance, or a non-finite value when nothing is stored
+     * @return importance in [{@link DopaminergicSurpriseKernel#MIN_IMPORTANCE}, {@link #FULL_NOVELTY_IMPORTANCE}]
+     */
+    public float peekImportance(float distanceToNearest) {
+        return score(distanceToNearest, false).importance();
+    }
 
-        if (importance >= 5.0f) {
-            log.debug("Dopamine spike! z-score={}, importance={}", zScore, importance);
+    /**
+     * Importance and the z-score that produced it. A warm update records the distance first,
+     * matching the historical outlier behaviour; a cold update scores against the prior first.
+     *
+     * @param distanceToNearest L2 distance, or a non-finite value when the reference set is empty
+     * @param update            whether to record the distance
+     * @return the paired score
+     */
+    public Scored score(float distanceToNearest, boolean update) {
+        if (isEmptyReference(distanceToNearest)) {
+            return new Scored(FULL_NOVELTY_IMPORTANCE, 0.0);
         }
+        if (update && stats.count() >= warmupSamples) {
+            stats.update(distanceToNearest);
+            double z = stats.zScore(distanceToNearest);
+            return new Scored(zScoreToImportance(z), z);
+        }
+        double z = blendedZ(distanceToNearest);
+        if (update) {
+            stats.update(distanceToNearest);
+        }
+        return new Scored(zScoreToImportance(z), z);
+    }
 
-        return importance;
+    /**
+     * Paired novelty importance and z-score.
+     *
+     * @param importance importance in [0.05, 10]
+     * @param z          z-score used to produce it (0 when the store is empty)
+     */
+    public record Scored(float importance, double z) {}
+
+    /**
+     * Z-score used for importance. During warm-up the running mean and variance are blended
+     * with the normalised-embedding prior, and the result is capped at the flashbulb boundary
+     * so a cold store cannot pin a flashbulb. Once warm, this is the plain Welford z-score.
+     *
+     * @param distanceToNearest L2 distance
+     * @return z-score, or 0 when the reference set is empty
+     */
+    public double blendedZ(float distanceToNearest) {
+        if (isEmptyReference(distanceToNearest)) {
+            return 0.0;
+        }
+        long n = stats.count();
+        if (n >= warmupSamples) {
+            return stats.zScore(distanceToNearest);
+        }
+        double missing = warmupSamples - n;
+        double sampleMean = n == 0 ? 0.0 : stats.mean();
+        double sampleSd = n < 2 ? 0.0 : stats.stddev();
+        double total = n + missing;
+        double mean = (n * sampleMean + missing * PRIOR_MEAN) / total;
+        double var = (n * sampleSd * sampleSd + missing * PRIOR_SD * PRIOR_SD) / total;
+        double sd = Math.sqrt(Math.max(var, 1e-12));
+        double z = (distanceToNearest - mean) / sd;
+        if (!Double.isFinite(z)) {
+            return 0.0;
+        }
+        return Math.min(z, WARMUP_Z_CAP);
+    }
+
+    /**
+     * A missing neighbour. {@link Float#MAX_VALUE} is what an empty slab scan returns.
+     *
+     * @param distance candidate nearest distance
+     * @return {@code true} when there is nothing to compare against
+     */
+    public static boolean isEmptyReference(float distance) {
+        return !Float.isFinite(distance) || distance < 0f || distance >= Float.MAX_VALUE / 2f;
+    }
+
+    /**
+     * Remembers an ingested embedding for later nearest-neighbour checks.
+     *
+     * @param vector L2-normalised embedding; ignored when {@code null} or empty
+     */
+    public void observe(float[] vector) {
+        if (vector == null || vector.length == 0) {
+            return;
+        }
+        float[] copy = Arrays.copyOf(vector, vector.length);
+        recentLock.lock();
+        try {
+            recent[recentNext] = copy;
+            recentNext = (recentNext + 1) % RECENT_VECTORS;
+            if (recentSize < RECENT_VECTORS) {
+                recentSize++;
+            }
+        } finally {
+            recentLock.unlock();
+        }
+    }
+
+    /**
+     * L2 distance to the closest vector passed to {@link #observe}.
+     *
+     * @param query candidate embedding
+     * @return nearest distance, or {@link Float#POSITIVE_INFINITY} when none were observed
+     */
+    public float nearestObserved(float[] query) {
+        if (query == null || query.length == 0) {
+            return Float.POSITIVE_INFINITY;
+        }
+        recentLock.lock();
+        try {
+            if (recentSize == 0) {
+                return Float.POSITIVE_INFINITY;
+            }
+            float best = Float.POSITIVE_INFINITY;
+            int start = recentSize < RECENT_VECTORS ? 0 : recentNext;
+            int length = query.length;
+            for (int i = 0; i < recentSize; i++) {
+                float[] seen = recent[(start + i) % RECENT_VECTORS];
+                if (seen == null || seen.length != length) {
+                    continue;
+                }
+                float dist = EuclideanDistance.compute(query, seen);
+                if (dist < best) {
+                    best = dist;
+                }
+            }
+            return best;
+        } finally {
+            recentLock.unlock();
+        }
     }
 
     /**
@@ -213,5 +363,13 @@ public final class SurpriseDetector {
         stats.reset();
         temporalStats.reset();
         lastSeenByTags.clear();
+        recentLock.lock();
+        try {
+            Arrays.fill(recent, null);
+            recentSize = 0;
+            recentNext = 0;
+        } finally {
+            recentLock.unlock();
+        }
     }
 }

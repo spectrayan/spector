@@ -6977,6 +6977,9 @@ components:
           format: int64
         truncated:
           type: boolean
+        cosine:
+          type: number
+          format: float
         positivelyReinforced:
           type: boolean
         simulated:
