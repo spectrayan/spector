@@ -35,28 +35,30 @@ class EngineFencingIntegrationTest {
         AtomicLong currentEpoch = new AtomicLong(10);
         FencingMutationPolicy policy = new FencingMutationPolicy(currentEpoch::get);
 
-        SpectorMemory memory = SpectorMemoryBuilder.create()
+        try (SpectorMemory memory = SpectorMemoryBuilder.createEmpty()
+                .persistenceMode(com.spectrayan.spector.memory.model.MemoryPersistenceMode.IN_MEMORY)
                 .namespaceId("test-ns")
                 .mutationPolicy(policy)
                 .embeddingProvider(new com.spectrayan.spector.memory.test.FakeEmbeddingProvider())
-                .build();
+                .build()) {
 
-        // Should succeed with valid epoch
-        MemoryScope.callWithScope("session", "test-ns", () -> {
-            ScopedValue.where(MemoryScope.FENCE_EPOCH, 10L).run(() -> {
-                assertDoesNotThrow(() -> memory.remember("id1", "Hello", MemoryType.SEMANTIC, MemorySource.OBSERVED));
+            // Should succeed with valid epoch
+            MemoryScope.callWithScope("session", "test-ns", () -> {
+                ScopedValue.where(MemoryScope.FENCE_EPOCH, 10L).run(() -> {
+                    assertDoesNotThrow(() -> memory.remember("id1", "Hello", MemoryType.SEMANTIC, MemorySource.OBSERVED));
+                });
+                return null;
             });
-            return null;
-        });
 
-        // Should fail with stale epoch
-        MemoryScope.callWithScope("session", "test-ns", () -> {
-            ScopedValue.where(MemoryScope.FENCE_EPOCH, 9L).run(() -> {
-                assertThrows(SpectorServerException.class, () -> 
-                    memory.remember("id2", "World", MemoryType.SEMANTIC, MemorySource.OBSERVED)
-                );
+            // Should fail with stale epoch
+            MemoryScope.callWithScope("session", "test-ns", () -> {
+                ScopedValue.where(MemoryScope.FENCE_EPOCH, 9L).run(() -> {
+                    assertThrows(SpectorServerException.class, () -> 
+                        memory.remember("id2", "World", MemoryType.SEMANTIC, MemorySource.OBSERVED)
+                    );
+                });
+                return null;
             });
-            return null;
-        });
+        }
     }
 }
