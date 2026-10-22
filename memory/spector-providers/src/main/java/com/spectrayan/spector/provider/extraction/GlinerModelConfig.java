@@ -59,7 +59,7 @@ final class GlinerModelConfig {
         }
         int maxWidth = intField(json, "max_width", source);
         int maxLen = intField(json, "max_len", source);
-        int maxTypes = intField(json, "max_types", 25);
+        int maxTypes = intField(json, "max_types", 25, source);
         if (maxWidth <= 0 || maxLen <= 0) {
             throw invalid(source, "max_width and max_len must be positive");
         }
@@ -76,12 +76,23 @@ final class GlinerModelConfig {
         if (!matcher.find()) {
             throw invalid(source, "missing " + name);
         }
-        return Integer.parseInt(matcher.group(1));
+        try {
+            return Integer.parseInt(matcher.group(1));
+        } catch (NumberFormatException e) {
+            throw invalid(source, "invalid " + name);
+        }
     }
 
-    private static int intField(String json, String name, int fallback) {
+    private static int intField(String json, String name, int fallback, String source) {
         Matcher matcher = Pattern.compile("\"" + name + "\"\\s*:\\s*(-?\\d+)").matcher(json);
-        return matcher.find() ? Integer.parseInt(matcher.group(1)) : fallback;
+        if (!matcher.find()) {
+            return fallback;
+        }
+        try {
+            return Integer.parseInt(matcher.group(1));
+        } catch (NumberFormatException e) {
+            throw invalid(source, "invalid " + name);
+        }
     }
 
     private static SpectorConfigException invalid(String source, String reason) {

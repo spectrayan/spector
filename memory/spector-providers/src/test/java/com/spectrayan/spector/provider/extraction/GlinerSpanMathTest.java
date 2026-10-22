@@ -99,6 +99,17 @@ class GlinerSpanMathTest {
                 .isEqualTo(ErrorCode.EXTRACTION_MODEL_INVALID);
     }
 
+    @Test
+    @DisplayName("a config with overflowing integer fields is rejected")
+    void configRejectsOverflowingIntegers() {
+        assertThatThrownBy(() -> GlinerModelConfig.parse(
+                "{\"model_type\":\"gliner\",\"words_splitter_type\":\"whitespace\",\"ent_token\":\"<<ENT>>\",\"sep_token\":\"<<SEP>>\",\"max_width\":99999999999999,\"max_len\":384}",
+                "gliner_config.json"))
+                .isInstanceOf(SpectorConfigException.class)
+                .extracting(ex -> ((SpectorConfigException) ex).errorCode())
+                .isEqualTo(ErrorCode.EXTRACTION_MODEL_INVALID);
+    }
+
     private static float logit(float probability) {
         double p = Math.min(1 - 1e-6, Math.max(1e-6, probability));
         return (float) Math.log(p / (1.0 - p));
