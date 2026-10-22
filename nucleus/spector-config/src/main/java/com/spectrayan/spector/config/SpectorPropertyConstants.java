@@ -231,6 +231,17 @@ public final class SpectorPropertyConstants {
     public static final String PROVIDER_GENERATION_FALLBACK_MODEL = "spector.provider.generation.fallback-model";
     public static final String DEFAULT_PROVIDER_GENERATION_FALLBACK_MODEL = "qwen3:0.6b";
 
+    public static final String PROVIDER_EXTRACTION_TYPE = "spector.provider.extraction.type";
+    public static final String PROVIDER_EXTRACTION_MODEL_PATH = "spector.provider.extraction.model-path";
+    public static final String PROVIDER_EXTRACTION_TOKENIZER_PATH = "spector.provider.extraction.tokenizer-path";
+    public static final String PROVIDER_EXTRACTION_CONFIG_PATH = "spector.provider.extraction.config-path";
+    public static final String PROVIDER_EXTRACTION_RELATION_MODEL_PATH = "spector.provider.extraction.relation-model-path";
+    public static final String PROVIDER_EXTRACTION_ENTITY_THRESHOLD = "spector.provider.extraction.entity-threshold";
+    public static final String PROVIDER_EXTRACTION_MAX_WIDTH = "spector.provider.extraction.max-width";
+    public static final String PROVIDER_EXTRACTION_MAX_TOKENS = "spector.provider.extraction.max-tokens";
+    public static final String PROVIDER_EXTRACTION_INTRA_OP_THREADS = "spector.provider.extraction.intra-op-threads";
+    public static final String PROVIDER_EXTRACTION_LABELS = "spector.provider.extraction.labels";
+
     public static final String PROVIDER_SSL_INSECURE = "spector.ssl.insecure";
     public static final boolean DEFAULT_PROVIDER_SSL_INSECURE = false;
 

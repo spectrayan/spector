@@ -231,6 +231,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     private final com.spectrayan.spector.memory.session.SessionBufferManager sessionBufferManager = new com.spectrayan.spector.memory.session.SessionBufferManager();
     private final com.spectrayan.spector.memory.affect.AffectAppraiser affectAppraiser;
+    private final com.spectrayan.spector.provider.extraction.SpanExtractor spanExtractor;
 
     // ── Episodic Conversation Architecture (ADR-0006) ──
     private final EpisodicSessionIndex episodicSessionIndex;
@@ -256,6 +257,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         var memProps = builder.properties() != null && builder.properties().memory() != null
                 ? builder.properties().memory()
                 : new com.spectrayan.spector.config.properties.MemoryProperties();
+        this.spanExtractor = builder.spanExtractor();
         this.affectAppraiser = com.spectrayan.spector.memory.affect.AnchorAffectAppraiser.create(
                 memProps, this.embeddingProvider);
         var remProps = memProps.getRemember() != null
@@ -2908,6 +2910,13 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private void doClose() {
         log.info("SpectorMemory closing ({} total memories, mode={})",
                 totalMemories(), persistenceMode);
+        if (spanExtractor != null) {
+            try {
+                spanExtractor.close();
+            } catch (Exception e) {
+                log.warn("Failed to close span extractor on close: {}", e.getClass().getSimpleName());
+            }
+        }
 
         long shutdownBudgetMs = 10_000L;
         long deadline = System.currentTimeMillis() + shutdownBudgetMs;

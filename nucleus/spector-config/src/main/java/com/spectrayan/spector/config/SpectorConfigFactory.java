@@ -719,6 +719,18 @@ public final class SpectorConfigFactory {
 
         providerProperties.setSslInsecure(props.getBoolean(PROVIDER_SSL_INSECURE, DEFAULT_PROVIDER_SSL_INSECURE));
 
+        ExtractionProperties extraction = providerProperties.getExtraction();
+        extraction.setType(props.getString(PROVIDER_EXTRACTION_TYPE, "gliner"));
+        extraction.setModelPath(props.getString(PROVIDER_EXTRACTION_MODEL_PATH, ""));
+        extraction.setTokenizerPath(props.getString(PROVIDER_EXTRACTION_TOKENIZER_PATH, ""));
+        extraction.setConfigPath(props.getString(PROVIDER_EXTRACTION_CONFIG_PATH, ""));
+        extraction.setRelationModelPath(props.getString(PROVIDER_EXTRACTION_RELATION_MODEL_PATH, ""));
+        extraction.setEntityThreshold(props.getFloat(PROVIDER_EXTRACTION_ENTITY_THRESHOLD, ExtractionProperties.DEFAULT_THRESHOLD));
+        extraction.setMaxWidth(props.getInt(PROVIDER_EXTRACTION_MAX_WIDTH, ExtractionProperties.DEFAULT_MAX_WIDTH));
+        extraction.setMaxTokens(props.getInt(PROVIDER_EXTRACTION_MAX_TOKENS, ExtractionProperties.DEFAULT_MAX_TOKENS));
+        extraction.setIntraOpThreads(props.getInt(PROVIDER_EXTRACTION_INTRA_OP_THREADS, ExtractionProperties.DEFAULT_INTRA_OP_THREADS));
+        extraction.setLabels(props.getString(PROVIDER_EXTRACTION_LABELS, ExtractionProperties.DEFAULT_LABELS));
+
         return providerProperties;
     }
 

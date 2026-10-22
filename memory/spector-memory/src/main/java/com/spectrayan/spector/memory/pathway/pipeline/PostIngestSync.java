@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.memory.pathway.pipeline;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorException;
 import com.spectrayan.spector.memory.cortex.index.IndexEntryMemory;
 
 import com.spectrayan.spector.kernel.id.MemoryId;
@@ -274,6 +276,18 @@ public final class PostIngestSync {
      * @param memoryIdx memory index for entity -> memory linking
      * @return list of extracted entities
      */
+    private static boolean failedLocalExtraction(Throwable error) {
+        Throwable current = error;
+        while (current != null) {
+            if (current instanceof SpectorException spector
+                    && spector.errorCode() == ErrorCode.MEMORY_EXTRACTION_FAILED) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
     public List<ExtractedEntity> syncEntityExtraction(String id, String text, int memoryIdx) {
         if (entityExtractor != null && entityDirectory != null && entityExtractor.isAvailable()) {
             try {
@@ -281,6 +295,9 @@ public final class PostIngestSync {
                 populateEntities(entities, memoryIdx, id);
                 return entities;
             } catch (RuntimeException e) {
+                if (failedLocalExtraction(e)) {
+                    throw e;
+                }
                 SpectorEntityGraphException ex = new SpectorEntityGraphException("extraction", e);
                 log.warn(ex.getMessage());
             }
