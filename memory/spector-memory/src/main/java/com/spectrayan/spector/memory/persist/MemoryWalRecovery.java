@@ -377,14 +377,6 @@ public final class MemoryWalRecovery {
             }
             log.info("[WalRecovery] Reapplied {} of '{}' in {} at offset {}",
                     kind, event.memoryId(), tier, recordOffset);
-        } else if (target instanceof com.spectrayan.spector.kernel.store.EpisodicMemory episodic) {
-            if (retracted) {
-                episodic.markRetracted(recordOffset);
-            } else {
-                episodic.markContradicted(recordOffset);
-            }
-            log.info("[WalRecovery] Reapplied {} of '{}' in EPISODIC at offset {}",
-                    kind, event.memoryId(), recordOffset);
         } else {
             throw new SpectorWalCorruptionException(
                     kind + " event for '" + event.memoryId() + "' names tier " + tier
