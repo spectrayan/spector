@@ -126,11 +126,7 @@ public class SalienceAndHabituationScorer {
                                     r.breakdown().valenceAlignment(),
                                     newScore)
                             : null;
-                    allResults.set(i, new CognitiveResult(
-                            r.id(), r.text(), newScore, r.importance(), r.ageDays(),
-                            r.agentRecallCount(), r.valence(), r.memoryType(), r.source(),
-                            r.synapticTags(), r.decayFactor(), r.ltpAdjustedDecay(),
-                            r.retrievalMode(), bd, r.trace(), r.sourceModality(), r.metadata()));
+                    allResults.set(i, r.withScoreAndBreakdown(newScore, bd));
                 }
             }
         });
@@ -158,11 +154,7 @@ public class SalienceAndHabituationScorer {
                                 contextTags, r.synapticTags());
                         if (predictive > 0) {
                             float boostedScore = r.score() * (1.0f + predictive * weight);
-                            allResults.set(i, new CognitiveResult(
-                                    r.id(), r.text(), boostedScore, r.importance(), r.ageDays(),
-                                    r.agentRecallCount(), r.valence(), r.memoryType(), r.source(),
-                                    r.synapticTags(), r.decayFactor(), r.ltpAdjustedDecay(),
-                                    r.retrievalMode(), r.breakdown(), r.trace(), r.sourceModality(), r.metadata()));
+                            allResults.set(i, r.withScore(boostedScore));
                         }
                     }
                 }

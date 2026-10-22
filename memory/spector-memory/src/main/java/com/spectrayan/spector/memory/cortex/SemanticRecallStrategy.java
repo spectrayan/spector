@@ -157,6 +157,10 @@ public final class SemanticRecallStrategy {
             // Phase 1: Tombstone check (always applied)
             if (EncodingHeaderFields.isTombstoned(header.flags())) continue;
 
+            // Retracted records are never released. Skipping them here keeps them out of
+            // the candidate list even if a later stage forgets to consult the flag.
+            if (EncodingHeaderFields.isRetracted(header.consolidationFlags())) continue;
+
             // Phase 1c: Contradiction Gating
             if (!options.includeContradictions()) {
                 if (store.isContradicted(headerOffset)) continue;
@@ -221,7 +225,7 @@ public final class SemanticRecallStrategy {
 
             candidates.add(new CandidateMatch(
                     id, timestamp, recordTagsLo, recordTagsHi, valence, importance,
-                    agentRecallCount, similarity, arousal, storage));
+                    agentRecallCount, similarity, arousal, storage, header.consolidationFlags()));
         }
 
         int count = candidates.size();
@@ -312,7 +316,7 @@ public final class SemanticRecallStrategy {
                     c.agentRecallCount, c.valence, MemoryType.SEMANTIC, source,
                     tags, rawDecay, decay,
                     CognitiveResult.RetrievalMode.STANDARD, breakdown, null,
-                    SourceModality.TEXT, Map.of(), (byte) 0, c.timestamp));
+                    SourceModality.TEXT, Map.of(), c.consolidationFlags, c.timestamp));
         }
 
         // Sort by fused score descending
@@ -341,6 +345,7 @@ public final class SemanticRecallStrategy {
             int agentRecallCount,
             float similarity,
             byte arousal,
-            float storage
+            float storage,
+            byte consolidationFlags
     ) {}
 }

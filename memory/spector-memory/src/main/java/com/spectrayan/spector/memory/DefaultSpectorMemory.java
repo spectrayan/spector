@@ -1220,6 +1220,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             List<CognitiveResult> storeResults = recallPathway.execute(null, signal);
             String sessionId = MemoryScope.sessionId();
             storeResults = sessionBufferManager.merge(sessionId, queryText, options, storeResults, embeddingProvider, () -> 0);
+            storeResults = applyReleaseGate(storeResults, options);
             if (signal.isTruncated()) {
                 storeResults = storeResults.stream().map(r -> r.withTruncated(true)).toList();
             }
@@ -1227,6 +1228,40 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         } finally {
             releaseLease();
         }
+    }
+
+    /**
+     * Re-reads consolidation flags from the live record and applies the release gate.
+     * Scoring and the session buffer can rebuild a result without those flags; the gate has
+     * to see the bits that are actually stored.
+     */
+    private List<CognitiveResult> applyReleaseGate(List<CognitiveResult> results, RecallOptions options) {
+        if (results == null || results.isEmpty()) {
+            return results;
+        }
+        List<CognitiveResult> stamped = new java.util.ArrayList<>(results.size());
+        for (CognitiveResult result : results) {
+            stamped.add(stampLiveFlags(result));
+        }
+        var signal = com.spectrayan.spector.memory.pathway.recall.relay.RecallSignal.forTextQuery("", options);
+        signal.setCandidates(stamped);
+        new com.spectrayan.spector.memory.pathway.recall.relay.GovernedReleaseGateRelay().transmit(signal);
+        return new java.util.ArrayList<>(signal.candidates());
+    }
+
+    private CognitiveResult stampLiveFlags(CognitiveResult result) {
+        if (result == null || index == null || partitionManager == null) {
+            return result;
+        }
+        MemoryLocation loc = index.locate(result.id());
+        if (loc == null) {
+            return result;
+        }
+        var body = partitionManager.routerFor(loc.colocatedPartition()).readRecordBody(loc, false);
+        if (body == null || body.consolidationFlags() == result.consolidationFlags()) {
+            return result;
+        }
+        return result.withConsolidationFlags(body.consolidationFlags());
     }
 
     @Override

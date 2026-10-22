@@ -109,7 +109,6 @@ public final class RecallRecipe implements PathwayRecipe<RecallSignal> {
                 .add();
 
         composer.relay(RelayNames.PROSPECTIVE, prospectiveRelay)
-                .relay(RelayNames.GOVERNED_RELEASE_GATE, governedReleaseGateRelay)
                 .relay(RelayNames.VECTOR_SEARCH, vectorSearchRelay);
 
         if (homeostaticBiasRelay != null) {
@@ -148,6 +147,10 @@ public final class RecallRecipe implements PathwayRecipe<RecallSignal> {
         if (consciousnessContinuityRelay != null) {
             composer.gated(RelayNames.CONSCIOUSNESS_CONTINUITY, RecallGates.CONSCIOUSNESS_CONTINUITY_ENABLED, consciousnessContinuityRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
         }
+
+        // Vector search, graph expansion, and simulation have all added candidates by
+        // this point. The gate used to run before vector search, when the list was empty.
+        composer.relay(RelayNames.GOVERNED_RELEASE_GATE, governedReleaseGateRelay);
 
         if (mmrDiversityRelay != null) {
             composer.gated(RelayNames.MMR_RERANK, RecallGates.MMR_ENABLED, mmrDiversityRelay, ErrorPolicy.DEGRADE_GRACEFULLY);

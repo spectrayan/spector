@@ -566,7 +566,7 @@ public final class RecallPathway extends AbstractPathway<RecallSignal, List<Cogn
                             Math.max(0, ageDays),
                             (short) 0, valence, MemoryType.SEMANTIC, source,
                             memTags, 1.0f, 1.0f, CognitiveResult.RetrievalMode.STANDARD, null, null,
-                            rModality, rMeta, (byte) 0, ts));
+                            rModality, rMeta, hdr != null ? hdr.consolidationFlags() : (byte) 0, ts));
 
                 } catch (final RuntimeException e) {
                     log.debug("REPLAY: skipping memory '{}': {}", memId, e.getMessage());
@@ -927,7 +927,7 @@ public final class RecallPathway extends AbstractPathway<RecallSignal, List<Cogn
                     id, text, score, importance, ageDays,
                     recallCount, valence, MemoryType.EPISODIC, source, tags,
                     rawDecay, ltpDecay, mode, breakdown, null, modality, metadata,
-                    (byte) 0, timestamp));
+                    cur.consolidationFlags(), timestamp));
             }
         }
 
@@ -1002,7 +1002,7 @@ public final class RecallPathway extends AbstractPathway<RecallSignal, List<Cogn
                 resultText, sr.score(), header.importance(), ageDays,
                 recallCount, header.valence(), type, source, tags,
                 rawDecay, ltpDecay, mode, breakdown, null, modality, metadata,
-                (byte) 0, header.timestampMs());
+                header.consolidationFlags(), header.timestampMs());
     }
 
     /**
