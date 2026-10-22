@@ -57,12 +57,8 @@
       },
       "scoring_mode": {
         "type": "string",
-        "description": "Controls how retrieved candidates are ranked. COGNITIVE (default): full biological scoring — importance, decay, tag boost. SIMILARITY: pure vector cosine similarity — ideal for search/retrieval benchmarks. ASSOCIATIVE: context-driven recall using recent activity and causal predictions.",
+        "description": "Controls how retrieved candidates are ranked. COGNITIVE (default): full biological scoring \u2014 importance, decay, tag boost. SIMILARITY: pure vector cosine similarity \u2014 ideal for search/retrieval benchmarks. ASSOCIATIVE: context-driven recall using recent activity and causal predictions.",
         "default": "COGNITIVE"
-      },
-      "namespace": {
-        "type": "string",
-        "description": "Memory namespace to query. Isolates agent/user memory spaces. Leave empty for default namespace."
       },
       "point_in_time": {
         "type": "string",

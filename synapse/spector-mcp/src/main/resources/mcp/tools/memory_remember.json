@@ -58,10 +58,6 @@
         "description": "Emotional intensity: 0 (calm) to 255 (extreme). 0 = neutral. Auto-derived from |valence| if not set.",
         "default": 0
       },
-      "namespace": {
-        "type": "string",
-        "description": "Memory namespace to store into. Isolates agent/user memory spaces. Leave empty for default namespace."
-      },
       "metadata": {
         "type": "string",
         "description": "JSON object with multimodal metadata. Keys: 'modality' (TEXT/IMAGE/AUDIO/VIDEO), 'source_uri' (asset path/URL), plus any custom key-value pairs. Example: {\"modality\":\"IMAGE\",\"source_uri\":\"file:///photo.jpg\"}"

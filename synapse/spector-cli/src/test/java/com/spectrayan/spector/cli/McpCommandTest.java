@@ -51,7 +51,6 @@ class McpCommandTest {
                 "--dims", "384",
                 "--capacity", "5000",
                 "--data-dir", "/tmp/spector-mcp-test",
-                "--namespace", "test-ns",
                 "--ollama-url", "http://127.0.0.1:11434",
                 "--ollama-model", "nomic-embed-text",
                 "--mode", "openclaw",
@@ -62,7 +61,6 @@ class McpCommandTest {
         assertThat(cmd.getDims()).isEqualTo(384);
         assertThat(cmd.getCapacity()).isEqualTo(5000);
         assertThat(cmd.getDataDir()).isEqualTo("/tmp/spector-mcp-test");
-        assertThat(cmd.getNamespace()).isEqualTo("test-ns");
         assertThat(cmd.getOllamaUrl()).isEqualTo("http://127.0.0.1:11434");
         assertThat(cmd.getOllamaModel()).isEqualTo("nomic-embed-text");
         assertThat(cmd.getMode()).isEqualTo("openclaw");

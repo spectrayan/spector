@@ -1,6 +1,6 @@
 {
   "name": "memory_rehearse",
-  "description": "Rehearse a memory by ID to strengthen it without changing its valence. This updates storage strength S (via ΔS = s_gain(1-D)) and retrieval strength D, making the memory more resistant to decay and easier to recall. Use this when a memory is still relevant but no positive/negative outcome feedback is available. Unlike reinforce, rehearsal does not shift the emotional valence.",
+  "description": "Rehearse a memory by ID to strengthen it without changing its valence. This updates storage strength S (via \u0394S = s_gain(1-D)) and retrieval strength D, making the memory more resistant to decay and easier to recall. Use this when a memory is still relevant but no positive/negative outcome feedback is available. Unlike reinforce, rehearsal does not shift the emotional valence.",
   "category": "MEMORY",
   "scopes": [
     "spector:memory:write"
@@ -14,10 +14,6 @@
       "memory_id": {
         "type": "string",
         "description": "The ID of the memory to rehearse."
-      },
-      "namespace": {
-        "type": "string",
-        "description": "Target memory namespace (slug or ID). Omit to use connection or account default."
       }
     }
   }

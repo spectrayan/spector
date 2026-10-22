@@ -14,10 +14,6 @@
       "fact_id": {
         "type": "integer",
         "description": "Unique identifier of the bitemporal fact to retract."
-      },
-      "namespace": {
-        "type": "string",
-        "description": "Target memory namespace (slug or ID). Omit to use connection or account default."
       }
     }
   }

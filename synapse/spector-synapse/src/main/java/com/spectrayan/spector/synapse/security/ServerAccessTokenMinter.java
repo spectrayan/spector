@@ -39,6 +39,8 @@ import com.nimbusds.jose.JWSSigner;
 import com.nimbusds.jose.crypto.MACSigner;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.config.error.SpectorConfigValueException;
 import com.spectrayan.spector.synapse.config.JwtDecoderConfig;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
 import com.spectrayan.spector.config.properties.AuthProperties;
@@ -73,28 +75,41 @@ public class ServerAccessTokenMinter {
     private static final String SCOPE_PREFIX = "SCOPE_";
     private static final String ROLE_PREFIX = "ROLE_";
 
+    /** HS256 needs a 256-bit key. Shorter secrets are refused rather than replaced. */
+    public static final int MIN_SECRET_BYTES = 32;
+
     private final JWSSigner signer;
     private final Duration accessTtl;
 
     /**
      * Builds the minter from the bound {@code spector.auth.*} configuration.
      *
+     * <p>When authentication is disabled the minter is inert and {@link #mintScoped} refuses to
+     * sign. When it is enabled, a missing secret or one shorter than {@value #MIN_SECRET_BYTES}
+     * bytes aborts with {@link ErrorCode#JWT_KEY_INVALID}. There is no built-in default secret.</p>
+     *
      * @param properties bound {@code spector.*} configuration (supplies the HS256 secret and TTL)
      */
     public ServerAccessTokenMinter(SynapseProperties properties) {
         AuthProperties auth = properties.auth();
-        String secret = auth.jwt().secret();
-        if (secret == null || secret.length() < 32) {
-            secret = "spector-default-jwt-secret-key-32-bytes!!";
+        if (auth == null || !auth.enabled()) {
+            this.signer = null;
+            this.accessTtl = Duration.ofHours(1);
+            return;
         }
-        byte[] secretBytes = secret.getBytes(StandardCharsets.UTF_8);
+        String secret = auth.jwt() == null ? null : auth.jwt().secret();
+        byte[] secretBytes = secret == null ? new byte[0] : secret.getBytes(StandardCharsets.UTF_8);
+        if (secret == null || secret.isBlank() || secretBytes.length < MIN_SECRET_BYTES) {
+            String why = (secret == null || secret.isBlank())
+                    ? "missing"
+                    : "shorter than " + MIN_SECRET_BYTES + " bytes";
+            throw new SpectorConfigValueException(ErrorCode.JWT_KEY_INVALID, "spector.auth.jwt.secret", why);
+        }
         try {
             this.signer = new MACSigner(secretBytes);
         } catch (JOSEException e) {
-            // HS256 requires a >= 256-bit secret; startup validation enforces a non-empty secret,
-            // but surface an actionable error if the configured value is too short.
-            throw new IllegalStateException(
-                    "spector.auth.jwt.secret is too short for HS256 (requires at least 32 bytes)", e);
+            throw new SpectorConfigValueException(ErrorCode.JWT_KEY_INVALID, e,
+                    "spector.auth.jwt.secret", "rejected by HS256");
         }
         this.accessTtl = auth.jwt().ttl();
     }
@@ -189,6 +204,10 @@ public class ServerAccessTokenMinter {
             Collection<String> nsid,
             String tid,
             Collection<String> org) {
+        if (signer == null) {
+            throw new IllegalStateException(
+                    "Server access tokens are not minted when spector.auth.enabled=false");
+        }
         if (userId == null || userId.isBlank()) {
             throw new IllegalArgumentException("userId must not be null or blank");
         }

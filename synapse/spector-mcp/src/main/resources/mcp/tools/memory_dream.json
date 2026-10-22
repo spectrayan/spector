@@ -16,10 +16,6 @@
           "THOUGHT_EXPERIMENT"
         ],
         "description": "Dream mode determining generative temperature and constraint relaxation: 'REM' (default, weak constraints, temp 2.0), 'DAYDREAM' (moderate constraints, temp 1.0), 'THOUGHT_EXPERIMENT' (tight constraints, temp 0.5)."
-      },
-      "namespace": {
-        "type": "string",
-        "description": "Target memory namespace (slug or ID). Omit to use connection or account default."
       }
     }
   }

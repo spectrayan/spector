@@ -45,27 +45,6 @@ public abstract class MemoryToolHandler extends McpToolHandler {
         return McpToolCategory.MEMORY;
     }
 
-    @Override
-    @SuppressWarnings("unchecked")
-    public Map<String, Object> inputSchema() {
-        Map<String, Object> base = super.inputSchema();
-        Object propsObj = base.get("properties");
-        if (propsObj instanceof Map<?, ?> propsMap && propsMap.containsKey("namespace")) {
-            return base;
-        }
-        java.util.Map<String, Object> copy = new java.util.LinkedHashMap<>(base);
-        java.util.Map<String, Object> props = new java.util.LinkedHashMap<>();
-        if (propsObj instanceof Map<?, ?> existingProps) {
-            props.putAll((Map<String, Object>) existingProps);
-        }
-        props.put("namespace", Map.of(
-                "type", "string",
-                "description", "Memory namespace slug or ID to target (must be owned by or granted to the caller). Leave empty for default namespace."
-        ));
-        copy.put("properties", java.util.Collections.unmodifiableMap(props));
-        return java.util.Collections.unmodifiableMap(copy);
-    }
-
     /**
      * Constructs a handler with a declarative tool name and a fixed memory instance.
      *

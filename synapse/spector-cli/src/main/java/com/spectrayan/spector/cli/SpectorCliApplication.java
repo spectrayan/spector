@@ -80,6 +80,7 @@ public class SpectorCliApplication {
         boolean hasEmbeddedFlags = false;
         boolean isRememberOrIngest = false;
         boolean isMemory = false;
+        boolean staysRemote = false;
 
         for (int i = 0; i < args.length; i++) {
             String arg = args[i];
@@ -90,6 +91,9 @@ public class SpectorCliApplication {
             if (arg.equals("--profile=cli-remote")
                     || (arg.equals("--profile") && i + 1 < args.length && args[i + 1].equals("cli-remote"))) {
                 return "cli-remote";
+            }
+            if (arg.equals("token") || arg.equals("adopt-store")) {
+                staysRemote = true;
             }
             if (arg.equals("mcp") || arg.equals("--root") || arg.equals("--offline")
                     || arg.equals("--local") || arg.equals("--embedded")) {
@@ -106,6 +110,9 @@ public class SpectorCliApplication {
             }
         }
 
+        if (staysRemote) {
+            return "cli-remote";
+        }
         if (hasEmbeddedFlags && !hasRemoteFlags) {
             return "cli-embedded";
         }

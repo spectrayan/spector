@@ -33,6 +33,8 @@ import org.springframework.security.oauth2.jwt.JwtIssuerValidator;
 import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.config.error.SpectorConfigValueException;
 import com.spectrayan.spector.synapse.config.JwtDecoderConfig;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
 import com.spectrayan.spector.config.properties.AuthProperties;
@@ -134,6 +136,42 @@ class ServerAccessTokenMinterTest {
         org.assertj.core.api.Assertions
                 .assertThatThrownBy(() -> minter.mint("  ", List.of(), List.of()))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void shortSecretIsRejectedAndDoesNotUseADefaultKey() {
+        AuthProperties auth = new AuthProperties(
+                true, new JwtProperties("too-short", Duration.ofHours(1)),
+                null, null, null, null, null, null);
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> new ServerAccessTokenMinter(new SynapseProperties(0, null, null, null, null, auth)))
+                .isInstanceOf(SpectorConfigValueException.class)
+                .hasMessageContaining(ErrorCode.JWT_KEY_INVALID.id())
+                .hasMessageNotContaining("spector-default-jwt-secret");
+    }
+
+    @Test
+    void missingSecretIsRejectedWhenAuthIsEnabled() {
+        AuthProperties auth = new AuthProperties(
+                true, new JwtProperties(null, Duration.ofHours(1)),
+                null, null, null, null, null, null);
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> new ServerAccessTokenMinter(new SynapseProperties(0, null, null, null, null, auth)))
+                .isInstanceOf(SpectorConfigValueException.class)
+                .hasMessageContaining("SPE-110-010");
+    }
+
+    @Test
+    void disabledAuthNeverMints() {
+        AuthProperties auth = new AuthProperties(
+                false, new JwtProperties(SECRET, Duration.ofHours(1)),
+                null, null, null, null, null, null);
+        ServerAccessTokenMinter minter = new ServerAccessTokenMinter(
+                new SynapseProperties(0, null, null, null, null, auth));
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> minter.mint("USER0000000AB", List.of(), List.of()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("spector.auth.enabled=false");
     }
 
     @Test

@@ -246,7 +246,13 @@ public class McpServerConfig {
 
                     return new McpStatelessServerFeatures.SyncToolSpecification(tool, (exchange, request) -> {
                         Map<String, Object> args = request.arguments() != null ? request.arguments() : Map.of();
-                        String namespace = resolveNamespaceSelector(args);
+                        var pin = com.spectrayan.spector.synapse.mcp.McpPinnedNamespace.decide(
+                                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication(),
+                                resolveNamespaceSelector(args), authEnabled);
+                        if (pin.error() != null) {
+                            return toolError(pin.error());
+                        }
+                        String namespace = pin.bindSelector();
                         var binder = binderProvider != null ? binderProvider.getIfAvailable() : null;
                         Optional<McpRequestMemory.DenyReason> deny = binder != null
                                 ? McpRequestMemory.bindForCurrentRequest(binder, authEnabled, namespace, null, mcpTool.isWriteTool())
@@ -280,7 +286,13 @@ public class McpServerConfig {
 
                     return new McpServerFeatures.SyncToolSpecification(tool, (exchange, request) -> {
                         Map<String, Object> args = request.arguments() != null ? request.arguments() : Map.of();
-                        String namespace = resolveNamespaceSelector(args);
+                        var pin = com.spectrayan.spector.synapse.mcp.McpPinnedNamespace.decide(
+                                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication(),
+                                resolveNamespaceSelector(args), authEnabled);
+                        if (pin.error() != null) {
+                            return toolError(pin.error());
+                        }
+                        String namespace = pin.bindSelector();
                         var binder = binderProvider != null ? binderProvider.getIfAvailable() : null;
                         Optional<McpRequestMemory.DenyReason> deny = binder != null
                                 ? McpRequestMemory.bindForCurrentRequest(binder, authEnabled, namespace, null, mcpTool.isWriteTool())
@@ -347,7 +359,11 @@ public class McpServerConfig {
             if (svc == null) {
                 throw new IllegalStateException("EnactmentService is not available in application context");
             }
-            return svc.enact(situation, namespace, actingSoulId, mode);
+            var binding = com.spectrayan.spector.synapse.mcp.McpRequestMemory.currentBinding();
+            String bound = binding != null && binding.namespaceId() != null && !binding.namespaceId().isBlank()
+                    ? binding.namespaceId()
+                    : namespace;
+            return svc.enact(situation, bound, actingSoulId, mode);
         };
         List<McpToolHandler> baseHandlers = SpectorToolRegistry.handlers(SERVER_VERSION, resolver);
         List<McpToolHandler> handlers = new java.util.ArrayList<>(baseHandlers.size());
