@@ -293,6 +293,37 @@ public final class ReflectPathway extends AbstractPathway<ReflectSignal, Reflect
     }
 
     /**
+     * Reflects over an explicit sweep with a catalog that nested writes go through.
+     *
+     * <p>Distilled facts are stored through {@code RememberPathway}, which the relays resolve from
+     * the catalog. Without one, the episodic-log relay leaves its turns unconsolidated (#1166).</p>
+     *
+     * @param catalog           catalog holding {@code RememberPathway}, or null for none
+     * @param kernel            namespace kernel, may be null
+     * @param partitionManager  partition manager for the sweep
+     * @param index             memory index
+     * @param salienceProfile   active salience profile
+     * @param sessionIndex      episodic session index, or null to use this pathway's own
+     * @param sweepSpec         sweep specification, or null for a full cycle
+     * @param checkpointStore   checkpoint store, or null for none
+     * @return the reflection report
+     */
+    public ReflectReport reflect(final com.spectrayan.spector.commons.pathway.PathwayCatalog catalog,
+                                 final com.spectrayan.spector.kernel.api.NamespaceKernel kernel,
+                                 final PartitionManager partitionManager,
+                                 final MemoryIndex index,
+                                 final SalienceProfile salienceProfile,
+                                 final EpisodicSessionIndex sessionIndex,
+                                 final ReflectSweepSpec sweepSpec,
+                                 final com.spectrayan.spector.memory.pathway.reflect.spi.ReflectCheckpointStore checkpointStore) {
+        ReflectSignal signal = buildSignal(partitionManager, index, salienceProfile, sessionIndex, sweepSpec, checkpointStore);
+        if (catalog != null) {
+            signal.bind(DefaultPathwayContext.builder().catalog(catalog).build());
+        }
+        return execute(kernel, signal);
+    }
+
+    /**
      * Executes a sleep reflection cycle for an explicit namespace kernel.
      *
      * @deprecated Use {@code conduct(ReflectSignal)} with RememberPathway registered in the catalog.
@@ -335,6 +366,16 @@ public final class ReflectPathway extends AbstractPathway<ReflectSignal, Reflect
                                  final EpisodicSessionIndex sessionIndex,
                                  final ReflectSweepSpec sweepSpec,
                                  final com.spectrayan.spector.memory.pathway.reflect.spi.ReflectCheckpointStore checkpointStore) {
+        ReflectSignal signal = buildSignal(partitionManager, index, salienceProfile, sessionIndex, sweepSpec, checkpointStore);
+        return execute(kernel, signal);
+    }
+
+    private ReflectSignal buildSignal(final PartitionManager partitionManager,
+                                      final MemoryIndex index,
+                                      final SalienceProfile salienceProfile,
+                                      final EpisodicSessionIndex sessionIndex,
+                                      final ReflectSweepSpec sweepSpec,
+                                      final com.spectrayan.spector.memory.pathway.reflect.spi.ReflectCheckpointStore checkpointStore) {
         ReflectCheckpoint initialCheckpoint = null;
         if (checkpointStore != null && sweepSpec != null && sweepSpec.sweepId() != null) {
             initialCheckpoint = checkpointStore.load(sweepSpec.sweepId())
@@ -380,7 +421,7 @@ public final class ReflectPathway extends AbstractPathway<ReflectSignal, Reflect
                 .checkpoint(initialCheckpoint)
                 .build();
 
-        return execute(kernel, signal);
+        return signal;
     }
 
     public CircadianProperties policy() {

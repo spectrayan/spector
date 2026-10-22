@@ -260,6 +260,14 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
                 return SessionSweepResult.success(sessionId, 0, 0);
             }
 
+            final PathwayCatalog catalog = signal.context() != null ? signal.context().catalog() : null;
+            if (catalog == null || catalog.find(RememberPathway.class).isEmpty()) {
+                // Nothing could store the facts: leave the turns unconsolidated so a later sweep can (#1166).
+                log.warn("EpisodicLogConsolidationRelay: RememberPathway is not in the catalog; session {} "
+                        + "left unconsolidated", sessionId);
+                return SessionSweepResult.success(sessionId, 0, 0);
+            }
+
             // Bug #5 fix: Mark turns consolidated BEFORE ingesting facts to prevent duplicate facts on crash/retry.
             for (Long off : offsets) {
                 logStore.markConsolidated(off);
@@ -287,75 +295,72 @@ public final class EpisodicLogConsolidationRelay implements SynapticRelay<Reflec
             short turnCount = (short) offsets.size();
 
             int factsIngested = 0;
-            final PathwayCatalog catalog = signal.context() != null ? signal.context().catalog() : null;
-            if (catalog != null && catalog.find(RememberPathway.class).isPresent()) {
-                for (int fi = 0; fi < synthesizedFacts.size(); fi++) {
-                    ConsolidatedFact fact = synthesizedFacts.get(fi);
-                    String memoryId = signal.idGenerator().generate();
-                    float[] vector = null;
-                    if (signal.embeddingProvider() != null) {
-                        try {
-                            vector = signal.embeddingProvider().embed(fact.text()).vector();
-                        } catch (Exception e) {
-                            log.warn("Failed to embed synthesized reflection fact: {}", e.getMessage());
-                        }
-                    }
-
-                    Set<String> tagSet = new LinkedHashSet<>();
-                    if (fact.synapticTags() != null) {
-                        for (String t : fact.synapticTags()) {
-                            String cleanT = t.replaceAll("[^a-zA-Z0-9_-]", "-").toLowerCase(Locale.ROOT);
-                            if (!cleanT.isBlank()) {
-                                tagSet.add(cleanT);
-                            }
-                        }
-                    }
-                    tagSet.add("conversation-reflection");
-                    tagSet.add("session-" + Long.toHexString(sessionId));
-                    String[] allTags = tagSet.toArray(String[]::new);
-
-                    float exactNorm = vector != null ? VectorOps.magnitude(vector) : 1.0f;
-                    byte semanticFlags = EncodingHeaderFields.withMemoryType(
-                            EncodingHeaderFields.FLAG_CONSOLIDATED, MemoryType.SEMANTIC.ordinal());
-
-                    EncodingHeader header = new EncodingHeader(
-                            sessionTimestampMs, 0L, exactNorm, fact.interest(), 1,
-                            (short) 0, fact.arousal(), semanticFlags, fact.valence(), 1.0f
-                    );
-
-                    boolean ingested;
-                    RememberSignal rs = RememberSignal.forCognitiveWithHeader(
-                            memoryId, fact.text(), vector, MemoryType.SEMANTIC,
-                            allTags, MemorySource.REFLECTED, header);
+            for (int fi = 0; fi < synthesizedFacts.size(); fi++) {
+                ConsolidatedFact fact = synthesizedFacts.get(fi);
+                String memoryId = signal.idGenerator().generate();
+                float[] vector = null;
+                if (signal.embeddingProvider() != null) {
                     try {
-                        catalog.invoke(RememberPathway.class, signal.context(), rs);
-                        ingested = rs.isSuccessful() && !rs.isDuplicate();
+                        vector = signal.embeddingProvider().embed(fact.text()).vector();
                     } catch (Exception e) {
-                        log.warn("Failed to invoke Remember via catalog for fact {}: {}", fi, e.getMessage());
-                        ingested = false;
+                        log.warn("Failed to embed synthesized reflection fact: {}", e.getMessage());
                     }
+                }
 
-                    if (ingested) {
-                        signal.addConsolidated(1);
-                        factsIngested++;
+                Set<String> tagSet = new LinkedHashSet<>();
+                if (fact.synapticTags() != null) {
+                    for (String t : fact.synapticTags()) {
+                        String cleanT = t.replaceAll("[^a-zA-Z0-9_-]", "-").toLowerCase(Locale.ROOT);
+                        if (!cleanT.isBlank()) {
+                            tagSet.add(cleanT);
+                        }
+                    }
+                }
+                tagSet.add("conversation-reflection");
+                tagSet.add("session-" + Long.toHexString(sessionId));
+                String[] allTags = tagSet.toArray(String[]::new);
 
-                        if (signal.provenanceMemory() != null) {
-                            try {
-                                long targetTsid = TsidGenerator.decodeCrockford(memoryId);
-                                short contentHashHi = computeContentHashHi(fact.text());
+                float exactNorm = vector != null ? VectorOps.magnitude(vector) : 1.0f;
+                byte semanticFlags = EncodingHeaderFields.withMemoryType(
+                        EncodingHeaderFields.FLAG_CONSOLIDATED, MemoryType.SEMANTIC.ordinal());
 
-                                ProvenanceEdge edge = new ProvenanceEdge(
-                                        sessionId, targetTsid, passNumber,
-                                        (byte) fi, (byte) synthesizedFacts.size(),
-                                        partitionSeq, firstSeq, lastSeq,
-                                        firstOffsetHint, lastOffsetHint,
-                                        turnCount, contentHashHi,
-                                        System.currentTimeMillis()
-                                );
-                                signal.provenanceMemory().append(edge);
-                            } catch (Exception e) {
-                                log.warn("Failed to write provenance edge for memory {}: {}", memoryId, e.getMessage());
-                            }
+                EncodingHeader header = new EncodingHeader(
+                        sessionTimestampMs, 0L, exactNorm, fact.interest(), 1,
+                        (short) 0, fact.arousal(), semanticFlags, fact.valence(), 1.0f
+                );
+
+                boolean ingested;
+                RememberSignal rs = RememberSignal.forCognitiveWithHeader(
+                        memoryId, fact.text(), vector, MemoryType.SEMANTIC,
+                        allTags, MemorySource.REFLECTED, header);
+                try {
+                    catalog.invoke(RememberPathway.class, signal.context(), rs);
+                    ingested = rs.isSuccessful() && !rs.isDuplicate();
+                } catch (Exception e) {
+                    log.warn("Failed to invoke Remember via catalog for fact {}: {}", fi, e.getMessage());
+                    ingested = false;
+                }
+
+                if (ingested) {
+                    signal.addConsolidated(1);
+                    factsIngested++;
+
+                    if (signal.provenanceMemory() != null) {
+                        try {
+                            long targetTsid = TsidGenerator.decodeCrockford(memoryId);
+                            short contentHashHi = computeContentHashHi(fact.text());
+
+                            ProvenanceEdge edge = new ProvenanceEdge(
+                                    sessionId, targetTsid, passNumber,
+                                    (byte) fi, (byte) synthesizedFacts.size(),
+                                    partitionSeq, firstSeq, lastSeq,
+                                    firstOffsetHint, lastOffsetHint,
+                                    turnCount, contentHashHi,
+                                    System.currentTimeMillis()
+                            );
+                            signal.provenanceMemory().append(edge);
+                        } catch (Exception e) {
+                            log.warn("Failed to write provenance edge for memory {}: {}", memoryId, e.getMessage());
                         }
                     }
                 }
