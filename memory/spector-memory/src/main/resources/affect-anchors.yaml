@@ -1,0 +1,17 @@
+# Four affect poles. Each list is embedded at startup and averaged into one centroid.
+positive:
+  - I am thrilled and grateful
+  - this is wonderful news
+  - I love this
+negative:
+  - I am devastated and afraid
+  - the outage wiped the database
+  - this is a disaster
+high:
+  - my heart is racing
+  - this is urgent and intense
+  - I can barely sit still
+low:
+  - I feel calm and sleepy
+  - a quiet uneventful afternoon
+  - nothing much is happening

@@ -163,6 +163,11 @@ spector:
       eager-queue-capacity: 256
     default-ingestion-tier: SEMANTIC
     hnsw-prefilter: auto
+    affect:
+      appraiser: none
+      anchors-path: ""
+      deadband: 0.02
+      gain: 4.0
     tag-extractor: content
     tag-extractor-model: ""
     text-search-mode: HYBRID

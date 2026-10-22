@@ -97,6 +97,7 @@ public class MemoryProperties implements Serializable {
     private boolean dreamEnabled = DEFAULT_MEMORY_DREAM_ENABLED;
 
     private DecayProperties decay = new DecayProperties();
+    private AffectProperties affect = new AffectProperties();
     private ConsolidationProperties consolidation = new ConsolidationProperties();
     private LlmProperties llm = new LlmProperties();
     private AismeProperties aisme = new AismeProperties();
@@ -256,6 +257,13 @@ public class MemoryProperties implements Serializable {
 
     public boolean isBundleMode() { return bundleMode; }
     public MemoryProperties setBundleMode(boolean bundleMode) { this.bundleMode = bundleMode; return this; }
+
+    public AffectProperties getAffect() { return affect; }
+    public MemoryProperties setAffect(AffectProperties affect) {
+        this.affect = affect != null ? affect : new AffectProperties();
+        return this;
+    }
+    public AffectProperties affect() { return getAffect(); }
 
     public DecayProperties getDecay() { return decay; }
     public MemoryProperties setDecay(DecayProperties decay) { this.decay = decay; return this; }
@@ -727,6 +735,7 @@ public class MemoryProperties implements Serializable {
         cp.entityExtractionParallelism = this.entityExtractionParallelism;
         cp.entityExtractionQueueCapacity = this.entityExtractionQueueCapacity;
 
+        cp.affect = this.affect != null ? this.affect.copy() : new AffectProperties();
         cp.decay = this.decay != null ? this.decay.copy() : new DecayProperties();
         cp.consolidation = this.consolidation != null ? this.consolidation.copy() : new ConsolidationProperties();
         cp.llm = this.llm != null ? this.llm.copy() : new LlmProperties();

@@ -410,6 +410,11 @@ public final class SpectorPropertyConstants {
     public static final String MEMORY_HNSW_PREFILTER = "spector.memory.hnsw-prefilter";
     public static final HnswPrefilterMode DEFAULT_MEMORY_HNSW_PREFILTER = HnswPrefilterMode.AUTO;
 
+    public static final String MEMORY_AFFECT_APPRAISER = "spector.memory.affect.appraiser";
+    public static final String MEMORY_AFFECT_ANCHORS_PATH = "spector.memory.affect.anchors-path";
+    public static final String MEMORY_AFFECT_DEADBAND = "spector.memory.affect.deadband";
+    public static final String MEMORY_AFFECT_GAIN = "spector.memory.affect.gain";
+
     public static final String MEMORY_TAG_EXTRACTOR = "spector.memory.tag-extractor";
     public static final TagExtractorMode DEFAULT_MEMORY_TAG_EXTRACTOR = TagExtractorMode.CONTENT;
 
@@ -1518,6 +1523,12 @@ public final class SpectorPropertyConstants {
 
     public static final String AUTH_API_KEY = "spector.auth.api-key";
     public static final String DEFAULT_AUTH_API_KEY = "";
+
+    /** Maps to {@code SPECTOR_AUTH_AGENT_JWKS_FILE}. */
+    public static final String AUTH_AGENT_JWKS_FILE = "spector.auth.agent-jwks-file";
+
+    /** Maps to {@code SPECTOR_TOKEN_FILE}. */
+    public static final String MCP_TOKEN_FILE = "spector.token-file";
 
     public static final Duration DEFAULT_AUTH_JWT_TTL = Duration.ofHours(1);
     public static final Duration DEFAULT_AUTH_REFRESH_TTL = Duration.ofDays(30);

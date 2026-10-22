@@ -240,6 +240,10 @@ public final class SpectorConfigFactory {
                 props.getInt(MEMORY_TEMPORAL_CHAIN_CAPACITY, DEFAULT_MEMORY_TEMPORAL_CHAIN_CAPACITY));
         properties.setDefaultIngestionTier(props.getEnum(MEMORY_DEFAULT_INGESTION_TIER, RememberTier.class, DEFAULT_MEMORY_DEFAULT_INGESTION_TIER));
         properties.setHnswPrefilter(props.getEnum(MEMORY_HNSW_PREFILTER, HnswPrefilterMode.class, DEFAULT_MEMORY_HNSW_PREFILTER));
+        properties.getAffect().setAppraiser(props.getString(MEMORY_AFFECT_APPRAISER, "none"));
+        properties.getAffect().setAnchorsPath(props.getString(MEMORY_AFFECT_ANCHORS_PATH, ""));
+        properties.getAffect().setDeadband(props.getFloat(MEMORY_AFFECT_DEADBAND, AffectProperties.DEFAULT_DEADBAND));
+        properties.getAffect().setGain(props.getFloat(MEMORY_AFFECT_GAIN, AffectProperties.DEFAULT_GAIN));
         properties.setTagExtractor(props.getEnum(MEMORY_TAG_EXTRACTOR, TagExtractorMode.class, DEFAULT_MEMORY_TAG_EXTRACTOR));
         properties.setTagExtractorModel(props.getString(MEMORY_TAG_EXTRACTOR_MODEL, DEFAULT_MEMORY_TAG_EXTRACTOR_MODEL));
         properties.setTextSearchMode(props.getEnum(MEMORY_TEXT_SEARCH_MODE, TextSearchMode.class, DEFAULT_MEMORY_TEXT_SEARCH_MODE));

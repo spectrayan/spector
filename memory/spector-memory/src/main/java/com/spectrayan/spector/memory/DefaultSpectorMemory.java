@@ -230,6 +230,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final com.spectrayan.spector.memory.aisme.AismeBundle aismeBundle;
 
     private final com.spectrayan.spector.memory.session.SessionBufferManager sessionBufferManager = new com.spectrayan.spector.memory.session.SessionBufferManager();
+    private final com.spectrayan.spector.memory.affect.AffectAppraiser affectAppraiser;
 
     // ── Episodic Conversation Architecture (ADR-0006) ──
     private final EpisodicSessionIndex episodicSessionIndex;
@@ -255,6 +256,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         var memProps = builder.properties() != null && builder.properties().memory() != null
                 ? builder.properties().memory()
                 : new com.spectrayan.spector.config.properties.MemoryProperties();
+        this.affectAppraiser = com.spectrayan.spector.memory.affect.AnchorAffectAppraiser.create(
+                memProps, this.embeddingProvider);
         var remProps = memProps.getRemember() != null
                 ? memProps.getRemember()
                 : new com.spectrayan.spector.config.properties.RememberProperties();
@@ -498,6 +501,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                             hints, extraction.valence(), extraction.arousal());
                 }
                 float[] vector = embeddingProvider.embed(text).vector();
+                finalHints = fillAnchorAffect(finalHints, extraction, vector);
                 String sessionId = MemoryScope.sessionId();
                 if (sessionId != null) {
                     sessionBufferManager.add(sessionId, id, text, vector, type, System.currentTimeMillis());
@@ -582,6 +586,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                     finalContext = withAppraisedAffect(context, extraction);
                 }
                 float[] vector = embeddingProvider.embed(text).vector();
+                finalContext = contextWithAnchorAffect(finalContext, extraction, vector);
                 rememberPathway.ingestCognitive(id, text, vector, type, finalTags, source, finalContext);
                 
             }
@@ -628,6 +633,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             float[] finalVector = (vector != null && vector.length > 0)
                     ? vector
                     : embeddingProvider.embed(text).vector();
+            finalContext = contextWithAnchorAffect(finalContext, extraction, finalVector);
             String sessionId = MemoryScope.sessionId();
             if (sessionId != null) {
                 sessionBufferManager.add(sessionId, id, text, finalVector, type, System.currentTimeMillis());
@@ -846,8 +852,35 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     }
 
     /**
-     * Folds an appraised valence and arousal into a context's hints. Values the caller supplied win.
+     * Fills valence and arousal from soul-anchor centroids when neither the caller nor an
+     * appraising extractor (the configured LLM) already set them.
      */
+    private RememberHints fillAnchorAffect(RememberHints hints, TagExtractionResult extraction, float[] vector) {
+        if (affectAppraiser == null || vector == null || vector.length == 0) {
+            return hints;
+        }
+        var extractor = rememberPathway != null ? rememberPathway.tagExtractor() : null;
+        if (extractor != null && extractor.appraises() && extraction != null) {
+            return hints;
+        }
+        if (hints != null && hints.valence() != 0 && Byte.toUnsignedInt(hints.arousal()) != 0) {
+            return hints;
+        }
+        var affect = affectAppraiser.appraise(vector);
+        return RememberHints.withAppraisedAffect(hints, affect.valence(), affect.arousal());
+    }
+
+    private RememberContext contextWithAnchorAffect(RememberContext context, TagExtractionResult extraction,
+                                                     float[] vector) {
+        RememberHints current = context != null ? context.hints() : null;
+        RememberHints filled = fillAnchorAffect(current, extraction, vector);
+        if (filled == current) {
+            return context;
+        }
+        RememberContext base = context != null ? context : RememberContext.EMPTY;
+        return base.withHints(filled);
+    }
+
     private static RememberContext withAppraisedAffect(RememberContext context, TagExtractionResult extraction) {
         if (extraction == null || !extraction.hasEmotionalContext()) {
             return context;
@@ -991,6 +1024,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 if (chunkExtraction != null) {
                     childContext = withAppraisedAffect(childContext, chunkExtraction);
                 }
+                childContext = contextWithAnchorAffect(childContext, chunkExtraction, embedding.embedding());
                 rememberPathway.ingestCognitive(chunk.chunkId(), chunk.text(),
                             embedding.embedding(), type, chunkTags, source, childContext);
                 
