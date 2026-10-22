@@ -1139,15 +1139,15 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 vector = com.spectrayan.spector.core.similarity.VectorOps.normalize(vector);
             }
 
-            // Step 2: Compute nearest distance (read-only)
-            float nearestDist;
-            var workingStore = partitionManager.cognitiveRouter().working();
-            if (workingStore != null && workingStore.visibleCount() > 0) {
-                nearestDist = workingStore.nearestDistance(
-                        vector, quantizer.mins(), quantizer.scales());
-            } else {
-                nearestDist = com.spectrayan.spector.core.similarity.VectorOps.magnitude(vector);
-            }
+            // Step 2: Nearest distance across working, semantic and procedural slabs, plus
+            // vectors observed on ingest (episodic turns do not keep an embedding).
+            var router = partitionManager.cognitiveRouter();
+            float slab = com.spectrayan.spector.memory.neuromod.dopamine.NoveltyReference.nearest(
+                    router, vector, quantizer.mins(), quantizer.scales());
+            float ingested = importanceProvider != null
+                    ? importanceProvider.nearestIngested(vector)
+                    : Float.POSITIVE_INFINITY;
+            float nearestDist = slab < ingested ? slab : ingested;
 
             // Step 3: Resolve effective salience profile
             com.spectrayan.spector.memory.model.SalienceProfile profile = rememberPathway.salienceProfile();

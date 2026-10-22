@@ -106,19 +106,20 @@ public final class ImportanceEstimator {
 
             // Step 2: Compute nearest distance (read-only  --  don't update stats)
             float nearestDist = cognitiveRouter != null
-                    ? cognitiveRouter.nearestWorkingDistance(vector, quantizer.mins(), quantizer.scales())
-                    : -1.0f;
-            if (nearestDist < 0f) {
-                // Fallback: L2 norm of vector (high distance = novel)
-                nearestDist = VectorOps.magnitude(vector);
-            }
+                    ? com.spectrayan.spector.memory.neuromod.dopamine.NoveltyReference.nearest(
+                            cognitiveRouter, vector, quantizer.mins(), quantizer.scales())
+                    : Float.POSITIVE_INFINITY;
 
-            // Step 3: Compute novelty (read-only peek  --  don't modify Welford stats)
-            int warmup = surpriseDetector.warmupSamples();
-            double zScore = surpriseDetector.stats().isWarm(warmup)
-                    ? surpriseDetector.stats().zScore(nearestDist) : 0.0;
-            float noveltyOnlyImportance = surpriseDetector.stats().isWarm(warmup)
-                    ? SurpriseDetector.zScoreToImportance(zScore) : 1.0f;
+            // Step 3: Same mapping as ingestion, without recording the distance.
+            double zScore;
+            float noveltyOnlyImportance;
+            if (SurpriseDetector.isEmptyReference(nearestDist)) {
+                zScore = 0.0;
+                noveltyOnlyImportance = SurpriseDetector.FULL_NOVELTY_IMPORTANCE;
+            } else {
+                zScore = surpriseDetector.blendedZ(nearestDist);
+                noveltyOnlyImportance = surpriseDetector.peekImportance(nearestDist);
+            }
             float noveltyNorm = Math.clamp(noveltyOnlyImportance / 10.0f, 0f, 1f);
 
             // Step 4: ICNU fusion (if hints provided)

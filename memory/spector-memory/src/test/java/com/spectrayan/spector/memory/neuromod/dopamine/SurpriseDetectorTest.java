@@ -25,14 +25,24 @@ import static org.assertj.core.api.Assertions.assertThat;
 class SurpriseDetectorTest {
 
     @Test
-    void duringWarmupReturnsDefaultImportance() {
+    void emptyReferenceIsFullyNovelAndDoesNotLearn() {
         var detector = new SurpriseDetector(20);
 
-        // First 19 samples should return default importance (1.0)
-        for (int i = 0; i < 19; i++) {
-            float importance = detector.computeImportance(0.5f + i * 0.01f);
-            assertThat(importance).isEqualTo(1.0f);
-        }
+        assertThat(detector.computeImportance(Float.POSITIVE_INFINITY)).isEqualTo(10.0f);
+        assertThat(detector.stats().count()).isZero();
+    }
+
+    @Test
+    void duringWarmupDuplicateScoresBelowUnrelated() {
+        var detector = new SurpriseDetector(20);
+
+        float duplicate = detector.peekImportance(0.0f);
+        float unrelated = detector.peekImportance(1.5f);
+
+        assertThat(duplicate).isLessThan(1.0f);
+        assertThat(unrelated).isGreaterThan(duplicate);
+        assertThat(unrelated).isLessThan(10.0f);
+        assertThat(detector.stats().count()).isZero();
     }
 
     @Test
