@@ -267,7 +267,7 @@ public List<CognitiveResult> recallAssociative(RecallOptions options) {
 ## ✅ Two-Factor Memory Strength (Bjork & Bjork, 1992)
 
 !!! success "Graduated to Main Release"
-    Implemented in `CognitiveScorer`, `LtpReconsolidationListener`, and `TwoFactorConfig`. Storage strength scoring uses a precomputed 64-entry LUT for `S(t)^0.3` (~50× faster than `Math.pow`).
+    Implemented in `CognitiveScorer`, `LtpReconsolidationListener`, and `TwoFactorConfig`. Recall-based strengthening via `LtpReconsolidationListener` is opt-in (`spector.memory.recall.ltp-on-recall`, default `false`); otherwise strength changes only on explicit `reinforce()` / `rehearse()`. Storage strength scoring uses a precomputed 64-entry LUT for `S(t)^0.3` (~50× faster than `Math.pow`).
 
 ### Concept
 
@@ -381,7 +381,7 @@ These need empirical calibration with real agent workloads. The key question: ho
 - **Implementation details:**
     - `TwoFactorConfig` record: `sGain=0.1`, `sMax=5.0`, `sExponent=0.3`, `enabled=true`
     - `CognitiveScorer`: Reads `storageStrength` from header, applies `fastStorageBoost()` using precomputed 64-entry LUT (linear interpolation, <0.2% error)
-    - `LtpReconsolidationListener`: Updates `storage_strength` on `reinforce()` calls with `ΔS = S_gain × (1 - R(t))`
+    - `LtpReconsolidationListener`: when `spector.memory.recall.ltp-on-recall` is enabled, a LEARN-mode recall records an ACT-R recall timestamp for each returned memory and, at most once per 5-minute cooldown, increments its recall count and adds a fixed storage-strength increment (capped at `sMax`). Explicit `reinforce()` applies `ΔS = S_gain × (1 - R(t))` separately
     - `RecallOptions`: Includes `TwoFactorConfig` for per-query configuration
     - `DefaultSpectorMemory.Builder`: Exposes `twoFactorConfig(TwoFactorConfig)` builder method
 

@@ -338,6 +338,15 @@ public class EncodingHeaderLayout {
     }
 
     /**
+     * Sets {@link EncodingHeaderFields#FLAG_RETRACTED} in the consolidation-flags byte. Retracted
+     * records are never released by recall (the governed release gate drops them).
+     */
+    public void markRetracted(MemorySegment seg, long off) {
+        byte cFlags = readConsolidationFlags(seg, off);
+        writeConsolidationFlags(seg, off, (byte) (cFlags | EncodingHeaderFields.FLAG_RETRACTED));
+    }
+
+    /**
      * Marks the record at {@code off} as purged — its payload has been physically zeroed.
      *
      * <p>Sets {@link EncodingHeaderFields#FLAG_PURGED} in the consolidation-flags byte. This records the

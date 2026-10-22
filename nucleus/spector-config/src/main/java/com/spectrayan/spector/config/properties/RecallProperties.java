@@ -31,6 +31,8 @@ public class RecallProperties implements Serializable {
     private int maxReplayEvents = 100000;
     private boolean includeContradictions = false;
     private int partitionVisitBudget = 0;
+    /** Whether passive recall strengthens returned memories via LtpReconsolidationListener (#1147). */
+    private boolean ltpOnRecall = false;
     
     // Sub-property objects
     private MmrProperties mmr = new MmrProperties();
@@ -79,6 +81,10 @@ public class RecallProperties implements Serializable {
     public void setPartitionVisitBudget(int partitionVisitBudget) { this.partitionVisitBudget = partitionVisitBudget; }
     public int partitionVisitBudget() { return partitionVisitBudget; }
 
+    public boolean isLtpOnRecall() { return ltpOnRecall; }
+    public void setLtpOnRecall(boolean ltpOnRecall) { this.ltpOnRecall = ltpOnRecall; }
+    public boolean ltpOnRecall() { return ltpOnRecall; }
+
     public MmrProperties getMmr() { return mmr; }
     public void setMmr(MmrProperties mmr) { this.mmr = mmr; }
     public MmrProperties mmr() { return mmr; }
@@ -113,6 +119,7 @@ public class RecallProperties implements Serializable {
         cp.engine = this.engine;
         cp.maxReplayEvents = this.maxReplayEvents;
         cp.includeContradictions = this.includeContradictions;
+        cp.ltpOnRecall = this.ltpOnRecall;
         cp.mmr = this.mmr != null ? this.mmr.copy() : new MmrProperties();
         cp.textSearch = this.textSearch != null ? this.textSearch.copy() : new TextSearchProperties();
         cp.reranker = this.reranker != null ? this.reranker.copy() : new RerankerProperties();

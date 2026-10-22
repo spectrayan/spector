@@ -165,6 +165,21 @@ public interface MemoryReflection {
     }
 
     /**
+     * Returns every live provenance record for a memory, in the order they were written.
+     *
+     * <p>A memory merged from duplicates has one record per merged source (with
+     * {@link com.spectrayan.spector.memory.model.MemoryProvenance#sourceId()} set); a fact
+     * distilled from a session has one record per producing pass. Lineage is transitive: call
+     * this again on a {@code sourceId} to walk further back.</p>
+     *
+     * @param memoryId the string ID of the consolidated memory
+     * @return provenance records (empty if not tracked or not found)
+     */
+    default java.util.List<com.spectrayan.spector.memory.model.MemoryProvenance> explainAll(String memoryId) {
+        return explain(memoryId).stream().toList();
+    }
+
+    /**
      * Returns all provenance records for a given episodic session, ordered by
      * pass number then fact index.
      *

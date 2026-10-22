@@ -799,6 +799,11 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> i
         // Contradiction resolution is not applied to episodic records
     }
 
+    @Override
+    public void markRetracted(long offset) {
+        // Retraction applies to consolidated (semantic/procedural) records, not episodic turns
+    }
+
     public void reinforceValence(long offset, byte outcome, float learningRate) {
         byte currentValence = EpisodicHeaderLayout.INSTANCE.readValenceRecord(segment(), offset);
         byte blended = com.spectrayan.spector.kernel.score.Valence.blend(currentValence, outcome, learningRate);

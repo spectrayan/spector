@@ -31,6 +31,10 @@ package com.spectrayan.spector.memory.model;
  * @param factIndex         index of this fact within its batch (0-indexed)
  * @param batchFactCount    total facts produced in the batch
  * @param consolidatedAtMs  epoch millis when consolidation occurred
+ * @param sourceKind        {@code EPISODIC}, {@code SEMANTIC} or {@code PROCEDURAL}
+ * @param sourceId          ID of the source memory when {@code sourceKind} is semantic or
+ *                          procedural (for example a record merged into this one), or
+ *                          {@code null} for an episodic source or an unresolvable ID
  *
  * @since 1.5.0
  */
@@ -44,5 +48,21 @@ public record MemoryProvenance(
         int passNumber,
         int factIndex,
         int batchFactCount,
-        long consolidatedAtMs
-) {}
+        long consolidatedAtMs,
+        String sourceKind,
+        String sourceId
+) {
+
+    /** Source kind of an episodic-session row. */
+    public static final String SOURCE_EPISODIC = "EPISODIC";
+
+    /**
+     * Creates an episodic-source provenance record (the pre-#1145 shape).
+     */
+    public MemoryProvenance(String targetId, long sessionId, int partitionSeq, int firstSeq, int lastSeq,
+                            int turnCount, int passNumber, int factIndex, int batchFactCount,
+                            long consolidatedAtMs) {
+        this(targetId, sessionId, partitionSeq, firstSeq, lastSeq, turnCount, passNumber, factIndex,
+                batchFactCount, consolidatedAtMs, SOURCE_EPISODIC, null);
+    }
+}

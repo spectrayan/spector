@@ -18,6 +18,7 @@ package com.spectrayan.spector.memory;
 import com.spectrayan.spector.kernel.api.MemorySource;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.CognitiveResult;
+import com.spectrayan.spector.memory.model.MemoryProvenance;
 import com.spectrayan.spector.kernel.api.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
@@ -105,6 +106,75 @@ class ConsolidationIntegrationTest {
         CognitiveResult merged = results.get(0);
         assertThat(merged.id()).startsWith("cns-");
         assertThat(merged.text()).contains("light theme");
+
+        // #1145: the merged memory carries lineage to both originals
+        List<MemoryProvenance> lineage = memory.explainAll(merged.id());
+        assertThat(lineage).hasSize(2);
+        assertThat(lineage).extracting(MemoryProvenance::sourceKind).containsOnly("SEMANTIC");
+        assertThat(lineage).extracting(MemoryProvenance::sourceId).containsExactlyInAnyOrder("dup-a", "dup-b");
+        assertThat(lineage).extracting(MemoryProvenance::targetId).containsOnly(merged.id());
+        assertThat(memory.explain(merged.id())).isPresent();
+    }
+
+    @Test
+    void testMergeOfMergedMemoryKeepsTransitiveLineage() {
+        // Each merge answers with a distinct text so the merged memories don't collide on content
+        java.util.concurrent.atomic.AtomicInteger merges = new java.util.concurrent.atomic.AtomicInteger();
+        LlmProvider mergingLlm = new LlmProvider() {
+            @Override
+            public LlmResponse generate(LlmRequest request, GenerationOptions options) {
+                String prompt = request.messages().isEmpty() ? "" : request.messages().get(0).text();
+                String reply = prompt.contains("Merge these")
+                        ? "Standup merged note " + merges.incrementAndGet() + "."
+                        : "NO";
+                return new LlmResponse(reply, 10, 10, "mock-llm");
+            }
+
+            @Override
+            public boolean isAvailable() {
+                return true;
+            }
+
+            @Override
+            public String modelName() {
+                return "mock-llm";
+            }
+        };
+
+        float[] vector = new float[DIMENSIONS];
+        vector[7] = 1.0f;
+        embeddingProvider.register("Standup is at nine.", vector);
+        embeddingProvider.register("Daily standup starts at nine.", vector);
+
+        try (SpectorMemory target = buildMemory(mergingLlm)) {
+            target.remember("st-a", "Standup is at nine.", MemoryType.SEMANTIC, MemorySource.OBSERVED, "work");
+            target.remember("st-b", "Daily standup starts at nine.", MemoryType.SEMANTIC, MemorySource.OBSERVED, "work");
+            target.consolidate();
+
+            String firstMerge = mergedIdFor(target, "Standup merged note 1.");
+
+            // st-c duplicates the first merged memory, so the next pass merges the merge
+            String textC = "The standup meeting happens at nine.";
+            embeddingProvider.register(textC, embeddingProvider.embed("Standup merged note 1.").vector());
+            target.remember("st-c", textC, MemoryType.SEMANTIC, MemorySource.OBSERVED, "work");
+            target.consolidate();
+
+            assertThat(target.inspect(firstMerge)).as("first merged memory merged again").isNull();
+            String secondMerge = mergedIdFor(target, "Standup merged note 2.");
+
+            assertThat(target.explainAll(secondMerge)).extracting(MemoryProvenance::sourceId)
+                    .containsExactlyInAnyOrder(firstMerge, "st-c");
+            assertThat(target.explainAll(firstMerge)).extracting(MemoryProvenance::sourceId)
+                    .containsExactlyInAnyOrder("st-a", "st-b");
+        }
+    }
+
+    private static String mergedIdFor(SpectorMemory target, String mergedText) {
+        return target.recall(mergedText, RecallOptions.builder().topK(10).build()).stream()
+                .filter(r -> r.id().startsWith("cns-") && mergedText.equals(r.text()))
+                .map(CognitiveResult::id)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("no merged memory with text: " + mergedText));
     }
 
     @Test
@@ -153,6 +223,77 @@ class ConsolidationIntegrationTest {
         List<CognitiveResult> recallWithContradictions = memory.recall("capital of France", RecallOptions.builder().includeContradictions(true).build());
         assertThat(recallWithContradictions).anyMatch(r -> "fact-a".equals(r.id()));
         assertThat(recallWithContradictions).anyMatch(r -> "fact-b".equals(r.id()));
+    }
+
+    @Test
+    void testNoLlmProviderLeavesDuplicatePairIntact() {
+        // #1146: without an LLM there is no contradiction verdict, so the pair must not be merged
+        try (SpectorMemory noLlm = buildMemory(null)) {
+            assertPairSurvivesConsolidation(noLlm);
+        }
+    }
+
+    @Test
+    void testLlmErrorLeavesDuplicatePairIntact() {
+        // #1146: a provider error is "no verdict", not "not contradictory"
+        LlmProvider failing = new LlmProvider() {
+            @Override
+            public LlmResponse generate(LlmRequest request, GenerationOptions options) {
+                throw new IllegalStateException("provider outage");
+            }
+
+            @Override
+            public boolean isAvailable() {
+                return true;
+            }
+
+            @Override
+            public String modelName() {
+                return "failing-llm";
+            }
+        };
+        try (SpectorMemory failingLlm = buildMemory(failing)) {
+            assertPairSurvivesConsolidation(failingLlm);
+        }
+    }
+
+    private SpectorMemory buildMemory(LlmProvider provider) {
+        var builder = DefaultSpectorMemory.builder(new com.spectrayan.spector.config.properties.MemoryProperties()
+                        .setDimensions(DIMENSIONS)
+                        .setWorkingCapacity(20)
+                        .setEpisodicPartitionCapacity(100)
+                        .setSemanticCapacity(100)
+                        .setProceduralCapacity(100))
+                .embeddingProvider(embeddingProvider)
+                .persistenceMode(MemoryPersistenceMode.IN_MEMORY);
+        if (provider != null) {
+            builder.llmProvider(provider);
+        }
+        return builder.build();
+    }
+
+    private void assertPairSurvivesConsolidation(SpectorMemory target) {
+        float[] vector = new float[DIMENSIONS];
+        vector[3] = 1.0f;
+        String textA = "User prefers dark theme.";
+        String textB = "User never wants dark theme.";
+        embeddingProvider.register(textA, vector);
+        embeddingProvider.register(textB, vector);
+
+        target.remember("pair-a", textA, MemoryType.SEMANTIC, MemorySource.OBSERVED, "ui");
+        target.remember("pair-b", textB, MemoryType.SEMANTIC, MemorySource.OBSERVED, "ui");
+
+        target.consolidate();
+
+        CognitiveRecord recordA = target.inspect("pair-a");
+        CognitiveRecord recordB = target.inspect("pair-b");
+        assertThat(recordA).as("pair-a must survive when no verdict is available").isNotNull();
+        assertThat(recordB).as("pair-b must survive when no verdict is available").isNotNull();
+        assertThat(recordA.isTombstoned()).isFalse();
+        assertThat(recordB.isTombstoned()).isFalse();
+        assertThat(recordA.isContradicted()).isFalse();
+        assertThat(recordB.isContradicted()).isFalse();
+        assertThat(target.memoryCount(MemoryType.SEMANTIC)).isEqualTo(2);
     }
 
     @Test

@@ -407,6 +407,10 @@ public abstract sealed class AbstractEngramMemory<L extends FixedEngramLayout>
         layout.markContradicted(segment(), offset);
     }
 
+    public void markRetracted(long offset) {
+        layout.markRetracted(segment(), offset);
+    }
+
     public void markResolved(long offset) {
         layout.markResolved(segment(), offset);
     }

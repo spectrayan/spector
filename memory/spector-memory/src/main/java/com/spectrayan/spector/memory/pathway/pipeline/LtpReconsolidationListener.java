@@ -37,13 +37,18 @@ import java.util.List;
  *   <li><b>ACT-R recall timestamps</b>: recorded in the 8-slot ring buffer in
  *       the strength region. These enable the full ACT-R base-level activation
  *       computation: {@code B_i = ln(Σ t_j^{-d})}.</li>
- *   <li><b>Recall count</b>: incremented only on explicit {@code reinforce()}
- *       calls to prevent inflation from passive retrieval.</li>
+ *   <li><b>Recall count and storage strength</b>: at most once per
+ *       {@code AUTO_LTP_COOLDOWN_MS} (5 minutes) per memory, {@code spectorRecallCount}
+ *       is incremented and storage strength gains a fixed increment, capped at
+ *       {@code S_max}. The cooldown limits inflation from repeated queries.</li>
  * </ul>
  *
  * <h3>Recall Listener Hook</h3>
- * <p>Registered with {@code RecallPipeline#addListener}, operating strictly via
- * {@link HeaderCursor} with zero raw segment access (R6.4).</p>
+ * <p>Opt-in: {@code SpectorMemoryFactory} registers it on the recall pathway only when
+ * {@code spector.memory.recall.ltp-on-recall} is {@code true} (default {@code false}), so by
+ * default strength changes only on explicit {@code reinforce()} / {@code rehearse()}. Listeners
+ * run after LEARN-mode recalls. It operates strictly via {@link HeaderCursor} with zero raw
+ * segment access (R6.4).</p>
  */
 public final class LtpReconsolidationListener implements RecallListener {
 

@@ -314,6 +314,17 @@ public final class CognitiveMemoryRouter implements com.spectrayan.spector.kerne
     }
 
     /**
+     * Marks the record at the given location as retracted, so recall never releases it. Episodic
+     * records are not retractable and are left unchanged.
+     */
+    public void markRetracted(MemoryLocation loc) {
+        EngramRegion store = stores.get(loc.type());
+        if (store != null) {
+            store.markRetracted(loc.offset());
+        }
+    }
+
+    /**
      * Returns {@code true} if the record at the given location has the tombstone flag set.
      */
     public boolean isTombstoned(MemoryLocation loc) {
@@ -413,6 +424,10 @@ public final class CognitiveMemoryRouter implements com.spectrayan.spector.kerne
 
     /**
      * Reinforces a cognitive memory record (valence, LTP, ACT-R, and two-factor storage strength).
+     *
+     * <p>EPISODIC records only have their valence blended: the variable-length episodic tier
+     * has no strength-region slot, so recall timestamps, activation count and storage strength
+     * are left unchanged for them by design.</p>
      */
     public void reinforce(MemoryLocation loc, byte valence, float learningRate, float sGain, float sMax) {
         try (var cursor = cursor(loc.type())) {
@@ -442,6 +457,9 @@ public final class CognitiveMemoryRouter implements com.spectrayan.spector.kerne
     /**
      * Pure strength rehearsal (MF-001 §5): updates storage strength S
      * via ΔS = s_gain(1-D) and retrieval strength D without modifying valence.
+     *
+     * <p>A no-op for EPISODIC records, which carry no strength-region slot (see
+     * {@link #reinforce(MemoryLocation, byte, float, float, float)}).</p>
      */
     public void rehearse(MemoryLocation loc, float sGain, float sMax) {
         try (var cursor = cursor(loc.type())) {

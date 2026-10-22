@@ -868,6 +868,10 @@ public final class GraphExpansionStage {
             return false;
         }
 
+        if (EncodingHeaderFields.isRetracted(header.consolidationFlags())) {
+            return false;
+        }
+
         if (!options.includeContradictions()) {
             if (EncodingHeaderFields.isContradicted(header.consolidationFlags())) {
                 return false;

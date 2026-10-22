@@ -35,6 +35,8 @@ import com.spectrayan.spector.memory.api.ImportanceEstimator;
 import com.spectrayan.spector.memory.api.ImportanceProvider;
 import com.spectrayan.spector.memory.bootstrap.SpectorMemoryFactory;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
+import com.spectrayan.spector.memory.cortex.consolidation.AbstractConsolidator;
+import com.spectrayan.spector.memory.cortex.consolidation.ProvenanceKeys;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.cortex.adaptor.ProfileAdaptor;
 import com.spectrayan.spector.memory.cortex.consolidation.BatchConsolidator;
@@ -341,6 +343,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.wanderPathway = bundle.wanderPathway();
         this.continuityMemory = bundle.continuityMemory();
         this.provenanceMemory = bundle.provenanceMemory();
+        this.batchConsolidator.attachProvenance(this.provenanceMemory);
         this.decidePathway = bundle.decidePathway();
         this.dreamPathway = bundle.dreamPathway();
         this.skillPathway = com.spectrayan.spector.memory.pathway.skill.SkillPathway.standard();
@@ -1219,6 +1222,12 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public com.spectrayan.spector.memory.model.ForgetResult forgetWithResult(String id) {
+        return forgetWithResult(id, com.spectrayan.spector.memory.model.ForgetCascade.FLAG);
+    }
+
+    @Override
+    public com.spectrayan.spector.memory.model.ForgetResult forgetWithResult(
+            String id, com.spectrayan.spector.memory.model.ForgetCascade cascade) {
         try (var permit = quiesceGuard.acquireWritePermit()) {
         mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.forget(
             namespaceId, id, com.spectrayan.spector.commons.concurrent.MemoryScope.fenceEpoch(), System.currentTimeMillis()));
@@ -1236,17 +1245,140 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             }
             mutationPolicy.checkDeletion(
                     com.spectrayan.spector.memory.policy.DeletionRequest.forget(namespaceId, id));
-            partitionManager.routerFor(loc.colocatedPartition()).tombstone(loc);
-            wal.appendForget(id);
-            // retire, not remove: the bytes are still on disk, and purge needs this location to reach them.
-            index.retire(id);
-            persistTombstones();
+            // Collect derived memories before the tombstone: the episodic turn is read for its lineage keys.
+            java.util.Map<String, Boolean> derived = collectDerived(id, loc);
+            tombstoneInternal(id, loc);
+            long tombstonedAt = System.currentTimeMillis();
+
+            java.util.List<String> retracted = new java.util.ArrayList<>();
+            java.util.List<String> cascadeTombstoned = new java.util.ArrayList<>();
+            var mode = cascade != null ? cascade : com.spectrayan.spector.memory.model.ForgetCascade.FLAG;
+            if (mode != com.spectrayan.spector.memory.model.ForgetCascade.REPORT) {
+                for (var entry : derived.entrySet()) {
+                    String derivedId = entry.getKey();
+                    MemoryLocation dloc = index.locate(derivedId);
+                    if (dloc == null) {
+                        continue;
+                    }
+                    if (mode == com.spectrayan.spector.memory.model.ForgetCascade.TOMBSTONE && entry.getValue()) {
+                        tombstoneInternal(derivedId, dloc);
+                        if (provenanceMemory != null) {
+                            provenanceMemory.tombstoneByTarget(ProvenanceKeys.of(derivedId));
+                        }
+                        cascadeTombstoned.add(derivedId);
+                    } else {
+                        partitionManager.routerFor(dloc.colocatedPartition()).markRetracted(dloc);
+                        retracted.add(derivedId);
+                    }
+                }
+            }
+            if (!cascadeTombstoned.isEmpty()) {
+                persistTombstones();
+            }
+            if (!derived.isEmpty()) {
+                log.info("Forget: '{}' cascade={} derived={} retracted={} tombstoned={}",
+                        id, mode, derived.size(), retracted.size(), cascadeTombstoned.size());
+            }
             log.debug("Forget: '{}' tombstoned", id);
-            return com.spectrayan.spector.memory.model.ForgetResult.tombstoned(id);
+            return new com.spectrayan.spector.memory.model.ForgetResult(id, true, tombstonedAt,
+                    new java.util.ArrayList<>(derived.keySet()), retracted, cascadeTombstoned);
         } finally {
             releaseLease();
         }
             }
+    }
+
+    /** Tombstones one record: store flag, WAL entry, index retirement and the tombstone registry. */
+    private void tombstoneInternal(String id, MemoryLocation loc) {
+        partitionManager.routerFor(loc.colocatedPartition()).tombstone(loc);
+        wal.appendForget(id);
+        // retire, not remove: the bytes are still on disk, and purge needs this location to reach them.
+        index.retire(id);
+        persistTombstones();
+    }
+
+    /**
+     * Finds every live memory derived from {@code id} through provenance, transitively.
+     *
+     * <p>Two kinds of lineage are followed: rows whose semantic or procedural source is the memory
+     * (duplicate merges, #1145), and, for an episodic turn, reflection rows covering that turn in the
+     * same session and partition.</p>
+     *
+     * @return derived ids in discovery order, each mapped to {@code true} when the memory has no other
+     *         source than the one being forgotten
+     */
+    private java.util.Map<String, Boolean> collectDerived(String id, MemoryLocation loc) {
+        java.util.Map<String, Boolean> derived = new java.util.LinkedHashMap<>();
+        if (provenanceMemory == null) {
+            return derived;
+        }
+        // target key -> single-source?
+        java.util.Map<Long, Boolean> targets = new java.util.LinkedHashMap<>();
+        if (loc.type() == MemoryType.EPISODIC) {
+            collectEpisodicDerived(loc, targets);
+        }
+        java.util.ArrayDeque<Long> queue = new java.util.ArrayDeque<>();
+        java.util.Set<Long> visited = new java.util.HashSet<>();
+        long rootKey = ProvenanceKeys.of(id);
+        visited.add(rootKey);
+        queue.add(rootKey);
+        queue.addAll(targets.keySet());
+        while (!queue.isEmpty()) {
+            long key = queue.poll();
+            if (key != rootKey && !visited.add(key)) {
+                continue;
+            }
+            for (var row : provenanceMemory.findBySource(key)) {
+                long target = row.targetTsid();
+                if (target == rootKey) {
+                    continue;
+                }
+                boolean single = provenanceMemory.findAllByTarget(target).size() <= 1;
+                targets.merge(target, single, Boolean::logicalAnd);
+                if (!visited.contains(target)) {
+                    queue.add(target);
+                }
+            }
+        }
+        for (var entry : targets.entrySet()) {
+            String derivedId = resolveProvenanceId(entry.getKey());
+            if (derivedId != null && index.locate(derivedId) != null) {
+                derived.merge(derivedId, entry.getValue(), Boolean::logicalAnd);
+            }
+        }
+        return derived;
+    }
+
+    /** Adds the targets of reflection rows that cover the episodic turn at {@code loc}. */
+    private void collectEpisodicDerived(MemoryLocation loc, java.util.Map<Long, Boolean> targets) {
+        var router = partitionManager.routerFor(loc.colocatedPartition());
+        var episodic = router != null ? router.episodic() : null;
+        if (episodic == null) {
+            return;
+        }
+        com.spectrayan.spector.kernel.api.EpisodeRecord turn;
+        try {
+            turn = episodic.readTurn(loc.offset(), false);
+        } catch (RuntimeException e) {
+            log.warn("Forget: could not read episodic turn at offset {} for cascade: {}", loc.offset(), e.getMessage());
+            return;
+        }
+        if (turn == null) {
+            return;
+        }
+        for (var row : provenanceMemory.findBySession(turn.sessionId())) {
+            if (row.partitionSeq() != loc.colocatedPartition()) {
+                continue;
+            }
+            boolean offsetMatch = loc.offset() >= row.firstOffsetHint() && loc.offset() <= row.lastOffsetHint();
+            boolean seqMatch = turn.sessionId() != 0L
+                    && turn.sequenceId() >= row.firstSeq() && turn.sequenceId() <= row.lastSeq();
+            if (offsetMatch || seqMatch) {
+                long target = row.targetTsid();
+                boolean single = row.turnCount() <= 1 && provenanceMemory.findAllByTarget(target).size() <= 1;
+                targets.merge(target, single, Boolean::logicalAnd);
+            }
+        }
     }
 
     @Override
@@ -1548,18 +1680,18 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         if (provenanceMemory == null || memoryId == null || memoryId.isEmpty()) {
             return java.util.Optional.empty();
         }
-        try {
-            long tsid = com.spectrayan.spector.kernel.id.TsidGenerator.decodeCrockford(memoryId);
-            return provenanceMemory.findByTarget(tsid)
-                    .map(s -> new com.spectrayan.spector.memory.model.MemoryProvenance(
-                            memoryId, s.sessionId(), s.partitionSeq(),
-                            s.firstSeq(), s.lastSeq(), s.turnCount(),
-                            s.passNumber(), s.factIndex(), s.batchFactCount(),
-                            s.consolidatedAtMs()
-                    ));
-        } catch (Exception e) {
-            return java.util.Optional.empty();
+        return provenanceMemory.findByTarget(ProvenanceKeys.of(memoryId))
+                .map(s -> toMemoryProvenance(memoryId, s));
+    }
+
+    @Override
+    public java.util.List<com.spectrayan.spector.memory.model.MemoryProvenance> explainAll(String memoryId) {
+        if (provenanceMemory == null || memoryId == null || memoryId.isEmpty()) {
+            return java.util.List.of();
         }
+        return provenanceMemory.findAllByTarget(ProvenanceKeys.of(memoryId)).stream()
+                .map(s -> toMemoryProvenance(memoryId, s))
+                .toList();
     }
 
     @Override
@@ -1568,14 +1700,56 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             return java.util.List.of();
         }
         return provenanceMemory.findBySession(sessionId).stream()
-                .map(s -> new com.spectrayan.spector.memory.model.MemoryProvenance(
-                        com.spectrayan.spector.kernel.id.TsidGenerator.encodeCrockford(s.targetTsid()),
-                        s.sessionId(), s.partitionSeq(),
-                        s.firstSeq(), s.lastSeq(), s.turnCount(),
-                        s.passNumber(), s.factIndex(), s.batchFactCount(),
-                        s.consolidatedAtMs()
-                ))
+                .map(s -> toMemoryProvenance(
+                        com.spectrayan.spector.kernel.id.TsidGenerator.encodeCrockford(s.targetTsid()), s))
                 .toList();
+    }
+
+    private com.spectrayan.spector.memory.model.MemoryProvenance toMemoryProvenance(
+            String targetId, com.spectrayan.spector.kernel.layout.ProvenanceLayout.ProvenanceState s) {
+        String kind;
+        if (s.sourceKind() == com.spectrayan.spector.kernel.layout.ProvenanceLayout.SOURCE_SEMANTIC) {
+            kind = "SEMANTIC";
+        } else if (s.sourceKind() == com.spectrayan.spector.kernel.layout.ProvenanceLayout.SOURCE_PROCEDURAL) {
+            kind = "PROCEDURAL";
+        } else {
+            kind = com.spectrayan.spector.memory.model.MemoryProvenance.SOURCE_EPISODIC;
+        }
+        boolean memorySource = !com.spectrayan.spector.memory.model.MemoryProvenance.SOURCE_EPISODIC.equals(kind);
+        return new com.spectrayan.spector.memory.model.MemoryProvenance(
+                targetId, s.sessionId(), s.partitionSeq(),
+                s.firstSeq(), s.lastSeq(), s.turnCount(),
+                s.passNumber(), s.factIndex(), s.batchFactCount(),
+                s.consolidatedAtMs(),
+                kind,
+                memorySource ? resolveProvenanceId(s.sourceTsid()) : null);
+    }
+
+    /**
+     * Resolves a provenance key back to a memory ID, live or forgotten. TSID-shaped IDs resolve
+     * directly; other IDs fall back to a scan of the index.
+     */
+    private String resolveProvenanceId(long key) {
+        if (key == 0L) {
+            return null;
+        }
+        String tsid = com.spectrayan.spector.kernel.id.TsidGenerator.encodeCrockford(key);
+        for (String candidate : new String[] { tsid, AbstractConsolidator.MERGED_ID_PREFIX + tsid }) {
+            if (index.locate(candidate) != null || index.locateTombstoned(candidate) != null) {
+                return candidate;
+            }
+        }
+        for (String id : index.allIds()) {
+            if (ProvenanceKeys.of(id) == key) {
+                return id;
+            }
+        }
+        for (String id : index.tombstones().keySet()) {
+            if (ProvenanceKeys.of(id) == key) {
+                return id;
+            }
+        }
+        return null;
     }
 
     @Override
@@ -2064,6 +2238,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     public PartitionManager partitionManager() { return partitionManager; }
     @Override public com.spectrayan.spector.memory.cortex.PartitionRegistry partitionRegistry() { return partitionManager; }
     @Override public MemoryIndex index() { return index; }
+
+    /** Provenance region of this namespace, or {@code null}. Package-private: for lineage tests. */
+    com.spectrayan.spector.kernel.store.ProvenanceMemory provenanceMemory() { return provenanceMemory; }
     @Override public LateralEvaluator lateralEvaluator() { return lateralEvaluator; }
     @Override public CognitiveGraphFacade graph() { return graphFacade; }
     @Override public EntityDirectory entityDirectory() { return entityDirectory; }

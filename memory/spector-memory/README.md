@@ -90,9 +90,6 @@ spector-memory/
 ├── inhibition/                     ← "Inhibition" — suppression
 │     └── SuppressionSet.java           (explicit memory blocking)
 │
-├── interference/                   ← "Proactive Interference" — deduplication
-│     └── SemanticDeduplicator.java     (near-duplicate detection + merge)
-│
 ├── prospective/                    ← "Prospective Memory" — future intents
 │     ├── ProspectiveScheduler.java     (time-triggered reminders)
 │     └── Reminder.java                 (scheduled memory record)

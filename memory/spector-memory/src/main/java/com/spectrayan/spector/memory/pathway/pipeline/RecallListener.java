@@ -31,9 +31,11 @@ import java.util.List;
  *
  * <h3>Built-in Listeners</h3>
  * <ul>
- *   <li>{@link LtpReconsolidationListener} — increments agent_recall_count for returned memories</li>
  *   <li>{@link HebbianCoActivationListener} — records tag co-occurrence in the
- *       {@link com.spectrayan.spector.kernel.store.CoActivationMemory}</li>
+ *       {@link com.spectrayan.spector.kernel.store.CoActivationMemory}; registered whenever a
+ *       co-activation tracker is configured</li>
+ *   <li>{@link LtpReconsolidationListener} — strengthens returned memories; opt-in, registered only
+ *       when {@code spector.memory.recall.ltp-on-recall} is {@code true}</li>
  * </ul>
  */
 @FunctionalInterface

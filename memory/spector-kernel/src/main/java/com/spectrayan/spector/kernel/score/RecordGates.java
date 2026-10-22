@@ -34,11 +34,12 @@ public final class RecordGates {
     private RecordGates() {}
 
     /**
-     * Phase 1 & 1c: Evaluates tombstone and contradiction flags.
+     * Phase 1 & 1c: Evaluates tombstone, retraction and contradiction flags. Retracted records are
+     * always gated, whatever {@code includeContradictions} says.
      */
     public static boolean isDeletedOrContradicted(
             final byte flags, final byte consolidationFlags, final boolean includeContradictions) {
-        if (EncodingHeaderFields.isTombstoned(flags)) {
+        if (EncodingHeaderFields.isTombstoned(flags) || EncodingHeaderFields.isRetracted(consolidationFlags)) {
             return true;
         }
         return !includeContradictions && EncodingHeaderFields.isContradicted(consolidationFlags);

@@ -147,6 +147,11 @@ public final class SegmentEngramRegion implements EngramRegion {
     }
 
     @Override
+    public void markRetracted(long offset) {
+        layout.markRetracted(segment, offset);
+    }
+
+    @Override
     public void markResolved(long offset) {
         layout.markResolved(segment, offset);
     }

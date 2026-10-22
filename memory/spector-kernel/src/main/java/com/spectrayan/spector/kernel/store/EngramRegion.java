@@ -156,6 +156,11 @@ public sealed interface EngramRegion extends AutoCloseable permits AbstractEngra
     void markContradicted(long offset);
 
     /**
+     * Marks the record at the given byte offset as retracted, so recall never releases it.
+     */
+    void markRetracted(long offset);
+
+    /**
      * Marks the record at the given byte offset as resolved.
      */
     void markResolved(long offset);

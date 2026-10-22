@@ -304,6 +304,10 @@ public interface FixedEngramLayout extends RegionLayout {
         headerLayout().markContradicted(segment, offset);
     }
 
+    default void markRetracted(MemorySegment segment, long offset) {
+        headerLayout().markRetracted(segment, offset);
+    }
+
     default void writeImportance(MemorySegment segment, long offset, float importance) {
         headerLayout().writeImportance(segment, offset, importance);
     }

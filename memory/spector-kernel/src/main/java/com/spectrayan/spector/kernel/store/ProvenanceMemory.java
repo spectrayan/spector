@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Stream;
 
@@ -47,11 +48,15 @@ import org.slf4j.LoggerFactory;
  * tracking via {@code pass_number}.</p>
  *
  * <h3>Heap Indexes</h3>
- * <p>Two heap-based {@link ConcurrentHashMap} indexes are rebuilt on open by
+ * <p>Three heap-based {@link ConcurrentHashMap} indexes are rebuilt on open by
  * scanning all live records:</p>
  * <ul>
- *   <li>{@code targetIndex}: target_tsid → slotId (O(1) "explain" lookups)</li>
- *   <li>{@code sessionIndex}: session_id → ordered list of slotIds (reverse provenance)</li>
+ *   <li>{@code targetIndex}: target_tsid → ordered list of slotIds ("explain" lookups; a
+ *       merged memory has one row per source)</li>
+ *   <li>{@code sessionIndex}: session_id → ordered list of slotIds for episodic-source rows
+ *       (reverse provenance)</li>
+ *   <li>{@code sourceIndex}: source_tsid → ordered list of slotIds for semantic/procedural-source
+ *       rows (forward lineage, used to cascade a forgotten source)</li>
  * </ul>
  *
  * <h3>Thread Safety</h3>
@@ -66,8 +71,11 @@ public final class ProvenanceMemory extends AbstractRecordMemory<ProvenanceLayou
 
     private static final Logger log = LoggerFactory.getLogger(ProvenanceMemory.class);
 
-    /** target_tsid → slotId for O(1) "explain" lookups. */
-    private final Map<Long, Integer> targetIndex = new ConcurrentHashMap<>();
+    /** target_tsid → ordered list of slotIds for "explain" lookups. */
+    private final Map<Long, List<Integer>> targetIndex = new ConcurrentHashMap<>();
+
+    /** source_tsid → ordered list of slotIds for semantic/procedural-source rows. */
+    private final Map<Long, List<Integer>> sourceIndex = new ConcurrentHashMap<>();
 
     /** session_id → ordered list of slotIds for reverse provenance queries. */
     private final Map<Long, List<Integer>> sessionIndex = new ConcurrentHashMap<>();
@@ -217,10 +225,7 @@ public final class ProvenanceMemory extends AbstractRecordMemory<ProvenanceLayou
                 recordArena.close();
             }
 
-            // Update heap indexes
-            targetIndex.put(edge.targetTsid(), slot);
-            sessionIndex.computeIfAbsent(edge.sessionId(), k -> Collections.synchronizedList(new ArrayList<>()))
-                    .add(slot);
+            indexSlot(slot, edge.targetTsid(), edge.sessionId(), edge.sourceKind(), edge.sourceTsid());
 
             return slot;
         } finally {
@@ -237,13 +242,64 @@ public final class ProvenanceMemory extends AbstractRecordMemory<ProvenanceLayou
      * @return the provenance state if found
      */
     public Optional<ProvenanceState> findByTarget(long tsid) {
-        Integer slot = targetIndex.get(tsid);
-        if (slot == null) {
+        List<Integer> slots = targetIndex.get(tsid);
+        if (slots == null) {
             return Optional.empty();
         }
-        long recordOff = recordOffset(slot);
-        ProvenanceState state = ProvenanceLayout.readRecord(segment(), recordOff);
-        return state.isLive() ? Optional.of(state) : Optional.empty();
+        List<Integer> snapshot = snapshot(slots);
+        MemorySegment seg = segment();
+        for (int i = snapshot.size() - 1; i >= 0; i--) {
+            ProvenanceState state = ProvenanceLayout.readRecord(seg, recordOffset(snapshot.get(i)));
+            if (state.isLive()) {
+                return Optional.of(state);
+            }
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Returns every live provenance record for a target memory, in append order.
+     *
+     * <p>A memory produced by merging several sources has one row per source; a fact
+     * distilled from a session has one row per consolidation pass that produced it.</p>
+     *
+     * @param tsid raw 64-bit TSID (or provenance key) of the consolidated memory
+     * @return live rows for the target (empty if none)
+     */
+    public List<ProvenanceState> findAllByTarget(long tsid) {
+        return liveRecords(targetIndex.get(tsid));
+    }
+
+    /**
+     * Returns every live provenance record whose semantic or procedural source is the given memory.
+     *
+     * @param sourceTsid raw 64-bit TSID (or provenance key) of the source memory
+     * @return live rows derived from the source, in append order (empty if none)
+     */
+    public List<ProvenanceState> findBySource(long sourceTsid) {
+        return liveRecords(sourceIndex.get(sourceTsid));
+    }
+
+    // ── Tombstoning ──
+
+    /**
+     * Tombstones every live row whose target is the given memory.
+     *
+     * @param tsid raw 64-bit TSID (or provenance key) of the target memory
+     * @return the number of rows tombstoned
+     */
+    public int tombstoneByTarget(long tsid) {
+        return tombstoneSlots(targetIndex.get(tsid));
+    }
+
+    /**
+     * Tombstones every live row whose semantic or procedural source is the given memory.
+     *
+     * @param sourceTsid raw 64-bit TSID (or provenance key) of the source memory
+     * @return the number of rows tombstoned
+     */
+    public int tombstoneBySource(long sourceTsid) {
+        return tombstoneSlots(sourceIndex.get(sourceTsid));
     }
 
     // ── Reverse Index: Session Provenance ──
@@ -341,6 +397,7 @@ public final class ProvenanceMemory extends AbstractRecordMemory<ProvenanceLayou
     public void rebuildIndexes() {
         targetIndex.clear();
         sessionIndex.clear();
+        sourceIndex.clear();
 
         MemorySegment seg = segment();
         for (int slot = 0; slot < count; slot++) {
@@ -350,16 +407,15 @@ public final class ProvenanceMemory extends AbstractRecordMemory<ProvenanceLayou
                 continue;
             }
 
-            long targetTsid = ProvenanceLayout.readTargetTsid(seg, recordOff);
-            long sessionId = ProvenanceLayout.readSessionId(seg, recordOff);
-
-            targetIndex.put(targetTsid, slot);
-            sessionIndex.computeIfAbsent(sessionId, k -> Collections.synchronizedList(new ArrayList<>()))
-                    .add(slot);
+            indexSlot(slot,
+                    ProvenanceLayout.readTargetTsid(seg, recordOff),
+                    ProvenanceLayout.readSessionId(seg, recordOff),
+                    ProvenanceLayout.readSourceKind(seg, recordOff),
+                    ProvenanceLayout.readSourceTsid(seg, recordOff));
         }
 
-        log.info("Rebuilt provenance indexes: {} target entries, {} sessions, {} total records",
-                targetIndex.size(), sessionIndex.size(), count);
+        log.info("Rebuilt provenance indexes: {} target entries, {} sessions, {} sources, {} total records",
+                targetIndex.size(), sessionIndex.size(), sourceIndex.size(), count);
     }
 
     // ── Replay / Inspection ──
@@ -388,5 +444,73 @@ public final class ProvenanceMemory extends AbstractRecordMemory<ProvenanceLayou
      */
     public int targetCount() {
         return targetIndex.size();
+    }
+
+    // ── Internal helpers ──
+
+    private static boolean isMemorySource(byte sourceKind) {
+        return sourceKind == ProvenanceLayout.SOURCE_SEMANTIC || sourceKind == ProvenanceLayout.SOURCE_PROCEDURAL;
+    }
+
+    private void indexSlot(int slot, long targetTsid, long sessionId, byte sourceKind, long sourceTsid) {
+        targetIndex.computeIfAbsent(targetTsid, k -> new CopyOnWriteArrayList<>()).add(slot);
+        if (isMemorySource(sourceKind)) {
+            if (sourceTsid != 0L) {
+                sourceIndex.computeIfAbsent(sourceTsid, k -> new CopyOnWriteArrayList<>()).add(slot);
+            }
+        } else {
+            sessionIndex.computeIfAbsent(sessionId, k -> new CopyOnWriteArrayList<>()).add(slot);
+        }
+    }
+
+    /** Index lists are copy-on-write, so iterating one is already a stable snapshot. */
+    private static List<Integer> snapshot(List<Integer> slots) {
+        return slots;
+    }
+
+    private List<ProvenanceState> liveRecords(List<Integer> slots) {
+        if (slots == null || slots.isEmpty()) {
+            return List.of();
+        }
+        List<ProvenanceState> result = new ArrayList<>();
+        MemorySegment seg = segment();
+        for (int slot : snapshot(slots)) {
+            ProvenanceState state = ProvenanceLayout.readRecord(seg, recordOffset(slot));
+            if (state.isLive()) {
+                result.add(state);
+            }
+        }
+        return Collections.unmodifiableList(result);
+    }
+
+    /**
+     * Tombstones the live rows among the given slots and rewrites their CRC32C.
+     * Tombstoned rows stay in the heap indexes; every read path filters on liveness.
+     */
+    private int tombstoneSlots(List<Integer> slots) {
+        if (slots == null || slots.isEmpty()) {
+            return 0;
+        }
+        int tombstoned = 0;
+        appendLock.lock();
+        try {
+            MemorySegment seg = segment();
+            for (int slot : snapshot(slots)) {
+                long recordOff = recordOffset(slot);
+                if (!ProvenanceLayout.isLive(seg, recordOff)) {
+                    continue;
+                }
+                ProvenanceLayout.tombstone(seg, recordOff);
+                try (Arena recordArena = Arena.ofConfined()) {
+                    MemorySegment recordBuf = recordArena.allocate(ProvenanceLayout.RECORD_STRIDE, 8);
+                    MemorySegment.copy(seg, recordOff, recordBuf, 0, ProvenanceLayout.RECORD_STRIDE);
+                    write(slot, recordBuf);
+                }
+                tombstoned++;
+            }
+        } finally {
+            appendLock.unlock();
+        }
+        return tombstoned;
     }
 }
