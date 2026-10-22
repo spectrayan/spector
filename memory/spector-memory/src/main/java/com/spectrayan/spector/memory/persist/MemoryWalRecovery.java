@@ -267,6 +267,8 @@ public final class MemoryWalRecovery {
                         index.remove(event.memoryId());
                         index.clearTombstone(event.memoryId());
                     }
+                    case MARK_CONTRADICTED -> replayConsolidationFlag(event, memories, false);
+                    case MARK_RETRACTED -> replayConsolidationFlag(event, memories, true);
                     default -> {}
                 }
             } catch (Exception e) {
@@ -327,6 +329,66 @@ public final class MemoryWalRecovery {
                     "PURGE event for '" + event.memoryId() + "' names tier " + tier
                             + ", but no engram region is mounted for it; the erasure cannot be reapplied and "
                             + "the record's content may still be on disk");
+        }
+    }
+
+    /**
+     * Reapplies a contradicted or retracted bit after {@code RECORD_WRITE} replay.
+     *
+     * <p>Payload layout matches purge: {@code [tierOrdinal:4][recordOffset:8]}. The dispatcher has
+     * already rewritten the record from the ingest image, which does not carry a flag set later, so
+     * this write is what makes the bit durable across a crash that skipped the region flush.</p>
+     *
+     * @param retracted {@code true} for {@code MARK_RETRACTED}, {@code false} for {@code MARK_CONTRADICTED}
+     */
+    private static void replayConsolidationFlag(WalEvent event,
+                                                java.util.Map<MemoryId, com.spectrayan.spector.kernel.shape.Memory<?>> memories,
+                                                boolean retracted) {
+        String kind = retracted ? "MARK_RETRACTED" : "MARK_CONTRADICTED";
+        byte[] payload = event.payload();
+        if (payload == null || payload.length < 12) {
+            throw new SpectorWalCorruptionException(
+                    kind + " event for '" + event.memoryId() + "' has a malformed payload ("
+                            + (payload == null ? "null" : payload.length + " bytes, expected 12")
+                            + "); cannot reapply the flag");
+        }
+        ByteBuffer buf = ByteBuffer.wrap(payload);
+        int tierOrdinal = buf.getInt();
+        long recordOffset = buf.getLong();
+        MemoryType[] tiers = MemoryType.values();
+        if (tierOrdinal < 0 || tierOrdinal >= tiers.length) {
+            throw new SpectorWalCorruptionException(
+                    kind + " event for '" + event.memoryId() + "' names tier ordinal " + tierOrdinal
+                            + ", which is not a known tier; cannot reapply the flag");
+        }
+        MemoryType tier = tiers[tierOrdinal];
+        MemoryId targetId = switch (tier) {
+            case WORKING -> SystemMemoryId.WORKING.id();
+            case SEMANTIC -> SystemMemoryId.SEMANTIC.id();
+            case PROCEDURAL -> SystemMemoryId.PROCEDURAL.id();
+            case EPISODIC -> SystemMemoryId.EPISODIC.id();
+        };
+        com.spectrayan.spector.kernel.shape.Memory<?> target = memories.get(targetId);
+        if (target instanceof com.spectrayan.spector.kernel.store.EngramRegion region) {
+            if (retracted) {
+                region.markRetracted(recordOffset);
+            } else {
+                region.markContradicted(recordOffset);
+            }
+            log.info("[WalRecovery] Reapplied {} of '{}' in {} at offset {}",
+                    kind, event.memoryId(), tier, recordOffset);
+        } else if (target instanceof com.spectrayan.spector.kernel.store.EpisodicMemory episodic) {
+            if (retracted) {
+                episodic.markRetracted(recordOffset);
+            } else {
+                episodic.markContradicted(recordOffset);
+            }
+            log.info("[WalRecovery] Reapplied {} of '{}' in EPISODIC at offset {}",
+                    kind, event.memoryId(), recordOffset);
+        } else {
+            throw new SpectorWalCorruptionException(
+                    kind + " event for '" + event.memoryId() + "' names tier " + tier
+                            + ", but no engram region is mounted for it; the flag cannot be reapplied");
         }
     }
 }

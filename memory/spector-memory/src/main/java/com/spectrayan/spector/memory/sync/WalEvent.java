@@ -90,6 +90,17 @@ public record WalEvent(
          */
         PURGE,
         /** Memory storage strength was rehearsed without valence change. */
-        REHEARSE
+        REHEARSE,
+        /**
+         * Consolidation flag: the record was contradicted by a newer memory.
+         * Payload is {@code [tierOrdinal:4][recordOffset:8]}. Appended at the end
+         * because event types are stored by ordinal.
+         */
+        MARK_CONTRADICTED,
+        /**
+         * Consolidation flag: the record was retracted because its source was forgotten.
+         * Payload is {@code [tierOrdinal:4][recordOffset:8]}.
+         */
+        MARK_RETRACTED
     }
 }

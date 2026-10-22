@@ -169,7 +169,8 @@ public abstract class AbstractConsolidator implements Consolidator {
         if (verdict == ContradictionDetector.Verdict.CONTRADICTORY) {
             log.info("Consolidator: Detected contradiction between '{}' and '{}'", recordA.id(), recordB.id());
             CadpContradictionResolver.resolve(
-                    recordA, recordB, partitionManager, store, hyperEntityGraph, entityDirectory, temporalKnowledgeGraph);
+                    recordA, recordB, partitionManager, store, hyperEntityGraph, entityDirectory,
+                    temporalKnowledgeGraph, wal);
             return true;
         } else if (enableMerge && memoryMerger != null && rememberPathway != null && quantizer != null && index != null) {
             log.info("Consolidator: Merging duplicate memories '{}' and '{}'", recordA.id(), recordB.id());

@@ -32,6 +32,7 @@ import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.pathway.reflect.relay.EpisodicLogConsolidationRelay;
 import com.spectrayan.spector.memory.pathway.reflect.relay.ReflectSignal;
 import com.spectrayan.spector.memory.pathway.remember.RememberPathway;
+import com.spectrayan.spector.memory.sync.WalEvent;
 import com.spectrayan.spector.provider.generation.GenerationOptions;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.model.LlmRequest;
@@ -196,6 +197,9 @@ class ForgetCascadeIntegrationTest {
         assertThat(result.derivedIds()).containsExactlyInAnyOrderElementsOf(facts);
         assertThat(result.retractedIds()).containsExactlyInAnyOrderElementsOf(facts);
         assertThat(result.cascadeTombstonedIds()).isEmpty();
+        assertThat(((DefaultSpectorMemory) memory).wal().replay(-1L))
+                .extracting(WalEvent::type)
+                .contains(WalEvent.EventType.MARK_RETRACTED);
         for (String fact : facts) {
             CognitiveRecord rec = memory.inspect(fact);
             assertThat(rec).as("flagged facts stay inspectable").isNotNull();

@@ -314,6 +314,40 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
     }
 
     /**
+     * Appends a MARK_CONTRADICTED event.
+     *
+     * <p>The contradicted bit lives only in the mapped header. A {@code RECORD_WRITE} replay restores
+     * the bytes captured at ingest, which do not include a flag set later, so recovery must re-apply
+     * this event after that rewrite. Payload matches {@link #appendPurge}:
+     * {@code [tierOrdinal:4][recordOffset:8]}.</p>
+     */
+    public WalEvent appendMarkContradicted(String memoryId,
+                                           com.spectrayan.spector.kernel.api.MemoryType tier,
+                                           long recordOffset) {
+        return append(WalEvent.EventType.MARK_CONTRADICTED, memoryId, tierOffsetPayload(tier, recordOffset));
+    }
+
+    /**
+     * Appends a MARK_RETRACTED event.
+     *
+     * <p>Same durability contract as {@link #appendMarkContradicted}: the retracted bit is not in the
+     * original record image, so a crash before the region is flushed drops it unless this event is
+     * replayed.</p>
+     */
+    public WalEvent appendMarkRetracted(String memoryId,
+                                        com.spectrayan.spector.kernel.api.MemoryType tier,
+                                        long recordOffset) {
+        return append(WalEvent.EventType.MARK_RETRACTED, memoryId, tierOffsetPayload(tier, recordOffset));
+    }
+
+    private static byte[] tierOffsetPayload(com.spectrayan.spector.kernel.api.MemoryType tier, long recordOffset) {
+        java.nio.ByteBuffer buf = java.nio.ByteBuffer.allocate(12);
+        buf.putInt(tier != null ? tier.ordinal() : -1);
+        buf.putLong(recordOffset);
+        return buf.array();
+    }
+
+    /**
      * Appends a RECORD_WRITE event.
      */
     public WalEvent appendRecordWrite(String memoryId, long recordId, byte[] recordBytes) {

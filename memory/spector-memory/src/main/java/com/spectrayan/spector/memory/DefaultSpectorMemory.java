@@ -1299,6 +1299,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                         cascadeTombstoned.add(derivedId);
                     } else {
                         partitionManager.routerFor(dloc.colocatedPartition()).markRetracted(dloc);
+                        if (wal != null) {
+                            wal.appendMarkRetracted(derivedId, dloc.type(), dloc.offset());
+                        }
                         retracted.add(derivedId);
                     }
                 }
