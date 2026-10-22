@@ -66,6 +66,8 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestOperations;
 import org.springframework.web.client.RestTemplate;
 
+import com.spectrayan.spector.config.SpectorConfigSource;
+import com.spectrayan.spector.config.SpectorPropertyConstants;
 import com.spectrayan.spector.config.properties.AuthProperties;
 import com.spectrayan.spector.synapse.security.SpectorAuthorityMapper;
 
@@ -291,10 +293,8 @@ public class JwtDecoderConfig {
      */
     private void registerAgentJwks(Map<String, AuthenticationManager> managersByIssuer,
                                    JwtAuthenticationConverter converter) {
-        String path = System.getenv("SPECTOR_AUTH_AGENT_JWKS_FILE");
-        if (path == null || path.isBlank()) {
-            path = System.getProperty("spector.auth.agent-jwks-file");
-        }
+        String path = SpectorConfigSource.loadClasspathOnly()
+                .getString(SpectorPropertyConstants.AUTH_AGENT_JWKS_FILE);
         if (path == null || path.isBlank()) {
             return;
         }

@@ -26,6 +26,8 @@ import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorConfigException;
+import com.spectrayan.spector.config.SpectorConfigSource;
+import com.spectrayan.spector.config.SpectorPropertyConstants;
 import com.spectrayan.spector.mcp.McpCallGuard;
 import com.spectrayan.spector.synapse.security.AgentTokenService;
 
@@ -40,8 +42,8 @@ public final class StdioMcpTokens {
     }
 
     public static AgentTokenService.Pinned load() {
-        String tokenPath = System.getenv("SPECTOR_TOKEN_FILE");
-        if (tokenPath == null || tokenPath.isBlank()) {
+        String tokenPath = configured(SpectorPropertyConstants.MCP_TOKEN_FILE);
+        if (tokenPath == null) {
             throw new SpectorConfigException(ErrorCode.MCP_TOKEN_REQUIRED, "SPECTOR_TOKEN_FILE is not set");
         }
         Path tokenFile = Path.of(tokenPath);
@@ -57,7 +59,7 @@ public final class StdioMcpTokens {
      * Installs the per-call guard. A replacement token must keep the same subject and namespace.
      */
     public static void install(AgentTokenService.Pinned initial) {
-        String tokenPath = System.getenv("SPECTOR_TOKEN_FILE");
+        String tokenPath = configured(SpectorPropertyConstants.MCP_TOKEN_FILE);
         Path tokenFile = Path.of(tokenPath);
         Path jwks = jwksFile();
         Holder holder = new Holder(initial);
@@ -67,15 +69,25 @@ public final class StdioMcpTokens {
     }
 
     static Path jwksFile() {
-        String path = System.getenv("SPECTOR_AUTH_AGENT_JWKS_FILE");
-        if (path == null || path.isBlank()) {
-            path = System.getProperty("spector.auth.agent-jwks-file");
-        }
-        if (path == null || path.isBlank()) {
+        String path = configured(SpectorPropertyConstants.AUTH_AGENT_JWKS_FILE);
+        if (path == null) {
             throw new SpectorConfigException(ErrorCode.JWT_KEY_INVALID,
                     "SPECTOR_AUTH_AGENT_JWKS_FILE", "not set");
         }
         return Path.of(path);
+    }
+
+    /**
+     * Reads a bootstrap key through {@link SpectorConfigSource}, which maps
+     * {@code spector.token-file} to {@code SPECTOR_TOKEN_FILE} and
+     * {@code spector.auth.agent-jwks-file} to {@code SPECTOR_AUTH_AGENT_JWKS_FILE}.
+     */
+    private static String configured(String key) {
+        String value = SpectorConfigSource.loadClasspathOnly().getString(key);
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value;
     }
 
     private static final class Holder {
