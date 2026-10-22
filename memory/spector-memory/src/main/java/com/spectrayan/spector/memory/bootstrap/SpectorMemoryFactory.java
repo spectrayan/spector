@@ -199,6 +199,21 @@ public final class SpectorMemoryFactory {
     private SpectorMemoryFactory() {}
 
     public static SubsystemBundle assemble(SpectorMemoryBuilder builder) {
+        // One writer per store directory, taken before anything in it is read or written (SPE-310-031).
+        java.nio.file.Path lockedDir = builder.persistenceMode() == com.spectrayan.spector.memory.model.MemoryPersistenceMode.DISK
+                ? builder.persistencePath() : null;
+        if (lockedDir != null) {
+            com.spectrayan.spector.memory.persist.StoreDirectoryLock.acquire(lockedDir);
+        }
+        try {
+            return assembleUnlocked(builder);
+        } catch (RuntimeException | Error e) {
+            com.spectrayan.spector.memory.persist.StoreDirectoryLock.release(lockedDir);
+            throw e;
+        }
+    }
+
+    private static SubsystemBundle assembleUnlocked(SpectorMemoryBuilder builder) {
         if (builder.embeddingProvider() == null) {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL,
                     "embeddingProvider is required");

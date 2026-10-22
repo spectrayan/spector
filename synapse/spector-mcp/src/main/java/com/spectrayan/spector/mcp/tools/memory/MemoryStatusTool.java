@@ -46,12 +46,24 @@ public final class MemoryStatusTool extends MemoryToolHandler {
         LateralEvaluator lateral = memory.admin().lateralEvaluator();
         LateralEvaluator.LateralMetrics metrics = lateral.metrics();
 
+        // Forget and purge clear records in place; only vacuum shrinks the slot count. Report live records
+        // so a namespace whose memories were all forgotten no longer claims to hold them.
+        int working = liveCount(memory, MemoryType.WORKING);
+        int episodic = liveCount(memory, MemoryType.EPISODIC);
+        int semantic = liveCount(memory, MemoryType.SEMANTIC);
+        int procedural = liveCount(memory, MemoryType.PROCEDURAL);
+        int forgotten = 0;
+        for (MemoryType type : MemoryType.values()) {
+            forgotten += Math.max(0, memory.tombstonedCount(type));
+        }
+
         var model = Map.<String, Object>ofEntries(
-                Map.entry("totalMemories", memory.totalMemories()),
-                Map.entry("workingCount", memory.memoryCount(MemoryType.WORKING)),
-                Map.entry("episodicCount", memory.memoryCount(MemoryType.EPISODIC)),
-                Map.entry("semanticCount", memory.memoryCount(MemoryType.SEMANTIC)),
-                Map.entry("proceduralCount", memory.memoryCount(MemoryType.PROCEDURAL)),
+                Map.entry("totalMemories", working + episodic + semantic + procedural),
+                Map.entry("workingCount", working),
+                Map.entry("episodicCount", episodic),
+                Map.entry("semanticCount", semantic),
+                Map.entry("proceduralCount", procedural),
+                Map.entry("forgottenCount", forgotten),
                 Map.entry("walSize", memory.admin().wal().size()),
                 Map.entry("walHighWaterMark", memory.admin().wal().highWaterMark()),
                 Map.entry("suppressedCount", memory.admin().suppression().size()),
@@ -65,5 +77,9 @@ public final class MemoryStatusTool extends MemoryToolHandler {
         );
 
         return textResult(McpTemplateEngine.render("memory-status", model));
+    }
+
+    private static int liveCount(SpectorMemory memory, MemoryType type) {
+        return Math.max(0, memory.memoryCount(type) - memory.tombstonedCount(type));
     }
 }

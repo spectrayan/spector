@@ -263,17 +263,19 @@ public class SpectorAutoConfiguration {
                         spectorProps.memory().getCircadian().getOrchestrator());
             }
 
-            // ── Entity extraction (LLM if LlmProvider is present, DICTIONARY fallback) ─────
-            LlmProvider textGen = textGenProvider.getIfAvailable();
+            // ── Entity extraction ─────
+            // generation.type=none: no LLM reaches the memory at all. Otherwise the default NONE is upgraded
+            // to LLM as before. An explicit LLM mode is never downgraded: without a provider the memory
+            // build fails (SPE-110-006) instead of silently using the dictionary extractor.
+            boolean generationDisabled = isGenerationDisabled(props.getProvider().getGeneration().getType());
+            LlmProvider textGen = generationDisabled ? null : textGenProvider.getIfAvailable();
             if (spectorProps.memory() != null && spectorProps.memory().getGraph() != null
                     && spectorProps.memory().getGraph().getEntity() != null) {
                 var entityCfg = spectorProps.memory().getGraph().getEntity();
-                if (textGen != null) {
-                    if ("NONE".equalsIgnoreCase(entityCfg.getExtractionMode())) {
+                if ("NONE".equalsIgnoreCase(entityCfg.getExtractionMode())) {
+                    if (textGen != null) {
                         entityCfg.setExtractionMode(EntityExtractionMode.LLM.name());
-                    }
-                } else {
-                    if ("LLM".equalsIgnoreCase(entityCfg.getExtractionMode()) || "NONE".equalsIgnoreCase(entityCfg.getExtractionMode())) {
+                    } else if (!generationDisabled) {
                         entityCfg.setExtractionMode(EntityExtractionMode.DICTIONARY.name());
                     }
                 }
@@ -399,8 +401,22 @@ public class SpectorAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean(LlmProvider.class)
     public LlmProvider llmProvider(ProviderRegistry providerRegistry, SpectorConfigProperties props) {
+        var generation = props.getProvider().getGeneration();
+        if (isGenerationDisabled(generation.getType())) {
+            String needs = llmRequirement(props);
+            if (needs != null) {
+                log.error("[Spector] spector.provider.generation.type={} but {} needs a text generation provider ({})",
+                        generation.getType(), needs, ErrorCode.GENERATION_PROVIDER_UNAVAILABLE.id());
+                throw new com.spectrayan.spector.commons.error.SpectorConfigException(
+                        ErrorCode.GENERATION_PROVIDER_UNAVAILABLE, needs,
+                        "spector.provider.generation.type=" + generation.getType() + " disables text generation");
+            }
+            // Explicit "no LLM": nothing is registered, so no feature can attempt a generation call.
+            log.info("[Spector] Text generation disabled (spector.provider.generation.type={})", generation.getType());
+            return new DelegatingLlmProvider(providerRegistry);
+        }
         try {
-            var genProps = props.getProvider().getGeneration();
+            var genProps = generation;
             String type = genProps.getType();
             if (type == null || type.isBlank() || "ollama".equalsIgnoreCase(type)) {
                 Duration timeout = Duration.ofSeconds(300);
@@ -423,7 +439,7 @@ public class SpectorAutoConfiguration {
                         resolved.name(), resolved.model());
             }
         } catch (Exception e) {
-            if (llmRequired(props)) {
+            if (llmRequirement(props) != null) {
                 // tag-extractor=llm has no keyword fallback, so a missing LLM must stop startup here rather
                 // than surface later as every write failing (or, before this check, as silent keyword tags).
                 log.error("[Spector] tag-extractor=llm needs a text generation provider, and it could not be "
@@ -439,11 +455,31 @@ public class SpectorAutoConfiguration {
         return new DelegatingLlmProvider(providerRegistry);
     }
 
-    /** Whether the configuration makes an LLM mandatory (no keyword fallback). */
-    private static boolean llmRequired(SpectorConfigProperties props) {
+    /** Whether a generation type means "no LLM": {@code none} or {@code disabled}. */
+    public static boolean isGenerationDisabled(String type) {
+        return type != null && ("none".equalsIgnoreCase(type.trim()) || "disabled".equalsIgnoreCase(type.trim()));
+    }
+
+    /**
+     * The setting that makes an LLM mandatory (no fallback), or {@code null} if none does.
+     *
+     * @param props bound configuration
+     * @return e.g. {@code "spector.memory.tag-extractor=llm"}, or {@code null}
+     */
+    static String llmRequirement(SpectorConfigProperties props) {
         var memory = props.getMemory();
-        return memory != null
-                && memory.getTagExtractor() == com.spectrayan.spector.config.model.TagExtractorMode.LLM;
+        if (memory == null) {
+            return null;
+        }
+        if (memory.getTagExtractor() == com.spectrayan.spector.config.model.TagExtractorMode.LLM) {
+            return "spector.memory.tag-extractor=llm";
+        }
+        var graph = memory.getGraph();
+        String mode = graph != null && graph.getEntity() != null ? graph.getEntity().getExtractionMode() : null;
+        if (mode != null && "llm".equalsIgnoreCase(mode.trim())) {
+            return "spector.memory.entity.extraction-mode=llm";
+        }
+        return null;
     }
 
     /**

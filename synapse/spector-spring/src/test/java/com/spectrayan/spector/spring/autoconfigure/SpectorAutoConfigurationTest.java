@@ -78,6 +78,19 @@ class SpectorAutoConfigurationTest {
 
     }
 
+    /** Runner with an explicit embedding type; there is no implicit in-process fallback any more. */
+    private final ApplicationContextRunner onnxRunner = contextRunner
+            .withPropertyValues("spector.provider.embedding.type=onnx");
+
+    /** A type that matches no provider stops startup instead of running on a substitute embedder. */
+    private static void assertUnmatchedEmbeddingType(
+            org.springframework.boot.test.context.assertj.AssertableApplicationContext context) {
+        assertThat(context).hasFailed();
+        assertThat(context.getStartupFailure()).rootCause()
+                .hasMessageContaining("SPE-110-003")
+                .hasMessageContaining("matched no embedding provider");
+    }
+
     @org.junit.jupiter.api.AfterEach
     void tearDown() {
         com.spectrayan.spector.commons.concurrent.SpectorExecutors.reset();
@@ -155,14 +168,63 @@ class SpectorAutoConfigurationTest {
     }
 
     @Test
+    void generationTypeNoneDisablesTextGenerationExplicitly() {
+        this.contextRunner
+                .withUserConfiguration(TestDependenciesConfiguration.class)
+                .withPropertyValues("spector.provider.embedding.dimensions=384",
+                        "spector.provider.generation.type=none")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context.getBean(ProviderRegistry.class).activeGenerationName()).isEmpty();
+                    assertThat(context.getBean(LlmProvider.class).isAvailable()).isFalse();
+                    assertThat(context).hasSingleBean(SpectorMemory.class);
+                });
+    }
+
+    @Test
+    void generationTypeNoneWithLlmTagExtractorFailsStartup() {
+        this.contextRunner
+                .withUserConfiguration(TestDependenciesConfiguration.class)
+                .withPropertyValues("spector.provider.embedding.dimensions=384",
+                        "spector.provider.generation.type=none",
+                        "spector.memory.tag-extractor=llm")
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    assertThat(context.getStartupFailure())
+                            .rootCause()
+                            .hasMessageContaining("SPE-110-006")
+                            .hasMessageContaining("tag-extractor=llm");
+                });
+    }
+
+    @Test
+    void isGenerationDisabledAcceptsNoneAndDisabledOnly() {
+        assertThat(SpectorAutoConfiguration.isGenerationDisabled("none")).isTrue();
+        assertThat(SpectorAutoConfiguration.isGenerationDisabled(" Disabled ")).isTrue();
+        assertThat(SpectorAutoConfiguration.isGenerationDisabled("ollama")).isFalse();
+        assertThat(SpectorAutoConfiguration.isGenerationDisabled("")).isFalse();
+        assertThat(SpectorAutoConfiguration.isGenerationDisabled(null)).isFalse();
+    }
+
+    @Test
     public void shouldCreateEmbeddingProviderBean(){
         contextRunner.withUserConfiguration(TestWrapSpringAIAutoConfiguration.class).run(context -> {
             assertThat(context).hasSingleBean(EmbeddingProvider.class);
         });
     }
     @Test
-    void shouldCreateFallbackOnnxEmbeddingProviderByDefault() {
+    void shouldFailStartupWhenNoEmbeddingTypeIsSet() {
         contextRunner.run(context -> {
+            assertThat(context).hasFailed();
+            assertThat(context.getStartupFailure()).rootCause()
+                    .hasMessageContaining("SPE-110-003")
+                    .hasMessageContaining("spector.provider.embedding.type: no value is set");
+        });
+    }
+
+    @Test
+    void shouldCreateFallbackOnnxEmbeddingProviderOnlyWhenOptedIn() {
+        contextRunner.withPropertyValues("spector.provider.embedding.fallback.enabled=true").run(context -> {
             assertThat(context).hasSingleBean(EmbeddingProvider.class);
             assertThat(context).hasBean("defaultFallbackOnnxEmbeddingProvider");
             EmbeddingProvider provider = context.getBean("defaultFallbackOnnxEmbeddingProvider", EmbeddingProvider.class);
@@ -171,11 +233,51 @@ class SpectorAutoConfigurationTest {
     }
 
     @Test
-    void shouldNotCreateEmbeddingProviderBeanWhenFallbackDisabled() {
-        contextRunner.withPropertyValues("spector.provider.embedding.fallback.enabled=false")
-                .run(context -> {
-                    assertThat(context).doesNotHaveBean(EmbeddingProvider.class);
-                });
+    void shouldFailStartupWhenFallbackDisabledAndNoTypeMatches() {
+        contextRunner.withPropertyValues("spector.provider.embedding.fallback.enabled=false",
+                        "spector.provider.embedding.type=not-a-provider")
+                .run(SpectorAutoConfigurationTest::assertUnmatchedEmbeddingType);
+    }
+
+    @Test
+    void onnxWithAnOllamaModelNameFailsInsteadOfSwappingToMiniLm() {
+        onnxRunner.withPropertyValues("spector.provider.embedding.model=nomic-embed-text").run(context -> {
+            assertThat(context).hasFailed();
+            assertThat(context.getStartupFailure()).rootCause()
+                    .hasMessageContaining("SPE-110-011")
+                    .hasMessageContaining("nomic-embed-text");
+        });
+    }
+
+    @Test
+    void onnxWithoutAModelUsesTheBundledMiniLm() {
+        onnxRunner.run(context -> {
+            assertThat(context).hasNotFailed();
+            EmbeddingProvider provider = context.getBean("onnxEmbeddingProvider", EmbeddingProvider.class);
+            assertThat(provider.modelName()).isEqualTo("all-MiniLM-L6-v2");
+            assertThat(provider.dimensions()).isEqualTo(384);
+        });
+    }
+
+    @Test
+    void unknownEntityExtractionModeFailsStartup() {
+        onnxRunner.withPropertyValues("spector.memory.entity.extraction-mode=regex").run(context -> {
+            assertThat(context).hasFailed();
+            assertThat(context.getStartupFailure()).rootCause()
+                    .hasMessageContaining("SPE-110-003")
+                    .hasMessageContaining("extraction-mode");
+        });
+    }
+
+    @Test
+    void llmEntityExtractionWithGenerationDisabledFailsStartup() {
+        onnxRunner.withPropertyValues("spector.provider.generation.type=none",
+                "spector.memory.entity.extraction-mode=llm").run(context -> {
+            assertThat(context).hasFailed();
+            assertThat(context.getStartupFailure()).rootCause()
+                    .hasMessageContaining("SPE-110-006")
+                    .hasMessageContaining("extraction-mode=llm");
+        });
     }
 
     @Test
@@ -198,12 +300,12 @@ class SpectorAutoConfigurationTest {
     void shouldNotCreateOllamaEmbeddingProviderWithFalsePropertiesValues(){
         contextRunner.withPropertyValues("spector.provider.embedding.type=Gpt")
                 .run(context -> {
-                    assertThat(context).doesNotHaveBean("ollamaEmbeddingProvider");
+                    assertUnmatchedEmbeddingType(context);
                 });
     }
     @Test
     void shouldNotCreateOllamaEmbeddingProviderWithoutSettingPropertiesValues(){
-        contextRunner.run(context -> {
+        onnxRunner.run(context -> {
             assertThat(context).doesNotHaveBean("ollamaEmbeddingProvider");
         });
     }
@@ -223,7 +325,7 @@ class SpectorAutoConfigurationTest {
     }
     @Test
     void shouldNotCreateOpenAIEmbeddingProviderWithoutSettingPropertiesValues(){
-        contextRunner.run(context -> {
+        onnxRunner.run(context -> {
             assertThat(context).doesNotHaveBean("openAIEmbeddingProvider");
         });
     }
@@ -238,12 +340,12 @@ class SpectorAutoConfigurationTest {
     void shouldNotCreateAnthropicEmbeddingProviderWithFalsePropertiesValues(){
         contextRunner.withPropertyValues("spector.provider.embedding.type=As","spector.provider.embedding.model=Claude","spector.provider.embedding.api-key=qdsf")
                 .run(context -> {
-                    assertThat(context).doesNotHaveBean("mistralEmbeddingProvider");
+                    assertUnmatchedEmbeddingType(context);
                 });
     }
     @Test
     void shouldNotCreateAnthropicEmbeddingProviderWithoutSettingPropertiesValues(){
-        contextRunner.run(context -> {
+        onnxRunner.run(context -> {
             assertThat(context).doesNotHaveBean("anthropicEmbeddingProvider");
         });
     }
@@ -252,12 +354,12 @@ class SpectorAutoConfigurationTest {
     void shouldNotCreateMistralEmbeddingProviderWithFalsePropertiesValues(){
         contextRunner.withPropertyValues("spector.provider.embedding.type=Mis","spector.provider.embedding.model=Gpt4.5","spector.provider.embedding.api-key=qdsf")
                 .run(context -> {
-                    assertThat(context).doesNotHaveBean("mistralEmbeddingProvider");
+                    assertUnmatchedEmbeddingType(context);
                 });
     }
     @Test
     void shouldNotCreateMistralEmbeddingProviderWithoutSettingPropertiesValues(){
-        contextRunner.run(context -> {
+        onnxRunner.run(context -> {
             assertThat(context).doesNotHaveBean("mistralEmbeddingProvider");
         });
     }
@@ -272,18 +374,18 @@ class SpectorAutoConfigurationTest {
     void shouldNotCreateAzureOpenAiEmbeddingProviderWithFalsePropertiesValues(){
         contextRunner.withPropertyValues("spector.provider.embedding.type=As","spector.provider.embedding.model=Claude","spector.provider.embedding.api-key=qdsf")
                 .run(context -> {
-                    assertThat(context).doesNotHaveBean("azureOpenAiEmbeddingProvider");
+                    assertUnmatchedEmbeddingType(context);
                 });
     }
     @Test
     void shouldNotCreateAzureOpenAiEmbeddingProviderWithoutSettingPropertiesValues(){
-        contextRunner.run(context -> {
+        onnxRunner.run(context -> {
             assertThat(context).doesNotHaveBean("azureOpenAiEmbeddingProvider");
         });
     }
     @Test
     void shouldCreateVectorMemoryStoreBean(){
-        contextRunner.withUserConfiguration(TestSpectorVectorMemoryStoreBeanConfiguration.class)
+        onnxRunner.withUserConfiguration(TestSpectorVectorMemoryStoreBeanConfiguration.class)
                 .run(context -> {
                     assertThat(context).hasBean("spectorVectorMemoryStore");
                 });
@@ -301,12 +403,12 @@ class SpectorAutoConfigurationTest {
     void shouldNotCreateBedrockEmbeddingProviderWithFalsePropertiesValues(){
         contextRunner.withPropertyValues("spector.provider.embedding.type=bdrok","spector.provider.embedding.model=Gpt4.5","spector.provider.embedding.api-key=qdsf")
                 .run(context -> {
-                    assertThat(context).doesNotHaveBean("bedrockEmbeddingProvider");
+                    assertUnmatchedEmbeddingType(context);
                 });
     }
     @Test
     void shouldNotCreateBedrockEmbeddingProviderWithoutSettingPropertiesValues(){
-        contextRunner.run(context -> {
+        onnxRunner.run(context -> {
             assertThat(context).doesNotHaveBean("openAIEmbeddingProvider");
         });
     }
@@ -321,33 +423,33 @@ class SpectorAutoConfigurationTest {
     void shouldNotCreateGoogleEmbeddingProviderWithFalsePropertiesValues(){
         contextRunner.withPropertyValues("spector.provider.embedding.type=bdrok","spector.provider.embedding.model=Gpt4.5","spector.provider.embedding.api-key=qdsf")
                 .run(context -> {
-                    assertThat(context).doesNotHaveBean("googleEmbeddingProvider");
+                    assertUnmatchedEmbeddingType(context);
                 });
     }
     @Test
     void shouldNotCreateGoogleEmbeddingProviderWithoutSettingPropertiesValues(){
-        contextRunner.run(context -> {
+        onnxRunner.run(context -> {
             assertThat(context).doesNotHaveBean("googleEmbeddingProvider");
         });
     }
 
     @Test
     void shouldAutoConfigureProviderRegistry() {
-        contextRunner.run(context -> {
+        onnxRunner.run(context -> {
             assertThat(context).hasSingleBean(ProviderRegistry.class);
         });
     }
 
     @Test
     void shouldAutoConfigureTsidGenerator() {
-        contextRunner.run(context -> {
+        onnxRunner.run(context -> {
             assertThat(context).hasSingleBean(TsidGenerator.class);
         });
     }
 
     @Test
     void shouldAutoConfigureLlmProvider() {
-        contextRunner.run(context -> {
+        onnxRunner.run(context -> {
             assertThat(context).hasSingleBean(LlmProvider.class);
         });
     }

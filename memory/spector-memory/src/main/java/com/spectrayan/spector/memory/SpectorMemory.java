@@ -793,6 +793,17 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
     /** Returns the number of memories in a specific tier. */
     int memoryCount(MemoryType type);
 
+    /**
+     * Returns how many slots of a tier hold forgotten (tombstoned) or purged records. These slots are
+     * still included in {@link #memoryCount(MemoryType)} until vacuum compaction reclaims them.
+     *
+     * @param type the tier
+     * @return the number of tombstoned or purged slots; {@code 0} when the implementation cannot tell
+     */
+    default int tombstonedCount(MemoryType type) {
+        return 0;
+    }
+
     // ══════════════════════════════════════════════════════════════
     // SALIENCE PROFILE — runtime personality & interest configuration
     // ══════════════════════════════════════════════════════════════

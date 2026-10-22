@@ -83,6 +83,28 @@ class MemoryForgetThenPurgeIntegrationTest {
         }
     }
 
+    @Test
+    @DisplayName("memory_status counts only live records; forgotten and purged ones are reported apart")
+    void statusCountsOnlyLiveRecords(@TempDir Path dir) throws Exception {
+        try (SpectorMemory memory = diskMemory(dir)) {
+            memory.remember("s-1", "Live semantic fact about alpine lakes", MemoryType.SEMANTIC, "t");
+            memory.remember("s-2", "Forgotten fact about desert dunes", MemoryType.SEMANTIC, "t");
+            memory.remember("s-3", "Purged fact about coral reefs", MemoryType.SEMANTIC, "t");
+            memory.forget("s-2");
+            memory.forget("s-3");
+            memory.purge("s-3");
+
+            assertThat(memory.memoryCount(MemoryType.SEMANTIC)).as("slots, before vacuum").isEqualTo(3);
+            assertThat(memory.tombstonedCount(MemoryType.SEMANTIC)).isEqualTo(2);
+
+            String status = text(new MemoryStatusTool(memory).execute(Map.of()));
+            assertThat(status)
+                    .contains("Total Memories: 1")
+                    .containsPattern("Semantic \\(Neocortex\\):\\s+1")
+                    .contains("Forgotten or purged (not counted above): 2");
+        }
+    }
+
     private static SpectorMemory diskMemory(Path dir) {
         EmbeddingProvider embed = new HashEmbedder();
         var props = new MemoryProperties()

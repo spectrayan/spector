@@ -489,13 +489,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             } else {
                 String[] finalTags = tags;
                 var finalHints = hints;
-                if (tags == null || tags.length == 0) {
-                    var extraction = extractTags(id, text);
-                    if (extraction != null) {
-                        finalTags = extraction.tags();
-                        finalHints = RememberHints.withAppraisedAffect(
-                                hints, extraction.valence(), extraction.arousal());
-                    }
+                var extraction = extractTagsFor(id, text, tags);
+                if (extraction != null) {
+                    finalTags = mergeTags(tags, extraction.tags());
+                    finalHints = RememberHints.withAppraisedAffect(
+                            hints, extraction.valence(), extraction.arousal());
                 }
                 float[] vector = embeddingProvider.embed(text).vector();
                 String sessionId = MemoryScope.sessionId();
@@ -576,12 +574,10 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             } else {
                 String[] finalTags = tags;
                 var finalContext = context;
-                if (tags == null || tags.length == 0) {
-                    var extraction = extractTags(id, text);
-                    if (extraction != null) {
-                        finalTags = extraction.tags();
-                        finalContext = withAppraisedAffect(context, extraction);
-                    }
+                var extraction = extractTagsFor(id, text, tags);
+                if (extraction != null) {
+                    finalTags = mergeTags(tags, extraction.tags());
+                    finalContext = withAppraisedAffect(context, extraction);
                 }
                 float[] vector = embeddingProvider.embed(text).vector();
                 rememberPathway.ingestCognitive(id, text, vector, type, finalTags, source, finalContext);
@@ -622,12 +618,10 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         try {
             String[] finalTags = tags;
             var finalContext = context;
-            if (tags == null || tags.length == 0) {
-                var extraction = extractTags(id, text);
-                if (extraction != null) {
-                    finalTags = extraction.tags();
-                    finalContext = withAppraisedAffect(context, extraction);
-                }
+            var extraction = extractTagsFor(id, text, tags);
+            if (extraction != null) {
+                finalTags = mergeTags(tags, extraction.tags());
+                finalContext = withAppraisedAffect(context, extraction);
             }
             float[] finalVector = (vector != null && vector.length > 0)
                     ? vector
@@ -810,6 +804,43 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private TagExtractionResult extractTags(String id, String text) {
         var tagExtractor = rememberPathway.tagExtractor();
         return tagExtractor != null ? tagExtractor.extractWithContext(id, text) : null;
+    }
+
+    /**
+     * Runs the tag extractor for a remember call. Without caller tags the extractor always runs. With
+     * caller tags only an appraising extractor ({@link com.spectrayan.spector.memory.pathway.pipeline.TagExtractor#appraises()}, e.g. the LLM one)
+     * runs, so caller bookkeeping tags no longer switch off the valence/arousal appraisal.
+     *
+     * @return the extraction result, or {@code null} when extraction is skipped or unavailable
+     */
+    private TagExtractionResult extractTagsFor(String id, String text, String[] callerTags) {
+        if (callerTags == null || callerTags.length == 0) {
+            return extractTags(id, text);
+        }
+        var tagExtractor = rememberPathway.tagExtractor();
+        if (tagExtractor == null || !tagExtractor.appraises()) {
+            return null;
+        }
+        return tagExtractor.extractWithContext(id, text);
+    }
+
+    /**
+     * Merges caller tags with extracted tags: caller tags first, then extracted ones, blank values and
+     * duplicates removed (case-sensitive, first occurrence wins).
+     */
+    static String[] mergeTags(String[] callerTags, String[] extractedTags) {
+        var merged = new java.util.LinkedHashSet<String>();
+        for (String[] source : new String[][] {callerTags, extractedTags}) {
+            if (source == null) {
+                continue;
+            }
+            for (String tag : source) {
+                if (tag != null && !tag.isBlank()) {
+                    merged.add(tag.trim());
+                }
+            }
+        }
+        return merged.toArray(String[]::new);
     }
 
     /**
@@ -2133,6 +2164,42 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     }
 
     @Override
+    public int tombstonedCount(MemoryType type) {
+        if (type == null) {
+            return 0;
+        }
+        vacuumLock.lock();
+        try {
+            if (type == MemoryType.WORKING) {
+                // Working memory is global; count it once through the active router, as memoryCount does.
+                return countDead(partitionManager.activeRouter().get(MemoryType.WORKING));
+            }
+            int dead = 0;
+            for (var handle : partitionManager.snapshot()) {
+                dead += countDead(handle.router().get(type));
+            }
+            return dead;
+        } finally {
+            vacuumLock.unlock();
+        }
+    }
+
+    private static int countDead(EngramRegion store) {
+        if (store == null) {
+            return 0;
+        }
+        int dead = 0;
+        int size = store.size();
+        for (int i = 0; i < size; i++) {
+            long offset = store.recordOffset(i);
+            if (store.isTombstoned(offset) || store.isPurged(offset)) {
+                dead++;
+            }
+        }
+        return dead;
+    }
+
+    @Override
     public int decay(Duration olderThan, float factor) {
         if (olderThan == null) { throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "olderThan"); }
         if (factor < 0f || factor > 1f) throw new SpectorValidationException(ErrorCode.ARGUMENT_OUT_OF_RANGE, "factor", 0, 1, 0);
@@ -2846,6 +2913,10 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             } catch (Exception e) {
                 log.warn("Failed to close RuntimeBundle on close", e);
             }
+        }
+        // Last: everything in the directory is flushed and closed, so the next writer may take it.
+        if (persistenceMode == MemoryPersistenceMode.DISK) {
+            com.spectrayan.spector.memory.persist.StoreDirectoryLock.release(persistencePath);
         }
     }
 
