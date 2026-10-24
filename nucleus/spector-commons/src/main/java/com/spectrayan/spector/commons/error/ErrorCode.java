@@ -176,6 +176,12 @@ public enum ErrorCode {
     EXTRACTION_MODEL_INVALID  (110_012, ErrorCategory.CONFIG,
             "Extraction model is unusable ({}): {}"),
 
+    /** The store's recorded embedding fingerprint or vector dimension does not match the configured embedder. */
+    EMBEDDING_FINGERPRINT_MISMATCH(110_013, ErrorCategory.CONFIG,
+            "Store '{}' was written with embedder [{}] but is now configured for [{}]. "
+            + "Restore the original embedding configuration or re-embed the store with: "
+            + "spector migrate reembed --from {} --to <target-dir>"),
+
     // ══════════════════════════════════════════════════════════════════════
     // INDEX (SPE-200-xxx)
     // ══════════════════════════════════════════════════════════════════════
