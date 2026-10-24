@@ -208,6 +208,9 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
         if (type != MemoryType.SEMANTIC && type != MemoryType.PROCEDURAL) {
             return false;
         }
+        if (!contradictionDetector.canVerify()) {
+            return false;
+        }
 
         String sessionId = MemoryScope.sessionId();
         String namespaceId = MemoryScope.namespaceId();

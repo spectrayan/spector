@@ -123,6 +123,7 @@ public class MemoryProperties implements Serializable {
     private IndexReconcileProperties reconcile = new IndexReconcileProperties();
     private int maxNamespaces = 100;
     private boolean pathwayEnabled = true;
+    private boolean allowEmbeddingMismatch = DEFAULT_MEMORY_ALLOW_EMBEDDING_MISMATCH;
 
     public MemoryProperties() {}
 
@@ -490,6 +491,10 @@ public class MemoryProperties implements Serializable {
     public MemoryProperties setPathwayEnabled(boolean pathwayEnabled) { this.pathwayEnabled = pathwayEnabled; return this; }
     public boolean pathwayEnabled() { return pathwayEnabled; }
 
+    public boolean isAllowEmbeddingMismatch() { return allowEmbeddingMismatch; }
+    public MemoryProperties setAllowEmbeddingMismatch(boolean allowEmbeddingMismatch) { this.allowEmbeddingMismatch = allowEmbeddingMismatch; return this; }
+    public boolean allowEmbeddingMismatch() { return allowEmbeddingMismatch; }
+
     public int getWorkingCapacity() { return workingCapacity; }
     public MemoryProperties setWorkingCapacity(int workingCapacity) { this.workingCapacity = workingCapacity; return this; }
     public int workingCapacity() { return workingCapacity; }
@@ -623,6 +628,7 @@ public class MemoryProperties implements Serializable {
     public MemoryProperties namespaceId(String s) { setNamespaceId(s); return this; }
     public MemoryProperties maxNamespaces(int m) { setMaxNamespaces(m); return this; }
     public MemoryProperties pathwayEnabled(boolean b) { setPathwayEnabled(b); return this; }
+    public MemoryProperties allowEmbeddingMismatch(boolean b) { setAllowEmbeddingMismatch(b); return this; }
     public MemoryProperties coactivationPairCapacity(int c) { setCoactivationPairCapacity(c); return this; }
     public MemoryProperties coactivationEdgeCapacity(int c) { setCoactivationEdgeCapacity(c); return this; }
     public MemoryProperties temporalFactsInitialSize(long s) { setTemporalFactsInitialSize(s); return this; }
@@ -732,6 +738,7 @@ public class MemoryProperties implements Serializable {
         cp.dreamEnabled = this.dreamEnabled;
         cp.maxNamespaces = this.maxNamespaces;
         cp.pathwayEnabled = this.pathwayEnabled;
+        cp.allowEmbeddingMismatch = this.allowEmbeddingMismatch;
         cp.entityExtractionParallelism = this.entityExtractionParallelism;
         cp.entityExtractionQueueCapacity = this.entityExtractionQueueCapacity;
 

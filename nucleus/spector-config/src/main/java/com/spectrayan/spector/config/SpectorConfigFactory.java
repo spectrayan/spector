@@ -356,6 +356,7 @@ public final class SpectorConfigFactory {
 
         properties.setMaxNamespaces(props.getInt("spector.memory.max-namespaces", 100));
         properties.setProvenanceCapacity(props.getInt(MEMORY_PROVENANCE_CAPACITY, DEFAULT_MEMORY_PROVENANCE_CAPACITY));
+        properties.setAllowEmbeddingMismatch(props.getBoolean(MEMORY_ALLOW_EMBEDDING_MISMATCH, DEFAULT_MEMORY_ALLOW_EMBEDDING_MISMATCH));
 
         // Pathway enabled — respect explicit boolean, or derive from recall.engine
         boolean pathwayDefault = true;

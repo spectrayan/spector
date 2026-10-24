@@ -681,6 +681,123 @@ public final class PartitionBundle implements AbstractBundle {
     }
 
     /**
+     * Returns {@code true} if all cognitive data regions ({@code SEMANTIC}, {@code EPISODIC},
+     * {@code PROCEDURAL}, {@code TEXT}) in this partition bundle contain zero records.
+     */
+    public boolean isCognitiveDataEmpty() {
+        for (RegionId id : new RegionId[]{RegionId.SEMANTIC, RegionId.EPISODIC, RegionId.PROCEDURAL, RegionId.TEXT}) {
+            if (hasRegion(id)) {
+                MemorySegment slice = currentSlice(id);
+                if (RegionPreamble.isValid(slice, 0) && RegionPreamble.readCount(slice, 0) > 0) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Inspects an on-disk {@code partition.bundle} file and returns the stored vector dimensionality
+     * ({@code stride - 64}) if and only if the bundle contains at least one stored cognitive record.
+     */
+    public static java.util.OptionalInt inspectStoredVectorDimensions(
+            Path bundleFile,
+            com.spectrayan.spector.kernel.storage.PayloadEncryptor encryptor) {
+        if (bundleFile == null || !Files.isRegularFile(bundleFile)) {
+            return java.util.OptionalInt.empty();
+        }
+        try {
+            if (com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.isEncryptedFile(bundleFile)) {
+                if (encryptor == null || !encryptor.isEnabled()) {
+                    return java.util.OptionalInt.empty();
+                }
+                try (PartitionBundle bundle = Init.open(bundleFile, encryptor)) {
+                    if (bundle.isCognitiveDataEmpty()) {
+                        return java.util.OptionalInt.empty();
+                    }
+                    for (RegionId targetId : new RegionId[]{RegionId.SEMANTIC, RegionId.PROCEDURAL}) {
+                        RegionEntry entry = bundle.directory().findRegion(targetId);
+                        if (entry != null && entry.stride() > EncodingHeaderFields.HEADER_BYTES) {
+                            return java.util.OptionalInt.of(entry.stride() - EncodingHeaderFields.HEADER_BYTES);
+                        }
+                    }
+                    return java.util.OptionalInt.empty();
+                }
+            }
+
+            long fileSize = Files.size(bundleFile);
+            int headerBytes = (int) Math.min(4096L, fileSize);
+            if (headerBytes < BundleDirectory.ENTRIES_OFFSET + RegionEntry.ENTRY_BYTES) {
+                return java.util.OptionalInt.empty();
+            }
+            try (Arena arena = Arena.ofConfined();
+                 FileChannel fc = FileChannel.open(bundleFile, StandardOpenOption.READ)) {
+                MemorySegment seg = arena.allocate(headerBytes, 64);
+                java.nio.ByteBuffer bb = seg.asByteBuffer();
+                while (bb.hasRemaining()) {
+                    if (fc.read(bb) < 0) {
+                        break;
+                    }
+                }
+                if (!RegionPreamble.isValid(seg, BundleDirectory.HEADER_OFFSET)
+                        || !BundleSubHeader.isValid(seg)
+                        || BundleSubHeader.readBundleMagic(seg) != BundleSubHeader.MAGIC_PARTITION) {
+                    return java.util.OptionalInt.empty();
+                }
+                int regionCount = BundleSubHeader.readRegionCount(seg);
+                int inferredDims = -1;
+                boolean hasStoredRecords = false;
+                MemorySegment regionPreambleSeg = arena.allocate(RegionPreamble.PREAMBLE_BYTES, 64);
+
+                for (int i = 0; i < regionCount; i++) {
+                    long offset = BundleDirectory.ENTRIES_OFFSET + (long) i * RegionEntry.ENTRY_BYTES;
+                    if (offset + RegionEntry.ENTRY_BYTES > seg.byteSize()) {
+                        break;
+                    }
+                    RegionEntry entry = RegionEntry.read(seg, offset);
+                    if (!entry.isLive()) {
+                        continue;
+                    }
+                    if (inferredDims <= 0
+                            && (entry.regionId() == RegionId.SEMANTIC || entry.regionId() == RegionId.PROCEDURAL)
+                            && entry.stride() > EncodingHeaderFields.HEADER_BYTES) {
+                        inferredDims = entry.stride() - EncodingHeaderFields.HEADER_BYTES;
+                    }
+                    if (!hasStoredRecords
+                            && (entry.regionId() == RegionId.SEMANTIC
+                                    || entry.regionId() == RegionId.EPISODIC
+                                    || entry.regionId() == RegionId.PROCEDURAL
+                                    || entry.regionId() == RegionId.TEXT)
+                            && entry.offset() >= 0
+                            && entry.offset() + RegionPreamble.PREAMBLE_BYTES <= fileSize) {
+                        java.nio.ByteBuffer preambleBb = regionPreambleSeg.asByteBuffer();
+                        preambleBb.clear();
+                        long filePos = entry.offset();
+                        while (preambleBb.hasRemaining()) {
+                            int n = fc.read(preambleBb, filePos);
+                            if (n < 0) {
+                                break;
+                            }
+                            filePos += n;
+                        }
+                        if (!preambleBb.hasRemaining()
+                                && RegionPreamble.isValid(regionPreambleSeg, 0)
+                                && RegionPreamble.readCount(regionPreambleSeg, 0) > 0) {
+                            hasStoredRecords = true;
+                        }
+                    }
+                }
+                if (inferredDims > 0 && hasStoredRecords) {
+                    return java.util.OptionalInt.of(inferredDims);
+                }
+            }
+        } catch (Exception e) {
+            log.debug("Could not inspect partition bundle header in {}: {}", bundleFile, e.getMessage());
+        }
+        return java.util.OptionalInt.empty();
+    }
+
+    /**
      * Flushes the directory and region data to disk, then closes the arena.
      *
      * <p>After close, all region segments become invalid. Stores backed by

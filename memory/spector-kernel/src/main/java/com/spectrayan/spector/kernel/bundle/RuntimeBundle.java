@@ -1064,6 +1064,102 @@ public final class RuntimeBundle implements AbstractBundle {
         }
     }
 
+    /**
+     * Returns {@code true} if {@code id} is absent or contains zero records according to its {@link RegionPreamble}.
+     */
+    public boolean isRegionEmpty(RegionId id) {
+        if (!hasRegion(id)) {
+            return true;
+        }
+        MemorySegment slice = currentSlice(id);
+        return !RegionPreamble.isValid(slice, 0) || RegionPreamble.readCount(slice, 0) == 0;
+    }
+
+    /**
+     * Inspects an on-disk {@code runtime.bundle} file and returns the stored {@code WORKING} vector dimensionality
+     * ({@code stride - 64}) if and only if the {@code WORKING} region contains at least one stored record.
+     */
+    public static java.util.OptionalInt inspectStoredVectorDimensions(
+            Path bundleFile,
+            com.spectrayan.spector.kernel.storage.PayloadEncryptor encryptor) {
+        if (bundleFile == null || !Files.isRegularFile(bundleFile)) {
+            return java.util.OptionalInt.empty();
+        }
+        int headerOverhead = com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.HEADER_BYTES;
+        try {
+            if (com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.isEncryptedFile(bundleFile)) {
+                if (encryptor == null || !encryptor.isEnabled()) {
+                    return java.util.OptionalInt.empty();
+                }
+                try (RuntimeBundle bundle = Init.open(bundleFile, encryptor)) {
+                    if (bundle.isRegionEmpty(RegionId.WORKING)) {
+                        return java.util.OptionalInt.empty();
+                    }
+                    RegionEntry entry = bundle.directory().findRegion(RegionId.WORKING);
+                    if (entry != null && entry.stride() > headerOverhead) {
+                        return java.util.OptionalInt.of(entry.stride() - headerOverhead);
+                    }
+                    return java.util.OptionalInt.empty();
+                }
+            }
+
+            long fileSize = Files.size(bundleFile);
+            int headerBytes = (int) Math.min(4096L, fileSize);
+            if (headerBytes < BundleDirectory.ENTRIES_OFFSET + RegionEntry.ENTRY_BYTES) {
+                return java.util.OptionalInt.empty();
+            }
+            try (Arena arena = Arena.ofConfined();
+                 FileChannel fc = FileChannel.open(bundleFile, StandardOpenOption.READ)) {
+                MemorySegment seg = arena.allocate(headerBytes, 64);
+                ByteBuffer bb = seg.asByteBuffer();
+                while (bb.hasRemaining()) {
+                    if (fc.read(bb) < 0) {
+                        break;
+                    }
+                }
+                if (!RegionPreamble.isValid(seg, BundleDirectory.HEADER_OFFSET)
+                        || !BundleSubHeader.isValid(seg)
+                        || BundleSubHeader.readBundleMagic(seg) != BundleSubHeader.MAGIC_RUNTIME) {
+                    return java.util.OptionalInt.empty();
+                }
+                int regionCount = BundleSubHeader.readRegionCount(seg);
+                MemorySegment regionPreambleSeg = arena.allocate(RegionPreamble.PREAMBLE_BYTES, 64);
+
+                for (int i = 0; i < regionCount; i++) {
+                    long offset = BundleDirectory.ENTRIES_OFFSET + (long) i * RegionEntry.ENTRY_BYTES;
+                    if (offset + RegionEntry.ENTRY_BYTES > seg.byteSize()) {
+                        break;
+                    }
+                    RegionEntry entry = RegionEntry.read(seg, offset);
+                    if (!entry.isLive() || entry.regionId() != RegionId.WORKING
+                            || entry.stride() <= headerOverhead
+                            || entry.offset() < 0
+                            || entry.offset() + RegionPreamble.PREAMBLE_BYTES > fileSize) {
+                        continue;
+                    }
+                    ByteBuffer preambleBb = regionPreambleSeg.asByteBuffer();
+                    preambleBb.clear();
+                    long filePos = entry.offset();
+                    while (preambleBb.hasRemaining()) {
+                        int n = fc.read(preambleBb, filePos);
+                        if (n < 0) {
+                            break;
+                        }
+                        filePos += n;
+                    }
+                    if (!preambleBb.hasRemaining()
+                            && RegionPreamble.isValid(regionPreambleSeg, 0)
+                            && RegionPreamble.readCount(regionPreambleSeg, 0) > 0) {
+                        return java.util.OptionalInt.of(entry.stride() - headerOverhead);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.debug("Could not inspect runtime bundle header in {}: {}", bundleFile, e.getMessage());
+        }
+        return java.util.OptionalInt.empty();
+    }
+
     private final AtomicBoolean isClosed = new AtomicBoolean(false);
 
     /**

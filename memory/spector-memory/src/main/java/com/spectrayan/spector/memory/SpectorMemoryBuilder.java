@@ -382,7 +382,6 @@ public final class SpectorMemoryBuilder {
         return this;
     }
 
-
     public SpectorMemoryBuilder embeddingProvider(EmbeddingProvider p) {
         this.embeddingProvider = p;
         return this;

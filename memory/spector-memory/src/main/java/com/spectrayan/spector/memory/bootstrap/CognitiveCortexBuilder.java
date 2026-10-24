@@ -159,6 +159,8 @@ public final class CognitiveCortexBuilder {
         // work across partitions after restart.
         List<Path> frozenPartitionDirs = List.of();
         if (isDisk && basePath != null) {
+            com.spectrayan.spector.memory.persist.StoreEmbeddingIdentity.validateOnOpen(
+                    basePath, builder, quantizedVecBytes);
             try {
                 createDirectoriesSecure(StoragePaths.runtimeDir(basePath));
                 createDirectoriesSecure(StoragePaths.partitionsDir(basePath));
@@ -198,8 +200,12 @@ public final class CognitiveCortexBuilder {
             if (!isNewRuntime) {
                 try {
                     runtimeBundle = RuntimeBundle.Init.open(runtimeBundleFile, builder.dataEncryptor());
-                    if (runtimeBundle.directory().findRegion(RegionId.WORKING) == null) {
-                        log.info("Outdated runtime bundle detected (missing WORKING region), recreating...");
+                    var workingEntry = runtimeBundle.directory().findRegion(RegionId.WORKING);
+                    int expectedWorkingStride = 64 + quantizedVecBytes;
+                    if (workingEntry == null
+                            || (workingEntry.stride() != expectedWorkingStride && runtimeBundle.isRegionEmpty(RegionId.WORKING))) {
+                        log.info("Outdated or empty runtime bundle detected (stride={} vs expected={}), recreating...",
+                                workingEntry != null ? workingEntry.stride() : -1, expectedWorkingStride);
                         runtimeBundle.close();
                         Files.deleteIfExists(runtimeBundleFile);
                         isNewRuntime = true;
@@ -279,6 +285,24 @@ public final class CognitiveCortexBuilder {
                             builder.dataEncryptor());
                 } else {
                     partitionBundle = PartitionBundle.Init.open(bundleFile, builder.dataEncryptor());
+                    var semEntry = partitionBundle.directory().findRegion(RegionId.SEMANTIC);
+                    if (semEntry != null
+                            && semEntry.stride() != cogLayout.stride()
+                            && partitionBundle.isCognitiveDataEmpty()) {
+                        log.info("Recreating empty partition bundle {} for stride {} (was {})...",
+                                bundleFile.getFileName(), cogLayout.stride(), semEntry.stride());
+                        partitionBundle.close();
+                        Files.deleteIfExists(bundleFile);
+                        isNew = true;
+                        partitionBundle = PartitionBundle.Init.mmap(
+                                bundleFile,
+                                memProps.getSemanticCapacity(), episodicSize,
+                                memProps.getProceduralCapacity(), textSize,
+                                quantizedVecBytes,
+                                cogLayout.layoutId(), cogLayout.schemaVersion(),
+                                textLayout.layoutId(), textLayout.schemaVersion(),
+                                builder.dataEncryptor());
+                    }
                 }
             } catch (com.spectrayan.spector.commons.error.SpectorMemoryException e) {
                 if (runtimeBundle != null) {

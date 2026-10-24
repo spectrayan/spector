@@ -71,6 +71,7 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
 
     private volatile CognitiveMemoryRouter cognitiveRouter;
     private volatile Runnable partitionRollCallback;
+    private volatile Runnable firstWriteCallback;
 
     /**
      * Constructs a new {@code CorticalWriteTransactionRelay}.
@@ -294,6 +295,11 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
         signal.graphSlot(graphSlot);
         signal.successful(true);
 
+        final Runnable onFirstWrite = this.firstWriteCallback;
+        if (onFirstWrite != null) {
+            onFirstWrite.run();
+        }
+
         return true;
     }
 
@@ -315,6 +321,13 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
      */
     public void setPartitionRollCallback(final Runnable callback) {
         this.partitionRollCallback = callback;
+    }
+
+    /**
+     * Sets the callback invoked once the first memory write is committed to the store.
+     */
+    public void setFirstWriteCallback(final Runnable callback) {
+        this.firstWriteCallback = callback;
     }
 
     public PostIngestSync postIngestSync() {
