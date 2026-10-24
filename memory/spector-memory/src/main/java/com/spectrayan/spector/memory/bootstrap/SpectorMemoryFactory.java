@@ -397,6 +397,28 @@ public final class SpectorMemoryFactory {
                 graphs.entityDirectory(), graphs.hyperEntityGraph(),
                 bio.coActivationTracker(), rememberPathway, cortex.basePath(), cortex.initialPartitionSeq(),
                 ckptRef);
+        if (cortex.isDisk() && cortex.basePath() != null && builder.rememberPathway() == null) {
+            final java.nio.file.Path storeBasePath = cortex.basePath();
+            final java.util.concurrent.atomic.AtomicBoolean identityRecorded =
+                    new java.util.concurrent.atomic.AtomicBoolean(
+                            com.spectrayan.spector.memory.persist.StoreEmbeddingIdentity.read(storeBasePath)
+                                    .map(r -> r.hasModel() && r.hasDimensions())
+                                    .orElse(false));
+            rememberPathway.setFirstWriteCallback(() -> {
+                if (identityRecorded.compareAndSet(false, true)) {
+                    String providerType = com.spectrayan.spector.memory.persist.StoreEmbeddingIdentity
+                            .resolveProviderType(builder, rawEmbeddingProvider);
+                    String modelName = com.spectrayan.spector.memory.persist.StoreEmbeddingIdentity
+                            .probeModelName(rawEmbeddingProvider);
+                    int dims = com.spectrayan.spector.memory.persist.StoreEmbeddingIdentity
+                            .probeDimensions(rawEmbeddingProvider, memProps.getDimensions());
+                    if (!com.spectrayan.spector.memory.persist.StoreEmbeddingIdentity
+                            .recordIfAbsent(storeBasePath, providerType, modelName, dims)) {
+                        identityRecorded.set(false);
+                    }
+                }
+            });
+        }
         // ADR-0003 #456 (P2): the EntityDirectory is now the authoritative identity store, WAL-bound
         // and recovered directly (WalRecoveryDispatcher GRAPH_ADD_NODE/LINK repointed to it).
         if (wal != null) {

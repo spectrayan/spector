@@ -382,6 +382,29 @@ public final class SpectorMemoryBuilder {
         return this;
     }
 
+    /**
+     * Explicit migration escape hatch permitting a store to be opened when its recorded embedding model
+     * differs from the currently configured embedder at the same vector dimensionality.
+     *
+     * <p>Physical vector dimension mismatches against existing on-disk engram regions are still rejected
+     * because reading fixed-stride engram records at the wrong width would corrupt memory layout.</p>
+     *
+     * @param allow {@code true} to allow opening across a model-name change during migration
+     * @return this builder
+     */
+    public SpectorMemoryBuilder allowEmbeddingMismatch(boolean allow) {
+        if (this.properties != null && this.properties.memory() != null) {
+            this.properties.memory().setAllowEmbeddingMismatch(allow);
+        }
+        return this;
+    }
+
+    public boolean allowEmbeddingMismatch() {
+        return this.properties != null
+                && this.properties.memory() != null
+                && this.properties.memory().isAllowEmbeddingMismatch();
+    }
+
 
     public SpectorMemoryBuilder embeddingProvider(EmbeddingProvider p) {
         this.embeddingProvider = p;
