@@ -293,6 +293,55 @@ public final class RuntimeBundle implements AbstractBundle {
         }
 
         /**
+         * Opens an existing runtime bundle file strictly read-only (never modifies the underlying file).
+         */
+        public static RuntimeBundle openReadOnly(Path path) {
+            return openReadOnly(path, null);
+        }
+
+        /**
+         * Opens an existing runtime bundle file strictly read-only with optional at-rest decryption.
+         *
+         * <p>Plaintext bundles are opened with {@link StandardOpenOption#READ} and mapped using
+         * {@link FileChannel.MapMode#PRIVATE} (copy-on-write in memory), and {@code bundlePath}
+         * is left {@code null} on the returned instance so {@link #flush()} and {@link #close()}
+         * never write back to disk.</p>
+         */
+        public static RuntimeBundle openReadOnly(Path path,
+                                                 com.spectrayan.spector.kernel.storage.PayloadEncryptor encryptor) {
+            Arena arena = Arena.ofShared();
+            try {
+                boolean encryptedFile = com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.isEncryptedFile(path);
+                if (encryptedFile) {
+                    MemorySegment decrypted = com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.readEncryptedSegment(
+                            path,
+                            com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.SEGMENT_TYPE_RUNTIME_BUNDLE,
+                            encryptor,
+                            arena);
+                    BundleDirectory dir = BundleDirectory.read(decrypted, BundleSubHeader.MAGIC_RUNTIME);
+                    log.info("Opened encrypted runtime bundle read-only: {} ({} live regions, {}KB)",
+                            path, dir.liveRegionCount(), decrypted.byteSize() / 1024);
+                    return new RuntimeBundle(arena, decrypted, dir, null, false, null);
+                }
+
+                long fileSize = Files.size(path);
+                MemorySegment offHeap = arena.allocate(Math.max(4096L, fileSize), 4096);
+                byte[] rawBytes = Files.readAllBytes(path);
+                MemorySegment.copy(rawBytes, 0, offHeap, java.lang.foreign.ValueLayout.JAVA_BYTE, 0, rawBytes.length);
+                BundleDirectory dir = BundleDirectory.read(offHeap, BundleSubHeader.MAGIC_RUNTIME);
+                log.info("Opened runtime bundle read-only: {} ({} live regions, {}KB)",
+                        path, dir.liveRegionCount(), fileSize / 1024);
+                return new RuntimeBundle(arena, offHeap, dir, null, false, null);
+            } catch (RuntimeException e) {
+                arena.close();
+                throw e;
+            } catch (IOException e) {
+                arena.close();
+                throw new UncheckedIOException("Failed to open runtime bundle read-only: " + path, e);
+            }
+        }
+
+        /**
          * Creates an in-memory (heap) runtime bundle for testing.
          *
          * @param specs region specifications
@@ -431,6 +480,19 @@ public final class RuntimeBundle implements AbstractBundle {
     public com.spectrayan.spector.kernel.store.WorkingMemory openWorking(int quantizedVecBytes, int capacity) {
         return com.spectrayan.spector.kernel.store.WorkingMemory.fromRegionRef(
                 regionRef(RegionId.WORKING), capacity, quantizedVecBytes, bundlePath, isNew);
+    }
+
+    /**
+     * Opens the {@link RegionId#WORKING} region using the capacity and vector stride recorded in the bundle directory.
+     */
+    public com.spectrayan.spector.kernel.store.WorkingMemory openWorkingFromDirectory() {
+        RegionEntry entry = directory.findRegion(RegionId.WORKING);
+        if (entry == null || !entry.isLive()) {
+            throw new IllegalArgumentException("Live WORKING region not found in runtime bundle");
+        }
+        int vecBytes = Math.max(1, entry.stride() - com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.HEADER_BYTES);
+        int cap = Math.max(1, entry.capacity());
+        return openWorking(vecBytes, cap);
     }
 
     public com.spectrayan.spector.kernel.store.HebbianGraphMemory openHebbian(
@@ -1091,7 +1153,7 @@ public final class RuntimeBundle implements AbstractBundle {
                 if (encryptor == null || !encryptor.isEnabled()) {
                     return java.util.OptionalInt.empty();
                 }
-                try (RuntimeBundle bundle = Init.open(bundleFile, encryptor)) {
+                try (RuntimeBundle bundle = Init.openReadOnly(bundleFile, encryptor)) {
                     if (bundle.isRegionEmpty(RegionId.WORKING)) {
                         return java.util.OptionalInt.empty();
                     }

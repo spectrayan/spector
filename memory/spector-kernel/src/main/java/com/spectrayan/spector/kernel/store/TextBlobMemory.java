@@ -373,7 +373,7 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
             textPositionMap.clear();
             hashToPosition.clear();
 
-            if (!Files.exists(file)) {
+            if (file != null && !Files.exists(file)) {
                 return entries;
             }
 

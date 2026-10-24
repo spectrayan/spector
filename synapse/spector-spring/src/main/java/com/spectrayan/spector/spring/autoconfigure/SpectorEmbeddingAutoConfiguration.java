@@ -276,6 +276,47 @@ public class SpectorEmbeddingAutoConfiguration {
     }
 
     /**
+     * Resolves and instantiates the configured {@link EmbeddingProvider} from {@code props} and {@code environment}.
+     * Used by offline CLI commands (such as {@code spector migrate reembed}) that run with
+     * {@code spector.memory.enabled=false} so the default store is not opened prior to migration.
+     */
+    public EmbeddingProvider createEmbeddingProvider(SpectorConfigProperties props, Environment environment) {
+        SpectorConfigProperties effectiveProps = props != null ? props : new SpectorConfigProperties();
+        String rawType = effectiveProps.getProvider() != null && effectiveProps.getProvider().getEmbedding() != null
+                ? effectiveProps.getProvider().getEmbedding().getType()
+                : null;
+        if ((rawType == null || rawType.isBlank()) && environment != null) {
+            rawType = environment.getProperty(TYPE_PROPERTY);
+        }
+        ObjectProvider<SpectorCacheManager> noCache = new ObjectProvider<>() {
+            @Override public SpectorCacheManager getObject(Object... args) { return null; }
+            @Override public SpectorCacheManager getIfAvailable() { return null; }
+            @Override public SpectorCacheManager getIfUnique() { return null; }
+            @Override public SpectorCacheManager getObject() { return null; }
+        };
+        if (rawType != null && !rawType.isBlank()) {
+            String normalized = rawType.trim().toLowerCase(java.util.Locale.ROOT);
+            return switch (normalized) {
+                case "openai" -> spectorOpenAIEmbeddingProvider(effectiveProps, noCache);
+                case "ollama" -> spectorOllamaEmbeddingProvider(effectiveProps, noCache);
+                case "anthropic" -> anthropicEmbeddingProvider(effectiveProps, noCache);
+                case "azureopenai", "azure-openai" -> spectorAzureOpenAiEmbeddingProvider(effectiveProps, noCache);
+                case "bedrock" -> spectorBedrockEmbeddingProvider(effectiveProps, noCache);
+                case "google" -> spectorGoogleEmbeddingProvider(effectiveProps, noCache);
+                case "mistral" -> spectorMistralEmbeddingProvider(effectiveProps, noCache);
+                case "onnx" -> spectorOnnxEmbeddingProvider(effectiveProps, noCache,
+                        environment != null ? environment : new org.springframework.core.env.StandardEnvironment());
+                default -> unmatchedEmbeddingProvider(environment);
+            };
+        }
+        if (environment != null && Boolean.parseBoolean(
+                environment.getProperty("spector.provider.embedding.fallback.enabled", "false"))) {
+            return defaultFallbackOnnxEmbeddingProvider(effectiveProps, noCache);
+        }
+        return defaultFallbackOnnxEmbeddingProvider(effectiveProps, noCache);
+    }
+
+    /**
      * Copies a configured value into the properties map, leaving an explicit entry already present in
      * {@code spector.provider.embedding.properties} untouched.
      *

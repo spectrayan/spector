@@ -131,8 +131,21 @@ public final class RememberSignal extends com.spectrayan.spector.commons.pathway
             final String[] tags,
             final MemorySource source,
             final EncodingHeader header) {
+        return forCognitiveWithHeader(id, text, vector, type, tags, source, header, null);
+    }
+
+    public static RememberSignal forCognitiveWithHeader(
+            final String id,
+            final String text,
+            final float[] vector,
+            final MemoryType type,
+            final String[] tags,
+            final MemorySource source,
+            final EncodingHeader header,
+            final RememberContext context) {
         final RememberSignal signal = new RememberSignal(
-                id, text, vector, type, tags, source, null, null,
+                id, text, vector, type, tags, source,
+                context != null ? context.hints() : null, context,
                 SalienceProfile.NEUTRAL, header != null ? header.soulVersion() : 0,
                 header != null ? header.timestampMs() : System.currentTimeMillis());
         signal.header(header);

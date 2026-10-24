@@ -322,6 +322,55 @@ public final class PartitionBundle implements AbstractBundle {
         }
 
         /**
+         * Opens an existing partition bundle file strictly read-only (never modifies the underlying file).
+         */
+        public static PartitionBundle openReadOnly(Path path) {
+            return openReadOnly(path, null);
+        }
+
+        /**
+         * Opens an existing partition bundle file strictly read-only with optional at-rest decryption.
+         *
+         * <p>Plaintext bundles are opened with {@link StandardOpenOption#READ} and mapped using
+         * {@link FileChannel.MapMode#PRIVATE} (copy-on-write in memory), and {@code bundlePath}
+         * is left {@code null} on the returned instance so {@link #flush()} and {@link #close()}
+         * never write back to disk.</p>
+         */
+        public static PartitionBundle openReadOnly(Path path,
+                                                   com.spectrayan.spector.kernel.storage.PayloadEncryptor encryptor) {
+            Arena arena = Arena.ofShared();
+            try {
+                boolean encryptedFile = com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.isEncryptedFile(path);
+                if (encryptedFile) {
+                    MemorySegment decrypted = com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.readEncryptedSegment(
+                            path,
+                            com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.SEGMENT_TYPE_PARTITION_BUNDLE,
+                            encryptor,
+                            arena);
+                    BundleDirectory dir = BundleDirectory.read(decrypted, BundleSubHeader.MAGIC_PARTITION);
+                    log.info("Opened encrypted partition bundle read-only: {} ({} live regions, {}KB)",
+                            path, dir.liveRegionCount(), decrypted.byteSize() / 1024);
+                    return new PartitionBundle(arena, decrypted, dir, null, false, false, null);
+                }
+
+                long fileSize = Files.size(path);
+                MemorySegment offHeap = arena.allocate(Math.max(4096L, fileSize), 4096);
+                byte[] rawBytes = Files.readAllBytes(path);
+                MemorySegment.copy(rawBytes, 0, offHeap, java.lang.foreign.ValueLayout.JAVA_BYTE, 0, rawBytes.length);
+                BundleDirectory dir = BundleDirectory.read(offHeap, BundleSubHeader.MAGIC_PARTITION);
+                log.info("Opened partition bundle read-only: {} ({} live regions, {}KB)",
+                        path, dir.liveRegionCount(), fileSize / 1024);
+                return new PartitionBundle(arena, offHeap, dir, null, false, false, null);
+            } catch (RuntimeException e) {
+                arena.close();
+                throw e;
+            } catch (IOException e) {
+                arena.close();
+                throw new UncheckedIOException("Failed to open partition bundle read-only: " + path, e);
+            }
+        }
+
+        /**
          * Creates an in-memory (heap) partition bundle for testing.
          *
          * @param semanticCapacity   max records for semantic region
@@ -451,6 +500,63 @@ public final class PartitionBundle implements AbstractBundle {
         return hasRegion(RegionId.STRENGTH)
                 ? com.spectrayan.spector.kernel.store.StrengthMemory.fromRegionRef(regionRef(RegionId.STRENGTH), semanticCapacity, episodicCapacity, proceduralCapacity, bundlePath, auditName)
                 : null;
+    }
+
+    /**
+     * Opens the {@link RegionId#SEMANTIC} region using the capacity and vector stride recorded in the bundle directory.
+     */
+    public com.spectrayan.spector.kernel.store.SemanticMemory openSemanticFromDirectory() {
+        RegionEntry entry = directory.findRegion(RegionId.SEMANTIC);
+        if (entry == null || !entry.isLive()) {
+            throw new IllegalArgumentException("Live SEMANTIC region not found in partition bundle");
+        }
+        int vecBytes = Math.max(1, entry.stride() - EncodingHeaderFields.HEADER_BYTES);
+        int cap = Math.max(1, entry.capacity());
+        return openSemantic(cap, vecBytes);
+    }
+
+    /**
+     * Opens the {@link RegionId#PROCEDURAL} region using the capacity and vector stride recorded in the bundle directory.
+     */
+    public com.spectrayan.spector.kernel.store.ProceduralMemory openProceduralFromDirectory() {
+        RegionEntry entry = directory.findRegion(RegionId.PROCEDURAL);
+        if (entry == null || !entry.isLive()) {
+            throw new IllegalArgumentException("Live PROCEDURAL region not found in partition bundle");
+        }
+        int vecBytes = Math.max(1, entry.stride() - EncodingHeaderFields.HEADER_BYTES);
+        int cap = Math.max(1, entry.capacity());
+        return openProcedural(cap, vecBytes);
+    }
+
+    /**
+     * Opens the {@link RegionId#EPISODIC} region using the capacity derived from the bundle directory.
+     */
+    public com.spectrayan.spector.kernel.store.EpisodicMemory openEpisodicFromDirectory() {
+        RegionEntry semEntry = directory.findRegion(RegionId.SEMANTIC);
+        RegionEntry procEntry = directory.findRegion(RegionId.PROCEDURAL);
+        RegionEntry strEntry = directory.findRegion(RegionId.STRENGTH);
+        int semCap = semEntry != null ? semEntry.capacity() : 0;
+        int procCap = procEntry != null ? procEntry.capacity() : 0;
+        int strCap = strEntry != null ? strEntry.capacity() : 0;
+        int epCap = Math.max(1_000, strCap - semCap - procCap);
+        return openEpisodic(epCap);
+    }
+
+    /**
+     * Opens the {@link RegionId#STRENGTH} region using capacities derived from the bundle directory.
+     */
+    public com.spectrayan.spector.kernel.store.StrengthMemory openStrengthFromDirectory(String auditName) {
+        if (!hasRegion(RegionId.STRENGTH)) {
+            return null;
+        }
+        RegionEntry semEntry = directory.findRegion(RegionId.SEMANTIC);
+        RegionEntry procEntry = directory.findRegion(RegionId.PROCEDURAL);
+        RegionEntry strEntry = directory.findRegion(RegionId.STRENGTH);
+        int semCap = semEntry != null ? Math.max(1, semEntry.capacity()) : 1;
+        int procCap = procEntry != null ? Math.max(1, procEntry.capacity()) : 1;
+        int strCap = strEntry != null ? strEntry.capacity() : (semCap + procCap + 1_000);
+        int epCap = Math.max(1, strCap - semCap - procCap);
+        return openStrength(semCap, epCap, procCap, auditName);
     }
 
     // ── Generic RegionOpener Implementation ──
@@ -711,7 +817,7 @@ public final class PartitionBundle implements AbstractBundle {
                 if (encryptor == null || !encryptor.isEnabled()) {
                     return java.util.OptionalInt.empty();
                 }
-                try (PartitionBundle bundle = Init.open(bundleFile, encryptor)) {
+                try (PartitionBundle bundle = Init.openReadOnly(bundleFile, encryptor)) {
                     if (bundle.isCognitiveDataEmpty()) {
                         return java.util.OptionalInt.empty();
                     }

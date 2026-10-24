@@ -92,7 +92,7 @@ public class SpectorCliApplication {
                     || (arg.equals("--profile") && i + 1 < args.length && args[i + 1].equals("cli-remote"))) {
                 return "cli-remote";
             }
-            if (arg.equals("token") || arg.equals("adopt-store")) {
+            if (arg.equals("token") || arg.equals("adopt-store") || arg.equals("migrate")) {
                 staysRemote = true;
             }
             if (arg.equals("mcp") || arg.equals("--root") || arg.equals("--offline")

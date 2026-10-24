@@ -2161,7 +2161,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         var header = body.header();
 
         // Metadata and suppression state
-        var metadata = java.util.Map.<String, String>of();
+        var rawMetadata = index.metadata(id);
+        var metadata = rawMetadata != null ? rawMetadata : java.util.Map.<String, String>of();
         boolean suppressed = suppressionSet.isSuppressed(id);
 
         return new CognitiveRecord(
@@ -2172,6 +2173,48 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 header.storageStrength(), header.flags(), body.consolidationFlags(),
                 body.quantizedVector(), loc.graphSlot(), loc.offset(),
                 metadata, suppressed);
+    }
+
+    /**
+     * Re-embeds {@code text} using this store's configured {@link EmbeddingProvider} and ingests
+     * the record while preserving its original {@code id}, {@code type}, {@code source}, {@code tags},
+     * {@link EncodingHeader} (timestamp, importance, valence, arousal, recall count, storage strength,
+     * flags, soul version), and {@code metadata}.
+     *
+     * @return {@code true} if the record was written to the store
+     */
+    public boolean ingestMigratedRecord(
+            String id,
+            String text,
+            MemoryType type,
+            MemorySource source,
+            String[] tags,
+            com.spectrayan.spector.kernel.engram.EncodingHeader preservedHeader,
+            java.util.Map<String, String> metadata) {
+        java.util.Objects.requireNonNull(id, "id cannot be null");
+        java.util.Objects.requireNonNull(text, "text cannot be null");
+        if (embeddingProvider == null) {
+            throw new com.spectrayan.spector.commons.error.SpectorConfigException(
+                    ErrorCode.CONFIG_VALUE_INVALID,
+                    "embeddingProvider",
+                    "EmbeddingProvider is required to re-embed records during migration");
+        }
+        var embedResult = embeddingProvider.embed(text);
+        float[] vector = embedResult != null ? embedResult.vector() : null;
+        if (vector == null || vector.length == 0) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "vector", "Embedding vector cannot be empty");
+        }
+        RememberContext context = (metadata != null && !metadata.isEmpty())
+                ? RememberContext.builder()
+                        .metadata(metadata)
+                        .overrideTimestampMs(preservedHeader != null ? preservedHeader.timestampMs() : 0L)
+                        .soulVersion(preservedHeader != null ? preservedHeader.soulVersion() : (short) 0)
+                        .build()
+                : null;
+        return rememberPathway.ingestCognitiveWithHeader(
+                id, text, vector, type != null ? type : MemoryType.SEMANTIC,
+                tags, source != null ? source : MemorySource.OBSERVED,
+                preservedHeader, context);
     }
 
     // ==============================================================

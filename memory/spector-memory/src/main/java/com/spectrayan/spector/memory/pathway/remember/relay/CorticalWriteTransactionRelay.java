@@ -227,7 +227,9 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
                         header.importance(),
                         header.valence(),
                         header.arousal(),
-                        header.source()
+                        header.source(),
+                        header.synapticTagsLo(),
+                        header.synapticTagsHi()
                 );
             } catch (final SpectorMemoryTierFullException e) {
                 if (partitionRollCallback != null) {
@@ -251,7 +253,9 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
                             header.importance(),
                             header.valence(),
                             header.arousal(),
-                            header.source()
+                            header.source(),
+                            header.synapticTagsLo(),
+                            header.synapticTagsHi()
                     );
                 } else {
                     throw e;

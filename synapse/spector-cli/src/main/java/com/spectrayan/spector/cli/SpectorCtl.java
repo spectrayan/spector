@@ -61,6 +61,7 @@ import picocli.CommandLine.Option;
                 MemoryCommand.class,
                 SkillCommand.class,
                 MigrateNamespacesCommand.class,
+                MigrateCommand.class,
                 DisasterRecoveryCommand.class,
                 TokenCommand.class,
                 AdoptStoreCommand.class
