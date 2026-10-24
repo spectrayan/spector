@@ -453,8 +453,25 @@ public final class RememberPathway extends AbstractPathway<RememberSignal, Remem
             final String[] tags,
             final MemorySource source,
             final com.spectrayan.spector.kernel.engram.EncodingHeader preservedHeader) {
+        return ingestCognitiveWithHeader(id, text, vector, type, tags, source, preservedHeader, null);
+    }
+
+    /**
+     * Ingests a cognitive memory preserving the provided cognitive header and optional {@link RememberContext}.
+     *
+     * @return {@code true} if the memory was successfully ingested (not duplicate or failed)
+     */
+    public boolean ingestCognitiveWithHeader(
+            final String id,
+            final String text,
+            final float[] vector,
+            final MemoryType type,
+            final String[] tags,
+            final MemorySource source,
+            final com.spectrayan.spector.kernel.engram.EncodingHeader preservedHeader,
+            final RememberContext context) {
         final RememberSignal signal = RememberSignal.forCognitiveWithHeader(
-                id, text, vector, type, tags, source, preservedHeader
+                id, text, vector, type, tags, source, preservedHeader, context
         );
         if (signal.context() == null) {
             signal.bind(DefaultPathwayContext.builder().build());

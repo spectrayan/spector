@@ -198,6 +198,23 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> i
                            short soulVersion, SourceModality modality,
                            float importance, byte valence, byte arousal,
                            EngramSource source) {
+        return appendTurn(role, sequenceId, timestampMs, sessionId, body, modelId,
+                tokenIn, tokenOut, latencyMs, userId, soulVersion, modality,
+                importance, valence, arousal, source, 0L, 0L);
+    }
+
+    /**
+     * Appends a conversation turn with real affect, provenance, and 128-bit synaptic tag Bloom filter.
+     */
+    public long appendTurn(ConversationRole role, int sequenceId,
+                           long timestampMs, long sessionId,
+                           byte[] body, short modelId,
+                           int tokenIn, int tokenOut,
+                           int latencyMs, long userId,
+                           short soulVersion, SourceModality modality,
+                           float importance, byte valence, byte arousal,
+                           EngramSource source,
+                           long synapticTagsLo, long synapticTagsHi) {
         byte[] payload = EpisodeCodec.encode(role, sessionId, modelId, tokenIn, tokenOut, latencyMs, userId, body);
         int payloadBytes = payload.length;
         int totalRecordSize = EpisodicLayout.FIXED_OVERHEAD_BYTES + payloadBytes;
@@ -227,7 +244,7 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> i
                     timestampMs, flags, valence, arousal, importance,
                     sessionId, modelId, role != null ? (byte) role.ordinal() : (byte) 0,
                     soulVersion, source != null ? source : EngramSource.EXPERIENCED,
-                    0L, 0L
+                    synapticTagsLo, synapticTagsHi
             );
 
             // Compute CRC32C over sequenceId, 64B header, and payload
@@ -494,6 +511,38 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> i
             }
         }
 
+        return offsets;
+    }
+
+    /**
+     * Scans this episodic memory from beginning to cursor, collecting relative byte offsets
+     * (from {@link #dataOffset()}) of all framed turns (including live, consolidated, tombstoned,
+     * and purged records).
+     */
+    public List<Long> allTurnOffsets() {
+        List<Long> offsets = new ArrayList<>();
+        long base = dataOffset();
+        long limit = base + count;
+        long current = base;
+
+        var headerLayout = layout().headerLayout();
+        while (current + EpisodicLayout.HEADER_BYTES <= limit) {
+            if (headerLayout.isOptionBRecord(segment(), current)) {
+                int payloadBytes = headerLayout.readPayloadBytes(segment(), current);
+                if (payloadBytes < 0 || current + EpisodicLayout.FIXED_OVERHEAD_BYTES + payloadBytes > limit) {
+                    break;
+                }
+                offsets.add(current - base);
+                current += EpisodicLayout.FIXED_OVERHEAD_BYTES + payloadBytes;
+            } else {
+                int bodyLength = segment().get(ValueLayout.JAVA_INT_UNALIGNED, current + 56);
+                if (bodyLength < 0 || current + EncodingHeaderFields.HEADER_BYTES + bodyLength > limit) {
+                    break;
+                }
+                offsets.add(current - base);
+                current += EncodingHeaderFields.HEADER_BYTES + bodyLength;
+            }
+        }
         return offsets;
     }
 
