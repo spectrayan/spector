@@ -175,6 +175,17 @@ public abstract sealed class AbstractEngramMemory<L extends FixedEngramLayout>
     protected void readMetadata() {
         MemorySegment seg = segment();
         if (RegionPreamble.isValid(seg, 0)) {
+            int persistedStride = RegionPreamble.readRecordStride(seg, 0);
+            if (persistedStride > 0 && persistedStride != layout.stride()) {
+                int storedDims = persistedStride - EncodingHeaderFields.HEADER_BYTES;
+                int expectedDims = layout.stride() - EncodingHeaderFields.HEADER_BYTES;
+                throw new com.spectrayan.spector.commons.error.SpectorConfigException(
+                        com.spectrayan.spector.commons.error.ErrorCode.EMBEDDING_FINGERPRINT_MISMATCH,
+                        filePath() != null ? filePath() : memoryId(),
+                        "unknown (" + storedDims + "d)",
+                        "configured (" + expectedDims + "d)",
+                        filePath() != null ? filePath() : "<store-dir>");
+            }
             setCount((int) RegionPreamble.readCount(seg, 0));
             return;
         }
