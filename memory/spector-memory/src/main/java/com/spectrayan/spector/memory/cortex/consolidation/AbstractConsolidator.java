@@ -161,8 +161,13 @@ public abstract class AbstractConsolidator implements Consolidator {
 
         if (verdict == ContradictionDetector.Verdict.UNKNOWN) {
             long skipped = unverifiedPairsSkipped.incrementAndGet();
-            log.warn("Consolidator: no contradiction verdict for '{}' and '{}'; leaving both intact "
-                    + "(unverified pairs skipped so far: {})", recordA.id(), recordB.id(), skipped);
+            if (contradictionDetector.canVerify()) {
+                log.warn("Consolidator: no contradiction verdict for '{}' and '{}'; leaving both intact "
+                        + "(unverified pairs skipped so far: {})", recordA.id(), recordB.id(), skipped);
+            } else {
+                log.debug("Consolidator: no contradiction verdict for '{}' and '{}' (no LLM provider); leaving both intact "
+                        + "(unverified pairs skipped so far: {})", recordA.id(), recordB.id(), skipped);
+            }
             return false;
         }
 
