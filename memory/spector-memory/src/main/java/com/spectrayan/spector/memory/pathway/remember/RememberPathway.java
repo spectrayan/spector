@@ -396,6 +396,13 @@ public final class RememberPathway extends AbstractPathway<RememberSignal, Remem
         this.corticalWriteRelay.setPartitionRollCallback(callback);
     }
 
+    /**
+     * Sets the callback invoked once the first memory write is committed to the store.
+     */
+    public void setFirstWriteCallback(final Runnable callback) {
+        this.corticalWriteRelay.setFirstWriteCallback(callback);
+    }
+
     public void setSalienceProfile(final SalienceProfile profile) {
         this.salienceProfile = profile != null ? profile : SalienceProfile.NEUTRAL;
     }

@@ -1191,6 +1191,17 @@ public class NamespaceResolver implements AutoCloseable {
                     ? node.get(MARKER_EMBEDDING_MODEL).asText() : null;
 
             if (recordedModel == null || recordedModel.isBlank()) {
+                java.util.OptionalInt storedDims = com.spectrayan.spector.memory.persist.StoreEmbeddingIdentity
+                        .inferStoredDimensions(markerFile.getParent(), null);
+                if (storedDims.isPresent() && dims > 0 && storedDims.getAsInt() != dims) {
+                    throw new com.spectrayan.spector.commons.error.SpectorConfigException(
+                            com.spectrayan.spector.commons.error.ErrorCode.EMBEDDING_FINGERPRINT_MISMATCH,
+                            namespaceId,
+                            "unknown (" + storedDims.getAsInt() + "d)",
+                            com.spectrayan.spector.memory.persist.StoreEmbeddingIdentity
+                                    .formatFingerprint(providerType, model, dims),
+                            markerFile.getParent());
+                }
                 // Pre-change marker, or a fresh one written moments ago by the block above.
                 writeEmbeddingIdentity(markerFile, jsonMapper, node, providerType, model, dims);
                 log.info("[NamespaceResolver] ns={} recorded embedding identity provider={} model={} dims={}",
