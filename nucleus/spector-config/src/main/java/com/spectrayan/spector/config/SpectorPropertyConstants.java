@@ -448,6 +448,9 @@ public final class SpectorPropertyConstants {
     public static final String MEMORY_INDEXES_RECONCILE_ENABLED = "spector.memory.indexes.reconcile.enabled";
     public static final boolean DEFAULT_MEMORY_INDEXES_RECONCILE_ENABLED = true;
 
+    public static final String MEMORY_ALLOW_EMBEDDING_MISMATCH = "spector.memory.allow-embedding-mismatch";
+    public static final boolean DEFAULT_MEMORY_ALLOW_EMBEDDING_MISMATCH = false;
+
     public static final String MEMORY_INDEXES_RECONCILE_INTERVAL_SECONDS = "spector.memory.indexes.reconcile.interval-seconds";
     public static final long DEFAULT_MEMORY_INDEXES_RECONCILE_INTERVAL_SECONDS = 300L;
 
