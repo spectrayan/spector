@@ -987,6 +987,15 @@ public interface SpectorMemory extends MemoryRemember, MemoryRecall, MemoryRefle
         return admin().graph().graphRecall(options, this::inspect);
     }
 
+    /**
+     * Returns whether this memory instance currently holds one or more active execution leases.
+     *
+     * @return {@code true} if active leases prevent eviction, {@code false} otherwise
+     */
+    default boolean hasActiveLeases() {
+        return false;
+    }
+
     /** Closes the memory system and persists data. */
     @Override
     void close();
