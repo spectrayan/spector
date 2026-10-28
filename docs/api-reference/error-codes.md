@@ -146,6 +146,7 @@ These errors relate to the cognitive memory subsystem.
 | `SPE-310-029` | LLM tag extraction failed | `tag-extractor: llm` is set and the LLM call failed or returned nothing usable. The write is refused rather than silently tagged by keywords. Check the generation provider, its API key and quota, or set `tag-extractor: content`. |
 | `SPE-310-030` | Local extraction failed | GLiNER inference failed for a memory. A write tagged by `tag-extractor: gliner` is refused; an entity-extraction failure is logged with this code. Memory text is never logged. |
 | `SPE-310-031` | Store already open | Another process (or another memory in the same process) holds the exclusive lock `.spector-store.lock` in the persistence directory. Stop the other writer; the OS releases the lock when that process exits. |
+| `SPE-310-032` | Active namespace capacity exhausted | All active namespaces in `NamespaceRegistry` currently hold active leases when `maxActiveNamespaces` is reached. Release active leases or increase `maxActiveNamespaces`. |
 
 ---
 
