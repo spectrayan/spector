@@ -19,7 +19,16 @@ import com.spectrayan.spector.cluster.gateway.ForwardRequest;
 import com.spectrayan.spector.cluster.gateway.ForwardResponse;
 import com.spectrayan.spector.cluster.gateway.GatewayForwarder;
 import com.spectrayan.spector.cluster.gateway.RoutingKeyExtractor;
+import com.spectrayan.spector.cluster.idempotency.IdempotencyReservation;
+import com.spectrayan.spector.cluster.idempotency.IdempotencyStore;
+import com.spectrayan.spector.cluster.idempotency.IdempotencyValidator;
+import com.spectrayan.spector.cluster.idempotency.InMemoryIdempotencyStore;
+import com.spectrayan.spector.cluster.idempotency.RequestFingerprint;
+import com.spectrayan.spector.cluster.idempotency.StoredIdempotentResponse;
 import com.spectrayan.spector.cluster.routing.RoutingKey;
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorApiException;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.gateway.config.GatewayProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -76,6 +85,7 @@ public class GatewayWebFilter implements WebFilter {
     private final GatewayProperties properties;
     private final GatewayForwarder forwarder;
     private final RoutingKeyExtractor routingKeyExtractor;
+    private final IdempotencyStore fallbackIdempotencyStore;
 
     public GatewayWebFilter(
             GatewayProperties properties,
@@ -85,6 +95,10 @@ public class GatewayWebFilter implements WebFilter {
         this.properties = properties;
         this.forwarder = forwarder;
         this.routingKeyExtractor = routingKeyExtractor;
+        GatewayProperties.IdempotencyProperties idemProps = properties != null ? properties.getIdempotency() : null;
+        long ttlSec = idemProps != null ? Math.max(1L, idemProps.getTtlSeconds()) : 86_400L;
+        int maxEntries = idemProps != null ? Math.max(1, idemProps.getMaxEntries()) : 16_384;
+        this.fallbackIdempotencyStore = new InMemoryIdempotencyStore( java.time.Duration.ofSeconds(ttlSec), maxEntries);
     }
 
     @Override
@@ -127,9 +141,14 @@ public class GatewayWebFilter implements WebFilter {
             headers.put(key, Collections.unmodifiableList(values));
         });
 
-        String idempotencyKey = request.getHeaders().getFirst("Idempotency-Key");
-        if (idempotencyKey == null || idempotencyKey.isBlank()) {
-            idempotencyKey = request.getHeaders().getFirst("X-Idempotency-Key");
+        String primaryIdempotencyKey = request.getHeaders().getFirst(IdempotencyValidator.HEADER_IDEMPOTENCY_KEY);
+        String altIdempotencyKey = request.getHeaders().getFirst(IdempotencyValidator.HEADER_ALT_IDEMPOTENCY_KEY);
+        final String idempotencyKey;
+        try {
+            idempotencyKey = IdempotencyValidator.extractAndValidate(primaryIdempotencyKey, altIdempotencyKey);
+        } catch (SpectorValidationException ex) {
+            return writeError(exchange.getResponse(), HttpStatus.BAD_REQUEST,
+                    ex.errorCode().name(), ex.getMessage());
         }
 
         String methodStr = httpMethod != null ? httpMethod.name() : "GET";
@@ -174,25 +193,104 @@ public class GatewayWebFilter implements WebFilter {
                 .onErrorResume(DataBufferLimitException.class, ex ->
                         writeError(exchange.getResponse(), HttpStatus.PAYLOAD_TOO_LARGE,
                                 "PAYLOAD_TOO_LARGE", "Request body exceeds maximum size of " + maxBufferedBytes + " bytes"))
-                .onErrorResume(Exception.class, ex -> {
-                    log.error("Gateway forward failed for namespace '{}': {}", routingKey.namespaceId(), ex.getMessage(), ex);
-                    return writeError(exchange.getResponse(), HttpStatus.BAD_GATEWAY,
-                            "GATEWAY_ROUTING_FAILURE", "Gateway routing failure for namespace: " + routingKey.namespaceId());
-                });
+                .onErrorResume(Exception.class, ex -> handleForwardError(exchange.getResponse(), routingKey, ex));
     }
 
     /**
      * Dispatches the forward request on boundedElastic and writes the streaming response.
      */
     private Mono<Void> forwardAndWrite(ServerWebExchange exchange, RoutingKey routingKey, ForwardRequest forwardRequest) {
-        return Mono.fromCallable(() -> forwarder.forward(routingKey, forwardRequest))
+        return Mono.fromCallable(() -> executeWithIdempotency(routingKey, forwardRequest))
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(forwardResponse -> writeForwardResponse(exchange.getResponse(), forwardResponse))
-                .onErrorResume(Exception.class, ex -> {
-                    log.error("Gateway forward failed for namespace '{}': {}", routingKey.namespaceId(), ex.getMessage(), ex);
-                    return writeError(exchange.getResponse(), HttpStatus.BAD_GATEWAY,
-                            "GATEWAY_ROUTING_FAILURE", "Gateway routing failure for namespace: " + routingKey.namespaceId());
-                });
+                .onErrorResume(Exception.class, ex -> handleForwardError(exchange.getResponse(), routingKey, ex));
+    }
+
+    private ForwardResponse executeWithIdempotency(RoutingKey routingKey, ForwardRequest request) throws Exception {
+        if (forwarder.idempotencyStore() != null) {
+            return forwarder.forward(routingKey, request);
+        }
+        String rawKey = request.idempotencyKey();
+        if (rawKey != null && IdempotencyValidator.isMutatingRequest(request.method(), request.uriPath())) {
+            String namespaceScope = IdempotencyValidator.normalizeNamespaceScope(routingKey);
+            RequestFingerprint fingerprint = RequestFingerprint.of(request.method(), request.uriPath(), request.body());
+            IdempotencyReservation reservation = fallbackIdempotencyStore.reserve(namespaceScope, rawKey, fingerprint);
+            return switch (reservation.status()) {
+                case REPLAYED -> {
+                    StoredIdempotentResponse stored = reservation.response();
+                    yield new ForwardResponse(
+                            stored.statusCode(),
+                            stored.headersWithReplayMarker(),
+                            stored.body(),
+                            "replayed",
+                            0
+                    );
+                }
+                case MISMATCH -> throw new SpectorValidationException(
+                        ErrorCode.IDEMPOTENCY_KEY_REUSED,
+                        rawKey,
+                        routingKey.namespaceId()
+                );
+                case IN_FLIGHT -> throw new SpectorApiException(
+                        409,
+                        ErrorCode.IDEMPOTENCY_IN_FLIGHT,
+                        rawKey,
+                        routingKey.namespaceId()
+                );
+                case ACQUIRED -> {
+                    boolean committed = false;
+                    try {
+                        ForwardResponse response = forwarder.forward(routingKey, request);
+                        if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                            byte[] bodyBytes = response.body();
+                            StoredIdempotentResponse toStore = new StoredIdempotentResponse(
+                                    response.statusCode(),
+                                    response.headers(),
+                                    bodyBytes,
+                                    System.currentTimeMillis()
+                            );
+                            fallbackIdempotencyStore.commit(namespaceScope, rawKey, fingerprint, toStore);
+                            committed = true;
+                            yield new ForwardResponse(
+                                    response.statusCode(),
+                                    response.headers(),
+                                    bodyBytes,
+                                    response.finalOwnerId(),
+                                    response.attempts()
+                            );
+                        }
+                        yield response;
+                    } finally {
+                        if (!committed) {
+                            fallbackIdempotencyStore.release(namespaceScope, rawKey);
+                        }
+                    }
+                }
+            };
+        }
+        return forwarder.forward(routingKey, request);
+    }
+
+    private Mono<Void> handleForwardError(ServerHttpResponse response, RoutingKey routingKey, Exception ex) {
+        if (ex instanceof SpectorValidationException sve) {
+            if (sve.errorCode() == ErrorCode.IDEMPOTENCY_KEY_REUSED) {
+                return writeError(response, HttpStatus.UNPROCESSABLE_ENTITY,
+                        ErrorCode.IDEMPOTENCY_KEY_REUSED.name(), sve.getMessage());
+            }
+            if (sve.errorCode() == ErrorCode.IDEMPOTENCY_KEY_INVALID
+                    || sve.errorCode() == ErrorCode.IDEMPOTENCY_KEY_TOO_LONG) {
+                return writeError(response, HttpStatus.BAD_REQUEST,
+                        sve.errorCode().name(), sve.getMessage());
+            }
+        }
+        if (ex instanceof SpectorApiException sae && sae.errorCode() == ErrorCode.IDEMPOTENCY_IN_FLIGHT) {
+            response.getHeaders().set(HttpHeaders.RETRY_AFTER, "1");
+            return writeError(response, HttpStatus.CONFLICT,
+                    ErrorCode.IDEMPOTENCY_IN_FLIGHT.name(), sae.getMessage());
+        }
+        log.error("Gateway forward failed for namespace '{}': {}", routingKey.namespaceId(), ex.getMessage(), ex);
+        return writeError(response, HttpStatus.BAD_GATEWAY,
+                "GATEWAY_ROUTING_FAILURE", "Gateway routing failure for namespace: " + routingKey.namespaceId());
     }
 
     private boolean shouldNotFilter(String path) {

@@ -29,6 +29,7 @@ public class GatewayProperties {
     private RoutingProperties routing = new RoutingProperties();
     private AuthProperties auth = new AuthProperties();
     private CorsProperties cors = new CorsProperties();
+    private IdempotencyProperties idempotency = new IdempotencyProperties();
 
     public CellProperties getCell() {
         return cell;
@@ -60,6 +61,14 @@ public class GatewayProperties {
 
     public void setCors(CorsProperties cors) {
         if (cors != null) this.cors = cors;
+    }
+
+    public IdempotencyProperties getIdempotency() {
+        return idempotency;
+    }
+
+    public void setIdempotency(IdempotencyProperties idempotency) {
+        if (idempotency != null) this.idempotency = idempotency;
     }
 
 
@@ -277,5 +286,35 @@ public class GatewayProperties {
 
         public long getMaxAge() { return maxAge; }
         public void setMaxAge(long maxAge) { this.maxAge = maxAge; }
+    }
+
+    public static class IdempotencyProperties {
+        private boolean enabled = true;
+        private long ttlSeconds = 86_400L;
+        private int maxEntries = 16_384;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public long getTtlSeconds() {
+            return ttlSeconds;
+        }
+
+        public void setTtlSeconds(long ttlSeconds) {
+            this.ttlSeconds = ttlSeconds;
+        }
+
+        public int getMaxEntries() {
+            return maxEntries;
+        }
+
+        public void setMaxEntries(int maxEntries) {
+            this.maxEntries = maxEntries;
+        }
     }
 }

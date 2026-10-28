@@ -19,6 +19,8 @@ import com.spectrayan.spector.cluster.OwnershipResolver;
 import com.spectrayan.spector.cluster.gateway.GatewayForwarder;
 import com.spectrayan.spector.cluster.gateway.GatewayHttpTransport;
 import com.spectrayan.spector.cluster.gateway.RoutingKeyExtractor;
+import com.spectrayan.spector.cluster.idempotency.IdempotencyStore;
+import com.spectrayan.spector.cluster.idempotency.InMemoryIdempotencyStore;
 import com.spectrayan.spector.cluster.membership.StaticMembershipSource;
 import com.spectrayan.spector.cluster.node.NodeIdentity;
 import com.spectrayan.spector.cluster.node.NodeRole;
@@ -130,13 +132,29 @@ public class GatewayConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
+    public IdempotencyStore idempotencyStore(GatewayProperties properties) {
+        GatewayProperties.IdempotencyProperties idemProps = properties.getIdempotency();
+        long ttlSeconds = Math.max(1L, idemProps.getTtlSeconds());
+        int maxEntries = Math.max(1, idemProps.getMaxEntries());
+        return new InMemoryIdempotencyStore(Duration.ofSeconds(ttlSeconds), maxEntries);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
     public GatewayForwarder gatewayForwarder(
             GatewayProperties properties,
             WaterfallRoutingResolver resolver,
-            GatewayHttpTransport transport
+            GatewayHttpTransport transport,
+            IdempotencyStore idempotencyStore
     ) {
         int retryMax = properties.getRouting().getGateway().getRetryMax();
-        return new GatewayForwarder(resolver, retryMax, transport, GatewayForwarder.defaultNodeUrlResolver(7070));
+        return new GatewayForwarder(
+                resolver,
+                retryMax,
+                transport,
+                GatewayForwarder.defaultNodeUrlResolver(7070),
+                idempotencyStore
+        );
     }
 
     @Bean
