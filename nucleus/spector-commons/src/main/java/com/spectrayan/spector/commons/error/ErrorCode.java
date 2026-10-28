@@ -124,6 +124,18 @@ public enum ErrorCode {
     DESTINATION_SCOPE_REQUIRED(100_019, ErrorCategory.VALIDATION,
             "Strict write destination policy requires explicit {}: {}"),
 
+    /** Idempotency-Key header is blank or contains non-printable ASCII characters. */
+    IDEMPOTENCY_KEY_INVALID   (100_020, ErrorCategory.VALIDATION,
+            "Invalid Idempotency-Key header: {}"),
+
+    /** Idempotency-Key header exceeds the maximum permitted length of 256 ASCII bytes. */
+    IDEMPOTENCY_KEY_TOO_LONG  (100_021, ErrorCategory.VALIDATION,
+            "Idempotency-Key header length {} exceeds maximum of {} bytes"),
+
+    /** Idempotency-Key was reused with a different request method, path, or payload fingerprint. */
+    IDEMPOTENCY_KEY_REUSED    (100_022, ErrorCategory.VALIDATION,
+            "Idempotency-Key '{}' was already used with a different request fingerprint in namespace '{}'"),
+
     // ══════════════════════════════════════════════════════════════════════
     // CONFIG (SPE-110-xxx)
     // ══════════════════════════════════════════════════════════════════════
@@ -524,6 +536,10 @@ public enum ErrorCode {
     /** An MCP call named a namespace (argument, header or query parameter) other than the bound one. */
     MCP_NAMESPACE_MISMATCH    (500_014, ErrorCategory.SERVER,
             "Namespace '{}' does not match the namespace '{}' this MCP call is bound to by its token"),
+
+    /** A mutating request with the same Idempotency-Key is currently in flight for the namespace. */
+    IDEMPOTENCY_IN_FLIGHT     (500_015, ErrorCategory.SERVER,
+            "A request with Idempotency-Key '{}' is already in flight for namespace '{}'"),
 
     // ══════════════════════════════════════════════════════════════════════
     // CLIENT (SPE-510-xxx)
