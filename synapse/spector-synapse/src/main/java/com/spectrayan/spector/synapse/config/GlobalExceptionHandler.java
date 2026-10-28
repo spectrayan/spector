@@ -73,7 +73,9 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleSynapseException(SynapseException ex) {
         ErrorCode code = ex.errorCode();
         HttpStatus status = switch (code.category()) {
-            case VALIDATION -> HttpStatus.BAD_REQUEST;
+            case VALIDATION -> code == ErrorCode.IDEMPOTENCY_KEY_REUSED
+                    ? HttpStatus.UNPROCESSABLE_ENTITY
+                    : HttpStatus.BAD_REQUEST;
             case CONFIG -> HttpStatus.UNPROCESSABLE_ENTITY;
             case SECURITY -> code == ErrorCode.KMS_CONFIGURATION_INVALID ? HttpStatus.BAD_REQUEST : HttpStatus.FORBIDDEN;
             case MEMORY -> switch (code) {
@@ -101,7 +103,9 @@ public class GlobalExceptionHandler {
                 case REPLICA_STALENESS_EXCEEDED -> HttpStatus.PRECONDITION_FAILED;
                 default -> HttpStatus.SERVICE_UNAVAILABLE;
             };
-            case SERVER -> HttpStatus.SERVICE_UNAVAILABLE;
+            case SERVER -> code == ErrorCode.IDEMPOTENCY_IN_FLIGHT
+                    ? HttpStatus.CONFLICT
+                    : HttpStatus.SERVICE_UNAVAILABLE;
             default -> HttpStatus.INTERNAL_SERVER_ERROR;
         };
         Map<String, Object> details = null;
@@ -152,7 +156,9 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleSpectorException(SpectorException ex) {
         ErrorCode code = ex.errorCode();
         HttpStatus status = switch (code.category()) {
-            case VALIDATION -> HttpStatus.BAD_REQUEST;
+            case VALIDATION -> code == ErrorCode.IDEMPOTENCY_KEY_REUSED
+                    ? HttpStatus.UNPROCESSABLE_ENTITY
+                    : HttpStatus.BAD_REQUEST;
             case CONFIG -> HttpStatus.UNPROCESSABLE_ENTITY;
             case SECURITY -> code == ErrorCode.KMS_CONFIGURATION_INVALID ? HttpStatus.BAD_REQUEST : HttpStatus.FORBIDDEN;
             case MEMORY -> switch (code) {
@@ -180,13 +186,18 @@ public class GlobalExceptionHandler {
                 case REPLICA_STALENESS_EXCEEDED -> HttpStatus.PRECONDITION_FAILED;
                 default -> HttpStatus.SERVICE_UNAVAILABLE;
             };
-            case SERVER -> HttpStatus.SERVICE_UNAVAILABLE;
+            case SERVER -> code == ErrorCode.IDEMPOTENCY_IN_FLIGHT
+                    ? HttpStatus.CONFLICT
+                    : HttpStatus.SERVICE_UNAVAILABLE;
             default -> HttpStatus.INTERNAL_SERVER_ERROR;
         };
         log.warn("[SpectorException] [{}] status={} message={}", code.id(), status.value(), ex.getMessage());
-        return ResponseEntity.status(status)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(new ErrorResponse(status.value(), code.id(), ex.getMessage()));
+        var builder = ResponseEntity.status(status)
+                .contentType(MediaType.APPLICATION_JSON);
+        if (code == ErrorCode.IDEMPOTENCY_IN_FLIGHT) {
+            builder.header("Retry-After", "1");
+        }
+        return builder.body(new ErrorResponse(status.value(), code.id(), ex.getMessage()));
     }
 
     @ExceptionHandler(org.springframework.web.server.ResponseStatusException.class)

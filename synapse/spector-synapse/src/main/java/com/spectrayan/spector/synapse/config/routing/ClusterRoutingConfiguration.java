@@ -24,6 +24,7 @@ import com.spectrayan.spector.cluster.routing.cache.RedisRoutingCache;
 import com.spectrayan.spector.cluster.routing.cache.WaterfallRoutingResolver;
 import com.spectrayan.spector.cluster.routing.invalidation.RoutingInvalidationSubscriber;
 import com.spectrayan.spector.cluster.gateway.GatewayForwarder;
+import com.spectrayan.spector.cluster.idempotency.IdempotencyStore;
 import com.spectrayan.spector.synapse.cluster.gateway.GatewayForwardingFilter;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
 import io.lettuce.core.ClientOptions;
@@ -121,11 +122,12 @@ public class ClusterRoutingConfiguration {
     @ConditionalOnProperty(name = "spector.cell.role", havingValue = "gateway")
     public GatewayForwarder gatewayForwarder(
             SynapseProperties properties,
-            WaterfallRoutingResolver resolver
+            WaterfallRoutingResolver resolver,
+            ObjectProvider<IdempotencyStore> idempotencyStoreProvider
     ) {
         RoutingProperties routingProps = properties.getRouting() != null ? properties.getRouting() : new RoutingProperties();
         int retryMax = routingProps.getGateway().getRetryMax();
-        return new GatewayForwarder(resolver, retryMax, null, null);
+        return new GatewayForwarder(resolver, retryMax, null, null, idempotencyStoreProvider.getIfAvailable());
     }
 
     @Bean

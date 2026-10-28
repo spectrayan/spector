@@ -191,13 +191,32 @@ public class SecurityConfig {
             ObjectProvider<AuthenticationManagerResolver<HttpServletRequest>> jwtResolverProvider,
             ObjectProvider<RateLimitFilter> rateLimitFilterProvider,
             ObjectProvider<NamespaceResolutionFilter> namespaceResolutionFilterProvider,
+            ObjectProvider<com.spectrayan.spector.synapse.security.TenantStatusFilter> tenantStatusFilterProvider,
+            ObjectProvider<com.spectrayan.spector.synapse.idempotency.IdempotencyFilter> idempotencyFilterProvider)
+            throws Exception {
+        RateLimitFilter rateLimitFilter = rateLimitFilterProvider != null ? rateLimitFilterProvider.getIfAvailable() : null;
+        NamespaceResolutionFilter namespaceResolutionFilter = namespaceResolutionFilterProvider != null ? namespaceResolutionFilterProvider.getIfAvailable() : null;
+        com.spectrayan.spector.synapse.security.TenantStatusFilter tenantStatusFilter =
+                tenantStatusFilterProvider != null ? tenantStatusFilterProvider.getIfAvailable() : null;
+        com.spectrayan.spector.synapse.idempotency.IdempotencyFilter idempotencyFilter =
+                idempotencyFilterProvider != null ? idempotencyFilterProvider.getIfAvailable() : null;
+        return buildFilterChain(http, apiKeyFilter, rateLimitFilter, namespaceResolutionFilter, tenantStatusFilter, idempotencyFilter, properties, jwtResolverProvider);
+    }
+
+    public SecurityFilterChain filterChain(
+            HttpSecurity http,
+            ApiKeyAuthenticationFilter apiKeyFilter,
+            SynapseProperties properties,
+            ObjectProvider<AuthenticationManagerResolver<HttpServletRequest>> jwtResolverProvider,
+            ObjectProvider<RateLimitFilter> rateLimitFilterProvider,
+            ObjectProvider<NamespaceResolutionFilter> namespaceResolutionFilterProvider,
             ObjectProvider<com.spectrayan.spector.synapse.security.TenantStatusFilter> tenantStatusFilterProvider)
             throws Exception {
         RateLimitFilter rateLimitFilter = rateLimitFilterProvider != null ? rateLimitFilterProvider.getIfAvailable() : null;
         NamespaceResolutionFilter namespaceResolutionFilter = namespaceResolutionFilterProvider != null ? namespaceResolutionFilterProvider.getIfAvailable() : null;
         com.spectrayan.spector.synapse.security.TenantStatusFilter tenantStatusFilter =
                 tenantStatusFilterProvider != null ? tenantStatusFilterProvider.getIfAvailable() : null;
-        return buildFilterChain(http, apiKeyFilter, rateLimitFilter, namespaceResolutionFilter, tenantStatusFilter, properties, jwtResolverProvider);
+        return buildFilterChain(http, apiKeyFilter, rateLimitFilter, namespaceResolutionFilter, tenantStatusFilter, null, properties, jwtResolverProvider);
     }
 
     public SecurityFilterChain filterChain(
@@ -210,7 +229,7 @@ public class SecurityConfig {
             throws Exception {
         RateLimitFilter rateLimitFilter = rateLimitFilterProvider != null ? rateLimitFilterProvider.getIfAvailable() : null;
         NamespaceResolutionFilter namespaceResolutionFilter = namespaceResolutionFilterProvider != null ? namespaceResolutionFilterProvider.getIfAvailable() : null;
-        return buildFilterChain(http, apiKeyFilter, rateLimitFilter, namespaceResolutionFilter, null, properties, jwtResolverProvider);
+        return buildFilterChain(http, apiKeyFilter, rateLimitFilter, namespaceResolutionFilter, null, null, properties, jwtResolverProvider);
     }
 
     public SecurityFilterChain filterChain(
@@ -221,7 +240,7 @@ public class SecurityConfig {
             ObjectProvider<RateLimitFilter> rateLimitFilterProvider)
             throws Exception {
         RateLimitFilter rateLimitFilter = rateLimitFilterProvider != null ? rateLimitFilterProvider.getIfAvailable() : null;
-        return buildFilterChain(http, apiKeyFilter, rateLimitFilter, null, null, properties, jwtResolverProvider);
+        return buildFilterChain(http, apiKeyFilter, rateLimitFilter, null, null, null, properties, jwtResolverProvider);
     }
 
     public SecurityFilterChain filterChain(
@@ -230,7 +249,7 @@ public class SecurityConfig {
             SynapseProperties properties,
             ObjectProvider<AuthenticationManagerResolver<HttpServletRequest>> jwtResolverProvider)
             throws Exception {
-        return buildFilterChain(http, apiKeyFilter, null, null, null, properties, jwtResolverProvider);
+        return buildFilterChain(http, apiKeyFilter, null, null, null, null, properties, jwtResolverProvider);
     }
 
     public SecurityFilterChain filterChain(
@@ -240,7 +259,7 @@ public class SecurityConfig {
             SynapseProperties properties,
             ObjectProvider<AuthenticationManagerResolver<HttpServletRequest>> jwtResolverProvider)
             throws Exception {
-        return buildFilterChain(http, apiKeyFilter, rateLimitFilter, null, null, properties, jwtResolverProvider);
+        return buildFilterChain(http, apiKeyFilter, rateLimitFilter, null, null, null, properties, jwtResolverProvider);
     }
 
     private SecurityFilterChain buildFilterChain(
@@ -249,6 +268,7 @@ public class SecurityConfig {
             RateLimitFilter rateLimitFilter,
             NamespaceResolutionFilter namespaceResolutionFilter,
             com.spectrayan.spector.synapse.security.TenantStatusFilter tenantStatusFilter,
+            com.spectrayan.spector.synapse.idempotency.IdempotencyFilter idempotencyFilter,
             SynapseProperties properties,
             ObjectProvider<AuthenticationManagerResolver<HttpServletRequest>> jwtResolverProvider)
             throws Exception {
@@ -344,6 +364,13 @@ public class SecurityConfig {
         }
         if (namespaceResolutionFilter != null) {
             http.addFilterAfter(namespaceResolutionFilter, AuthorizationFilter.class);
+        }
+        if (idempotencyFilter != null) {
+            if (namespaceResolutionFilter != null) {
+                http.addFilterAfter(idempotencyFilter, NamespaceResolutionFilter.class);
+            } else {
+                http.addFilterAfter(idempotencyFilter, AuthorizationFilter.class);
+            }
         }
 
         return http.build();
