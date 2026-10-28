@@ -57,6 +57,9 @@ These errors indicate invalid input provided by the caller.
 | `SPE-100-014` | Argument must be non-negative | Negative value for a non-negative parameter |
 | `SPE-100-015` | Length mismatch | Two arrays that must be same length differ |
 | `SPE-100-016` | Bit width invalid | Quantization bit width not 2, 4, or 8 |
+| `SPE-100-020` | Invalid Idempotency-Key header | `Idempotency-Key` header is empty, contains whitespace or non-printable ASCII characters, or conflicts with `X-Idempotency-Key` |
+| `SPE-100-021` | Idempotency-Key header exceeds maximum length | `Idempotency-Key` header exceeds 256 ASCII bytes |
+| `SPE-100-022` | Idempotency-Key reused with different fingerprint | Same `(namespace, Idempotency-Key)` reused with a different HTTP method, path, or payload SHA-256 (HTTP 422) |
 
 ---
 
@@ -177,6 +180,7 @@ These errors are returned by the Spector REST API, gRPC, or MCP server.
 | `SPE-500-006` | 500 | MCP tool execution failed | Check MCP tool logs for details. |
 | `SPE-500-007` | 500 | gRPC transport error | Check network connectivity between nodes. |
 | `SPE-500-014` | 403 | MCP namespace mismatch | MCP calls are bound to the single namespace pinned by the caller's token. A `namespace` argument, `X-Spector-Namespace` header or `?namespace=` parameter may only repeat that namespace; omit it. |
+| `SPE-500-015` | 409 | Idempotency-Key request in flight | An identical mutating request with the same `(namespace, Idempotency-Key)` is currently executing. Wait for the `Retry-After` interval before retrying. |
 
 ---
 
