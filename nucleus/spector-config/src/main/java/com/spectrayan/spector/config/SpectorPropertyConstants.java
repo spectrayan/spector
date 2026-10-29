@@ -1678,5 +1678,15 @@ public final class SpectorPropertyConstants {
     /** When true, reject writes where namespace or memory tier was not explicitly supplied. */
     public static final String GOVERNANCE_STRICT_WRITE_DESTINATION = "spector.governance.strict-write-destination";
     public static final boolean DEFAULT_GOVERNANCE_STRICT_WRITE_DESTINATION = false;
+
+    // ── Idempotency Deduplication ─────────────────────────────────
+    public static final String IDEMPOTENCY_ENABLED = "spector.idempotency.enabled";
+    public static final boolean DEFAULT_IDEMPOTENCY_ENABLED = true;
+
+    public static final String IDEMPOTENCY_TTL_SECONDS = "spector.idempotency.ttl-seconds";
+    public static final long DEFAULT_IDEMPOTENCY_TTL_SECONDS = 86_400L; // 24 hours
+
+    public static final String IDEMPOTENCY_MAX_ENTRIES = "spector.idempotency.max-entries";
+    public static final int DEFAULT_IDEMPOTENCY_MAX_ENTRIES = 16_384;
 }
 

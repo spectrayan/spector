@@ -23,10 +23,21 @@
 | Base URL | `http://localhost:7070` | Configurable port |
 | Content-Type | `application/json` | All requests and responses |
 | Auth Header | `X-API-Key: <key>` | Optional, configured at startup |
+| Idempotency Header | `Idempotency-Key: <key>` | Optional (1–256 printable ASCII chars) for safe write retry deduplication |
 | CORS | Enabled | All origins by default |
 
 > [!NOTE]
 > When an API key is configured, requests without a valid key receive `401 Unauthorized`.
+
+### Idempotent Write Deduplication
+
+Mutating HTTP requests (`POST`, `PUT`, `PATCH`, `DELETE`, excluding read-only query `POST` routes such as `/api/v1/memory/recall` and `/api/v1/memory/search`) support server-side deduplication via `Idempotency-Key` (or `X-Idempotency-Key`):
+
+- **Replay (`Idempotent-Replayed: true`)**: Repeating a request with the same `(namespace, Idempotency-Key)` and identical request fingerprint (`method`, `path`, `payload SHA-256`) within the configured TTL (`spector.idempotency.ttl-seconds`, default `86400`) replays the original `2xx` status code, headers, and body without re-executing the write.
+- **Fingerprint mismatch (`422 Unprocessable Entity`, `SPE-100-022`)**: Reusing the same `(namespace, Idempotency-Key)` with a different method, path, or payload is rejected with `IDEMPOTENCY_KEY_REUSED`.
+- **Key validation (`400 Bad Request`, `SPE-100-020` / `SPE-100-021`)**: Blank keys, keys with non-printable ASCII characters, or keys exceeding 256 bytes are rejected before execution.
+- **Concurrent in-flight protection (`409 Conflict`, `SPE-500-015`)**: Concurrent requests with the same `(namespace, Idempotency-Key)` while the leader is still in flight receive `409 Conflict` with `Retry-After: 1` so the write executes at most once.
+- **Bounds & Durability**: The idempotency store is bounded by `spector.idempotency.ttl-seconds` (default 24h) and `spector.idempotency.max-entries` (default `16384`), and persists committed `2xx` responses to the `idempotency_records` catalog table so replays survive restarts while uncommitted in-flight entries recover cleanly.
 
 ---
 

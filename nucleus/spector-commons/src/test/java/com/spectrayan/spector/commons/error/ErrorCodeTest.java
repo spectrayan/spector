@@ -130,6 +130,10 @@ class ErrorCodeTest {
         assertThat(ErrorCode.fromId("SPE-SEC-010")).isSameAs(ErrorCode.BYOK_KEY_REVOKED);
         assertThat(ErrorCode.KMS_CONFIGURATION_INVALID.id()).isEqualTo("SPE-820-011");
         assertThat(ErrorCode.fromId("SPE-SEC-011")).isSameAs(ErrorCode.KMS_CONFIGURATION_INVALID);
+        assertThat(ErrorCode.IDEMPOTENCY_KEY_INVALID.id()).isEqualTo("SPE-100-020");
+        assertThat(ErrorCode.IDEMPOTENCY_KEY_TOO_LONG.id()).isEqualTo("SPE-100-021");
+        assertThat(ErrorCode.IDEMPOTENCY_KEY_REUSED.id()).isEqualTo("SPE-100-022");
+        assertThat(ErrorCode.IDEMPOTENCY_IN_FLIGHT.id()).isEqualTo("SPE-500-015");
     }
 
     // ─────────────── Lookup ───────────────

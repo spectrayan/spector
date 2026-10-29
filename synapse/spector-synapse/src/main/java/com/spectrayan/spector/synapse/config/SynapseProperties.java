@@ -56,6 +56,7 @@ public class SynapseProperties extends SpectorConfigProperties {
     private com.spectrayan.spector.synapse.config.failover.FailoverProperties failover = new com.spectrayan.spector.synapse.config.failover.FailoverProperties();
     private com.spectrayan.spector.synapse.config.dr.DisasterRecoveryProperties dr = new com.spectrayan.spector.synapse.config.dr.DisasterRecoveryProperties();
     private com.spectrayan.spector.synapse.security.config.SecurityProperties security = new com.spectrayan.spector.synapse.security.config.SecurityProperties();
+    private com.spectrayan.spector.synapse.idempotency.IdempotencyProperties idempotency = new com.spectrayan.spector.synapse.idempotency.IdempotencyProperties();
 
     public SynapseProperties() {}
 
@@ -113,6 +114,9 @@ public class SynapseProperties extends SpectorConfigProperties {
 
     public com.spectrayan.spector.synapse.security.config.SecurityProperties getSecurity() { return security; }
     public void setSecurity(com.spectrayan.spector.synapse.security.config.SecurityProperties security) { if (security != null) this.security = security; }
+
+    public com.spectrayan.spector.synapse.idempotency.IdempotencyProperties getIdempotency() { return idempotency; }
+    public void setIdempotency(com.spectrayan.spector.synapse.idempotency.IdempotencyProperties idempotency) { if (idempotency != null) this.idempotency = idempotency; }
 
     // ══════════════════════════════════════════════════════════════
     // Canonical storage roots (ADR-0034 D1, Req R3.1, R3.4)
@@ -173,4 +177,5 @@ public class SynapseProperties extends SpectorConfigProperties {
     public com.spectrayan.spector.synapse.config.failover.FailoverProperties failover() { return getFailover(); }
     public com.spectrayan.spector.synapse.config.dr.DisasterRecoveryProperties dr() { return getDr(); }
     public com.spectrayan.spector.synapse.security.config.SecurityProperties security() { return getSecurity(); }
+    public com.spectrayan.spector.synapse.idempotency.IdempotencyProperties idempotency() { return getIdempotency(); }
 }

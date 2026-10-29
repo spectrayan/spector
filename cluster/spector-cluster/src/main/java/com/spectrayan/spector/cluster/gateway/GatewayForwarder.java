@@ -15,11 +15,20 @@
  */
 package com.spectrayan.spector.cluster.gateway;
 
+import com.spectrayan.spector.cluster.idempotency.IdempotencyReservation;
+import com.spectrayan.spector.cluster.idempotency.IdempotencyStore;
+import com.spectrayan.spector.cluster.idempotency.IdempotencyValidator;
+import com.spectrayan.spector.cluster.idempotency.InMemoryIdempotencyStore;
+import com.spectrayan.spector.cluster.idempotency.RequestFingerprint;
+import com.spectrayan.spector.cluster.idempotency.StoredIdempotentResponse;
 import com.spectrayan.spector.cluster.routing.ResolvedRoute;
 import com.spectrayan.spector.cluster.routing.RouteBinding;
 import com.spectrayan.spector.cluster.routing.RouteSource;
 import com.spectrayan.spector.cluster.routing.RoutingKey;
 import com.spectrayan.spector.cluster.routing.cache.WaterfallRoutingResolver;
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorApiException;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,6 +57,7 @@ public class GatewayForwarder {
     private final int retryMax;
     private final GatewayHttpTransport transport;
     private final Function<String, String> nodeBaseUrlResolver;
+    private final IdempotencyStore idempotencyStore;
 
     public GatewayForwarder(
             WaterfallRoutingResolver resolver,
@@ -55,10 +65,25 @@ public class GatewayForwarder {
             GatewayHttpTransport transport,
             Function<String, String> nodeBaseUrlResolver
     ) {
+        this(resolver, retryMax, transport, nodeBaseUrlResolver, new InMemoryIdempotencyStore());
+    }
+
+    public GatewayForwarder(
+            WaterfallRoutingResolver resolver,
+            int retryMax,
+            GatewayHttpTransport transport,
+            Function<String, String> nodeBaseUrlResolver,
+            IdempotencyStore idempotencyStore
+    ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver must not be null");
         this.retryMax = Math.max(0, retryMax);
         this.transport = transport != null ? transport : GatewayHttpTransport.defaultJdkTransport(Duration.ofSeconds(10));
         this.nodeBaseUrlResolver = nodeBaseUrlResolver != null ? nodeBaseUrlResolver : defaultNodeUrlResolver(7070);
+        this.idempotencyStore = idempotencyStore != null ? idempotencyStore : new InMemoryIdempotencyStore();
+    }
+
+    public IdempotencyStore idempotencyStore() {
+        return idempotencyStore;
     }
 
     /**
@@ -73,6 +98,75 @@ public class GatewayForwarder {
     public ForwardResponse forward(RoutingKey routingKey, ForwardRequest request) throws Exception {
         Objects.requireNonNull(routingKey, "routingKey must not be null");
         Objects.requireNonNull(request, "request must not be null");
+
+        String rawKey = request.idempotencyKey();
+        if (rawKey != null) {
+            IdempotencyValidator.validateKey(rawKey);
+        }
+
+        if (rawKey != null && IdempotencyValidator.isMutatingRequest(request.method(), request.uriPath())) {
+            String namespaceScope = IdempotencyValidator.normalizeNamespaceScope(routingKey);
+            RequestFingerprint fingerprint = RequestFingerprint.of(request.method(), request.uriPath(), request.body());
+            IdempotencyReservation reservation = idempotencyStore.reserve(namespaceScope, rawKey, fingerprint);
+
+            return switch (reservation.status()) {
+                case REPLAYED -> {
+                    StoredIdempotentResponse stored = reservation.response();
+                    yield new ForwardResponse(
+                            stored.statusCode(),
+                            stored.headersWithReplayMarker(),
+                            stored.body(),
+                            "replayed",
+                            0
+                    );
+                }
+                case MISMATCH -> throw new SpectorValidationException(
+                        ErrorCode.IDEMPOTENCY_KEY_REUSED,
+                        rawKey,
+                        routingKey.namespaceId()
+                );
+                case IN_FLIGHT -> throw new SpectorApiException(
+                        409,
+                        ErrorCode.IDEMPOTENCY_IN_FLIGHT,
+                        rawKey,
+                        routingKey.namespaceId()
+                );
+                case ACQUIRED -> {
+                    boolean committed = false;
+                    try {
+                        ForwardResponse response = forwardWithRetries(routingKey, request);
+                        if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                            byte[] bodyBytes = response.body();
+                            StoredIdempotentResponse toStore = new StoredIdempotentResponse(
+                                    response.statusCode(),
+                                    response.headers(),
+                                    bodyBytes,
+                                    System.currentTimeMillis()
+                            );
+                            idempotencyStore.commit(namespaceScope, rawKey, fingerprint, toStore);
+                            committed = true;
+                            yield new ForwardResponse(
+                                    response.statusCode(),
+                                    response.headers(),
+                                    bodyBytes,
+                                    response.finalOwnerId(),
+                                    response.attempts()
+                            );
+                        }
+                        yield response;
+                    } finally {
+                        if (!committed) {
+                            idempotencyStore.release(namespaceScope, rawKey);
+                        }
+                    }
+                }
+            };
+        }
+
+        return forwardWithRetries(routingKey, request);
+    }
+
+    private ForwardResponse forwardWithRetries(RoutingKey routingKey, ForwardRequest request) throws Exception {
 
         int attempts = 0;
         String explicitTargetOwner = null;
