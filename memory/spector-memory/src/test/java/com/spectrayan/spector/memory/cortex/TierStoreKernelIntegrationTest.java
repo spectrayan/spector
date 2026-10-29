@@ -150,9 +150,8 @@ class TierStoreKernelIntegrationTest {
     @DisplayName("kernel layout crcEnabled matches cognitive layout")
     void kernelLayoutCrcFlag() {
         try (var store = new WorkingMemory(VEC_BYTES, CAPACITY)) {
-            // EngramLayout doesn't enable CRC by default
             var layout = store.layout();
-            assertThat(layout.crcEnabled()).isFalse();
+            assertThat(layout.crcEnabled()).isTrue();
         }
     }
 }

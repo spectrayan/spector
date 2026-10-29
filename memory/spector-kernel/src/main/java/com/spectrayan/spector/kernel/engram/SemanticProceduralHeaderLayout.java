@@ -15,14 +15,6 @@
  */
 package com.spectrayan.spector.kernel.engram;
 
-import com.spectrayan.spector.kernel.engram.EncodingHeader;
-
-import com.spectrayan.spector.kernel.engram.EncodingHeaderLayout;
-
-import com.spectrayan.spector.kernel.engram.ProceduralHeaderLayout;
-
-import com.spectrayan.spector.kernel.engram.SemanticHeaderLayout;
-
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.VarHandle;
@@ -91,19 +83,40 @@ public class SemanticProceduralHeaderLayout extends EncodingHeaderLayout {
 
     @Override
     public void writeSynapticTags(MemorySegment seg, long off, long tagsLo, long tagsHi) {
-        seg.set(ValueLayout.JAVA_LONG_UNALIGNED, off + OFFSET_V2_SYNAPTIC_TAGS_LO, tagsLo);
-        seg.set(ValueLayout.JAVA_LONG_UNALIGNED, off + OFFSET_V2_SYNAPTIC_TAGS_HI, tagsHi);
+        var lock = rwLockFor(off).writeLock();
+        lock.lock();
+        try {
+            seg.set(ValueLayout.JAVA_LONG_UNALIGNED, off + OFFSET_V2_SYNAPTIC_TAGS_LO, tagsLo);
+            seg.set(ValueLayout.JAVA_LONG_UNALIGNED, off + OFFSET_V2_SYNAPTIC_TAGS_HI, tagsHi);
+            updateHeaderCrc(seg, off);
+        } finally {
+            lock.unlock();
+        }
     }
 
     @Override
     public void mergeSynapticTags(MemorySegment seg, long off, long additionalTags) {
-        VAR_HANDLE_SYNAPTIC_TAGS.getAndBitwiseOr(seg, off + OFFSET_V2_SYNAPTIC_TAGS_LO, additionalTags);
+        var lock = rwLockFor(off).writeLock();
+        lock.lock();
+        try {
+            VAR_HANDLE_SYNAPTIC_TAGS.getAndBitwiseOr(seg, off + OFFSET_V2_SYNAPTIC_TAGS_LO, additionalTags);
+            updateHeaderCrc(seg, off);
+        } finally {
+            lock.unlock();
+        }
     }
 
     @Override
     public void mergeSynapticTags128(MemorySegment seg, long off, long tagsLo, long tagsHi) {
-        VAR_HANDLE_SYNAPTIC_TAGS.getAndBitwiseOr(seg, off + OFFSET_V2_SYNAPTIC_TAGS_LO, tagsLo);
-        VAR_HANDLE_SYNAPTIC_TAGS.getAndBitwiseOr(seg, off + OFFSET_V2_SYNAPTIC_TAGS_HI, tagsHi);
+        var lock = rwLockFor(off).writeLock();
+        lock.lock();
+        try {
+            VAR_HANDLE_SYNAPTIC_TAGS.getAndBitwiseOr(seg, off + OFFSET_V2_SYNAPTIC_TAGS_LO, tagsLo);
+            VAR_HANDLE_SYNAPTIC_TAGS.getAndBitwiseOr(seg, off + OFFSET_V2_SYNAPTIC_TAGS_HI, tagsHi);
+            updateHeaderCrc(seg, off);
+        } finally {
+            lock.unlock();
+        }
     }
 
     @Override

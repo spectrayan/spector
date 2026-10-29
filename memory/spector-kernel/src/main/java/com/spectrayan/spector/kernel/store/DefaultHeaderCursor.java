@@ -52,6 +52,7 @@ public final class DefaultHeaderCursor implements HeaderCursor {
     private final int capacity;
     private final long dataOffset;
     private final int stride;
+    private final boolean rawStrengthSegment;
 
     private final int pinnedEngramGeneration;
     private final RegionLease engramLease;
@@ -79,6 +80,7 @@ public final class DefaultHeaderCursor implements HeaderCursor {
         this.capacity = capacity;
         this.dataOffset = dataOffset;
         this.stride = layout != null ? layout.stride() : 64;
+        this.rawStrengthSegment = (layout == null);
         this.strengthMemory = strengthMemory;
 
         this.pinnedEngramGeneration = engramRef.generation();
@@ -109,6 +111,7 @@ public final class DefaultHeaderCursor implements HeaderCursor {
         this.capacity = capacity;
         this.dataOffset = dataOffset;
         this.stride = -1; // variable length
+        this.rawStrengthSegment = false;
         this.strengthMemory = strengthMemory;
 
         this.pinnedEngramGeneration = engramRef.generation();
@@ -149,6 +152,7 @@ public final class DefaultHeaderCursor implements HeaderCursor {
         this.capacity = capacity;
         this.dataOffset = dataOffset;
         this.stride = -1;
+        this.rawStrengthSegment = false;
         this.strengthMemory = strengthMemory;
 
         this.pinnedEngramGeneration = 0;
@@ -171,6 +175,7 @@ public final class DefaultHeaderCursor implements HeaderCursor {
         this.capacity = capacity;
         this.dataOffset = dataOffset;
         this.stride = layout != null ? layout.stride() : 64;
+        this.rawStrengthSegment = (layout == null);
         this.strengthMemory = strengthMemory;
 
         this.pinnedEngramGeneration = 0;
@@ -746,7 +751,7 @@ public final class DefaultHeaderCursor implements HeaderCursor {
         checkPosition();
         if (strengthMemory != null && currentSlot >= 0 && tier != MemoryType.WORKING) {
             strengthMemory.recordRecall(tier, currentSlot, creationMs, recallMs, (byte) 0, 0);
-        } else {
+        } else if (rawStrengthSegment) {
             com.spectrayan.spector.kernel.layout.StrengthLayout.INSTANCE.recordActRRecall(
                     segment(), headerOffset(), creationMs, recallMs);
         }
@@ -757,8 +762,10 @@ public final class DefaultHeaderCursor implements HeaderCursor {
         checkPosition();
         if (strengthMemory != null && currentSlot >= 0 && tier != MemoryType.WORKING) {
             return strengthMemory.readActRTimestamps(tier, currentSlot);
+        } else if (rawStrengthSegment) {
+            return com.spectrayan.spector.kernel.layout.StrengthLayout.INSTANCE.readActRTimestamps(segment(), headerOffset());
         }
-        return com.spectrayan.spector.kernel.layout.StrengthLayout.INSTANCE.readActRTimestamps(segment(), headerOffset());
+        return new int[com.spectrayan.spector.kernel.layout.StrengthLayout.ACT_R_RING_BUFFER_SLOTS];
     }
 
     @Override
@@ -766,9 +773,11 @@ public final class DefaultHeaderCursor implements HeaderCursor {
         checkPosition();
         if (strengthMemory != null && currentSlot >= 0 && tier != MemoryType.WORKING) {
             return strengthMemory.computeActRActivation(tier, currentSlot, creationMs, nowMs);
+        } else if (rawStrengthSegment) {
+            return com.spectrayan.spector.kernel.layout.StrengthLayout.INSTANCE.computeActRActivation(
+                    segment(), headerOffset(), creationMs, nowMs);
         }
-        return com.spectrayan.spector.kernel.layout.StrengthLayout.INSTANCE.computeActRActivation(
-                segment(), headerOffset(), creationMs, nowMs);
+        return -1.0f;
     }
 
     @Override

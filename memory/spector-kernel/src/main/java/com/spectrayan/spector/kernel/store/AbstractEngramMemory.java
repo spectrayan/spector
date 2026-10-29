@@ -240,13 +240,25 @@ public abstract sealed class AbstractEngramMemory<L extends FixedEngramLayout>
     @Override
     public long write(long recordId, MemorySegment recordBytes) {
         long offset = recordOffset(recordId);
-        MemorySegment.copy(recordBytes, 0, segment(), offset, Math.min(recordBytes.byteSize(), layout.stride()));
+        var slotLock = com.spectrayan.spector.kernel.engram.EncodingHeaderLayout.rwLockFor(offset).writeLock();
+        slotLock.lock();
+        try {
+            MemorySegment.copy(recordBytes, 0, segment(), offset, Math.min(recordBytes.byteSize(), layout.stride()));
+            if (layout.crcEnabled()) {
+                layout.writeRecordCrc(segment(), offset);
+            }
+        } finally {
+            slotLock.unlock();
+        }
         return offset;
     }
 
     @Override
     public void read(long recordId, MemorySegment dest) {
         long offset = recordOffset(recordId);
+        if (layout.crcEnabled()) {
+            layout.verifyRecordCrc(segment(), offset, recordId);
+        }
         MemorySegment.copy(segment(), offset, dest, 0, Math.min(dest.byteSize(), layout.stride()));
     }
 
@@ -291,6 +303,9 @@ public abstract sealed class AbstractEngramMemory<L extends FixedEngramLayout>
         byte flags = layout.readFlags(segment(), recordOff);
         if (com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.isTombstoned(flags)) {
             return null;
+        }
+        if (layout.crcEnabled()) {
+            layout.verifyRecordCrc(segment(), recordOff, slot);
         }
         int vecBytes = layout.quantizedVecBytes();
         byte[] dest = new byte[vecBytes];
@@ -362,6 +377,9 @@ public abstract sealed class AbstractEngramMemory<L extends FixedEngramLayout>
         // be scored as data. Report absence instead; every caller already handles null.
         if (isPurged(offset)) {
             return null;
+        }
+        if (layout.crcEnabled()) {
+            layout.verifyRecordCrc(segment(), offset, offset);
         }
         int vecBytes = layout.quantizedVecBytes();
         byte[] quantizedVec = new byte[vecBytes];
@@ -466,9 +484,16 @@ public abstract sealed class AbstractEngramMemory<L extends FixedEngramLayout>
 
     public void reinforceValence(long offset, byte outcome, float learningRate) {
         if (layout instanceof FixedEngramLayout fixedLayout) {
-            byte currentValence = fixedLayout.readValence(segment(), offset);
-            byte blended = Valence.blend(currentValence, outcome, learningRate);
-            segment().set(EncodingHeaderFields.LAYOUT_VALENCE, offset + EncodingHeaderFields.OFFSET_VALENCE, blended);
+            var slotLock = com.spectrayan.spector.kernel.engram.EncodingHeaderLayout.rwLockFor(offset).writeLock();
+            slotLock.lock();
+            try {
+                byte currentValence = fixedLayout.readValence(segment(), offset);
+                byte blended = Valence.blend(currentValence, outcome, learningRate);
+                segment().set(EncodingHeaderFields.LAYOUT_VALENCE, offset + EncodingHeaderFields.OFFSET_VALENCE, blended);
+                fixedLayout.headerLayout().updateHeaderCrc(segment(), offset);
+            } finally {
+                slotLock.unlock();
+            }
         }
     }
 
@@ -580,11 +605,20 @@ public abstract sealed class AbstractEngramMemory<L extends FixedEngramLayout>
                 throw new com.spectrayan.spector.kernel.error.SpectorMemoryTierFullException(type().name(), (int) maxCapacity);
             }
             long offset = dataOffset() + (long) count * layout.stride();
-            layout.writeHeader(segment(), offset, header);
-            if (quantizedVec != null) {
-                int copyLen = Math.min(quantizedVec.length, layout.quantizedVecBytes());
-                MemorySegment.copy(MemorySegment.ofArray(quantizedVec), 0,
-                        segment(), layout.vectorOffset(offset), copyLen);
+            var slotLock = com.spectrayan.spector.kernel.engram.EncodingHeaderLayout.rwLockFor(offset).writeLock();
+            slotLock.lock();
+            try {
+                layout.writeHeader(segment(), offset, header);
+                if (quantizedVec != null) {
+                    int copyLen = Math.min(quantizedVec.length, layout.quantizedVecBytes());
+                    MemorySegment.copy(MemorySegment.ofArray(quantizedVec), 0,
+                            segment(), layout.vectorOffset(offset), copyLen);
+                    if (layout.crcEnabled()) {
+                        layout.writeRecordCrc(segment(), offset);
+                    }
+                }
+            } finally {
+                slotLock.unlock();
             }
             count++;
             persistCount();

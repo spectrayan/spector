@@ -59,6 +59,8 @@ import com.spectrayan.spector.kernel.layout.RegionLayout;
 public record EngramLayout(int quantizedVecBytes, EncodingHeaderLayout headerLayout) implements FixedEngramLayout {
 
     public static final int LAYOUT_ID = 0x434F4700; // 'COG\0'
+    public static final int SCHEMA_VERSION = FixedEngramLayout.SCHEMA_VERSION;
+    public static final int MIN_READABLE_SCHEMA_VERSION = FixedEngramLayout.MIN_READABLE_SCHEMA_VERSION;
 
     /**
      * Default constructor — uses the default 64-byte header layout.
@@ -76,7 +78,7 @@ public record EngramLayout(int quantizedVecBytes, EncodingHeaderLayout headerLay
 
     @Override
     public int schemaVersion() {
-        return 1;
+        return SCHEMA_VERSION;
     }
 
     @Override
@@ -110,7 +112,7 @@ public record EngramLayout(int quantizedVecBytes, EncodingHeaderLayout headerLay
      */
     @Override
     public boolean crcEnabled() {
-        return false;
+        return true;
     }
 
     @Override
@@ -421,6 +423,7 @@ public record EngramLayout(int quantizedVecBytes, EncodingHeaderLayout headerLay
     public void writeQuantizedVector(MemorySegment segment, long recordOffset, byte[] quantizedVec) {
         MemorySegment.copy(MemorySegment.ofArray(quantizedVec), ValueLayout.JAVA_BYTE, 0,
                 segment, ValueLayout.JAVA_BYTE, vectorOffset(recordOffset), quantizedVec.length);
+        writeRecordCrc(segment, recordOffset);
     }
 
     /**

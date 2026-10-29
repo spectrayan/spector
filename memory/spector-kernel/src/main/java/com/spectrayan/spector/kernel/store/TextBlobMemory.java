@@ -15,18 +15,18 @@
  */
 package com.spectrayan.spector.kernel.store;
 
-
-import com.spectrayan.spector.kernel.api.MemoryType;
-import com.spectrayan.spector.kernel.storage.StoragePaths;
-import com.spectrayan.spector.kernel.region.RegionPreamble;
-import com.spectrayan.spector.kernel.id.MemoryId;
-import com.spectrayan.spector.kernel.shape.MemoryShape;
-import com.spectrayan.spector.kernel.id.SystemMemoryId;
-import com.spectrayan.spector.kernel.bundle.RegionRef;
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorStorageException;
 import com.spectrayan.spector.core.math.XxHash64;
+import com.spectrayan.spector.kernel.api.MemoryType;
+import com.spectrayan.spector.kernel.bundle.RegionRef;
+import com.spectrayan.spector.kernel.id.SystemMemoryId;
 import com.spectrayan.spector.kernel.layout.TextBlobLayout;
+import com.spectrayan.spector.kernel.region.RegionPreamble;
 import com.spectrayan.spector.kernel.shape.AbstractAppendMemory;
-
+import com.spectrayan.spector.kernel.shape.AbstractRecordMemory;
+import com.spectrayan.spector.kernel.shape.MemoryShape;
+import com.spectrayan.spector.kernel.storage.StoragePaths;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,6 +58,15 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
 
     private static final int LEGACY_HEADER_BYTES = 16;
 
+    /** Magic sentinel ('TCRC') marking a v2 CRC32C trailer after the text payload. */
+    public static final int V2_CRC_TRAILER_MAGIC = 0x54435243;
+
+    /** Size in bytes of the v2 CRC32C trailer: 4B magic + 4B text CRC32C + 4B entry CRC32C. */
+    public static final int V2_CRC_TRAILER_BYTES = 12;
+
+    /** Flag bit set on the tier ordinal byte of v2 CRC-protected entries. */
+    private static final byte V2_ENTRY_FLAG = 0x40;
+
     private static final ValueLayout.OfInt BE_INT =
             ValueLayout.JAVA_INT_UNALIGNED.withOrder(ByteOrder.BIG_ENDIAN);
 
@@ -66,6 +75,7 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
 
     private final Map<String, TextPosition> textPositionMap = new LinkedHashMap<>();
     private final Map<Long, TextPosition> hashToPosition = new java.util.HashMap<>();
+    private final Map<Long, Long> textOffsetToEntryStart = new java.util.HashMap<>();
     private final AtomicInteger decryptFailCount = new AtomicInteger();
     private final ReentrantLock writeLock = new ReentrantLock();
     private volatile com.spectrayan.spector.kernel.storage.PayloadEncryptor encryptor;
@@ -116,16 +126,6 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
 
     /**
      * Creates a bundle-backed TextBlobMemory from a pre-sliced region segment.
-     *
-     * <p>The region slice contains a 64-byte SMKM header followed by append-log data.
-     * The arena is shared across all bundle regions and is <b>not</b> owned by this store.</p>
-     *
-     * @param arena        the shared arena from the owning bundle
-     * @param regionSlice  the memory segment sliced from the bundle's master segment
-     * @param bundlePath   the path to the bundle file (for diagnostics)
-     * @param isNew        true if the region was just created
-     * @param encryptor    the data encryptor (null treated as NOOP)
-     * @return a new bundle-backed TextBlobMemory
      */
     public static TextBlobMemory fromBundle(Arena arena, MemorySegment regionSlice,
                                                Path bundlePath, boolean isNew,
@@ -187,7 +187,7 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
             for (TextEntry entry : legacyEntries.values()) {
                 byte[] idBytes = entry.id().getBytes(StandardCharsets.UTF_8);
                 byte[] textBytes = entry.text().getBytes(StandardCharsets.UTF_8);
-                totalBytes += 4 + (1 + 4 + idBytes.length + 4 + textBytes.length);
+                totalBytes += 4 + (1 + 4 + idBytes.length + 4 + textBytes.length + V2_CRC_TRAILER_BYTES);
             }
             return Math.max(size, totalBytes);
         }
@@ -242,7 +242,6 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
                 if (magic != StoragePaths.TEXT_DAT_MAGIC) {
                     return entries;
                 }
-                int count = mapped.get(BE_INT, 8);
                 long pos = LEGACY_HEADER_BYTES;
                 while (pos < fileSize) {
                     if (fileSize - pos < 9) break;
@@ -264,9 +263,8 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
                     String rawText = decodeUtf8FromSegment(mapped, pos, textLen);
                     pos += textLen;
 
-                    String text = rawText;
                     MemoryType tier = MemoryType.values()[tierOrd];
-                    entries.put(id, new TextEntry(id, tier, text));
+                    entries.put(id, new TextEntry(id, tier, rawText));
                 }
             }
         } catch (IOException e) {
@@ -277,22 +275,24 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
 
     /**
      * A single entry in the text.dat file.
-     *
-     * @param id   memory identifier
-     * @param tier the cognitive tier this memory belongs to
-     * @param text the raw text content
      */
     public record TextEntry(String id, MemoryType tier, String text) {}
 
     /**
      * Position of a text entry within text.dat for off-heap random-access reads.
-     *
-     * @param textOffset byte offset of the text content in text.dat (after entry header)
-     * @param textLength byte length of the UTF-8 encoded text
      */
     public record TextPosition(long textOffset, int textLength) {}
 
     private static final String ENCRYPTED_TEXT_PREFIX = "\u0000ENC1:";
+
+    private static void writeEntryCrcTrailer(MemorySegment entrySeg, long textStartOffset, int trailerOffset) {
+        int textSpan = (int) (trailerOffset - textStartOffset);
+        int textCrc = AbstractRecordMemory.nonZeroCrc32c(entrySeg, textStartOffset, textSpan);
+        int entryCrc = AbstractRecordMemory.nonZeroCrc32c(entrySeg, 0, trailerOffset);
+        entrySeg.set(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset, V2_CRC_TRAILER_MAGIC);
+        entrySeg.set(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset + 4, textCrc);
+        entrySeg.set(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset + 8, entryCrc);
+    }
 
     /**
      * Appends a single text entry to the file and returns its byte position.
@@ -323,21 +323,33 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
             }
             byte[] textBytes = storedText.getBytes(StandardCharsets.UTF_8);
 
-            int entrySize = 1 + 4 + idBytes.length + 4 + textBytes.length;
+            int bodySize = 1 + 4 + idBytes.length + 4 + textBytes.length;
+            int entrySize = bodySize + V2_CRC_TRAILER_BYTES;
 
             MemorySegment entrySeg = MemorySegment.ofArray(new byte[entrySize]);
-            entrySeg.set(ValueLayout.JAVA_BYTE, 0, (byte) tier.ordinal());
+            entrySeg.set(ValueLayout.JAVA_BYTE, 0, (byte) (tier.ordinal() | V2_ENTRY_FLAG));
             entrySeg.set(ValueLayout.JAVA_INT_UNALIGNED, 1, idBytes.length);
             MemorySegment.copy(MemorySegment.ofArray(idBytes), 0, entrySeg, 5, idBytes.length);
             entrySeg.set(ValueLayout.JAVA_INT_UNALIGNED, 5 + idBytes.length, textBytes.length);
             MemorySegment.copy(MemorySegment.ofArray(textBytes), 0, entrySeg, 5 + idBytes.length + 4, textBytes.length);
 
             long payloadOffset = append(entrySeg);
-            long textOffset = dataOffset() + payloadOffset + 9 + idBytes.length;
+            long entryStart = dataOffset() + payloadOffset;
+            long textOffset = entryStart + 9 + idBytes.length;
+
+            // Compute CRC32C directly over the off-heap segment slice and write into the trailer
+            MemorySegment seg = segment();
+            long trailerOffset = entryStart + bodySize;
+            int textCrc = AbstractRecordMemory.nonZeroCrc32c(seg, textOffset, textBytes.length);
+            int entryCrc = AbstractRecordMemory.nonZeroCrc32c(seg, entryStart, bodySize);
+            seg.set(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset, V2_CRC_TRAILER_MAGIC);
+            seg.set(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset + 4, textCrc);
+            seg.set(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset + 8, entryCrc);
 
             TextPosition pos = new TextPosition(textOffset, textBytes.length);
             textPositionMap.put(id, pos);
             hashToPosition.put(hash, pos);
+            textOffsetToEntryStart.put(textOffset, entryStart);
             entryCount++;
 
             return pos;
@@ -357,6 +369,17 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
         if (textOffset < 0 || textLength < 0) return null;
         MemorySegment seg = segment();
         if (seg == null || textOffset + textLength > seg.byteSize()) return null;
+        if (layout.crcEnabled()) {
+            long trailerOffset = textOffset + textLength;
+            if (trailerOffset + 8 <= seg.byteSize()
+                    && seg.get(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset) == V2_CRC_TRAILER_MAGIC) {
+                int expectedTextCrc = seg.get(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset + 4);
+                int actualTextCrc = AbstractRecordMemory.nonZeroCrc32c(seg, textOffset, textLength);
+                if (expectedTextCrc != actualTextCrc) {
+                    throw new SpectorStorageException(ErrorCode.RECORD_CRC_CORRUPTED, textOffset);
+                }
+            }
+        }
         String raw = decodeUtf8FromSegment(seg, textOffset, textLength);
         return decryptIfNeeded(raw);
     }
@@ -372,6 +395,7 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
             Map<String, TextEntry> entries = new LinkedHashMap<>();
             textPositionMap.clear();
             hashToPosition.clear();
+            textOffsetToEntryStart.clear();
 
             if (file != null && !Files.exists(file)) {
                 return entries;
@@ -387,23 +411,61 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
                     continue;
                 }
 
-                byte tierOrd = entrySeg.get(ValueLayout.JAVA_BYTE, 0);
+                byte rawTier = entrySeg.get(ValueLayout.JAVA_BYTE, 0);
+                boolean isV2Entry = (rawTier & V2_ENTRY_FLAG) != 0;
+                byte tierOrd = (byte) (rawTier & ~V2_ENTRY_FLAG);
                 if (tierOrd < 0 || tierOrd >= MemoryType.values().length) {
+                    if (isV2Entry) {
+                        throw new SpectorStorageException(ErrorCode.RECORD_CRC_CORRUPTED, currentOffset);
+                    }
                     currentOffset += 4 + entryLen;
                     continue;
                 }
 
+                if (isV2Entry && layout.crcEnabled()) {
+                    if (entryLen < 9 + V2_CRC_TRAILER_BYTES) {
+                        throw new SpectorStorageException(ErrorCode.RECORD_CRC_CORRUPTED, currentOffset);
+                    }
+                    int trailerOffset = entryLen - V2_CRC_TRAILER_BYTES;
+                    int magic = entrySeg.get(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset);
+                    if (magic != V2_CRC_TRAILER_MAGIC) {
+                        throw new SpectorStorageException(ErrorCode.RECORD_CRC_CORRUPTED, currentOffset);
+                    }
+                    int expectedEntryCrc = entrySeg.get(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset + 8);
+                    int actualEntryCrc = AbstractRecordMemory.nonZeroCrc32c(entrySeg, 0, trailerOffset);
+                    if (expectedEntryCrc != actualEntryCrc) {
+                        throw new SpectorStorageException(ErrorCode.RECORD_CRC_CORRUPTED, currentOffset);
+                    }
+                }
+
                 int idLen = entrySeg.get(ValueLayout.JAVA_INT_UNALIGNED, 1);
-                if (idLen < 0 || idLen > 10_000 || 5 + idLen + 4 > entryLen) {
+                int maxBodyLen = isV2Entry ? (entryLen - V2_CRC_TRAILER_BYTES) : entryLen;
+                if (idLen < 0 || idLen > 10_000 || 5 + idLen + 4 > maxBodyLen) {
+                    if (isV2Entry) {
+                        throw new SpectorStorageException(ErrorCode.RECORD_CRC_CORRUPTED, currentOffset);
+                    }
                     currentOffset += 4 + entryLen;
                     continue;
                 }
 
                 String id = decodeUtf8FromSegment(entrySeg, 5, idLen);
                 int textLen = entrySeg.get(ValueLayout.JAVA_INT_UNALIGNED, 5 + idLen);
-                if (textLen < 0 || textLen > 10_000_000 || 5 + idLen + 4 + textLen > entryLen) {
+                if (textLen < 0 || textLen > 10_000_000 || 5 + idLen + 4 + textLen > maxBodyLen) {
+                    if (isV2Entry) {
+                        throw new SpectorStorageException(ErrorCode.RECORD_CRC_CORRUPTED, currentOffset);
+                    }
                     currentOffset += 4 + entryLen;
                     continue;
+                }
+
+                if (isV2Entry && layout.crcEnabled()) {
+                    int trailerOffset = entryLen - V2_CRC_TRAILER_BYTES;
+                    int expectedTextCrc = entrySeg.get(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset + 4);
+                    int actualTextCrc = AbstractRecordMemory.nonZeroCrc32c(
+                            entrySeg, 9 + idLen, trailerOffset - (9 + idLen));
+                    if (expectedTextCrc != actualTextCrc) {
+                        throw new SpectorStorageException(ErrorCode.RECORD_CRC_CORRUPTED, currentOffset);
+                    }
                 }
 
                 String rawText = decodeUtf8FromSegment(entrySeg, 5 + idLen + 4, textLen);
@@ -412,9 +474,11 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
                 MemoryType tier = MemoryType.values()[tierOrd];
                 entries.put(id, new TextEntry(id, tier, text));
 
-                long textOffset = dataOffset() + currentOffset + 4 + 9 + idLen;
+                long entryStart = dataOffset() + currentOffset + 4;
+                long textOffset = entryStart + 9 + idLen;
                 TextPosition pos = new TextPosition(textOffset, textLen);
                 textPositionMap.put(id, pos);
+                textOffsetToEntryStart.put(textOffset, entryStart);
 
                 byte[] textBytes = rawText.getBytes(StandardCharsets.UTF_8);
                 long hash = XxHash64.hash(textBytes);
@@ -457,6 +521,7 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
         try {
             textPositionMap.clear();
             hashToPosition.clear();
+            textOffsetToEntryStart.clear();
 
             // Reset append cursor and count in-place
             this.count = 0;
@@ -476,10 +541,6 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
     /**
      * Re-encrypts all {@code ENC1:} text entries in-place from {@code oldEncryptor} to {@code newEncryptor}
      * without changing byte offsets or lengths in {@code INDEX_MIDX}.
-     *
-     * @param oldEncryptor previous DEK encryptor
-     * @param newEncryptor new DEK encryptor
-     * @return number of encrypted text entries re-keyed
      */
     public int rekeyEncryptedEntries(com.spectrayan.spector.kernel.storage.PayloadEncryptor oldEncryptor,
                                      com.spectrayan.spector.kernel.storage.PayloadEncryptor newEncryptor) {
@@ -493,12 +554,15 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
                 if (entryLen < 9) {
                     continue;
                 }
+                byte rawTier = entrySeg.get(ValueLayout.JAVA_BYTE, 0);
+                boolean isV2Entry = (rawTier & V2_ENTRY_FLAG) != 0;
+                int maxBodyLen = isV2Entry ? (entryLen - V2_CRC_TRAILER_BYTES) : entryLen;
                 int idLen = entrySeg.get(ValueLayout.JAVA_INT_UNALIGNED, 1);
-                if (idLen < 0 || idLen > 10_000 || 5 + idLen + 4 > entryLen) {
+                if (idLen < 0 || idLen > 10_000 || 5 + idLen + 4 > maxBodyLen) {
                     continue;
                 }
                 int textLen = entrySeg.get(ValueLayout.JAVA_INT_UNALIGNED, 5 + idLen);
-                if (textLen <= 0 || textLen > 10_000_000 || 5 + idLen + 4 + textLen > entryLen) {
+                if (textLen <= 0 || textLen > 10_000_000 || 5 + idLen + 4 + textLen > maxBodyLen) {
                     continue;
                 }
                 String rawText = decodeUtf8FromSegment(entrySeg, 5 + idLen + 4, textLen);
@@ -516,6 +580,9 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
                     if (newTextBytes.length == textLen) {
                         MemorySegment.copy(MemorySegment.ofArray(newTextBytes), 0,
                                 entrySeg, 5 + idLen + 4, textLen);
+                        if (isV2Entry) {
+                            writeEntryCrcTrailer(entrySeg, 9 + idLen, entryLen - V2_CRC_TRAILER_BYTES);
+                        }
                         rekeyed++;
                     }
                 }
@@ -568,8 +635,6 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
         return raw;
     }
 
-
-
     private static String decodeUtf8FromSegment(MemorySegment segment, long offset, int length) {
         if (length == 0) return "";
         byte[] bytes = new byte[length];
@@ -579,15 +644,6 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
 
     /**
      * Outcome of an {@link #eraseEntry(String)} attempt.
-     *
-     * <p>Erasure of deduplicated text is not always possible, and the caller has to be able to tell the
-     * difference. A boolean cannot carry that, and reporting "erased" for a shared blob would be a false
-     * claim in a compliance audit.</p>
-     *
-     * @param status      what actually happened
-     * @param bytesZeroed number of text bytes overwritten with zeros (0 unless {@code ERASED})
-     * @param sharedWith  number of other live ids still referencing the same bytes (only meaningful for
-     *                    {@code SHARED})
      */
     public record EraseOutcome(Status status, int bytesZeroed, int sharedWith) {
 
@@ -617,22 +673,6 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
 
     /**
      * Overwrites the stored text for {@code targetId} with zeros, in place.
-     *
-     * <h4>Deduplication makes this conditional</h4>
-     * <p>{@link #write} deduplicates by content hash: two records with byte-identical text share a single
-     * {@link TextPosition}. Zeroing that region unconditionally would erase the text of every record
-     * sharing it while leaving their {@code textPositionMap} entries pointing at the zeroed bytes — silent
-     * cross-record data loss. So when the position is shared with another live id, this method removes only
-     * {@code targetId}'s mapping and reports {@link EraseOutcome.Status#SHARED}. The bytes survive because
-     * another record legitimately needs them, and the caller must disclose that rather than claim an
-     * erasure.</p>
-     *
-     * <h4>The frame is left readable but empty</h4>
-     * <p>Beyond zeroing the bytes, the entry's text-length field is set to zero. {@link #readAll()} rebuilds
-     * the position map from the on-disk frames, so without this a purged entry would reload as a string of
-     * {@code textLength} NUL characters — content-shaped garbage indistinguishable from a decoding fault.
-     * With it, the entry reloads as empty text: the record's existence survives, its content does not. The
-     * frame's own length prefix is untouched, so the walk over later entries is unaffected.</p>
      *
      * @param targetId the memory id whose text should be destroyed
      * @return what actually happened
@@ -670,6 +710,18 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
                 long textLenFieldOffset = pos.textOffset() - 4L;
                 if (textLenFieldOffset >= 0) {
                     seg.set(ValueLayout.JAVA_INT_UNALIGNED, textLenFieldOffset, 0);
+                }
+                long trailerOffset = pos.textOffset() + pos.textLength();
+                if (trailerOffset + V2_CRC_TRAILER_BYTES <= seg.byteSize()
+                        && seg.get(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset) == V2_CRC_TRAILER_MAGIC) {
+                    int textCrc = AbstractRecordMemory.nonZeroCrc32c(seg, pos.textOffset(), pos.textLength());
+                    seg.set(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset + 4, textCrc);
+                    Long entryStart = textOffsetToEntryStart.remove(pos.textOffset());
+                    if (entryStart != null && entryStart >= dataOffset()) {
+                        int entryCrc = AbstractRecordMemory.nonZeroCrc32c(
+                                seg, entryStart, (int) (trailerOffset - entryStart));
+                        seg.set(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset + 8, entryCrc);
+                    }
                 }
                 flush();
             }
