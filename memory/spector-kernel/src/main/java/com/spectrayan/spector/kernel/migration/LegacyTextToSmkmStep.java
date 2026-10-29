@@ -17,9 +17,6 @@ package com.spectrayan.spector.kernel.migration;
 
 import com.spectrayan.spector.kernel.region.RegionPreamble;
 import com.spectrayan.spector.kernel.shape.MemoryShape;
-import com.spectrayan.spector.kernel.migration.FormatId;
-import com.spectrayan.spector.kernel.migration.MigrationContext;
-import com.spectrayan.spector.kernel.migration.RewriteFileStep;
 
 import java.io.IOException;
 import java.lang.foreign.Arena;
@@ -60,7 +57,7 @@ public final class LegacyTextToSmkmStep extends RewriteFileStep {
             long now = System.currentTimeMillis();
 
             MemorySegment dstMapped = dstCh.map(FileChannel.MapMode.READ_WRITE, 0, totalDstSize, arena);
-            RegionPreamble.write(dstMapped, 0L, ctx.layout().schemaVersion(), MemoryShape.APPEND, 1,
+            RegionPreamble.write(dstMapped, 0L, 1, MemoryShape.APPEND, 1,
                     0L, dataSize, ctx.layout().recordStride(), ctx.layout().layoutId(), now, now);
 
             if (dataSize > 0) {

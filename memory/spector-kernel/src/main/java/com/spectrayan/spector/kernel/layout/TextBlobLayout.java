@@ -15,8 +15,6 @@
  */
 package com.spectrayan.spector.kernel.layout;
 
-import com.spectrayan.spector.kernel.layout.RegionLayout;
-
 /**
  * Memory layout for the variable-length text payload pool.
  */
@@ -24,7 +22,8 @@ public final class TextBlobLayout implements RegionLayout {
 
     private static final int STRIDE = 0; // Variable length
     private static final int LAYOUT_ID = 0x54585442; // 'TXTB'
-    private static final int VERSION = 1;
+    public static final int SCHEMA_VERSION = 2;
+    public static final int MIN_READABLE_SCHEMA_VERSION = 1;
 
     @Override
     public int layoutId() {
@@ -33,7 +32,7 @@ public final class TextBlobLayout implements RegionLayout {
 
     @Override
     public int schemaVersion() {
-        return VERSION;
+        return SCHEMA_VERSION;
     }
 
     @Override
@@ -43,7 +42,7 @@ public final class TextBlobLayout implements RegionLayout {
 
     @Override
     public boolean crcEnabled() {
-        return false;
+        return true;
     }
 
     @Override

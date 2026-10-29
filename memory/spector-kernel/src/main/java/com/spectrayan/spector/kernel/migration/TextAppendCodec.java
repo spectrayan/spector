@@ -15,8 +15,6 @@
  */
 package com.spectrayan.spector.kernel.migration;
 
-import com.spectrayan.spector.kernel.migration.FormatCodec;
-import com.spectrayan.spector.kernel.migration.CodecStep;
 import com.spectrayan.spector.kernel.layout.TextBlobLayout;
 
 import java.lang.foreign.MemorySegment;
@@ -33,6 +31,11 @@ public final class TextAppendCodec implements FormatCodec<TextBlobLayout> {
     @Override
     public TextBlobLayout layout() {
         return layout;
+    }
+
+    @Override
+    public FormatId current() {
+        return FormatId.smkm(1);
     }
 
     @Override
