@@ -18,13 +18,25 @@ package com.spectrayan.spector.gateway.transport;
 import com.spectrayan.spector.cluster.gateway.ForwardRequest;
 import com.spectrayan.spector.cluster.gateway.ForwardResponse;
 import com.spectrayan.spector.cluster.gateway.GatewayHttpTransport;
+import com.spectrayan.spector.cluster.gateway.GatewayTlsConfig;
+import com.spectrayan.spector.cluster.gateway.GatewayTlsFactory;
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorConfigException;
 import io.netty.handler.codec.http.HttpMethod;
+import io.netty.handler.ssl.SslContext;
+import io.netty.handler.ssl.SslContextBuilder;
+import io.netty.handler.ssl.SslProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 import reactor.netty.http.client.HttpClient;
+
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLEngine;
+import javax.net.ssl.SSLParameters;
+import javax.net.ssl.TrustManagerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -73,13 +85,62 @@ public class ReactorNettyGatewayHttpTransport implements GatewayHttpTransport {
      * @param responseTimeout idle-between-reads timeout on the owner hop (default 60 s for SSE)
      */
     public ReactorNettyGatewayHttpTransport(Duration connectTimeout, Duration responseTimeout) {
+        this(connectTimeout, responseTimeout, null);
+    }
+
+    public ReactorNettyGatewayHttpTransport(Duration connectTimeout, Duration responseTimeout, GatewayTlsConfig tlsConfig) {
         this.headersTimeout = connectTimeout != null ? connectTimeout : DEFAULT_CONNECT_TIMEOUT;
         Duration idleTimeout = responseTimeout != null ? responseTimeout : DEFAULT_RESPONSE_TIMEOUT;
 
-        this.httpClient = HttpClient.create()
+        HttpClient client = HttpClient.create()
                 .option(io.netty.channel.ChannelOption.CONNECT_TIMEOUT_MILLIS, (int) this.headersTimeout.toMillis())
                 .responseTimeout(idleTimeout)
                 .followRedirect(false);
+
+        if (tlsConfig != null) {
+            tlsConfig.validate();
+            if (tlsConfig.isTlsActive()) {
+                SslContext nettySslContext = buildNettySslContext(tlsConfig);
+                boolean verifyHost = tlsConfig.hostnameVerificationEnabled();
+                client = client.secure(spec -> spec
+                        .sslContext(nettySslContext)
+                        .handshakeTimeout(this.headersTimeout)
+                        .handlerConfigurator(sslHandler -> {
+                            SSLEngine engine = sslHandler.engine();
+                            SSLParameters params = engine.getSSLParameters();
+                            params.setProtocols(new String[]{"TLSv1.3", "TLSv1.2"});
+                            params.setEndpointIdentificationAlgorithm(verifyHost ? "HTTPS" : "");
+                            engine.setSSLParameters(params);
+                        }));
+            }
+        }
+
+        this.httpClient = client;
+    }
+
+    private static SslContext buildNettySslContext(GatewayTlsConfig tlsConfig) {
+        try {
+            SslContextBuilder builder = SslContextBuilder.forClient()
+                    .sslProvider(SslProvider.JDK)
+                    .protocols("TLSv1.3", "TLSv1.2");
+            TrustManagerFactory tmf = GatewayTlsFactory.createTrustManagerFactory(tlsConfig);
+            if (tmf != null) {
+                builder.trustManager(tmf);
+            }
+            KeyManagerFactory kmf = GatewayTlsFactory.createKeyManagerFactory(tlsConfig);
+            if (kmf != null) {
+                builder.keyManager(kmf);
+            }
+            return builder.build();
+        } catch (SpectorConfigException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new SpectorConfigException(
+                    ErrorCode.CONFIG_PARSE_FAILED,
+                    "failed to initialize Netty SSL context for gateway transport: " + e.getMessage(),
+                    e
+            );
+        }
     }
 
     /**
@@ -221,6 +282,12 @@ public class ReactorNettyGatewayHttpTransport implements GatewayHttpTransport {
             throw new RuntimeException(error);
         }
 
-        return resultRef.get();
+        ForwardResponse result = resultRef.get();
+        if (result == null) {
+            try { pipeIn.close(); } catch (IOException ignored) {}
+            throw new IOException("Connection closed before response headers arrived from " + fullUrl);
+        }
+
+        return result;
     }
 }

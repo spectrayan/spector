@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.cluster.gateway;
 
+import javax.net.ssl.SSLParameters;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -55,10 +56,28 @@ public interface GatewayHttpTransport {
      * @return default JDK HttpClient transport
      */
     static GatewayHttpTransport defaultJdkTransport(Duration timeout) {
-        HttpClient client = HttpClient.newBuilder()
+        return defaultJdkTransport(timeout, null);
+    }
+
+    static GatewayHttpTransport defaultJdkTransport(Duration timeout, GatewayTlsConfig tlsConfig) {
+        HttpClient.Builder clientBuilder = HttpClient.newBuilder()
                 .connectTimeout(timeout != null ? timeout : Duration.ofSeconds(5))
-                .followRedirects(HttpClient.Redirect.NEVER)
-                .build();
+                .followRedirects(HttpClient.Redirect.NEVER);
+
+        if (tlsConfig != null) {
+            tlsConfig.validate();
+            if (tlsConfig.isTlsActive()) {
+                clientBuilder.sslContext(GatewayTlsFactory.createSslContext(tlsConfig));
+                SSLParameters sslParams = new SSLParameters();
+                sslParams.setProtocols(new String[]{"TLSv1.3", "TLSv1.2"});
+                sslParams.setEndpointIdentificationAlgorithm(
+                        tlsConfig.hostnameVerificationEnabled() ? "HTTPS" : ""
+                );
+                clientBuilder.sslParameters(sslParams);
+            }
+        }
+
+        HttpClient client = clientBuilder.build();
 
         return (targetNodeId, targetUrl, req, routingHeaders) -> {
             HttpRequest.Builder builder = HttpRequest.newBuilder()

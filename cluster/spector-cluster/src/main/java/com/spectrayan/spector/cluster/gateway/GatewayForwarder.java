@@ -28,6 +28,7 @@ import com.spectrayan.spector.cluster.routing.RoutingKey;
 import com.spectrayan.spector.cluster.routing.cache.WaterfallRoutingResolver;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorApiException;
+import com.spectrayan.spector.commons.error.SpectorConfigException;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -75,10 +76,32 @@ public class GatewayForwarder {
             Function<String, String> nodeBaseUrlResolver,
             IdempotencyStore idempotencyStore
     ) {
+        this(resolver, retryMax, transport, nodeBaseUrlResolver, idempotencyStore, null);
+    }
+
+    public GatewayForwarder(
+            WaterfallRoutingResolver resolver,
+            int retryMax,
+            GatewayHttpTransport transport,
+            Function<String, String> nodeBaseUrlResolver,
+            IdempotencyStore idempotencyStore,
+            GatewayTlsConfig tlsConfig
+    ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver must not be null");
         this.retryMax = Math.max(0, retryMax);
-        this.transport = transport != null ? transport : GatewayHttpTransport.defaultJdkTransport(Duration.ofSeconds(10));
-        this.nodeBaseUrlResolver = nodeBaseUrlResolver != null ? nodeBaseUrlResolver : defaultNodeUrlResolver(7070);
+        if (tlsConfig != null) {
+            tlsConfig.validate();
+        }
+        this.transport = transport != null
+                ? transport
+                : GatewayHttpTransport.defaultJdkTransport(Duration.ofSeconds(10), tlsConfig);
+        if (nodeBaseUrlResolver != null) {
+            this.nodeBaseUrlResolver = nodeBaseUrlResolver;
+        } else if (tlsConfig != null) {
+            this.nodeBaseUrlResolver = defaultNodeUrlResolver(tlsConfig.effectiveScheme(), tlsConfig.defaultPort());
+        } else {
+            this.nodeBaseUrlResolver = defaultNodeUrlResolver(7070);
+        }
         this.idempotencyStore = idempotencyStore != null ? idempotencyStore : new InMemoryIdempotencyStore();
     }
 
@@ -305,14 +328,37 @@ public class GatewayForwarder {
     }
 
     public static Function<String, String> defaultNodeUrlResolver(int defaultPort) {
+        return defaultNodeUrlResolver(GatewayTlsConfig.DEFAULT_SCHEME, defaultPort);
+    }
+
+    public static Function<String, String> defaultNodeUrlResolver(String defaultScheme, int defaultPort) {
+        String normalizedScheme = GatewayTlsConfig.normalizeAndValidateScheme(defaultScheme);
+        if (defaultPort <= 0 || defaultPort > 65535) {
+            throw new SpectorConfigException(
+                    ErrorCode.CONFIG_VALUE_INVALID,
+                    "spector.routing.gateway.default-port",
+                    defaultPort
+            );
+        }
         return nodeId -> {
-            if (nodeId.startsWith("http://") || nodeId.startsWith("https://")) {
-                return nodeId;
+            if (nodeId == null || nodeId.isBlank()) {
+                throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "nodeId");
             }
-            if (nodeId.contains(":")) {
-                return "http://" + nodeId;
+            String trimmed = nodeId.trim();
+            if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+                return trimmed;
             }
-            return "http://" + nodeId + ":" + defaultPort;
+            if (trimmed.contains("://")) {
+                throw new SpectorConfigException(
+                        ErrorCode.CONFIG_VALUE_INVALID,
+                        "spector.routing.gateway.scheme",
+                        trimmed
+                );
+            }
+            if (trimmed.contains(":")) {
+                return normalizedScheme + "://" + trimmed;
+            }
+            return normalizedScheme + "://" + trimmed + ":" + defaultPort;
         };
     }
 }

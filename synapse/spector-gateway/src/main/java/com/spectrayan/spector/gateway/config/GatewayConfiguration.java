@@ -18,7 +18,9 @@ package com.spectrayan.spector.gateway.config;
 import com.spectrayan.spector.cluster.OwnershipResolver;
 import com.spectrayan.spector.cluster.gateway.GatewayForwarder;
 import com.spectrayan.spector.cluster.gateway.GatewayHttpTransport;
+import com.spectrayan.spector.cluster.gateway.GatewayTlsConfig;
 import com.spectrayan.spector.cluster.gateway.RoutingKeyExtractor;
+import com.spectrayan.spector.commons.error.SpectorConfigException;
 import com.spectrayan.spector.cluster.idempotency.IdempotencyStore;
 import com.spectrayan.spector.cluster.idempotency.InMemoryIdempotencyStore;
 import com.spectrayan.spector.cluster.membership.StaticMembershipSource;
@@ -120,13 +122,18 @@ public class GatewayConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public GatewayHttpTransport gatewayHttpTransport(GatewayProperties properties) {
-        Duration connectTimeout = properties.getRouting().getGateway().getOwnerTimeout();
-        Duration sseIdleTimeout = properties.getRouting().getGateway().getSseIdleTimeout();
+        GatewayProperties.GatewayRoutingProperties gwProps = properties.getRouting().getGateway();
+        Duration connectTimeout = gwProps.getOwnerTimeout();
+        Duration sseIdleTimeout = gwProps.getSseIdleTimeout();
+        GatewayTlsConfig tlsConfig = gwProps.toTlsConfig();
+        tlsConfig.validate();
         try {
-            return new ReactorNettyGatewayHttpTransport(connectTimeout, sseIdleTimeout);
+            return new ReactorNettyGatewayHttpTransport(connectTimeout, sseIdleTimeout, tlsConfig);
+        } catch (SpectorConfigException e) {
+            throw e;
         } catch (Throwable t) {
             log.warn("Falling back to standard JDK HttpClient transport: {}", t.getMessage());
-            return GatewayHttpTransport.defaultJdkTransport(connectTimeout);
+            return GatewayHttpTransport.defaultJdkTransport(connectTimeout, tlsConfig);
         }
     }
 
@@ -147,13 +154,15 @@ public class GatewayConfiguration {
             GatewayHttpTransport transport,
             IdempotencyStore idempotencyStore
     ) {
-        int retryMax = properties.getRouting().getGateway().getRetryMax();
+        GatewayProperties.GatewayRoutingProperties gwProps = properties.getRouting().getGateway();
+        GatewayTlsConfig tlsConfig = gwProps.toTlsConfig();
         return new GatewayForwarder(
                 resolver,
-                retryMax,
+                gwProps.getRetryMax(),
                 transport,
-                GatewayForwarder.defaultNodeUrlResolver(7070),
-                idempotencyStore
+                GatewayForwarder.defaultNodeUrlResolver(tlsConfig.effectiveScheme(), gwProps.getDefaultPort()),
+                idempotencyStore,
+                tlsConfig
         );
     }
 

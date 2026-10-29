@@ -108,6 +108,40 @@ public final class SpectorPropertyConstants {
     public static final String ROUTING_GATEWAY_RETRY_MAX = "spector.routing.gateway.retry-max";
     public static final int DEFAULT_ROUTING_GATEWAY_RETRY_MAX = 2;
 
+    public static final String ROUTING_GATEWAY_SCHEME = "spector.routing.gateway.scheme";
+    public static final String DEFAULT_ROUTING_GATEWAY_SCHEME = "http";
+
+    public static final String ROUTING_GATEWAY_DEFAULT_PORT = "spector.routing.gateway.default-port";
+    public static final int DEFAULT_ROUTING_GATEWAY_DEFAULT_PORT = 7070;
+
+    public static final String ROUTING_GATEWAY_TLS_ENABLED = "spector.routing.gateway.tls.enabled";
+    public static final boolean DEFAULT_ROUTING_GATEWAY_TLS_ENABLED = false;
+
+    public static final String ROUTING_GATEWAY_TLS_CA_CERT_PATH = "spector.routing.gateway.tls.ca-cert-path";
+    public static final String DEFAULT_ROUTING_GATEWAY_TLS_CA_CERT_PATH = "";
+
+    public static final String ROUTING_GATEWAY_TLS_CLIENT_CERT_PATH = "spector.routing.gateway.tls.client-cert-path";
+    public static final String DEFAULT_ROUTING_GATEWAY_TLS_CLIENT_CERT_PATH = "";
+
+    public static final String ROUTING_GATEWAY_TLS_CLIENT_KEY_PATH = "spector.routing.gateway.tls.client-key-path";
+    public static final String DEFAULT_ROUTING_GATEWAY_TLS_CLIENT_KEY_PATH = "";
+
+    public static final String ROUTING_GATEWAY_TLS_TRUST_STORE_PATH = "spector.routing.gateway.tls.trust-store-path";
+    public static final String DEFAULT_ROUTING_GATEWAY_TLS_TRUST_STORE_PATH = "";
+
+    public static final String ROUTING_GATEWAY_TLS_TRUST_STORE_PASSWORD = "spector.routing.gateway.tls.trust-store-password";
+    public static final String DEFAULT_ROUTING_GATEWAY_TLS_TRUST_STORE_PASSWORD = "";
+
+    public static final String ROUTING_GATEWAY_TLS_KEY_STORE_PATH = "spector.routing.gateway.tls.key-store-path";
+    public static final String DEFAULT_ROUTING_GATEWAY_TLS_KEY_STORE_PATH = "";
+
+    public static final String ROUTING_GATEWAY_TLS_KEY_STORE_PASSWORD = "spector.routing.gateway.tls.key-store-password";
+    public static final String DEFAULT_ROUTING_GATEWAY_TLS_KEY_STORE_PASSWORD = "";
+
+    public static final String ROUTING_GATEWAY_TLS_HOSTNAME_VERIFICATION_ENABLED =
+            "spector.routing.gateway.tls.hostname-verification-enabled";
+    public static final boolean DEFAULT_ROUTING_GATEWAY_TLS_HOSTNAME_VERIFICATION_ENABLED = true;
+
     // Replication (ADR-0034 §9.7, §10, §15.5, Phase 3, Req R1, R3, R6, R8, R10)
     public static final String REPLICATION_ENABLED = "spector.replication.enabled";
     public static final boolean DEFAULT_REPLICATION_ENABLED = false;
