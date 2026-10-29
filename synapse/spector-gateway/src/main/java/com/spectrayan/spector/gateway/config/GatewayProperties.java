@@ -232,6 +232,9 @@ public class GatewayProperties {
 
         /** Idle-between-reads timeout for SSE / streaming responses (default 60 s). */
         private Duration sseIdleTimeout = Duration.ofSeconds(60);
+        private String scheme = "http";
+        private int defaultPort = 7070;
+        private TlsProperties tls = new TlsProperties();
 
         public Duration getSseIdleTimeout() {
             return sseIdleTimeout;
@@ -239,6 +242,79 @@ public class GatewayProperties {
 
         public void setSseIdleTimeout(Duration sseIdleTimeout) {
             this.sseIdleTimeout = sseIdleTimeout;
+        }
+
+        public String getScheme() {
+            return scheme;
+        }
+
+        public void setScheme(String scheme) {
+            this.scheme = scheme;
+        }
+
+        public int getDefaultPort() {
+            return defaultPort;
+        }
+
+        public void setDefaultPort(int defaultPort) {
+            this.defaultPort = defaultPort;
+        }
+
+        public TlsProperties getTls() {
+            return tls;
+        }
+
+        public void setTls(TlsProperties tls) {
+            if (tls != null) this.tls = tls;
+        }
+
+        public com.spectrayan.spector.cluster.gateway.GatewayTlsConfig toTlsConfig() {
+            return com.spectrayan.spector.cluster.gateway.GatewayTlsConfig.builder()
+                    .enabled(tls.isEnabled())
+                    .scheme(scheme)
+                    .defaultPort(defaultPort)
+                    .caCertPath(tls.getCaCertPath() != null && !tls.getCaCertPath().isBlank() ? java.nio.file.Path.of(tls.getCaCertPath()) : null)
+                    .clientCertPath(tls.getClientCertPath() != null && !tls.getClientCertPath().isBlank() ? java.nio.file.Path.of(tls.getClientCertPath()) : null)
+                    .clientKeyPath(tls.getClientKeyPath() != null && !tls.getClientKeyPath().isBlank() ? java.nio.file.Path.of(tls.getClientKeyPath()) : null)
+                    .trustStorePath(tls.getTrustStorePath() != null && !tls.getTrustStorePath().isBlank() ? java.nio.file.Path.of(tls.getTrustStorePath()) : null)
+                    .trustStorePassword(tls.getTrustStorePassword() != null ? tls.getTrustStorePassword().toCharArray() : null)
+                    .keyStorePath(tls.getKeyStorePath() != null && !tls.getKeyStorePath().isBlank() ? java.nio.file.Path.of(tls.getKeyStorePath()) : null)
+                    .keyStorePassword(tls.getKeyStorePassword() != null ? tls.getKeyStorePassword().toCharArray() : null)
+                    .hostnameVerificationEnabled(tls.isHostnameVerificationEnabled())
+                    .build();
+        }
+    }
+
+    public static class TlsProperties {
+        private boolean enabled = false;
+        private String caCertPath = "";
+        private String clientCertPath = "";
+        private String clientKeyPath = "";
+        private String trustStorePath = "";
+        private String trustStorePassword = "";
+        private String keyStorePath = "";
+        private String keyStorePassword = "";
+        private boolean hostnameVerificationEnabled = true;
+
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+        public String getCaCertPath() { return caCertPath; }
+        public void setCaCertPath(String caCertPath) { this.caCertPath = caCertPath; }
+        public String getClientCertPath() { return clientCertPath; }
+        public void setClientCertPath(String clientCertPath) { this.clientCertPath = clientCertPath; }
+        public String getClientKeyPath() { return clientKeyPath; }
+        public void setClientKeyPath(String clientKeyPath) { this.clientKeyPath = clientKeyPath; }
+        public String getTrustStorePath() { return trustStorePath; }
+        public void setTrustStorePath(String trustStorePath) { this.trustStorePath = trustStorePath; }
+        public String getTrustStorePassword() { return trustStorePassword; }
+        public void setTrustStorePassword(String trustStorePassword) { this.trustStorePassword = trustStorePassword; }
+        public String getKeyStorePath() { return keyStorePath; }
+        public void setKeyStorePath(String keyStorePath) { this.keyStorePath = keyStorePath; }
+        public String getKeyStorePassword() { return keyStorePassword; }
+        public void setKeyStorePassword(String keyStorePassword) { this.keyStorePassword = keyStorePassword; }
+        public boolean isHostnameVerificationEnabled() { return hostnameVerificationEnabled; }
+        public void setHostnameVerificationEnabled(boolean hostnameVerificationEnabled) {
+            this.hostnameVerificationEnabled = hostnameVerificationEnabled;
         }
     }
 

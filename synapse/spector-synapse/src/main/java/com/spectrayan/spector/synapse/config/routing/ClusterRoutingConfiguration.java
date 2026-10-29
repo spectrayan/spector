@@ -24,6 +24,8 @@ import com.spectrayan.spector.cluster.routing.cache.RedisRoutingCache;
 import com.spectrayan.spector.cluster.routing.cache.WaterfallRoutingResolver;
 import com.spectrayan.spector.cluster.routing.invalidation.RoutingInvalidationSubscriber;
 import com.spectrayan.spector.cluster.gateway.GatewayForwarder;
+import com.spectrayan.spector.cluster.gateway.GatewayHttpTransport;
+import com.spectrayan.spector.cluster.gateway.GatewayTlsConfig;
 import com.spectrayan.spector.cluster.idempotency.IdempotencyStore;
 import com.spectrayan.spector.synapse.cluster.gateway.GatewayForwardingFilter;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
@@ -126,8 +128,18 @@ public class ClusterRoutingConfiguration {
             ObjectProvider<IdempotencyStore> idempotencyStoreProvider
     ) {
         RoutingProperties routingProps = properties.getRouting() != null ? properties.getRouting() : new RoutingProperties();
-        int retryMax = routingProps.getGateway().getRetryMax();
-        return new GatewayForwarder(resolver, retryMax, null, null, idempotencyStoreProvider.getIfAvailable());
+        RoutingProperties.GatewayProperties gwProps = routingProps.getGateway();
+        GatewayTlsConfig tlsConfig = gwProps.toTlsConfig();
+        tlsConfig.validate();
+        GatewayHttpTransport transport = GatewayHttpTransport.defaultJdkTransport(gwProps.getOwnerTimeout(), tlsConfig);
+        return new GatewayForwarder(
+                resolver,
+                gwProps.getRetryMax(),
+                transport,
+                GatewayForwarder.defaultNodeUrlResolver(tlsConfig.effectiveScheme(), gwProps.getDefaultPort()),
+                idempotencyStoreProvider.getIfAvailable(),
+                tlsConfig
+        );
     }
 
     @Bean
