@@ -426,6 +426,17 @@ Spector Synapse accelerates routing resolution via a three-tier waterfall (`L1 C
 | `spector.routing.caffeine.ttl-seconds` | `SPECTOR_ROUTING_CAFFEINE_TTL_SECONDS` | `5` | Integer $\ge 1$ | Node-local and gateway L1 in-process cache TTL. |
 | `spector.routing.caffeine.max-size` | `SPECTOR_ROUTING_CAFFEINE_MAX_SIZE` | `200000` | Integer $\ge 1$ | Maximum entries retained in the L1 Caffeine cache. |
 | `spector.routing.gateway.retry-max` | `SPECTOR_ROUTING_GATEWAY_RETRY_MAX` | `2` | Integer $\ge 0$ | Maximum retry attempts on `STALE_ROUTE` (HTTP 421). Prevents retry storms under rebalances. |
+| `spector.routing.gateway.scheme` | `SPECTOR_ROUTING_GATEWAY_SCHEME` | `http` | `http` \| `https` | Default URL scheme applied when resolving owner node addresses that do not specify an explicit scheme prefix. Automatically upgrades to `https` when `spector.routing.gateway.tls.enabled=true` or TLS material is configured. |
+| `spector.routing.gateway.default-port` | `SPECTOR_ROUTING_GATEWAY_DEFAULT_PORT` | `7070` | TCP Port (1–65535) | Default port appended when a ring member node identifier does not specify an explicit `:port`. |
+| `spector.routing.gateway.tls.enabled` | `SPECTOR_ROUTING_GATEWAY_TLS_ENABLED` | `false` | Boolean | Enables HTTPS/TLS for internal gateway-to-owner forwarding hops. Fails closed at startup if certificate or key paths are unreadable or malformed. |
+| `spector.routing.gateway.tls.ca-cert-path` | `SPECTOR_ROUTING_GATEWAY_TLS_CA_CERT_PATH` | `""` | File path | Path to a PEM-encoded X.509 CA certificate bundle used to verify owner node server certificates. |
+| `spector.routing.gateway.tls.client-cert-path` | `SPECTOR_ROUTING_GATEWAY_TLS_CLIENT_CERT_PATH` | `""` | File path | Path to a PEM-encoded X.509 client certificate chain for mutual TLS (mTLS) authentication to owner nodes. Must be paired with `client-key-path`. |
+| `spector.routing.gateway.tls.client-key-path` | `SPECTOR_ROUTING_GATEWAY_TLS_CLIENT_KEY_PATH` | `""` | File path | Path to a PEM-encoded PKCS#8 private key corresponding to `client-cert-path`. |
+| `spector.routing.gateway.tls.trust-store-path` | `SPECTOR_ROUTING_GATEWAY_TLS_TRUST_STORE_PATH` | `""` | File path | Path to a PKCS#12 truststore for verifying owner node certificates (alternative to `ca-cert-path`). |
+| `spector.routing.gateway.tls.trust-store-password` | `SPECTOR_ROUTING_GATEWAY_TLS_TRUST_STORE_PASSWORD` | `""` | String | Password for `trust-store-path`. |
+| `spector.routing.gateway.tls.key-store-path` | `SPECTOR_ROUTING_GATEWAY_TLS_KEY_STORE_PATH` | `""` | File path | Path to a PKCS#12 client keystore for mutual TLS authentication (alternative to `client-cert-path` / `client-key-path`). |
+| `spector.routing.gateway.tls.key-store-password` | `SPECTOR_ROUTING_GATEWAY_TLS_KEY_STORE_PASSWORD` | `""` | String | Password for `key-store-path`. |
+| `spector.routing.gateway.tls.hostname-verification-enabled` | `SPECTOR_ROUTING_GATEWAY_TLS_HOSTNAME_VERIFICATION_ENABLED` | `true` | Boolean | Enforces HTTPS endpoint hostname/SAN verification on owner node certificates during TLS handshakes. |
 
 > [!NOTE]
 > **Operational Note — Redis Outage Behavior (Req R9.2)**:
