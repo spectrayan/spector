@@ -445,6 +445,10 @@ public enum ErrorCode {
     STORE_LOCKED              (310_031, ErrorCategory.MEMORY,
             "Memory store {} is already open by {}; refusing a second writer"),
 
+    /** All active namespaces hold leases when maxActiveNamespaces capacity is reached. */
+    NAMESPACE_CAPACITY_EXHAUSTED(310_032, ErrorCategory.MEMORY,
+            "Active namespace capacity exhausted (maxActiveNamespaces={}): all active namespaces hold leases while opening '{}'"),
+
     // ══════════════════════════════════════════════════════════════════════
     // GPU (SPE-400-xxx)
     // ══════════════════════════════════════════════════════════════════════
