@@ -15,16 +15,17 @@
  */
 package com.spectrayan.spector.kernel.engram;
 
-import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
-
 import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorStorageException;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
-import com.spectrayan.spector.kernel.engram.FloatUnaryOperator;
 import com.spectrayan.spector.kernel.api.EngramSource;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.shape.AbstractRecordMemory;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.VarHandle;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.*;
 
@@ -34,43 +35,6 @@ import static com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.*;
  * <p>This is the sole live engram encoding header layout in Spector, realizing the
  * pure-encoding identity rule from MF-001 / ADR-0028.</p>
  *
- * <h3>Design Principles</h3>
- * <ul>
- *   <li><b>Pure Encoding Identity</b>: Contains only immutable/read-mostly engram properties
- *       established during memory ingestion.</li>
- *   <li><b>Zero False Sharing</b>: All mutable telemetry (recall counters, auto-LTP cooldowns,
- *       storage strength, ACT-R ring buffer) is relocated to {@link StrengthLayout}.</li>
- *   <li><b>128-Bit Synaptic Tags</b>: Contextual Bloom filter expanded from 64-bit to 128-bit
- *       (offsets 24-39), slashing candidate pre-screening false positives by ~60×.</li>
- *   <li><b>Cache-Line Aligned</b>: Exact 64-byte stride aligned to CPU hardware cache lines.</li>
- * </ul>
- *
- * <h3>Layout (64 bytes — V2)</h3>
- * <pre>
- *   Offset  Size  Field                Type     Description
- *   ──────  ────  ─────────────────    ───────  ──────────────────────────────────────────
- *    0      1B    header_version       uint8    Always 2 (V2 header)
- *    1      1B    flags                uint8    Tombstone, type, consolidated, pinned, resolved, modality
- *    2      1B    valence              int8     Initial signed emotional valence (-128 to +127)
- *    3      1B    arousal              uint8    Initial unsigned emotional arousal (0-255)
- *    4      4B    importance           float32  Initial ICNU base importance score
- *    8      8B    timestamp_ms         int64    Unix epoch ms when memory was formed
- *   16      4B    exact_norm           float32  L2 norm of unquantized vector
- *   20      2B    centroid_id          int16    IVF partition routing cluster ID
- *   22      2B    _pad0                bytes    Alignment padding
- *   24      8B    synaptic_tags_lo     uint64   128-bit Bloom filter low 64 bits
- *   32      8B    synaptic_tags_hi     uint64   128-bit Bloom filter high 64 bits
- *   40      1B    consolidation_flags  uint8    Provenance flags (simulated, crystallized, dreamed)
- *   41      1B    encoding_profile     uint8    Cognitive state at ingestion (bit 7=soul-derived)
- *   42      1B    encoding_alpha       uint8    Quantized alpha weight at ingestion (0-255)
- *   43      1B    encoding_beta        uint8    Quantized beta weight at ingestion (0-255)
- *   44      2B    soul_version         uint16   Monotonic soul configuration generation counter
- *   46      2B    _reserved_geo        bytes    Reserved for manifold geodesic coordinates
- *   48      4B    encoding_surprise    float32  Bayesian surprise z-score at ingestion
- *   52     12B    _reserved            bytes    Zero-padded reserved block for tensor invariants
- *   ── 64B total cache line ───────────────────────────────────────────────────────────────
- * </pre>
- *
  * @see StrengthLayout
  * @see EncodingHeaderFields
  */
@@ -78,6 +42,25 @@ public class EncodingHeaderLayout {
 
     /** Singleton instance of the encoding header layout. */
     public static final EncodingHeaderLayout INSTANCE = new EncodingHeaderLayout();
+
+    private static final int LOCK_STRIPES = 256;
+    private static final int LOCK_MASK = LOCK_STRIPES - 1;
+    private static final ReentrantReadWriteLock[] STRIPE_LOCKS = new ReentrantReadWriteLock[LOCK_STRIPES];
+
+    static {
+        for (int i = 0; i < LOCK_STRIPES; i++) {
+            STRIPE_LOCKS[i] = new ReentrantReadWriteLock();
+        }
+    }
+
+    /**
+     * Returns the striped read-write lock guarding record header and CRC updates at {@code offset}.
+     */
+    public static ReentrantReadWriteLock rwLockFor(long offset) {
+        int hash = Long.hashCode(offset);
+        hash ^= (hash >>> 16);
+        return STRIPE_LOCKS[hash & LOCK_MASK];
+    }
 
     public EncodingHeaderLayout() {}
 
@@ -112,6 +95,71 @@ public class EncodingHeaderLayout {
 
     public int headerBytes() { return HEADER_BYTES; }
     public int version() { return HEADER_VERSION_V2; }
+
+    /**
+     * Whether this header layout stores inline CRC32C checksums in bytes 52..63.
+     * Overridden by {@link EpisodicHeaderLayout}, which uses bytes 48..63 for episodic tags
+     * and stores record checksums in the 16-byte framing prefix.
+     */
+    protected boolean hasInlineHeaderCrc() {
+        return true;
+    }
+
+    /**
+     * Computes the non-zero CRC32C checksum over header bytes {@code 0..51} directly off-heap.
+     */
+    public int computeHeaderCrc(MemorySegment seg, long off) {
+        return AbstractRecordMemory.nonZeroCrc32c(seg, off, V2_HEADER_CRC_COVERED_BYTES);
+    }
+
+    /**
+     * Recomputes and stores the inline header CRC32C at {@code off + 52} and sets the CRC marker at {@code off + 63}.
+     */
+    public void updateHeaderCrc(MemorySegment seg, long off) {
+        if (!hasInlineHeaderCrc() || seg == null || seg.byteSize() < off + HEADER_BYTES) {
+            return;
+        }
+        var writeLock = rwLockFor(off).writeLock();
+        writeLock.lock();
+        try {
+            int crc = computeHeaderCrc(seg, off);
+            seg.set(ValueLayout.JAVA_INT_UNALIGNED, off + OFFSET_V2_HEADER_CRC32C, crc);
+            seg.set(ValueLayout.JAVA_BYTE, off + OFFSET_V2_CRC_MARKER, (byte) 1);
+        } finally {
+            writeLock.unlock();
+        }
+    }
+
+    /**
+     * Verifies the inline header CRC32C at {@code off + 52} when present (skipping legacy v1 headers where CRC is 0).
+     */
+    public void verifyHeaderCrc(MemorySegment seg, long off, Object recordRef) {
+        if (!hasInlineHeaderCrc() || seg == null || seg.byteSize() < off + HEADER_BYTES) {
+            return;
+        }
+        int storedCrc = seg.get(ValueLayout.JAVA_INT_UNALIGNED, off + OFFSET_V2_HEADER_CRC32C);
+        if (storedCrc == 0) {
+            return;
+        }
+        int actualCrc = computeHeaderCrc(seg, off);
+        if (storedCrc == actualCrc) {
+            return;
+        }
+        var readLock = rwLockFor(off).readLock();
+        readLock.lock();
+        try {
+            storedCrc = seg.get(ValueLayout.JAVA_INT_UNALIGNED, off + OFFSET_V2_HEADER_CRC32C);
+            if (storedCrc == 0) {
+                return;
+            }
+            actualCrc = computeHeaderCrc(seg, off);
+            if (storedCrc != actualCrc) {
+                throw new SpectorStorageException(ErrorCode.RECORD_CRC_CORRUPTED, recordRef);
+            }
+        } finally {
+            readLock.unlock();
+        }
+    }
 
     // ── Field reads ──
 
@@ -203,25 +251,52 @@ public class EncodingHeaderLayout {
 
     // ── Field writes ──
 
-
     public byte readHeaderVersion(MemorySegment seg, long off) {
         return seg.get(LAYOUT_HEADER_VERSION, off + OFFSET_HEADER_VERSION);
     }
 
     public void writeFlags(MemorySegment seg, long off, byte flags) {
-        seg.set(LAYOUT_FLAGS, off + OFFSET_FLAGS, flags);
+        var lock = rwLockFor(off).writeLock();
+        lock.lock();
+        try {
+            seg.set(LAYOUT_FLAGS, off + OFFSET_FLAGS, flags);
+            updateHeaderCrc(seg, off);
+        } finally {
+            lock.unlock();
+        }
     }
 
     public void writeExactNorm(MemorySegment seg, long off, float exactNorm) {
-        seg.set(ValueLayout.JAVA_FLOAT_UNALIGNED, off + OFFSET_V2_EXACT_NORM, exactNorm);
+        var lock = rwLockFor(off).writeLock();
+        lock.lock();
+        try {
+            seg.set(ValueLayout.JAVA_FLOAT_UNALIGNED, off + OFFSET_V2_EXACT_NORM, exactNorm);
+            updateHeaderCrc(seg, off);
+        } finally {
+            lock.unlock();
+        }
     }
 
     public void writeCentroidId(MemorySegment seg, long off, short centroidId) {
-        seg.set(ValueLayout.JAVA_SHORT_UNALIGNED, off + OFFSET_V2_CENTROID_ID, centroidId);
+        var lock = rwLockFor(off).writeLock();
+        lock.lock();
+        try {
+            seg.set(ValueLayout.JAVA_SHORT_UNALIGNED, off + OFFSET_V2_CENTROID_ID, centroidId);
+            updateHeaderCrc(seg, off);
+        } finally {
+            lock.unlock();
+        }
     }
 
     public void writeSourceCode(MemorySegment seg, long off, byte sourceCode) {
-        seg.set(LAYOUT_SOURCE, off + OFFSET_V2_SOURCE, sourceCode);
+        var lock = rwLockFor(off).writeLock();
+        lock.lock();
+        try {
+            seg.set(LAYOUT_SOURCE, off + OFFSET_V2_SOURCE, sourceCode);
+            updateHeaderCrc(seg, off);
+        } finally {
+            lock.unlock();
+        }
     }
 
     public boolean compareAndSetValence(MemorySegment seg, long off, byte expected, byte update) {
@@ -234,21 +309,35 @@ public class EncodingHeaderLayout {
         int expectedBits = (expected & 0xFF) << shift;
         int updateBits = (update & 0xFF) << shift;
 
-        while (true) {
-            int currentWord = (int) VAR_HANDLE_INT.getVolatile(seg, wordOff);
-            if ((currentWord & mask) != expectedBits) {
-                return false;
+        var lock = rwLockFor(off).writeLock();
+        lock.lock();
+        try {
+            while (true) {
+                int currentWord = (int) VAR_HANDLE_INT.getVolatile(seg, wordOff);
+                if ((currentWord & mask) != expectedBits) {
+                    return false;
+                }
+                int nextWord = (currentWord & ~mask) | updateBits;
+                int witness = (int) VAR_HANDLE_INT.compareAndExchange(seg, wordOff, currentWord, nextWord);
+                if (witness == currentWord) {
+                    updateHeaderCrc(seg, off);
+                    return true;
+                }
             }
-            int nextWord = (currentWord & ~mask) | updateBits;
-            int witness = (int) VAR_HANDLE_INT.compareAndExchange(seg, wordOff, currentWord, nextWord);
-            if (witness == currentWord) {
-                return true;
-            }
+        } finally {
+            lock.unlock();
         }
     }
 
     public void writeArousal(MemorySegment seg, long off, byte arousal) {
-        seg.set(LAYOUT_AROUSAL, off + OFFSET_AROUSAL, arousal);
+        var lock = rwLockFor(off).writeLock();
+        lock.lock();
+        try {
+            seg.set(LAYOUT_AROUSAL, off + OFFSET_AROUSAL, arousal);
+            updateHeaderCrc(seg, off);
+        } finally {
+            lock.unlock();
+        }
     }
 
     public void writeStorageStrength(MemorySegment seg, long off, float strength) {
@@ -256,85 +345,210 @@ public class EncodingHeaderLayout {
     }
 
     public void writeEncodingProfile(MemorySegment seg, long off, byte profile) {
-        seg.set(LAYOUT_ENCODING_PROFILE, off + OFFSET_V2_ENCODING_PROFILE, profile);
+        var lock = rwLockFor(off).writeLock();
+        lock.lock();
+        try {
+            seg.set(LAYOUT_ENCODING_PROFILE, off + OFFSET_V2_ENCODING_PROFILE, profile);
+            updateHeaderCrc(seg, off);
+        } finally {
+            lock.unlock();
+        }
     }
 
     public void writeEncodingAlpha(MemorySegment seg, long off, byte alpha) {
-        seg.set(LAYOUT_ENCODING_ALPHA, off + OFFSET_V2_ENCODING_ALPHA, alpha);
+        var lock = rwLockFor(off).writeLock();
+        lock.lock();
+        try {
+            seg.set(LAYOUT_ENCODING_ALPHA, off + OFFSET_V2_ENCODING_ALPHA, alpha);
+            updateHeaderCrc(seg, off);
+        } finally {
+            lock.unlock();
+        }
     }
 
     public void writeEncodingBeta(MemorySegment seg, long off, byte beta) {
-        seg.set(LAYOUT_ENCODING_BETA, off + OFFSET_V2_ENCODING_BETA, beta);
+        var lock = rwLockFor(off).writeLock();
+        lock.lock();
+        try {
+            seg.set(LAYOUT_ENCODING_BETA, off + OFFSET_V2_ENCODING_BETA, beta);
+            updateHeaderCrc(seg, off);
+        } finally {
+            lock.unlock();
+        }
     }
 
     public void writeSoulVersion(MemorySegment seg, long off, short version) {
-        seg.set(ValueLayout.JAVA_SHORT_UNALIGNED, off + OFFSET_V2_SOUL_VERSION, version);
+        var lock = rwLockFor(off).writeLock();
+        lock.lock();
+        try {
+            seg.set(ValueLayout.JAVA_SHORT_UNALIGNED, off + OFFSET_V2_SOUL_VERSION, version);
+            updateHeaderCrc(seg, off);
+        } finally {
+            lock.unlock();
+        }
     }
 
     public void writeSource(MemorySegment seg, long off, EngramSource source) {
-        seg.set(LAYOUT_SOURCE, off + OFFSET_V2_SOURCE, source != null ? source.code() : SOURCE_EXPERIENCED);
+        var lock = rwLockFor(off).writeLock();
+        lock.lock();
+        try {
+            seg.set(LAYOUT_SOURCE, off + OFFSET_V2_SOURCE, source != null ? source.code() : SOURCE_EXPERIENCED);
+            updateHeaderCrc(seg, off);
+        } finally {
+            lock.unlock();
+        }
     }
 
     public void writeEncodingSurprise(MemorySegment seg, long off, float surprise) {
-        seg.set(ValueLayout.JAVA_FLOAT_UNALIGNED, off + OFFSET_V2_ENCODING_SURPRISE, surprise);
+        var lock = rwLockFor(off).writeLock();
+        lock.lock();
+        try {
+            seg.set(ValueLayout.JAVA_FLOAT_UNALIGNED, off + OFFSET_V2_ENCODING_SURPRISE, surprise);
+            updateHeaderCrc(seg, off);
+        } finally {
+            lock.unlock();
+        }
     }
 
     public void writeConsolidationFlags(MemorySegment seg, long off, byte consolidationFlags) {
-        seg.set(LAYOUT_CONSOLIDATION_FLAGS, off + OFFSET_V2_CONSOLIDATION_FLAGS, consolidationFlags);
+        var lock = rwLockFor(off).writeLock();
+        lock.lock();
+        try {
+            seg.set(LAYOUT_CONSOLIDATION_FLAGS, off + OFFSET_V2_CONSOLIDATION_FLAGS, consolidationFlags);
+            updateHeaderCrc(seg, off);
+        } finally {
+            lock.unlock();
+        }
     }
 
     public void writeImportance(MemorySegment seg, long off, float importance) {
-        seg.set(ValueLayout.JAVA_FLOAT_UNALIGNED, off + OFFSET_IMPORTANCE, importance);
+        var lock = rwLockFor(off).writeLock();
+        lock.lock();
+        try {
+            seg.set(ValueLayout.JAVA_FLOAT_UNALIGNED, off + OFFSET_IMPORTANCE, importance);
+            updateHeaderCrc(seg, off);
+        } finally {
+            lock.unlock();
+        }
     }
 
     public void writeTimestamp(MemorySegment seg, long off, long timestampMs) {
-        seg.set(ValueLayout.JAVA_LONG_UNALIGNED, off + OFFSET_TIMESTAMP, timestampMs);
+        var lock = rwLockFor(off).writeLock();
+        lock.lock();
+        try {
+            seg.set(ValueLayout.JAVA_LONG_UNALIGNED, off + OFFSET_TIMESTAMP, timestampMs);
+            updateHeaderCrc(seg, off);
+        } finally {
+            lock.unlock();
+        }
     }
 
     public void writeSynapticTags(MemorySegment seg, long off, long tagsLo, long tagsHi) {
-        seg.set(ValueLayout.JAVA_LONG_UNALIGNED, off + OFFSET_V2_SYNAPTIC_TAGS_LO, tagsLo);
-        seg.set(ValueLayout.JAVA_LONG_UNALIGNED, off + OFFSET_V2_SYNAPTIC_TAGS_HI, tagsHi);
+        var lock = rwLockFor(off).writeLock();
+        lock.lock();
+        try {
+            seg.set(ValueLayout.JAVA_LONG_UNALIGNED, off + OFFSET_V2_SYNAPTIC_TAGS_LO, tagsLo);
+            seg.set(ValueLayout.JAVA_LONG_UNALIGNED, off + OFFSET_V2_SYNAPTIC_TAGS_HI, tagsHi);
+            updateHeaderCrc(seg, off);
+        } finally {
+            lock.unlock();
+        }
     }
 
     public void mergeSynapticTags(MemorySegment seg, long off, long additionalTags) {
-        VAR_HANDLE_SYNAPTIC_TAGS_LO.getAndBitwiseOr(seg, off + OFFSET_V2_SYNAPTIC_TAGS_LO, additionalTags);
+        var lock = rwLockFor(off).writeLock();
+        lock.lock();
+        try {
+            VAR_HANDLE_SYNAPTIC_TAGS_LO.getAndBitwiseOr(seg, off + OFFSET_V2_SYNAPTIC_TAGS_LO, additionalTags);
+            updateHeaderCrc(seg, off);
+        } finally {
+            lock.unlock();
+        }
     }
 
     public void mergeSynapticTags128(MemorySegment seg, long off, long additionalLo, long additionalHi) {
-        VAR_HANDLE_SYNAPTIC_TAGS_LO.getAndBitwiseOr(seg, off + OFFSET_V2_SYNAPTIC_TAGS_LO, additionalLo);
-        if (additionalHi != 0L) {
-            VAR_HANDLE_SYNAPTIC_TAGS_HI.getAndBitwiseOr(seg, off + OFFSET_V2_SYNAPTIC_TAGS_HI, additionalHi);
+        var lock = rwLockFor(off).writeLock();
+        lock.lock();
+        try {
+            VAR_HANDLE_SYNAPTIC_TAGS_LO.getAndBitwiseOr(seg, off + OFFSET_V2_SYNAPTIC_TAGS_LO, additionalLo);
+            if (additionalHi != 0L) {
+                VAR_HANDLE_SYNAPTIC_TAGS_HI.getAndBitwiseOr(seg, off + OFFSET_V2_SYNAPTIC_TAGS_HI, additionalHi);
+            }
+            updateHeaderCrc(seg, off);
+        } finally {
+            lock.unlock();
         }
     }
 
     public void markTombstoned(MemorySegment seg, long off) {
-        byte flags = readFlags(seg, off);
-        seg.set(LAYOUT_FLAGS, off + OFFSET_FLAGS, (byte) (flags | FLAG_TOMBSTONE));
+        var lock = rwLockFor(off).writeLock();
+        lock.lock();
+        try {
+            byte flags = readFlags(seg, off);
+            seg.set(LAYOUT_FLAGS, off + OFFSET_FLAGS, (byte) (flags | FLAG_TOMBSTONE));
+            updateHeaderCrc(seg, off);
+        } finally {
+            lock.unlock();
+        }
     }
 
     public void markConsolidated(MemorySegment seg, long off) {
-        byte flags = readFlags(seg, off);
-        seg.set(LAYOUT_FLAGS, off + OFFSET_FLAGS, (byte) (flags | FLAG_CONSOLIDATED));
+        var lock = rwLockFor(off).writeLock();
+        lock.lock();
+        try {
+            byte flags = readFlags(seg, off);
+            seg.set(LAYOUT_FLAGS, off + OFFSET_FLAGS, (byte) (flags | FLAG_CONSOLIDATED));
+            updateHeaderCrc(seg, off);
+        } finally {
+            lock.unlock();
+        }
     }
 
     public void markPinned(MemorySegment seg, long off) {
-        byte flags = readFlags(seg, off);
-        seg.set(LAYOUT_FLAGS, off + OFFSET_FLAGS, (byte) (flags | FLAG_PINNED));
+        var lock = rwLockFor(off).writeLock();
+        lock.lock();
+        try {
+            byte flags = readFlags(seg, off);
+            seg.set(LAYOUT_FLAGS, off + OFFSET_FLAGS, (byte) (flags | FLAG_PINNED));
+            updateHeaderCrc(seg, off);
+        } finally {
+            lock.unlock();
+        }
     }
 
     public void markResolved(MemorySegment seg, long off) {
-        byte flags = readFlags(seg, off);
-        seg.set(LAYOUT_FLAGS, off + OFFSET_FLAGS, (byte) (flags | FLAG_RESOLVED));
+        var lock = rwLockFor(off).writeLock();
+        lock.lock();
+        try {
+            byte flags = readFlags(seg, off);
+            seg.set(LAYOUT_FLAGS, off + OFFSET_FLAGS, (byte) (flags | FLAG_RESOLVED));
+            updateHeaderCrc(seg, off);
+        } finally {
+            lock.unlock();
+        }
     }
 
     public void markUnresolved(MemorySegment seg, long off) {
-        byte flags = readFlags(seg, off);
-        seg.set(LAYOUT_FLAGS, off + OFFSET_FLAGS, (byte) (flags & ~FLAG_RESOLVED));
+        var lock = rwLockFor(off).writeLock();
+        lock.lock();
+        try {
+            byte flags = readFlags(seg, off);
+            seg.set(LAYOUT_FLAGS, off + OFFSET_FLAGS, (byte) (flags & ~FLAG_RESOLVED));
+            updateHeaderCrc(seg, off);
+        } finally {
+            lock.unlock();
+        }
     }
 
     public void markContradicted(MemorySegment seg, long off) {
-        byte cFlags = readConsolidationFlags(seg, off);
-        writeConsolidationFlags(seg, off, (byte) (cFlags | FLAG_CONTRADICTED));
+        var lock = rwLockFor(off).writeLock();
+        lock.lock();
+        try {
+            byte cFlags = readConsolidationFlags(seg, off);
+            writeConsolidationFlags(seg, off, (byte) (cFlags | FLAG_CONTRADICTED));
+        } finally {
+            lock.unlock();
+        }
     }
 
     /**
@@ -342,22 +556,30 @@ public class EncodingHeaderLayout {
      * records are never released by recall (the governed release gate drops them).
      */
     public void markRetracted(MemorySegment seg, long off) {
-        byte cFlags = readConsolidationFlags(seg, off);
-        writeConsolidationFlags(seg, off, (byte) (cFlags | EncodingHeaderFields.FLAG_RETRACTED));
+        var lock = rwLockFor(off).writeLock();
+        lock.lock();
+        try {
+            byte cFlags = readConsolidationFlags(seg, off);
+            writeConsolidationFlags(seg, off, (byte) (cFlags | EncodingHeaderFields.FLAG_RETRACTED));
+        } finally {
+            lock.unlock();
+        }
     }
 
     /**
      * Marks the record at {@code off} as purged — its payload has been physically zeroed.
      *
-     * <p>Sets {@link EncodingHeaderFields#FLAG_PURGED} in the consolidation-flags byte. This records the
-     * fact; it does not perform the zeroing. Callers are responsible for both, and for setting
-     * {@link #markTombstoned} so that the ~40 existing tombstone read-gates continue to hide the record.</p>
-     *
      * @see EncodingHeaderFields#FLAG_PURGED
      */
     public void markPurged(MemorySegment seg, long off) {
-        byte cFlags = readConsolidationFlags(seg, off);
-        writeConsolidationFlags(seg, off, (byte) (cFlags | FLAG_PURGED));
+        var lock = rwLockFor(off).writeLock();
+        lock.lock();
+        try {
+            byte cFlags = readConsolidationFlags(seg, off);
+            writeConsolidationFlags(seg, off, (byte) (cFlags | FLAG_PURGED));
+        } finally {
+            lock.unlock();
+        }
     }
 
     /**
@@ -379,16 +601,30 @@ public class EncodingHeaderLayout {
 
     public float casImportance(MemorySegment seg, long off, FloatUnaryOperator updateFn) {
         long addr = off + OFFSET_IMPORTANCE;
-        float prev, next;
-        do {
-            prev = (float) VAR_HANDLE_IMPORTANCE_V2.getVolatile(seg, addr);
-            next = updateFn.applyAsFloat(prev);
-        } while (!VAR_HANDLE_IMPORTANCE_V2.compareAndSet(seg, addr, prev, next));
-        return next;
+        var lock = rwLockFor(off).writeLock();
+        lock.lock();
+        try {
+            float prev, next;
+            do {
+                prev = (float) VAR_HANDLE_IMPORTANCE_V2.getVolatile(seg, addr);
+                next = updateFn.applyAsFloat(prev);
+            } while (!VAR_HANDLE_IMPORTANCE_V2.compareAndSet(seg, addr, prev, next));
+            updateHeaderCrc(seg, off);
+            return next;
+        } finally {
+            lock.unlock();
+        }
     }
 
     public void writeValenceRelease(MemorySegment seg, long off, byte valence) {
-        VAR_HANDLE_VALENCE.setRelease(seg, off + OFFSET_VALENCE, valence);
+        var lock = rwLockFor(off).writeLock();
+        lock.lock();
+        try {
+            VAR_HANDLE_VALENCE.setRelease(seg, off + OFFSET_VALENCE, valence);
+            updateHeaderCrc(seg, off);
+        } finally {
+            lock.unlock();
+        }
     }
 
     public int readSpectorRecallCount(MemorySegment seg, long off) {
@@ -409,6 +645,7 @@ public class EncodingHeaderLayout {
     // ── Full header read/write ──
 
     public EncodingHeader readHeader(MemorySegment seg, long off) {
+        verifyHeaderCrc(seg, off, off);
         return new EncodingHeader(
                 readTimestamp(seg, off),
                 readSynapticTagsLo(seg, off),
@@ -432,30 +669,37 @@ public class EncodingHeaderLayout {
     }
 
     public void writeHeader(MemorySegment seg, long off, EncodingHeader header) {
-        seg.set(LAYOUT_HEADER_VERSION, off + OFFSET_HEADER_VERSION, (byte) HEADER_VERSION_V2);
-        seg.set(LAYOUT_FLAGS,         off + OFFSET_FLAGS,          header.flags());
-        seg.set(LAYOUT_VALENCE,       off + OFFSET_VALENCE,        header.valence());
-        seg.set(LAYOUT_AROUSAL,       off + OFFSET_AROUSAL,        header.arousal());
-        seg.set(ValueLayout.JAVA_FLOAT_UNALIGNED,    off + OFFSET_IMPORTANCE,     header.importance());
-        seg.set(ValueLayout.JAVA_LONG_UNALIGNED,     off + OFFSET_TIMESTAMP,      header.timestampMs());
-        seg.set(ValueLayout.JAVA_FLOAT_UNALIGNED,    off + OFFSET_V2_EXACT_NORM,  header.exactNorm());
-        seg.set(ValueLayout.JAVA_SHORT_UNALIGNED,   off + OFFSET_V2_CENTROID_ID, header.centroidId());
-        seg.set(ValueLayout.JAVA_SHORT_UNALIGNED, off + OFFSET_V2_PAD0,     (short) 0);
-        seg.set(ValueLayout.JAVA_LONG_UNALIGNED, off + OFFSET_V2_SYNAPTIC_TAGS_LO, header.synapticTagsLo());
-        seg.set(ValueLayout.JAVA_LONG_UNALIGNED, off + OFFSET_V2_SYNAPTIC_TAGS_HI, header.synapticTagsHi());
-        seg.set(LAYOUT_CONSOLIDATION_FLAGS, off + OFFSET_V2_CONSOLIDATION_FLAGS, header.consolidationFlags());
-        seg.set(LAYOUT_ENCODING_PROFILE, off + OFFSET_V2_ENCODING_PROFILE, header.encodingProfile());
-        seg.set(LAYOUT_ENCODING_ALPHA, off + OFFSET_V2_ENCODING_ALPHA, header.encodingAlpha());
-        seg.set(LAYOUT_ENCODING_BETA, off + OFFSET_V2_ENCODING_BETA, header.encodingBeta());
-        seg.set(ValueLayout.JAVA_SHORT_UNALIGNED, off + OFFSET_V2_SOUL_VERSION, header.soulVersion());
-        EngramSource src = header.source() != null ? header.source() : EngramSource.EXPERIENCED;
-        seg.set(LAYOUT_SOURCE, off + OFFSET_V2_SOURCE, src.code());
-        seg.set(ValueLayout.JAVA_BYTE, off + OFFSET_V2_PAD_SOURCE, (byte) 0);
-        seg.set(ValueLayout.JAVA_FLOAT_UNALIGNED, off + OFFSET_V2_ENCODING_SURPRISE, header.encodingSurprise());
-        // Zero reserved block (12 bytes at offset 52)
-        seg.set(ValueLayout.JAVA_INT_UNALIGNED, off + OFFSET_V2_RESERVED, 0);
-        seg.set(ValueLayout.JAVA_INT_UNALIGNED, off + OFFSET_V2_RESERVED + 4L, 0);
-        seg.set(ValueLayout.JAVA_INT_UNALIGNED, off + OFFSET_V2_RESERVED + 8L, 0);
+        var lock = rwLockFor(off).writeLock();
+        lock.lock();
+        try {
+            seg.set(LAYOUT_HEADER_VERSION, off + OFFSET_HEADER_VERSION, (byte) HEADER_VERSION_V2);
+            seg.set(LAYOUT_FLAGS,         off + OFFSET_FLAGS,          header.flags());
+            seg.set(LAYOUT_VALENCE,       off + OFFSET_VALENCE,        header.valence());
+            seg.set(LAYOUT_AROUSAL,       off + OFFSET_AROUSAL,        header.arousal());
+            seg.set(ValueLayout.JAVA_FLOAT_UNALIGNED,    off + OFFSET_IMPORTANCE,     header.importance());
+            seg.set(ValueLayout.JAVA_LONG_UNALIGNED,     off + OFFSET_TIMESTAMP,      header.timestampMs());
+            seg.set(ValueLayout.JAVA_FLOAT_UNALIGNED,    off + OFFSET_V2_EXACT_NORM,  header.exactNorm());
+            seg.set(ValueLayout.JAVA_SHORT_UNALIGNED,   off + OFFSET_V2_CENTROID_ID, header.centroidId());
+            seg.set(ValueLayout.JAVA_SHORT_UNALIGNED, off + OFFSET_V2_PAD0,     (short) 0);
+            seg.set(ValueLayout.JAVA_LONG_UNALIGNED, off + OFFSET_V2_SYNAPTIC_TAGS_LO, header.synapticTagsLo());
+            seg.set(ValueLayout.JAVA_LONG_UNALIGNED, off + OFFSET_V2_SYNAPTIC_TAGS_HI, header.synapticTagsHi());
+            seg.set(LAYOUT_CONSOLIDATION_FLAGS, off + OFFSET_V2_CONSOLIDATION_FLAGS, header.consolidationFlags());
+            seg.set(LAYOUT_ENCODING_PROFILE, off + OFFSET_V2_ENCODING_PROFILE, header.encodingProfile());
+            seg.set(LAYOUT_ENCODING_ALPHA, off + OFFSET_V2_ENCODING_ALPHA, header.encodingAlpha());
+            seg.set(LAYOUT_ENCODING_BETA, off + OFFSET_V2_ENCODING_BETA, header.encodingBeta());
+            seg.set(ValueLayout.JAVA_SHORT_UNALIGNED, off + OFFSET_V2_SOUL_VERSION, header.soulVersion());
+            EngramSource src = header.source() != null ? header.source() : EngramSource.EXPERIENCED;
+            seg.set(LAYOUT_SOURCE, off + OFFSET_V2_SOURCE, src.code());
+            seg.set(ValueLayout.JAVA_BYTE, off + OFFSET_V2_PAD_SOURCE, (byte) 0);
+            seg.set(ValueLayout.JAVA_FLOAT_UNALIGNED, off + OFFSET_V2_ENCODING_SURPRISE, header.encodingSurprise());
+            // Zero reserved block (12 bytes at offset 52) before writing header CRC32C
+            seg.set(ValueLayout.JAVA_INT_UNALIGNED, off + OFFSET_V2_RESERVED, 0);
+            seg.set(ValueLayout.JAVA_INT_UNALIGNED, off + OFFSET_V2_RESERVED + 4L, 0);
+            seg.set(ValueLayout.JAVA_INT_UNALIGNED, off + OFFSET_V2_RESERVED + 8L, 0);
+            updateHeaderCrc(seg, off);
+        } finally {
+            lock.unlock();
+        }
     }
 
     /**

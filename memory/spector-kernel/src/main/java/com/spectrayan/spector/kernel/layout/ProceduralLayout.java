@@ -35,7 +35,8 @@ public record ProceduralLayout(
 ) implements FixedEngramLayout {
 
     public static final int LAYOUT_ID = FixedEngramLayout.LAYOUT_ID; // 0x434F4700
-    public static final int SCHEMA_VERSION = 1;
+    public static final int SCHEMA_VERSION = FixedEngramLayout.SCHEMA_VERSION;
+    public static final int MIN_READABLE_SCHEMA_VERSION = FixedEngramLayout.MIN_READABLE_SCHEMA_VERSION;
 
     public ProceduralLayout(int quantizedVecBytes) {
         this(quantizedVecBytes, ProceduralHeaderLayout.defaultLayout());

@@ -189,6 +189,14 @@ public final class EncodingHeaderFields {
     public static final long OFFSET_V2_ENCODING_SURPRISE   = 48L;
     /** V2: Zero-padded reserved block for neural tensor invariants (bytes 52-63). */
     public static final long OFFSET_V2_RESERVED            = 52L;
+    /** V2: Non-zero CRC32C checksum covering header bytes 0..51 (bytes 52-55). */
+    public static final long OFFSET_V2_HEADER_CRC32C       = 52L;
+    /** V2: Non-zero CRC32C checksum covering the quantized vector payload (bytes 56-59). */
+    public static final long OFFSET_V2_PAYLOAD_CRC32C      = 56L;
+    /** V2: Marker byte (1 when record CRC32C fields are populated, 0 for legacy v1 records; byte 63). */
+    public static final long OFFSET_V2_CRC_MARKER          = 63L;
+    /** Number of header bytes covered by {@link #OFFSET_V2_HEADER_CRC32C} (bytes 0..51). */
+    public static final int  V2_HEADER_CRC_COVERED_BYTES   = 52;
 
     // ── Value layouts ──
 

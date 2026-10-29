@@ -15,16 +15,15 @@
  */
 package com.spectrayan.spector.kernel.layout;
 
-import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
-
-import com.spectrayan.spector.kernel.engram.EncodingHeader;
-
-import com.spectrayan.spector.kernel.engram.EncodingHeaderLayout;
-
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorStorageException;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
-import com.spectrayan.spector.kernel.layout.RegionLayout;
 import com.spectrayan.spector.kernel.api.EngramSource;
 import com.spectrayan.spector.kernel.api.SourceModality;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
+import com.spectrayan.spector.kernel.engram.EncodingHeaderLayout;
+import com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields;
+import com.spectrayan.spector.kernel.shape.AbstractRecordMemory;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
@@ -48,6 +47,12 @@ public interface FixedEngramLayout extends RegionLayout {
 
     /** Common layout ID for all fixed-stride engrams ('COG\0'). */
     int LAYOUT_ID = 0x434F4700;
+
+    /** Current schema version for fixed-stride engram regions (v2 adds per-record CRC32C). */
+    int SCHEMA_VERSION = 2;
+
+    /** Minimum readable schema version (v1 regions written without per-record CRC32C). */
+    int MIN_READABLE_SCHEMA_VERSION = 1;
 
     /** Number of bytes allocated for the quantized vector payload. */
     int quantizedVecBytes();
@@ -74,7 +79,7 @@ public interface FixedEngramLayout extends RegionLayout {
 
     @Override
     default boolean crcEnabled() {
-        return false;
+        return true;
     }
 
     /**
@@ -84,8 +89,90 @@ public interface FixedEngramLayout extends RegionLayout {
         return recordOffset + headerBytes();
     }
 
-    // ── Write operations (delegate to headerLayout) ──
+    /**
+     * Computes and writes the non-zero CRC32C checksum for the quantized vector payload
+     * directly over the off-heap segment slice.
+     */
+    default void writePayloadCrc(MemorySegment segment, long recordOffset) {
+        int payloadBytes = quantizedVecBytes();
+        long vecOff = vectorOffset(recordOffset);
+        if (segment == null || payloadBytes <= 0 || segment.byteSize() < vecOff + payloadBytes) {
+            return;
+        }
+        var lock = EncodingHeaderLayout.rwLockFor(recordOffset).writeLock();
+        lock.lock();
+        try {
+            int payloadCrc = AbstractRecordMemory.nonZeroCrc32c(segment, vecOff, payloadBytes);
+            segment.set(ValueLayout.JAVA_INT_UNALIGNED,
+                    recordOffset + EncodingHeaderFields.OFFSET_V2_PAYLOAD_CRC32C, payloadCrc);
+            segment.set(ValueLayout.JAVA_BYTE,
+                    recordOffset + EncodingHeaderFields.OFFSET_V2_CRC_MARKER, (byte) 1);
+        } finally {
+            lock.unlock();
+        }
+    }
 
+    /**
+     * Computes and writes both the header and payload CRC32C checksums for the record at {@code recordOffset}.
+     */
+    default void writeRecordCrc(MemorySegment segment, long recordOffset) {
+        var lock = EncodingHeaderLayout.rwLockFor(recordOffset).writeLock();
+        lock.lock();
+        try {
+            headerLayout().updateHeaderCrc(segment, recordOffset);
+            writePayloadCrc(segment, recordOffset);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /**
+     * Verifies the quantized vector payload CRC32C when present (skipping v1 records where CRC is 0).
+     */
+    default void verifyPayloadCrc(MemorySegment segment, long recordOffset, Object recordRef) {
+        if (segment == null || segment.byteSize() < recordOffset + headerBytes()) {
+            return;
+        }
+        int storedPayloadCrc = segment.get(ValueLayout.JAVA_INT_UNALIGNED,
+                recordOffset + EncodingHeaderFields.OFFSET_V2_PAYLOAD_CRC32C);
+        if (storedPayloadCrc == 0) {
+            return;
+        }
+        int payloadBytes = quantizedVecBytes();
+        long vecOff = vectorOffset(recordOffset);
+        if (payloadBytes <= 0 || segment.byteSize() < vecOff + payloadBytes) {
+            return;
+        }
+        int actualPayloadCrc = AbstractRecordMemory.nonZeroCrc32c(segment, vecOff, payloadBytes);
+        if (storedPayloadCrc == actualPayloadCrc) {
+            return;
+        }
+        var readLock = EncodingHeaderLayout.rwLockFor(recordOffset).readLock();
+        readLock.lock();
+        try {
+            storedPayloadCrc = segment.get(ValueLayout.JAVA_INT_UNALIGNED,
+                    recordOffset + EncodingHeaderFields.OFFSET_V2_PAYLOAD_CRC32C);
+            if (storedPayloadCrc == 0) {
+                return;
+            }
+            actualPayloadCrc = AbstractRecordMemory.nonZeroCrc32c(segment, vecOff, payloadBytes);
+            if (storedPayloadCrc != actualPayloadCrc) {
+                throw new SpectorStorageException(ErrorCode.RECORD_CRC_CORRUPTED, recordRef);
+            }
+        } finally {
+            readLock.unlock();
+        }
+    }
+
+    /**
+     * Verifies both the header and payload CRC32C checksums for the record at {@code recordOffset}.
+     */
+    default void verifyRecordCrc(MemorySegment segment, long recordOffset, Object recordRef) {
+        headerLayout().verifyHeaderCrc(segment, recordOffset, recordRef);
+        verifyPayloadCrc(segment, recordOffset, recordRef);
+    }
+
+    // ── Write operations (delegate to headerLayout) ──
 
     default byte readHeaderVersion(MemorySegment segment, long offset) {
         return headerLayout().readHeaderVersion(segment, offset);
@@ -222,60 +309,25 @@ public interface FixedEngramLayout extends RegionLayout {
         headerLayout().markTombstoned(segment, offset);
     }
 
-    /**
-     * Physically destroys the content of the record at {@code offset}, in place.
-     *
-     * <p>This is the irreversible counterpart to {@link #tombstone}. Tombstoning only sets a bit; every
-     * byte of the vector stays readable to anyone with the file. Purging overwrites those bytes.</p>
-     *
-     * <h4>What this zeroes</h4>
-     * <ul>
-     *   <li>the whole quantized vector payload — {@link #quantizedVecBytes()} bytes at
-     *       {@link #vectorOffset(long)};</li>
-     *   <li>{@code exact_norm}, the L2 norm of the unquantized vector — a scalar derived from the content,
-     *       and a real leak if left behind;</li>
-     *   <li>the 128-bit synaptic-tag Bloom filter, which is derived from the content's tags. Leaving it
-     *       would let {@code SlabScanner} and {@code RecordGates} still answer "this record was about X",
-     *       and would let a caller probe tags by trial;</li>
-     *   <li>{@code centroid_id}, the IVF routing cluster, which localises the content in vector space.</li>
-     * </ul>
-     *
-     * <h4>What this deliberately leaves</h4>
-     * <p>The lifecycle metadata in the header survives: {@code header_version}, the flags bytes,
-     * {@code timestamp_ms}, {@code importance}, {@code valence}/{@code arousal}, and the encoding-time
-     * profile fields. That is a deliberate, disclosable choice — the record's existence and its formation
-     * time remain, which is what makes the purge auditable, and no content can be reconstructed from them.
-     * Callers that report on a purge must disclose this rather than claim the record is gone.</p>
-     *
-     * <p>Sets both {@code FLAG_TOMBSTONE} and {@code FLAG_PURGED}. The tombstone matters: the many existing
-     * read gates check only the tombstone bit, and they must keep hiding the record.</p>
-     *
-     * <p>No relocation, no file shrink, no slot reuse. The stride is unchanged so every other record's
-     * offset is unaffected, which is what makes this safe to do without touching any index.</p>
-     *
-     * @param segment the region segment
-     * @param offset  absolute record offset within {@code segment}
-     * @return the number of payload bytes overwritten
-     */
     default int purge(MemorySegment segment, long offset) {
-        int payloadBytes = quantizedVecBytes();
-        segment.asSlice(vectorOffset(offset), payloadBytes).fill((byte) 0);
-        EncodingHeaderLayout hdr = headerLayout();
-        hdr.writeExactNorm(segment, offset, 0.0f);
-        hdr.writeSynapticTags(segment, offset, 0L, 0L);
-        hdr.writeCentroidId(segment, offset, (short) 0);
-        hdr.markTombstoned(segment, offset);
-        hdr.markPurged(segment, offset);
-        return payloadBytes;
+        var lock = EncodingHeaderLayout.rwLockFor(offset).writeLock();
+        lock.lock();
+        try {
+            int payloadBytes = quantizedVecBytes();
+            segment.asSlice(vectorOffset(offset), payloadBytes).fill((byte) 0);
+            EncodingHeaderLayout hdr = headerLayout();
+            hdr.writeExactNorm(segment, offset, 0.0f);
+            hdr.writeSynapticTags(segment, offset, 0L, 0L);
+            hdr.writeCentroidId(segment, offset, (short) 0);
+            hdr.markTombstoned(segment, offset);
+            hdr.markPurged(segment, offset);
+            writeRecordCrc(segment, offset);
+            return payloadBytes;
+        } finally {
+            lock.unlock();
+        }
     }
 
-    /**
-     * Returns whether the record at {@code offset} has been {@linkplain #purge purged}.
-     *
-     * <p>Distinct from tombstoned, and the distinction matters for anything that interprets the payload: a
-     * purged record's vector is all zeros, which dequantizes to a legitimate-looking zero vector rather
-     * than to an absence. Code that scores, dequantizes or reports content must consult this.</p>
-     */
     default boolean isPurged(MemorySegment segment, long offset) {
         return headerLayout().isPurged(segment, offset);
     }
@@ -357,8 +409,15 @@ public interface FixedEngramLayout extends RegionLayout {
     }
 
     default void writeQuantizedVector(MemorySegment segment, long recordOffset, byte[] quantizedVec) {
-        MemorySegment.copy(MemorySegment.ofArray(quantizedVec), ValueLayout.JAVA_BYTE, 0,
-                segment, ValueLayout.JAVA_BYTE, vectorOffset(recordOffset), quantizedVec.length);
+        var lock = EncodingHeaderLayout.rwLockFor(recordOffset).writeLock();
+        lock.lock();
+        try {
+            MemorySegment.copy(MemorySegment.ofArray(quantizedVec), ValueLayout.JAVA_BYTE, 0,
+                    segment, ValueLayout.JAVA_BYTE, vectorOffset(recordOffset), quantizedVec.length);
+            writeRecordCrc(segment, recordOffset);
+        } finally {
+            lock.unlock();
+        }
     }
 
     default void writeQuantizedVector(MemorySegment segment, long recordOffset,

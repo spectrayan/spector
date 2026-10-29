@@ -146,9 +146,14 @@ public final class WorkingMemory extends AbstractEngramMemory<WorkingLayout> {
 
     @Override
     public long write(EncodingHeader header, byte[] quantizedVec) {
-        long offset = dataOffset() + (long) writeIndex * layout.stride();
-        put(header, quantizedVec);
-        return offset;
+        writeLock.lock();
+        try {
+            long offset = dataOffset() + (long) writeIndex * layout.stride();
+            put(header, quantizedVec);
+            return offset;
+        } finally {
+            writeLock.unlock();
+        }
     }
 
     /**
@@ -170,16 +175,25 @@ public final class WorkingMemory extends AbstractEngramMemory<WorkingLayout> {
                 log.trace("Working memory full — evicting slot {}", writeIndex);
             }
 
-            // Write header
-            layout.writeHeader(segment(), offset, header);
+            var slotLock = com.spectrayan.spector.kernel.engram.EncodingHeaderLayout.rwLockFor(offset).writeLock();
+            slotLock.lock();
+            try {
+                // Write header
+                layout.writeHeader(segment(), offset, header);
 
-            // Write quantized vector payload
-            int copyLen = Math.min(quantizedVec.length, layout.quantizedVecBytes());
-            MemorySegment.copy(
-                    MemorySegment.ofArray(quantizedVec), 0,
-                    segment(), layout.vectorOffset(offset),
-                    copyLen
-            );
+                // Write quantized vector payload
+                int copyLen = Math.min(quantizedVec.length, layout.quantizedVecBytes());
+                MemorySegment.copy(
+                        MemorySegment.ofArray(quantizedVec), 0,
+                        segment(), layout.vectorOffset(offset),
+                        copyLen
+                );
+                if (layout.crcEnabled()) {
+                    layout.writeRecordCrc(segment(), offset);
+                }
+            } finally {
+                slotLock.unlock();
+            }
 
             // Advance circular buffer
             writeIndex = (writeIndex + 1) % capacity();

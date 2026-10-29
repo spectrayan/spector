@@ -60,6 +60,11 @@ public class EpisodicHeaderLayout extends EncodingHeaderLayout {
         return INSTANCE;
     }
 
+    @Override
+    protected boolean hasInlineHeaderCrc() {
+        return false;
+    }
+
     // ── Honest Episodic Header Fields (Offset relative to header start) ──
 
     /**

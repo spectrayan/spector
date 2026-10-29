@@ -119,6 +119,9 @@ public final class SegmentEngramRegion implements EngramRegion {
         if (isPurged(offset)) {
             return null;
         }
+        if (layout.crcEnabled()) {
+            layout.verifyRecordCrc(segment, offset, offset);
+        }
         int vecBytes = layout.quantizedVecBytes();
         byte[] bytes = new byte[vecBytes];
         MemorySegment.copy(segment, ValueLayout.JAVA_BYTE,
