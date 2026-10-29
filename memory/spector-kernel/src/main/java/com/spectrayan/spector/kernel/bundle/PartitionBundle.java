@@ -783,6 +783,9 @@ public final class PartitionBundle implements AbstractBundle {
                 recordOffset + com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.OFFSET_V2_SYNAPTIC_TAGS_LO, tagsLo);
         seg.set(java.lang.foreign.ValueLayout.JAVA_LONG_UNALIGNED,
                 recordOffset + com.spectrayan.spector.kernel.engram.field.EncodingHeaderFields.OFFSET_V2_SYNAPTIC_TAGS_HI, tagsHi);
+        if (regionId != RegionId.EPISODIC) {
+            com.spectrayan.spector.kernel.engram.EncodingHeaderLayout.INSTANCE.updateHeaderCrc(seg, recordOffset);
+        }
         return true;
     }
 

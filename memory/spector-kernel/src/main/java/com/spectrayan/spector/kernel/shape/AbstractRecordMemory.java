@@ -17,12 +17,10 @@ package com.spectrayan.spector.kernel.shape;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorStorageException;
-import com.spectrayan.spector.kernel.shape.AbstractMemory;
-import com.spectrayan.spector.kernel.id.MemoryId;
-import com.spectrayan.spector.kernel.layout.RegionLayout;
-import com.spectrayan.spector.kernel.shape.MemoryShape;
-
 import com.spectrayan.spector.kernel.bundle.RegionRef;
+import com.spectrayan.spector.kernel.id.MemoryId;
+import com.spectrayan.spector.kernel.layout.FixedEngramLayout;
+import com.spectrayan.spector.kernel.layout.RegionLayout;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
@@ -69,6 +67,38 @@ public abstract class AbstractRecordMemory<L extends RegionLayout> extends Abstr
         super(id, layout, capacity, regionRef, count, persistent, filePath);
     }
 
+    /**
+     * Computes a 32-bit CRC32C checksum directly over a {@link MemorySegment} slice via
+     * {@link CRC32C#update(java.nio.ByteBuffer)} without copying payload bytes to a heap {@code byte[]}.
+     *
+     * @param segment source memory segment
+     * @param offset  starting byte offset within {@code segment}
+     * @param length  number of bytes to include in the checksum
+     * @return 32-bit CRC32C value
+     */
+    public static int computeCrc32c(MemorySegment segment, long offset, long length) {
+        if (length <= 0) {
+            return 0;
+        }
+        CRC32C crc32c = new CRC32C();
+        crc32c.update(segment.asSlice(offset, length).asByteBuffer());
+        return (int) crc32c.getValue();
+    }
+
+    /**
+     * Computes a non-zero 32-bit CRC32C checksum over a {@link MemorySegment} slice, returning
+     * {@code 1} when the raw checksum is {@code 0} so {@code 0} remains an unambiguous uninitialized/v1 sentinel.
+     *
+     * @param segment source memory segment
+     * @param offset  starting byte offset within {@code segment}
+     * @param length  number of bytes to include in the checksum
+     * @return non-zero 32-bit CRC32C value
+     */
+    public static int nonZeroCrc32c(MemorySegment segment, long offset, long length) {
+        int crc = computeCrc32c(segment, offset, length);
+        return crc != 0 ? crc : 1;
+    }
+
     @Override
     public MemoryShape shape() {
         return MemoryShape.RECORD;
@@ -84,7 +114,7 @@ public abstract class AbstractRecordMemory<L extends RegionLayout> extends Abstr
         if (recordId < 0 || recordId >= capacity) {
             throw new IndexOutOfBoundsException("Record ID out of bounds: " + recordId);
         }
-        
+
         if (wal != null && !bypassWal) {
             byte[] bytes = new byte[layout.recordStride()];
             MemorySegment.copy(recordBytes, 0, MemorySegment.ofArray(bytes), 0, layout.recordStride());
@@ -94,13 +124,13 @@ public abstract class AbstractRecordMemory<L extends RegionLayout> extends Abstr
         long offset = recordOffset(recordId);
         MemorySegment.copy(recordBytes, 0, segment(), offset, layout.recordStride());
 
-        if (layout.crcEnabled() && layout.recordStride() >= 4) {
+        if (layout instanceof FixedEngramLayout engramLayout) {
+            if (engramLayout.crcEnabled()) {
+                engramLayout.writeRecordCrc(segment(), offset);
+            }
+        } else if (layout.crcEnabled() && layout.recordStride() >= 4) {
             int payloadLen = layout.recordStride() - 4;
-            byte[] payload = new byte[payloadLen];
-            MemorySegment.copy(segment(), offset, MemorySegment.ofArray(payload), 0, payloadLen);
-            CRC32C crc32c = new CRC32C();
-            crc32c.update(payload);
-            int checksum = (int) crc32c.getValue();
+            int checksum = computeCrc32c(segment(), offset, payloadLen);
             segment().set(ValueLayout.JAVA_INT_UNALIGNED, offset + payloadLen, checksum);
         }
 
@@ -117,16 +147,16 @@ public abstract class AbstractRecordMemory<L extends RegionLayout> extends Abstr
         if (recordId < 0 || recordId >= capacity) {
             throw new IndexOutOfBoundsException("Record ID out of bounds: " + recordId);
         }
-        
+
         long offset = recordOffset(recordId);
 
-        if (layout.crcEnabled() && layout.recordStride() >= 4) {
+        if (layout instanceof FixedEngramLayout engramLayout) {
+            if (engramLayout.crcEnabled()) {
+                engramLayout.verifyRecordCrc(segment(), offset, recordId);
+            }
+        } else if (layout.crcEnabled() && layout.recordStride() >= 4) {
             int payloadLen = layout.recordStride() - 4;
-            byte[] payload = new byte[payloadLen];
-            MemorySegment.copy(segment(), offset, MemorySegment.ofArray(payload), 0, payloadLen);
-            CRC32C crc32c = new CRC32C();
-            crc32c.update(payload);
-            int expectedChecksum = (int) crc32c.getValue();
+            int expectedChecksum = computeCrc32c(segment(), offset, payloadLen);
             int actualChecksum = segment().get(ValueLayout.JAVA_INT_UNALIGNED, offset + payloadLen);
             if (expectedChecksum != actualChecksum) {
                 throw new SpectorStorageException(ErrorCode.RECORD_CRC_CORRUPTED, recordId);
