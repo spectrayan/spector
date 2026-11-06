@@ -51,6 +51,15 @@ public interface RecordMemory<L extends RegionLayout> extends Memory<L> {
      * @param dest destination segment to copy record data into
      */
     void read(long recordId, MemorySegment dest);
+
+    /**
+     * Reads a record at the given slot index into the destination byte array.
+     * @param recordId slot index (0-based)
+     * @param dest destination byte array to copy record data into
+     */
+    default void read(long recordId, byte[] dest) {
+        read(recordId, MemorySegment.ofArray(dest));
+    }
     
     /**
      * Returns the byte offset of a record within the segment.

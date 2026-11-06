@@ -247,6 +247,11 @@ public abstract sealed class AbstractEngramMemory<L extends FixedEngramLayout>
             if (layout.crcEnabled()) {
                 layout.writeRecordCrc(segment(), offset);
             }
+            if (recordId >= count) {
+                count = (int) recordId + 1;
+                persistCount();
+            }
+            publishVisible();
         } finally {
             slotLock.unlock();
         }

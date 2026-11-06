@@ -719,6 +719,11 @@ public class IndexEntryMemory extends AbstractRecordMemory<IndexEntryLayout> {
     private transient com.spectrayan.spector.kernel.bundle.RegionRef bundleIdplRef;
     private transient boolean bundleManaged = false;
 
+    @Override
+    public boolean isBundleManaged() {
+        return this.bundleManaged;
+    }
+
     private MemorySegment midxSegment() {
         return bundleMidxRef != null ? bundleMidxRef.resolve() : bundleMidxSlice;
     }

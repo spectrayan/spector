@@ -187,6 +187,45 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> i
 
     // ── Write path ──
 
+    private static final int WAL_TURN_MAGIC = 0x4550574C; // "EPWL"
+
+    @Override
+    public long append(MemorySegment bytes) {
+        if (bytes.byteSize() >= 12 + EpisodicLayout.FIXED_OVERHEAD_BYTES) {
+            byte[] headerPrefix = new byte[12];
+            MemorySegment.copy(bytes, 0, MemorySegment.ofArray(headerPrefix), 0, 12);
+            java.nio.ByteBuffer buf = java.nio.ByteBuffer.wrap(headerPrefix);
+            long recordOffset = buf.getLong();
+            int magic = buf.getInt();
+            if (magic == WAL_TURN_MAGIC) {
+                int totalRecordSize = (int) (bytes.byteSize() - 12);
+                writeLock.lock();
+                try {
+                    long writeOffset = dataOffset() + recordOffset;
+                    if (writeOffset + totalRecordSize > segment().byteSize()) {
+                        throw new IndexOutOfBoundsException(
+                                "Episodic WAL replay out of bounds: offset=" + recordOffset + ", size=" + totalRecordSize);
+                    }
+                    boolean isNewTurn = (recordOffset >= count)
+                            || !layout().headerLayout().isOptionBRecord(segment(), writeOffset);
+                    MemorySegment.copy(bytes, 12, segment(), writeOffset, totalRecordSize);
+                    int endCursor = (int) (recordOffset + totalRecordSize);
+                    if (endCursor > count) {
+                        count = endCursor;
+                        persistCount();
+                    }
+                    if (isNewTurn) {
+                        liveTurnCount.incrementAndGet();
+                    }
+                    return recordOffset;
+                } finally {
+                    writeLock.unlock();
+                }
+            }
+        }
+        return super.append(bytes);
+    }
+
     /**
      * Appends a conversation turn with real affect and provenance (NF6, NF7).
      */
@@ -267,6 +306,18 @@ public final class EpisodicMemory extends AbstractAppendMemory<EpisodicLayout> i
             count += totalRecordSize;
             persistCount();
             liveTurnCount.incrementAndGet();
+
+            if (wal != null && !bypassWal) {
+                byte[] walPayload = new byte[12 + totalRecordSize];
+                java.nio.ByteBuffer walBuf = java.nio.ByteBuffer.wrap(walPayload);
+                walBuf.putLong(recordOffset);
+                walBuf.putInt(WAL_TURN_MAGIC);
+                MemorySegment.copy(
+                        segment(), writeOffset,
+                        MemorySegment.ofArray(walPayload), 12,
+                        totalRecordSize);
+                wal.appendAppend(id.toString(), walPayload);
+            }
 
             return recordOffset;
         } finally {
