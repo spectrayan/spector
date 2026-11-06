@@ -74,7 +74,7 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
     private int entryCount;
 
     private final Map<String, TextPosition> textPositionMap = new LinkedHashMap<>();
-    private final Map<Long, TextPosition> hashToPosition = new java.util.HashMap<>();
+    private final Map<Long, java.util.List<TextPosition>> hashToPosition = new java.util.HashMap<>();
     private final Map<Long, Long> textOffsetToEntryStart = new java.util.HashMap<>();
     private final AtomicInteger decryptFailCount = new AtomicInteger();
     private final ReentrantLock writeLock = new ReentrantLock();
@@ -309,11 +309,13 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
             byte[] plainBytes = text.getBytes(StandardCharsets.UTF_8);
 
             long hash = XxHash64.hash(plainBytes);
-            TextPosition existing = hashToPosition.get(hash);
-            if (existing != null && (encryptor == null || !encryptor.isEnabled()) && existing.textLength() == plainBytes.length) {
-                textPositionMap.put(id, existing);
-                entryCount++;
-                return existing;
+            if (encryptor == null || !encryptor.isEnabled()) {
+                TextPosition existing = findMatchingPosition(hash, plainBytes);
+                if (existing != null) {
+                    textPositionMap.put(id, existing);
+                    entryCount++;
+                    return existing;
+                }
             }
 
             String storedText = text;
@@ -348,13 +350,45 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
 
             TextPosition pos = new TextPosition(textOffset, textBytes.length);
             textPositionMap.put(id, pos);
-            hashToPosition.put(hash, pos);
+            recordHashPosition(hash, pos);
             textOffsetToEntryStart.put(textOffset, entryStart);
             entryCount++;
 
             return pos;
         } finally {
             writeLock.unlock();
+        }
+    }
+
+    private TextPosition findMatchingPosition(long hash, byte[] plainBytes) {
+        java.util.List<TextPosition> candidates = hashToPosition.get(hash);
+        if (candidates == null) {
+            return null;
+        }
+        MemorySegment seg = segment();
+        if (seg == null) {
+            return null;
+        }
+        MemorySegment probe = MemorySegment.ofArray(plainBytes);
+        for (int i = 0; i < candidates.size(); i++) {
+            TextPosition candidate = candidates.get(i);
+            long offset = candidate.textOffset();
+            int len = candidate.textLength();
+            if (len == plainBytes.length
+                    && offset >= 0
+                    && offset + len <= seg.byteSize()
+                    && MemorySegment.mismatch(seg, offset, offset + len, probe, 0, len) == -1L) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    private void recordHashPosition(long hash, TextPosition pos) {
+        java.util.List<TextPosition> positions =
+                hashToPosition.computeIfAbsent(hash, k -> new java.util.ArrayList<>(1));
+        if (!positions.contains(pos)) {
+            positions.add(pos);
         }
     }
 
@@ -482,7 +516,7 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
 
                 byte[] textBytes = rawText.getBytes(StandardCharsets.UTF_8);
                 long hash = XxHash64.hash(textBytes);
-                hashToPosition.put(hash, pos);
+                recordHashPosition(hash, pos);
 
                 currentOffset += 4 + entryLen;
             }
@@ -726,7 +760,10 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
                 flush();
             }
 
-            hashToPosition.entrySet().removeIf(entry -> entry.getValue().equals(pos));
+            hashToPosition.values().removeIf(positions -> {
+                positions.remove(pos);
+                return positions.isEmpty();
+            });
             textPositionMap.remove(targetId);
             entryCount--;
 
