@@ -112,18 +112,41 @@ public final class MemoryWalRecovery {
         }
 
         long checkpointHwm = 0;
+        boolean hasExplicitCheckpointFence = false;
         if (checkpointRef != null) {
             long hwm = checkpointRef.readCheckpointHwm();
             if (hwm > 0) {
                 checkpointHwm = hwm;
+                hasExplicitCheckpointFence = true;
                 log.info("WAL recovery: loaded checkpoint HWM {} from bundle region", checkpointHwm);
             }
         }
         if (checkpointHwm == 0 && basePath != null) {
             Path metaPath = StoragePaths.runtimeDir(basePath).resolve("checkpoint.meta");
             if (Files.exists(metaPath)) {
-                checkpointHwm = CheckpointEngine.readCheckpointHwm(metaPath);
-                log.info("WAL recovery: loaded checkpoint HWM {}", checkpointHwm);
+                long fileHwm = CheckpointEngine.readCheckpointHwm(metaPath);
+                if (fileHwm > 0) {
+                    checkpointHwm = fileHwm;
+                    hasExplicitCheckpointFence = true;
+                    log.info("WAL recovery: loaded checkpoint HWM {}", checkpointHwm);
+                }
+            }
+        }
+
+        if (!hasExplicitCheckpointFence && checkpointRef == null) {
+            List<WalEvent> allWalEvents = wal.replay(0);
+            for (int i = allWalEvents.size() - 1; i >= 0; i--) {
+                WalEvent ev = allWalEvents.get(i);
+                if (ev.type() == WalEvent.EventType.SNAPSHOT_MARK) {
+                    byte[] markPayload = ev.payload();
+                    long markFence = (markPayload != null && markPayload.length >= Long.BYTES)
+                            ? ByteBuffer.wrap(markPayload).getLong()
+                            : ev.sequence();
+                    if (markFence > checkpointHwm) {
+                        checkpointHwm = markFence;
+                    }
+                    break;
+                }
             }
         }
 
@@ -147,6 +170,9 @@ public final class MemoryWalRecovery {
             }
             if (cognitiveRouter.procedural() != null) {
                 memories.put(cognitiveRouter.procedural().id(), cognitiveRouter.procedural());
+            }
+            if (cognitiveRouter.episodic() != null) {
+                memories.put(cognitiveRouter.episodic().id(), cognitiveRouter.episodic());
             }
         }
 
@@ -182,7 +208,7 @@ public final class MemoryWalRecovery {
         }
 
         // 2. Dispatch shape mutations directly to target memory segments
-        WalRecoveryDispatcher.recover(wal, memories);
+        WalRecoveryDispatcher.recover(wal, memories, hasExplicitCheckpointFence ? checkpointHwm : -1L);
 
         // 3. Rebuild MemoryIndex on-heap maps from high-level REMEMBER/FORGET/REINFORCE events
         long lastRecordOffset = -1;
@@ -222,7 +248,12 @@ public final class MemoryWalRecovery {
                         }
                     }
                     case REMEMBER -> {
-                        if (lastRecordOffset != -1 && lastRecordType != null) {
+                        byte[] remPayload = event.payload();
+                        if (remPayload != null
+                                && remPayload.length >= 32
+                                && ByteBuffer.wrap(remPayload).getInt(0) == com.spectrayan.spector.memory.pathway.pipeline.PostIngestSync.REMEMBER_WAL_MAGIC) {
+                            replayRememberEnvelope(event.memoryId(), remPayload, cognitiveRouter, index, activePartitionSeq);
+                        } else if (lastRecordOffset != -1 && lastRecordType != null) {
                             // EngramLayout has dynamic stride
                             int stride = 164; // default
                             MemoryId targetId = switch (lastRecordType) {
@@ -381,6 +412,120 @@ public final class MemoryWalRecovery {
             throw new SpectorWalCorruptionException(
                     kind + " event for '" + event.memoryId() + "' names tier " + tier
                             + ", but no engram region is mounted for it; the flag cannot be reapplied");
+        }
+    }
+
+    private static void replayRememberEnvelope(
+            String memoryId,
+            byte[] payload,
+            CognitiveMemoryRouter cognitiveRouter,
+            MemoryIndex index,
+            int fallbackPartitionSeq) {
+        ByteBuffer buf = ByteBuffer.wrap(payload);
+        int magic = buf.getInt();
+        if (magic != com.spectrayan.spector.memory.pathway.pipeline.PostIngestSync.REMEMBER_WAL_MAGIC) {
+            return;
+        }
+        int typeOrdinal = buf.getInt();
+        long offset = buf.getLong();
+        int graphSlot = buf.getInt();
+        int colocatedPartition = buf.getInt();
+        int sourceOrdinal = buf.getInt();
+
+        int recordBytesLen = buf.getInt();
+        byte[] recordBytes = new byte[Math.max(0, recordBytesLen)];
+        if (recordBytesLen > 0) {
+            buf.get(recordBytes);
+        }
+
+        int textBytesLen = buf.getInt();
+        byte[] textBytes = new byte[Math.max(0, textBytesLen)];
+        if (textBytesLen > 0) {
+            buf.get(textBytes);
+        }
+        String text = new String(textBytes, java.nio.charset.StandardCharsets.UTF_8);
+
+        int tagCount = buf.getInt();
+        String[] tags = new String[Math.max(0, tagCount)];
+        for (int i = 0; i < tagCount; i++) {
+            int tLen = buf.getInt();
+            byte[] tb = new byte[Math.max(0, tLen)];
+            if (tLen > 0) {
+                buf.get(tb);
+            }
+            tags[i] = new String(tb, java.nio.charset.StandardCharsets.UTF_8);
+        }
+
+        int metaCount = buf.getInt();
+        java.util.Map<String, String> metadata = new java.util.LinkedHashMap<>(Math.max(0, metaCount));
+        for (int i = 0; i < metaCount; i++) {
+            int kLen = buf.getInt();
+            byte[] kb = new byte[Math.max(0, kLen)];
+            if (kLen > 0) {
+                buf.get(kb);
+            }
+            int vLen = buf.getInt();
+            byte[] vb = new byte[Math.max(0, vLen)];
+            if (vLen > 0) {
+                buf.get(vb);
+            }
+            metadata.put(
+                    new String(kb, java.nio.charset.StandardCharsets.UTF_8),
+                    new String(vb, java.nio.charset.StandardCharsets.UTF_8));
+        }
+
+        MemoryType[] types = MemoryType.values();
+        if (typeOrdinal < 0 || typeOrdinal >= types.length) {
+            return;
+        }
+        MemoryType type = types[typeOrdinal];
+        MemorySource[] sources = MemorySource.values();
+        MemorySource source = (sourceOrdinal >= 0 && sourceOrdinal < sources.length)
+                ? sources[sourceOrdinal]
+                : MemorySource.OBSERVED;
+
+        if (cognitiveRouter != null && type != MemoryType.EPISODIC && offset >= 0 && recordBytes.length > 0) {
+            var store = cognitiveRouter.get(type);
+            if (store instanceof RecordMemory<?> rm) {
+                int stride = store.layout().recordStride();
+                if (recordBytes.length == stride && offset >= store.dataOffset()) {
+                    long recordId = (offset - store.dataOffset()) / stride;
+                    boolean oldBypass = rm.isBypassWal();
+                    rm.setBypassWal(true);
+                    try {
+                        rm.write(recordId, recordBytes);
+                    } finally {
+                        rm.setBypassWal(oldBypass);
+                    }
+                }
+            }
+        }
+
+        if (index != null) {
+            MemoryLocation existing = index.locate(memoryId);
+            long textOffset = existing != null ? existing.textOffset() : -1L;
+            int textLength = existing != null ? existing.textLength() : -1;
+            if ((textOffset < 0 || textLength < 0) && index.textDataStore() != null && !text.isEmpty()) {
+                boolean oldBypass = index.textDataStore().isBypassWal();
+                index.textDataStore().setBypassWal(true);
+                try {
+                    var pos = index.textDataStore().write(memoryId, type, text);
+                    if (pos != null) {
+                        textOffset = pos.textOffset();
+                        textLength = pos.textLength();
+                    }
+                } finally {
+                    index.textDataStore().setBypassWal(oldBypass);
+                }
+            }
+
+            int partSeq = colocatedPartition >= 0 ? colocatedPartition : fallbackPartitionSeq;
+            MemoryLocation loc = new MemoryLocation(type, offset, graphSlot, partSeq, textOffset, textLength);
+            if (!metadata.isEmpty()) {
+                index.register(memoryId, loc, text, source, tags, metadata);
+            } else {
+                index.register(memoryId, loc, text, source, tags);
+            }
         }
     }
 }

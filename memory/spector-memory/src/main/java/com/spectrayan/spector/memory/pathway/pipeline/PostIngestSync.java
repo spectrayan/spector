@@ -207,7 +207,8 @@ public final class PostIngestSync {
             }
 
             // Step 9: WAL append (encrypt payload when encryption is active)
-            wal.appendRemember(params.id(), encryptor.encryptPayload(params.quantized()));
+            byte[] rememberPayload = buildRememberWalPayload(params, graphSlot);
+            wal.appendRemember(params.id(), wal.isPersistent() ? rememberPayload : encryptor.encryptPayload(rememberPayload));
 
             // Step 9a-splade: SPLADE sparse index (if provider available)
             if (!isParentChunk) {
@@ -223,6 +224,78 @@ public final class PostIngestSync {
         }
 
         return graphSlot;
+    }
+
+    public static final int REMEMBER_WAL_MAGIC = 0x524D4252; // "RMBR"
+
+    private byte[] buildRememberWalPayload(SyncParams params, int graphSlot) {
+        byte[] recordBytes = null;
+        if (cognitiveRouter != null && params.type() != null && params.type() != MemoryType.EPISODIC && params.offset() >= 0) {
+            try {
+                var store = cognitiveRouter.get(params.type());
+                if (store instanceof com.spectrayan.spector.kernel.shape.RecordMemory<?> rm) {
+                    int stride = store.layout().recordStride();
+                    long absOffset = params.offset();
+                    if (absOffset >= store.dataOffset() && stride > 0) {
+                        long recordId = (absOffset - store.dataOffset()) / stride;
+                        recordBytes = new byte[stride];
+                        rm.read(recordId, recordBytes);
+                    }
+                }
+            } catch (Exception ignored) {
+                // Fall back to quantized payload below
+            }
+        }
+        if (recordBytes == null) {
+            recordBytes = params.quantized() != null ? params.quantized() : new byte[0];
+        }
+
+        byte[] textBytes = params.text() != null ? params.text().getBytes(StandardCharsets.UTF_8) : new byte[0];
+        String[] tags = params.tags() != null ? params.tags() : new String[0];
+        byte[][] tagBytes = new byte[tags.length][];
+        int tagsTotalBytes = 4;
+        for (int i = 0; i < tags.length; i++) {
+            tagBytes[i] = tags[i] != null ? tags[i].getBytes(StandardCharsets.UTF_8) : new byte[0];
+            tagsTotalBytes += 4 + tagBytes[i].length;
+        }
+
+        Map<String, String> meta = params.metadata() != null ? params.metadata() : Map.of();
+        byte[][] metaKeyBytes = new byte[meta.size()][];
+        byte[][] metaValBytes = new byte[meta.size()][];
+        int metaTotalBytes = 4;
+        int mIdx = 0;
+        for (Map.Entry<String, String> entry : meta.entrySet()) {
+            metaKeyBytes[mIdx] = entry.getKey() != null ? entry.getKey().getBytes(StandardCharsets.UTF_8) : new byte[0];
+            metaValBytes[mIdx] = entry.getValue() != null ? entry.getValue().getBytes(StandardCharsets.UTF_8) : new byte[0];
+            metaTotalBytes += 4 + metaKeyBytes[mIdx].length + 4 + metaValBytes[mIdx].length;
+            mIdx++;
+        }
+
+        int totalLen = 4 + 4 + 8 + 4 + 4 + 4 + (4 + recordBytes.length) + (4 + textBytes.length) + tagsTotalBytes + metaTotalBytes;
+        java.nio.ByteBuffer buf = java.nio.ByteBuffer.allocate(totalLen);
+        buf.putInt(REMEMBER_WAL_MAGIC);
+        buf.putInt(params.type() != null ? params.type().ordinal() : -1);
+        buf.putLong(params.offset());
+        buf.putInt(graphSlot);
+        buf.putInt(activePartitionSeq);
+        buf.putInt(params.source() != null ? params.source().ordinal() : MemorySource.OBSERVED.ordinal());
+        buf.putInt(recordBytes.length);
+        buf.put(recordBytes);
+        buf.putInt(textBytes.length);
+        buf.put(textBytes);
+        buf.putInt(tagBytes.length);
+        for (byte[] tb : tagBytes) {
+            buf.putInt(tb.length);
+            buf.put(tb);
+        }
+        buf.putInt(metaKeyBytes.length);
+        for (int i = 0; i < metaKeyBytes.length; i++) {
+            buf.putInt(metaKeyBytes[i].length);
+            buf.put(metaKeyBytes[i]);
+            buf.putInt(metaValBytes[i].length);
+            buf.put(metaValBytes[i]);
+        }
+        return buf.array();
     }
 
     private void compensateTombstone(String id) {

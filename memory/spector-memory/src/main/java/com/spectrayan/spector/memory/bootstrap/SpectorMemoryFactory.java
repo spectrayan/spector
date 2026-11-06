@@ -432,6 +432,9 @@ public final class SpectorMemoryFactory {
             if (graphs.hebbianGraph() instanceof HebbianGraphMemory hgm) {
                 hgm.bindWal(wal);
             }
+            if (cortex.cognitiveRouter() != null && cortex.cognitiveRouter().episodic() != null) {
+                cortex.cognitiveRouter().episodic().bindWal(wal);
+            }
         }
 
         //  ProfileAdaptor (Contextual Bandit) 
@@ -616,11 +619,14 @@ public final class SpectorMemoryFactory {
         CheckpointEngine checkpointEngine;
         if (cortex.isDisk() && cortex.basePath() != null) {
             if (memProps.getCheckpointIntervalSeconds() > 0) {
-                Path bundlePath = cortex.runtimeBundle() != null ? cortex.runtimeBundle().bundlePath() : null;
+                Path bundlePath = cortex.runtimeBundle() != null
+                        ? cortex.runtimeBundle().bundlePath()
+                        : StoragePaths.runtimeBundleFile(cortex.basePath());
+                Path metaPath = StoragePaths.runtimeDir(cortex.basePath()).resolve("checkpoint.meta");
                 checkpointEngine = new CheckpointEngine(
                         cortex.cognitiveRouter(), wal,
-                        bundlePath,
-                        index, null,
+                        metaPath,
+                        index, bundlePath,
                         graphs.hebbianGraph(), graphs.temporalChain(),
                         graphs.entityDirectory(), graphs.hyperEntityGraph(), bio.coActivationTracker(),
                         graphs.temporalKnowledgeGraph(),

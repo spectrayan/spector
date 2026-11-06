@@ -52,20 +52,36 @@ public final class WalRecoveryDispatcher {
      * @param memories mapping of target memory IDs to active open Memory instances
      */
     public static void recover(MemoryWal wal, Map<MemoryId, Memory<?>> memories) {
+        recover(wal, memories, -1L);
+    }
+
+    /**
+     * Replays all mutations from the WAL that occurred after {@code explicitFenceSeq} when non-negative,
+     * or after the last {@code SNAPSHOT_MARK} durability fence when {@code explicitFenceSeq < 0}.
+     */
+    public static void recover(MemoryWal wal, Map<MemoryId, Memory<?>> memories, long explicitFenceSeq) {
         List<WalEvent> allEvents = wal.replay(0);
         if (allEvents.isEmpty()) {
             log.info("WAL recovery: no events to replay");
             return;
         }
 
-        // Find the last SNAPSHOT_MARK sequence number by scanning backwards
-        long lastSnapshotSeq = -1;
-        for (int i = allEvents.size() - 1; i >= 0; i--) {
-            WalEvent event = allEvents.get(i);
-            if (event.type() == WalEvent.EventType.SNAPSHOT_MARK) {
-                lastSnapshotSeq = event.sequence();
-                log.info("WAL recovery: found last SNAPSHOT_MARK at sequence {}", lastSnapshotSeq);
-                break;
+        long lastSnapshotSeq = explicitFenceSeq;
+        if (lastSnapshotSeq < 0) {
+            // Find the last SNAPSHOT_MARK durability fence by scanning backwards
+            for (int i = allEvents.size() - 1; i >= 0; i--) {
+                WalEvent event = allEvents.get(i);
+                if (event.type() == WalEvent.EventType.SNAPSHOT_MARK) {
+                    byte[] markPayload = event.payload();
+                    if (markPayload != null && markPayload.length >= Long.BYTES) {
+                        lastSnapshotSeq = ByteBuffer.wrap(markPayload).getLong();
+                    } else {
+                        lastSnapshotSeq = event.sequence();
+                    }
+                    log.info("WAL recovery: found last SNAPSHOT_MARK at sequence {} (fence={})",
+                            event.sequence(), lastSnapshotSeq);
+                    break;
+                }
             }
         }
 
@@ -79,8 +95,8 @@ public final class WalRecoveryDispatcher {
 
         try {
             for (WalEvent event : allEvents) {
-                if (event.sequence() <= startSeq) {
-                    continue; // Skip events that are already checkpointed
+                if (event.sequence() <= startSeq || event.type() == WalEvent.EventType.SNAPSHOT_MARK) {
+                    continue; // Skip events that are already checkpointed or are snapshot marks
                 }
 
                 // Resolve target Memory instance
@@ -88,14 +104,16 @@ public final class WalRecoveryDispatcher {
                 Memory<?> target = memories.get(targetId);
                 if (target == null) {
                     // If it's a legacy or unmapped event, skip or log warning
-                    // REFLECT/TAG_MERGE/RECALL_HIT carry no region target. FORGET, PURGE and the
-                    // consolidation-flag events carry a *memory* id rather than a region path, so
-                    // MemoryId.parse can never resolve them here — they are replayed by
-                    // MemoryWalRecovery, which owns the index and the tier lookup. Warning about
-                    // them would report normal operation as a problem.
+                    // REFLECT/TAG_MERGE/RECALL_HIT carry no region target. REMEMBER, REINFORCE,
+                    // REHEARSE, FORGET, PURGE and the consolidation-flag events carry a *memory* id
+                    // rather than a region path, so MemoryId.parse can never resolve them here —
+                    // they are replayed by MemoryWalRecovery, which owns the index and the tier lookup.
                     if (event.type() != WalEvent.EventType.REFLECT &&
                         event.type() != WalEvent.EventType.TAG_MERGE &&
                         event.type() != WalEvent.EventType.RECALL_HIT &&
+                        event.type() != WalEvent.EventType.REMEMBER &&
+                        event.type() != WalEvent.EventType.REINFORCE &&
+                        event.type() != WalEvent.EventType.REHEARSE &&
                         event.type() != WalEvent.EventType.FORGET &&
                         event.type() != WalEvent.EventType.PURGE &&
                         event.type() != WalEvent.EventType.MARK_CONTRADICTED &&

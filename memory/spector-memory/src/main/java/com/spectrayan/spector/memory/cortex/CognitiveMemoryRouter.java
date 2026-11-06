@@ -646,6 +646,9 @@ public final class CognitiveMemoryRouter implements com.spectrayan.spector.kerne
                 store.force();
             }
         }
+        if (strengthMemory != null && strengthMemory.isPersistent()) {
+            strengthMemory.flush();
+        }
     }
 
     public com.spectrayan.spector.kernel.scan.ScanService scan() {

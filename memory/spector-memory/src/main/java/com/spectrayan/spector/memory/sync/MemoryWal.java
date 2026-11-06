@@ -234,14 +234,16 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
      * @return the event with its assigned sequence number
      */
     public WalEvent append(WalEvent.EventType type, String memoryId, byte[] payload) {
-        long seq = sequenceCounter.incrementAndGet();
         long currentEpoch = com.spectrayan.spector.commons.concurrent.MemoryScope.fenceEpoch();
-        WalEvent event = new WalEvent(seq, type, memoryId, currentEpoch, Instant.now(),
-                payload != null ? payload : new byte[0]);
+        Instant now = Instant.now();
+        byte[] safePayload = payload != null ? payload : new byte[0];
+        WalEvent event;
+        long seq;
 
         writeLock.lock();
         try {
-            events.add(event);
+            seq = sequenceCounter.get() + 1;
+            event = new WalEvent(seq, type, memoryId, currentEpoch, now, safePayload);
 
             if (activeChannel != null) {
                 writeEventToChannel(event);
@@ -251,6 +253,8 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
                     rollChunk();
                 }
             }
+            events.add(event);
+            sequenceCounter.set(seq);
         } catch (IOException e) {
             throw new SpectorStorageException(ErrorCode.WAL_WRITE_FAILED, e);
         } finally {
@@ -296,7 +300,131 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
         java.nio.ByteBuffer buf = java.nio.ByteBuffer.allocate(12);
         buf.putInt(tier != null ? tier.ordinal() : -1);
         buf.putLong(recordOffset);
-        return append(WalEvent.EventType.PURGE, memoryId, buf.array());
+        WalEvent purgeEvent = append(WalEvent.EventType.PURGE, memoryId, buf.array());
+        scrubPayloadsForMemory(memoryId);
+        return purgeEvent;
+    }
+
+    private void scrubPayloadsForMemory(String targetMemoryId) {
+        if (targetMemoryId == null) {
+            return;
+        }
+        writeLock.lock();
+        try {
+            for (int i = 0; i < events.size(); i++) {
+                WalEvent existing = events.get(i);
+                if (existing.type() == WalEvent.EventType.REMEMBER
+                        && targetMemoryId.equals(existing.memoryId())
+                        && existing.payload() != null
+                        && existing.payload().length > 0) {
+                    byte[] zeroed = new byte[existing.payload().length];
+                    events.set(i, new WalEvent(
+                            existing.sequence(),
+                            existing.type(),
+                            existing.memoryId(),
+                            existing.epoch(),
+                            existing.timestamp(),
+                            zeroed));
+                }
+            }
+            if (walDir == null) {
+                return;
+            }
+            if (activeChannel != null) {
+                activeChannel.force(false);
+            }
+            List<Path> chunks = findChunkFiles();
+            for (Path chunk : chunks) {
+                if (chunk.equals(activeChunkPath) && activeChannel != null) {
+                    scrubChunkChannel(activeChannel, targetMemoryId);
+                    activeChannel.position(activeChunkBytes);
+                    activeChannel.force(false);
+                } else {
+                    try (FileChannel ch = FileChannel.open(chunk, StandardOpenOption.READ, StandardOpenOption.WRITE)) {
+                        scrubChunkChannel(ch, targetMemoryId);
+                        ch.force(false);
+                    }
+                }
+            }
+        } catch (IOException e) {
+            log.warn("Failed to scrub WAL payloads for purged memory '{}': {}", targetMemoryId, e.getMessage());
+        } finally {
+            writeLock.unlock();
+        }
+    }
+
+    private void scrubChunkChannel(FileChannel ch, String targetMemoryId) throws IOException {
+        long fileSize = ch.size();
+        if (fileSize < FILE_HEADER_BYTES) {
+            return;
+        }
+        ByteBuffer fileHeader = ByteBuffer.allocate(FILE_HEADER_BYTES);
+        ch.position(0);
+        if (ch.read(fileHeader) < FILE_HEADER_BYTES) {
+            return;
+        }
+        fileHeader.flip();
+        int magic = fileHeader.getInt();
+        int version = fileHeader.getInt();
+        if (magic != WAL_MAGIC || (version != WAL_VERSION_V2 && version != WAL_VERSION)) {
+            return;
+        }
+        while (ch.position() < fileSize) {
+            long startPos = ch.position();
+            long remaining = fileSize - startPos;
+            if (remaining < 40) {
+                break;
+            }
+            boolean canRead48 = remaining >= 48;
+            int bytesToRead = canRead48 ? 48 : 40;
+            ByteBuffer headerBuf = ByteBuffer.allocate(bytesToRead);
+            if (ch.read(headerBuf) < bytesToRead) {
+                break;
+            }
+            headerBuf.flip();
+            if (headerBuf.getShort(0) != RECORD_MAGIC) {
+                break;
+            }
+            boolean isV3 = false;
+            if (canRead48 && headerBuf.getInt(44) == calculateCrc32(headerBuf, 44)) {
+                isV3 = true;
+            }
+            boolean isV2 = !isV3 && headerBuf.getInt(36) == calculateCrc32(headerBuf, 36);
+            if (!isV3 && !isV2) {
+                break;
+            }
+            int headerSize = isV3 ? 48 : 40;
+            byte flags = headerBuf.get(3);
+            byte typeOrd = headerBuf.get(4);
+            int idLen = headerBuf.getShort(5) & 0xFFFF;
+            int payloadLen = headerBuf.getInt(isV3 ? 32 : 24);
+            int totalVarLen = idLen + payloadLen;
+            int paddingLen = (8 - (totalVarLen % 8)) % 8;
+            long nextPos = startPos + headerSize + totalVarLen + paddingLen;
+            if (nextPos > fileSize) {
+                break;
+            }
+            if (typeOrd == WalEvent.EventType.REMEMBER.ordinal() && payloadLen > 0) {
+                ByteBuffer idBuf = ByteBuffer.allocate(idLen);
+                ch.position(startPos + headerSize);
+                if (ch.read(idBuf) == idLen) {
+                    String frameId = new String(idBuf.array(), StandardCharsets.UTF_8);
+                    if (targetMemoryId.equals(frameId)) {
+                        byte[] zeroPayload = new byte[payloadLen];
+                        ch.write(ByteBuffer.wrap(zeroPayload), startPos + headerSize + idLen);
+                        byte newFlags = (byte) (flags & ~(FLAG_COMPRESSED | FLAG_ENCRYPTED));
+                        headerBuf.put(3, newFlags);
+                        int newPayloadCrc = calculateCrc32(zeroPayload);
+                        headerBuf.putInt(isV3 ? 36 : 28, newPayloadCrc);
+                        int newHeaderCrc = calculateCrc32(headerBuf, headerSize - 4);
+                        headerBuf.putInt(headerSize - 4, newHeaderCrc);
+                        headerBuf.position(0).limit(headerSize);
+                        ch.write(headerBuf, startPos);
+                    }
+                }
+            }
+            ch.position(nextPos);
+        }
     }
 
     /**
@@ -527,7 +655,12 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
      * Returns the current high-water mark (latest sequence number).
      */
     public long highWaterMark() {
-        return sequenceCounter.get();
+        writeLock.lock();
+        try {
+            return sequenceCounter.get();
+        } finally {
+            writeLock.unlock();
+        }
     }
 
     /**
