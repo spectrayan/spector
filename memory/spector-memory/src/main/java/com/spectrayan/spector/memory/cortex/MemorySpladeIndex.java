@@ -354,7 +354,12 @@ public final class MemorySpladeIndex extends AbstractMemoryIndex<SpladeIndex> {
     @Override
     public void checkpoint() {
         if (context != null && context.runtimeBundle() != null) {
-            persistToBundle(context.runtimeBundle());
+            int written = persistToBundle(context.runtimeBundle());
+            if (written < 0) {
+                throw new com.spectrayan.spector.commons.error.SpectorStorageException(
+                        com.spectrayan.spector.commons.error.ErrorCode.DISK_IO_FAILED,
+                        "Failed to checkpoint SPLADE index to runtime bundle");
+            }
         }
     }
 
