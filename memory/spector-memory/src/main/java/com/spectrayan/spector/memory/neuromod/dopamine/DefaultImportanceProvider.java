@@ -98,7 +98,7 @@ public final class DefaultImportanceProvider implements ImportanceProvider {
             float[] vector = ctx.vector();
             
             // Step 3c: Salience-based topic boost
-            if (vector != null && salienceProfile.hasInterests()) {
+            if (ctx.hasVector() && salienceProfile.hasInterests()) {
                 topicBoost = salienceProfile.computeTopicBoost(vector);
                 if (topicBoost != 1.0f) {
                     fusedImportance = Math.clamp(fusedImportance * topicBoost, 0.05f, 10.0f);
@@ -106,7 +106,7 @@ public final class DefaultImportanceProvider implements ImportanceProvider {
             }
 
             // Step 3d: Persona self-relevance boost
-            if (vector != null && salienceProfile.hasPersona()) {
+            if (ctx.hasVector() && salienceProfile.hasPersona()) {
                 selfBoost = salienceProfile.computeSelfRelevanceBoost(vector);
                 if (selfBoost != 1.0f) {
                     fusedImportance = Math.clamp(fusedImportance * selfBoost, 0.05f, 10.0f);
@@ -141,7 +141,7 @@ public final class DefaultImportanceProvider implements ImportanceProvider {
                 } else if (soul instanceof com.spectrayan.spector.memory.model.OrgUnitSoul orgUnitSoul) {
                     float[] orgEmb = orgUnitSoul.identityEmbedding();
                     float[] ctxVec = ctx.vector();
-                    if (orgEmb != null && ctxVec != null && orgEmb.length == ctxVec.length) {
+                    if (orgEmb != null && ctx.hasVector() && orgEmb.length == ctxVec.length) {
                         float sim = CosineSimilarity.compute(orgEmb, ctxVec);
                         if (sim > 0.0f) {
                             orgBoost = Math.max(orgBoost, 1.0f + 0.5f * sim);

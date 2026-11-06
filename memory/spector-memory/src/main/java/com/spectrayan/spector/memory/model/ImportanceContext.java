@@ -23,7 +23,7 @@ import com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints;
  * Consolidates all inputs required for computing the importance of a memory.
  *
  * @param text            the text content of the memory
- * @param vector          the vector embeddings for the memory text
+ * @param vector          the vector embeddings for the memory text, or {@code null} when unavailable
  * @param hints           the ingestion hints containing ICNU (Interest, Competence, Novelty, Urgency) values, may be null
  * @param salienceProfile the salience profile associated with the memory context, may be null
  * @param targetTier      the target memory tier, may be null
@@ -68,5 +68,14 @@ public record ImportanceContext(
      */
     public boolean hasSalienceProfile() {
         return salienceProfile != null;
+    }
+
+    /**
+     * Returns true if a non-empty embedding vector is present.
+     *
+     * @return true if vector is non-null and non-empty, false otherwise
+     */
+    public boolean hasVector() {
+        return vector != null && vector.length > 0;
     }
 }

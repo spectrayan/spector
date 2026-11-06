@@ -234,8 +234,15 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final com.spectrayan.spector.provider.extraction.SpanExtractor spanExtractor;
 
     // ── Episodic Conversation Architecture (ADR-0006) ──
+    static final float DEFAULT_EPISODIC_IMPORTANCE = 5.0f;
+    static final long EPISODIC_IMPORTANCE_WARN_INTERVAL_NANOS = java.util.concurrent.TimeUnit.SECONDS.toNanos(60);
+
     private final EpisodicSessionIndex episodicSessionIndex;
     private final EpisodicMemory episodicMemory;
+    private final java.util.concurrent.atomic.AtomicLong episodicImportanceFailureCount = new java.util.concurrent.atomic.AtomicLong(0);
+    private final java.util.concurrent.atomic.AtomicLong episodicImportanceWarnCount = new java.util.concurrent.atomic.AtomicLong(0);
+    private final java.util.concurrent.atomic.AtomicLong episodicImportanceSuppressedWarns = new java.util.concurrent.atomic.AtomicLong(0);
+    private final java.util.concurrent.atomic.AtomicLong lastEpisodicImportanceWarnNanos = new java.util.concurrent.atomic.AtomicLong(0);
 
     private final MemoryObservationHook hook;
     private final com.spectrayan.spector.memory.index.IndexPlaneCoordinator indexPlaneCoordinator;
@@ -731,25 +738,45 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                             com.spectrayan.spector.commons.error.ErrorCode.MEMORY_PATHWAY_FAILED, "Episodic store not available (store missing)");
                 }
 
+                String text = (body != null && body.length > 0)
+                        ? new String(body, java.nio.charset.StandardCharsets.UTF_8)
+                        : "";
+                String turnId = "episodic:" + Long.toHexString(sessionId) + ":" + sequenceId;
+                RememberHints hints = null;
+                TagExtractionResult extraction = extractEpisodicAffect(turnId, text);
+                if (extraction != null) {
+                    hints = RememberHints.withAppraisedAffect(null, extraction.valence(), extraction.arousal());
+                }
+                float[] vector = embedEpisodicTurn(text);
+                hints = fillAnchorAffect(hints, extraction, vector);
+
                 SalienceProfile profile = salienceProfile();
-                byte rawValence = (byte) 0;
-                byte rawArousal = (byte) 0;
+                byte rawValence = (hints != null) ? hints.valence() : (byte) 0;
+                byte rawArousal = (hints != null) ? hints.effectiveArousal() : (byte) 0;
                 byte valence = (profile != null) ? profile.modulateValence(rawValence) : rawValence;
                 byte arousal = (profile != null) ? profile.modulateArousal(rawArousal) : rawArousal;
 
-                float importance = 5.0f;
+                float importance = DEFAULT_EPISODIC_IMPORTANCE;
                 if (importanceProvider != null) {
                     try {
-                        String text = (body != null) ? new String(body, java.nio.charset.StandardCharsets.UTF_8) : "";
-                        importance = (float) importanceProvider.score(
+                        float nearestDist = episodicNearestDistance(vector);
+                        var scored = importanceProvider.score(
                                 new com.spectrayan.spector.memory.model.ImportanceContext(
-                                        text, new float[0], null, profile, MemoryType.EPISODIC, 0.0f, 0.0, false)
-                        ).importance();
-                        if (importance <= 0.0f) {
-                            importance = 5.0f;
+                                        text, vector, hints, profile, MemoryType.EPISODIC, nearestDist, 0.0, false)
+                        );
+                        float candidate = (scored != null) ? scored.importance() : 0.0f;
+                        if (Float.isFinite(candidate) && candidate > 0.0f) {
+                            importance = candidate;
+                        } else {
+                            importance = DEFAULT_EPISODIC_IMPORTANCE;
+                        }
+                        if (vector != null && vector.length > 0) {
+                            importanceProvider.observeIngested(vector);
                         }
                     } catch (Exception e) {
-                        importance = 5.0f;
+                        long failures = episodicImportanceFailureCount.incrementAndGet();
+                        recordEpisodicImportanceFailure(e, failures, sessionId, sequenceId);
+                        importance = DEFAULT_EPISODIC_IMPORTANCE;
                     }
                 }
 
@@ -810,6 +837,96 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
      */
     public EpisodicSessionIndex episodicSessionIndex() {
         return episodicSessionIndex;
+    }
+
+    /**
+     * Returns the number of times episodic importance scoring threw an exception and fell back
+     * to {@link #DEFAULT_EPISODIC_IMPORTANCE}.
+     */
+    public long episodicImportanceFailureCount() {
+        return episodicImportanceFailureCount.get();
+    }
+
+    long episodicImportanceWarnCount() {
+        return episodicImportanceWarnCount.get();
+    }
+
+    long episodicImportanceSuppressedWarnCount() {
+        return episodicImportanceSuppressedWarns.get();
+    }
+
+    private TagExtractionResult extractEpisodicAffect(String id, String text) {
+        if (text == null || text.isBlank() || rememberPathway == null) {
+            return null;
+        }
+        var tagExtractor = rememberPathway.tagExtractor();
+        if (tagExtractor == null || !tagExtractor.appraises()) {
+            return null;
+        }
+        return tagExtractor.extractWithContext(id, text);
+    }
+
+    private float[] embedEpisodicTurn(String text) {
+        if (embeddingProvider == null || text == null || text.isBlank()) {
+            return null;
+        }
+        try {
+            var embedded = embeddingProvider.embed(text);
+            if (embedded == null || embedded.vector() == null || embedded.vector().length == 0) {
+                return null;
+            }
+            float[] vector = embedded.vector();
+            float norm = com.spectrayan.spector.core.similarity.VectorOps.magnitude(vector);
+            if (norm > 0f && Math.abs(norm - 1.0f) > 1e-6f) {
+                vector = com.spectrayan.spector.core.similarity.VectorOps.normalize(vector);
+            }
+            return vector;
+        } catch (RuntimeException e) {
+            log.debug("Episodic turn embedding unavailable; proceeding without vector: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private float episodicNearestDistance(float[] vector) {
+        if (vector == null || vector.length == 0) {
+            return 0.0f;
+        }
+        var router = partitionManager != null ? partitionManager.cognitiveRouter() : null;
+        float slab = (router != null && quantizer != null)
+                ? com.spectrayan.spector.memory.neuromod.dopamine.NoveltyReference.nearest(
+                        router, vector, quantizer.mins(), quantizer.scales())
+                : com.spectrayan.spector.memory.neuromod.dopamine.NoveltyReference.EMPTY;
+        float ingested = importanceProvider != null
+                ? importanceProvider.nearestIngested(vector)
+                : Float.POSITIVE_INFINITY;
+        return Math.min(slab, ingested);
+    }
+
+    private void recordEpisodicImportanceFailure(Exception e, long failures, long sessionId, int sequenceId) {
+        try {
+            hook.start(MemoryObservationHook.SCORING, java.util.Map.of(
+                    MemoryObservationHook.TAG_TIER, MemoryType.EPISODIC.name(),
+                    MemoryObservationHook.TAG_NAMESPACE, namespaceId != null ? namespaceId : "default",
+                    MemoryObservationHook.TAG_STATUS, "error")).close();
+        } catch (Exception ignored) {
+        }
+        com.spectrayan.spector.commons.observation.PathwayObservationHooks.global()
+                .onDegraded("remember_episodic", "importance_scorer",
+                        com.spectrayan.spector.commons.pathway.FaultKind.INTERNAL);
+
+        long now = System.nanoTime();
+        long prev = lastEpisodicImportanceWarnNanos.get();
+        if (prev == 0L || now - prev >= EPISODIC_IMPORTANCE_WARN_INTERVAL_NANOS) {
+            if (lastEpisodicImportanceWarnNanos.compareAndSet(prev, now)) {
+                long suppressed = episodicImportanceSuppressedWarns.getAndSet(0L);
+                episodicImportanceWarnCount.incrementAndGet();
+                log.warn("Episodic importance scoring failed for session={}, seq={}; falling back to default importance {} (totalFailures={}, suppressedWarnings={}): {}",
+                        Long.toHexString(sessionId), sequenceId, DEFAULT_EPISODIC_IMPORTANCE,
+                        failures, suppressed, e.getMessage(), e);
+                return;
+            }
+        }
+        episodicImportanceSuppressedWarns.incrementAndGet();
     }
 
     /**
