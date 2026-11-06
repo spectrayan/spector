@@ -112,6 +112,26 @@ public final class CheckpointEngine {
     private volatile Map<String, String> eventContext = Map.of();
     private volatile com.spectrayan.spector.memory.index.IndexPlaneCoordinator indexPlaneCoordinator;
     private volatile Runnable bundleFlushCallback;
+    private final java.util.concurrent.atomic.AtomicLong checkpointCount = new java.util.concurrent.atomic.AtomicLong(0);
+    private final java.util.concurrent.atomic.AtomicLong failureCount = new java.util.concurrent.atomic.AtomicLong(0);
+    private volatile long lastCheckpointHwm = 0L;
+    private volatile Throwable lastFailure;
+
+    public long checkpointCount() {
+        return checkpointCount.get();
+    }
+
+    public long failureCount() {
+        return failureCount.get();
+    }
+
+    public long lastCheckpointHwm() {
+        return lastCheckpointHwm;
+    }
+
+    public Throwable lastFailure() {
+        return lastFailure;
+    }
 
     /**
      * Sets a callback invoked during checkpoint to flush off-heap encrypted bundle pages to disk.
@@ -202,166 +222,140 @@ public final class CheckpointEngine {
      */
     public void checkpoint() {
         long start = System.nanoTime();
+        long hwm;
 
-        if (quiesceGuard != null) {
-            try (var quiesce = quiesceGuard.acquireQuiesce(5, java.util.concurrent.TimeUnit.SECONDS)) {
-    // Step 1: Force all persistent active cognitive memory store segments (skipping frozen stores)
-            CognitiveMemoryRouter router = (routerSupplier != null) ? routerSupplier.get() : this.cognitiveRouter;
-            if (router != null) {
-                router.forceAll();
+        try {
+            if (quiesceGuard != null) {
+                try (var quiesce = quiesceGuard.acquireQuiesce(5, java.util.concurrent.TimeUnit.SECONDS)) {
+                    // Capture the WAL durability fence inside the quiesce window before any state is forced or saved
+                    hwm = wal != null ? wal.highWaterMark() : 0L;
+                    persistAllSubsystems();
+                }
+                log.info("Quiesce duration: {} ms", quiesceGuard.lastQuiesceDurationNanos() / 1_000_000);
+            } else {
+                hwm = wal != null ? wal.highWaterMark() : 0L;
+                persistAllSubsystems();
             }
-    
-            // Step 2: Save MemoryIndex (ID->offset, text, tags, source)
-            // This is critical for crash recovery — without it, tier store
-            // records survive (mmap) but become orphaned (no ID mapping).
-            if (index != null && indexPath != null && index.size() > 0) {
-                try {
-                    index.save(indexPath);
-                } catch (Exception e) {
-                    log.error("Checkpoint: failed to save MemoryIndex: {}", e.getMessage());
-                }
-            }
-    
-            // Step 3: Persist cognitive graphs
-            if (basePath != null) {
-                Path bundlePath = StoragePaths.runtimeBundleFile(basePath);
-                saveGraph("HebbianGraph", () ->
-                        hebbianGraph.save(bundlePath));
-                saveGraph("TemporalChain", () ->
-                        temporalChain.save(bundlePath));
-    
-                if (hyperEntityGraph != null) {
-                    saveGraph("HyperEntityGraph", () ->
-                            hyperEntityGraph.save(bundlePath));
-                }
-                if (entityDirectory != null) {
-                    saveGraph("EntityDirectory", () ->
-                            entityDirectory.save(bundlePath));
-                    saveGraph("EntityTypeRegistry", () -> {
-                        try {
-                            entityDirectory.entityTypeRegistry().save(bundlePath);
-                        } catch (java.io.IOException e) {
-                            throw new java.io.UncheckedIOException(e);
-                        }
-                    });
-                }
-                if (temporalKnowledgeGraph != null) {
-                    saveGraph("RelationTypeRegistry", () -> {
-                        try {
-                            temporalKnowledgeGraph.predicateRegistry().save(bundlePath);
-                        } catch (java.io.IOException e) {
-                            throw new java.io.UncheckedIOException(e);
-                        }
-                    });
-                }
-                if (coActivationTracker != null) {
-                    saveGraph("CoActivationTracker", () ->
-                            coActivationTracker.save(bundlePath));
-                }
-                if (indexPlaneCoordinator != null) {
-                    saveGraph("IndexPlaneCoordinator", () ->
-                            indexPlaneCoordinator.checkpointAll());
-                }
-            }
-            }
-            log.info("Quiesce duration: {} ms", quiesceGuard.lastQuiesceDurationNanos() / 1_000_000);
-        } else {
-    // Step 1: Force all persistent active cognitive memory store segments (skipping frozen stores)
-            CognitiveMemoryRouter router = (routerSupplier != null) ? routerSupplier.get() : this.cognitiveRouter;
-            if (router != null) {
-                router.forceAll();
-            }
-    
-            // Step 2: Save MemoryIndex (ID->offset, text, tags, source)
-            // This is critical for crash recovery — without it, tier store
-            // records survive (mmap) but become orphaned (no ID mapping).
-            if (index != null && indexPath != null && index.size() > 0) {
-                try {
-                    index.save(indexPath);
-                } catch (Exception e) {
-                    log.error("Checkpoint: failed to save MemoryIndex: {}", e.getMessage());
-                }
-            }
-    
-            // Step 3: Persist cognitive graphs
-            if (basePath != null) {
-                Path bundlePath = StoragePaths.runtimeBundleFile(basePath);
-                saveGraph("HebbianGraph", () ->
-                        hebbianGraph.save(bundlePath));
-                saveGraph("TemporalChain", () ->
-                        temporalChain.save(bundlePath));
-    
-                if (hyperEntityGraph != null) {
-                    saveGraph("HyperEntityGraph", () ->
-                            hyperEntityGraph.save(bundlePath));
-                }
-                if (entityDirectory != null) {
-                    saveGraph("EntityDirectory", () ->
-                            entityDirectory.save(bundlePath));
-                    saveGraph("EntityTypeRegistry", () -> {
-                        try {
-                            entityDirectory.entityTypeRegistry().save(bundlePath);
-                        } catch (java.io.IOException e) {
-                            throw new java.io.UncheckedIOException(e);
-                        }
-                    });
-                }
-                if (temporalKnowledgeGraph != null) {
-                    saveGraph("RelationTypeRegistry", () -> {
-                        try {
-                            temporalKnowledgeGraph.predicateRegistry().save(bundlePath);
-                        } catch (java.io.IOException e) {
-                            throw new java.io.UncheckedIOException(e);
-                        }
-                    });
-                }
-                if (coActivationTracker != null) {
-                    saveGraph("CoActivationTracker", () ->
-                            coActivationTracker.save(bundlePath));
-                }
-                if (indexPlaneCoordinator != null) {
-                    saveGraph("IndexPlaneCoordinator", () ->
-                            indexPlaneCoordinator.checkpointAll());
-                }
-            }
-        }
 
-        // Step 5: Read the WAL high-water mark
-        long hwm = wal.highWaterMark();
-        if (hwm <= 0) {
             Runnable flushCb = this.bundleFlushCallback;
             if (flushCb != null) {
                 saveGraph("EncryptedBundleFlush", flushCb);
             }
-            log.trace("Checkpoint skipped WAL: no WAL events");
+
+            if (hwm <= 0) {
+                log.trace("Checkpoint skipped WAL: no WAL events");
+                checkpointCount.incrementAndGet();
+                long elapsed = (System.nanoTime() - start) / 1_000_000;
+                log.info("Checkpoint complete: hwm=0, index={} entries, elapsed={}ms",
+                        index != null ? index.size() : 0, elapsed);
+                fireCheckpointListener(0);
+                return;
+            }
+
+            long previousMetaHwm = readCurrentCheckpointHwm();
+
+            // Write HWM to checkpoint.meta / checkpoint region ONLY after all store/index/graph/bundle flushes succeed
+            writeCheckpointMeta(hwm);
+
+            // Write SNAPSHOT_MARK to WAL carrying the quiesce-captured HWM fence and flush WAL to disk
+            try {
+                wal.appendSnapshotMark("system/checkpoint", hwm);
+                wal.flush();
+            } catch (Exception walErr) {
+                restoreCheckpointMetaOnFailure(previousMetaHwm);
+                throw walErr;
+            }
+
+            // Truncate WAL events <= HWM
+            wal.truncateBefore(hwm);
+
+            lastCheckpointHwm = hwm;
+            checkpointCount.incrementAndGet();
+
+            // Notify replication layer (enterprise)
+            fireCheckpointListener(hwm);
+
             long elapsed = (System.nanoTime() - start) / 1_000_000;
-            log.info("Checkpoint complete: hwm=0, index={} entries, elapsed={}ms",
-                    index != null ? index.size() : 0, elapsed);
-            fireCheckpointListener(0);
-            return;
+            log.info("Checkpoint complete: hwm={}, index={} entries, elapsed={}ms",
+                    hwm, index != null ? index.size() : 0, elapsed);
+        } catch (Exception e) {
+            failureCount.incrementAndGet();
+            lastFailure = e;
+            log.error("Checkpoint failed; aborting watermark advancement and WAL truncation: {}", e.getMessage(), e);
+            if (e instanceof com.spectrayan.spector.commons.error.SpectorException se) {
+                throw se;
+            }
+            throw new com.spectrayan.spector.commons.error.SpectorStorageException(
+                    com.spectrayan.spector.commons.error.ErrorCode.DISK_IO_FAILED,
+                    e,
+                    "Checkpoint failed: " + e.getMessage());
+        }
+    }
+
+    private void persistAllSubsystems() {
+        // Step 1: Force all persistent active cognitive memory store segments (skipping frozen stores)
+        CognitiveMemoryRouter router = (routerSupplier != null) ? routerSupplier.get() : this.cognitiveRouter;
+        if (router != null) {
+            saveGraph("CognitiveMemoryRouter", router::forceAll);
         }
 
-        // Step 5b: Write SNAPSHOT_MARK to WAL and flush WAL to disk
-        wal.appendSnapshotMark("system/checkpoint", hwm);
-        wal.flush();
-
-        // Step 6: Write HWM to checkpoint.meta (atomic via temp+rename)
-        writeCheckpointMeta(hwm);
-
-        Runnable flushCb = this.bundleFlushCallback;
-        if (flushCb != null) {
-            saveGraph("EncryptedBundleFlush", flushCb);
+        // Step 2: Flush text.dat and save MemoryIndex (ID->offset, text, tags, source)
+        if (index != null) {
+            if (index.textDataStore() != null && index.textDataStore().isPersistent()) {
+                saveGraph("TextBlobMemory", () -> index.textDataStore().flush());
+            }
+            Path targetIndexPath = indexPath != null
+                    ? indexPath
+                    : (basePath != null ? StoragePaths.runtimeBundleFile(basePath) : null);
+            if (index.isBundleManaged() || (targetIndexPath != null && index.size() > 0)) {
+                saveGraph("MemoryIndex", () -> index.save(targetIndexPath));
+            }
         }
 
-        // Step 7: Truncate WAL events <= HWM
-        wal.truncateBefore(hwm);
-
-        // Step 8: Notify replication layer (enterprise)
-        fireCheckpointListener(hwm);
-
-        long elapsed = (System.nanoTime() - start) / 1_000_000;
-        log.info("Checkpoint complete: hwm={}, index={} entries, elapsed={}ms",
-                hwm, index != null ? index.size() : 0, elapsed);
+        // Step 3: Persist cognitive graphs and derived indexes
+        if (basePath != null) {
+            Path bundlePath = StoragePaths.runtimeBundleFile(basePath);
+            if (hebbianGraph != null) {
+                saveGraph("HebbianGraph", () -> hebbianGraph.save(bundlePath));
+            }
+            if (temporalChain != null) {
+                saveGraph("TemporalChain", () -> temporalChain.save(bundlePath));
+            }
+            if (hyperEntityGraph != null) {
+                saveGraph("HyperEntityGraph", () -> hyperEntityGraph.save(bundlePath));
+            }
+            if (entityDirectory != null) {
+                saveGraph("EntityDirectory", () -> entityDirectory.save(bundlePath));
+                if (entityDirectory.entityTypeRegistry() != null) {
+                    saveGraph("EntityTypeRegistry", () -> {
+                        try {
+                            entityDirectory.entityTypeRegistry().save(bundlePath);
+                        } catch (java.io.IOException e) {
+                            throw new java.io.UncheckedIOException(e);
+                        }
+                    });
+                }
+            }
+            if (temporalKnowledgeGraph != null) {
+                saveGraph("RelationTypeRegistry", () -> {
+                    try {
+                        if (temporalKnowledgeGraph.predicateRegistry() != null) {
+                            temporalKnowledgeGraph.predicateRegistry().save(bundlePath);
+                        }
+                    } catch (java.io.IOException e) {
+                        throw new java.io.UncheckedIOException(e);
+                    }
+                });
+            }
+            if (coActivationTracker != null) {
+                saveGraph("CoActivationTracker", () -> coActivationTracker.save(bundlePath));
+            }
+            if (indexPlaneCoordinator != null) {
+                saveGraph("IndexPlaneCoordinator", () -> indexPlaneCoordinator.checkpointAll());
+            }
+        } else if (indexPlaneCoordinator != null) {
+            saveGraph("IndexPlaneCoordinator", () -> indexPlaneCoordinator.checkpointAll());
+        }
     }
 
     /**
@@ -416,7 +410,7 @@ public final class CheckpointEngine {
     }
 
     /**
-     * Saves a graph subsystem, logging any errors without propagating.
+     * Saves a subsystem, logging and propagating any failure as a typed storage exception.
      */
     private void saveGraph(String name, Runnable saver) {
         if (saver == null) return;
@@ -424,6 +418,47 @@ public final class CheckpointEngine {
             saver.run();
         } catch (Exception e) {
             log.error("Checkpoint: failed to save {}: {}", name, e.getMessage(), e);
+            if (e instanceof com.spectrayan.spector.commons.error.SpectorException se) {
+                throw se;
+            }
+            throw new com.spectrayan.spector.commons.error.SpectorStorageException(
+                    com.spectrayan.spector.commons.error.ErrorCode.DISK_IO_FAILED,
+                    e,
+                    "save " + name + ": " + e.getMessage());
+        }
+    }
+
+    private long readCurrentCheckpointHwm() {
+        if (checkpointRef != null) {
+            try {
+                return checkpointRef.readCheckpointHwm();
+            } catch (Exception ignored) {
+                return -1L;
+            }
+        }
+        if (checkpointMetaPath != null) {
+            return readCheckpointHwm(checkpointMetaPath);
+        }
+        return -1L;
+    }
+
+    private void restoreCheckpointMetaOnFailure(long previousHwm) {
+        try {
+            if (checkpointRef != null) {
+                if (previousHwm > 0) {
+                    checkpointRef.writeCheckpointHwm(previousHwm);
+                }
+                return;
+            }
+            if (checkpointMetaPath != null) {
+                if (previousHwm > 0) {
+                    writeCheckpointMeta(previousHwm);
+                } else {
+                    Files.deleteIfExists(checkpointMetaPath);
+                }
+            }
+        } catch (Exception restoreErr) {
+            log.warn("Failed to restore checkpoint HWM after WAL snapshot mark error: {}", restoreErr.getMessage());
         }
     }
 
@@ -439,8 +474,19 @@ public final class CheckpointEngine {
                 log.trace("Checkpoint meta written to bundle region: hwm={}", hwm);
                 return;
             } catch (Exception e) {
-                log.warn("Failed to write checkpoint to bundle region, falling back to file: {}", e.getMessage());
+                log.error("Failed to write checkpoint to bundle region: {}", e.getMessage(), e);
+                if (e instanceof com.spectrayan.spector.commons.error.SpectorException se) {
+                    throw se;
+                }
+                throw new com.spectrayan.spector.commons.error.SpectorStorageException(
+                        com.spectrayan.spector.commons.error.ErrorCode.DISK_IO_FAILED,
+                        e,
+                        "write checkpoint to bundle region: " + e.getMessage());
             }
+        }
+
+        if (checkpointMetaPath == null) {
+            return;
         }
 
         // V3 fallback: standalone checkpoint.meta file
@@ -481,6 +527,10 @@ public final class CheckpointEngine {
             } catch (IOException cleanupException) {
                 log.debug("Failed to clean up temporary file: {}", tempPath, cleanupException);
             }
+            throw new com.spectrayan.spector.commons.error.SpectorStorageException(
+                    com.spectrayan.spector.commons.error.ErrorCode.DISK_IO_FAILED,
+                    e,
+                    "write checkpoint.meta: " + e.getMessage());
         }
     }
 

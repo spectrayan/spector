@@ -144,12 +144,26 @@ public final class IndexPlaneCoordinator implements AutoCloseable {
     public void checkpointAll() {
         lock.lock();
         try {
+            RuntimeException firstFailure = null;
             for (ManagedIndex index : indexes.values()) {
                 try {
                     index.checkpoint();
                 } catch (Exception e) {
-                    log.warn("Error during checkpoint of index {}: {}", index.name(), e.getMessage(), e);
+                    log.error("Error during checkpoint of index {}: {}", index.name(), e.getMessage(), e);
+                    if (firstFailure == null) {
+                        firstFailure = (e instanceof com.spectrayan.spector.commons.error.SpectorException se)
+                                ? se
+                                : new com.spectrayan.spector.commons.error.SpectorStorageException(
+                                        com.spectrayan.spector.commons.error.ErrorCode.DISK_IO_FAILED,
+                                        e,
+                                        "checkpoint index " + index.name());
+                    } else {
+                        firstFailure.addSuppressed(e);
+                    }
                 }
+            }
+            if (firstFailure != null) {
+                throw firstFailure;
             }
         } finally {
             lock.unlock();

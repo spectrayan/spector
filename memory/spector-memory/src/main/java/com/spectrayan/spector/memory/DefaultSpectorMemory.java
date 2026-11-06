@@ -723,48 +723,55 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                                   int tokenIn, int tokenOut,
                                   int latencyMs, long userId,
                                   short soulVersion, SourceModality modality) {
-        if (episodicMemory == null) {
-            throw new com.spectrayan.spector.commons.error.SpectorMemoryException(
-                    com.spectrayan.spector.commons.error.ErrorCode.MEMORY_PATHWAY_FAILED, "Episodic store not available (store missing)");
-        }
-
-        SalienceProfile profile = salienceProfile();
-        byte rawValence = (byte) 0;
-        byte rawArousal = (byte) 0;
-        byte valence = (profile != null) ? profile.modulateValence(rawValence) : rawValence;
-        byte arousal = (profile != null) ? profile.modulateArousal(rawArousal) : rawArousal;
-
-        float importance = 5.0f;
-        if (importanceProvider != null) {
+        try (var permit = quiesceGuard.acquireWritePermit()) {
+            acquireLease();
             try {
-                String text = (body != null) ? new String(body, java.nio.charset.StandardCharsets.UTF_8) : "";
-                importance = (float) importanceProvider.score(
-                        new com.spectrayan.spector.memory.model.ImportanceContext(
-                                text, new float[0], null, profile, MemoryType.EPISODIC, 0.0f, 0.0, false)
-                ).importance();
-                if (importance <= 0.0f) {
-                    importance = 5.0f;
+                if (episodicMemory == null) {
+                    throw new com.spectrayan.spector.commons.error.SpectorMemoryException(
+                            com.spectrayan.spector.commons.error.ErrorCode.MEMORY_PATHWAY_FAILED, "Episodic store not available (store missing)");
                 }
-            } catch (Exception e) {
-                importance = 5.0f;
+
+                SalienceProfile profile = salienceProfile();
+                byte rawValence = (byte) 0;
+                byte rawArousal = (byte) 0;
+                byte valence = (profile != null) ? profile.modulateValence(rawValence) : rawValence;
+                byte arousal = (profile != null) ? profile.modulateArousal(rawArousal) : rawArousal;
+
+                float importance = 5.0f;
+                if (importanceProvider != null) {
+                    try {
+                        String text = (body != null) ? new String(body, java.nio.charset.StandardCharsets.UTF_8) : "";
+                        importance = (float) importanceProvider.score(
+                                new com.spectrayan.spector.memory.model.ImportanceContext(
+                                        text, new float[0], null, profile, MemoryType.EPISODIC, 0.0f, 0.0, false)
+                        ).importance();
+                        if (importance <= 0.0f) {
+                            importance = 5.0f;
+                        }
+                    } catch (Exception e) {
+                        importance = 5.0f;
+                    }
+                }
+
+                long offset = episodicMemory.appendTurn(role, sequenceId,
+                        timestampMs, sessionId, body, modelId,
+                        tokenIn, tokenOut, latencyMs, userId,
+                        soulVersion, modality, importance, valence, arousal,
+                        com.spectrayan.spector.kernel.api.EngramSource.EXPERIENCED);
+
+                // Update session index
+                episodicSessionIndex.appendTurn(sessionId, offset);
+
+                // Fire circadian trigger (episodic volume → auto-reflect)
+                checkCircadianTrigger(MemoryType.EPISODIC);
+
+                log.debug("Episodic turn appended: session={}, seq={}, role={}, offset={}, importance={}",
+                        Long.toHexString(sessionId), sequenceId, role, offset, importance);
+                return offset;
+            } finally {
+                releaseLease();
             }
         }
-
-        long offset = episodicMemory.appendTurn(role, sequenceId,
-                timestampMs, sessionId, body, modelId,
-                tokenIn, tokenOut, latencyMs, userId,
-                soulVersion, modality, importance, valence, arousal,
-                com.spectrayan.spector.kernel.api.EngramSource.EXPERIENCED);
-
-        // Update session index
-        episodicSessionIndex.appendTurn(sessionId, offset);
-
-        // Fire circadian trigger (episodic volume → auto-reflect)
-        checkCircadianTrigger(MemoryType.EPISODIC);
-
-        log.debug("Episodic turn appended: session={}, seq={}, role={}, offset={}, importance={}",
-                Long.toHexString(sessionId), sequenceId, role, offset, importance);
-        return offset;
     }
 
     /**
@@ -2014,19 +2021,21 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public void suppress(String memoryId, String reason) {
-        acquireLease();
-        try {
-            suppressionSet.suppress(memoryId, reason);
-            MemoryLocation loc = index.locate(memoryId);
-            if (loc != null) {
-                suppressionSet.registerOffset(loc.type().ordinal(), loc.offset());
+        try (var permit = quiesceGuard.acquireWritePermit()) {
+            acquireLease();
+            try {
+                suppressionSet.suppress(memoryId, reason);
+                MemoryLocation loc = index.locate(memoryId);
+                if (loc != null) {
+                    suppressionSet.registerOffset(loc.type().ordinal(), loc.offset());
+                }
+                if (recallPathway.wasLateral(memoryId)) {
+                    lateralEvaluator.recordLateralSuppression();
+                    log.debug("Lateral suppression: '{}' (reason={})", memoryId, reason);
+                }
+            } finally {
+                releaseLease();
             }
-            if (recallPathway.wasLateral(memoryId)) {
-                lateralEvaluator.recordLateralSuppression();
-                log.debug("Lateral suppression: '{}' (reason={})", memoryId, reason);
-            }
-        } finally {
-            releaseLease();
         }
     }
 
@@ -2035,37 +2044,43 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public void unsuppress(String memoryId) {
-        acquireLease();
-        try {
-            suppressionSet.unsuppress(memoryId);
-        } finally {
-            releaseLease();
+        try (var permit = quiesceGuard.acquireWritePermit()) {
+            acquireLease();
+            try {
+                suppressionSet.unsuppress(memoryId);
+            } finally {
+                releaseLease();
+            }
         }
     }
 
     @Override
     public void markResolved(String memoryId) {
-        acquireLease();
-        try {
-            var loc = index.locate(memoryId);
-            if (loc == null) return;
-            partitionManager.routerFor(loc.colocatedPartition()).markResolved(loc);
-            log.debug("Zeigarnik: marked '{}' as RESOLVED", memoryId);
-        } finally {
-            releaseLease();
+        try (var permit = quiesceGuard.acquireWritePermit()) {
+            acquireLease();
+            try {
+                var loc = index.locate(memoryId);
+                if (loc == null) return;
+                partitionManager.routerFor(loc.colocatedPartition()).markResolved(loc);
+                log.debug("Zeigarnik: marked '{}' as RESOLVED", memoryId);
+            } finally {
+                releaseLease();
+            }
         }
     }
 
     @Override
     public void markUnresolved(String memoryId) {
-        acquireLease();
-        try {
-            var loc = index.locate(memoryId);
-            if (loc == null) return;
-            partitionManager.routerFor(loc.colocatedPartition()).markUnresolved(loc);
-            log.debug("Zeigarnik: marked '{}' as UNRESOLVED", memoryId);
-        } finally {
-            releaseLease();
+        try (var permit = quiesceGuard.acquireWritePermit()) {
+            acquireLease();
+            try {
+                var loc = index.locate(memoryId);
+                if (loc == null) return;
+                partitionManager.routerFor(loc.colocatedPartition()).markUnresolved(loc);
+                log.debug("Zeigarnik: marked '{}' as UNRESOLVED", memoryId);
+            } finally {
+                releaseLease();
+            }
         }
     }
 
@@ -2211,10 +2226,17 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                         .soulVersion(preservedHeader != null ? preservedHeader.soulVersion() : (short) 0)
                         .build()
                 : null;
-        return rememberPathway.ingestCognitiveWithHeader(
-                id, text, vector, type != null ? type : MemoryType.SEMANTIC,
-                tags, source != null ? source : MemorySource.OBSERVED,
-                preservedHeader, context);
+        try (var permit = quiesceGuard.acquireWritePermit()) {
+            acquireLease();
+            try {
+                return rememberPathway.ingestCognitiveWithHeader(
+                        id, text, vector, type != null ? type : MemoryType.SEMANTIC,
+                        tags, source != null ? source : MemorySource.OBSERVED,
+                        preservedHeader, context);
+            } finally {
+                releaseLease();
+            }
+        }
     }
 
     // ==============================================================
@@ -2368,14 +2390,21 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         if (olderThan == null) { throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "olderThan"); }
         if (factor < 0f || factor > 1f) throw new SpectorValidationException(ErrorCode.ARGUMENT_OUT_OF_RANGE, "factor", 0, 1, 0);
 
-        long nowMs = System.currentTimeMillis();
-        long thresholdMs = nowMs - olderThan.toMillis();
+        try (var permit = quiesceGuard.acquireWritePermit()) {
+            acquireLease();
+            try {
+                long nowMs = System.currentTimeMillis();
+                long thresholdMs = nowMs - olderThan.toMillis();
 
-        var episodicStore = partitionManager.cognitiveRouter().episodic();
-        if (episodicStore == null) return 0;
-        int affected = episodicStore.decayOldTurns(thresholdMs, factor);
-        log.info("Decay: {} memories older than {} multiplied by {}", affected, olderThan, factor);
-        return affected;
+                var episodicStore = partitionManager.cognitiveRouter().episodic();
+                if (episodicStore == null) return 0;
+                int affected = episodicStore.decayOldTurns(thresholdMs, factor);
+                log.info("Decay: {} memories older than {} multiplied by {}", affected, olderThan, factor);
+                return affected;
+            } finally {
+                releaseLease();
+            }
+        }
     }
 
     // ==============================================================
@@ -2613,6 +2642,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     public CompactionResult vacuum(MemoryType tier, boolean force) {
         mutationPolicy.checkDeletion(
                 com.spectrayan.spector.memory.policy.DeletionRequest.vacuum(namespaceId));
+        try (var permit = quiesceGuard.acquireWritePermit()) {
         vacuumLock.lock();
         try {
             long startMs = System.currentTimeMillis();
@@ -2687,6 +2717,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         } finally {
             vacuumLock.unlock();
         }
+        }
     }
 
     @Override
@@ -2751,25 +2782,29 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     public int assertFact(String subject, String predicate, String object,
                           long validFrom, long validTo, float confidence,
                           boolean allowCoexisting) {
-        acquireLease();
-        try {
-            int subjectId = entityDirectory.intern(subject, "UNKNOWN");
-            int objectId = entityDirectory.intern(object, "UNKNOWN");
-            return temporalKnowledgeGraph.assertFactWithSupersession(
-                    subjectId, predicate, objectId, -1L, (short) 0,
-                    validFrom, validTo, confidence, false, allowCoexisting);
-        } finally {
-            releaseLease();
+        try (var permit = quiesceGuard.acquireWritePermit()) {
+            acquireLease();
+            try {
+                int subjectId = entityDirectory.intern(subject, "UNKNOWN");
+                int objectId = entityDirectory.intern(object, "UNKNOWN");
+                return temporalKnowledgeGraph.assertFactWithSupersession(
+                        subjectId, predicate, objectId, -1L, (short) 0,
+                        validFrom, validTo, confidence, false, allowCoexisting);
+            } finally {
+                releaseLease();
+            }
         }
     }
 
     @Override
     public int retractFact(int factId) {
-        acquireLease();
-        try {
-            return temporalKnowledgeGraph.retractFact(factId);
-        } finally {
-            releaseLease();
+        try (var permit = quiesceGuard.acquireWritePermit()) {
+            acquireLease();
+            try {
+                return temporalKnowledgeGraph.retractFact(factId);
+            } finally {
+                releaseLease();
+            }
         }
     }
 
@@ -3099,6 +3134,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     /** Returns the quiesce guard coordinating writer permits and checkpoint quiesce lock. */
     public com.spectrayan.spector.memory.sync.QuiesceGuard quiesceGuard() {
         return quiesceGuard;
+    }
+
+    /** Returns the checkpoint engine for this memory instance (null in IN_MEMORY mode). */
+    public CheckpointEngine checkpointEngine() {
+        return checkpointEngine;
     }
 
     // ==============================================================
