@@ -130,4 +130,58 @@ class TextBlobMemoryPersistenceTest {
             assertThat(entries.get("mem-2").text()).isEqualTo("Another unique content");
         }
     }
+
+    @Test
+    void testForcedXxHashCollisionRetainsAndRecallsDistinctTextsAcrossRestart(@TempDir Path memoryDir) {
+        String textA = "alpha_fact_one_1";
+        String textB = "b0014134zqYry9Pi";
+        String textC = "b020905758bER2do";
+        assertThat(com.spectrayan.spector.core.math.XxHash64.hash(textA.getBytes(StandardCharsets.UTF_8)))
+                .isEqualTo(com.spectrayan.spector.core.math.XxHash64.hash(textB.getBytes(StandardCharsets.UTF_8)))
+                .isEqualTo(com.spectrayan.spector.core.math.XxHash64.hash(textC.getBytes(StandardCharsets.UTF_8)));
+
+        var embed = new com.spectrayan.spector.memory.test.FakeEmbeddingProvider();
+        var memProps = new com.spectrayan.spector.config.properties.MemoryProperties()
+                .setDimensions(embed.dimensions())
+                .setWorkingCapacity(20)
+                .setEpisodicPartitionCapacity(100)
+                .setSemanticCapacity(50)
+                .setProceduralCapacity(20);
+
+        try (var memory = com.spectrayan.spector.memory.DefaultSpectorMemory.builder(memProps)
+                .embeddingProvider(embed)
+                .namespaceId("collision-restart")
+                .persistence(memoryDir)
+                .persistenceMode(com.spectrayan.spector.memory.model.MemoryPersistenceMode.DISK)
+                .build()) {
+            memory.remember("id-a", textA, MemoryType.SEMANTIC, "collision");
+            memory.remember("id-b", textB, MemoryType.SEMANTIC, "collision");
+
+            assertThat(memory.inspect("id-a").text()).isEqualTo(textA);
+            assertThat(memory.inspect("id-b").text()).isEqualTo(textB);
+            assertThat(memory.recall(textA))
+                    .filteredOn(r -> "id-a".equals(r.id()))
+                    .singleElement()
+                    .satisfies(r -> assertThat(r.text()).isEqualTo(textA));
+            assertThat(memory.recall(textB))
+                    .filteredOn(r -> "id-b".equals(r.id()))
+                    .singleElement()
+                    .satisfies(r -> assertThat(r.text()).isEqualTo(textB));
+        }
+
+        try (var reopened = com.spectrayan.spector.memory.DefaultSpectorMemory.builder(memProps)
+                .embeddingProvider(embed)
+                .namespaceId("collision-restart")
+                .persistence(memoryDir)
+                .persistenceMode(com.spectrayan.spector.memory.model.MemoryPersistenceMode.DISK)
+                .build()) {
+            assertThat(reopened.inspect("id-a").text()).isEqualTo(textA);
+            assertThat(reopened.inspect("id-b").text()).isEqualTo(textB);
+
+            reopened.remember("id-c", textC, MemoryType.SEMANTIC, "collision");
+            assertThat(reopened.inspect("id-c").text()).isEqualTo(textC);
+            assertThat(reopened.inspect("id-a").text()).isEqualTo(textA);
+            assertThat(reopened.inspect("id-b").text()).isEqualTo(textB);
+        }
+    }
 }
