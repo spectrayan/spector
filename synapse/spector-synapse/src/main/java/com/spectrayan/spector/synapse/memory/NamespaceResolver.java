@@ -755,9 +755,9 @@ public class NamespaceResolver implements AutoCloseable {
                     // 1. Account-level hot cap check (ADR-0029 §2.6, §6.3, Q4)
                     if (accountId != null) {
                         account = catalog.getOrCreateAccount(accountId);
-                        int maxHot = account != null && account.quotas() != null
-                                ? account.quotas().maxHotNamespaces() : 0;
-                        if (maxHot > 0) {
+                        long maxHot = account != null && account.quotas() != null
+                                ? account.quotas().maxHotNamespaces() : 0L;
+                        if (maxHot > 0L) {
                             long currentAccountHot = countAccountHotAndInFlightLocked(accountId);
                             while (currentAccountHot >= maxHot) {
                                 MemoryHandle accountEvicted = evictOldestAccountUnleasedLocked(accountId);
@@ -772,17 +772,20 @@ public class NamespaceResolver implements AutoCloseable {
                                     break;
                                 }
                                 throw new com.spectrayan.spector.synapse.catalog.exception.NamespaceHotCapExceededException(
-                                        accountId, maxHot);
+                                        accountId, Math.toIntExact(maxHot));
                             }
                         }
                     }
 
                     // 2. Process-wide instance cap check (ADR-0029 §6.3)
                     if (waitForCapacityOpen == null) {
-                        while (cache.size() + countNonCurrentThreadInFlightLocked() >= maxInstances) {
+                        long maxProcessHot = this.maxInstances;
+                        long currentProcessHot = countProcessHotAndInFlightLocked();
+                        while (currentProcessHot >= maxProcessHot) {
                             MemoryHandle processEvicted = evictOldestProcessUnleasedLocked();
                             if (processEvicted != null) {
                                 toClose.add(processEvicted.memory);
+                                currentProcessHot--;
                                 continue;
                             }
                             InFlightOpen anyInFlight = inFlightOpens.values().stream()
@@ -794,7 +797,7 @@ public class NamespaceResolver implements AutoCloseable {
                                 break;
                             }
                             throw new com.spectrayan.spector.synapse.catalog.exception.NamespaceHotCapExceededException(
-                                    "process", maxInstances);
+                                    "process", this.maxInstances);
                         }
                     }
 
@@ -901,6 +904,11 @@ public class NamespaceResolver implements AutoCloseable {
         return inFlightOpens.values().stream()
                 .filter(o -> !o.isOwnedByCurrentThread())
                 .count();
+    }
+
+    private long countProcessHotAndInFlightLocked() {
+        long cachedCount = cache.size();
+        return cachedCount + countNonCurrentThreadInFlightLocked();
     }
 
     private long countAccountHotAndInFlightLocked(String accountId) {
