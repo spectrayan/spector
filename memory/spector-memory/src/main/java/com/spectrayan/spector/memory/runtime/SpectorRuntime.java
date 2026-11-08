@@ -474,6 +474,11 @@ public class SpectorRuntime implements AutoCloseable {
                 log.warn("[SpectorRuntime] failed to close SkillPathway", e);
             }
         }
+        try {
+            com.spectrayan.spector.memory.bootstrap.GlinerSessions.closeIdle();
+        } catch (Exception e) {
+            log.warn("[SpectorRuntime] failed to close pooled GLiNER sessions", e);
+        }
     }
 
     private void checkNotClosed() {

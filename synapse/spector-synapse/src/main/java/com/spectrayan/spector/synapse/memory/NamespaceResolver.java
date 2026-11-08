@@ -735,6 +735,11 @@ public class NamespaceResolver implements AutoCloseable {
                     log.warn("[NamespaceResolver] error closing SpectorRuntime: {}", e.getMessage());
                 }
             }
+            try {
+                com.spectrayan.spector.memory.bootstrap.GlinerSessions.closeIdle();
+            } catch (Exception e) {
+                log.warn("[NamespaceResolver] error closing pooled GLiNER sessions: {}", e.getMessage());
+            }
         } finally {
             coldPathLock.unlock();
         }

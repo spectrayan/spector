@@ -21,6 +21,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,9 +38,11 @@ import ai.onnxruntime.OrtException;
 import ai.onnxruntime.OrtSession;
 
 /**
- * GLiNER uni-encoder over ONNX Runtime. One session is shared and guarded by
- * the extractor lock. Intra-op threads default to one so int8 GEMM is not
- * preempted across cores. The text being scored is never logged.
+ * GLiNER uni-encoder over ONNX Runtime. One session is shared across concurrent
+ * callers under a read-write lifecycle lock so tokenization, tensor allocation,
+ * and {@link OrtSession#run} execute concurrently while {@link #close()} waits
+ * for in-flight inferences to finish. Intra-op threads default to one so int8
+ * GEMM is not preempted across cores. The text being scored is never logged.
  */
 public final class OnnxGlinerSpanExtractor implements SpanExtractor {
 
@@ -51,8 +54,8 @@ public final class OnnxGlinerSpanExtractor implements SpanExtractor {
     private final GlinerModelConfig config;
     private final float threshold;
     private final List<String> defaultLabels;
-    private final Object lock = new Object();
-    private boolean closed;
+    private final ReentrantReadWriteLock lifecycleLock = new ReentrantReadWriteLock();
+    private volatile boolean closed;
 
     private OnnxGlinerSpanExtractor(HuggingFaceTokenizer tokenizer, OrtSession session,
                                     OrtSession.SessionOptions options, GlinerModelConfig config,
@@ -141,19 +144,20 @@ public final class OnnxGlinerSpanExtractor implements SpanExtractor {
         if (text == null || text.isBlank() || used.isEmpty()) {
             return List.of();
         }
-        synchronized (lock) {
+        lifecycleLock.readLock().lock();
+        try {
             if (closed) {
                 throw new SpectorMemoryException(ErrorCode.MEMORY_EXTRACTION_FAILED, "span", "session is closed");
             }
-            try {
-                return infer(text, used);
-            } catch (SpectorMemoryException e) {
-                throw e;
-            } catch (RuntimeException e) {
-                log.error("[GLiNER] inference failed ({})", ErrorCode.MEMORY_EXTRACTION_FAILED.id(), e);
-                throw new SpectorMemoryException(ErrorCode.MEMORY_EXTRACTION_FAILED, "span",
-                        e.getClass().getSimpleName());
-            }
+            return infer(text, used);
+        } catch (SpectorMemoryException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            log.error("[GLiNER] inference failed ({})", ErrorCode.MEMORY_EXTRACTION_FAILED.id(), e);
+            throw new SpectorMemoryException(ErrorCode.MEMORY_EXTRACTION_FAILED, "span",
+                    e.getClass().getSimpleName());
+        } finally {
+            lifecycleLock.readLock().unlock();
         }
     }
 
@@ -233,7 +237,8 @@ public final class OnnxGlinerSpanExtractor implements SpanExtractor {
 
     @Override
     public void close() {
-        synchronized (lock) {
+        lifecycleLock.writeLock().lock();
+        try {
             if (closed) {
                 return;
             }
@@ -245,6 +250,8 @@ public final class OnnxGlinerSpanExtractor implements SpanExtractor {
             }
             options.close();
             tokenizer.close();
+        } finally {
+            lifecycleLock.writeLock().unlock();
         }
     }
 
