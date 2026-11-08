@@ -134,7 +134,7 @@ public final class MemoryRegistry implements AutoCloseable {
             ObjectProvider<org.quartz.Scheduler> quartzSchedulerProvider,
             ObjectProvider<io.micrometer.core.instrument.MeterRegistry> meterRegistryProvider,
             AccountCatalog accountCatalog,
-            @Value("${spector.auth.memory.max-instances:512}") int maxInstances) {
+            @Value("${spector.auth.memory.max-instances:0}") int maxInstances) {
         this.sharedProvider = sharedProvider;
         this.synapseProps = synapseProps;
         this.resolver = new NamespaceResolver(
@@ -144,7 +144,7 @@ public final class MemoryRegistry implements AutoCloseable {
                 observationRegistryProvider, observabilityConfigProvider,
                 quartzSchedulerProvider, meterRegistryProvider, maxInstances);
         log.info("[MemoryRegistry] initialized: authEnabled={}, maxInstances={}, catalog={}",
-                synapseProps.auth().enabled(), maxInstances, accountCatalog.getClass().getSimpleName());
+                synapseProps.auth().enabled(), this.resolver.maxInstances(), accountCatalog.getClass().getSimpleName());
     }
 
     /**
@@ -206,6 +206,11 @@ public final class MemoryRegistry implements AutoCloseable {
     /** @return the number of currently-cached instances (test/observability helper). */
     public int cachedInstanceCount() {
         return resolver.cachedInstanceCount();
+    }
+
+    /** @return the effective process-wide hot namespace cap. */
+    public int maxInstances() {
+        return resolver.maxInstances();
     }
 
     /** Returns a snapshot of all currently cached SpectorMemory instances for batch operations. */

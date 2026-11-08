@@ -80,6 +80,17 @@ public class SynapseSalienceProvider implements SalienceProfileProvider {
 
     private static final ThreadLocal<Boolean> IN_EFFECTIVE_PROFILE = ThreadLocal.withInitial(() -> Boolean.FALSE);
 
+    /**
+     * Returns the provider's configured salience profile without resolving the current request's
+     * {@link com.spectrayan.spector.memory.SpectorMemory} instance.
+     *
+     * <p>Used during namespace assembly so constructing a new {@code SpectorMemory} seeds its initial
+     * salience profile without re-entering {@link com.spectrayan.spector.synapse.memory.NamespaceResolver}.</p>
+     */
+    public SalienceProfile configuredProfile() {
+        return currentProfile;
+    }
+
     @Override
     public SalienceProfile effectiveProfile() {
         if (IN_EFFECTIVE_PROFILE.get()) {
@@ -90,6 +101,10 @@ public class SynapseSalienceProvider implements SalienceProfileProvider {
             if (registryProvider != null) {
                 com.spectrayan.spector.synapse.memory.MemoryRegistry registry = registryProvider.getIfAvailable();
                 if (registry != null) {
+                    com.spectrayan.spector.synapse.memory.NamespaceResolver resolver = registry.namespaceResolver();
+                    if (resolver != null && resolver.isBuildingOnCurrentThread()) {
+                        return currentProfile;
+                    }
                     try {
                         com.spectrayan.spector.memory.SpectorMemory memory = registry.resolveForCurrentRequest();
                         if (memory != null) {

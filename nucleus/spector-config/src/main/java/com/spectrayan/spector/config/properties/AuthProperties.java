@@ -35,6 +35,7 @@ public class AuthProperties implements Serializable {
     private DefaultAdminProperties defaultAdmin = new DefaultAdminProperties();
     private Pbkdf2Properties pbkdf2 = new Pbkdf2Properties();
     private LockoutProperties lockout = new LockoutProperties();
+    private MemoryInstanceProperties memory = new MemoryInstanceProperties();
     private List<String> publicPaths = DEFAULT_AUTH_PUBLIC_PATHS;
 
     public AuthProperties() {}
@@ -74,6 +75,9 @@ public class AuthProperties implements Serializable {
     public LockoutProperties getLockout() { return lockout; }
     public void setLockout(LockoutProperties lockout) { if (lockout != null) this.lockout = lockout; }
 
+    public MemoryInstanceProperties getMemory() { return memory; }
+    public void setMemory(MemoryInstanceProperties memory) { if (memory != null) this.memory = memory; }
+
     public List<String> getPublicPaths() { return publicPaths; }
     public void setPublicPaths(List<String> publicPaths) {
         if (publicPaths != null && !publicPaths.isEmpty()) {
@@ -88,6 +92,7 @@ public class AuthProperties implements Serializable {
     public DefaultAdminProperties defaultAdmin() { return getDefaultAdmin(); }
     public Pbkdf2Properties pbkdf2() { return getPbkdf2(); }
     public LockoutProperties lockout() { return getLockout(); }
+    public MemoryInstanceProperties memory() { return getMemory(); }
     public List<String> publicPaths() { return getPublicPaths(); }
 
     public static class JwtProperties implements Serializable {
@@ -209,5 +214,39 @@ public class AuthProperties implements Serializable {
 
         public int maxAttempts() { return getMaxAttempts(); }
         public int minutes() { return getMinutes(); }
+    }
+
+    /**
+     * Per-process hot-namespace cache sizing and memory budget settings
+     * ({@code spector.auth.memory.*}).
+     */
+    public static class MemoryInstanceProperties implements Serializable {
+        private static final long serialVersionUID = 1L;
+        /**
+         * Explicit upper bound on concurrently cached hot namespaces.
+         * {@code 0} (default) derives the cap from the configured memory budget
+         * and estimated per-namespace footprint.
+         */
+        private int maxInstances = 0;
+        /**
+         * Optional explicit memory budget in bytes for cached hot namespaces.
+         * {@code 0} (default) derives a safe budget from runtime memory limits.
+         */
+        private long budgetBytes = 0L;
+
+        public MemoryInstanceProperties() {}
+
+        public MemoryInstanceProperties(int maxInstances, long budgetBytes) {
+            this.maxInstances = Math.max(0, maxInstances);
+            this.budgetBytes = Math.max(0L, budgetBytes);
+        }
+
+        public int getMaxInstances() { return maxInstances; }
+        public void setMaxInstances(int maxInstances) { this.maxInstances = Math.max(0, maxInstances); }
+        public long getBudgetBytes() { return budgetBytes; }
+        public void setBudgetBytes(long budgetBytes) { this.budgetBytes = Math.max(0L, budgetBytes); }
+
+        public int maxInstances() { return getMaxInstances(); }
+        public long budgetBytes() { return getBudgetBytes(); }
     }
 }
