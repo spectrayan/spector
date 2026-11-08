@@ -78,24 +78,26 @@ class ControlStoreContractTest {
         Optional<CoordinatorLease> node2Acquired = store.acquireOrRenewCoordinatorLease("node-2", Duration.ofSeconds(15));
         assertThat(node2Acquired).isEmpty();
 
-        // Node 1 renews at t = 10s
+        // Node 1 renews at t = 10s -> lease version must stay stable (1L) across same-holder renewals (#1195)
         now.set(now.get().plusSeconds(10));
         Optional<CoordinatorLease> renewed = store.acquireOrRenewCoordinatorLease("node-1", Duration.ofSeconds(15));
         assertThat(renewed).isPresent();
-        assertThat(renewed.get().leaseVersion()).isEqualTo(2L);
-        assertThat(store.isCoordinator("node-1", 2L)).isTrue();
+        assertThat(renewed.get().leaseVersion()).isEqualTo(1L);
+        assertThat(store.isCoordinator("node-1", 1L)).isTrue();
+        assertThat(store.advanceNamespaceEpoch("ns-inflight", 1L)).isEqualTo(1L);
 
         // Time advances beyond expiration (t = 10 + 20 = 30s)
         now.set(now.get().plusSeconds(20));
         assertThat(store.getValidCoordinatorLease()).isEmpty();
-        assertThat(store.isCoordinator("node-1", 2L)).isFalse();
+        assertThat(store.isCoordinator("node-1", 1L)).isFalse();
 
-        // Now Node 2 can acquire expired lease
+        // Now Node 2 can acquire expired lease -> lease version increments to 2L
         Optional<CoordinatorLease> node2AcquiredAfterExpiry = store.acquireOrRenewCoordinatorLease("node-2", Duration.ofSeconds(15));
         assertThat(node2AcquiredAfterExpiry).isPresent();
         assertThat(node2AcquiredAfterExpiry.get().holderNodeId()).isEqualTo("node-2");
-        assertThat(node2AcquiredAfterExpiry.get().leaseVersion()).isEqualTo(3L);
-        assertThat(store.isCoordinator("node-2", 3L)).isTrue();
+        assertThat(node2AcquiredAfterExpiry.get().leaseVersion()).isEqualTo(2L);
+        assertThat(store.isCoordinator("node-2", 2L)).isTrue();
+        assertThat(store.isCoordinator("node-1", 1L)).isFalse();
 
         // Node 2 releases lease
         store.releaseCoordinatorLease("node-2");

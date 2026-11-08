@@ -210,14 +210,29 @@ public class FileControlStore implements ControlStore {
         try {
             Instant currentTime = clock.instant();
             CoordinatorLease current = data.coordinatorLease();
-            if (current == null || current.isExpired(currentTime) || Objects.equals(current.holderNodeId(), candidateNodeId)) {
-                long nextVersion = current == null ? 1L : current.leaseVersion() + 1L;
-                CoordinatorLease updated = new CoordinatorLease(candidateNodeId, currentTime, currentTime.plus(duration), nextVersion);
-                this.data = new StateData(data.membership(), updated, data.namespaceEpochs(), data.overrides());
+            if (current != null
+                    && !current.isExpired(currentTime)
+                    && Objects.equals(current.holderNodeId(), candidateNodeId)) {
+                long stableVersion = current.leaseVersion();
+                CoordinatorLease renewed = new CoordinatorLease(
+                        candidateNodeId,
+                        current.acquiredAt(),
+                        currentTime.plus(duration),
+                        stableVersion);
+                this.data = new StateData(data.membership(), renewed, data.namespaceEpochs(), data.overrides());
                 persist();
-                log.debug("[FileControlStore] Node '{}' acquired/renewed coordinator lease v{} until {}",
-                        candidateNodeId, nextVersion, updated.expiresAt());
-                return Optional.of(updated);
+                log.debug("[FileControlStore] Node '{}' renewed coordinator lease v{} until {}",
+                        candidateNodeId, stableVersion, renewed.expiresAt());
+                return Optional.of(renewed);
+            }
+            if (current == null || current.isExpired(currentTime)) {
+                long nextVersion = current == null ? 1L : current.leaseVersion() + 1L;
+                CoordinatorLease acquired = new CoordinatorLease(candidateNodeId, currentTime, currentTime.plus(duration), nextVersion);
+                this.data = new StateData(data.membership(), acquired, data.namespaceEpochs(), data.overrides());
+                persist();
+                log.debug("[FileControlStore] Node '{}' acquired coordinator lease v{} until {}",
+                        candidateNodeId, nextVersion, acquired.expiresAt());
+                return Optional.of(acquired);
             }
             return Optional.empty();
         } finally {

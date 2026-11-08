@@ -352,7 +352,11 @@ public class JdbcControlStore implements ControlStore {
                                     dbNow = queryDatabaseNow(conn);
                                 }
 
-                                String holder = ownerIdRaw != null ? ownerIdRaw.split("\\|", 2)[0] : null;
+                                String[] parts = ownerIdRaw != null ? ownerIdRaw.split("\\|", 2) : null;
+                                String holder = parts != null ? parts[0] : null;
+                                Instant acquiredAt = parts != null && parts.length > 1
+                                        ? Instant.ofEpochMilli(Long.parseLong(parts[1]))
+                                        : dbNow;
                                 Instant takeoverCutoff = dbNow.minus(takeoverGracePeriod);
                                 boolean sameHolderActive = candidateNodeId.equals(holder)
                                         && expiresAt != null
@@ -362,24 +366,22 @@ public class JdbcControlStore implements ControlStore {
                                         || expiresAt.isBefore(takeoverCutoff);
 
                                 if (sameHolderActive) {
-                                    long nextEpoch = epoch + 1;
+                                    // Renewal by active holder: keep lease version stable and CAS on (owner_id, epoch) with DB clock
                                     Instant newExpiresAt = dbNow.plus(duration);
-                                    String newOwnerId = candidateNodeId + "|" + dbNow.toEpochMilli();
                                     try (PreparedStatement update = prepareStatement(
                                             conn,
-                                            "UPDATE spector_control_store SET epoch = ?, owner_id = ?, updated_at = ? " +
+                                            "UPDATE spector_control_store SET updated_at = ? " +
                                                     "WHERE namespace_id = ? AND epoch = ? AND owner_id = ? AND NOT (updated_at < CURRENT_TIMESTAMP)")) {
-                                        update.setLong(1, nextEpoch);
-                                        update.setString(2, newOwnerId);
-                                        setTimestampWithTimeZone(update, 3, newExpiresAt);
-                                        update.setString(4, NS_COORDINATOR);
-                                        update.setLong(5, epoch);
-                                        update.setString(6, ownerIdRaw);
+                                        setTimestampWithTimeZone(update, 1, newExpiresAt);
+                                        update.setString(2, NS_COORDINATOR);
+                                        update.setLong(3, epoch);
+                                        update.setString(4, ownerIdRaw);
                                         if (update.executeUpdate() == 1) {
-                                            result = new CoordinatorLease(candidateNodeId, dbNow, newExpiresAt, nextEpoch);
+                                            result = new CoordinatorLease(candidateNodeId, acquiredAt, newExpiresAt, epoch);
                                         }
                                     }
                                 } else if (expiredForTakeover) {
+                                    // Acquisition or change of holder after expiry: increment lease version with CAS on (owner_id, epoch)
                                     long nextEpoch = epoch + 1;
                                     Instant newExpiresAt = dbNow.plus(duration);
                                     String newOwnerId = candidateNodeId + "|" + dbNow.toEpochMilli();

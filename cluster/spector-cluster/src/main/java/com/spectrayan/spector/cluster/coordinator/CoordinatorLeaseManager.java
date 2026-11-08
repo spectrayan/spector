@@ -17,6 +17,8 @@ package com.spectrayan.spector.cluster.coordinator;
 
 import com.spectrayan.spector.cluster.store.ControlStore;
 import com.spectrayan.spector.cluster.store.CoordinatorLease;
+import com.spectrayan.spector.cluster.store.FileControlStore;
+import com.spectrayan.spector.cluster.store.InMemoryControlStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,20 +27,31 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
+import java.util.function.LongSupplier;
 
 /**
  * Manages cell coordinator election and heartbeat renewal on a renewable lease (Req R1.2, R1.5, R1.6).
  *
  * <p>Key Invariants:
  * <ul>
- *   <li><b>Store-Enforced Expiry (Req R1.5):</b> Expiry is evaluated by the store's authoritative clock,
- *       never by local clock comparison.</li>
+ *   <li><b>Store-Enforced Expiry (Req R1.5):</b> Expiry is evaluated by the store's authoritative clock.</li>
+ *   <li><b>Local Monotonic Self-Fence (#1195):</b> Each acquire/renew records a local monotonic deadline
+ *       ({@code requestStartNanos + leaseDuration - safetyMargin}). Once that deadline passes,
+ *       {@link #isCoordinator()} immediately self-fences and returns {@code false} regardless of
+ *       heartbeat thread state, and late renewal responses arriving after the deadline are discarded.</li>
  *   <li><b>Immediate Stop (Req R1.6):</b> A node that loses the lease ceases coordinator mutation immediately.</li>
  *   <li><b>Leaderless Resilience (Q5, Req R1.4):</b> Losing the coordinator degrades to "no new failovers";
  *       existing routing and ownership remain active and consistent.</li>
@@ -53,12 +66,20 @@ public class CoordinatorLeaseManager implements AutoCloseable {
     private final String nodeId;
     private final Duration leaseDuration;
     private final Duration renewInterval;
+    private final Duration safetyMargin;
+    private final Duration localValidityWindow;
+    private final Duration storeCallTimeout;
+    private final LongSupplier nanoClock;
+    private final boolean customNanoClock;
     private final ScheduledExecutorService scheduler;
+    private final ExecutorService storeCallExecutor;
 
     private final AtomicBoolean isCoordinator = new AtomicBoolean(false);
     private final AtomicLong currentLeaseVersion = new AtomicLong(0L);
     private final AtomicLong leaseGeneration = new AtomicLong(0L);
-    private final List<java.util.function.Consumer<String>> leaseLossListeners = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private final AtomicLong localLeaseDeadlineNanos = new AtomicLong(0L);
+    private final AtomicReference<Instant> localLeaseDeadlineInstant = new AtomicReference<>();
+    private final List<Consumer<String>> leaseLossListeners = new CopyOnWriteArrayList<>();
     private final AtomicLong timeWithoutCoordinatorMs = new AtomicLong(0L);
     private final AtomicReference<Instant> lastLeaderSeen = new AtomicReference<>();
     private final AtomicBoolean running = new AtomicBoolean(false);
@@ -69,10 +90,92 @@ public class CoordinatorLeaseManager implements AutoCloseable {
             String nodeId,
             Duration leaseDuration,
             Duration renewInterval) {
+        this(
+                controlStore,
+                nodeId,
+                leaseDuration,
+                renewInterval,
+                defaultSafetyMargin(leaseDuration, renewInterval),
+                defaultStoreCallTimeout(renewInterval),
+                System::nanoTime,
+                false);
+    }
+
+    public CoordinatorLeaseManager(
+            ControlStore controlStore,
+            String nodeId,
+            Duration leaseDuration,
+            Duration renewInterval,
+            LongSupplier nanoClock) {
+        this(
+                controlStore,
+                nodeId,
+                leaseDuration,
+                renewInterval,
+                defaultSafetyMargin(leaseDuration, renewInterval),
+                defaultStoreCallTimeout(renewInterval),
+                nanoClock,
+                true);
+    }
+
+    public CoordinatorLeaseManager(
+            ControlStore controlStore,
+            String nodeId,
+            Duration leaseDuration,
+            Duration renewInterval,
+            Duration safetyMargin,
+            LongSupplier nanoClock) {
+        this(
+                controlStore,
+                nodeId,
+                leaseDuration,
+                renewInterval,
+                safetyMargin,
+                defaultStoreCallTimeout(renewInterval),
+                nanoClock,
+                true);
+    }
+
+    public CoordinatorLeaseManager(
+            ControlStore controlStore,
+            String nodeId,
+            Duration leaseDuration,
+            Duration renewInterval,
+            Duration safetyMargin,
+            Duration storeCallTimeout,
+            LongSupplier nanoClock) {
+        this(
+                controlStore,
+                nodeId,
+                leaseDuration,
+                renewInterval,
+                safetyMargin,
+                storeCallTimeout,
+                nanoClock,
+                true);
+    }
+
+    private CoordinatorLeaseManager(
+            ControlStore controlStore,
+            String nodeId,
+            Duration leaseDuration,
+            Duration renewInterval,
+            Duration safetyMargin,
+            Duration storeCallTimeout,
+            LongSupplier nanoClock,
+            boolean customNanoClock) {
         this.controlStore = Objects.requireNonNull(controlStore, "controlStore must not be null");
         this.nodeId = Objects.requireNonNull(nodeId, "nodeId must not be null");
         this.leaseDuration = Objects.requireNonNull(leaseDuration, "leaseDuration must not be null");
         this.renewInterval = Objects.requireNonNull(renewInterval, "renewInterval must not be null");
+        this.safetyMargin = safetyMargin != null && !safetyMargin.isNegative()
+                ? safetyMargin
+                : defaultSafetyMargin(leaseDuration, renewInterval);
+        Duration validity = leaseDuration.minus(this.safetyMargin);
+        this.localValidityWindow = validity.isNegative() || validity.isZero() ? Duration.ofMillis(1) : validity;
+        this.storeCallTimeout = normalizeStoreCallTimeout(storeCallTimeout, renewInterval);
+        this.nanoClock = Objects.requireNonNull(nanoClock, "nanoClock must not be null");
+        this.customNanoClock = customNanoClock;
         this.lastLeaderSeen.set(controlStore.now());
 
         this.scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -80,6 +183,47 @@ public class CoordinatorLeaseManager implements AutoCloseable {
             t.setDaemon(true);
             return t;
         });
+        this.storeCallExecutor = Executors.newThreadPerTaskExecutor(
+                Thread.ofVirtual().name("spector-coordinator-store-call-" + nodeId + "-", 0).factory());
+    }
+
+    private static Duration defaultSafetyMargin(Duration leaseDuration, Duration renewInterval) {
+        Objects.requireNonNull(leaseDuration, "leaseDuration must not be null");
+        Objects.requireNonNull(renewInterval, "renewInterval must not be null");
+        long tenPercentMs = Math.max(1L, leaseDuration.toMillis() / 10L);
+        long halfGapMs = leaseDuration.compareTo(renewInterval) > 0
+                ? Math.max(1L, leaseDuration.minus(renewInterval).toMillis() / 2L)
+                : tenPercentMs;
+        return Duration.ofMillis(Math.min(tenPercentMs, halfGapMs));
+    }
+
+    private static Duration defaultStoreCallTimeout(Duration renewInterval) {
+        Objects.requireNonNull(renewInterval, "renewInterval must not be null");
+        long renewMs = renewInterval.toMillis();
+        if (renewMs <= 1L) {
+            return Duration.ofMillis(1L);
+        }
+        long eightyPercentMs = Math.max(1L, (renewMs * 4L) / 5L);
+        return Duration.ofMillis(Math.min(renewMs - 1L, eightyPercentMs));
+    }
+
+    private static Duration normalizeStoreCallTimeout(Duration candidate, Duration renewInterval) {
+        Duration fallback = defaultStoreCallTimeout(renewInterval);
+        if (candidate == null || candidate.isNegative() || candidate.isZero()) {
+            return fallback;
+        }
+        if (renewInterval.toMillis() > 1L && candidate.compareTo(renewInterval) >= 0) {
+            return fallback;
+        }
+        return candidate;
+    }
+
+    public Duration safetyMargin() {
+        return safetyMargin;
+    }
+
+    public Duration storeCallTimeout() {
+        return storeCallTimeout;
     }
 
     /**
@@ -96,8 +240,8 @@ public class CoordinatorLeaseManager implements AutoCloseable {
                     renewInterval.toMillis(),
                     TimeUnit.MILLISECONDS
             );
-            log.info("[CoordinatorLeaseManager] Started coordinator lease manager for node '{}' (duration={}, renew={})",
-                    nodeId, leaseDuration, renewInterval);
+            log.info("[CoordinatorLeaseManager] Started coordinator lease manager for node '{}' (duration={}, renew={}, safetyMargin={}, storeCallTimeout={})",
+                    nodeId, leaseDuration, renewInterval, safetyMargin, storeCallTimeout);
         }
     }
 
@@ -109,8 +253,11 @@ public class CoordinatorLeaseManager implements AutoCloseable {
             return;
         }
         try {
-            Instant now = controlStore.now();
-            java.util.Optional<CoordinatorLease> validLease = controlStore.getValidCoordinatorLease();
+            // Check local self-fence before issuing store requests
+            isCoordinator();
+
+            Instant now = runStoreCall(controlStore::now);
+            Optional<CoordinatorLease> validLease = runStoreCall(controlStore::getValidCoordinatorLease);
 
             if (validLease.isPresent()) {
                 CoordinatorLease currentLease = validLease.get();
@@ -118,13 +265,25 @@ public class CoordinatorLeaseManager implements AutoCloseable {
                 timeWithoutCoordinatorMs.set(0L);
 
                 if (Objects.equals(currentLease.holderNodeId(), nodeId)) {
-                    // We are current holder -> renew
-                    java.util.Optional<CoordinatorLease> renewed = controlStore.acquireOrRenewCoordinatorLease(nodeId, leaseDuration);
+                    // We are current holder -> renew and track local deadline from request start
+                    long requestStartNanos = nanoClock.getAsLong();
+                    long candidateDeadlineNanos = requestStartNanos + localValidityWindow.toNanos();
+                    Instant candidateDeadlineInstant = now.plus(localValidityWindow);
+
+                    Optional<CoordinatorLease> renewed = runStoreCall(
+                            () -> controlStore.acquireOrRenewCoordinatorLease(nodeId, leaseDuration));
                     if (renewed.isPresent()) {
-                        currentLeaseVersion.set(renewed.get().leaseVersion());
-                        isCoordinator.set(true);
-                        log.debug("[CoordinatorLeaseManager] Renewed coordinator lease for node '{}' (v{}) until {}",
-                                nodeId, renewed.get().leaseVersion(), renewed.get().expiresAt());
+                        if (isPastDeadline(candidateDeadlineNanos, candidateDeadlineInstant)) {
+                            handleLeaseLoss("Discarded renewal response arriving after local lease deadline");
+                        } else {
+                            CoordinatorLease lease = renewed.get();
+                            localLeaseDeadlineNanos.set(candidateDeadlineNanos);
+                            localLeaseDeadlineInstant.set(candidateDeadlineInstant);
+                            currentLeaseVersion.set(lease.leaseVersion());
+                            isCoordinator.set(true);
+                            log.debug("[CoordinatorLeaseManager] Renewed coordinator lease for node '{}' (v{}) until {}",
+                                    nodeId, lease.leaseVersion(), lease.expiresAt());
+                        }
                     } else {
                         handleLeaseLoss("Renewal rejected by store");
                     }
@@ -136,17 +295,28 @@ public class CoordinatorLeaseManager implements AutoCloseable {
                 }
             } else {
                 // No active lease -> attempt acquisition
-                java.util.Optional<CoordinatorLease> acquired = controlStore.acquireOrRenewCoordinatorLease(nodeId, leaseDuration);
+                long requestStartNanos = nanoClock.getAsLong();
+                long candidateDeadlineNanos = requestStartNanos + localValidityWindow.toNanos();
+                Instant candidateDeadlineInstant = now.plus(localValidityWindow);
+
+                Optional<CoordinatorLease> acquired = runStoreCall(
+                        () -> controlStore.acquireOrRenewCoordinatorLease(nodeId, leaseDuration));
                 if (acquired.isPresent()) {
-                    CoordinatorLease lease = acquired.get();
-                    currentLeaseVersion.set(lease.leaseVersion());
-                    boolean wasCoordinator = isCoordinator.getAndSet(true);
-                    lastLeaderSeen.set(now);
-                    timeWithoutCoordinatorMs.set(0L);
-                    if (!wasCoordinator) {
-                        leaseGeneration.incrementAndGet();
-                        log.info("[CoordinatorLeaseManager] Node '{}' successfully elected as cell coordinator (lease v{})",
-                                nodeId, lease.leaseVersion());
+                    if (isPastDeadline(candidateDeadlineNanos, candidateDeadlineInstant)) {
+                        handleLeaseLoss("Discarded acquisition response arriving after local lease deadline");
+                    } else {
+                        CoordinatorLease lease = acquired.get();
+                        localLeaseDeadlineNanos.set(candidateDeadlineNanos);
+                        localLeaseDeadlineInstant.set(candidateDeadlineInstant);
+                        currentLeaseVersion.set(lease.leaseVersion());
+                        boolean wasCoordinator = isCoordinator.getAndSet(true);
+                        lastLeaderSeen.set(now);
+                        timeWithoutCoordinatorMs.set(0L);
+                        if (!wasCoordinator) {
+                            leaseGeneration.incrementAndGet();
+                            log.info("[CoordinatorLeaseManager] Node '{}' successfully elected as cell coordinator (lease v{})",
+                                    nodeId, lease.leaseVersion());
+                        }
                     }
                 } else {
                     handleLeaseLoss("Contended acquisition failed");
@@ -163,12 +333,48 @@ public class CoordinatorLeaseManager implements AutoCloseable {
         }
     }
 
+    private <T> T runStoreCall(Callable<T> call) throws Exception {
+        Future<T> future = storeCallExecutor.submit(call);
+        try {
+            return future.get(storeCallTimeout.toNanos(), TimeUnit.NANOSECONDS);
+        } catch (TimeoutException e) {
+            future.cancel(true);
+            throw new TimeoutException("Control store call timed out after " + storeCallTimeout);
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof Exception ex) {
+                throw ex;
+            }
+            if (cause instanceof Error err) {
+                throw err;
+            }
+            throw new RuntimeException(cause);
+        }
+    }
+
+    private boolean isPastDeadline(long deadlineNanos, Instant deadlineInstant) {
+        if (nanoClock.getAsLong() - deadlineNanos >= 0) {
+            return true;
+        }
+        if (!customNanoClock && isSyntheticClockStore(controlStore) && deadlineInstant != null) {
+            return !controlStore.now().isBefore(deadlineInstant);
+        }
+        return false;
+    }
+
+    private static boolean isSyntheticClockStore(ControlStore store) {
+        return store instanceof InMemoryControlStore || store instanceof FileControlStore;
+    }
+
     /**
      * Store-enforced guard verifying that this node actively holds a valid, non-expired lease (Req R1.5, R1.6, G17).
      *
      * @return {@code true} if verified coordinator in the store; {@code false} if lease expired or lost
      */
     public boolean checkStoreEnforcedLeaseActive() {
+        if (!isCoordinator()) {
+            return false;
+        }
         long version = currentLeaseVersion.get();
         if (version <= 0 || !controlStore.isCoordinator(nodeId, version)) {
             if (isCoordinator.get()) {
@@ -184,8 +390,10 @@ public class CoordinatorLeaseManager implements AutoCloseable {
         if (wasCoordinator) {
             leaseGeneration.incrementAndGet();
             currentLeaseVersion.set(0L);
+            localLeaseDeadlineNanos.set(0L);
+            localLeaseDeadlineInstant.set(null);
             log.warn("[CoordinatorLeaseManager] Node '{}' ceased being cell coordinator: {}", nodeId, reason);
-            for (java.util.function.Consumer<String> listener : leaseLossListeners) {
+            for (Consumer<String> listener : leaseLossListeners) {
                 try {
                     listener.accept(reason);
                 } catch (Exception e) {
@@ -203,9 +411,19 @@ public class CoordinatorLeaseManager implements AutoCloseable {
     }
 
     /**
-     * Checks if this node currently considers itself the elected coordinator.
+     * Checks if this node currently considers itself the elected coordinator, enforcing the local
+     * monotonic lease deadline ({@code leaseDuration - safetyMargin}) on every check.
      */
     public boolean isCoordinator() {
+        if (!isCoordinator.get()) {
+            return false;
+        }
+        long deadlineNanos = localLeaseDeadlineNanos.get();
+        Instant deadlineInstant = localLeaseDeadlineInstant.get();
+        if (isPastDeadline(deadlineNanos, deadlineInstant)) {
+            handleLeaseLoss("Local coordinator lease deadline expired (self-fenced)");
+            return false;
+        }
         return isCoordinator.get();
     }
 
@@ -213,6 +431,9 @@ public class CoordinatorLeaseManager implements AutoCloseable {
      * Returns the active coordinator lease version, or 0 if uncoordinated (Req R1.5, G16).
      */
     public long getLeaseVersion() {
+        if (!isCoordinator()) {
+            return 0L;
+        }
         return currentLeaseVersion.get();
     }
 
@@ -228,7 +449,7 @@ public class CoordinatorLeaseManager implements AutoCloseable {
      *
      * @param listener consumer receiving failure reason
      */
-    public void addLeaseLossListener(java.util.function.Consumer<String> listener) {
+    public void addLeaseLossListener(Consumer<String> listener) {
         leaseLossListeners.add(Objects.requireNonNull(listener, "listener must not be null"));
     }
 
@@ -256,6 +477,7 @@ public class CoordinatorLeaseManager implements AutoCloseable {
         running.set(false);
         log.info("[CoordinatorLeaseManager] Shutting down coordinator lease manager for node '{}'", nodeId);
         scheduler.shutdownNow();
+        storeCallExecutor.shutdownNow();
         try {
             if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
                 log.warn("[CoordinatorLeaseManager] Scheduler did not terminate cleanly within 5s for node '{}'", nodeId);
@@ -270,6 +492,9 @@ public class CoordinatorLeaseManager implements AutoCloseable {
                 log.warn("[CoordinatorLeaseManager] Failed to explicitly release coordinator lease for node '{}'", nodeId, e);
             }
             isCoordinator.set(false);
+            currentLeaseVersion.set(0L);
+            localLeaseDeadlineNanos.set(0L);
+            localLeaseDeadlineInstant.set(null);
         }
     }
 

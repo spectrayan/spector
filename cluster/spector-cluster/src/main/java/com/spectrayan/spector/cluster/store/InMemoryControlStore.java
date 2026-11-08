@@ -125,11 +125,23 @@ public class InMemoryControlStore implements ControlStore {
         lock.lock();
         try {
             Instant currentTime = clock.instant();
-            if (coordinatorLease == null || coordinatorLease.isExpired(currentTime)
-                    || Objects.equals(coordinatorLease.holderNodeId(), candidateNodeId)) {
+            if (coordinatorLease != null
+                    && !coordinatorLease.isExpired(currentTime)
+                    && Objects.equals(coordinatorLease.holderNodeId(), candidateNodeId)) {
+                long stableVersion = coordinatorLease.leaseVersion();
+                coordinatorLease = new CoordinatorLease(
+                        candidateNodeId,
+                        coordinatorLease.acquiredAt(),
+                        currentTime.plus(duration),
+                        stableVersion);
+                log.debug("[InMemoryControlStore] Node '{}' renewed coordinator lease v{} until {}",
+                        candidateNodeId, stableVersion, coordinatorLease.expiresAt());
+                return Optional.of(coordinatorLease);
+            }
+            if (coordinatorLease == null || coordinatorLease.isExpired(currentTime)) {
                 long nextVersion = coordinatorLease == null ? 1L : coordinatorLease.leaseVersion() + 1L;
                 coordinatorLease = new CoordinatorLease(candidateNodeId, currentTime, currentTime.plus(duration), nextVersion);
-                log.debug("[InMemoryControlStore] Node '{}' acquired/renewed coordinator lease v{} until {}",
+                log.debug("[InMemoryControlStore] Node '{}' acquired coordinator lease v{} until {}",
                         candidateNodeId, nextVersion, coordinatorLease.expiresAt());
                 return Optional.of(coordinatorLease);
             }
