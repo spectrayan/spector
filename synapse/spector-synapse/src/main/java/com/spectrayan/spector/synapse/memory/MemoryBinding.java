@@ -27,6 +27,7 @@ import com.spectrayan.spector.memory.SpectorMemory;
  * @param slug                 the requested or resolved namespace slug
  * @param lease                the active engine lease handle (released on unbind)
  * @param requestMemoryContext the full resolved memory request context
+ * @param fenceEpoch           the validated fence epoch for this request binding, or {@code -1L} when unfenced
  */
 public record MemoryBinding(
         SpectorMemory memory,
@@ -34,16 +35,30 @@ public record MemoryBinding(
         String namespaceId,
         String slug,
         AutoCloseable lease,
-        RequestMemoryContext requestMemoryContext) {
+        RequestMemoryContext requestMemoryContext,
+        long fenceEpoch) {
 
     /** RequestAttributes attribute key for the bound context. */
     public static final String ATTRIBUTE_KEY = "com.spectrayan.spector.synapse.memory.MemoryBinding";
 
     /**
+     * Backward-compatible constructor without explicit fence epoch.
+     */
+    public MemoryBinding(
+            SpectorMemory memory,
+            String accountId,
+            String namespaceId,
+            String slug,
+            AutoCloseable lease,
+            RequestMemoryContext requestMemoryContext) {
+        this(memory, accountId, namespaceId, slug, lease, requestMemoryContext, -1L);
+    }
+
+    /**
      * Backward-compatible constructor without lease or request context.
      */
     public MemoryBinding(SpectorMemory memory, String accountId, String namespaceId, String slug) {
-        this(memory, accountId, namespaceId, slug, null, null);
+        this(memory, accountId, namespaceId, slug, null, null, -1L);
     }
 
     /**

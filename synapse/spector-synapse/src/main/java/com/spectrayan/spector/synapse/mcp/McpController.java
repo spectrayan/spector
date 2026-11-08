@@ -126,7 +126,8 @@ public class McpController {
         }
 
         try {
-            io.modelcontextprotocol.spec.McpSchema.CallToolResult toolResult = tool.execute(arguments);
+            io.modelcontextprotocol.spec.McpSchema.CallToolResult toolResult =
+                    McpRequestMemory.callWithCurrentScope(() -> tool.execute(arguments));
             log.info("[MCP] Tool '{}' invoked — success: {}", name, !toolResult.isError());
             
             var response = new java.util.HashMap<String, Object>();

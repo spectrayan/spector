@@ -227,6 +227,58 @@ public class NamespaceResolver implements AutoCloseable {
 
     private final AtomicLong fallbackCounter = new AtomicLong(0);
     private final MeterRegistry meterRegistry;
+    private volatile com.spectrayan.spector.cluster.OwnershipResolver ownershipResolver;
+    private volatile com.spectrayan.spector.cluster.fencing.FenceTokenManager fenceTokenManager;
+
+    public void setOwnershipResolver(com.spectrayan.spector.cluster.OwnershipResolver ownershipResolver) {
+        this.ownershipResolver = ownershipResolver;
+    }
+
+    public com.spectrayan.spector.cluster.OwnershipResolver ownershipResolver() {
+        return ownershipResolver;
+    }
+
+    public void setFenceTokenManager(com.spectrayan.spector.cluster.fencing.FenceTokenManager fenceTokenManager) {
+        this.fenceTokenManager = fenceTokenManager;
+    }
+
+    public com.spectrayan.spector.cluster.fencing.FenceTokenManager fenceTokenManager() {
+        return fenceTokenManager;
+    }
+
+    long resolveCurrentFenceEpoch(String tenantId, String namespaceId) {
+        com.spectrayan.spector.cluster.OwnershipResolver resolver = this.ownershipResolver;
+        com.spectrayan.spector.cluster.fencing.FenceTokenManager ftm = this.fenceTokenManager;
+        boolean clustered = resolver != null
+                && resolver.identity().role() != com.spectrayan.spector.cluster.node.NodeRole.STANDALONE;
+
+        long routeEpoch = -1L;
+        if (clustered) {
+            String cellId = (synapseProps != null && synapseProps.cell() != null && synapseProps.cell().getId() != null)
+                    ? synapseProps.cell().getId()
+                    : resolver.identity().cellId();
+            com.spectrayan.spector.cluster.routing.RoutingKey routingKey =
+                    new com.spectrayan.spector.cluster.routing.RoutingKey(cellId, tenantId, namespaceId);
+            if (!resolver.ownsLocally(routingKey)) {
+                return Long.MAX_VALUE;
+            }
+            routeEpoch = Math.max(0L, resolver.resolve(routingKey).epoch());
+        }
+
+        if (ftm != null) {
+            if (ftm.isSurrendered(namespaceId)) {
+                return Long.MAX_VALUE;
+            }
+            if (ftm.hasLocalFence(namespaceId)) {
+                if (ftm.isFenceExpired(namespaceId)) {
+                    return Long.MAX_VALUE;
+                }
+                return ftm.getLocalFence(namespaceId);
+            }
+        }
+
+        return clustered ? routeEpoch : -1L;
+    }
 
     public ParallelEmbeddingPipeline hoistedPipeline() {
         return hoistedPipeline;
@@ -317,6 +369,13 @@ public class NamespaceResolver implements AutoCloseable {
                     .register(this.meterRegistry);
         }
         this.maxInstances = Math.max(1, maxInstances);
+        if (synapseProps != null && synapseProps.cell() != null) {
+            try {
+                this.ownershipResolver = synapseProps.cell().toOwnershipResolver();
+            } catch (RuntimeException ignored) {
+                // Explicit OwnershipResolver bean may be wired separately when ring properties are not inline
+            }
+        }
         // Canonical rememberer root (Req R3.1) — shared with the migrator, detector, and CLI.
         this.basePath = synapseProps.remembererRoot();
         log.info("[NamespaceResolver] initialized: maxInstances={}, remembererRoot={}",
@@ -1045,17 +1104,22 @@ public class NamespaceResolver implements AutoCloseable {
             if (encryptor != null && encryptor.isEnabled()) {
                 builder.dataEncryptor(encryptor);
             }
-            // Legal hold is enforced inside the engine, not at the API boundary. Record deletion reaches the
-            // engine through the REST controller and its bulk endpoint, MCP tools, the embedded Java API and
-            // both chat-memory bulk paths; a check on any one of those is not enforcement. Scoped to this
-            // namespace's owning account so the catalog lookup is exact.
+            // Legal hold and cluster write fencing are enforced inside the engine, not only at the API boundary.
+            // Record mutations and deletions reach the engine through REST endpoints, MCP tools, the embedded Java API,
+            // and background pathways; a check on any one boundary alone is not enforcement.
+            java.util.List<com.spectrayan.spector.memory.policy.MutationPolicy> policies =
+                    new java.util.ArrayList<>(2);
             if (ownerAccountId != null && !ownerAccountId.isBlank()) {
-                builder.mutationPolicy(
-                        new com.spectrayan.spector.synapse.catalog.CatalogMutationPolicy(catalog, ownerAccountId));
+                policies.add(new com.spectrayan.spector.synapse.catalog.CatalogMutationPolicy(catalog, ownerAccountId));
             } else {
                 log.warn("[NamespaceResolver] namespace {} has no owner account — legal hold cannot be "
                         + "enforced on its deletions", namespaceId);
             }
+            policies.add(new com.spectrayan.spector.memory.policy.FencingMutationPolicy(
+                    () -> resolveCurrentFenceEpoch(tenantId, namespaceId)));
+            builder.mutationPolicy(policies.size() == 1
+                    ? policies.getFirst()
+                    : new com.spectrayan.spector.memory.policy.CompositeMutationPolicy(policies));
             if (textGen != null) {
                 builder.llmProvider(textGen);
             }

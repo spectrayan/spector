@@ -420,7 +420,8 @@ public class ToolRegistry {
                     true, null, null);
         }
         try {
-            return tool.execute(args != null ? args : Map.of());
+            return com.spectrayan.spector.synapse.mcp.McpRequestMemory.callWithCurrentScope(
+                    () -> tool.execute(args != null ? args : Map.of()));
         } finally {
             com.spectrayan.spector.synapse.mcp.McpRequestMemory.clear();
         }

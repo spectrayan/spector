@@ -46,6 +46,10 @@ public final class MemoryScope {
         return FENCE_EPOCH.isBound() ? FENCE_EPOCH.get() : -1L;
     }
 
+    public static boolean isFenceEpochActive() {
+        return FENCE_EPOCH.isBound();
+    }
+
     public static boolean isSessionActive() {
         return SESSION_ID.isBound();
     }
@@ -58,65 +62,95 @@ public final class MemoryScope {
         return isSessionActive();
     }
 
+    public static void runWithFenceEpoch(long fenceEpoch, Runnable task) {
+        if (fenceEpoch >= 0) {
+            ScopedValue.where(FENCE_EPOCH, fenceEpoch).run(task);
+        } else {
+            task.run();
+        }
+    }
+
+    public static <T> T callWithFenceEpoch(long fenceEpoch, Callable<T> task) throws Exception {
+        if (fenceEpoch >= 0) {
+            return ScopedValue.where(FENCE_EPOCH, fenceEpoch).call(task::call);
+        }
+        return task.call();
+    }
+
     public static void runWithScope(String sessionId, String namespaceId, Runnable task) {
-        runWithScope(null, sessionId, namespaceId, task);
+        runWithScope(null, sessionId, namespaceId, fenceEpoch(), task);
+    }
+
+    public static void runWithScope(String sessionId, String namespaceId, long fenceEpoch, Runnable task) {
+        runWithScope(null, sessionId, namespaceId, fenceEpoch, task);
     }
 
     public static void runWithScope(String tenantId, String sessionId, String namespaceId, Runnable task) {
+        runWithScope(tenantId, sessionId, namespaceId, fenceEpoch(), task);
+    }
+
+    public static void runWithScope(String tenantId, String sessionId, String namespaceId, long fenceEpoch, Runnable task) {
         boolean hasTenant = tenantId != null && !tenantId.isBlank();
         boolean hasSession = sessionId != null && !sessionId.isBlank();
         boolean hasNamespace = namespaceId != null && !namespaceId.isBlank();
+        boolean hasFence = fenceEpoch >= 0;
 
+        ScopedValue.Carrier carrier = null;
         if (hasTenant) {
-            var carrier = ScopedValue.where(TENANT_ID, tenantId);
-            if (hasSession) {
-                carrier = carrier.where(SESSION_ID, sessionId);
-            }
-            if (hasNamespace) {
-                carrier = carrier.where(NAMESPACE_ID, namespaceId);
-            }
+            carrier = ScopedValue.where(TENANT_ID, tenantId);
+        }
+        if (hasSession) {
+            carrier = carrier != null ? carrier.where(SESSION_ID, sessionId) : ScopedValue.where(SESSION_ID, sessionId);
+        }
+        if (hasNamespace) {
+            carrier = carrier != null ? carrier.where(NAMESPACE_ID, namespaceId) : ScopedValue.where(NAMESPACE_ID, namespaceId);
+        }
+        if (hasFence) {
+            carrier = carrier != null ? carrier.where(FENCE_EPOCH, fenceEpoch) : ScopedValue.where(FENCE_EPOCH, fenceEpoch);
+        }
+
+        if (carrier != null) {
             carrier.run(task);
-        } else if (hasSession && hasNamespace) {
-            ScopedValue.where(SESSION_ID, sessionId)
-                    .where(NAMESPACE_ID, namespaceId)
-                    .run(task);
-        } else if (hasSession) {
-            ScopedValue.where(SESSION_ID, sessionId).run(task);
-        } else if (hasNamespace) {
-            ScopedValue.where(NAMESPACE_ID, namespaceId).run(task);
         } else {
             task.run();
         }
     }
 
     public static <T> T callWithScope(String sessionId, String namespaceId, Callable<T> task) throws Exception {
-        return callWithScope(null, sessionId, namespaceId, task);
+        return callWithScope(null, sessionId, namespaceId, fenceEpoch(), task);
+    }
+
+    public static <T> T callWithScope(String sessionId, String namespaceId, long fenceEpoch, Callable<T> task) throws Exception {
+        return callWithScope(null, sessionId, namespaceId, fenceEpoch, task);
     }
 
     public static <T> T callWithScope(String tenantId, String sessionId, String namespaceId, Callable<T> task) throws Exception {
+        return callWithScope(tenantId, sessionId, namespaceId, fenceEpoch(), task);
+    }
+
+    public static <T> T callWithScope(String tenantId, String sessionId, String namespaceId, long fenceEpoch, Callable<T> task) throws Exception {
         boolean hasTenant = tenantId != null && !tenantId.isBlank();
         boolean hasSession = sessionId != null && !sessionId.isBlank();
         boolean hasNamespace = namespaceId != null && !namespaceId.isBlank();
+        boolean hasFence = fenceEpoch >= 0;
 
+        ScopedValue.Carrier carrier = null;
         if (hasTenant) {
-            var carrier = ScopedValue.where(TENANT_ID, tenantId);
-            if (hasSession) {
-                carrier = carrier.where(SESSION_ID, sessionId);
-            }
-            if (hasNamespace) {
-                carrier = carrier.where(NAMESPACE_ID, namespaceId);
-            }
-            return carrier.call(task::call);
-        } else if (hasSession && hasNamespace) {
-            return ScopedValue.where(SESSION_ID, sessionId)
-                    .where(NAMESPACE_ID, namespaceId)
-                    .call(task::call);
-        } else if (hasSession) {
-            return ScopedValue.where(SESSION_ID, sessionId).call(task::call);
-        } else if (hasNamespace) {
-            return ScopedValue.where(NAMESPACE_ID, namespaceId).call(task::call);
-        } else {
-            return task.call();
+            carrier = ScopedValue.where(TENANT_ID, tenantId);
         }
+        if (hasSession) {
+            carrier = carrier != null ? carrier.where(SESSION_ID, sessionId) : ScopedValue.where(SESSION_ID, sessionId);
+        }
+        if (hasNamespace) {
+            carrier = carrier != null ? carrier.where(NAMESPACE_ID, namespaceId) : ScopedValue.where(NAMESPACE_ID, namespaceId);
+        }
+        if (hasFence) {
+            carrier = carrier != null ? carrier.where(FENCE_EPOCH, fenceEpoch) : ScopedValue.where(FENCE_EPOCH, fenceEpoch);
+        }
+
+        if (carrier != null) {
+            return carrier.call(task::call);
+        }
+        return task.call();
     }
 }

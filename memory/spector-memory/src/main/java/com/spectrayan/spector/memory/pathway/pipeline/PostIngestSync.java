@@ -142,6 +142,18 @@ public final class PostIngestSync {
     }
 
     /**
+     * Evaluates the engine's mutation policy before committing a record to off-heap storage.
+     */
+    public void checkWrite(String memoryId, long timestampMs) {
+        if (wal != null) {
+            wal.checkWrite(
+                    com.spectrayan.spector.memory.policy.WriteRequest.OperationType.REMEMBER,
+                    memoryId,
+                    timestampMs);
+        }
+    }
+
+    /**
      * Parameters for post-ingest synchronization.
      */
     public record SyncParams(
@@ -217,6 +229,10 @@ public final class PostIngestSync {
         } catch (Exception e) {
             log.warn("[Ingestion] Post-write sync failed for '{}', applying compensating tombstone: {}", params.id(), e.getMessage());
             compensateTombstone(params.id());
+            if (e instanceof com.spectrayan.spector.commons.error.SpectorServerException sse
+                    && sse.errorCode() == ErrorCode.FENCED) {
+                throw sse;
+            }
             throw new com.spectrayan.spector.commons.error.SpectorIngestionException(
                     com.spectrayan.spector.commons.error.ErrorCode.INGESTION_PIPELINE_FAILED,
                     e,

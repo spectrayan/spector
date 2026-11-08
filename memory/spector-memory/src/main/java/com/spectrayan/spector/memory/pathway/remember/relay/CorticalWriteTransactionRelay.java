@@ -203,6 +203,9 @@ public final class CorticalWriteTransactionRelay implements SynapticRelay<Rememb
         }
         signal.header(header);
 
+        // Enforce mutation policy / fence epoch right before committing off-heap slab write
+        postIngestSync.checkWrite(signal.id(), signal.timestampMs());
+
         // 3. Off-Heap Slab Write (with partition roll support)
         long offset;
         if (type == MemoryType.EPISODIC) {

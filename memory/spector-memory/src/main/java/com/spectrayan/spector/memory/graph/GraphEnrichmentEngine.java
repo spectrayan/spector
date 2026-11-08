@@ -64,9 +64,34 @@ public final class GraphEnrichmentEngine {
     private final TemporalKnowledgeGraph temporalKnowledgeGraph;
 
     private volatile CognitiveGraphFacade graphFacade;
+    private volatile com.spectrayan.spector.memory.policy.MutationPolicy mutationPolicy =
+            com.spectrayan.spector.memory.policy.MutationPolicy.ALLOW_ALL;
 
     public void setGraphFacade(CognitiveGraphFacade graphFacade) {
         this.graphFacade = graphFacade;
+    }
+
+    public void setMutationPolicy(com.spectrayan.spector.memory.policy.MutationPolicy mutationPolicy) {
+        this.mutationPolicy = mutationPolicy != null
+                ? mutationPolicy
+                : com.spectrayan.spector.memory.policy.MutationPolicy.ALLOW_ALL;
+    }
+
+    private long resolveWriteEpoch() {
+        if (com.spectrayan.spector.commons.concurrent.MemoryScope.isFenceEpochActive()) {
+            return com.spectrayan.spector.commons.concurrent.MemoryScope.fenceEpoch();
+        }
+        long policyEpoch = mutationPolicy.currentEpoch();
+        if (policyEpoch >= 0L && policyEpoch < Long.MAX_VALUE) {
+            return policyEpoch;
+        }
+        return -1L;
+    }
+
+    private String effectiveNamespaceId() {
+        return (namespaceId != null && !namespaceId.isBlank())
+                ? namespaceId
+                : "default";
     }
 
     private final AtomicBoolean inProgress = new AtomicBoolean(false);
@@ -173,6 +198,10 @@ public final class GraphEnrichmentEngine {
      * @return number of memories successfully enriched
      */
     public int enrichBatch(int limit, MemoryType targetType, int concurrency) {
+        long batchEpoch = resolveWriteEpoch();
+        mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.reinforce(
+                effectiveNamespaceId(), null, batchEpoch, System.currentTimeMillis()));
+
         if (index == null || entityExtractor == null || entityDirectory == null || !entityExtractor.isAvailable()) {
             return 0;
         }
@@ -214,13 +243,17 @@ public final class GraphEnrichmentEngine {
 
             if (nThreads <= 1) {
                 for (String id : candidateIds) {
-                    processCandidate(id, enrichedCount);
+                    com.spectrayan.spector.commons.concurrent.MemoryScope.runWithFenceEpoch(
+                            batchEpoch, () -> processCandidate(id, enrichedCount));
                 }
             } else {
                 ExecutorService pool = Executors.newFixedThreadPool(nThreads);
                 List<CompletableFuture<Void>> futures = new ArrayList<>(candidateIds.size());
                 for (String id : candidateIds) {
-                    futures.add(CompletableFuture.runAsync(() -> processCandidate(id, enrichedCount), pool));
+                    futures.add(CompletableFuture.runAsync(
+                            () -> com.spectrayan.spector.commons.concurrent.MemoryScope.runWithFenceEpoch(
+                                    batchEpoch, () -> processCandidate(id, enrichedCount)),
+                            pool));
                 }
                 CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
                 pool.shutdown();
@@ -245,12 +278,17 @@ public final class GraphEnrichmentEngine {
         String poolName = (namespaceId != null && !namespaceId.isBlank())
                 ? "graph-writer-" + namespaceId
                 : "graph-writer";
+        long capturedEpoch = resolveWriteEpoch();
         CountDownLatch latch = new CountDownLatch(1);
         AtomicReference<Throwable> errorRef = new AtomicReference<>();
         try {
             SpectorExecutors.executor(ThreadPlane.PLATFORM_WRITER, poolName).execute(() -> {
                 try {
-                    mutation.run();
+                    com.spectrayan.spector.commons.concurrent.MemoryScope.runWithFenceEpoch(capturedEpoch, () -> {
+                        mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.reinforce(
+                                effectiveNamespaceId(), null, capturedEpoch, System.currentTimeMillis()));
+                        mutation.run();
+                    });
                 } catch (Throwable t) {
                     errorRef.set(t);
                 } finally {
@@ -265,6 +303,9 @@ public final class GraphEnrichmentEngine {
         latch.await();
         if (errorRef.get() != null) {
             Throwable t = errorRef.get();
+            if (t instanceof RuntimeException re) {
+                throw re;
+            }
             if (t instanceof Exception ex) {
                 throw ex;
             }
@@ -292,6 +333,12 @@ public final class GraphEnrichmentEngine {
                 });
                 enrichedCount.incrementAndGet();
             }
+        } catch (com.spectrayan.spector.commons.error.SpectorServerException sse) {
+            if (sse.errorCode() == com.spectrayan.spector.commons.error.ErrorCode.FENCED) {
+                throw sse;
+            }
+            log.warn("[GraphEnricher] Failed to extract entities for '{}': {}", id, sse.getMessage());
+            lastError = sse.getMessage();
         } catch (Exception e) {
             log.warn("[GraphEnricher] Failed to extract entities for '{}': {}", id, e.getMessage());
             lastError = e.getMessage();
@@ -340,6 +387,10 @@ public final class GraphEnrichmentEngine {
      * @return number of memories successfully re-extracted
      */
     public int reextractBatch(int limit, MemoryType targetType, int concurrency) {
+        long batchEpoch = resolveWriteEpoch();
+        mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.reinforce(
+                effectiveNamespaceId(), null, batchEpoch, System.currentTimeMillis()));
+
         if (index == null || entityExtractor == null || entityDirectory == null || !entityExtractor.isAvailable()) {
             return 0;
         }
@@ -378,13 +429,17 @@ public final class GraphEnrichmentEngine {
 
             if (nThreads <= 1) {
                 for (String id : candidateIds) {
-                    reextractCandidate(id, reextractedCount);
+                    com.spectrayan.spector.commons.concurrent.MemoryScope.runWithFenceEpoch(
+                            batchEpoch, () -> reextractCandidate(id, reextractedCount));
                 }
             } else {
                 ExecutorService pool = Executors.newFixedThreadPool(nThreads);
                 List<CompletableFuture<Void>> futures = new ArrayList<>(candidateIds.size());
                 for (String id : candidateIds) {
-                    futures.add(CompletableFuture.runAsync(() -> reextractCandidate(id, reextractedCount), pool));
+                    futures.add(CompletableFuture.runAsync(
+                            () -> com.spectrayan.spector.commons.concurrent.MemoryScope.runWithFenceEpoch(
+                                    batchEpoch, () -> reextractCandidate(id, reextractedCount)),
+                            pool));
                 }
                 CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
                 pool.shutdown();
@@ -440,6 +495,12 @@ public final class GraphEnrichmentEngine {
                 });
                 reextractedCount.incrementAndGet();
             }
+        } catch (com.spectrayan.spector.commons.error.SpectorServerException sse) {
+            if (sse.errorCode() == com.spectrayan.spector.commons.error.ErrorCode.FENCED) {
+                throw sse;
+            }
+            log.warn("[GraphEnricher] Failed to re-extract entities for '{}': {}", id, sse.getMessage());
+            lastError = sse.getMessage();
         } catch (Exception e) {
             log.warn("[GraphEnricher] Failed to re-extract entities for '{}': {}", id, e.getMessage());
             lastError = e.getMessage();

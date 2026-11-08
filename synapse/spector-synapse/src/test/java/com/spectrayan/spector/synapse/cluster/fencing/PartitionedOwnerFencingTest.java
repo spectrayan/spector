@@ -155,4 +155,206 @@ class PartitionedOwnerFencingTest {
         assertThatCode(() -> node1Binder.enforceFence(namespaceId, "1"))
                 .doesNotThrowAnyException();
     }
+
+    @Test
+    @DisplayName("MemoryRequestBinder.bind enforces fence check for GrantRole.OWNER and rejects mismatched fence")
+    void testBindEnforcesFenceForOwnerRole() {
+        InMemoryControlStore store = new InMemoryControlStore();
+        CellMembership membership = new CellMembership("cell-1", 1, List.of("node-1"));
+        store.updateMembership(membership);
+
+        FenceTokenManager node1Fences = new FenceTokenManager(store);
+        NodeIdentity node1Identity = new NodeIdentity("cell-1", "node-1", NodeRole.OWNER);
+        OwnershipResolver node1Resolver = new OwnershipResolver(
+                node1Identity,
+                new StaticMembershipSource("cell-1", 1, List.of("node-1"))
+        );
+
+        String accountId = "owner-acc";
+        String namespaceId = "ns-owner-default";
+        node1Fences.setLocalFence(namespaceId, 1L);
+
+        com.spectrayan.spector.synapse.catalog.AccountCatalog catalog =
+                org.mockito.Mockito.mock(com.spectrayan.spector.synapse.catalog.AccountCatalog.class);
+        com.spectrayan.spector.synapse.catalog.Account account = new com.spectrayan.spector.synapse.catalog.Account(
+                accountId,
+                com.spectrayan.spector.synapse.catalog.PrincipalKind.HUMAN,
+                com.spectrayan.spector.synapse.catalog.AccountProfile.HUMAN_SOLO,
+                "Owner User",
+                com.spectrayan.spector.synapse.catalog.AccountQuotas.forProfile(
+                        com.spectrayan.spector.synapse.catalog.AccountProfile.HUMAN_SOLO),
+                com.spectrayan.spector.synapse.catalog.AccountFlags.forProfile(
+                        com.spectrayan.spector.synapse.catalog.AccountProfile.HUMAN_SOLO),
+                namespaceId,
+                java.time.Instant.now(),
+                "tenant-1",
+                false
+        );
+        org.mockito.Mockito.when(catalog.getOrCreateAccount(
+                org.mockito.ArgumentMatchers.eq(accountId),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any())).thenReturn(account);
+        org.mockito.Mockito.when(catalog.getOrCreateAccount(accountId)).thenReturn(account);
+        com.spectrayan.spector.synapse.catalog.NamespaceRecord record =
+                new com.spectrayan.spector.synapse.catalog.NamespaceRecord(
+                        namespaceId, "default", accountId,
+                        com.spectrayan.spector.synapse.catalog.NamespaceType.PROJECT,
+                        com.spectrayan.spector.synapse.catalog.NamespaceStatus.ACTIVE,
+                        "Default", "Default ns", null,
+                        java.time.Instant.now(), java.time.Instant.now()
+                );
+        org.mockito.Mockito.when(catalog.resolve(accountId, namespaceId))
+                .thenReturn(java.util.Optional.of(record));
+        com.spectrayan.spector.synapse.catalog.Grant ownerGrant =
+                new com.spectrayan.spector.synapse.catalog.Grant(
+                        "grant-owner",
+                        com.spectrayan.spector.synapse.catalog.GrantObjectType.NAMESPACE,
+                        namespaceId,
+                        accountId,
+                        com.spectrayan.spector.synapse.catalog.PrincipalType.ACCOUNT,
+                        com.spectrayan.spector.synapse.catalog.GrantRole.OWNER,
+                        java.util.Set.of(),
+                        accountId,
+                        java.time.Instant.now(),
+                        null,
+                        null
+                );
+        org.mockito.Mockito.when(catalog.authorize(
+                accountId, namespaceId, com.spectrayan.spector.synapse.catalog.GrantRole.READER))
+                .thenReturn(java.util.Optional.of(ownerGrant));
+
+        com.spectrayan.spector.synapse.config.SynapseProperties props =
+                new com.spectrayan.spector.synapse.config.SynapseProperties();
+        props.auth().setEnabled(true);
+        props.getCell().setId("cell-1");
+        props.getCell().setRole("owner");
+        props.getCell().setNodeId("node-1");
+
+        com.spectrayan.spector.synapse.memory.MemoryRegistry registry =
+                org.mockito.Mockito.mock(com.spectrayan.spector.synapse.memory.MemoryRegistry.class);
+        MemoryRequestBinder binder = new MemoryRequestBinder(
+                catalog, registry, props, node1Resolver, node1Fences
+        );
+
+        org.springframework.mock.web.MockHttpServletRequest request =
+                new org.springframework.mock.web.MockHttpServletRequest("POST", "/api/v1/memories");
+        request.addHeader("X-Spector-Fence", "2");
+        org.springframework.web.context.request.RequestContextHolder.setRequestAttributes(
+                new org.springframework.web.context.request.ServletRequestAttributes(request)
+        );
+        try {
+            org.springframework.security.core.Authentication auth =
+                    new org.springframework.security.authentication.TestingAuthenticationToken(
+                            accountId, "secret", "ROLE_USER"
+                    );
+            assertThatThrownBy(() -> binder.bind(auth, java.util.Optional.of(namespaceId)))
+                    .isInstanceOf(FencedException.class);
+        } finally {
+            org.springframework.web.context.request.RequestContextHolder.resetRequestAttributes();
+        }
+    }
+
+    @Test
+    @DisplayName("NamespaceResolver wires engine-level FencingMutationPolicy, stamps WAL epochs, and rejects surrendered writes")
+    void testNamespaceResolverWiresEngineLevelWriteFencing(@org.junit.jupiter.api.io.TempDir java.nio.file.Path tempDir) {
+        InMemoryControlStore store = new InMemoryControlStore();
+        CellMembership membership = new CellMembership("cell-1", 1, List.of("node-1"));
+        store.updateMembership(membership);
+
+        FenceTokenManager node1Fences = new FenceTokenManager(store);
+        NodeIdentity node1Identity = new NodeIdentity("cell-1", "node-1", NodeRole.OWNER);
+        OwnershipResolver node1Resolver = new OwnershipResolver(
+                node1Identity,
+                new StaticMembershipSource("cell-1", 1, List.of("node-1"))
+        );
+
+        String accountId = "owner-acc";
+        String namespaceId = "ns-engine-fenced";
+        node1Fences.setLocalFence(namespaceId, 5L);
+
+        com.spectrayan.spector.synapse.catalog.AccountCatalog catalog =
+                org.mockito.Mockito.mock(com.spectrayan.spector.synapse.catalog.AccountCatalog.class);
+        com.spectrayan.spector.synapse.catalog.Account account = new com.spectrayan.spector.synapse.catalog.Account(
+                accountId,
+                com.spectrayan.spector.synapse.catalog.PrincipalKind.HUMAN,
+                com.spectrayan.spector.synapse.catalog.AccountProfile.HUMAN_SOLO,
+                "Owner User",
+                com.spectrayan.spector.synapse.catalog.AccountQuotas.forProfile(
+                        com.spectrayan.spector.synapse.catalog.AccountProfile.HUMAN_SOLO),
+                com.spectrayan.spector.synapse.catalog.AccountFlags.forProfile(
+                        com.spectrayan.spector.synapse.catalog.AccountProfile.HUMAN_SOLO),
+                namespaceId,
+                java.time.Instant.now(),
+                "tenant-1",
+                false
+        );
+        org.mockito.Mockito.when(catalog.getOrCreateAccount(accountId)).thenReturn(account);
+        org.mockito.Mockito.when(catalog.getAccount(accountId)).thenReturn(account);
+        com.spectrayan.spector.synapse.catalog.NamespaceRecord record =
+                new com.spectrayan.spector.synapse.catalog.NamespaceRecord(
+                        namespaceId, "default", accountId,
+                        com.spectrayan.spector.synapse.catalog.NamespaceType.PROJECT,
+                        com.spectrayan.spector.synapse.catalog.NamespaceStatus.ACTIVE,
+                        "Default", "Default ns", null,
+                        java.time.Instant.now(), java.time.Instant.now()
+                );
+        org.mockito.Mockito.when(catalog.resolve(accountId, namespaceId))
+                .thenReturn(java.util.Optional.of(record));
+
+        com.spectrayan.spector.synapse.config.SynapseProperties props =
+                new com.spectrayan.spector.synapse.config.SynapseProperties();
+        props.setDataDir(tempDir.toString());
+        props.getMemory().setPersistencePath(tempDir.toString());
+        props.getMemory().setDimensions(4);
+        props.getCell().setId("cell-1");
+        props.getCell().setRole("owner");
+        props.getCell().setNodeId("node-1");
+
+        com.spectrayan.spector.provider.embedding.EmbeddingProvider embedder =
+                new com.spectrayan.spector.provider.embedding.EmbeddingProvider() {
+                    @Override
+                    public com.spectrayan.spector.provider.embedding.EmbeddingResult embed(String text) {
+                        return new com.spectrayan.spector.provider.embedding.EmbeddingResult(
+                                new float[]{0.25f, 0.25f, 0.25f, 0.25f}, 4, "test-model");
+                    }
+                    @Override
+                    public int dimensions() {
+                        return 4;
+                    }
+                    @Override
+                    public String modelName() {
+                        return "test-model";
+                    }
+                };
+        @SuppressWarnings("unchecked")
+        org.springframework.beans.factory.ObjectProvider<com.spectrayan.spector.provider.embedding.EmbeddingProvider> embedderProvider =
+                org.mockito.Mockito.mock(org.springframework.beans.factory.ObjectProvider.class);
+        org.mockito.Mockito.when(embedderProvider.getIfAvailable()).thenReturn(embedder);
+
+        try (com.spectrayan.spector.synapse.memory.NamespaceResolver resolver =
+                     new com.spectrayan.spector.synapse.memory.NamespaceResolver(
+                             catalog, props, embedderProvider,
+                             null, null, null, null, null, null, null, null, 8)) {
+            resolver.setOwnershipResolver(node1Resolver);
+            resolver.setFenceTokenManager(node1Fences);
+
+            com.spectrayan.spector.memory.SpectorMemory memory = resolver.resolve(accountId, namespaceId);
+            memory.remember("mem-epoch-5", "Written at epoch 5", com.spectrayan.spector.kernel.api.MemoryType.SEMANTIC);
+
+            var walEvents = memory.admin().wal().replay(0L);
+            assertThat(walEvents).isNotEmpty();
+            assertThat(walEvents).allSatisfy(event -> assertThat(event.epoch()).isEqualTo(5L));
+
+            // Surrender ownership on node-1 -> engine-level FencingMutationPolicy must immediately reject writes
+            node1Fences.surrenderLocalFence(namespaceId);
+            assertThatThrownBy(() -> memory.remember(
+                    "mem-after-surrender", "Must be rejected", com.spectrayan.spector.kernel.api.MemoryType.SEMANTIC))
+                    .isInstanceOf(com.spectrayan.spector.commons.error.SpectorServerException.class)
+                    .satisfies(ex -> {
+                        var sse = (com.spectrayan.spector.commons.error.SpectorServerException) ex;
+                        assertThat(sse.errorCode()).isEqualTo(com.spectrayan.spector.commons.error.ErrorCode.FENCED);
+                    });
+        }
+    }
 }

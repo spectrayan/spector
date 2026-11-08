@@ -39,4 +39,16 @@ public class CompositeMutationPolicy implements MutationPolicy {
             policy.checkWrite(request);
         }
     }
+
+    @Override
+    public long currentEpoch() {
+        long epoch = -1L;
+        for (MutationPolicy policy : policies) {
+            long candidate = policy.currentEpoch();
+            if (candidate >= 0L) {
+                epoch = Math.max(epoch, candidate);
+            }
+        }
+        return epoch;
+    }
 }

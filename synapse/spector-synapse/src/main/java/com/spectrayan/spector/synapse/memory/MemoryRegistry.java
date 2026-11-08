@@ -73,6 +73,20 @@ public final class MemoryRegistry implements AutoCloseable {
         this.binderProvider = binderProvider;
     }
 
+    @Autowired(required = false)
+    void setOwnershipResolverProvider(ObjectProvider<com.spectrayan.spector.cluster.OwnershipResolver> ownershipResolverProvider) {
+        if (ownershipResolverProvider != null && ownershipResolverProvider.getIfAvailable() != null) {
+            this.resolver.setOwnershipResolver(ownershipResolverProvider.getIfAvailable());
+        }
+    }
+
+    @Autowired(required = false)
+    void setFenceTokenManagerProvider(ObjectProvider<com.spectrayan.spector.cluster.fencing.FenceTokenManager> fenceTokenManagerProvider) {
+        if (fenceTokenManagerProvider != null && fenceTokenManagerProvider.getIfAvailable() != null) {
+            this.resolver.setFenceTokenManager(fenceTokenManagerProvider.getIfAvailable());
+        }
+    }
+
     public MemoryRequestBinder binder() {
         return binderProvider != null ? binderProvider.getIfAvailable() : null;
     }

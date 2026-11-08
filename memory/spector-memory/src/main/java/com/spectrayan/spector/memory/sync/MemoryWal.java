@@ -105,6 +105,9 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
     private final int compressionThreshold;
     private final boolean fsyncPerWrite;
     private volatile com.spectrayan.spector.memory.persist.DataEncryptor encryptor;
+    private volatile String namespaceId = "default";
+    private volatile com.spectrayan.spector.memory.policy.MutationPolicy mutationPolicy =
+            com.spectrayan.spector.memory.policy.MutationPolicy.ALLOW_ALL;
     private final AtomicLong sequenceCounter;
     private final ReentrantLock writeLock = new ReentrantLock();
 
@@ -223,6 +226,72 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
     }
 
     /**
+     * Binds the engine's namespace and mutation policy so that WAL appends can enforce
+     * commit-time write fencing under the WAL write lock and stamp the active fence epoch
+     * when no thread-scoped {@code MemoryScope.fenceEpoch()} is bound.
+     */
+    public void bindMutationPolicy(
+            String namespaceId,
+            com.spectrayan.spector.memory.policy.MutationPolicy mutationPolicy) {
+        this.namespaceId = (namespaceId != null && !namespaceId.isBlank())
+                ? namespaceId
+                : "default";
+        this.mutationPolicy = mutationPolicy != null
+                ? mutationPolicy
+                : com.spectrayan.spector.memory.policy.MutationPolicy.ALLOW_ALL;
+    }
+
+    /**
+     * Evaluates the bound {@link com.spectrayan.spector.memory.policy.MutationPolicy} for a pending write.
+     */
+    public void checkWrite(
+            com.spectrayan.spector.memory.policy.WriteRequest.OperationType operationType,
+            String memoryId,
+            long timestampMs) {
+        long currentEpoch = resolveEffectiveEpoch();
+        mutationPolicy.checkWrite(new com.spectrayan.spector.memory.policy.WriteRequest(
+                operationType,
+                namespaceId,
+                memoryId,
+                currentEpoch,
+                timestampMs));
+    }
+
+    private long resolveEffectiveEpoch() {
+        if (com.spectrayan.spector.commons.concurrent.MemoryScope.isFenceEpochActive()) {
+            return com.spectrayan.spector.commons.concurrent.MemoryScope.fenceEpoch();
+        }
+        long policyEpoch = mutationPolicy.currentEpoch();
+        if (policyEpoch >= 0L && policyEpoch < Long.MAX_VALUE) {
+            return policyEpoch;
+        }
+        return -1L;
+    }
+
+    private static com.spectrayan.spector.memory.policy.WriteRequest.OperationType toWriteOperation(
+            WalEvent.EventType type) {
+        if (type == null) {
+            return com.spectrayan.spector.memory.policy.WriteRequest.OperationType.REMEMBER;
+        }
+        return switch (type) {
+            case REMEMBER, RECORD_WRITE, APPEND ->
+                    com.spectrayan.spector.memory.policy.WriteRequest.OperationType.REMEMBER;
+            case FORGET ->
+                    com.spectrayan.spector.memory.policy.WriteRequest.OperationType.FORGET;
+            case PURGE ->
+                    com.spectrayan.spector.memory.policy.WriteRequest.OperationType.PURGE;
+            case REHEARSE ->
+                    com.spectrayan.spector.memory.policy.WriteRequest.OperationType.REHEARSE;
+            case REFLECT, MARK_CONTRADICTED, MARK_RETRACTED ->
+                    com.spectrayan.spector.memory.policy.WriteRequest.OperationType.CONSOLIDATE;
+            case REINFORCE, TAG_MERGE, RECALL_HIT, ADJ_ADD_EDGE, ADJ_DEL_EDGE,
+                    REGISTRY_INTERN, GRAPH_ADD_NODE, GRAPH_LINK_MEMORY,
+                    CHAIN_LINK, HYPEREDGE_ADD, SNAPSHOT_MARK ->
+                    com.spectrayan.spector.memory.policy.WriteRequest.OperationType.REINFORCE;
+        };
+    }
+
+    /**
      * Appends a new event to the WAL.
      *
      * <p>In file mode, the event is serialized to the binary format and written
@@ -234,7 +303,14 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
      * @return the event with its assigned sequence number
      */
     public WalEvent append(WalEvent.EventType type, String memoryId, byte[] payload) {
-        long currentEpoch = com.spectrayan.spector.commons.concurrent.MemoryScope.fenceEpoch();
+        return appendInternal(type, memoryId, payload, true);
+    }
+
+    private WalEvent appendInternal(
+            WalEvent.EventType type,
+            String memoryId,
+            byte[] payload,
+            boolean enforcePolicy) {
         Instant now = Instant.now();
         byte[] safePayload = payload != null ? payload : new byte[0];
         WalEvent event;
@@ -242,6 +318,15 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
 
         writeLock.lock();
         try {
+            long currentEpoch = resolveEffectiveEpoch();
+            if (enforcePolicy) {
+                mutationPolicy.checkWrite(new com.spectrayan.spector.memory.policy.WriteRequest(
+                        toWriteOperation(type),
+                        namespaceId,
+                        memoryId,
+                        currentEpoch,
+                        now.toEpochMilli()));
+            }
             seq = sequenceCounter.get() + 1;
             event = new WalEvent(seq, type, memoryId, currentEpoch, now, safePayload);
 
@@ -277,6 +362,14 @@ public final class MemoryWal implements AutoCloseable, com.spectrayan.spector.ke
      */
     public WalEvent appendForget(String memoryId) {
         return append(WalEvent.EventType.FORGET, memoryId, null);
+    }
+
+    /**
+     * Appends a compensating FORGET event during internal rollback without consulting
+     * {@link com.spectrayan.spector.memory.policy.MutationPolicy}.
+     */
+    public WalEvent appendForgetUnchecked(String memoryId) {
+        return appendInternal(WalEvent.EventType.FORGET, memoryId, null, false);
     }
 
     /**

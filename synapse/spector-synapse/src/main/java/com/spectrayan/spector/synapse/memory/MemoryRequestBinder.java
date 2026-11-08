@@ -107,6 +107,7 @@ public class MemoryRequestBinder {
                 : (synapseProps != null && synapseProps.cell() != null ? synapseProps.cell().toOwnershipResolver() : OwnershipResolver.standalone());
         this.meterRegistry = meterRegistryProvider != null ? meterRegistryProvider.getIfAvailable() : null;
         this.fenceTokenManager = fenceTokenManagerProvider != null ? fenceTokenManagerProvider.getIfAvailable() : null;
+        wireNamespaceResolverFencing();
 
         if (this.meterRegistry != null) {
             this.meterRegistry.gauge("spector.ns.owner", this, binder -> {
@@ -165,6 +166,19 @@ public class MemoryRequestBinder {
         this.ownershipResolver = ownershipResolver != null ? ownershipResolver : OwnershipResolver.standalone();
         this.meterRegistry = null;
         this.fenceTokenManager = fenceTokenManager;
+        wireNamespaceResolverFencing();
+    }
+
+    private void wireNamespaceResolverFencing() {
+        NamespaceResolver res = this.registry != null ? this.registry.namespaceResolver() : null;
+        if (res != null) {
+            if (this.ownershipResolver != null) {
+                res.setOwnershipResolver(this.ownershipResolver);
+            }
+            if (this.fenceTokenManager != null) {
+                res.setFenceTokenManager(this.fenceTokenManager);
+            }
+        }
     }
 
     @Autowired(required = false)
@@ -180,12 +194,40 @@ public class MemoryRequestBinder {
         return fenceTokenManager;
     }
 
-    private void checkDefaultOwnership() {
+    private long checkDefaultOwnership() {
         if (ownershipResolver.identity().role() != NodeRole.STANDALONE) {
             String cellId = synapseProps != null && synapseProps.cell() != null ? synapseProps.cell().getId() : null;
             RoutingKey routingKey = new RoutingKey(cellId, null, "default");
             enforceOwnership(routingKey);
+            String incomingFence = extractIncomingFence();
+            if (fenceTokenManager != null
+                    && (fenceTokenManager.hasLocalFence("default")
+                    || fenceTokenManager.isSurrendered("default")
+                    || incomingFence != null)) {
+                enforceFence("default", incomingFence);
+            }
+            return resolveFenceEpoch(routingKey, incomingFence);
         }
+        return -1L;
+    }
+
+    private long resolveFenceEpoch(RoutingKey routingKey, String incomingFence) {
+        if (incomingFence != null && !incomingFence.isBlank()) {
+            try {
+                return Long.parseLong(incomingFence.trim());
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        String namespaceId = routingKey != null ? routingKey.namespaceId() : null;
+        if (fenceTokenManager != null && namespaceId != null && fenceTokenManager.hasLocalFence(namespaceId)) {
+            return fenceTokenManager.getLocalFence(namespaceId);
+        }
+        if (ownershipResolver != null
+                && ownershipResolver.identity().role() != NodeRole.STANDALONE
+                && routingKey != null) {
+            return Math.max(0L, ownershipResolver.resolve(routingKey).epoch());
+        }
+        return -1L;
     }
 
     public void enforceOwnership(RoutingKey routingKey, Long incomingEpoch) {
@@ -296,22 +338,22 @@ public class MemoryRequestBinder {
 
         if (!synapseProps.auth().enabled() || auth == null || !auth.isAuthenticated()
                 || auth instanceof org.springframework.security.authentication.AnonymousAuthenticationToken) {
-            checkDefaultOwnership();
+            long defaultFenceEpoch = checkDefaultOwnership();
             AutoCloseable lease = sharedMemory != null ? sharedMemory.acquireLease() : null;
             RequestMemoryContext reqCtx = new RequestMemoryContext(
                     null, List.of(), DEFAULT_USER_ID, DEFAULT_USER_ID, "default",
                     GrantRole.OWNER, Set.of(), sessionId, List.of(), null);
-            return new MemoryBinding(sharedMemory, DEFAULT_USER_ID, DEFAULT_USER_ID, "default", lease, reqCtx);
+            return new MemoryBinding(sharedMemory, DEFAULT_USER_ID, DEFAULT_USER_ID, "default", lease, reqCtx, defaultFenceEpoch);
         }
 
         String accountId = auth.getName();
         if (accountId == null || accountId.isBlank() || DEFAULT_USER_ID.equals(accountId)) {
-            checkDefaultOwnership();
+            long defaultFenceEpoch = checkDefaultOwnership();
             AutoCloseable lease = sharedMemory != null ? sharedMemory.acquireLease() : null;
             RequestMemoryContext reqCtx = new RequestMemoryContext(
                     null, List.of(), DEFAULT_USER_ID, DEFAULT_USER_ID, "default",
                     GrantRole.OWNER, Set.of(), sessionId, List.of(), null);
-            return new MemoryBinding(sharedMemory, DEFAULT_USER_ID, DEFAULT_USER_ID, "default", lease, reqCtx);
+            return new MemoryBinding(sharedMemory, DEFAULT_USER_ID, DEFAULT_USER_ID, "default", lease, reqCtx, defaultFenceEpoch);
         }
 
         TokenClaims tokenClaims = extractTokenClaims(auth);
@@ -438,10 +480,11 @@ public class MemoryRequestBinder {
         RoutingKey routingKey = new RoutingKey(cellId, routingTenantId, targetNamespaceId);
         enforceOwnership(routingKey);
 
-        if (role == GrantRole.WRITER || role == GrantRole.ADMIN) {
-            String incomingFence = extractIncomingFence();
+        String incomingFence = extractIncomingFence();
+        if (role.isAtLeast(GrantRole.WRITER)) {
             enforceFence(targetNamespaceId, incomingFence);
         }
+        long fenceEpoch = resolveFenceEpoch(routingKey, incomingFence);
 
         if (record != null) {
             catalog.recordAccess(record.namespaceId());
@@ -500,7 +543,7 @@ public class MemoryRequestBinder {
                     salience,
                     breakGlassSessionId
             );
-            return new MemoryBinding(memory, accountId, targetNamespaceId, targetSlug, lease, requestContext);
+            return new MemoryBinding(memory, accountId, targetNamespaceId, targetSlug, lease, requestContext, fenceEpoch);
         } catch (RuntimeException e) {
             if (lease != null) {
                 try {

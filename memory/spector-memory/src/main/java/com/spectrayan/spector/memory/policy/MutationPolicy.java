@@ -84,6 +84,16 @@ public interface MutationPolicy {
     }
 
     /**
+     * Returns the current fence epoch tracked by this policy, or {@code -1L} if this policy does not
+     * track fence epochs.
+     *
+     * @return current fence epoch or {@code -1L}
+     */
+    default long currentEpoch() {
+        return -1L;
+    }
+
+    /**
      * The permissive default: allows every mutation and deletion.
      *
      * <p>Used when no host policy is installed, which is the normal case for embedded and OSS use.</p>
