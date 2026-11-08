@@ -202,23 +202,46 @@ public class JdbcControlStore implements ControlStore {
                                 long epoch = rs.getLong("epoch");
                                 String ownerIdRaw = rs.getString("owner_id");
                                 Timestamp expiresAt = rs.getTimestamp("updated_at");
-                                
-                                String holder = ownerIdRaw != null ? ownerIdRaw.split("\\|")[0] : null;
-                                
-                                if (holder == null || expiresAt.toInstant().compareTo(now) <= 0 || candidateNodeId.equals(holder)) {
+
+                                String[] parts = ownerIdRaw != null ? ownerIdRaw.split("\\|", 2) : null;
+                                String holder = parts != null ? parts[0] : null;
+                                Instant acquiredAt = parts != null && parts.length > 1
+                                        ? Instant.ofEpochMilli(Long.parseLong(parts[1]))
+                                        : now;
+                                boolean isExpired = expiresAt == null || expiresAt.toInstant().compareTo(now) <= 0;
+
+                                if (!isExpired && candidateNodeId.equals(holder)) {
+                                    // Renewal by active holder: keep lease version stable and CAS on (owner_id, epoch)
+                                    Instant newExpiresAt = now.plus(duration);
+                                    try (PreparedStatement update = conn.prepareStatement(
+                                            "UPDATE spector_control_store SET updated_at = ? " +
+                                                    "WHERE namespace_id = ? AND owner_id = ? AND epoch = ?")) {
+                                        update.setTimestamp(1, Timestamp.from(newExpiresAt));
+                                        update.setString(2, NS_COORDINATOR);
+                                        update.setString(3, ownerIdRaw);
+                                        update.setLong(4, epoch);
+                                        if (update.executeUpdate() == 1) {
+                                            result = new CoordinatorLease(candidateNodeId, acquiredAt, newExpiresAt, epoch);
+                                        }
+                                    }
+                                } else if (holder == null || isExpired) {
+                                    // Acquisition or change of holder after expiry: increment lease version with CAS on epoch
                                     long nextEpoch = epoch + 1;
                                     Instant newExpiresAt = now.plus(duration);
                                     String newOwnerId = candidateNodeId + "|" + now.toEpochMilli();
-                                    
+
                                     try (PreparedStatement update = conn.prepareStatement(
-                                            "UPDATE spector_control_store SET epoch = ?, owner_id = ?, updated_at = ? WHERE namespace_id = ?")) {
+                                            "UPDATE spector_control_store SET epoch = ?, owner_id = ?, updated_at = ? " +
+                                                    "WHERE namespace_id = ? AND epoch = ?")) {
                                         update.setLong(1, nextEpoch);
                                         update.setString(2, newOwnerId);
                                         update.setTimestamp(3, Timestamp.from(newExpiresAt));
                                         update.setString(4, NS_COORDINATOR);
-                                        update.executeUpdate();
+                                        update.setLong(5, epoch);
+                                        if (update.executeUpdate() == 1) {
+                                            result = new CoordinatorLease(candidateNodeId, now, newExpiresAt, nextEpoch);
+                                        }
                                     }
-                                    result = new CoordinatorLease(candidateNodeId, now, newExpiresAt, nextEpoch);
                                 }
                             } else {
                                 long nextEpoch = 1L;

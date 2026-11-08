@@ -88,8 +88,9 @@ class JdbcControlStoreTest {
         now.set(now.get().plusSeconds(10));
         Optional<CoordinatorLease> renewed = store.acquireOrRenewCoordinatorLease("node-1", Duration.ofSeconds(15));
         assertThat(renewed).isPresent();
-        assertThat(renewed.get().leaseVersion()).isEqualTo(2L);
-        assertThat(store.isCoordinator("node-1", 2L)).isTrue();
+        assertThat(renewed.get().leaseVersion()).isEqualTo(1L);
+        assertThat(store.isCoordinator("node-1", 1L)).isTrue();
+        assertThat(store.advanceNamespaceEpoch("ns-inflight", 1L)).isEqualTo(1L);
 
         now.set(now.get().plusSeconds(20));
         assertThat(store.getValidCoordinatorLease()).isEmpty();
@@ -97,7 +98,8 @@ class JdbcControlStoreTest {
         Optional<CoordinatorLease> node2AcquiredAfterExpiry = store.acquireOrRenewCoordinatorLease("node-2", Duration.ofSeconds(15));
         assertThat(node2AcquiredAfterExpiry).isPresent();
         assertThat(node2AcquiredAfterExpiry.get().holderNodeId()).isEqualTo("node-2");
-        assertThat(node2AcquiredAfterExpiry.get().leaseVersion()).isEqualTo(3L);
+        assertThat(node2AcquiredAfterExpiry.get().leaseVersion()).isEqualTo(2L);
+        assertThat(store.isCoordinator("node-1", 1L)).isFalse();
 
         store.releaseCoordinatorLease("node-2");
         assertThat(store.getValidCoordinatorLease()).isEmpty();

@@ -141,7 +141,7 @@ public class ClusterFailoverConfiguration {
 
         @Scheduled(fixedDelayString = "${spector.failover.probe-interval-ms:1000}")
         public void evaluateHealth() {
-            if (coordinatorLeaseManager.isCoordinator()) {
+            if (coordinatorLeaseManager.isCoordinator() && coordinatorLeaseManager.checkStoreEnforcedLeaseActive()) {
                 try {
                     orchestrator.evaluateCellHealth();
                 } catch (Exception e) {
