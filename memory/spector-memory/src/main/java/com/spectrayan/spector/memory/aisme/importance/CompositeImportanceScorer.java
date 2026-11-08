@@ -20,15 +20,21 @@ import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.core.cognitive.CompositeImportanceKernel;
 import com.spectrayan.spector.core.similarity.CosineSimilarity;
 import com.spectrayan.spector.config.properties.AismeProperties;
+import com.spectrayan.spector.kernel.engram.EncodingHeader;
 import com.spectrayan.spector.memory.aisme.fegr.EventDensityMetrics;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
+import com.spectrayan.spector.memory.model.SoulContext;
+import com.spectrayan.spector.memory.model.UserSoul;
 import com.spectrayan.spector.memory.pathway.remember.relay.RememberSignal;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
+import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
@@ -105,6 +111,19 @@ public final class CompositeImportanceScorer {
      * @return normalized scalar importance \(I(o_t) \in [0.0, 1.0]\)
      */
     public float evaluateSignal(RememberSignal signal, CognitiveProfile profile) {
+        return evaluateSignal(signal, profile, null);
+    }
+
+    /**
+     * Extracts component signals from an in-flight {@link RememberSignal} using the given locale
+     * and computes composite importance.
+     *
+     * @param signal in-flight remember signal
+     * @param profile active cognitive profile
+     * @param locale optional locale for keyword fallback selection
+     * @return normalized scalar importance \(I(o_t) \in [0.0, 1.0]\)
+     */
+    public float evaluateSignal(RememberSignal signal, CognitiveProfile profile, Locale locale) {
         if (signal == null) {
             return 0.0f;
         }
@@ -112,7 +131,7 @@ public final class CompositeImportanceScorer {
             return signal.importance() > 0.0f ? signal.importance() : 0.5f;
         }
 
-        CompositeImportanceSignals signals = extractSignals(signal);
+        CompositeImportanceSignals signals = extractSignals(signal, locale);
         return evaluate(signals, profile);
     }
 
@@ -123,9 +142,23 @@ public final class CompositeImportanceScorer {
      * @return extracted 5-dimensional signals
      */
     public CompositeImportanceSignals extractSignals(RememberSignal signal) {
+        return extractSignals(signal, null);
+    }
+
+    /**
+     * Extracts component signals from a remember signal payload using optional locale-specific
+     * keyword fallbacks when structured pipeline signals are not present.
+     *
+     * @param signal remember signal
+     * @param locale optional locale for keyword fallback lookup
+     * @return extracted 5-dimensional signals
+     */
+    public CompositeImportanceSignals extractSignals(RememberSignal signal, Locale locale) {
         if (signal == null) {
             return CompositeImportanceSignals.neutral();
         }
+
+        Locale resolvedLocale = locale != null ? locale : extractLocaleFromTags(signal.tags());
 
         // 1. Surprise s1
         float surprise = 0.1f;
@@ -136,21 +169,19 @@ public final class CompositeImportanceScorer {
             surprise = Math.min(1.0f, signal.nearestDist());
         }
 
-        // 2. Affect s2
+        // 2. Affect s2 — prefer pipeline-computed salience and appraised header valence/arousal
         float affect = 0.0f;
         if (signal.salienceProfile() != null && !signal.salienceProfile().isNeutral()) {
             affect = 0.6f;
         }
-        String textLower = signal.text() != null ? signal.text().toLowerCase() : "";
-        if (textLower.contains("critical") || textLower.contains("panic") || textLower.contains("outage")
-                || textLower.contains("catastrophic") || textLower.contains("emergency") || textLower.contains("love")
-                || textLower.contains("hate") || textLower.contains("congratulations")) {
-            affect = Math.max(affect, 0.95f);
-        } else if (textLower.contains("error") || textLower.contains("fail") || textLower.contains("bug")) {
-            affect = Math.max(affect, 0.80f);
+        EncodingHeader header = signal.header();
+        if (header != null) {
+            float valenceMag = Math.min(1.0f, Math.abs((int) header.valence()) / 127.0f);
+            float arousalMag = Math.min(1.0f, Byte.toUnsignedInt(header.arousal()) / 255.0f);
+            affect = Math.max(affect, Math.max(valenceMag, arousalMag));
         }
 
-        // 3. Goal Relevance s3 (including pre-emptive interrupt salience for critical incidents)
+        // 3. Goal Relevance s3 — prefer active goal embeddings and soul purpose embeddings
         float goalRelevance = 0.0f;
         float[] vec = signal.vector();
         if (vec != null && !activeGoalEmbeddings.isEmpty()) {
@@ -164,27 +195,87 @@ public final class CompositeImportanceScorer {
             }
             goalRelevance = Math.max(0.0f, Math.min(1.0f, goalRelevance));
         }
-        if (textLower.contains("critical") || textLower.contains("panic") || textLower.contains("outage")
-                || textLower.contains("catastrophic") || textLower.contains("emergency")) {
-            goalRelevance = Math.max(goalRelevance, 0.90f);
-        } else if (textLower.contains("goal") || textLower.contains("milestone") || textLower.contains("task")
-                || textLower.contains("todo") || textLower.contains("plan") || textLower.contains("commit")) {
-            goalRelevance = Math.max(goalRelevance, 0.85f);
+        if (vec != null && signal.soulContexts() != null) {
+            for (SoulContext sc : signal.soulContexts()) {
+                if (sc != null && sc.identityEmbedding() != null && sc.identityEmbedding().length == vec.length) {
+                    float sim = CosineSimilarity.compute(vec, sc.identityEmbedding());
+                    if (sim > goalRelevance) {
+                        goalRelevance = Math.min(1.0f, sim);
+                    }
+                }
+            }
         }
 
-        // 4. Social Context s4
+        // 4. Social Context s4 & structured tag signals for affect/goal/social
         float socialContext = 0.0f;
-        if (signal.tags() != null) {
-            for (String tag : signal.tags()) {
-                if (tag.startsWith("user:") || tag.startsWith("author:") || tag.startsWith("speaker:")
-                        || tag.startsWith("interlocutor:") || tag.contains("@")) {
+        if (signal.soulContexts() != null) {
+            for (SoulContext sc : signal.soulContexts()) {
+                if (sc instanceof UserSoul) {
                     socialContext = Math.max(socialContext, 0.80f);
                 }
             }
         }
-        if (textLower.contains("you promised") || textLower.contains("i commit") || textLower.contains("agreement")
-                || textLower.contains("meeting with") || textLower.contains("conversation")) {
-            socialContext = Math.max(socialContext, 0.90f);
+        if (signal.tags() != null) {
+            for (String rawTag : signal.tags()) {
+                if (rawTag == null || rawTag.isEmpty()) {
+                    continue;
+                }
+                String tag = rawTag.toLowerCase(Locale.ROOT);
+                if (tag.startsWith("user:") || tag.startsWith("author:") || tag.startsWith("speaker:")
+                        || tag.startsWith("interlocutor:") || tag.startsWith("person:")
+                        || tag.startsWith("entity:person:") || tag.startsWith("relation:")
+                        || tag.contains("@")) {
+                    socialContext = Math.max(socialContext, 0.80f);
+                }
+                if (tag.startsWith("intent:agreement") || tag.startsWith("intent:promise")
+                        || tag.startsWith("intent:commitment") || tag.startsWith("relation:agreement")
+                        || tag.startsWith("relation:promise")) {
+                    socialContext = Math.max(socialContext, 0.90f);
+                }
+                if (tag.startsWith("affect:high") || tag.startsWith("emotion:high")
+                        || tag.startsWith("severity:critical") || tag.startsWith("severity:emergency")) {
+                    affect = Math.max(affect, 0.95f);
+                } else if (tag.startsWith("affect:") || tag.startsWith("emotion:")
+                        || tag.startsWith("sentiment:") || tag.startsWith("severity:error")
+                        || tag.startsWith("severity:warn")) {
+                    affect = Math.max(affect, 0.80f);
+                }
+                if (tag.startsWith("intent:critical") || tag.startsWith("intent:emergency")
+                        || tag.startsWith("goal:critical") || tag.startsWith("priority:critical")) {
+                    goalRelevance = Math.max(goalRelevance, 0.90f);
+                } else if (tag.startsWith("intent:goal") || tag.startsWith("intent:task")
+                        || tag.startsWith("intent:commit") || tag.startsWith("intent:plan")
+                        || tag.startsWith("intent:milestone") || tag.startsWith("goal:")
+                        || tag.startsWith("task:") || tag.startsWith("milestone:")
+                        || tag.startsWith("todo:")) {
+                    goalRelevance = Math.max(goalRelevance, 0.85f);
+                }
+            }
+        }
+
+        // Token-boundary keyword fallback (Locale.ROOT normalized, configurable & locale-aware)
+        String textLower = signal.text() != null ? signal.text().toLowerCase(Locale.ROOT) : "";
+        if (!textLower.isEmpty()) {
+            if (containsAnyTokenBoundedKeyword(textLower,
+                    effectiveKeywords(config.importanceAffectHighKeywords(), config.importanceLocaleAffectHighKeywords(), resolvedLocale))) {
+                affect = Math.max(affect, 0.95f);
+            } else if (containsAnyTokenBoundedKeyword(textLower,
+                    effectiveKeywords(config.importanceAffectMediumKeywords(), config.importanceLocaleAffectMediumKeywords(), resolvedLocale))) {
+                affect = Math.max(affect, 0.80f);
+            }
+
+            if (containsAnyTokenBoundedKeyword(textLower,
+                    effectiveKeywords(config.importanceGoalHighKeywords(), config.importanceLocaleGoalHighKeywords(), resolvedLocale))) {
+                goalRelevance = Math.max(goalRelevance, 0.90f);
+            } else if (containsAnyTokenBoundedKeyword(textLower,
+                    effectiveKeywords(config.importanceGoalMediumKeywords(), config.importanceLocaleGoalMediumKeywords(), resolvedLocale))) {
+                goalRelevance = Math.max(goalRelevance, 0.85f);
+            }
+
+            if (containsAnyTokenBoundedKeyword(textLower,
+                    effectiveKeywords(config.importanceSocialKeywords(), config.importanceLocaleSocialKeywords(), resolvedLocale))) {
+                socialContext = Math.max(socialContext, 0.90f);
+            }
         }
 
         // 5. Novelty s5
@@ -196,6 +287,96 @@ public final class CompositeImportanceScorer {
         }
 
         return new CompositeImportanceSignals(surprise, affect, goalRelevance, socialContext, novelty);
+    }
+
+    private static Locale extractLocaleFromTags(String[] tags) {
+        if (tags == null) {
+            return null;
+        }
+        for (String raw : tags) {
+            if (raw == null) {
+                continue;
+            }
+            String lower = raw.trim().toLowerCase(Locale.ROOT);
+            if (lower.startsWith("locale:") && lower.length() > "locale:".length()) {
+                return Locale.forLanguageTag(lower.substring("locale:".length()).replace('_', '-'));
+            }
+            if (lower.startsWith("lang:") && lower.length() > "lang:".length()) {
+                return Locale.forLanguageTag(lower.substring("lang:".length()).replace('_', '-'));
+            }
+        }
+        return null;
+    }
+
+    private static List<String> effectiveKeywords(
+            List<String> baseKeywords,
+            Map<String, List<String>> localeOverrides,
+            Locale resolvedLocale) {
+        if (resolvedLocale != null && localeOverrides != null && !localeOverrides.isEmpty()) {
+            String fullTag = resolvedLocale.toLanguageTag().replace('_', '-').toLowerCase(Locale.ROOT);
+            List<String> exact = localeOverrides.get(fullTag);
+            if (exact != null) {
+                return exact;
+            }
+            String language = resolvedLocale.getLanguage().toLowerCase(Locale.ROOT);
+            List<String> byLang = localeOverrides.get(language);
+            if (byLang != null) {
+                return byLang;
+            }
+        }
+        if (localeOverrides == null || localeOverrides.isEmpty()) {
+            return baseKeywords != null ? baseKeywords : List.of();
+        }
+        List<String> combined = new ArrayList<>(baseKeywords != null ? baseKeywords : List.of());
+        for (List<String> extra : localeOverrides.values()) {
+            if (extra != null) {
+                combined.addAll(extra);
+            }
+        }
+        return combined;
+    }
+
+    static boolean containsAnyTokenBoundedKeyword(String textLower, Collection<String> keywords) {
+        if (textLower == null || textLower.isEmpty() || keywords == null || keywords.isEmpty()) {
+            return false;
+        }
+        for (String rawKeyword : keywords) {
+            if (rawKeyword == null) {
+                continue;
+            }
+            String kw = rawKeyword.trim().toLowerCase(Locale.ROOT);
+            if (!kw.isEmpty() && containsTokenBoundedPhrase(textLower, kw)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static boolean containsTokenBoundedPhrase(String textLower, String keywordLower) {
+        int kwLen = keywordLower.length();
+        int textLen = textLower.length();
+        if (kwLen == 0 || kwLen > textLen) {
+            return false;
+        }
+        int fromIndex = 0;
+        while (fromIndex <= textLen - kwLen) {
+            int idx = textLower.indexOf(keywordLower, fromIndex);
+            if (idx < 0) {
+                return false;
+            }
+            int end = idx + kwLen;
+            boolean leftBoundary = idx == 0 || !isWordBoundaryChar(textLower.codePointBefore(idx));
+            boolean rightBoundary = end == textLen || !isWordBoundaryChar(textLower.codePointAt(end));
+            if (leftBoundary && rightBoundary) {
+                return true;
+            }
+            fromIndex = idx + 1;
+        }
+        return false;
+    }
+
+    private static boolean isWordBoundaryChar(int codePoint) {
+        return Character.isLetterOrDigit(codePoint) && !Character.isIdeographic(codePoint);
     }
 
     /**

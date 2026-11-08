@@ -18,6 +18,12 @@ package com.spectrayan.spector.config.properties;
 import static com.spectrayan.spector.config.SpectorPropertyConstants.*;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 /**
  * Active Inference Self-Model Engine (AISME) configuration properties.
@@ -92,6 +98,17 @@ public class AismeProperties implements Serializable {
     private boolean privacyAnonymizePii = DEFAULT_MEMORY_AISME_PRIVACY_ANONYMIZE_PII;
     private String privacyPseudonymizationSalt = DEFAULT_MEMORY_AISME_PRIVACY_PSEUDONYMIZATION_SALT;
 
+    public static final List<String> DEFAULT_IMPORTANCE_AFFECT_HIGH_KEYWORDS = List.of(
+            "critical", "panic", "outage", "catastrophic", "emergency", "love", "hate", "congratulations");
+    public static final List<String> DEFAULT_IMPORTANCE_AFFECT_MEDIUM_KEYWORDS = List.of(
+            "error", "fail", "bug");
+    public static final List<String> DEFAULT_IMPORTANCE_GOAL_HIGH_KEYWORDS = List.of(
+            "critical", "panic", "outage", "catastrophic", "emergency");
+    public static final List<String> DEFAULT_IMPORTANCE_GOAL_MEDIUM_KEYWORDS = List.of(
+            "goal", "milestone", "task", "todo", "plan", "commit");
+    public static final List<String> DEFAULT_IMPORTANCE_SOCIAL_KEYWORDS = List.of(
+            "you promised", "i commit", "agreement", "meeting with", "conversation");
+
     private boolean enableImportance = DEFAULT_MEMORY_AISME_IMPORTANCE_ENABLED;
     private float importanceWeightSurprise = DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_SURPRISE;
     private float importanceWeightAffect = DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_AFFECT;
@@ -99,6 +116,16 @@ public class AismeProperties implements Serializable {
     private float importanceWeightSocial = DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_SOCIAL;
     private float importanceWeightNovelty = DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_NOVELTY;
     private float importanceFlashbulbThreshold = DEFAULT_MEMORY_AISME_IMPORTANCE_FLASHBULB_THRESHOLD;
+    private List<String> importanceAffectHighKeywords = new ArrayList<>(DEFAULT_IMPORTANCE_AFFECT_HIGH_KEYWORDS);
+    private List<String> importanceAffectMediumKeywords = new ArrayList<>(DEFAULT_IMPORTANCE_AFFECT_MEDIUM_KEYWORDS);
+    private List<String> importanceGoalHighKeywords = new ArrayList<>(DEFAULT_IMPORTANCE_GOAL_HIGH_KEYWORDS);
+    private List<String> importanceGoalMediumKeywords = new ArrayList<>(DEFAULT_IMPORTANCE_GOAL_MEDIUM_KEYWORDS);
+    private List<String> importanceSocialKeywords = new ArrayList<>(DEFAULT_IMPORTANCE_SOCIAL_KEYWORDS);
+    private Map<String, List<String>> importanceLocaleAffectHighKeywords = new LinkedHashMap<>();
+    private Map<String, List<String>> importanceLocaleAffectMediumKeywords = new LinkedHashMap<>();
+    private Map<String, List<String>> importanceLocaleGoalHighKeywords = new LinkedHashMap<>();
+    private Map<String, List<String>> importanceLocaleGoalMediumKeywords = new LinkedHashMap<>();
+    private Map<String, List<String>> importanceLocaleSocialKeywords = new LinkedHashMap<>();
 
     private boolean enableLifespan = DEFAULT_MEMORY_AISME_LIFESPAN_ENABLED;
     private float lifespanTau0 = DEFAULT_MEMORY_AISME_LIFESPAN_TAU_0;
@@ -662,6 +689,149 @@ public class AismeProperties implements Serializable {
         }
     }
 
+    public List<String> getImportanceAffectHighKeywords() {
+        return Collections.unmodifiableList(importanceAffectHighKeywords);
+    }
+
+    public void setImportanceAffectHighKeywords(List<String> keywords) {
+        if (keywords != null) {
+            this.importanceAffectHighKeywords = copyKeywordList(keywords);
+        }
+    }
+
+    public List<String> getImportanceAffectMediumKeywords() {
+        return Collections.unmodifiableList(importanceAffectMediumKeywords);
+    }
+
+    public void setImportanceAffectMediumKeywords(List<String> keywords) {
+        if (keywords != null) {
+            this.importanceAffectMediumKeywords = copyKeywordList(keywords);
+        }
+    }
+
+    public List<String> getImportanceGoalHighKeywords() {
+        return Collections.unmodifiableList(importanceGoalHighKeywords);
+    }
+
+    public void setImportanceGoalHighKeywords(List<String> keywords) {
+        if (keywords != null) {
+            this.importanceGoalHighKeywords = copyKeywordList(keywords);
+        }
+    }
+
+    public List<String> getImportanceGoalMediumKeywords() {
+        return Collections.unmodifiableList(importanceGoalMediumKeywords);
+    }
+
+    public void setImportanceGoalMediumKeywords(List<String> keywords) {
+        if (keywords != null) {
+            this.importanceGoalMediumKeywords = copyKeywordList(keywords);
+        }
+    }
+
+    public List<String> getImportanceSocialKeywords() {
+        return Collections.unmodifiableList(importanceSocialKeywords);
+    }
+
+    public void setImportanceSocialKeywords(List<String> keywords) {
+        if (keywords != null) {
+            this.importanceSocialKeywords = copyKeywordList(keywords);
+        }
+    }
+
+    public Map<String, List<String>> getImportanceLocaleAffectHighKeywords() {
+        return Collections.unmodifiableMap(importanceLocaleAffectHighKeywords);
+    }
+
+    public void setImportanceLocaleAffectHighKeywords(Map<String, List<String>> localeKeywords) {
+        if (localeKeywords != null) {
+            this.importanceLocaleAffectHighKeywords = copyLocaleKeywordMap(localeKeywords);
+        }
+    }
+
+    public Map<String, List<String>> getImportanceLocaleAffectMediumKeywords() {
+        return Collections.unmodifiableMap(importanceLocaleAffectMediumKeywords);
+    }
+
+    public void setImportanceLocaleAffectMediumKeywords(Map<String, List<String>> localeKeywords) {
+        if (localeKeywords != null) {
+            this.importanceLocaleAffectMediumKeywords = copyLocaleKeywordMap(localeKeywords);
+        }
+    }
+
+    public Map<String, List<String>> getImportanceLocaleGoalHighKeywords() {
+        return Collections.unmodifiableMap(importanceLocaleGoalHighKeywords);
+    }
+
+    public void setImportanceLocaleGoalHighKeywords(Map<String, List<String>> localeKeywords) {
+        if (localeKeywords != null) {
+            this.importanceLocaleGoalHighKeywords = copyLocaleKeywordMap(localeKeywords);
+        }
+    }
+
+    public Map<String, List<String>> getImportanceLocaleGoalMediumKeywords() {
+        return Collections.unmodifiableMap(importanceLocaleGoalMediumKeywords);
+    }
+
+    public void setImportanceLocaleGoalMediumKeywords(Map<String, List<String>> localeKeywords) {
+        if (localeKeywords != null) {
+            this.importanceLocaleGoalMediumKeywords = copyLocaleKeywordMap(localeKeywords);
+        }
+    }
+
+    public Map<String, List<String>> getImportanceLocaleSocialKeywords() {
+        return Collections.unmodifiableMap(importanceLocaleSocialKeywords);
+    }
+
+    public void setImportanceLocaleSocialKeywords(Map<String, List<String>> localeKeywords) {
+        if (localeKeywords != null) {
+            this.importanceLocaleSocialKeywords = copyLocaleKeywordMap(localeKeywords);
+        }
+    }
+
+    private static List<String> copyKeywordList(List<String> keywords) {
+        List<String> copy = new ArrayList<>(keywords.size());
+        for (String kw : keywords) {
+            if (kw != null && !kw.isBlank()) {
+                copy.add(kw.trim());
+            }
+        }
+        return copy;
+    }
+
+    private static Map<String, List<String>> copyLocaleKeywordMap(Map<String, List<String>> localeKeywords) {
+        Map<String, List<String>> copy = new LinkedHashMap<>();
+        for (Map.Entry<String, List<String>> entry : localeKeywords.entrySet()) {
+            if (entry.getKey() != null && !entry.getKey().isBlank() && entry.getValue() != null) {
+                copy.put(normalizeLocaleKey(entry.getKey()), Collections.unmodifiableList(copyKeywordList(entry.getValue())));
+            }
+        }
+        return copy;
+    }
+
+    private static String normalizeLocaleKey(String localeTag) {
+        return localeTag.trim().replace('_', '-').toLowerCase(Locale.ROOT);
+    }
+
+    private static List<String> resolveKeywordsForLocale(
+            List<String> baseKeywords,
+            Map<String, List<String>> localeOverrides,
+            Locale locale) {
+        if (locale != null && localeOverrides != null && !localeOverrides.isEmpty()) {
+            String fullTag = normalizeLocaleKey(locale.toLanguageTag());
+            List<String> exact = localeOverrides.get(fullTag);
+            if (exact != null) {
+                return exact;
+            }
+            String language = normalizeLocaleKey(locale.getLanguage());
+            List<String> langMatch = localeOverrides.get(language);
+            if (langMatch != null) {
+                return langMatch;
+            }
+        }
+        return Collections.unmodifiableList(baseKeywords);
+    }
+
     public boolean isEnableLifespan() {
         return enableLifespan;
     }
@@ -789,6 +959,31 @@ public class AismeProperties implements Serializable {
     public float importanceWeightSocial() { return getImportanceWeightSocial(); }
     public float importanceWeightNovelty() { return getImportanceWeightNovelty(); }
     public float importanceFlashbulbThreshold() { return getImportanceFlashbulbThreshold(); }
+    public List<String> importanceAffectHighKeywords() { return getImportanceAffectHighKeywords(); }
+    public List<String> importanceAffectHighKeywords(Locale locale) {
+        return resolveKeywordsForLocale(importanceAffectHighKeywords, importanceLocaleAffectHighKeywords, locale);
+    }
+    public List<String> importanceAffectMediumKeywords() { return getImportanceAffectMediumKeywords(); }
+    public List<String> importanceAffectMediumKeywords(Locale locale) {
+        return resolveKeywordsForLocale(importanceAffectMediumKeywords, importanceLocaleAffectMediumKeywords, locale);
+    }
+    public List<String> importanceGoalHighKeywords() { return getImportanceGoalHighKeywords(); }
+    public List<String> importanceGoalHighKeywords(Locale locale) {
+        return resolveKeywordsForLocale(importanceGoalHighKeywords, importanceLocaleGoalHighKeywords, locale);
+    }
+    public List<String> importanceGoalMediumKeywords() { return getImportanceGoalMediumKeywords(); }
+    public List<String> importanceGoalMediumKeywords(Locale locale) {
+        return resolveKeywordsForLocale(importanceGoalMediumKeywords, importanceLocaleGoalMediumKeywords, locale);
+    }
+    public List<String> importanceSocialKeywords() { return getImportanceSocialKeywords(); }
+    public List<String> importanceSocialKeywords(Locale locale) {
+        return resolveKeywordsForLocale(importanceSocialKeywords, importanceLocaleSocialKeywords, locale);
+    }
+    public Map<String, List<String>> importanceLocaleAffectHighKeywords() { return getImportanceLocaleAffectHighKeywords(); }
+    public Map<String, List<String>> importanceLocaleAffectMediumKeywords() { return getImportanceLocaleAffectMediumKeywords(); }
+    public Map<String, List<String>> importanceLocaleGoalHighKeywords() { return getImportanceLocaleGoalHighKeywords(); }
+    public Map<String, List<String>> importanceLocaleGoalMediumKeywords() { return getImportanceLocaleGoalMediumKeywords(); }
+    public Map<String, List<String>> importanceLocaleSocialKeywords() { return getImportanceLocaleSocialKeywords(); }
     public boolean enableLifespan() { return isEnableLifespan(); }
     public float lifespanTau0() { return getLifespanTau0(); }
     public float lifespanK() { return getLifespanK(); }
@@ -858,6 +1053,16 @@ public class AismeProperties implements Serializable {
         cp.importanceWeightSocial = this.importanceWeightSocial;
         cp.importanceWeightNovelty = this.importanceWeightNovelty;
         cp.importanceFlashbulbThreshold = this.importanceFlashbulbThreshold;
+        cp.importanceAffectHighKeywords = new ArrayList<>(this.importanceAffectHighKeywords);
+        cp.importanceAffectMediumKeywords = new ArrayList<>(this.importanceAffectMediumKeywords);
+        cp.importanceGoalHighKeywords = new ArrayList<>(this.importanceGoalHighKeywords);
+        cp.importanceGoalMediumKeywords = new ArrayList<>(this.importanceGoalMediumKeywords);
+        cp.importanceSocialKeywords = new ArrayList<>(this.importanceSocialKeywords);
+        cp.importanceLocaleAffectHighKeywords = copyLocaleKeywordMap(this.importanceLocaleAffectHighKeywords);
+        cp.importanceLocaleAffectMediumKeywords = copyLocaleKeywordMap(this.importanceLocaleAffectMediumKeywords);
+        cp.importanceLocaleGoalHighKeywords = copyLocaleKeywordMap(this.importanceLocaleGoalHighKeywords);
+        cp.importanceLocaleGoalMediumKeywords = copyLocaleKeywordMap(this.importanceLocaleGoalMediumKeywords);
+        cp.importanceLocaleSocialKeywords = copyLocaleKeywordMap(this.importanceLocaleSocialKeywords);
         cp.enableLifespan = this.enableLifespan;
         cp.lifespanTau0 = this.lifespanTau0;
         cp.lifespanK = this.lifespanK;
@@ -956,6 +1161,61 @@ public class AismeProperties implements Serializable {
         public Builder importanceWeightSocial(float v) { properties.setImportanceWeightSocial(v); return this; }
         public Builder importanceWeightNovelty(float v) { properties.setImportanceWeightNovelty(v); return this; }
         public Builder importanceFlashbulbThreshold(float v) { properties.setImportanceFlashbulbThreshold(v); return this; }
+        public Builder importanceAffectHighKeywords(List<String> v) { properties.setImportanceAffectHighKeywords(v); return this; }
+        public Builder importanceAffectHighKeywords(String localeTag, List<String> v) {
+            if (localeTag != null && v != null) {
+                properties.importanceLocaleAffectHighKeywords.put(normalizeLocaleKey(localeTag), Collections.unmodifiableList(copyKeywordList(v)));
+            }
+            return this;
+        }
+        public Builder importanceAffectHighKeywords(Locale locale, List<String> v) {
+            return locale != null ? importanceAffectHighKeywords(locale.toLanguageTag(), v) : this;
+        }
+        public Builder importanceAffectMediumKeywords(List<String> v) { properties.setImportanceAffectMediumKeywords(v); return this; }
+        public Builder importanceAffectMediumKeywords(String localeTag, List<String> v) {
+            if (localeTag != null && v != null) {
+                properties.importanceLocaleAffectMediumKeywords.put(normalizeLocaleKey(localeTag), Collections.unmodifiableList(copyKeywordList(v)));
+            }
+            return this;
+        }
+        public Builder importanceAffectMediumKeywords(Locale locale, List<String> v) {
+            return locale != null ? importanceAffectMediumKeywords(locale.toLanguageTag(), v) : this;
+        }
+        public Builder importanceGoalHighKeywords(List<String> v) { properties.setImportanceGoalHighKeywords(v); return this; }
+        public Builder importanceGoalHighKeywords(String localeTag, List<String> v) {
+            if (localeTag != null && v != null) {
+                properties.importanceLocaleGoalHighKeywords.put(normalizeLocaleKey(localeTag), Collections.unmodifiableList(copyKeywordList(v)));
+            }
+            return this;
+        }
+        public Builder importanceGoalHighKeywords(Locale locale, List<String> v) {
+            return locale != null ? importanceGoalHighKeywords(locale.toLanguageTag(), v) : this;
+        }
+        public Builder importanceGoalMediumKeywords(List<String> v) { properties.setImportanceGoalMediumKeywords(v); return this; }
+        public Builder importanceGoalMediumKeywords(String localeTag, List<String> v) {
+            if (localeTag != null && v != null) {
+                properties.importanceLocaleGoalMediumKeywords.put(normalizeLocaleKey(localeTag), Collections.unmodifiableList(copyKeywordList(v)));
+            }
+            return this;
+        }
+        public Builder importanceGoalMediumKeywords(Locale locale, List<String> v) {
+            return locale != null ? importanceGoalMediumKeywords(locale.toLanguageTag(), v) : this;
+        }
+        public Builder importanceSocialKeywords(List<String> v) { properties.setImportanceSocialKeywords(v); return this; }
+        public Builder importanceSocialKeywords(String localeTag, List<String> v) {
+            if (localeTag != null && v != null) {
+                properties.importanceLocaleSocialKeywords.put(normalizeLocaleKey(localeTag), Collections.unmodifiableList(copyKeywordList(v)));
+            }
+            return this;
+        }
+        public Builder importanceSocialKeywords(Locale locale, List<String> v) {
+            return locale != null ? importanceSocialKeywords(locale.toLanguageTag(), v) : this;
+        }
+        public Builder importanceLocaleAffectHighKeywords(Map<String, List<String>> v) { properties.setImportanceLocaleAffectHighKeywords(v); return this; }
+        public Builder importanceLocaleAffectMediumKeywords(Map<String, List<String>> v) { properties.setImportanceLocaleAffectMediumKeywords(v); return this; }
+        public Builder importanceLocaleGoalHighKeywords(Map<String, List<String>> v) { properties.setImportanceLocaleGoalHighKeywords(v); return this; }
+        public Builder importanceLocaleGoalMediumKeywords(Map<String, List<String>> v) { properties.setImportanceLocaleGoalMediumKeywords(v); return this; }
+        public Builder importanceLocaleSocialKeywords(Map<String, List<String>> v) { properties.setImportanceLocaleSocialKeywords(v); return this; }
         public Builder enableLifespan(boolean v) { properties.setEnableLifespan(v); return this; }
         public Builder lifespanTau0(float v) { properties.setLifespanTau0(v); return this; }
         public Builder lifespanK(float v) { properties.setLifespanK(v); return this; }
