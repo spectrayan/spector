@@ -61,11 +61,26 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
     /** Magic sentinel ('TCRC') marking a v2 CRC32C trailer after the text payload. */
     public static final int V2_CRC_TRAILER_MAGIC = 0x54435243;
 
+    /** Magic sentinel ('TCRP') marking a v3 plaintext CRC32C trailer after the text payload. */
+    public static final int V3_PLAIN_CRC_TRAILER_MAGIC = 0x54435250;
+
+    /** Magic sentinel ('TCRE') marking a v3 encrypted CRC32C trailer after the text payload. */
+    public static final int V3_ENCRYPTED_CRC_TRAILER_MAGIC = 0x54435245;
+
     /** Size in bytes of the v2 CRC32C trailer: 4B magic + 4B text CRC32C + 4B entry CRC32C. */
     public static final int V2_CRC_TRAILER_BYTES = 12;
 
     /** Flag bit set on the tier ordinal byte of v2 CRC-protected entries. */
     private static final byte V2_ENTRY_FLAG = 0x40;
+
+    /** Flag bit set on the tier ordinal byte when encryption status is stored out-of-band in entry metadata. */
+    private static final byte V3_METADATA_FLAG = 0x20;
+
+    /** Flag bit set on the tier ordinal byte when the entry text payload is encrypted ciphertext. */
+    private static final byte ENCRYPTED_ENTRY_FLAG = 0x10;
+
+    private static final byte ENTRY_FLAGS_MASK =
+            (byte) (V2_ENTRY_FLAG | V3_METADATA_FLAG | ENCRYPTED_ENTRY_FLAG);
 
     private static final ValueLayout.OfInt BE_INT =
             ValueLayout.JAVA_INT_UNALIGNED.withOrder(ByteOrder.BIG_ENDIAN);
@@ -285,11 +300,18 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
 
     private static final String ENCRYPTED_TEXT_PREFIX = "\u0000ENC1:";
 
-    private static void writeEntryCrcTrailer(MemorySegment entrySeg, long textStartOffset, int trailerOffset) {
+    private static boolean isCrcTrailerMagic(int magic) {
+        return magic == V2_CRC_TRAILER_MAGIC
+                || magic == V3_PLAIN_CRC_TRAILER_MAGIC
+                || magic == V3_ENCRYPTED_CRC_TRAILER_MAGIC;
+    }
+
+    private static void writeEntryCrcTrailer(
+            MemorySegment entrySeg, long textStartOffset, int trailerOffset, int trailerMagic) {
         int textSpan = (int) (trailerOffset - textStartOffset);
         int textCrc = AbstractRecordMemory.nonZeroCrc32c(entrySeg, textStartOffset, textSpan);
         int entryCrc = AbstractRecordMemory.nonZeroCrc32c(entrySeg, 0, trailerOffset);
-        entrySeg.set(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset, V2_CRC_TRAILER_MAGIC);
+        entrySeg.set(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset, trailerMagic);
         entrySeg.set(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset + 4, textCrc);
         entrySeg.set(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset + 8, entryCrc);
     }
@@ -318,18 +340,23 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
                 }
             }
 
+            boolean encrypt = encryptor != null && encryptor.isEnabled() && !text.isEmpty();
             String storedText = text;
-            if (encryptor != null && encryptor.isEnabled() && !text.isEmpty() && !text.startsWith(ENCRYPTED_TEXT_PREFIX)) {
+            if (encrypt) {
                 byte[] encBytes = encryptor.encryptText(plainBytes);
-                storedText = ENCRYPTED_TEXT_PREFIX + java.util.Base64.getEncoder().encodeToString(encBytes);
+                storedText = java.util.Base64.getEncoder().encodeToString(encBytes);
             }
             byte[] textBytes = storedText.getBytes(StandardCharsets.UTF_8);
 
             int bodySize = 1 + 4 + idBytes.length + 4 + textBytes.length;
             int entrySize = bodySize + V2_CRC_TRAILER_BYTES;
 
+            byte entryFlags = (byte) (V2_ENTRY_FLAG | V3_METADATA_FLAG
+                    | (encrypt ? ENCRYPTED_ENTRY_FLAG : 0));
+            int trailerMagic = encrypt ? V3_ENCRYPTED_CRC_TRAILER_MAGIC : V3_PLAIN_CRC_TRAILER_MAGIC;
+
             MemorySegment entrySeg = MemorySegment.ofArray(new byte[entrySize]);
-            entrySeg.set(ValueLayout.JAVA_BYTE, 0, (byte) (tier.ordinal() | V2_ENTRY_FLAG));
+            entrySeg.set(ValueLayout.JAVA_BYTE, 0, (byte) (tier.ordinal() | entryFlags));
             entrySeg.set(ValueLayout.JAVA_INT_UNALIGNED, 1, idBytes.length);
             MemorySegment.copy(MemorySegment.ofArray(idBytes), 0, entrySeg, 5, idBytes.length);
             entrySeg.set(ValueLayout.JAVA_INT_UNALIGNED, 5 + idBytes.length, textBytes.length);
@@ -344,13 +371,15 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
             long trailerOffset = entryStart + bodySize;
             int textCrc = AbstractRecordMemory.nonZeroCrc32c(seg, textOffset, textBytes.length);
             int entryCrc = AbstractRecordMemory.nonZeroCrc32c(seg, entryStart, bodySize);
-            seg.set(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset, V2_CRC_TRAILER_MAGIC);
+            seg.set(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset, trailerMagic);
             seg.set(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset + 4, textCrc);
             seg.set(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset + 8, entryCrc);
 
             TextPosition pos = new TextPosition(textOffset, textBytes.length);
             textPositionMap.put(id, pos);
-            recordHashPosition(hash, pos);
+            if (!encrypt) {
+                recordHashPosition(hash, pos);
+            }
             textOffsetToEntryStart.put(textOffset, entryStart);
             entryCount++;
 
@@ -403,19 +432,25 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
         if (textOffset < 0 || textLength < 0) return null;
         MemorySegment seg = segment();
         if (seg == null || textOffset + textLength > seg.byteSize()) return null;
-        if (layout.crcEnabled()) {
-            long trailerOffset = textOffset + textLength;
-            if (trailerOffset + 8 <= seg.byteSize()
-                    && seg.get(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset) == V2_CRC_TRAILER_MAGIC) {
-                int expectedTextCrc = seg.get(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset + 4);
-                int actualTextCrc = AbstractRecordMemory.nonZeroCrc32c(seg, textOffset, textLength);
-                if (expectedTextCrc != actualTextCrc) {
-                    throw new SpectorStorageException(ErrorCode.RECORD_CRC_CORRUPTED, textOffset);
-                }
+        long trailerOffset = textOffset + textLength;
+        int trailerMagic = (trailerOffset + 8 <= seg.byteSize())
+                ? seg.get(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset)
+                : 0;
+        if (layout.crcEnabled() && isCrcTrailerMagic(trailerMagic)) {
+            int expectedTextCrc = seg.get(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset + 4);
+            int actualTextCrc = AbstractRecordMemory.nonZeroCrc32c(seg, textOffset, textLength);
+            if (expectedTextCrc != actualTextCrc) {
+                throw new SpectorStorageException(ErrorCode.RECORD_CRC_CORRUPTED, textOffset);
             }
         }
         String raw = decodeUtf8FromSegment(seg, textOffset, textLength);
-        return decryptIfNeeded(raw);
+        if (trailerMagic == V3_PLAIN_CRC_TRAILER_MAGIC) {
+            return raw;
+        }
+        if (trailerMagic == V3_ENCRYPTED_CRC_TRAILER_MAGIC) {
+            return decryptCiphertext(raw);
+        }
+        return decryptLegacyIfNeeded(raw);
     }
 
     /**
@@ -447,8 +482,10 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
 
                 byte rawTier = entrySeg.get(ValueLayout.JAVA_BYTE, 0);
                 boolean isV2Entry = (rawTier & V2_ENTRY_FLAG) != 0;
-                byte tierOrd = (byte) (rawTier & ~V2_ENTRY_FLAG);
-                if (tierOrd < 0 || tierOrd >= MemoryType.values().length) {
+                boolean hasV3Metadata = (rawTier & V3_METADATA_FLAG) != 0;
+                boolean isEncryptedEntry = (rawTier & ENCRYPTED_ENTRY_FLAG) != 0;
+                byte tierOrd = (byte) (rawTier & ~ENTRY_FLAGS_MASK);
+                if (tierOrd < 0 || tierOrd >= MemoryType.values().length || (!hasV3Metadata && isEncryptedEntry)) {
                     if (isV2Entry) {
                         throw new SpectorStorageException(ErrorCode.RECORD_CRC_CORRUPTED, currentOffset);
                     }
@@ -462,7 +499,10 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
                     }
                     int trailerOffset = entryLen - V2_CRC_TRAILER_BYTES;
                     int magic = entrySeg.get(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset);
-                    if (magic != V2_CRC_TRAILER_MAGIC) {
+                    int expectedMagic = hasV3Metadata
+                            ? (isEncryptedEntry ? V3_ENCRYPTED_CRC_TRAILER_MAGIC : V3_PLAIN_CRC_TRAILER_MAGIC)
+                            : V2_CRC_TRAILER_MAGIC;
+                    if (magic != expectedMagic) {
                         throw new SpectorStorageException(ErrorCode.RECORD_CRC_CORRUPTED, currentOffset);
                     }
                     int expectedEntryCrc = entrySeg.get(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset + 8);
@@ -503,7 +543,15 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
                 }
 
                 String rawText = decodeUtf8FromSegment(entrySeg, 5 + idLen + 4, textLen);
-                String text = decryptIfNeeded(rawText);
+                String text;
+                boolean entryEncrypted;
+                if (hasV3Metadata) {
+                    entryEncrypted = isEncryptedEntry;
+                    text = isEncryptedEntry ? decryptCiphertext(rawText) : rawText;
+                } else {
+                    entryEncrypted = rawText.startsWith(ENCRYPTED_TEXT_PREFIX);
+                    text = decryptLegacyIfNeeded(rawText);
+                }
 
                 MemoryType tier = MemoryType.values()[tierOrd];
                 entries.put(id, new TextEntry(id, tier, text));
@@ -514,9 +562,11 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
                 textPositionMap.put(id, pos);
                 textOffsetToEntryStart.put(textOffset, entryStart);
 
-                byte[] textBytes = rawText.getBytes(StandardCharsets.UTF_8);
-                long hash = XxHash64.hash(textBytes);
-                recordHashPosition(hash, pos);
+                if (!entryEncrypted) {
+                    byte[] textBytes = rawText.getBytes(StandardCharsets.UTF_8);
+                    long hash = XxHash64.hash(textBytes);
+                    recordHashPosition(hash, pos);
+                }
 
                 currentOffset += 4 + entryLen;
             }
@@ -573,7 +623,7 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
     }
 
     /**
-     * Re-encrypts all {@code ENC1:} text entries in-place from {@code oldEncryptor} to {@code newEncryptor}
+     * Re-encrypts all encrypted text entries in-place from {@code oldEncryptor} to {@code newEncryptor}
      * without changing byte offsets or lengths in {@code INDEX_MIDX}.
      */
     public int rekeyEncryptedEntries(com.spectrayan.spector.kernel.storage.PayloadEncryptor oldEncryptor,
@@ -590,6 +640,8 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
                 }
                 byte rawTier = entrySeg.get(ValueLayout.JAVA_BYTE, 0);
                 boolean isV2Entry = (rawTier & V2_ENTRY_FLAG) != 0;
+                boolean hasV3Metadata = (rawTier & V3_METADATA_FLAG) != 0;
+                boolean isEncryptedEntry = (rawTier & ENCRYPTED_ENTRY_FLAG) != 0;
                 int maxBodyLen = isV2Entry ? (entryLen - V2_CRC_TRAILER_BYTES) : entryLen;
                 int idLen = entrySeg.get(ValueLayout.JAVA_INT_UNALIGNED, 1);
                 if (idLen < 0 || idLen > 10_000 || 5 + idLen + 4 > maxBodyLen) {
@@ -600,22 +652,32 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
                     continue;
                 }
                 String rawText = decodeUtf8FromSegment(entrySeg, 5 + idLen + 4, textLen);
-                if (rawText.startsWith(ENCRYPTED_TEXT_PREFIX)
+                boolean shouldRekey = hasV3Metadata
+                        ? isEncryptedEntry
+                        : rawText.startsWith(ENCRYPTED_TEXT_PREFIX);
+                if (shouldRekey
                         && oldEncryptor != null && oldEncryptor.isEnabled()
                         && newEncryptor != null && newEncryptor.isEnabled()) {
-                    byte[] cipherBytes = java.util.Base64.getDecoder().decode(
-                            rawText.substring(ENCRYPTED_TEXT_PREFIX.length()));
+                    boolean hasLegacyPrefix = !hasV3Metadata && rawText.startsWith(ENCRYPTED_TEXT_PREFIX);
+                    String base64Payload = hasLegacyPrefix
+                            ? rawText.substring(ENCRYPTED_TEXT_PREFIX.length())
+                            : rawText;
+                    byte[] cipherBytes = java.util.Base64.getDecoder().decode(base64Payload);
                     byte[] plainBytes = oldEncryptor.decryptText(cipherBytes);
                     byte[] newCipherBytes = newEncryptor.encryptText(plainBytes);
                     java.util.Arrays.fill(plainBytes, (byte) 0);
-                    String newStoredText = ENCRYPTED_TEXT_PREFIX
+                    String newStoredText = (hasLegacyPrefix ? ENCRYPTED_TEXT_PREFIX : "")
                             + java.util.Base64.getEncoder().encodeToString(newCipherBytes);
                     byte[] newTextBytes = newStoredText.getBytes(StandardCharsets.UTF_8);
                     if (newTextBytes.length == textLen) {
                         MemorySegment.copy(MemorySegment.ofArray(newTextBytes), 0,
                                 entrySeg, 5 + idLen + 4, textLen);
                         if (isV2Entry) {
-                            writeEntryCrcTrailer(entrySeg, 9 + idLen, entryLen - V2_CRC_TRAILER_BYTES);
+                            int trailerMagic = hasV3Metadata
+                                    ? V3_ENCRYPTED_CRC_TRAILER_MAGIC
+                                    : V2_CRC_TRAILER_MAGIC;
+                            writeEntryCrcTrailer(
+                                    entrySeg, 9 + idLen, entryLen - V2_CRC_TRAILER_BYTES, trailerMagic);
                         }
                         rekeyed++;
                     }
@@ -640,33 +702,43 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
         return file;
     }
 
-    private String decryptIfNeeded(String raw) {
+    private String decryptLegacyIfNeeded(String raw) {
         if (raw == null || raw.isEmpty()) {
             return raw;
         }
         if (raw.startsWith(ENCRYPTED_TEXT_PREFIX)) {
-            if (encryptor == null || !encryptor.isEnabled()) {
-                decryptFailCount.incrementAndGet();
-                throw new com.spectrayan.spector.commons.error.SpectorMemoryException(
-                        com.spectrayan.spector.commons.error.ErrorCode.MEMORY_ENCRYPTION_KEY_MISSING,
-                        file != null ? file.toString() : "text.dat");
-            }
-            try {
-                byte[] cipherBytes = java.util.Base64.getDecoder().decode(raw.substring(ENCRYPTED_TEXT_PREFIX.length()));
-                byte[] plainBytes = encryptor.decryptText(cipherBytes);
-                return new String(plainBytes, StandardCharsets.UTF_8);
-            } catch (com.spectrayan.spector.commons.error.SpectorMemoryException e) {
-                decryptFailCount.incrementAndGet();
-                throw e;
-            } catch (RuntimeException e) {
-                decryptFailCount.incrementAndGet();
-                throw new com.spectrayan.spector.commons.error.SpectorMemoryException(
-                        com.spectrayan.spector.commons.error.ErrorCode.MEMORY_AUTH_TAG_MISMATCH,
-                        e,
-                        "Failed to decrypt text entry in " + file);
-            }
+            return decryptCiphertext(raw.substring(ENCRYPTED_TEXT_PREFIX.length()));
         }
         return raw;
+    }
+
+    private String decryptCiphertext(String base64Ciphertext) {
+        if (base64Ciphertext == null || base64Ciphertext.isEmpty()) {
+            return base64Ciphertext;
+        }
+        if (encryptor == null || !encryptor.isEnabled()) {
+            decryptFailCount.incrementAndGet();
+            throw new com.spectrayan.spector.commons.error.SpectorMemoryException(
+                    com.spectrayan.spector.commons.error.ErrorCode.MEMORY_ENCRYPTION_KEY_MISSING,
+                    file != null ? file.toString() : "text.dat");
+        }
+        try {
+            String normalized = base64Ciphertext.startsWith(ENCRYPTED_TEXT_PREFIX)
+                    ? base64Ciphertext.substring(ENCRYPTED_TEXT_PREFIX.length())
+                    : base64Ciphertext;
+            byte[] cipherBytes = java.util.Base64.getDecoder().decode(normalized);
+            byte[] plainBytes = encryptor.decryptText(cipherBytes);
+            return new String(plainBytes, StandardCharsets.UTF_8);
+        } catch (com.spectrayan.spector.commons.error.SpectorMemoryException e) {
+            decryptFailCount.incrementAndGet();
+            throw e;
+        } catch (RuntimeException e) {
+            decryptFailCount.incrementAndGet();
+            throw new com.spectrayan.spector.commons.error.SpectorMemoryException(
+                    com.spectrayan.spector.commons.error.ErrorCode.MEMORY_AUTH_TAG_MISMATCH,
+                    e,
+                    "Failed to decrypt text entry in " + file);
+        }
     }
 
     private static String decodeUtf8FromSegment(MemorySegment segment, long offset, int length) {
@@ -745,16 +817,28 @@ public final class TextBlobMemory extends AbstractAppendMemory<TextBlobLayout> {
                 if (textLenFieldOffset >= 0) {
                     seg.set(ValueLayout.JAVA_INT_UNALIGNED, textLenFieldOffset, 0);
                 }
+                Long entryStart = textOffsetToEntryStart.remove(pos.textOffset());
+                if (entryStart != null && entryStart >= dataOffset()) {
+                    byte rawTier = seg.get(ValueLayout.JAVA_BYTE, entryStart);
+                    if ((rawTier & ENCRYPTED_ENTRY_FLAG) != 0) {
+                        seg.set(ValueLayout.JAVA_BYTE, entryStart, (byte) (rawTier & ~ENCRYPTED_ENTRY_FLAG));
+                    }
+                }
                 long trailerOffset = pos.textOffset() + pos.textLength();
-                if (trailerOffset + V2_CRC_TRAILER_BYTES <= seg.byteSize()
-                        && seg.get(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset) == V2_CRC_TRAILER_MAGIC) {
-                    int textCrc = AbstractRecordMemory.nonZeroCrc32c(seg, pos.textOffset(), pos.textLength());
-                    seg.set(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset + 4, textCrc);
-                    Long entryStart = textOffsetToEntryStart.remove(pos.textOffset());
-                    if (entryStart != null && entryStart >= dataOffset()) {
-                        int entryCrc = AbstractRecordMemory.nonZeroCrc32c(
-                                seg, entryStart, (int) (trailerOffset - entryStart));
-                        seg.set(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset + 8, entryCrc);
+                if (trailerOffset + V2_CRC_TRAILER_BYTES <= seg.byteSize()) {
+                    int currentMagic = seg.get(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset);
+                    if (isCrcTrailerMagic(currentMagic)) {
+                        int updatedMagic = (currentMagic == V3_ENCRYPTED_CRC_TRAILER_MAGIC)
+                                ? V3_PLAIN_CRC_TRAILER_MAGIC
+                                : currentMagic;
+                        seg.set(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset, updatedMagic);
+                        int textCrc = AbstractRecordMemory.nonZeroCrc32c(seg, pos.textOffset(), pos.textLength());
+                        seg.set(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset + 4, textCrc);
+                        if (entryStart != null && entryStart >= dataOffset()) {
+                            int entryCrc = AbstractRecordMemory.nonZeroCrc32c(
+                                    seg, entryStart, (int) (trailerOffset - entryStart));
+                            seg.set(ValueLayout.JAVA_INT_UNALIGNED, trailerOffset + 8, entryCrc);
+                        }
                     }
                 }
                 flush();
