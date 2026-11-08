@@ -334,6 +334,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.namespaceManager = bundle.namespaceManager();
         this.namespaceId = builder.namespaceId();
         this.mutationPolicy = builder.mutationPolicy();
+        if (this.wal != null) {
+            this.wal.bindMutationPolicy(this.namespaceId, this.mutationPolicy);
+        }
         this.quiesceGuard = builder.quiesceGuard() != null
                 ? builder.quiesceGuard()
                 : new com.spectrayan.spector.memory.sync.QuiesceGuard();
@@ -344,6 +347,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             this.checkpointEngine.setQuiesceGuard(this.quiesceGuard);
         }
         this.graphEnrichmentEngine = bundle.graphEnrichmentEngine();
+        if (this.graphEnrichmentEngine != null) {
+            this.graphEnrichmentEngine.setMutationPolicy(this.mutationPolicy);
+        }
         this.bm25Index = bundle.bm25Index();
         this.chunker = builder.chunker();
         this.chunkConfig = builder.chunkConfig();
@@ -478,13 +484,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override
     public void remember(String id, String text, MemoryType type,
                                               MemorySource source, String... tags) {
-        try (var permit = quiesceGuard.acquireWritePermit()) {
-        mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.remember(
-            namespaceId, id, com.spectrayan.spector.commons.concurrent.MemoryScope.fenceEpoch(), System.currentTimeMillis()));
-        
         remember(id, text, type, source,
                 (com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints) null, tags);
-            }
     }
 
     @Override
@@ -493,56 +494,56 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                                               com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints hints,
                                               String... tags) {
         try (var permit = quiesceGuard.acquireWritePermit()) {
-        mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.remember(
-            namespaceId, id, com.spectrayan.spector.commons.concurrent.MemoryScope.fenceEpoch(), System.currentTimeMillis()));
-        
-        acquireLease();
-        try {
-            if (shouldChunk(text)) {
-                rememberChunked(id, text, type, source, hints, null, tags);
-            } else {
-                String[] finalTags = tags;
-                var finalHints = hints;
-                var extraction = extractTagsFor(id, text, tags);
-                if (extraction != null) {
-                    finalTags = mergeTags(tags, extraction.tags());
-                    finalHints = RememberHints.withAppraisedAffect(
-                            hints, extraction.valence(), extraction.arousal());
+            long epoch = resolveWriteEpoch();
+            mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.remember(
+                    namespaceId, id, epoch, System.currentTimeMillis()));
+            runWithEffectiveFenceEpoch(epoch, () -> {
+                acquireLease();
+                try {
+                    if (shouldChunk(text)) {
+                        rememberChunked(id, text, type, source, hints, null, tags);
+                    } else {
+                        String[] finalTags = tags;
+                        var finalHints = hints;
+                        var extraction = extractTagsFor(id, text, tags);
+                        if (extraction != null) {
+                            finalTags = mergeTags(tags, extraction.tags());
+                            finalHints = RememberHints.withAppraisedAffect(
+                                    hints, extraction.valence(), extraction.arousal());
+                        }
+                        float[] vector = embeddingProvider.embed(text).vector();
+                        finalHints = fillAnchorAffect(finalHints, extraction, vector);
+                        String sessionId = MemoryScope.sessionId();
+                        if (sessionId != null) {
+                            sessionBufferManager.add(sessionId, id, text, vector, type, System.currentTimeMillis());
+                        }
+                        rememberPathway.ingestCognitive(id, text, vector, type, finalTags, source, finalHints);
+                    }
+                    checkCircadianTrigger(type);
+                    if (eagerConsolidator != null && (type == MemoryType.SEMANTIC || type == MemoryType.PROCEDURAL)) {
+                        eagerConsolidator.submit(id, type);
+                    }
+                } catch (RuntimeException e) {
+                    SpectorServerException fenced = findFencedFailure(e);
+                    if (fenced != null) {
+                        throw fenced;
+                    }
+                    if (isLlmAppraisalFailure(e)) {
+                        throw e;
+                    }
+                    log.error("Failed to remember '{}': {}", id, e.getMessage(), e);
+                    throw new SpectorServerException(ErrorCode.INGESTION_PIPELINE_FAILED, e, id);
+                } finally {
+                    releaseLease();
                 }
-                float[] vector = embeddingProvider.embed(text).vector();
-                finalHints = fillAnchorAffect(finalHints, extraction, vector);
-                String sessionId = MemoryScope.sessionId();
-                if (sessionId != null) {
-                    sessionBufferManager.add(sessionId, id, text, vector, type, System.currentTimeMillis());
-                }
-                rememberPathway.ingestCognitive(id, text, vector, type, finalTags, source, finalHints);
-                
-            }
-            checkCircadianTrigger(type);
-            if (eagerConsolidator != null && (type == MemoryType.SEMANTIC || type == MemoryType.PROCEDURAL)) {
-                eagerConsolidator.submit(id, type);
-            }
-        } catch (RuntimeException e) {
-            if (isLlmAppraisalFailure(e)) {
-                throw e; // already carries SPE-310-029 and a clear message; don't bury it in SPE-600-003
-            }
-            log.error("Failed to remember '{}': {}", id, e.getMessage(), e);
-            throw new SpectorServerException(ErrorCode.INGESTION_PIPELINE_FAILED, e, id);
-        } finally {
-            releaseLease();
+            });
         }
-            }
     }
 
     @Override
     public void remember(String id, String text, MemoryType type,
                                               String... tags) {
-        try (var permit = quiesceGuard.acquireWritePermit()) {
-        mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.remember(
-            namespaceId, id, com.spectrayan.spector.commons.concurrent.MemoryScope.fenceEpoch(), System.currentTimeMillis()));
-        
         remember(id, text, type, MemorySource.OBSERVED, tags);
-            }
     }
 
     @Override
@@ -579,46 +580,51 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                                               RememberContext context,
                                               String... tags) {
         try (var permit = quiesceGuard.acquireWritePermit()) {
-        mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.remember(
-            namespaceId, id, com.spectrayan.spector.commons.concurrent.MemoryScope.fenceEpoch(), System.currentTimeMillis()));
-        
-        acquireLease();
-        try {
-            if (shouldChunk(text)) {
-                rememberChunked(id, text, type, source, null, context, tags);
-            } else {
-                String[] finalTags = tags;
-                var finalContext = context;
-                var extraction = extractTagsFor(id, text, tags);
-                if (extraction != null) {
-                    finalTags = mergeTags(tags, extraction.tags());
-                    finalContext = withAppraisedAffect(context, extraction);
+            long epoch = resolveWriteEpoch();
+            mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.remember(
+                    namespaceId, id, epoch, System.currentTimeMillis()));
+            runWithEffectiveFenceEpoch(epoch, () -> {
+                acquireLease();
+                try {
+                    if (shouldChunk(text)) {
+                        rememberChunked(id, text, type, source, null, context, tags);
+                    } else {
+                        String[] finalTags = tags;
+                        var finalContext = context;
+                        var extraction = extractTagsFor(id, text, tags);
+                        if (extraction != null) {
+                            finalTags = mergeTags(tags, extraction.tags());
+                            finalContext = withAppraisedAffect(context, extraction);
+                        }
+                        float[] vector = embeddingProvider.embed(text).vector();
+                        finalContext = contextWithAnchorAffect(finalContext, extraction, vector);
+                        rememberPathway.ingestCognitive(id, text, vector, type, finalTags, source, finalContext);
+                    }
+
+                    // Process attachments if present in context metadata
+                    if (context != null && context.hasAttachments()) {
+                        processAttachments(id, context, type, source, tags);
+                    }
+
+                    checkCircadianTrigger(type);
+                    if (eagerConsolidator != null && (type == MemoryType.SEMANTIC || type == MemoryType.PROCEDURAL)) {
+                        eagerConsolidator.submit(id, type);
+                    }
+                } catch (RuntimeException e) {
+                    SpectorServerException fenced = findFencedFailure(e);
+                    if (fenced != null) {
+                        throw fenced;
+                    }
+                    if (isLlmAppraisalFailure(e)) {
+                        throw e;
+                    }
+                    log.error("Failed to remember '{}': {}", id, e.getMessage(), e);
+                    throw new SpectorServerException(ErrorCode.INGESTION_PIPELINE_FAILED, e, id);
+                } finally {
+                    releaseLease();
                 }
-                float[] vector = embeddingProvider.embed(text).vector();
-                finalContext = contextWithAnchorAffect(finalContext, extraction, vector);
-                rememberPathway.ingestCognitive(id, text, vector, type, finalTags, source, finalContext);
-                
-            }
-
-            // Process attachments if present in context metadata
-            if (context != null && context.hasAttachments()) {
-                processAttachments(id, context, type, source, tags);
-            }
-
-            checkCircadianTrigger(type);
-            if (eagerConsolidator != null && (type == MemoryType.SEMANTIC || type == MemoryType.PROCEDURAL)) {
-                eagerConsolidator.submit(id, type);
-            }
-        } catch (RuntimeException e) {
-            if (isLlmAppraisalFailure(e)) {
-                throw e; // already carries SPE-310-029 and a clear message; don't bury it in SPE-600-003
-            }
-            log.error("Failed to remember '{}': {}", id, e.getMessage(), e);
-            throw new SpectorServerException(ErrorCode.INGESTION_PIPELINE_FAILED, e, id);
-        } finally {
-            releaseLease();
+            });
         }
-            }
     }
 
     @Override
@@ -627,56 +633,60 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                          RememberContext context,
                          String... tags) {
         try (var permit = quiesceGuard.acquireWritePermit()) {
-        mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.remember(
-            namespaceId, id, com.spectrayan.spector.commons.concurrent.MemoryScope.fenceEpoch(), System.currentTimeMillis()));
-        
-        acquireLease();
-        try {
-            String[] finalTags = tags;
-            var finalContext = context;
-            var extraction = extractTagsFor(id, text, tags);
-            if (extraction != null) {
-                finalTags = mergeTags(tags, extraction.tags());
-                finalContext = withAppraisedAffect(context, extraction);
-            }
-            float[] finalVector = (vector != null && vector.length > 0)
-                    ? vector
-                    : embeddingProvider.embed(text).vector();
-            finalContext = contextWithAnchorAffect(finalContext, extraction, finalVector);
-            String sessionId = MemoryScope.sessionId();
-            if (sessionId != null) {
-                sessionBufferManager.add(sessionId, id, text, finalVector, type, System.currentTimeMillis());
-            }
-            rememberPathway.ingestCognitive(id, text, finalVector, type, finalTags, source, finalContext);
+            long epoch = resolveWriteEpoch();
+            mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.remember(
+                    namespaceId, id, epoch, System.currentTimeMillis()));
+            runWithEffectiveFenceEpoch(epoch, () -> {
+                acquireLease();
+                try {
+                    String[] finalTags = tags;
+                    var finalContext = context;
+                    var extraction = extractTagsFor(id, text, tags);
+                    if (extraction != null) {
+                        finalTags = mergeTags(tags, extraction.tags());
+                        finalContext = withAppraisedAffect(context, extraction);
+                    }
+                    float[] finalVector = (vector != null && vector.length > 0)
+                            ? vector
+                            : embeddingProvider.embed(text).vector();
+                    finalContext = contextWithAnchorAffect(finalContext, extraction, finalVector);
+                    String sessionId = MemoryScope.sessionId();
+                    if (sessionId != null) {
+                        sessionBufferManager.add(sessionId, id, text, finalVector, type, System.currentTimeMillis());
+                    }
+                    rememberPathway.ingestCognitive(id, text, finalVector, type, finalTags, source, finalContext);
 
-            // Process attachments if present in context metadata
-            if (context != null && context.hasAttachments()) {
-                processAttachments(id, context, type, source, tags);
-            }
+                    // Process attachments if present in context metadata
+                    if (context != null && context.hasAttachments()) {
+                        processAttachments(id, context, type, source, tags);
+                    }
 
-            checkCircadianTrigger(type);
-            if (eagerConsolidator != null && (type == MemoryType.SEMANTIC || type == MemoryType.PROCEDURAL)) {
-                eagerConsolidator.submit(id, type);
-            }
-        } catch (RuntimeException e) {
-            if (isLlmAppraisalFailure(e)) {
-                throw e; // already carries SPE-310-029 and a clear message; don't bury it in SPE-600-003
-            }
-            log.error("Failed to remember with vector '{}': {}", id, e.getMessage(), e);
-            throw new SpectorServerException(ErrorCode.INGESTION_PIPELINE_FAILED, e, id);
-        } finally {
-            releaseLease();
+                    checkCircadianTrigger(type);
+                    if (eagerConsolidator != null && (type == MemoryType.SEMANTIC || type == MemoryType.PROCEDURAL)) {
+                        eagerConsolidator.submit(id, type);
+                    }
+                } catch (RuntimeException e) {
+                    SpectorServerException fenced = findFencedFailure(e);
+                    if (fenced != null) {
+                        throw fenced;
+                    }
+                    if (isLlmAppraisalFailure(e)) {
+                        throw e;
+                    }
+                    log.error("Failed to remember with vector '{}': {}", id, e.getMessage(), e);
+                    throw new SpectorServerException(ErrorCode.INGESTION_PIPELINE_FAILED, e, id);
+                } finally {
+                    releaseLease();
+                }
+            });
         }
-            }
     }
 
     @Override
     public void remember(String id, String text, float[] vector, MemoryType type,
                          MemorySource source,
                          String... tags) {
-        try (var permit = quiesceGuard.acquireWritePermit()) {
         remember(id, text, vector, type, source, (RememberContext) null, tags);
-            }
     }
 
     /**
@@ -731,73 +741,81 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                                   int latencyMs, long userId,
                                   short soulVersion, SourceModality modality) {
         try (var permit = quiesceGuard.acquireWritePermit()) {
-            acquireLease();
-            try {
-                if (episodicMemory == null) {
-                    throw new com.spectrayan.spector.commons.error.SpectorMemoryException(
-                            com.spectrayan.spector.commons.error.ErrorCode.MEMORY_PATHWAY_FAILED, "Episodic store not available (store missing)");
-                }
+            long epoch = resolveWriteEpoch();
+            String turnId = "episodic:" + Long.toHexString(sessionId) + ":" + sequenceId;
+            mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.remember(
+                    namespaceId, turnId, epoch, System.currentTimeMillis()));
+            return callWithEffectiveFenceEpoch(epoch, () -> {
+                acquireLease();
+                try {
+                    if (episodicMemory == null) {
+                        throw new com.spectrayan.spector.commons.error.SpectorMemoryException(
+                                com.spectrayan.spector.commons.error.ErrorCode.MEMORY_PATHWAY_FAILED, "Episodic store not available (store missing)");
+                    }
 
-                String text = (body != null && body.length > 0)
-                        ? new String(body, java.nio.charset.StandardCharsets.UTF_8)
-                        : "";
-                String turnId = "episodic:" + Long.toHexString(sessionId) + ":" + sequenceId;
-                RememberHints hints = null;
-                TagExtractionResult extraction = extractEpisodicAffect(turnId, text);
-                if (extraction != null) {
-                    hints = RememberHints.withAppraisedAffect(null, extraction.valence(), extraction.arousal());
-                }
-                float[] vector = embedEpisodicTurn(text);
-                hints = fillAnchorAffect(hints, extraction, vector);
+                    String text = (body != null && body.length > 0)
+                            ? new String(body, java.nio.charset.StandardCharsets.UTF_8)
+                            : "";
+                    RememberHints hints = null;
+                    TagExtractionResult extraction = extractEpisodicAffect(turnId, text);
+                    if (extraction != null) {
+                        hints = RememberHints.withAppraisedAffect(null, extraction.valence(), extraction.arousal());
+                    }
+                    float[] vector = embedEpisodicTurn(text);
+                    hints = fillAnchorAffect(hints, extraction, vector);
 
-                SalienceProfile profile = salienceProfile();
-                byte rawValence = (hints != null) ? hints.valence() : (byte) 0;
-                byte rawArousal = (hints != null) ? hints.effectiveArousal() : (byte) 0;
-                byte valence = (profile != null) ? profile.modulateValence(rawValence) : rawValence;
-                byte arousal = (profile != null) ? profile.modulateArousal(rawArousal) : rawArousal;
+                    SalienceProfile profile = salienceProfile();
+                    byte rawValence = (hints != null) ? hints.valence() : (byte) 0;
+                    byte rawArousal = (hints != null) ? hints.effectiveArousal() : (byte) 0;
+                    byte valence = (profile != null) ? profile.modulateValence(rawValence) : rawValence;
+                    byte arousal = (profile != null) ? profile.modulateArousal(rawArousal) : rawArousal;
 
-                float importance = DEFAULT_EPISODIC_IMPORTANCE;
-                if (importanceProvider != null) {
-                    try {
-                        float nearestDist = episodicNearestDistance(vector);
-                        var scored = importanceProvider.score(
-                                new com.spectrayan.spector.memory.model.ImportanceContext(
-                                        text, vector, hints, profile, MemoryType.EPISODIC, nearestDist, 0.0, false)
-                        );
-                        float candidate = (scored != null) ? scored.importance() : 0.0f;
-                        if (Float.isFinite(candidate) && candidate > 0.0f) {
-                            importance = candidate;
-                        } else {
+                    float importance = DEFAULT_EPISODIC_IMPORTANCE;
+                    if (importanceProvider != null) {
+                        try {
+                            float nearestDist = episodicNearestDistance(vector);
+                            var scored = importanceProvider.score(
+                                    new com.spectrayan.spector.memory.model.ImportanceContext(
+                                            text, vector, hints, profile, MemoryType.EPISODIC, nearestDist, 0.0, false)
+                            );
+                            float candidate = (scored != null) ? scored.importance() : 0.0f;
+                            if (Float.isFinite(candidate) && candidate > 0.0f) {
+                                importance = candidate;
+                            } else {
+                                importance = DEFAULT_EPISODIC_IMPORTANCE;
+                            }
+                            if (vector != null && vector.length > 0) {
+                                importanceProvider.observeIngested(vector);
+                            }
+                        } catch (Exception e) {
+                            long failures = episodicImportanceFailureCount.incrementAndGet();
+                            recordEpisodicImportanceFailure(e, failures, sessionId, sequenceId);
                             importance = DEFAULT_EPISODIC_IMPORTANCE;
                         }
-                        if (vector != null && vector.length > 0) {
-                            importanceProvider.observeIngested(vector);
-                        }
-                    } catch (Exception e) {
-                        long failures = episodicImportanceFailureCount.incrementAndGet();
-                        recordEpisodicImportanceFailure(e, failures, sessionId, sequenceId);
-                        importance = DEFAULT_EPISODIC_IMPORTANCE;
                     }
+
+                    mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.remember(
+                            namespaceId, turnId, epoch, System.currentTimeMillis()));
+
+                    long offset = episodicMemory.appendTurn(role, sequenceId,
+                            timestampMs, sessionId, body, modelId,
+                            tokenIn, tokenOut, latencyMs, userId,
+                            soulVersion, modality, importance, valence, arousal,
+                            com.spectrayan.spector.kernel.api.EngramSource.EXPERIENCED);
+
+                    // Update session index
+                    episodicSessionIndex.appendTurn(sessionId, offset);
+
+                    // Fire circadian trigger (episodic volume → auto-reflect)
+                    checkCircadianTrigger(MemoryType.EPISODIC);
+
+                    log.debug("Episodic turn appended: session={}, seq={}, role={}, offset={}, importance={}",
+                            Long.toHexString(sessionId), sequenceId, role, offset, importance);
+                    return offset;
+                } finally {
+                    releaseLease();
                 }
-
-                long offset = episodicMemory.appendTurn(role, sequenceId,
-                        timestampMs, sessionId, body, modelId,
-                        tokenIn, tokenOut, latencyMs, userId,
-                        soulVersion, modality, importance, valence, arousal,
-                        com.spectrayan.spector.kernel.api.EngramSource.EXPERIENCED);
-
-                // Update session index
-                episodicSessionIndex.appendTurn(sessionId, offset);
-
-                // Fire circadian trigger (episodic volume → auto-reflect)
-                checkCircadianTrigger(MemoryType.EPISODIC);
-
-                log.debug("Episodic turn appended: session={}, seq={}, role={}, offset={}, importance={}",
-                        Long.toHexString(sessionId), sequenceId, role, offset, importance);
-                return offset;
-            } finally {
-                releaseLease();
-            }
+            });
         }
     }
 
@@ -1170,6 +1188,10 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                     log.warn("Failed to tombstone chunk '{}' during rollback: {}", chunkId, te.getMessage());
                 }
             }
+            SpectorServerException fenced = findFencedFailure(e);
+            if (fenced != null) {
+                throw fenced;
+            }
             if (e instanceof RuntimeException re && isLlmAppraisalFailure(re)) {
                 throw re;
             }
@@ -1195,7 +1217,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         if (loc != null) {
             partitionManager.routerFor(loc.colocatedPartition()).tombstone(loc);
             index.remove(memoryId);
-            wal.appendForget(memoryId);
+            wal.appendForgetUnchecked(memoryId);
         }
     }
 
@@ -1221,6 +1243,50 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private static boolean isLlmAppraisalFailure(RuntimeException e) {
         return e instanceof com.spectrayan.spector.commons.error.SpectorMemoryException sme
                 && sme.errorCode() == ErrorCode.MEMORY_LLM_APPRAISAL_FAILED;
+    }
+
+    /** Finds a fence rejection in {@code t}'s cause chain so it reaches the caller unwrapped. */
+    private static SpectorServerException findFencedFailure(Throwable t) {
+        Throwable cur = t;
+        while (cur != null) {
+            if (cur instanceof SpectorServerException sse && sse.errorCode() == ErrorCode.FENCED) {
+                return sse;
+            }
+            cur = cur.getCause();
+        }
+        return null;
+    }
+
+    private long resolveWriteEpoch() {
+        if (MemoryScope.isFenceEpochActive()) {
+            return MemoryScope.fenceEpoch();
+        }
+        long policyEpoch = mutationPolicy.currentEpoch();
+        if (policyEpoch >= 0L && policyEpoch < Long.MAX_VALUE) {
+            return policyEpoch;
+        }
+        return -1L;
+    }
+
+    private void runWithEffectiveFenceEpoch(long epoch, Runnable action) {
+        if (!MemoryScope.isFenceEpochActive() && epoch >= 0L) {
+            MemoryScope.runWithFenceEpoch(epoch, action);
+        } else {
+            action.run();
+        }
+    }
+
+    private <T> T callWithEffectiveFenceEpoch(long epoch, java.util.function.Supplier<T> action) {
+        if (!MemoryScope.isFenceEpochActive() && epoch >= 0L) {
+            try {
+                return MemoryScope.callWithFenceEpoch(epoch, action::get);
+            } catch (RuntimeException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return action.get();
     }
 
     /** Writes the current tombstone registry to the ledger (DISK mode only). */
@@ -1479,12 +1545,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public void forget(String id) {
-        try (var permit = quiesceGuard.acquireWritePermit()) {
-        mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.forget(
-            namespaceId, id, com.spectrayan.spector.commons.concurrent.MemoryScope.fenceEpoch(), System.currentTimeMillis()));
-        
         forgetWithResult(id);
-            }
     }
 
     @Override
@@ -1496,66 +1557,68 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     public com.spectrayan.spector.memory.model.ForgetResult forgetWithResult(
             String id, com.spectrayan.spector.memory.model.ForgetCascade cascade) {
         try (var permit = quiesceGuard.acquireWritePermit()) {
-        mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.forget(
-            namespaceId, id, com.spectrayan.spector.commons.concurrent.MemoryScope.fenceEpoch(), System.currentTimeMillis()));
-        
-        acquireLease();
-        try {
-            if (id == null) { throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "id"); }
-            MemoryLocation loc = index.locate(id);
-            if (loc == null) {
-                // Deliberately does NOT throw: idempotent delete is a contract Spring AI's VectorStore and
-                // both chat-memory bulk paths rely on. The caller now distinguishes this case via the
-                // returned result instead of being told the memory was forgotten (#983).
-                log.warn("Forget: memory '{}' not found in index — nothing was tombstoned", id);
-                return com.spectrayan.spector.memory.model.ForgetResult.notFound(id);
-            }
-            mutationPolicy.checkDeletion(
-                    com.spectrayan.spector.memory.policy.DeletionRequest.forget(namespaceId, id));
-            // Collect derived memories before the tombstone: the episodic turn is read for its lineage keys.
-            java.util.Map<String, Boolean> derived = collectDerived(id, loc);
-            tombstoneInternal(id, loc);
-            long tombstonedAt = System.currentTimeMillis();
+            long epoch = resolveWriteEpoch();
+            mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.forget(
+                    namespaceId, id, epoch, System.currentTimeMillis()));
+            return callWithEffectiveFenceEpoch(epoch, () -> {
+                acquireLease();
+                try {
+                    if (id == null) { throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "id"); }
+                    MemoryLocation loc = index.locate(id);
+                    if (loc == null) {
+                        // Deliberately does NOT throw: idempotent delete is a contract Spring AI's VectorStore and
+                        // both chat-memory bulk paths rely on. The caller now distinguishes this case via the
+                        // returned result instead of being told the memory was forgotten (#983).
+                        log.warn("Forget: memory '{}' not found in index — nothing was tombstoned", id);
+                        return com.spectrayan.spector.memory.model.ForgetResult.notFound(id);
+                    }
+                    mutationPolicy.checkDeletion(
+                            com.spectrayan.spector.memory.policy.DeletionRequest.forget(namespaceId, id));
+                    // Collect derived memories before the tombstone: the episodic turn is read for its lineage keys.
+                    java.util.Map<String, Boolean> derived = collectDerived(id, loc);
+                    tombstoneInternal(id, loc);
+                    long tombstonedAt = System.currentTimeMillis();
 
-            java.util.List<String> retracted = new java.util.ArrayList<>();
-            java.util.List<String> cascadeTombstoned = new java.util.ArrayList<>();
-            var mode = cascade != null ? cascade : com.spectrayan.spector.memory.model.ForgetCascade.FLAG;
-            if (mode != com.spectrayan.spector.memory.model.ForgetCascade.REPORT) {
-                for (var entry : derived.entrySet()) {
-                    String derivedId = entry.getKey();
-                    MemoryLocation dloc = index.locate(derivedId);
-                    if (dloc == null) {
-                        continue;
-                    }
-                    if (mode == com.spectrayan.spector.memory.model.ForgetCascade.TOMBSTONE && entry.getValue()) {
-                        tombstoneInternal(derivedId, dloc);
-                        if (provenanceMemory != null) {
-                            provenanceMemory.tombstoneByTarget(ProvenanceKeys.of(derivedId));
+                    java.util.List<String> retracted = new java.util.ArrayList<>();
+                    java.util.List<String> cascadeTombstoned = new java.util.ArrayList<>();
+                    var mode = cascade != null ? cascade : com.spectrayan.spector.memory.model.ForgetCascade.FLAG;
+                    if (mode != com.spectrayan.spector.memory.model.ForgetCascade.REPORT) {
+                        for (var entry : derived.entrySet()) {
+                            String derivedId = entry.getKey();
+                            MemoryLocation dloc = index.locate(derivedId);
+                            if (dloc == null) {
+                                continue;
+                            }
+                            if (mode == com.spectrayan.spector.memory.model.ForgetCascade.TOMBSTONE && entry.getValue()) {
+                                tombstoneInternal(derivedId, dloc);
+                                if (provenanceMemory != null) {
+                                    provenanceMemory.tombstoneByTarget(ProvenanceKeys.of(derivedId));
+                                }
+                                cascadeTombstoned.add(derivedId);
+                            } else {
+                                partitionManager.routerFor(dloc.colocatedPartition()).markRetracted(dloc);
+                                if (wal != null) {
+                                    wal.appendMarkRetracted(derivedId, dloc.type(), dloc.offset());
+                                }
+                                retracted.add(derivedId);
+                            }
                         }
-                        cascadeTombstoned.add(derivedId);
-                    } else {
-                        partitionManager.routerFor(dloc.colocatedPartition()).markRetracted(dloc);
-                        if (wal != null) {
-                            wal.appendMarkRetracted(derivedId, dloc.type(), dloc.offset());
-                        }
-                        retracted.add(derivedId);
                     }
+                    if (!cascadeTombstoned.isEmpty()) {
+                        persistTombstones();
+                    }
+                    if (!derived.isEmpty()) {
+                        log.info("Forget: '{}' cascade={} derived={} retracted={} tombstoned={}",
+                                id, mode, derived.size(), retracted.size(), cascadeTombstoned.size());
+                    }
+                    log.debug("Forget: '{}' tombstoned", id);
+                    return new com.spectrayan.spector.memory.model.ForgetResult(id, true, tombstonedAt,
+                            new java.util.ArrayList<>(derived.keySet()), retracted, cascadeTombstoned);
+                } finally {
+                    releaseLease();
                 }
-            }
-            if (!cascadeTombstoned.isEmpty()) {
-                persistTombstones();
-            }
-            if (!derived.isEmpty()) {
-                log.info("Forget: '{}' cascade={} derived={} retracted={} tombstoned={}",
-                        id, mode, derived.size(), retracted.size(), cascadeTombstoned.size());
-            }
-            log.debug("Forget: '{}' tombstoned", id);
-            return new com.spectrayan.spector.memory.model.ForgetResult(id, true, tombstonedAt,
-                    new java.util.ArrayList<>(derived.keySet()), retracted, cascadeTombstoned);
-        } finally {
-            releaseLease();
+            });
         }
-            }
     }
 
     /** Tombstones one record: store flag, WAL entry, index retirement and the tombstone registry. */
@@ -1654,127 +1717,129 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override
     public com.spectrayan.spector.memory.model.PurgeResult purge(String id) {
         try (var permit = quiesceGuard.acquireWritePermit()) {
-        mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.purge(
-            namespaceId, id, com.spectrayan.spector.commons.concurrent.MemoryScope.fenceEpoch(), System.currentTimeMillis()));
-        
-        acquireLease();
-        try {
-            if (id == null) { throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "id"); }
+            long epoch = resolveWriteEpoch();
+            mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.purge(
+                    namespaceId, id, epoch, System.currentTimeMillis()));
+            return callWithEffectiveFenceEpoch(epoch, () -> {
+                acquireLease();
+                try {
+                    if (id == null) { throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "id"); }
 
-            MemoryLocation loc = index.locate(id);
-            boolean wasTombstoned = false;
-            if (loc == null) {
-                // A forgotten record is no longer in the live index, but its bytes are still on disk. Purge
-                // is exactly the operation that has to reach them, so look in the tombstone registry too.
-                loc = index.locateTombstoned(id);
-                wasTombstoned = loc != null;
-            }
-            if (loc == null) {
-                // Idempotent by contract, same as forget. Reported, not thrown.
-                log.warn("Purge: memory '{}' not found in index or tombstones — nothing was destroyed", id);
-                return com.spectrayan.spector.memory.model.PurgeResult.notFound(id, namespaceId);
-            }
+                    MemoryLocation loc = index.locate(id);
+                    boolean wasTombstoned = false;
+                    if (loc == null) {
+                        // A forgotten record is no longer in the live index, but its bytes are still on disk. Purge
+                        // is exactly the operation that has to reach them, so look in the tombstone registry too.
+                        loc = index.locateTombstoned(id);
+                        wasTombstoned = loc != null;
+                    }
+                    if (loc == null) {
+                        // Idempotent by contract, same as forget. Reported, not thrown.
+                        log.warn("Purge: memory '{}' not found in index or tombstones — nothing was destroyed", id);
+                        return com.spectrayan.spector.memory.model.PurgeResult.notFound(id, namespaceId);
+                    }
 
-            // Policy first. Everything after this point is irreversible, so the refusal has to happen
-            // before the first byte is touched — not after a partial destruction.
-            mutationPolicy.checkDeletion(
-                    com.spectrayan.spector.memory.policy.DeletionRequest.purge(namespaceId, id));
+                    // Policy first. Everything after this point is irreversible, so the refusal has to happen
+                    // before the first byte is touched — not after a partial destruction.
+                    mutationPolicy.checkDeletion(
+                            com.spectrayan.spector.memory.policy.DeletionRequest.purge(namespaceId, id));
 
-            // Ordering matters throughout and is the easiest thing to get wrong here.
-            //
-            // 1. WAL first. If the process dies mid-purge, recovery replays RECORD_WRITE and restores the
-            //    payload from the log; only a recorded PURGE undoes that. Writing the WAL entry after the
-            //    zeroing would leave a window in which a crash silently resurrects the content.
-            boolean walRecorded = false;
-            try {
-                wal.appendPurge(id, loc.type(), loc.offset());
-                walRecorded = true;
-            } catch (RuntimeException e) {
-                // Refuse rather than proceed. An unrecorded purge is a purge that a crash can undo, and
-                // reporting it as done would be a false claim.
-                log.error("Purge: failed to record WAL entry for '{}' — refusing to destroy data that "
-                        + "recovery could resurrect", id, e);
-                throw e;
-            }
+                    // Ordering matters throughout and is the easiest thing to get wrong here.
+                    //
+                    // 1. WAL first. If the process dies mid-purge, recovery replays RECORD_WRITE and restores the
+                    //    payload from the log; only a recorded PURGE undoes that. Writing the WAL entry after the
+                    //    zeroing would leave a window in which a crash silently resurrects the content.
+                    boolean walRecorded = false;
+                    try {
+                        wal.appendPurge(id, loc.type(), loc.offset());
+                        walRecorded = true;
+                    } catch (RuntimeException e) {
+                        // Refuse rather than proceed. An unrecorded purge is a purge that a crash can undo, and
+                        // reporting it as done would be a false claim.
+                        log.error("Purge: failed to record WAL entry for '{}' — refusing to destroy data that "
+                                + "recovery could resurrect", id, e);
+                        throw e;
+                    }
 
-            // 2. Detach from the graphs before the payload goes. The graph planes are keyed by graphSlot,
-            //    which is independent of the record's bytes, so order is not strictly forced — but doing it
-            //    first means a failure leaves a readable record rather than a zeroed record still wired into
-            //    spreading activation.
-            var detach = graphFacade != null && loc.graphSlot() >= 0
-                    ? graphFacade.detachMemory(loc.graphSlot())
-                    : new com.spectrayan.spector.memory.graph.CognitiveGraphFacade.DetachReport(0, false, 0, 0);
+                    // 2. Detach from the graphs before the payload goes. The graph planes are keyed by graphSlot,
+                    //    which is independent of the record's bytes, so order is not strictly forced — but doing it
+                    //    first means a failure leaves a readable record rather than a zeroed record still wired into
+                    //    spreading activation.
+                    var detach = graphFacade != null && loc.graphSlot() >= 0
+                            ? graphFacade.detachMemory(loc.graphSlot())
+                            : new com.spectrayan.spector.memory.graph.CognitiveGraphFacade.DetachReport(0, false, 0, 0);
 
-            // 3. Overwrite the payload. For a tombstoned record, only when the slot still holds that record:
-            //    vacuum may have compacted it away, and the offset may now belong to someone else.
-            int payloadZeroed = 0;
-            if (!wasTombstoned || tombstonedPayloadStillAt(loc)) {
-                payloadZeroed = partitionManager.routerFor(loc.colocatedPartition()).purge(loc);
-            } else {
-                log.info("Purge: payload of tombstoned '{}' is no longer at its recorded slot "
-                        + "(compacted by vacuum); erasing text and references only", id);
-            }
+                    // 3. Overwrite the payload. For a tombstoned record, only when the slot still holds that record:
+                    //    vacuum may have compacted it away, and the offset may now belong to someone else.
+                    int payloadZeroed = 0;
+                    if (!wasTombstoned || tombstonedPayloadStillAt(loc)) {
+                        payloadZeroed = partitionManager.routerFor(loc.colocatedPartition()).purge(loc);
+                    } else {
+                        log.info("Purge: payload of tombstoned '{}' is no longer at its recorded slot "
+                                + "(compacted by vacuum); erasing text and references only", id);
+                    }
 
-            // 4. Erase the text. Two copies exist in a disk-backed store — the off-heap text.dat frame and
-            //    an on-heap entry in the index — and an in-memory store has only the latter. Capture whether
-            //    the on-heap copy was there before erasing, so the report can distinguish "no off-heap bytes
-            //    existed" from "text survived". Deduplication can make the off-heap erase impossible; that
-            //    outcome is disclosed rather than swallowed.
-            //    A tombstoned record's on-heap copy was already dropped by forget; when it had no off-heap
-            //    text position, that on-heap copy was the only one.
-            boolean hadInlineText = index.hasInlineText(id) || (wasTombstoned && !loc.hasTextPosition());
-            var textOutcome = index.eraseText(id, loc);
+                    // 4. Erase the text. Two copies exist in a disk-backed store — the off-heap text.dat frame and
+                    //    an on-heap entry in the index — and an in-memory store has only the latter. Capture whether
+                    //    the on-heap copy was there before erasing, so the report can distinguish "no off-heap bytes
+                    //    existed" from "text survived". Deduplication can make the off-heap erase impossible; that
+                    //    outcome is disclosed rather than swallowed.
+                    //    A tombstoned record's on-heap copy was already dropped by forget; when it had no off-heap
+                    //    text position, that on-heap copy was the only one.
+                    boolean hadInlineText = index.hasInlineText(id) || (wasTombstoned && !loc.hasTextPosition());
+                    var textOutcome = index.eraseText(id, loc);
 
-            // 5. Drop the record's terms from the lexical index, which holds tokens derived from the text.
-            boolean lexicalCleared = false;
-            if (bm25Index != null) {
-                bm25Index.remove(id);
-                lexicalCleared = true;
-            }
+                    // 5. Drop the record's terms from the lexical index, which holds tokens derived from the text.
+                    boolean lexicalCleared = false;
+                    if (bm25Index != null) {
+                        bm25Index.remove(id);
+                        lexicalCleared = true;
+                    }
 
-            // 6. Only now drop the index entry and any tombstone. Every step above needed the location,
-            //    which index.remove destroys.
-            index.remove(id);
-            if (index.clearTombstone(id) != null) {
-                persistTombstones();
-            }
+                    // 6. Only now drop the index entry and any tombstone. Every step above needed the location,
+                    //    which index.remove destroys.
+                    index.remove(id);
+                    if (index.clearTombstone(id) != null) {
+                        persistTombstones();
+                    }
 
-            var result = new com.spectrayan.spector.memory.model.PurgeResult(
-                    id,
-                    namespaceId,
-                    true,
-                    java.time.Instant.now(),
-                    payloadZeroed,
-                    textOutcome.bytesZeroed(),
-                    hadInlineText,
-                    textOutcome.status() == com.spectrayan.spector.kernel.store.TextBlobMemory.EraseOutcome.Status.SHARED ? 1 : 0,
-                    textOutcome.sharedWith(),
-                    detach.hebbianEdges(),
-                    detach.temporalUnlinked(),
-                    detach.entityLinks(),
-                    detach.hyperedges(),
-                    walRecorded,
-                    com.spectrayan.spector.memory.model.PurgeResult.RETAINED_HEADER_FIELDS,
-                    com.spectrayan.spector.memory.model.PurgeResult.UNREACHABLE_COPIES,
-                    com.spectrayan.spector.memory.model.PurgeResult.DISCLOSURE_TEXT,
-                    wasTombstoned,
-                    lexicalCleared);
+                    var result = new com.spectrayan.spector.memory.model.PurgeResult(
+                            id,
+                            namespaceId,
+                            true,
+                            java.time.Instant.now(),
+                            payloadZeroed,
+                            textOutcome.bytesZeroed(),
+                            hadInlineText,
+                            textOutcome.status() == com.spectrayan.spector.kernel.store.TextBlobMemory.EraseOutcome.Status.SHARED ? 1 : 0,
+                            textOutcome.sharedWith(),
+                            detach.hebbianEdges(),
+                            detach.temporalUnlinked(),
+                            detach.entityLinks(),
+                            detach.hyperedges(),
+                            walRecorded,
+                            com.spectrayan.spector.memory.model.PurgeResult.RETAINED_HEADER_FIELDS,
+                            com.spectrayan.spector.memory.model.PurgeResult.UNREACHABLE_COPIES,
+                            com.spectrayan.spector.memory.model.PurgeResult.DISCLOSURE_TEXT,
+                            wasTombstoned,
+                            lexicalCleared);
 
-            if (result.hasLocalRetention()) {
-                log.warn("Purge: '{}' destroyed ({} payload bytes zeroed, {} graph refs removed), but its "
-                                + "text bytes were RETAINED — identical content is shared with {} other live "
-                                + "record(s) by deduplication and erasing it would destroy theirs",
-                        id, payloadZeroed, result.graphReferencesRemoved(), textOutcome.sharedWith());
-            } else {
-                log.info("Purge: '{}' destroyed — {} payload bytes and {} text bytes zeroed, {} graph "
-                                + "references removed",
-                        id, payloadZeroed, textOutcome.bytesZeroed(), result.graphReferencesRemoved());
-            }
-            return result;
-        } finally {
-            releaseLease();
+                    if (result.hasLocalRetention()) {
+                        log.warn("Purge: '{}' destroyed ({} payload bytes zeroed, {} graph refs removed), but its "
+                                        + "text bytes were RETAINED — identical content is shared with {} other live "
+                                        + "record(s) by deduplication and erasing it would destroy theirs",
+                                id, payloadZeroed, result.graphReferencesRemoved(), textOutcome.sharedWith());
+                    } else {
+                        log.info("Purge: '{}' destroyed — {} payload bytes and {} text bytes zeroed, {} graph "
+                                        + "references removed",
+                                id, payloadZeroed, textOutcome.bytesZeroed(), result.graphReferencesRemoved());
+                    }
+                    return result;
+                } finally {
+                    releaseLease();
+                }
+            });
         }
-            }
     }
 
     private volatile com.spectrayan.spector.memory.model.ReflectReport lastReflectReport;
@@ -1787,14 +1852,21 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public ReflectReport reflect(com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec spec) {
-        acquireLease();
-        try {
-            ReflectReport report = this.reflectSweepExecutor.execute(this, spec != null ? spec : com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec.fullCycle());
-            this.lastReflectReport = report;
-            this.lastReflectTimestamp = System.currentTimeMillis();
-            return report;
-        } finally {
-            releaseLease();
+        try (var permit = quiesceGuard.acquireWritePermit()) {
+            long epoch = resolveWriteEpoch();
+            mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.consolidate(
+                    namespaceId, epoch, System.currentTimeMillis()));
+            return callWithEffectiveFenceEpoch(epoch, () -> {
+                acquireLease();
+                try {
+                    ReflectReport report = this.reflectSweepExecutor.execute(this, spec != null ? spec : com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec.fullCycle());
+                    this.lastReflectReport = report;
+                    this.lastReflectTimestamp = System.currentTimeMillis();
+                    return report;
+                } finally {
+                    releaseLease();
+                }
+            });
         }
     }
 
@@ -1810,28 +1882,33 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public ReflectReport reflectKernel(com.spectrayan.spector.memory.pathway.reflect.ReflectSweepSpec spec) {
-        acquireLease();
-        try {
-            if (reflectPathway != null) {
-                // Non-deprecated path: no RememberPathway is threaded through. Soul version
-                // resolves from the context's SoulVersionSource and nested gist writes go
-                // through the PathwayCatalog (ADR-0035 R2.3, §8.1b).
-                // Distilled facts are stored through RememberPathway, resolved from this catalog (#1166).
-                com.spectrayan.spector.commons.pathway.DefaultPathwayCatalog catalog = null;
-                if (rememberPathway != null) {
-                    catalog = new com.spectrayan.spector.commons.pathway.DefaultPathwayCatalog();
-                    catalog.register(com.spectrayan.spector.memory.pathway.remember.RememberPathway.class, rememberPathway);
+        long epoch = resolveWriteEpoch();
+        mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.consolidate(
+                namespaceId, epoch, System.currentTimeMillis()));
+        return callWithEffectiveFenceEpoch(epoch, () -> {
+            acquireLease();
+            try {
+                if (reflectPathway != null) {
+                    // Non-deprecated path: no RememberPathway is threaded through. Soul version
+                    // resolves from the context's SoulVersionSource and nested gist writes go
+                    // through the PathwayCatalog (ADR-0035 R2.3, §8.1b).
+                    // Distilled facts are stored through RememberPathway, resolved from this catalog (#1166).
+                    com.spectrayan.spector.commons.pathway.DefaultPathwayCatalog catalog = null;
+                    if (rememberPathway != null) {
+                        catalog = new com.spectrayan.spector.commons.pathway.DefaultPathwayCatalog();
+                        catalog.register(com.spectrayan.spector.memory.pathway.remember.RememberPathway.class, rememberPathway);
+                    }
+                    ReflectReport report = reflectPathway.reflect(catalog, null, partitionManager, index,
+                            salienceProfile(), episodicSessionIndex, spec, null);
+                    this.lastReflectReport = report;
+                    this.lastReflectTimestamp = System.currentTimeMillis();
+                    return report;
                 }
-                ReflectReport report = reflectPathway.reflect(catalog, null, partitionManager, index,
-                        salienceProfile(), episodicSessionIndex, spec, null);
-                this.lastReflectReport = report;
-                this.lastReflectTimestamp = System.currentTimeMillis();
-                return report;
+                return ReflectReport.empty();
+            } finally {
+                releaseLease();
             }
-            return ReflectReport.empty();
-        } finally {
-            releaseLease();
-        }
+        });
     }
 
     @Override
@@ -1892,39 +1969,53 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override
     public com.spectrayan.spector.memory.pathway.skill.relay.SkillReport compileSkill(
             com.spectrayan.spector.memory.pathway.skill.relay.SkillSignal signal) {
-        acquireLease();
-        try {
-            if (skillPathway != null) {
-                if (signal.context() == null) {
-                    var catalog = new com.spectrayan.spector.commons.pathway.DefaultPathwayCatalog();
-                    catalog.register(com.spectrayan.spector.memory.pathway.skill.SkillPathway.class, skillPathway);
-                    if (rememberPathway != null) {
-                        catalog.register(com.spectrayan.spector.memory.pathway.remember.RememberPathway.class, rememberPathway);
+        try (var permit = quiesceGuard.acquireWritePermit()) {
+            long epoch = resolveWriteEpoch();
+            mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.consolidate(
+                    namespaceId, epoch, System.currentTimeMillis()));
+            return callWithEffectiveFenceEpoch(epoch, () -> {
+                acquireLease();
+                try {
+                    if (skillPathway != null) {
+                        if (signal.context() == null) {
+                            var catalog = new com.spectrayan.spector.commons.pathway.DefaultPathwayCatalog();
+                            catalog.register(com.spectrayan.spector.memory.pathway.skill.SkillPathway.class, skillPathway);
+                            if (rememberPathway != null) {
+                                catalog.register(com.spectrayan.spector.memory.pathway.remember.RememberPathway.class, rememberPathway);
+                            }
+                            var ctx = com.spectrayan.spector.commons.pathway.DefaultPathwayContext.builder()
+                                    .catalog(catalog)
+                                    .build();
+                            signal.bind(ctx);
+                        }
+                        return skillPathway.compile(signal);
                     }
-                    var ctx = com.spectrayan.spector.commons.pathway.DefaultPathwayContext.builder()
-                            .catalog(catalog)
-                            .build();
-                    signal.bind(ctx);
+                    return com.spectrayan.spector.memory.pathway.skill.relay.SkillReport.empty();
+                } finally {
+                    releaseLease();
                 }
-                return skillPathway.compile(signal);
-            }
-            return com.spectrayan.spector.memory.pathway.skill.relay.SkillReport.empty();
-        } finally {
-            releaseLease();
+            });
         }
     }
 
     @Override
     public com.spectrayan.spector.memory.pathway.dream.relay.DreamReport dream(
             com.spectrayan.spector.kernel.api.DreamMode mode) {
-        acquireLease();
-        try {
-            if (dreamPathway != null) {
-                return dreamPathway.dream(mode != null ? mode : com.spectrayan.spector.kernel.api.DreamMode.REM, partitionManager, null);
-            }
-            return com.spectrayan.spector.memory.pathway.dream.relay.DreamReport.empty();
-        } finally {
-            releaseLease();
+        try (var permit = quiesceGuard.acquireWritePermit()) {
+            long epoch = resolveWriteEpoch();
+            mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.consolidate(
+                    namespaceId, epoch, System.currentTimeMillis()));
+            return callWithEffectiveFenceEpoch(epoch, () -> {
+                acquireLease();
+                try {
+                    if (dreamPathway != null) {
+                        return dreamPathway.dream(mode != null ? mode : com.spectrayan.spector.kernel.api.DreamMode.REM, partitionManager, null);
+                    }
+                    return com.spectrayan.spector.memory.pathway.dream.relay.DreamReport.empty();
+                } finally {
+                    releaseLease();
+                }
+            });
         }
     }
 
@@ -2031,23 +2122,28 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override
     public void consolidate() {
         try (var permit = quiesceGuard.acquireWritePermit()) {
-        acquireLease();
-        try {
-            batchConsolidator.consolidate(
-                    partitionManager,
-                    index,
-                    quantizer,
-                    entityDirectory,
-                    hyperEntityGraph,
-                    temporalKnowledgeGraph,
-                    rememberPathway,
-                    wal,
-                    this::inspect
-            );
-        } finally {
-            releaseLease();
+            long epoch = resolveWriteEpoch();
+            mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.consolidate(
+                    namespaceId, epoch, System.currentTimeMillis()));
+            runWithEffectiveFenceEpoch(epoch, () -> {
+                acquireLease();
+                try {
+                    batchConsolidator.consolidate(
+                            partitionManager,
+                            index,
+                            quantizer,
+                            entityDirectory,
+                            hyperEntityGraph,
+                            temporalKnowledgeGraph,
+                            rememberPathway,
+                            wal,
+                            this::inspect
+                    );
+                } finally {
+                    releaseLease();
+                }
+            });
         }
-            }
     }
 
     @Override
@@ -2097,62 +2193,79 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override
     public void reinforce(String memoryId, byte valence) {
         try (var permit = quiesceGuard.acquireWritePermit()) {
-        mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.reinforce(
-            namespaceId, memoryId, com.spectrayan.spector.commons.concurrent.MemoryScope.fenceEpoch(), System.currentTimeMillis()));
-        
-        acquireLease();
-        try {
-            reinforcementHandler.reinforce(memoryId, valence,
-                    partitionManager, index);
-        } finally {
-            releaseLease();
+            long epoch = resolveWriteEpoch();
+            mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.reinforce(
+                    namespaceId, memoryId, epoch, System.currentTimeMillis()));
+            runWithEffectiveFenceEpoch(epoch, () -> {
+                acquireLease();
+                try {
+                    reinforcementHandler.reinforce(memoryId, valence,
+                            partitionManager, index);
+                } finally {
+                    releaseLease();
+                }
+            });
         }
-            }
     }
 
     @Override
     public void reinforce(String memoryId, byte valence,
                            com.spectrayan.spector.memory.neuromod.neurodivergent.RememberHints updatedHints) {
         try (var permit = quiesceGuard.acquireWritePermit()) {
-        acquireLease();
-        try {
-            reinforcementHandler.reinforceWithHints(memoryId, valence, updatedHints,
-                    partitionManager, index);
-        } finally {
-            releaseLease();
+            long epoch = resolveWriteEpoch();
+            mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.reinforce(
+                    namespaceId, memoryId, epoch, System.currentTimeMillis()));
+            runWithEffectiveFenceEpoch(epoch, () -> {
+                acquireLease();
+                try {
+                    reinforcementHandler.reinforceWithHints(memoryId, valence, updatedHints,
+                            partitionManager, index);
+                } finally {
+                    releaseLease();
+                }
+            });
         }
-            }
     }
 
     @Override
     public void rehearse(String memoryId) {
         try (var permit = quiesceGuard.acquireWritePermit()) {
-        acquireLease();
-        try {
-            reinforcementHandler.rehearse(memoryId, partitionManager, index);
-        } finally {
-            releaseLease();
+            long epoch = resolveWriteEpoch();
+            mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.rehearse(
+                    namespaceId, memoryId, epoch, System.currentTimeMillis()));
+            runWithEffectiveFenceEpoch(epoch, () -> {
+                acquireLease();
+                try {
+                    reinforcementHandler.rehearse(memoryId, partitionManager, index);
+                } finally {
+                    releaseLease();
+                }
+            });
         }
-            }
     }
 
     @Override
     public void suppress(String memoryId, String reason) {
         try (var permit = quiesceGuard.acquireWritePermit()) {
-            acquireLease();
-            try {
-                suppressionSet.suppress(memoryId, reason);
-                MemoryLocation loc = index.locate(memoryId);
-                if (loc != null) {
-                    suppressionSet.registerOffset(loc.type().ordinal(), loc.offset());
+            long epoch = resolveWriteEpoch();
+            mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.reinforce(
+                    namespaceId, memoryId, epoch, System.currentTimeMillis()));
+            runWithEffectiveFenceEpoch(epoch, () -> {
+                acquireLease();
+                try {
+                    suppressionSet.suppress(memoryId, reason);
+                    MemoryLocation loc = index.locate(memoryId);
+                    if (loc != null) {
+                        suppressionSet.registerOffset(loc.type().ordinal(), loc.offset());
+                    }
+                    if (recallPathway.wasLateral(memoryId)) {
+                        lateralEvaluator.recordLateralSuppression();
+                        log.debug("Lateral suppression: '{}' (reason={})", memoryId, reason);
+                    }
+                } finally {
+                    releaseLease();
                 }
-                if (recallPathway.wasLateral(memoryId)) {
-                    lateralEvaluator.recordLateralSuppression();
-                    log.debug("Lateral suppression: '{}' (reason={})", memoryId, reason);
-                }
-            } finally {
-                releaseLease();
-            }
+            });
         }
     }
 
@@ -2162,42 +2275,57 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override
     public void unsuppress(String memoryId) {
         try (var permit = quiesceGuard.acquireWritePermit()) {
-            acquireLease();
-            try {
-                suppressionSet.unsuppress(memoryId);
-            } finally {
-                releaseLease();
-            }
+            long epoch = resolveWriteEpoch();
+            mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.reinforce(
+                    namespaceId, memoryId, epoch, System.currentTimeMillis()));
+            runWithEffectiveFenceEpoch(epoch, () -> {
+                acquireLease();
+                try {
+                    suppressionSet.unsuppress(memoryId);
+                } finally {
+                    releaseLease();
+                }
+            });
         }
     }
 
     @Override
     public void markResolved(String memoryId) {
         try (var permit = quiesceGuard.acquireWritePermit()) {
-            acquireLease();
-            try {
-                var loc = index.locate(memoryId);
-                if (loc == null) return;
-                partitionManager.routerFor(loc.colocatedPartition()).markResolved(loc);
-                log.debug("Zeigarnik: marked '{}' as RESOLVED", memoryId);
-            } finally {
-                releaseLease();
-            }
+            long epoch = resolveWriteEpoch();
+            mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.reinforce(
+                    namespaceId, memoryId, epoch, System.currentTimeMillis()));
+            runWithEffectiveFenceEpoch(epoch, () -> {
+                acquireLease();
+                try {
+                    var loc = index.locate(memoryId);
+                    if (loc == null) return;
+                    partitionManager.routerFor(loc.colocatedPartition()).markResolved(loc);
+                    log.debug("Zeigarnik: marked '{}' as RESOLVED", memoryId);
+                } finally {
+                    releaseLease();
+                }
+            });
         }
     }
 
     @Override
     public void markUnresolved(String memoryId) {
         try (var permit = quiesceGuard.acquireWritePermit()) {
-            acquireLease();
-            try {
-                var loc = index.locate(memoryId);
-                if (loc == null) return;
-                partitionManager.routerFor(loc.colocatedPartition()).markUnresolved(loc);
-                log.debug("Zeigarnik: marked '{}' as UNRESOLVED", memoryId);
-            } finally {
-                releaseLease();
-            }
+            long epoch = resolveWriteEpoch();
+            mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.reinforce(
+                    namespaceId, memoryId, epoch, System.currentTimeMillis()));
+            runWithEffectiveFenceEpoch(epoch, () -> {
+                acquireLease();
+                try {
+                    var loc = index.locate(memoryId);
+                    if (loc == null) return;
+                    partitionManager.routerFor(loc.colocatedPartition()).markUnresolved(loc);
+                    log.debug("Zeigarnik: marked '{}' as UNRESOLVED", memoryId);
+                } finally {
+                    releaseLease();
+                }
+            });
         }
     }
 
@@ -2331,28 +2459,33 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                     "embeddingProvider",
                     "EmbeddingProvider is required to re-embed records during migration");
         }
-        var embedResult = embeddingProvider.embed(text);
-        float[] vector = embedResult != null ? embedResult.vector() : null;
-        if (vector == null || vector.length == 0) {
-            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "vector", "Embedding vector cannot be empty");
-        }
-        RememberContext context = (metadata != null && !metadata.isEmpty())
-                ? RememberContext.builder()
-                        .metadata(metadata)
-                        .overrideTimestampMs(preservedHeader != null ? preservedHeader.timestampMs() : 0L)
-                        .soulVersion(preservedHeader != null ? preservedHeader.soulVersion() : (short) 0)
-                        .build()
-                : null;
         try (var permit = quiesceGuard.acquireWritePermit()) {
-            acquireLease();
-            try {
-                return rememberPathway.ingestCognitiveWithHeader(
-                        id, text, vector, type != null ? type : MemoryType.SEMANTIC,
-                        tags, source != null ? source : MemorySource.OBSERVED,
-                        preservedHeader, context);
-            } finally {
-                releaseLease();
-            }
+            long epoch = resolveWriteEpoch();
+            mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.remember(
+                    namespaceId, id, epoch, System.currentTimeMillis()));
+            return callWithEffectiveFenceEpoch(epoch, () -> {
+                var embedResult = embeddingProvider.embed(text);
+                float[] vector = embedResult != null ? embedResult.vector() : null;
+                if (vector == null || vector.length == 0) {
+                    throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "vector", "Embedding vector cannot be empty");
+                }
+                RememberContext context = (metadata != null && !metadata.isEmpty())
+                        ? RememberContext.builder()
+                                .metadata(metadata)
+                                .overrideTimestampMs(preservedHeader != null ? preservedHeader.timestampMs() : 0L)
+                                .soulVersion(preservedHeader != null ? preservedHeader.soulVersion() : (short) 0)
+                                .build()
+                        : null;
+                acquireLease();
+                try {
+                    return rememberPathway.ingestCognitiveWithHeader(
+                            id, text, vector, type != null ? type : MemoryType.SEMANTIC,
+                            tags, source != null ? source : MemorySource.OBSERVED,
+                            preservedHeader, context);
+                } finally {
+                    releaseLease();
+                }
+            });
         }
     }
 
@@ -2427,12 +2560,22 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public Reminder scheduleReminder(String text, Instant triggerAt, String... tags) {
-        return prospectiveScheduler.schedule(text, triggerAt, tags);
+        try (var permit = quiesceGuard.acquireWritePermit()) {
+            long epoch = resolveWriteEpoch();
+            mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.remember(
+                    namespaceId, null, epoch, System.currentTimeMillis()));
+            return callWithEffectiveFenceEpoch(epoch, () -> prospectiveScheduler.schedule(text, triggerAt, tags));
+        }
     }
 
     @Override
     public Reminder scheduleReminder(String text, Duration delay, String... tags) {
-        return prospectiveScheduler.scheduleAfter(text, delay, tags);
+        try (var permit = quiesceGuard.acquireWritePermit()) {
+            long epoch = resolveWriteEpoch();
+            mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.remember(
+                    namespaceId, null, epoch, System.currentTimeMillis()));
+            return callWithEffectiveFenceEpoch(epoch, () -> prospectiveScheduler.scheduleAfter(text, delay, tags));
+        }
     }
 
     @Override
@@ -2508,19 +2651,24 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         if (factor < 0f || factor > 1f) throw new SpectorValidationException(ErrorCode.ARGUMENT_OUT_OF_RANGE, "factor", 0, 1, 0);
 
         try (var permit = quiesceGuard.acquireWritePermit()) {
-            acquireLease();
-            try {
-                long nowMs = System.currentTimeMillis();
-                long thresholdMs = nowMs - olderThan.toMillis();
+            long epoch = resolveWriteEpoch();
+            mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.consolidate(
+                    namespaceId, epoch, System.currentTimeMillis()));
+            return callWithEffectiveFenceEpoch(epoch, () -> {
+                acquireLease();
+                try {
+                    long nowMs = System.currentTimeMillis();
+                    long thresholdMs = nowMs - olderThan.toMillis();
 
-                var episodicStore = partitionManager.cognitiveRouter().episodic();
-                if (episodicStore == null) return 0;
-                int affected = episodicStore.decayOldTurns(thresholdMs, factor);
-                log.info("Decay: {} memories older than {} multiplied by {}", affected, olderThan, factor);
-                return affected;
-            } finally {
-                releaseLease();
-            }
+                    var episodicStore = partitionManager.cognitiveRouter().episodic();
+                    if (episodicStore == null) return 0;
+                    int affected = episodicStore.decayOldTurns(thresholdMs, factor);
+                    log.info("Decay: {} memories older than {} multiplied by {}", affected, olderThan, factor);
+                    return affected;
+                } finally {
+                    releaseLease();
+                }
+            });
         }
     }
 
@@ -2757,83 +2905,88 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public CompactionResult vacuum(MemoryType tier, boolean force) {
+        long epoch = resolveWriteEpoch();
+        mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.consolidate(
+                namespaceId, epoch, System.currentTimeMillis()));
         mutationPolicy.checkDeletion(
                 com.spectrayan.spector.memory.policy.DeletionRequest.vacuum(namespaceId));
         try (var permit = quiesceGuard.acquireWritePermit()) {
-        vacuumLock.lock();
-        try {
-            long startMs = System.currentTimeMillis();
-            int[] totals = new int[3]; // [before, after, tombstones]
-            long[] bytesReclaimed = new long[1];
-            boolean[] anyCompacted = new boolean[1];
-            boolean[] anyFound = new boolean[1];
+            return callWithEffectiveFenceEpoch(epoch, () -> {
+                vacuumLock.lock();
+                try {
+                    long startMs = System.currentTimeMillis();
+                    int[] totals = new int[3]; // [before, after, tombstones]
+                    long[] bytesReclaimed = new long[1];
+                    boolean[] anyCompacted = new boolean[1];
+                    boolean[] anyFound = new boolean[1];
 
-            partitionManager.withRollLock(() -> {
-                List<com.spectrayan.spector.memory.cortex.PartitionHandle> handles = partitionManager.snapshot();
-                MemoryType[] tiersToCompact = (tier != null)
-                        ? new MemoryType[] { tier }
-                        : MemoryType.values();
+                    partitionManager.withRollLock(() -> {
+                        List<com.spectrayan.spector.memory.cortex.PartitionHandle> handles = partitionManager.snapshot();
+                        MemoryType[] tiersToCompact = (tier != null)
+                                ? new MemoryType[] { tier }
+                                : MemoryType.values();
 
-                float threshold = (liveMemoryPatch != null)
-                        ? liveMemoryPatch.vacuumThreshold()
-                        : VacuumCompactor.DEFAULT_THRESHOLD;
+                        float threshold = (liveMemoryPatch != null)
+                                ? liveMemoryPatch.vacuumThreshold()
+                                : VacuumCompactor.DEFAULT_THRESHOLD;
 
-                for (MemoryType t : tiersToCompact) {
-                    for (com.spectrayan.spector.memory.cortex.PartitionHandle h : handles) {
-                        EngramRegion store = h.router().get(t);
-                        if (store == null) continue;
+                        for (MemoryType t : tiersToCompact) {
+                            for (com.spectrayan.spector.memory.cortex.PartitionHandle h : handles) {
+                                EngramRegion store = h.router().get(t);
+                                if (store == null) continue;
 
-                        CompactionResult r = VacuumCompactor.compact(
-                                store, t, h.seq(), index,
-                                s -> {
-                                    if (graphFacade != null) {
-                                        graphFacade.detachMemory(s);
+                                CompactionResult r = VacuumCompactor.compact(
+                                        store, t, h.seq(), index,
+                                        s -> {
+                                            if (graphFacade != null) {
+                                                graphFacade.detachMemory(s);
+                                            }
+                                        },
+                                        threshold,
+                                        force
+                                );
+                                if (r != null) {
+                                    anyFound[0] = true;
+                                    totals[0] += r.beforeCount();
+                                    totals[1] += r.afterCount();
+                                    totals[2] += r.tombstonesRemoved();
+                                    bytesReclaimed[0] += r.bytesReclaimed();
+                                    if (r.compacted()) {
+                                        anyCompacted[0] = true;
+                                        // Tombstoned payloads in this region are gone and their offsets reused.
+                                        index.markTombstonePayloadsCompacted(t, h.seq());
                                     }
-                                },
-                                threshold,
-                                force
-                        );
-                        if (r != null) {
-                            anyFound[0] = true;
-                            totals[0] += r.beforeCount();
-                            totals[1] += r.afterCount();
-                            totals[2] += r.tombstonesRemoved();
-                            bytesReclaimed[0] += r.bytesReclaimed();
-                            if (r.compacted()) {
-                                anyCompacted[0] = true;
-                                // Tombstoned payloads in this region are gone and their offsets reused.
-                                index.markTombstonePayloadsCompacted(t, h.seq());
+                                }
                             }
                         }
+                    });
+
+                    if (!anyFound[0]) {
+                        return null;
                     }
+
+                    if (anyCompacted[0]) {
+                        persistTombstones();
+                        if (graphFacade != null) {
+                            for (int s : index.tombstonedGraphSlots()) {
+                                graphFacade.detachMemory(s);
+                            }
+                        }
+                        if (indexReconcileEngine != null) {
+                            indexReconcileEngine.reconcile();
+                        }
+                        partitionManager.flushGlobalState();
+                    }
+
+                    long durationMs = System.currentTimeMillis() - startMs;
+                    MemoryType resultType = (tier != null) ? tier : MemoryType.SEMANTIC;
+                    return anyCompacted[0]
+                            ? new CompactionResult(resultType, totals[0], totals[1], totals[2], bytesReclaimed[0], durationMs, true)
+                            : CompactionResult.census(resultType, totals[0], totals[1], totals[2], durationMs);
+                } finally {
+                    vacuumLock.unlock();
                 }
             });
-
-            if (!anyFound[0]) {
-                return null;
-            }
-
-            if (anyCompacted[0]) {
-                persistTombstones();
-                if (graphFacade != null) {
-                    for (int s : index.tombstonedGraphSlots()) {
-                        graphFacade.detachMemory(s);
-                    }
-                }
-                if (indexReconcileEngine != null) {
-                    indexReconcileEngine.reconcile();
-                }
-                partitionManager.flushGlobalState();
-            }
-
-            long durationMs = System.currentTimeMillis() - startMs;
-            MemoryType resultType = (tier != null) ? tier : MemoryType.SEMANTIC;
-            return anyCompacted[0]
-                    ? new CompactionResult(resultType, totals[0], totals[1], totals[2], bytesReclaimed[0], durationMs, true)
-                    : CompactionResult.census(resultType, totals[0], totals[1], totals[2], durationMs);
-        } finally {
-            vacuumLock.unlock();
-        }
         }
     }
 
@@ -2900,102 +3053,127 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                           long validFrom, long validTo, float confidence,
                           boolean allowCoexisting) {
         try (var permit = quiesceGuard.acquireWritePermit()) {
-            acquireLease();
-            try {
-                int subjectId = entityDirectory.intern(subject, "UNKNOWN");
-                int objectId = entityDirectory.intern(object, "UNKNOWN");
-                return temporalKnowledgeGraph.assertFactWithSupersession(
-                        subjectId, predicate, objectId, -1L, (short) 0,
-                        validFrom, validTo, confidence, false, allowCoexisting);
-            } finally {
-                releaseLease();
-            }
+            long epoch = resolveWriteEpoch();
+            mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.remember(
+                    namespaceId, subject, epoch, System.currentTimeMillis()));
+            return callWithEffectiveFenceEpoch(epoch, () -> {
+                acquireLease();
+                try {
+                    int subjectId = entityDirectory.intern(subject, "UNKNOWN");
+                    int objectId = entityDirectory.intern(object, "UNKNOWN");
+                    return temporalKnowledgeGraph.assertFactWithSupersession(
+                            subjectId, predicate, objectId, -1L, (short) 0,
+                            validFrom, validTo, confidence, false, allowCoexisting);
+                } finally {
+                    releaseLease();
+                }
+            });
         }
     }
 
     @Override
     public int retractFact(int factId) {
         try (var permit = quiesceGuard.acquireWritePermit()) {
-            acquireLease();
-            try {
-                return temporalKnowledgeGraph.retractFact(factId);
-            } finally {
-                releaseLease();
-            }
+            long epoch = resolveWriteEpoch();
+            mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.forget(
+                    namespaceId, Integer.toString(factId), epoch, System.currentTimeMillis()));
+            return callWithEffectiveFenceEpoch(epoch, () -> {
+                acquireLease();
+                try {
+                    return temporalKnowledgeGraph.retractFact(factId);
+                } finally {
+                    releaseLease();
+                }
+            });
         }
     }
 
     @Override
     public boolean associateHebbian(String sourceMemoryId, String targetMemoryId, float weight) {
         try (var permit = quiesceGuard.acquireWritePermit()) {
-            acquireLease();
-            try {
-                if (index == null || graphFacade == null) {
-                    return false;
+            long epoch = resolveWriteEpoch();
+            mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.reinforce(
+                    namespaceId, sourceMemoryId, epoch, System.currentTimeMillis()));
+            return callWithEffectiveFenceEpoch(epoch, () -> {
+                acquireLease();
+                try {
+                    if (index == null || graphFacade == null) {
+                        return false;
+                    }
+                    var locA = index.locate(sourceMemoryId);
+                    var locB = index.locate(targetMemoryId);
+                    if (locA == null || locB == null) {
+                        return false;
+                    }
+                    int slotA = locA.graphSlot() >= 0 ? locA.graphSlot() : (int) (locA.offset() / 164);
+                    int slotB = locB.graphSlot() >= 0 ? locB.graphSlot() : (int) (locB.offset() / 164);
+                    return graphFacade.associateHebbian(slotA, slotB, weight);
+                } finally {
+                    releaseLease();
                 }
-                var locA = index.locate(sourceMemoryId);
-                var locB = index.locate(targetMemoryId);
-                if (locA == null || locB == null) {
-                    return false;
-                }
-                int slotA = locA.graphSlot() >= 0 ? locA.graphSlot() : (int) (locA.offset() / 164);
-                int slotB = locB.graphSlot() >= 0 ? locB.graphSlot() : (int) (locB.offset() / 164);
-                return graphFacade.associateHebbian(slotA, slotB, weight);
-            } finally {
-                releaseLease();
-            }
+            });
         }
     }
 
     @Override
     public boolean associateTemporal(String sourceMemoryId, String targetMemoryId, int sessionId) {
         try (var permit = quiesceGuard.acquireWritePermit()) {
-            acquireLease();
-            try {
-                if (index == null || graphFacade == null) {
-                    return false;
+            long epoch = resolveWriteEpoch();
+            mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.reinforce(
+                    namespaceId, sourceMemoryId, epoch, System.currentTimeMillis()));
+            return callWithEffectiveFenceEpoch(epoch, () -> {
+                acquireLease();
+                try {
+                    if (index == null || graphFacade == null) {
+                        return false;
+                    }
+                    var locA = index.locate(sourceMemoryId);
+                    var locB = index.locate(targetMemoryId);
+                    if (locA == null || locB == null) {
+                        return false;
+                    }
+                    int slotA = locA.graphSlot() >= 0 ? locA.graphSlot() : (int) (locA.offset() / 164);
+                    int slotB = locB.graphSlot() >= 0 ? locB.graphSlot() : (int) (locB.offset() / 164);
+                    return graphFacade.associateTemporal(slotA, slotB, sessionId);
+                } finally {
+                    releaseLease();
                 }
-                var locA = index.locate(sourceMemoryId);
-                var locB = index.locate(targetMemoryId);
-                if (locA == null || locB == null) {
-                    return false;
-                }
-                int slotA = locA.graphSlot() >= 0 ? locA.graphSlot() : (int) (locA.offset() / 164);
-                int slotB = locB.graphSlot() >= 0 ? locB.graphSlot() : (int) (locB.offset() / 164);
-                return graphFacade.associateTemporal(slotA, slotB, sessionId);
-            } finally {
-                releaseLease();
-            }
+            });
         }
     }
 
     @Override
     public int associateHyperedge(List<String> entityNames, String memoryId, float weight) {
         try (var permit = quiesceGuard.acquireWritePermit()) {
-            acquireLease();
-            try {
-                if (entityNames == null || entityNames.size() < 2 || entityDirectory == null || graphFacade == null) {
-                    return -1;
-                }
-                int memorySlot = -1;
-                if (memoryId != null && !memoryId.isBlank() && index != null) {
-                    var loc = index.locate(memoryId);
-                    if (loc != null) {
-                        memorySlot = loc.graphSlot() >= 0 ? loc.graphSlot() : (int) (loc.offset() / 164);
+            long epoch = resolveWriteEpoch();
+            mutationPolicy.checkWrite(com.spectrayan.spector.memory.policy.WriteRequest.reinforce(
+                    namespaceId, memoryId, epoch, System.currentTimeMillis()));
+            return callWithEffectiveFenceEpoch(epoch, () -> {
+                acquireLease();
+                try {
+                    if (entityNames == null || entityNames.size() < 2 || entityDirectory == null || graphFacade == null) {
+                        return -1;
                     }
-                }
-                int[] entityIds = new int[entityNames.size()];
-                for (int i = 0; i < entityNames.size(); i++) {
-                    int eid = entityDirectory.intern(entityNames.get(i), "UNKNOWN");
-                    entityIds[i] = eid;
-                    if (memorySlot >= 0) {
-                        entityDirectory.linkEntityToMemory(eid, memorySlot);
+                    int memorySlot = -1;
+                    if (memoryId != null && !memoryId.isBlank() && index != null) {
+                        var loc = index.locate(memoryId);
+                        if (loc != null) {
+                            memorySlot = loc.graphSlot() >= 0 ? loc.graphSlot() : (int) (loc.offset() / 164);
+                        }
                     }
+                    int[] entityIds = new int[entityNames.size()];
+                    for (int i = 0; i < entityNames.size(); i++) {
+                        int eid = entityDirectory.intern(entityNames.get(i), "UNKNOWN");
+                        entityIds[i] = eid;
+                        if (memorySlot >= 0) {
+                            entityDirectory.linkEntityToMemory(eid, memorySlot);
+                        }
+                    }
+                    return graphFacade.associateHyperedge(entityIds, memorySlot, weight);
+                } finally {
+                    releaseLease();
                 }
-                return graphFacade.associateHyperedge(entityIds, memorySlot, weight);
-            } finally {
-                releaseLease();
-            }
+            });
         }
     }
 

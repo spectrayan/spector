@@ -36,4 +36,9 @@ public class FencingMutationPolicy implements MutationPolicy {
             throw new SpectorServerException(ErrorCode.FENCED, "Write rejected: request epoch " + request.epoch() + " is older than current epoch " + currentEpoch);
         }
     }
+
+    @Override
+    public long currentEpoch() {
+        return currentEpochSupplier.getAsLong();
+    }
 }

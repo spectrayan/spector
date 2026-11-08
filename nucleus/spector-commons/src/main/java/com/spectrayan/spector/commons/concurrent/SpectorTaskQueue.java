@@ -471,7 +471,7 @@ public final class SpectorTaskQueue<T> implements AutoCloseable {
 
     private void executeSingleBatch(List<ScopedTask<T>> activeTasks) {
         ScopedTask<T> primary = activeTasks.getFirst();
-        MemoryScope.runWithScope(primary.sessionId(), primary.namespaceId(), () -> {
+        MemoryScope.runWithScope(primary.sessionId(), primary.namespaceId(), primary.fenceEpoch(), () -> {
             try {
                 batchHandler.handleBatch(activeTasks);
             } catch (Exception e) {
@@ -560,7 +560,7 @@ public final class SpectorTaskQueue<T> implements AutoCloseable {
     }
 
     private void executeSingleTask(ScopedTask<T> task) {
-        MemoryScope.runWithScope(task.sessionId(), task.namespaceId(), () -> {
+        MemoryScope.runWithScope(task.sessionId(), task.namespaceId(), task.fenceEpoch(), () -> {
             try {
                 handler.handle(task);
             } catch (Exception e) {

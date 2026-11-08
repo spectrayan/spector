@@ -30,6 +30,7 @@ public record ScopedTask<T>(
         T payload,
         String sessionId,
         String namespaceId,
+        long fenceEpoch,
         TaskPriority priority,
         long submittedAtMs,
         String traceContext
@@ -42,7 +43,18 @@ public record ScopedTask<T>(
             String namespaceId,
             TaskPriority priority,
             long submittedAtMs) {
-        this(taskId, payload, sessionId, namespaceId, priority, submittedAtMs, null);
+        this(taskId, payload, sessionId, namespaceId, MemoryScope.fenceEpoch(), priority, submittedAtMs, null);
+    }
+
+    public ScopedTask(
+            String taskId,
+            T payload,
+            String sessionId,
+            String namespaceId,
+            TaskPriority priority,
+            long submittedAtMs,
+            String traceContext) {
+        this(taskId, payload, sessionId, namespaceId, MemoryScope.fenceEpoch(), priority, submittedAtMs, traceContext);
     }
 
     public ScopedTask {
@@ -66,6 +78,7 @@ public record ScopedTask<T>(
                 payload,
                 MemoryScope.sessionId(),
                 MemoryScope.namespaceId(),
+                MemoryScope.fenceEpoch(),
                 TaskPriority.NORMAL,
                 System.currentTimeMillis(),
                 null
@@ -81,6 +94,7 @@ public record ScopedTask<T>(
                 payload,
                 MemoryScope.sessionId(),
                 MemoryScope.namespaceId(),
+                MemoryScope.fenceEpoch(),
                 priority,
                 System.currentTimeMillis(),
                 null
@@ -97,6 +111,7 @@ public record ScopedTask<T>(
                 payload,
                 sessionId,
                 namespaceId,
+                MemoryScope.fenceEpoch(),
                 priority != null ? priority : TaskPriority.NORMAL,
                 System.currentTimeMillis(),
                 null
@@ -113,6 +128,7 @@ public record ScopedTask<T>(
                 payload,
                 sessionId,
                 namespaceId,
+                MemoryScope.fenceEpoch(),
                 priority != null ? priority : TaskPriority.NORMAL,
                 System.currentTimeMillis(),
                 traceContext

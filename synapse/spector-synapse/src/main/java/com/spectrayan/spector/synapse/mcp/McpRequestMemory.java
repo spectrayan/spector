@@ -260,6 +260,22 @@ public final class McpRequestMemory {
         return CURRENT_BINDING.get();
     }
 
+    /**
+     * Executes {@code action} within a {@link com.spectrayan.spector.commons.concurrent.MemoryScope}
+     * populated with the tenant, session, namespace, and fence epoch of the current thread's
+     * {@link MemoryBinding}, if present.
+     */
+    public static <T> T callWithCurrentScope(java.util.concurrent.Callable<T> action) throws Exception {
+        MemoryBinding binding = CURRENT_BINDING.get();
+        if (binding == null) {
+            return action.call();
+        }
+        String tenantId = binding.context() != null ? binding.context().tenantId() : null;
+        String sessionId = binding.context() != null ? binding.context().sessionId() : null;
+        return com.spectrayan.spector.commons.concurrent.MemoryScope.callWithScope(
+                tenantId, sessionId, binding.namespaceId(), binding.fenceEpoch(), action);
+    }
+
     private static void unbindCurrent() {
         MemoryBinding binding = CURRENT_BINDING.get();
         MemoryRequestBinder binder = CURRENT_BINDER.get();

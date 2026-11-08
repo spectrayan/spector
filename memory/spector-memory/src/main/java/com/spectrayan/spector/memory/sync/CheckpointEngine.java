@@ -225,6 +225,12 @@ public final class CheckpointEngine {
         long hwm;
 
         try {
+            if (wal != null) {
+                wal.checkWrite(
+                        com.spectrayan.spector.memory.policy.WriteRequest.OperationType.CONSOLIDATE,
+                        "system/checkpoint",
+                        System.currentTimeMillis());
+            }
             if (quiesceGuard != null) {
                 try (var quiesce = quiesceGuard.acquireQuiesce(5, java.util.concurrent.TimeUnit.SECONDS)) {
                     // Capture the WAL durability fence inside the quiesce window before any state is forced or saved

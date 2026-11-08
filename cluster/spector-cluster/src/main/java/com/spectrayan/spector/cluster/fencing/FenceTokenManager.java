@@ -109,6 +109,17 @@ public class FenceTokenManager {
     }
 
     /**
+     * Checks whether the namespace has explicitly surrendered local ownership (G13).
+     *
+     * @param namespaceId target namespace
+     * @return {@code true} if surrendered; {@code false} otherwise
+     */
+    public boolean isSurrendered(String namespaceId) {
+        Objects.requireNonNull(namespaceId, "namespaceId must not be null");
+        return Long.valueOf(SURRENDERED_EPOCH).equals(localFences.get(namespaceId));
+    }
+
+    /**
      * Checks whether the local fence for the namespace has expired (G12).
      *
      * @param namespaceId target namespace

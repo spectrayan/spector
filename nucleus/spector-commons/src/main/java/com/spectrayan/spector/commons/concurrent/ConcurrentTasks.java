@@ -167,7 +167,8 @@ public final class ConcurrentTasks {
      */
     public static void fireAndForget(ThreadPlane plane, String pool, String sessionId, String namespaceId, Runnable task) {
         if (task == null) return;
-        fireAndForget(plane, pool, () -> MemoryScope.runWithScope(sessionId, namespaceId, task));
+        long fenceEpoch = MemoryScope.fenceEpoch();
+        fireAndForget(plane, pool, () -> MemoryScope.runWithScope(sessionId, namespaceId, fenceEpoch, task));
     }
 
     /**

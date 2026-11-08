@@ -112,8 +112,9 @@ public class NamespaceResolutionFilter extends OncePerRequestFilter {
                     : initialTenantId;
             String sessionId = binding.context() != null ? binding.context().sessionId() : null;
             String namespaceId = binding.namespaceId();
+            long fenceEpoch = binding.fenceEpoch();
 
-            MemoryScope.runWithScope(effectiveTenantId, sessionId, namespaceId, () -> {
+            MemoryScope.runWithScope(effectiveTenantId, sessionId, namespaceId, fenceEpoch, () -> {
                 try {
                     filterChain.doFilter(request, response);
                 } catch (IOException | ServletException e) {
