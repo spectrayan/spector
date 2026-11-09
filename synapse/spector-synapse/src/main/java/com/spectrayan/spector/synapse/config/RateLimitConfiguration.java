@@ -20,6 +20,7 @@ import com.spectrayan.spector.synapse.ratelimit.CaffeineRateLimitStateStore;
 import com.spectrayan.spector.synapse.ratelimit.RateLimitFilter;
 import com.spectrayan.spector.synapse.ratelimit.RateLimitKeyResolver;
 import com.spectrayan.spector.synapse.ratelimit.RateLimitStateStore;
+import com.spectrayan.spector.synapse.ratelimit.RequestAdmissionController;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -46,17 +47,25 @@ public class RateLimitConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean(RequestAdmissionController.class)
+    public RequestAdmissionController requestAdmissionController(SynapseProperties properties) {
+        return new RequestAdmissionController(properties);
+    }
+
+    @Bean
     @ConditionalOnMissingBean(RateLimitFilter.class)
     public RateLimitFilter rateLimitFilter(SynapseProperties properties,
                                            RateLimitStateStore stateStore,
-                                           RateLimitKeyResolver keyResolver) {
-        return new RateLimitFilter(properties, stateStore, keyResolver);
+                                           RateLimitKeyResolver keyResolver,
+                                           RequestAdmissionController admissionController) {
+        return new RateLimitFilter(properties, stateStore, keyResolver, admissionController);
     }
 
     @Bean
     @ConditionalOnProperty(prefix = "management.endpoint.ratelimits", name = "enabled", matchIfMissing = true)
     public RateLimitActuatorEndpoint rateLimitActuatorEndpoint(SynapseProperties properties,
-                                                               RateLimitStateStore stateStore) {
-        return new RateLimitActuatorEndpoint(properties, stateStore);
+                                                               RateLimitStateStore stateStore,
+                                                               RequestAdmissionController admissionController) {
+        return new RateLimitActuatorEndpoint(properties, stateStore, admissionController);
     }
 }

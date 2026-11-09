@@ -18,6 +18,7 @@ package com.spectrayan.spector.synapse.actuator;
 import com.spectrayan.spector.config.properties.RateLimitProperties;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
 import com.spectrayan.spector.synapse.ratelimit.RateLimitStateStore;
+import com.spectrayan.spector.synapse.ratelimit.RequestAdmissionController;
 import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
 import org.springframework.boot.actuate.endpoint.annotation.ReadOperation;
 import org.springframework.boot.actuate.endpoint.annotation.WriteOperation;
@@ -36,10 +37,18 @@ public class RateLimitActuatorEndpoint {
 
     private final SynapseProperties properties;
     private final RateLimitStateStore stateStore;
+    private final RequestAdmissionController admissionController;
 
     public RateLimitActuatorEndpoint(SynapseProperties properties, RateLimitStateStore stateStore) {
+        this(properties, stateStore, null);
+    }
+
+    public RateLimitActuatorEndpoint(SynapseProperties properties,
+                                     RateLimitStateStore stateStore,
+                                     @Nullable RequestAdmissionController admissionController) {
         this.properties = Objects.requireNonNull(properties, "properties must not be null");
         this.stateStore = Objects.requireNonNull(stateStore, "stateStore must not be null");
+        this.admissionController = admissionController;
     }
 
     @ReadOperation
@@ -59,6 +68,9 @@ public class RateLimitActuatorEndpoint {
             result.put("llmEnabled", config.getLlm().isEnabled());
             result.put("channelsEnabled", config.getChannels().isEnabled());
             result.put("connectorsEnabled", config.getConnectors().isEnabled());
+            if (admissionController != null) {
+                result.put("admission", admissionController.stats());
+            }
         }
 
         return result;
