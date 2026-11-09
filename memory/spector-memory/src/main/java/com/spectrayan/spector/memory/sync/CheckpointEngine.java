@@ -260,6 +260,21 @@ public final class CheckpointEngine {
 
             long previousMetaHwm = readCurrentCheckpointHwm();
 
+            if (previousMetaHwm > 0 && wal != null) {
+                boolean hasMutationsAfterMeta = wal.replay(previousMetaHwm).stream()
+                        .anyMatch(e -> e.sequence() <= hwm && e.type() != WalEvent.EventType.SNAPSHOT_MARK);
+                if (!hasMutationsAfterMeta) {
+                    log.trace("Checkpoint skipped WAL watermark update: no new mutations since hwm={}", previousMetaHwm);
+                    lastCheckpointHwm = previousMetaHwm;
+                    checkpointCount.incrementAndGet();
+                    long elapsed = (System.nanoTime() - start) / 1_000_000;
+                    log.info("Checkpoint complete: hwm={}, index={} entries, elapsed={}ms",
+                            previousMetaHwm, index != null ? index.size() : 0, elapsed);
+                    fireCheckpointListener(previousMetaHwm);
+                    return;
+                }
+            }
+
             // Write HWM to checkpoint.meta / checkpoint region ONLY after all store/index/graph/bundle flushes succeed
             writeCheckpointMeta(hwm);
 

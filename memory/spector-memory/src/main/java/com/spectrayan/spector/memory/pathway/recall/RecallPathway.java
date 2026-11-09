@@ -470,7 +470,9 @@ public final class RecallPathway extends AbstractPathway<RecallSignal, List<Cogn
         applySessionBookkeeping(allResults, opts);
 
         // Write ordinal
-        writeProfileOrdinalToResults(signal, allResults, opts);
+        if (opts == null || opts.recallMode() == RecallMode.LEARN) {
+            writeProfileOrdinalToResults(signal, allResults, opts);
+        }
 
         // Record history
         if (recallHistory != null && opts != null && opts.recallMode() == RecallMode.LEARN) {

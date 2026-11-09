@@ -94,6 +94,14 @@ public final class BundleDirectory {
      * @return the directory
      */
     public static BundleDirectory read(MemorySegment masterSegment, int expectedBundleMagic) {
+        return read(masterSegment, expectedBundleMagic, true);
+    }
+
+    /**
+     * Reads a BundleDirectory, optionally deferring per-region preamble version validation
+     * for lazily decrypted bundles until individual region preambles are decrypted.
+     */
+    public static BundleDirectory read(MemorySegment masterSegment, int expectedBundleMagic, boolean validateRegions) {
         if (!RegionPreamble.isValid(masterSegment, HEADER_OFFSET)) {
             throw new SpectorServerException(ErrorCode.RECORD_CRC_CORRUPTED, "Invalid SMKM header");
         }
@@ -138,10 +146,21 @@ public final class BundleDirectory {
         // known limitation documented in docs/memory/bundle-format-compatibility.md:77-86
         // where only the directory-level version was checked (PR #995) but the 5+ per-region
         // versions were not.
-        RegionVersionRegistry.validateRegionVersions(masterSegment, entries);
+        if (validateRegions) {
+            RegionVersionRegistry.validateRegionVersions(masterSegment, entries);
+        }
 
         return new BundleDirectory(bundleMagic, maxRegions, entries,
                 RegionPreamble.readSchemaVersion(masterSegment, HEADER_OFFSET));
+    }
+
+    /**
+     * Validates a single region entry's preamble schema version against the directory entry.
+     */
+    public static void validateRegionEntryVersion(MemorySegment masterSegment, RegionEntry entry) {
+        if (entry != null && entry.isLive()) {
+            RegionVersionRegistry.validateRegionVersions(masterSegment, List.of(entry));
+        }
     }
     
     /**

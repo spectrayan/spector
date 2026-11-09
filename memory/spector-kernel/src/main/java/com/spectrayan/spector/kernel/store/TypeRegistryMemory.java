@@ -181,9 +181,14 @@ public final class TypeRegistryMemory extends AbstractRegistryMemory {
 
     public void save(Path filePath) throws IOException {
         if (isBundleManaged()) {
-            long now = System.currentTimeMillis();
-            RegionPreamble.write(segment, 0L, layout().schemaVersion(), MemoryShape.REGISTRY, 0,
-                    capacity(), size(), layout().recordStride(), layout().layoutId(), now, now);
+            MemorySegment seg = segment();
+            if (!RegionPreamble.isValid(seg, 0L)) {
+                long now = System.currentTimeMillis();
+                RegionPreamble.write(seg, 0L, layout().schemaVersion(), MemoryShape.REGISTRY, 0,
+                        capacity(), size(), layout().recordStride(), layout().layoutId(), now, now);
+            } else if (RegionPreamble.readCount(seg, 0L) != size()) {
+                RegionPreamble.writeCount(seg, 0L, size());
+            }
             flush();
             log.info("{} registry saved to bundle: {} types", label, size());
             return;

@@ -67,10 +67,7 @@ public class EntityDirectory extends com.spectrayan.spector.kernel.graph.EntityD
             RegionRef entityNamesRef,
             int entityCapacity, TypeRegistryMemory entityTypeRegistry,
             Path bundlePath, boolean isNew) {
-        com.spectrayan.spector.kernel.graph.EntityDirectory kDir =
-                com.spectrayan.spector.kernel.graph.EntityDirectory.fromRegionRefs(
-                        entityDirRef, entityNamesRef, entityCapacity, entityTypeRegistry, bundlePath, isNew);
-        return new EntityDirectory(entityDirRef, entityNamesRef, kDir.capacity(), entityTypeRegistry, bundlePath, isNew);
+        return new EntityDirectory(entityDirRef, entityNamesRef, entityCapacity, entityTypeRegistry, bundlePath, isNew);
     }
 
     public static EntityDirectory load(Path filePath, int defaultEntityCap,

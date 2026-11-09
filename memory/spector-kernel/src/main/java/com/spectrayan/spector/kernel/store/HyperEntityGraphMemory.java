@@ -1141,6 +1141,16 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
 
     private static void writeSmkmHeaderToSegment(MemorySegment head, int entityCap, int hedgeCap,
                                                  int nextId, int nextVertexOff, int totalHedges) {
+        if (RegionPreamble.isValid(head, 0L)
+                && RegionPreamble.readSchemaVersion(head, 0L) == LAYOUT.schemaVersion()
+                && RegionPreamble.readCapacity(head, 0L) == hedgeCap
+                && RegionPreamble.readCount(head, 0L) == totalHedges
+                && head.get(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_ENTITY_CAP) == entityCap
+                && head.get(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_NEXT_HYPEREDGE_ID) == nextId
+                && head.get(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_NEXT_VERTEX_OFFSET) == nextVertexOff
+                && head.get(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_TOTAL_HYPEREDGES) == totalHedges) {
+            return;
+        }
         long now = System.currentTimeMillis();
         RegionPreamble.write(head, 0L, LAYOUT.schemaVersion(), MemoryShape.GRAPH, 0x00,
                 hedgeCap, totalHedges, HyperEntityLayout.HEDGE_BYTES, LAYOUT.layoutId(), now, now);

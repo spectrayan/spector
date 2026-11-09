@@ -91,24 +91,35 @@ public final class PartitionBundle implements AbstractBundle {
     private final boolean isNew;
     private final boolean canForward;
     private volatile com.spectrayan.spector.kernel.storage.PayloadEncryptor encryptor;
+    private volatile com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.LazyEncryptedSegment lazyEncrypted;
+    private final java.util.Set<RegionId> decryptedRegions = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final java.util.Set<RegionId> validatedRegionPreambles = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private volatile PartitionBundle rolledTo;
     private final java.util.concurrent.ConcurrentHashMap<RegionId, java.util.concurrent.atomic.AtomicInteger> generations = new java.util.concurrent.ConcurrentHashMap<>();
 
     private PartitionBundle(Arena arena, MemorySegment masterSegment,
                              BundleDirectory directory, Path bundlePath, boolean isNew) {
-        this(arena, masterSegment, directory, bundlePath, isNew, true, null);
+        this(arena, masterSegment, directory, bundlePath, isNew, true, null, null);
     }
 
     private PartitionBundle(Arena arena, MemorySegment masterSegment,
                              BundleDirectory directory, Path bundlePath, boolean isNew,
                              boolean canForward) {
-        this(arena, masterSegment, directory, bundlePath, isNew, canForward, null);
+        this(arena, masterSegment, directory, bundlePath, isNew, canForward, null, null);
     }
 
     private PartitionBundle(Arena arena, MemorySegment masterSegment,
                              BundleDirectory directory, Path bundlePath, boolean isNew,
                              boolean canForward,
                              com.spectrayan.spector.kernel.storage.PayloadEncryptor encryptor) {
+        this(arena, masterSegment, directory, bundlePath, isNew, canForward, encryptor, null);
+    }
+
+    private PartitionBundle(Arena arena, MemorySegment masterSegment,
+                             BundleDirectory directory, Path bundlePath, boolean isNew,
+                             boolean canForward,
+                             com.spectrayan.spector.kernel.storage.PayloadEncryptor encryptor,
+                             com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.LazyEncryptedSegment lazyEncrypted) {
         this.arena = arena;
         this.masterSegment = masterSegment;
         this.directory = directory;
@@ -116,6 +127,7 @@ public final class PartitionBundle implements AbstractBundle {
         this.isNew = isNew;
         this.canForward = canForward;
         this.encryptor = encryptor;
+        this.lazyEncrypted = lazyEncrypted;
     }
 
     /**
@@ -126,10 +138,30 @@ public final class PartitionBundle implements AbstractBundle {
     }
 
     /**
+     * Returns the number of encrypted pages decrypted so far in this bundle session.
+     */
+    public int decryptedPageCount() {
+        var lazy = this.lazyEncrypted;
+        return lazy != null ? lazy.decryptedPageCount() : 0;
+    }
+
+    /**
+     * Returns the number of dirty encrypted pages written during the most recent {@link #flush()}.
+     */
+    public int lastFlushDirtyPages() {
+        var lazy = this.lazyEncrypted;
+        return lazy != null ? lazy.lastFlushDirtyPages() : 0;
+    }
+
+    /**
      * Rebinds the active {@link com.spectrayan.spector.kernel.storage.PayloadEncryptor} (e.g., during DEK rotation)
      * and persists the encrypted bundle immediately under the new key.
      */
     public void rebindEncryptor(com.spectrayan.spector.kernel.storage.PayloadEncryptor newEncryptor) {
+        var lazy = this.lazyEncrypted;
+        if (lazy != null) {
+            lazy.rebindEncryptor(newEncryptor);
+        }
         this.encryptor = newEncryptor;
         flush();
     }
@@ -223,13 +255,18 @@ public final class PartitionBundle implements AbstractBundle {
                 if (encryptor != null && encryptor.isEnabled()) {
                     MemorySegment offHeap = arena.allocate(totalFileSize, 4096);
                     dir.write(offHeap);
-                    com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.writeEncryptedSegment(
+                    var lazy = com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.LazyEncryptedSegment.create(
                             path, offHeap,
                             com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.SEGMENT_TYPE_PARTITION_BUNDLE,
                             encryptor);
                     log.info("Created encrypted partition bundle: {} ({} regions, {}KB)",
                             path, specs.size(), totalFileSize / 1024);
-                    return new PartitionBundle(arena, offHeap, dir, path, true, true, encryptor);
+                    PartitionBundle bundle = new PartitionBundle(arena, offHeap, dir, path, true, true, encryptor, lazy);
+                    for (RegionEntry entry : dir.liveRegions()) {
+                        bundle.decryptedRegions.add(entry.regionId());
+                        bundle.validatedRegionPreambles.add(entry.regionId());
+                    }
+                    return bundle;
                 }
 
                 // Create and size the file
@@ -272,15 +309,16 @@ public final class PartitionBundle implements AbstractBundle {
             try {
                 boolean encryptedFile = com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.isEncryptedFile(path);
                 if (encryptedFile) {
-                    MemorySegment decrypted = com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.readEncryptedSegment(
+                    var lazy = com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.LazyEncryptedSegment.open(
                             path,
                             com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.SEGMENT_TYPE_PARTITION_BUNDLE,
                             encryptor,
                             arena);
-                    BundleDirectory dir = BundleDirectory.read(decrypted, BundleSubHeader.MAGIC_PARTITION);
-                    log.info("Opened encrypted partition bundle: {} ({} live regions, {}KB)",
+                    MemorySegment decrypted = lazy.masterSegment();
+                    BundleDirectory dir = BundleDirectory.read(decrypted, BundleSubHeader.MAGIC_PARTITION, false);
+                    log.info("Opened encrypted partition bundle (lazy): {} ({} live regions, {}KB)",
                             path, dir.liveRegionCount(), decrypted.byteSize() / 1024);
-                    return new PartitionBundle(arena, decrypted, dir, path, false, true, encryptor);
+                    return new PartitionBundle(arena, decrypted, dir, path, false, true, encryptor, lazy);
                 }
 
                 long fileSize = Files.size(path);
@@ -290,13 +328,18 @@ public final class PartitionBundle implements AbstractBundle {
                     MemorySegment.copy(rawBytes, 0, offHeap, java.lang.foreign.ValueLayout.JAVA_BYTE, 0, rawBytes.length);
                     java.util.Arrays.fill(rawBytes, (byte) 0);
                     BundleDirectory dir = BundleDirectory.read(offHeap, BundleSubHeader.MAGIC_PARTITION);
-                    com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.writeEncryptedSegment(
+                    var lazy = com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.LazyEncryptedSegment.create(
                             path, offHeap,
                             com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.SEGMENT_TYPE_PARTITION_BUNDLE,
                             encryptor);
                     log.info("Upgraded and opened partition bundle with at-rest encryption: {} ({} live regions, {}KB)",
                             path, dir.liveRegionCount(), fileSize / 1024);
-                    return new PartitionBundle(arena, offHeap, dir, path, false, true, encryptor);
+                    PartitionBundle bundle = new PartitionBundle(arena, offHeap, dir, path, false, true, encryptor, lazy);
+                    for (RegionEntry entry : dir.liveRegions()) {
+                        bundle.decryptedRegions.add(entry.regionId());
+                        bundle.validatedRegionPreambles.add(entry.regionId());
+                    }
+                    return bundle;
                 }
 
                 try (FileChannel fc = FileChannel.open(path,
@@ -342,15 +385,16 @@ public final class PartitionBundle implements AbstractBundle {
             try {
                 boolean encryptedFile = com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.isEncryptedFile(path);
                 if (encryptedFile) {
-                    MemorySegment decrypted = com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.readEncryptedSegment(
+                    var lazy = com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.LazyEncryptedSegment.open(
                             path,
                             com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.SEGMENT_TYPE_PARTITION_BUNDLE,
                             encryptor,
                             arena);
-                    BundleDirectory dir = BundleDirectory.read(decrypted, BundleSubHeader.MAGIC_PARTITION);
-                    log.info("Opened encrypted partition bundle read-only: {} ({} live regions, {}KB)",
+                    MemorySegment decrypted = lazy.masterSegment();
+                    BundleDirectory dir = BundleDirectory.read(decrypted, BundleSubHeader.MAGIC_PARTITION, false);
+                    log.info("Opened encrypted partition bundle read-only (lazy): {} ({} live regions, {}KB)",
                             path, dir.liveRegionCount(), decrypted.byteSize() / 1024);
-                    return new PartitionBundle(arena, decrypted, dir, null, false, false, null);
+                    return new PartitionBundle(arena, decrypted, dir, null, false, false, null, lazy);
                 }
 
                 long fileSize = Files.size(path);
@@ -451,7 +495,10 @@ public final class PartitionBundle implements AbstractBundle {
     }
 
     public PartitionBundle asFrozen() {
-        return new PartitionBundle(arena, masterSegment, directory, bundlePath, false, false, encryptor);
+        PartitionBundle frozen = new PartitionBundle(arena, masterSegment, directory, bundlePath, false, false, encryptor, lazyEncrypted);
+        frozen.decryptedRegions.addAll(this.decryptedRegions);
+        frozen.validatedRegionPreambles.addAll(this.validatedRegionPreambles);
+        return frozen;
     }
 
     @Override
@@ -647,7 +694,51 @@ public final class PartitionBundle implements AbstractBundle {
         if (!entry.isLive()) {
             throw new IllegalStateException("Region is not live: " + id);
         }
+        ensureRegionDecrypted(id);
         return masterSegment.asSlice(entry.offset(), entry.allocatedSize());
+    }
+
+    private void ensureRegionPreambleDecrypted(RegionEntry entry) {
+        if (lazyEncrypted == null || entry == null || !entry.isLive()) {
+            return;
+        }
+        RegionId id = entry.regionId();
+        if (validatedRegionPreambles.contains(id)) {
+            return;
+        }
+        synchronized (lazyEncrypted) {
+            if (validatedRegionPreambles.contains(id)) {
+                return;
+            }
+            long checkLen = Math.min(entry.allocatedSize(), RegionPreamble.PREAMBLE_BYTES);
+            if (checkLen > 0) {
+                lazyEncrypted.ensureRangeDecrypted(entry.offset(), checkLen);
+            }
+            BundleDirectory.validateRegionEntryVersion(masterSegment, entry);
+            validatedRegionPreambles.add(id);
+        }
+    }
+
+    private void ensureRegionDecrypted(RegionId id) {
+        if (lazyEncrypted == null || id == null || decryptedRegions.contains(id)) {
+            return;
+        }
+        RegionEntry entry = directory.findRegion(id);
+        if (entry == null || !entry.isLive()) {
+            return;
+        }
+        synchronized (lazyEncrypted) {
+            if (decryptedRegions.contains(id)) {
+                return;
+            }
+            ensureRegionPreambleDecrypted(entry);
+            long activeBytes = RuntimeBundle.computeActiveRegionBytes(id, entry, masterSegment);
+            if (activeBytes > 0) {
+                lazyEncrypted.ensureRangeDecrypted(entry.offset(), activeBytes);
+            }
+            lazyEncrypted.markRangeAccessible(entry.offset(), entry.allocatedSize());
+            decryptedRegions.add(id);
+        }
     }
 
     @Override
@@ -751,17 +842,22 @@ public final class PartitionBundle implements AbstractBundle {
      */
     public void flush() {
         if (bundlePath != null && arena != null && arena.scope().isAlive()) {
-            directory.write(masterSegment);
             if (isEncrypted()) {
                 try {
-                    com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.writeEncryptedSegment(
-                            bundlePath, masterSegment,
-                            com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.SEGMENT_TYPE_PARTITION_BUNDLE,
-                            encryptor);
+                    if (lazyEncrypted != null) {
+                        lazyEncrypted.flush(bundlePath);
+                    } else {
+                        directory.write(masterSegment);
+                        com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.writeEncryptedSegment(
+                                bundlePath, masterSegment,
+                                com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.SEGMENT_TYPE_PARTITION_BUNDLE,
+                                encryptor);
+                    }
                 } catch (IOException e) {
                     throw new UncheckedIOException("Failed to flush encrypted partition bundle: " + bundlePath, e);
                 }
             } else if (masterSegment.isMapped()) {
+                directory.write(masterSegment);
                 masterSegment.force();
             }
         }
@@ -795,9 +891,11 @@ public final class PartitionBundle implements AbstractBundle {
      */
     public boolean isCognitiveDataEmpty() {
         for (RegionId id : new RegionId[]{RegionId.SEMANTIC, RegionId.EPISODIC, RegionId.PROCEDURAL, RegionId.TEXT}) {
-            if (hasRegion(id)) {
-                MemorySegment slice = currentSlice(id);
-                if (RegionPreamble.isValid(slice, 0) && RegionPreamble.readCount(slice, 0) > 0) {
+            RegionEntry entry = directory.findRegion(id);
+            if (entry != null && entry.isLive() && entry.allocatedSize() >= RegionPreamble.PREAMBLE_BYTES) {
+                ensureRegionPreambleDecrypted(entry);
+                if (RegionPreamble.isValid(masterSegment, entry.offset())
+                        && RegionPreamble.readCount(masterSegment, entry.offset()) > 0) {
                     return false;
                 }
             }

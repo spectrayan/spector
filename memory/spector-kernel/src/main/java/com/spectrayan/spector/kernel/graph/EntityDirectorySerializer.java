@@ -244,11 +244,17 @@ final class EntityDirectorySerializer {
             return -1;
         }
 
+        java.lang.foreign.MemorySegment payloadSeg = java.lang.foreign.MemorySegment.ofArray(payload);
+        if (region.get(java.lang.foreign.ValueLayout.JAVA_INT, offset) == payload.length
+                && java.lang.foreign.MemorySegment.mismatch(
+                        region, offset + 4, offset + 4 + payload.length,
+                        payloadSeg, 0, payload.length) == -1L) {
+            return totalBytes;
+        }
+
         // Write length prefix then payload
         region.set(java.lang.foreign.ValueLayout.JAVA_INT, offset, payload.length);
-        java.lang.foreign.MemorySegment.copy(
-                java.lang.foreign.MemorySegment.ofArray(payload), 0,
-                region, offset + 4, payload.length);
+        java.lang.foreign.MemorySegment.copy(payloadSeg, 0, region, offset + 4, payload.length);
 
         log.info("EntityDirectory name index saved to bundle region: {} names, {} bytes at offset {}",
                 nameIndex.size(), totalBytes, offset);

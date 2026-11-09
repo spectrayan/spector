@@ -100,6 +100,7 @@ public final class CoActivationMemory extends AbstractHashTableMemory<CoActivati
             new ConcurrentHashMap<>();
     private final ReentrantLock saveLock = new ReentrantLock();
     private volatile MemorySegment checkpointRegion;   // nullable — V4 bundle CHECKPOINT region for metadata
+    private volatile boolean metadataDirty = false;
 
     // ── Cross-Capture Graph: Tag → Memory Inverted Index (ADR-0009) ──
     private final ConcurrentHashMap<Long, java.util.concurrent.CopyOnWriteArrayList<Integer>> tagToMemoryIndex =
@@ -265,6 +266,7 @@ public final class CoActivationMemory extends AbstractHashTableMemory<CoActivati
     }
 
     private void initBundleMetadata(boolean isNew, Path bundlePath, MemorySegment checkpointRegion, int pairCap, int edgeCap) {
+        this.metadataDirty = isNew;
         // One-time migration of standalone legacy file into bundle region
         if (isNew && bundlePath != null) {
             Path legacyPath = bundlePath.resolveSibling("coactivation.dat");
@@ -425,6 +427,7 @@ public final class CoActivationMemory extends AbstractHashTableMemory<CoActivati
                     long keyB = Math.max(hashA, hashB);
 
                     pairTable.increment(keyA, keyB);
+                    metadataDirty = true;
                 }
             }
         } catch (IllegalStateException ignored) {
@@ -478,6 +481,7 @@ public final class CoActivationMemory extends AbstractHashTableMemory<CoActivati
 
             float dW_anti = StdpPlasticityKernel.computeAntiCausalDeltaWeight(dt, A_MINUS, TAU_MINUS);
             edgeTable.update(hashAfter, hashBefore, dW_anti, timeAfter);
+            metadataDirty = true;
 
             log.trace("STDP: {}→{} Δt={}ms, causal ΔW={}, anti-causal ΔW={}",
                     tagBefore, tagAfter, dt,
@@ -554,6 +558,7 @@ public final class CoActivationMemory extends AbstractHashTableMemory<CoActivati
         edgeTable.reset();
         hashToTag.clear();
         banditStats = new ConcurrentHashMap<>();
+        metadataDirty = true;
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -565,7 +570,11 @@ public final class CoActivationMemory extends AbstractHashTableMemory<CoActivati
     }
 
     public void updateBanditStats(Map<Long, EnumMap<ProfileSlot, BanditStats>> stats) {
-        this.banditStats = stats != null ? stats : new ConcurrentHashMap<>();
+        Map<Long, EnumMap<ProfileSlot, BanditStats>> next = stats != null ? stats : new ConcurrentHashMap<>();
+        if (!java.util.Objects.equals(this.banditStats, next)) {
+            this.banditStats = next;
+            this.metadataDirty = true;
+        }
     }
 
     private int banditStatsCount() {
@@ -590,7 +599,9 @@ public final class CoActivationMemory extends AbstractHashTableMemory<CoActivati
     }
 
     private void registerTag(String tag, long hash) {
-        hashToTag.putIfAbsent(hash, tag);
+        if (hashToTag.putIfAbsent(hash, tag) == null) {
+            metadataDirty = true;
+        }
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -783,6 +794,16 @@ public final class CoActivationMemory extends AbstractHashTableMemory<CoActivati
             if (isBundleManaged()) {
                 if (checkpointRegion != null) {
                     flush();
+                    if (!metadataDirty
+                            && checkpointRegion.get(ValueLayout.JAVA_INT_UNALIGNED, CoActivationMetadataFields.OFF_CHK_PAIR_COUNT) == Integer.reverseBytes(pairTable.count())
+                            && checkpointRegion.get(ValueLayout.JAVA_INT_UNALIGNED, CoActivationMetadataFields.OFF_CHK_EDGE_COUNT) == Integer.reverseBytes(edgeTable.count())) {
+                        return;
+                    }
+                    if (!metadataDirty
+                            && checkpointRegion.get(ValueLayout.JAVA_INT_UNALIGNED, CoActivationMetadataFields.OFF_CHK_PAIR_COUNT) == pairTable.count()
+                            && checkpointRegion.get(ValueLayout.JAVA_INT_UNALIGNED, CoActivationMetadataFields.OFF_CHK_EDGE_COUNT) == edgeTable.count()) {
+                        return;
+                    }
                     int tagsSize = 4;
                     for (String tag : hashToTag.values()) {
                         tagsSize += 12 + tag.getBytes(StandardCharsets.UTF_8).length;
@@ -820,6 +841,7 @@ public final class CoActivationMemory extends AbstractHashTableMemory<CoActivati
                     }
                     buf.flip();
                     MemorySegment.copy(MemorySegment.ofBuffer(buf), 0, checkpointRegion, CoActivationMetadataFields.OFF_CHK_PAIR_COUNT, totalSize);
+                    metadataDirty = false;
                 } else {
                     Path path = filePath != null ? filePath : filePath();
                     if (path == null) return;

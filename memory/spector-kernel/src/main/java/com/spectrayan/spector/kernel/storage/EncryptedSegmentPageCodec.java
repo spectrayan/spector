@@ -41,6 +41,7 @@ import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Arrays;
+import java.util.BitSet;
 
 /**
  * Page-level {@code AES-256-GCM} codec for ADR-0088 encrypted segments and bundles.
@@ -58,6 +59,486 @@ public final class EncryptedSegmentPageCodec {
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private EncryptedSegmentPageCodec() {}
+
+    /**
+     * Lazily decrypted, dirty-page-tracked off-heap view of an ADR-0088 encrypted bundle file.
+     *
+     * <p>On open, validates the 128-byte {@link EncryptedSegmentHeader} HMAC and decrypts only page 0
+     * (which holds the {@code BundleDirectory}). Subsequent region pages are decrypted on demand via
+     * {@link #ensureRangeDecrypted(long, long)} before caller access. On {@link #flush(Path)}, only pages
+     * whose content hash changed since load or last flush are re-encrypted with fresh random 96-bit nonces
+     * and written in place; a clean session with zero mutated pages performs zero page encryptions and
+     * zero disk writes.</p>
+     */
+    public static final class LazyEncryptedSegment {
+
+        private final Path sourcePath;
+        private final MemorySegment masterSegment;
+        private final long plaintextLen;
+        private final int pageSize;
+        private final int pageCount;
+        private final byte segmentType;
+        private volatile PayloadEncryptor encryptor;
+        private final BitSet decryptedPages;
+        private final BitSet accessiblePages;
+        private final long[] cleanPageHashLo;
+        private final long[] cleanPageHashHi;
+        private volatile boolean forceFullRewrite;
+        private volatile int lastFlushDirtyPages;
+
+        private LazyEncryptedSegment(
+                Path sourcePath,
+                MemorySegment masterSegment,
+                long plaintextLen,
+                int pageSize,
+                byte segmentType,
+                PayloadEncryptor encryptor,
+                boolean initiallyAllDecrypted) {
+            this.sourcePath = sourcePath;
+            this.masterSegment = masterSegment;
+            this.plaintextLen = plaintextLen;
+            this.pageSize = pageSize;
+            this.pageCount = (int) ((plaintextLen + pageSize - 1L) / pageSize);
+            this.segmentType = segmentType;
+            this.encryptor = encryptor;
+            this.decryptedPages = new BitSet(this.pageCount);
+            this.accessiblePages = new BitSet(this.pageCount);
+            this.cleanPageHashLo = new long[this.pageCount];
+            this.cleanPageHashHi = new long[this.pageCount];
+            if (initiallyAllDecrypted) {
+                this.decryptedPages.set(0, this.pageCount);
+                this.accessiblePages.set(0, this.pageCount);
+                for (int p = 0; p < this.pageCount; p++) {
+                    long offset = (long) p * pageSize;
+                    int len = (int) Math.min(pageSize, plaintextLen - offset);
+                    this.cleanPageHashLo[p] = hashPageLo(masterSegment, offset, len);
+                    this.cleanPageHashHi[p] = hashPageHi(masterSegment, offset, len);
+                }
+            }
+        }
+
+        /**
+         * Creates a new encrypted segment file on disk from {@code masterSegment} and returns a
+         * {@link LazyEncryptedSegment} with all pages marked clean against the initial on-disk image.
+         */
+        public static LazyEncryptedSegment create(
+                Path targetPath,
+                MemorySegment masterSegment,
+                byte segmentType,
+                PayloadEncryptor encryptor) throws IOException {
+            writeEncryptedSegment(targetPath, masterSegment, segmentType, encryptor);
+            return new LazyEncryptedSegment(
+                    targetPath,
+                    masterSegment,
+                    masterSegment.byteSize(),
+                    EncryptedSegmentHeader.DEFAULT_PAGE_SIZE,
+                    segmentType,
+                    encryptor,
+                    true);
+        }
+
+        /**
+         * Opens an existing encrypted segment file, authenticates its 128-byte header, allocates the
+         * off-heap {@code masterSegment} in {@code arena}, and decrypts only page 0.
+         */
+        public static LazyEncryptedSegment open(
+                Path sourcePath,
+                byte expectedSegmentType,
+                PayloadEncryptor encryptor,
+                Arena arena) throws IOException {
+            if (encryptor == null || !encryptor.isEnabled()) {
+                throw new SpectorMemoryException(ErrorCode.MEMORY_ENCRYPTION_KEY_MISSING,
+                        "Encrypted segment requires an active DataEncryptor: " + sourcePath);
+            }
+
+            try (FileChannel fc = FileChannel.open(sourcePath, StandardOpenOption.READ)) {
+                long fileSize = fc.size();
+                if (fileSize < EncryptedSegmentHeader.HEADER_BYTES) {
+                    throw new SpectorMemoryException(ErrorCode.MEMORY_ENCRYPTION_FAILED,
+                            "Encrypted segment file smaller than 128-byte header: " + sourcePath);
+                }
+
+                byte[] headerBytes = new byte[EncryptedSegmentHeader.HEADER_BYTES];
+                readFully(fc, ByteBuffer.wrap(headerBytes), 0);
+                EncryptedSegmentHeader header = EncryptedSegmentHeader.read(headerBytes);
+
+                if (header.segmentType() != expectedSegmentType) {
+                    throw new SpectorMemoryException(ErrorCode.MEMORY_AUTH_TAG_MISMATCH,
+                            String.format("Segment type mismatch in %s: header=0x%02X, expected=0x%02X",
+                                    sourcePath, header.segmentType(), expectedSegmentType));
+                }
+
+                try (DestroyableKeyMaterial sdk = resolveSubkey(encryptor, expectedSegmentType)) {
+                    header.verifyMac(headerBytes, sdk);
+
+                    if (header.dekVersion() != (short) encryptor.dekVersion()) {
+                        throw new SpectorMemoryException(ErrorCode.MEMORY_AUTH_TAG_MISMATCH,
+                                String.format("DEK version mismatch in %s: header=%d, encryptor=%d",
+                                        sourcePath, Short.toUnsignedInt(header.dekVersion()), encryptor.dekVersion()));
+                    }
+
+                    long plaintextLen = header.plaintextLen();
+                    int pageSize = 1 << header.pageSizeLog2();
+                    long expectedFileSize = expectedEncryptedFileSize(plaintextLen, pageSize);
+                    if (fileSize < expectedFileSize) {
+                        throw new SpectorMemoryException(ErrorCode.MEMORY_AUTH_TAG_MISMATCH,
+                                "Truncated encrypted segment in " + sourcePath
+                                        + " (size=" + fileSize + ", expected=" + expectedFileSize + ")");
+                    }
+
+                    MemorySegment masterSegment = arena.allocate(Math.max(4096L, plaintextLen), 4096);
+                    LazyEncryptedSegment lazy = new LazyEncryptedSegment(
+                            sourcePath,
+                            masterSegment,
+                            plaintextLen,
+                            pageSize,
+                            expectedSegmentType,
+                            encryptor,
+                            false);
+                    if (lazy.pageCount > 0) {
+                        lazy.decryptPageRangeWithChannel(fc, sdk, 0, 0);
+                    }
+                    return lazy;
+                }
+            }
+        }
+
+        public MemorySegment masterSegment() {
+            return masterSegment;
+        }
+
+        public int pageSize() {
+            return pageSize;
+        }
+
+        public int pageCount() {
+            return pageCount;
+        }
+
+        public synchronized int decryptedPageCount() {
+            return decryptedPages.cardinality();
+        }
+
+        public int lastFlushDirtyPages() {
+            return lastFlushDirtyPages;
+        }
+
+        /**
+         * Marks the pages covering {@code [offset, offset + length)} as accessible to a caller slice
+         * so any writes into previously unpopulated tail pages are checked during {@link #flush(Path)}.
+         */
+        public synchronized void markRangeAccessible(long offset, long length) {
+            if (length <= 0 || pageCount == 0) {
+                return;
+            }
+            long clampedStart = Math.max(0L, Math.min(offset, plaintextLen));
+            long clampedEnd = Math.max(clampedStart, Math.min(offset + length, plaintextLen));
+            if (clampedEnd <= clampedStart) {
+                return;
+            }
+            int firstPage = (int) (clampedStart / pageSize);
+            int lastPage = (int) ((clampedEnd - 1L) / pageSize);
+            accessiblePages.set(firstPage, lastPage + 1);
+        }
+
+        /**
+         * Ensures all encrypted pages intersecting {@code [offset, offset + length)} have been
+         * decrypted and authenticated into {@code masterSegment}.
+         */
+        public synchronized void ensureRangeDecrypted(long offset, long length) {
+            if (length <= 0 || pageCount == 0) {
+                return;
+            }
+            long clampedStart = Math.max(0L, Math.min(offset, plaintextLen));
+            long clampedEnd = Math.max(clampedStart, Math.min(offset + length, plaintextLen));
+            if (clampedEnd <= clampedStart) {
+                return;
+            }
+            int firstPage = (int) (clampedStart / pageSize);
+            int lastPage = (int) ((clampedEnd - 1L) / pageSize);
+            accessiblePages.set(firstPage, lastPage + 1);
+
+            int firstMissing = -1;
+            int lastMissing = -1;
+            for (int p = firstPage; p <= lastPage; p++) {
+                if (!decryptedPages.get(p)) {
+                    if (firstMissing < 0) {
+                        firstMissing = p;
+                    }
+                    lastMissing = p;
+                }
+            }
+            if (firstMissing < 0) {
+                return;
+            }
+            decryptMissingPages(firstMissing, lastMissing);
+        }
+
+        /**
+         * Decrypts all remaining undecrypted pages in the bundle (used before full-segment operations
+         * such as region relocation, compaction, or DEK rotation).
+         */
+        public synchronized void ensureAllPagesDecrypted() {
+            if (pageCount == 0) {
+                return;
+            }
+            accessiblePages.set(0, pageCount);
+            int firstMissing = decryptedPages.nextClearBit(0);
+            if (firstMissing >= pageCount) {
+                return;
+            }
+            decryptMissingPages(firstMissing, pageCount - 1);
+        }
+
+        /**
+         * Rebinds this segment to a new {@link PayloadEncryptor} (e.g. during DEK rotation).
+         * Decrypts all remaining pages under the current key first and forces a full rewrite on next flush.
+         */
+        public synchronized void rebindEncryptor(PayloadEncryptor newEncryptor) {
+            ensureAllPagesDecrypted();
+            this.encryptor = newEncryptor;
+            this.forceFullRewrite = true;
+        }
+
+        private void decryptMissingPages(int firstPage, int lastPage) {
+            PayloadEncryptor enc = this.encryptor;
+            if (enc == null || !enc.isEnabled()) {
+                throw new SpectorMemoryException(ErrorCode.MEMORY_ENCRYPTION_KEY_MISSING,
+                        "Encrypted segment requires an active DataEncryptor: " + sourcePath);
+            }
+            try (FileChannel fc = FileChannel.open(sourcePath, StandardOpenOption.READ);
+                 DestroyableKeyMaterial sdk = resolveSubkey(enc, segmentType)) {
+                decryptPageRangeWithChannel(fc, sdk, firstPage, lastPage);
+            } catch (IOException e) {
+                throw new SpectorMemoryException(ErrorCode.MEMORY_ENCRYPTION_FAILED, e,
+                        "Failed to read encrypted page from " + sourcePath);
+            }
+        }
+
+        private void decryptPageRangeWithChannel(
+                FileChannel fc,
+                DestroyableKeyMaterial sdk,
+                int firstPage,
+                int lastPage) throws IOException {
+            PayloadEncryptor enc = this.encryptor;
+            long fileSize = fc.size();
+            int fullPageDiskBytes = pageSize + PAGE_OVERHEAD_BYTES;
+            byte[] rawKey = sdk.borrowRawBytes();
+            SecretKeySpec keySpec = new SecretKeySpec(rawKey, "AES");
+            try {
+                Cipher cipher = Cipher.getInstance(AES_GCM_TRANSFORMATION);
+                for (int p = firstPage; p <= lastPage; p++) {
+                    if (decryptedPages.get(p)) {
+                        continue;
+                    }
+                    long plainOffset = (long) p * pageSize;
+                    int plainPageLen = (int) Math.min(pageSize, plaintextLen - plainOffset);
+                    int diskPageLen = plainPageLen + PAGE_OVERHEAD_BYTES;
+                    long filePos = EncryptedSegmentHeader.HEADER_BYTES + (long) p * fullPageDiskBytes;
+                    if (filePos + diskPageLen > fileSize) {
+                        throw new SpectorMemoryException(ErrorCode.MEMORY_AUTH_TAG_MISMATCH,
+                                "Truncated encrypted page " + p + " in " + sourcePath);
+                    }
+
+                    byte[] diskPage = new byte[diskPageLen];
+                    readFully(fc, ByteBuffer.wrap(diskPage), filePos);
+
+                    byte[] nonce = Arrays.copyOfRange(diskPage, 0, NONCE_BYTES);
+                    byte[] aad = buildPageAad(
+                            enc.tenantId(),
+                            enc.namespaceId(),
+                            segmentType,
+                            (short) enc.dekVersion(),
+                            p,
+                            plainPageLen);
+
+                    cipher.init(Cipher.DECRYPT_MODE, keySpec, new GCMParameterSpec(TAG_BITS, nonce));
+                    cipher.updateAAD(aad);
+                    byte[] plainPage = cipher.doFinal(diskPage, NONCE_BYTES, diskPageLen - NONCE_BYTES);
+                    MemorySegment.copy(plainPage, 0, masterSegment, ValueLayout.JAVA_BYTE, plainOffset, plainPage.length);
+                    Arrays.fill(plainPage, (byte) 0);
+
+                    cleanPageHashLo[p] = hashPageLo(masterSegment, plainOffset, plainPageLen);
+                    cleanPageHashHi[p] = hashPageHi(masterSegment, plainOffset, plainPageLen);
+                    decryptedPages.set(p);
+                    accessiblePages.set(p);
+                }
+            } catch (AEADBadTagException e) {
+                throw new SpectorMemoryException(ErrorCode.MEMORY_AUTH_TAG_MISMATCH, e,
+                        "GCM authentication tag or AAD mismatch in " + sourcePath);
+            } catch (GeneralSecurityException e) {
+                throw new SpectorMemoryException(ErrorCode.MEMORY_ENCRYPTION_FAILED, e,
+                        "Failed to decrypt segment page in " + sourcePath);
+            } finally {
+                Arrays.fill(rawKey, (byte) 0);
+            }
+        }
+
+        /**
+         * Flushes dirty pages to {@code targetPath}. Returns the number of encrypted pages written.
+         * If no pages are dirty and {@code !forceFullRewrite}, performs zero encryption and zero disk I/O.
+         */
+        public synchronized int flush(Path targetPath) throws IOException {
+            PayloadEncryptor enc = this.encryptor;
+            if (enc == null || !enc.isEnabled()) {
+                throw new SpectorMemoryException(ErrorCode.MEMORY_ENCRYPTION_FAILED,
+                        "Cannot write encrypted segment without an enabled PayloadEncryptor");
+            }
+
+            if (forceFullRewrite || !Files.exists(targetPath)) {
+                ensureAllPagesDecrypted();
+                writeEncryptedSegment(targetPath, masterSegment, segmentType, enc);
+                for (int p = 0; p < pageCount; p++) {
+                    long plainOffset = (long) p * pageSize;
+                    int plainPageLen = (int) Math.min(pageSize, plaintextLen - plainOffset);
+                    cleanPageHashLo[p] = hashPageLo(masterSegment, plainOffset, plainPageLen);
+                    cleanPageHashHi[p] = hashPageHi(masterSegment, plainOffset, plainPageLen);
+                }
+                forceFullRewrite = false;
+                lastFlushDirtyPages = pageCount;
+                return pageCount;
+            }
+
+            BitSet dirty = new BitSet(pageCount);
+            for (int p = 0; p < pageCount; p++) {
+                long plainOffset = (long) p * pageSize;
+                int plainPageLen = (int) Math.min(pageSize, plaintextLen - plainOffset);
+                if (decryptedPages.get(p)) {
+                    long lo = hashPageLo(masterSegment, plainOffset, plainPageLen);
+                    long hi = hashPageHi(masterSegment, plainOffset, plainPageLen);
+                    if (lo != cleanPageHashLo[p] || hi != cleanPageHashHi[p]) {
+                        dirty.set(p);
+                    }
+                } else if (accessiblePages.get(p) && !isAllZero(masterSegment, plainOffset, plainPageLen)) {
+                    dirty.set(p);
+                }
+            }
+
+            int dirtyCount = dirty.cardinality();
+            if (dirtyCount == 0) {
+                lastFlushDirtyPages = 0;
+                return 0;
+            }
+
+            short dekVersion = (short) enc.dekVersion();
+            int fullPageDiskBytes = pageSize + PAGE_OVERHEAD_BYTES;
+            try (DestroyableKeyMaterial sdk = resolveSubkey(enc, segmentType)) {
+                byte[] rawKey = sdk.borrowRawBytes();
+                SecretKeySpec keySpec = new SecretKeySpec(rawKey, "AES");
+                try {
+                    Cipher cipher = Cipher.getInstance(AES_GCM_TRANSFORMATION);
+                    try (FileChannel fc = FileChannel.open(targetPath,
+                            StandardOpenOption.READ, StandardOpenOption.WRITE)) {
+                        byte[] plainPageBuf = new byte[pageSize];
+                        for (int p = dirty.nextSetBit(0); p >= 0; p = dirty.nextSetBit(p + 1)) {
+                            long plainOffset = (long) p * pageSize;
+                            int plainPageLen = (int) Math.min(pageSize, plaintextLen - plainOffset);
+                            MemorySegment.copy(masterSegment, ValueLayout.JAVA_BYTE, plainOffset,
+                                    plainPageBuf, 0, plainPageLen);
+
+                            byte[] nonce = new byte[NONCE_BYTES];
+                            SECURE_RANDOM.nextBytes(nonce);
+                            byte[] aad = buildPageAad(
+                                    enc.tenantId(),
+                                    enc.namespaceId(),
+                                    segmentType,
+                                    dekVersion,
+                                    p,
+                                    plainPageLen);
+
+                            cipher.init(Cipher.ENCRYPT_MODE, keySpec, new GCMParameterSpec(TAG_BITS, nonce));
+                            cipher.updateAAD(aad);
+                            byte[] cipherAndTag = cipher.doFinal(plainPageBuf, 0, plainPageLen);
+
+                            ByteBuffer pageOut = ByteBuffer.allocate(NONCE_BYTES + cipherAndTag.length);
+                            pageOut.put(nonce);
+                            pageOut.put(cipherAndTag);
+                            pageOut.flip();
+
+                            long filePos = EncryptedSegmentHeader.HEADER_BYTES + (long) p * fullPageDiskBytes;
+                            writeFullyAt(fc, pageOut, filePos);
+
+                            cleanPageHashLo[p] = hashPageLo(masterSegment, plainOffset, plainPageLen);
+                            cleanPageHashHi[p] = hashPageHi(masterSegment, plainOffset, plainPageLen);
+                            decryptedPages.set(p);
+                            accessiblePages.set(p);
+                        }
+                        Arrays.fill(plainPageBuf, (byte) 0);
+                        fc.force(false);
+                    }
+                    lastFlushDirtyPages = dirtyCount;
+                    return dirtyCount;
+                } catch (GeneralSecurityException e) {
+                    throw new SpectorMemoryException(ErrorCode.MEMORY_ENCRYPTION_FAILED, e,
+                            "Failed to encrypt dirty segment page for " + targetPath);
+                } finally {
+                    Arrays.fill(rawKey, (byte) 0);
+                }
+            }
+        }
+    }
+
+    private static long expectedEncryptedFileSize(long plaintextLen, int pageSize) {
+        if (plaintextLen <= 0) {
+            return EncryptedSegmentHeader.HEADER_BYTES;
+        }
+        long pages = (plaintextLen + pageSize - 1L) / pageSize;
+        return EncryptedSegmentHeader.HEADER_BYTES + plaintextLen + pages * PAGE_OVERHEAD_BYTES;
+    }
+
+    private static boolean isAllZero(MemorySegment seg, long offset, int len) {
+        int i = 0;
+        int limit8 = len & ~7;
+        for (; i < limit8; i += 8) {
+            if (seg.get(ValueLayout.JAVA_LONG_UNALIGNED, offset + i) != 0L) {
+                return false;
+            }
+        }
+        for (; i < len; i++) {
+            if (seg.get(ValueLayout.JAVA_BYTE, offset + i) != 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static long hashPageLo(MemorySegment seg, long offset, int len) {
+        long h = 0x9E3779B97F4A7C15L ^ len;
+        int i = 0;
+        int limit8 = len & ~7;
+        for (; i < limit8; i += 8) {
+            long w = seg.get(ValueLayout.JAVA_LONG_UNALIGNED, offset + i);
+            h ^= w;
+            h = Long.rotateLeft(h, 27) * 0x94D049BB133111EBL + 0xBF58476D1CE4E5B9L;
+        }
+        for (; i < len; i++) {
+            h ^= (seg.get(ValueLayout.JAVA_BYTE, offset + i) & 0xFFL) << ((i & 7) * 8);
+            h *= 0x94D049BB133111EBL;
+        }
+        h ^= h >>> 33;
+        h *= 0xFF51AFD7ED558CCDL;
+        h ^= h >>> 33;
+        return h;
+    }
+
+    private static long hashPageHi(MemorySegment seg, long offset, int len) {
+        long h = 0xC2B2AE3D27D4EB4FL ^ (len * 0x9E3779B97F4A7C15L);
+        int i = 0;
+        int limit8 = len & ~7;
+        for (; i < limit8; i += 8) {
+            long w = seg.get(ValueLayout.JAVA_LONG_UNALIGNED, offset + i);
+            h ^= Long.rotateLeft(w, 13);
+            h = Long.rotateLeft(h, 31) * 0xBF58476D1CE4E5B9L + 0x94D049BB133111EBL;
+        }
+        for (; i < len; i++) {
+            h ^= (seg.get(ValueLayout.JAVA_BYTE, offset + i) & 0xFFL) << ((i & 7) * 8);
+            h *= 0xBF58476D1CE4E5B9L;
+        }
+        h ^= h >>> 31;
+        h *= 0xC4CEB9FE1A85EC53L;
+        h ^= h >>> 31;
+        return h;
+    }
 
     /**
      * Encrypts the contents of {@code masterSegment} into {@code targetPath} using the ADR-0088
@@ -489,6 +970,13 @@ public final class EncryptedSegmentPageCodec {
     private static void writeFully(FileChannel fc, ByteBuffer buf) throws IOException {
         while (buf.hasRemaining()) {
             fc.write(buf);
+        }
+    }
+
+    private static void writeFullyAt(FileChannel fc, ByteBuffer buf, long position) throws IOException {
+        long pos = position;
+        while (buf.hasRemaining()) {
+            pos += fc.write(buf, pos);
         }
     }
 
