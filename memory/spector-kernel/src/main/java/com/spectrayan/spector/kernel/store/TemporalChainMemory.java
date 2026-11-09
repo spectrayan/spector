@@ -62,6 +62,7 @@ public final class TemporalChainMemory extends AbstractChainMemory<TemporalLayou
     private static final long OFF_EPOCH_SEC = 12;
 
     private final ReentrantLock lock = new ReentrantLock();
+    private volatile boolean dirty = false;
 
     /**
      * Creates a heap-allocated temporal chain (in-memory mode).
@@ -116,6 +117,7 @@ public final class TemporalChainMemory extends AbstractChainMemory<TemporalLayou
         super(SystemMemoryId.TEMPORAL_CHAIN.id(), new TemporalLayout(), capacity, (long) NODE_BYTES * capacity, filePath);
 
         if (isNew) {
+            this.dirty = true;
             MemorySegment seg = segment;
             long base = dataOffset();
             for (int i = 0; i < capacity; i++) {
@@ -165,6 +167,7 @@ public final class TemporalChainMemory extends AbstractChainMemory<TemporalLayou
                 true, bundlePath);
 
         if (isNew) {
+            this.dirty = true;
             long now = System.currentTimeMillis();
             RegionPreamble.write(segment(), 0L, layout.schemaVersion(), MemoryShape.CHAIN, 1,
                     capacity, 0L, layout.recordStride(), layout.layoutId(), now, now);
@@ -188,6 +191,7 @@ public final class TemporalChainMemory extends AbstractChainMemory<TemporalLayou
                 true, bundlePath, null, true);
 
         if (isNew) {
+            this.dirty = true;
             long now = System.currentTimeMillis();
             RegionPreamble.write(segment(), 0L, layout.schemaVersion(), MemoryShape.CHAIN, 1,
                     capacity, 0L, layout.recordStride(), layout.layoutId(), now, now);
@@ -269,8 +273,13 @@ public final class TemporalChainMemory extends AbstractChainMemory<TemporalLayou
 
     @Override
     public void flush() {
-        if (isPersistent()) {
-            RegionPreamble.writeCount(segment(), 0, chainLength());
+        if (isPersistent() && (dirty || !isBundleManaged())) {
+            MemorySegment seg = segment();
+            long currentCount = chainLength();
+            if (!RegionPreamble.isValid(seg, 0L) || RegionPreamble.readCount(seg, 0L) != currentCount) {
+                RegionPreamble.writeCount(seg, 0L, currentCount);
+            }
+            dirty = false;
         }
         super.flush();
     }
@@ -361,6 +370,7 @@ public final class TemporalChainMemory extends AbstractChainMemory<TemporalLayou
             if (epochSec > 0) {
                 seg.set(ValueLayout.JAVA_INT, nextOff + OFF_EPOCH_SEC, epochSec);
             }
+            dirty = true;
         } finally {
             lock.unlock();
         }
@@ -485,6 +495,7 @@ public final class TemporalChainMemory extends AbstractChainMemory<TemporalLayou
             segment().set(ValueLayout.JAVA_INT, selfOff + OFF_NEXT, NO_LINK);
             segment().set(ValueLayout.JAVA_INT, selfOff + OFF_SESSION, 0);
             segment().set(ValueLayout.JAVA_INT, selfOff + OFF_EPOCH_SEC, 0);
+            dirty = true;
         } finally {
             lock.unlock();
         }

@@ -92,6 +92,8 @@ public final class MemoryBM25Index extends AbstractMemoryIndex<BM25Index> {
         super("BM25", java.util.Set.of("MemoryIndex", "EntityReverseIndex"), partitionCount);
     }
 
+    private volatile boolean dirty = false;
+
     @Override
     protected BM25Index createPartitionIndex() {
         return new BM25Index(new StemmingAnalyzer());
@@ -107,6 +109,7 @@ public final class MemoryBM25Index extends AbstractMemoryIndex<BM25Index> {
     public void index(int partitionIndex, String id, String text) {
         ensurePartition(partitionIndex);
         partitions.get(partitionIndex).index(id, text);
+        dirty = true;
     }
 
     /**
@@ -197,6 +200,7 @@ public final class MemoryBM25Index extends AbstractMemoryIndex<BM25Index> {
         }
 
         partitions.set(partitionIndex, newIndex);
+        dirty = true;
         log.debug("Rebuilt BM25 for partition {} with {} documents", partitionIndex, texts.size());
     }
 
@@ -212,6 +216,7 @@ public final class MemoryBM25Index extends AbstractMemoryIndex<BM25Index> {
     public void setPartition(int partitionIndex, BM25Index index) {
         ensurePartition(partitionIndex);
         partitions.set(partitionIndex, index);
+        dirty = true;
         log.debug("Set BM25 partition {} with {} documents", partitionIndex, index.size());
     }
 
@@ -256,6 +261,7 @@ public final class MemoryBM25Index extends AbstractMemoryIndex<BM25Index> {
         for (BM25Index p : partitions) {
             p.remove(id);
         }
+        dirty = true;
     }
 
     /**
@@ -279,6 +285,7 @@ public final class MemoryBM25Index extends AbstractMemoryIndex<BM25Index> {
      */
     public int persistToBundle(RuntimeBundle runtimeBundle) {
         if (runtimeBundle == null || partitions.isEmpty() || totalDocuments() == 0) {
+            dirty = false;
             return 0;
         }
 
@@ -286,6 +293,18 @@ public final class MemoryBM25Index extends AbstractMemoryIndex<BM25Index> {
             RegionRef bm25Ref = runtimeBundle.regionRef(RegionId.BM25);
             if (bm25Ref == null) {
                 return -1;
+            }
+
+            if (context != null && context.memoryIndex() != null) {
+                long currentGen = computeGeneration(
+                        context.memoryIndex().size(), "stemming-analyzer", BM25Index.FORMAT_VERSION);
+                for (BM25Index p : partitions) {
+                    p.setGeneration(currentGen);
+                    if (p.analyzerId() == null) {
+                        p.setAnalyzerId("stemming-analyzer");
+                    }
+                }
+                this.generation = currentGen;
             }
 
             byte[] data;
@@ -306,7 +325,11 @@ public final class MemoryBM25Index extends AbstractMemoryIndex<BM25Index> {
                 data = baos.toByteArray();
             }
 
-            return bm25Ref.writeLengthPrefixedPayload(data);
+            int written = bm25Ref.writeLengthPrefixedPayload(data);
+            if (written >= 0) {
+                dirty = false;
+            }
+            return written;
         } catch (Exception e) {
             log.warn("Failed to persist BM25 index to runtime bundle: {}", e.getMessage(), e);
             return -1;
@@ -358,6 +381,9 @@ public final class MemoryBM25Index extends AbstractMemoryIndex<BM25Index> {
 
     @Override
     public void checkpoint() {
+        if (!dirty) {
+            return;
+        }
         if (context != null && context.runtimeBundle() != null) {
             int written = persistToBundle(context.runtimeBundle());
             if (written < 0) {
@@ -400,6 +426,7 @@ public final class MemoryBM25Index extends AbstractMemoryIndex<BM25Index> {
                                 if (!partitions.isEmpty() && partition(0).generation() == expectedGen
                                         && java.util.Objects.equals(partition(0).analyzerId(), "stemming-analyzer")) {
                                     loadedValid = true;
+                                    dirty = false;
                                     log.info("BM25 hydrated multi-partition from bundle ({} partitions, gen={})", count, expectedGen);
                                 }
                             }
@@ -409,6 +436,7 @@ public final class MemoryBM25Index extends AbstractMemoryIndex<BM25Index> {
                                     && java.util.Objects.equals(single.analyzerId(), "stemming-analyzer")) {
                                 setPartition(0, single);
                                 loadedValid = true;
+                                dirty = false;
                                 log.info("BM25 hydrated from bundle region ({} docs, gen={})", single.size(), expectedGen);
                             }
                         }
@@ -422,6 +450,7 @@ public final class MemoryBM25Index extends AbstractMemoryIndex<BM25Index> {
         if (!loadedValid) {
             log.info("BM25 index not present or generation mismatched (expected gen={}), rebuilding from primary memory", expectedGen);
             rebuildInternal(expectedGen);
+            dirty = false;
         }
 
         this.lastHydrateMs = System.currentTimeMillis() - start;

@@ -125,23 +125,35 @@ public final class RuntimeBundle implements AbstractBundle {
 
     private final boolean isNew;
     private volatile com.spectrayan.spector.kernel.storage.PayloadEncryptor encryptor;
+    private volatile com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.LazyEncryptedSegment lazyEncrypted;
+    private final java.util.Set<RegionId> decryptedRegions = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final java.util.Set<RegionId> validatedRegionPreambles = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     private RuntimeBundle(Arena arena, MemorySegment masterSegment,
                            BundleDirectory directory, Path bundlePath,
                            boolean isNew) {
-        this(arena, masterSegment, directory, bundlePath, isNew, null);
+        this(arena, masterSegment, directory, bundlePath, isNew, null, null);
     }
 
     private RuntimeBundle(Arena arena, MemorySegment masterSegment,
                            BundleDirectory directory, Path bundlePath,
                            boolean isNew,
                            com.spectrayan.spector.kernel.storage.PayloadEncryptor encryptor) {
+        this(arena, masterSegment, directory, bundlePath, isNew, encryptor, null);
+    }
+
+    private RuntimeBundle(Arena arena, MemorySegment masterSegment,
+                           BundleDirectory directory, Path bundlePath,
+                           boolean isNew,
+                           com.spectrayan.spector.kernel.storage.PayloadEncryptor encryptor,
+                           com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.LazyEncryptedSegment lazyEncrypted) {
         this.arena = arena;
         this.masterSegment = masterSegment;
         this.directory = directory;
         this.bundlePath = bundlePath;
         this.isNew = isNew;
         this.encryptor = encryptor;
+        this.lazyEncrypted = lazyEncrypted;
         this.regionSlices = buildSliceMap(masterSegment, directory);
     }
 
@@ -153,10 +165,30 @@ public final class RuntimeBundle implements AbstractBundle {
     }
 
     /**
+     * Returns the number of encrypted pages decrypted so far in this bundle session.
+     */
+    public int decryptedPageCount() {
+        var lazy = this.lazyEncrypted;
+        return lazy != null ? lazy.decryptedPageCount() : 0;
+    }
+
+    /**
+     * Returns the number of dirty encrypted pages written during the most recent {@link #flush()}.
+     */
+    public int lastFlushDirtyPages() {
+        var lazy = this.lazyEncrypted;
+        return lazy != null ? lazy.lastFlushDirtyPages() : 0;
+    }
+
+    /**
      * Rebinds the active {@link com.spectrayan.spector.kernel.storage.PayloadEncryptor} (e.g. during DEK rotation
      * from {@code vN} to {@code v(N+1)}) so subsequent flushes write under the new DEK version.
      */
     public void rebindEncryptor(com.spectrayan.spector.kernel.storage.PayloadEncryptor newEncryptor) {
+        var lazy = this.lazyEncrypted;
+        if (lazy != null) {
+            lazy.rebindEncryptor(newEncryptor);
+        }
         this.encryptor = newEncryptor;
     }
 
@@ -196,13 +228,18 @@ public final class RuntimeBundle implements AbstractBundle {
                 if (encryptor != null && encryptor.isEnabled()) {
                     MemorySegment offHeap = arena.allocate(totalFileSize, 4096);
                     dir.write(offHeap);
-                    com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.writeEncryptedSegment(
+                    var lazy = com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.LazyEncryptedSegment.create(
                             path, offHeap,
                             com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.SEGMENT_TYPE_RUNTIME_BUNDLE,
                             encryptor);
                     log.info("Created encrypted runtime bundle: {} ({} regions, {}KB)",
                             path, specs.size(), totalFileSize / 1024);
-                    return new RuntimeBundle(arena, offHeap, dir, path, true, encryptor);
+                    RuntimeBundle bundle = new RuntimeBundle(arena, offHeap, dir, path, true, encryptor, lazy);
+                    for (RegionEntry entry : dir.liveRegions()) {
+                        bundle.decryptedRegions.add(entry.regionId());
+                        bundle.validatedRegionPreambles.add(entry.regionId());
+                    }
+                    return bundle;
                 }
 
                 try (FileChannel fc = FileChannel.open(path,
@@ -243,15 +280,16 @@ public final class RuntimeBundle implements AbstractBundle {
             try {
                 boolean encryptedFile = com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.isEncryptedFile(path);
                 if (encryptedFile) {
-                    MemorySegment decrypted = com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.readEncryptedSegment(
+                    var lazy = com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.LazyEncryptedSegment.open(
                             path,
                             com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.SEGMENT_TYPE_RUNTIME_BUNDLE,
                             encryptor,
                             arena);
-                    BundleDirectory dir = BundleDirectory.read(decrypted, BundleSubHeader.MAGIC_RUNTIME);
-                    log.info("Opened encrypted runtime bundle: {} ({} live regions, {}KB)",
+                    MemorySegment decrypted = lazy.masterSegment();
+                    BundleDirectory dir = BundleDirectory.read(decrypted, BundleSubHeader.MAGIC_RUNTIME, false);
+                    log.info("Opened encrypted runtime bundle (lazy): {} ({} live regions, {}KB)",
                             path, dir.liveRegionCount(), decrypted.byteSize() / 1024);
-                    return new RuntimeBundle(arena, decrypted, dir, path, false, encryptor);
+                    return new RuntimeBundle(arena, decrypted, dir, path, false, encryptor, lazy);
                 }
 
                 long fileSize = Files.size(path);
@@ -262,13 +300,18 @@ public final class RuntimeBundle implements AbstractBundle {
                     MemorySegment.copy(rawBytes, 0, offHeap, java.lang.foreign.ValueLayout.JAVA_BYTE, 0, rawBytes.length);
                     java.util.Arrays.fill(rawBytes, (byte) 0);
                     BundleDirectory dir = BundleDirectory.read(offHeap, BundleSubHeader.MAGIC_RUNTIME);
-                    com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.writeEncryptedSegment(
+                    var lazy = com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.LazyEncryptedSegment.create(
                             path, offHeap,
                             com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.SEGMENT_TYPE_RUNTIME_BUNDLE,
                             encryptor);
                     log.info("Upgraded and opened runtime bundle with at-rest encryption: {} ({} live regions, {}KB)",
                             path, dir.liveRegionCount(), fileSize / 1024);
-                    return new RuntimeBundle(arena, offHeap, dir, path, false, encryptor);
+                    RuntimeBundle bundle = new RuntimeBundle(arena, offHeap, dir, path, false, encryptor, lazy);
+                    for (RegionEntry entry : dir.liveRegions()) {
+                        bundle.decryptedRegions.add(entry.regionId());
+                        bundle.validatedRegionPreambles.add(entry.regionId());
+                    }
+                    return bundle;
                 }
 
                 try (FileChannel fc = FileChannel.open(path,
@@ -313,15 +356,16 @@ public final class RuntimeBundle implements AbstractBundle {
             try {
                 boolean encryptedFile = com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.isEncryptedFile(path);
                 if (encryptedFile) {
-                    MemorySegment decrypted = com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.readEncryptedSegment(
+                    var lazy = com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.LazyEncryptedSegment.open(
                             path,
                             com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.SEGMENT_TYPE_RUNTIME_BUNDLE,
                             encryptor,
                             arena);
-                    BundleDirectory dir = BundleDirectory.read(decrypted, BundleSubHeader.MAGIC_RUNTIME);
-                    log.info("Opened encrypted runtime bundle read-only: {} ({} live regions, {}KB)",
+                    MemorySegment decrypted = lazy.masterSegment();
+                    BundleDirectory dir = BundleDirectory.read(decrypted, BundleSubHeader.MAGIC_RUNTIME, false);
+                    log.info("Opened encrypted runtime bundle read-only (lazy): {} ({} live regions, {}KB)",
                             path, dir.liveRegionCount(), decrypted.byteSize() / 1024);
-                    return new RuntimeBundle(arena, decrypted, dir, null, false, null);
+                    return new RuntimeBundle(arena, decrypted, dir, null, false, null, lazy);
                 }
 
                 long fileSize = Files.size(path);
@@ -389,6 +433,7 @@ public final class RuntimeBundle implements AbstractBundle {
 
     @Override
     public RegionLease lease(RegionId id) {
+        ensureRegionDecrypted(id);
         int currentThreadLeases = threadLeaseCount.get();
         MemorySegment slice;
         if (currentThreadLeases > 0) {
@@ -598,6 +643,7 @@ public final class RuntimeBundle implements AbstractBundle {
     }
 
     MemorySegment regionSegment(RegionId id) {
+        ensureRegionDecrypted(id);
         // Fast path: optimistic read
         long stamp = remapLock.tryOptimisticRead();
         Map<RegionId, MemorySegment> slices = this.regionSlices;
@@ -622,6 +668,105 @@ public final class RuntimeBundle implements AbstractBundle {
         } finally {
             remapLock.unlockRead(stamp);
         }
+    }
+
+    private void ensureRegionPreambleDecrypted(RegionEntry entry) {
+        var lazy = this.lazyEncrypted;
+        if (lazy == null || entry == null || !entry.isLive()) {
+            return;
+        }
+        lazy.ensureRangeDecrypted(entry.offset(), Math.min(entry.allocatedSize(), 80L));
+        if (validatedRegionPreambles.add(entry.regionId())) {
+            BundleDirectory.validateRegionEntryVersion(masterSegment, entry);
+        }
+    }
+
+    private void ensureRegionDecrypted(RegionId id) {
+        var lazy = this.lazyEncrypted;
+        if (lazy == null || decryptedRegions.contains(id)) {
+            return;
+        }
+        RegionEntry entry = directory.findRegion(id);
+        if (entry == null || !entry.isLive()) {
+            return;
+        }
+        ensureRegionPreambleDecrypted(entry);
+        MemorySegment master = this.masterSegment;
+        long activeBytes = computeActiveRegionBytes(id, entry, master);
+        if (id == RegionId.COACTIVATION) {
+            RegionEntry ckpt = directory.findRegion(RegionId.CHECKPOINT);
+            if (ckpt != null && ckpt.isLive() && ckpt.allocatedSize() >= 24L) {
+                lazy.ensureRangeDecrypted(ckpt.offset(), 24L);
+                int pairs = master.get(java.lang.foreign.ValueLayout.JAVA_INT, ckpt.offset() + 16L);
+                int edges = master.get(java.lang.foreign.ValueLayout.JAVA_INT, ckpt.offset() + 20L);
+                if (pairs > 0 || edges > 0) {
+                    activeBytes = entry.allocatedSize();
+                }
+            }
+        }
+        lazy.ensureRangeDecrypted(entry.offset(), activeBytes);
+        if (id == RegionId.ENTITY_NAMES && entry.allocatedSize() >= 80L) {
+            int adjCap = master.get(java.lang.foreign.ValueLayout.JAVA_INT,
+                    entry.offset() + RegionPreamble.PREAMBLE_BYTES);
+            if (adjCap > 0) {
+                long nameIdxRelOffset = 80L + (long) adjCap * 8L;
+                if (nameIdxRelOffset + 4L <= entry.allocatedSize()) {
+                    lazy.ensureRangeDecrypted(entry.offset() + nameIdxRelOffset, 4L);
+                    int payloadLen = master.get(java.lang.foreign.ValueLayout.JAVA_INT,
+                            entry.offset() + nameIdxRelOffset);
+                    if (payloadLen > 0 && nameIdxRelOffset + 4L + payloadLen <= entry.allocatedSize()) {
+                        lazy.ensureRangeDecrypted(entry.offset() + nameIdxRelOffset, 4L + payloadLen);
+                    }
+                }
+            }
+        }
+        lazy.markRangeAccessible(entry.offset(), entry.allocatedSize());
+        decryptedRegions.add(id);
+    }
+
+    static long computeActiveRegionBytes(RegionId id, RegionEntry entry, MemorySegment masterSeg) {
+        long alloc = entry.allocatedSize();
+        if (alloc <= 65536L) {
+            return alloc;
+        }
+        if (id == RegionId.BM25 || id == RegionId.SPLADE) {
+            int payloadLen = masterSeg.get(java.lang.foreign.ValueLayout.JAVA_INT_UNALIGNED, entry.offset());
+            if (payloadLen > 0 && 4L + payloadLen <= alloc) {
+                return 4L + payloadLen;
+            }
+            return Math.min(alloc, 64L);
+        }
+        if (id == RegionId.STRENGTH || id == RegionId.TEMPORAL_CHAIN) {
+            return alloc;
+        }
+        if (!RegionPreamble.isValid(masterSeg, entry.offset())) {
+            return entry.usedSize() > 0 ? Math.min(alloc, entry.usedSize()) : Math.min(alloc, 65536L);
+        }
+        long count = RegionPreamble.readCount(masterSeg, entry.offset());
+        long cap = RegionPreamble.readCapacity(masterSeg, entry.offset());
+        int stride = Math.max(RegionPreamble.readRecordStride(masterSeg, entry.offset()), entry.stride());
+        return switch (id) {
+            case INDEX_MIDX -> Math.min(alloc, 64L + Math.max(0L, count) * 48L);
+            case INDEX_IDPL -> Math.min(alloc, 64L + Math.max(0L, Math.max(cap, count)));
+            case TEXT, EPISODIC, TEMPORAL_FACTS -> Math.min(alloc, 64L + Math.max(0L, count));
+            case ENTITY_DIRECTORY -> Math.min(alloc, 80L + Math.max(0L, count) * 64L);
+            case ENTITY_NAMES -> {
+                int adjHwm = masterSeg.get(java.lang.foreign.ValueLayout.JAVA_INT, entry.offset() + 68L);
+                yield Math.min(alloc, 80L + Math.max(0L, (long) adjHwm) * 8L);
+            }
+            case HEBBIAN -> count <= 0
+                    ? Math.min(alloc, 80L)
+                    : Math.min(alloc, 80L + (Math.max(0L, cap) + 1L) * 4L + count * 12L);
+            case COACTIVATION -> count <= 0 ? Math.min(alloc, 80L) : alloc;
+            case HYPERGRAPH -> count <= 0 ? Math.min(alloc, 80L) : alloc;
+            case WORKING, SEMANTIC, PROCEDURAL, CONTINUITY, PROVENANCE, INSULA -> {
+                if (count <= 0) {
+                    yield Math.min(alloc, 64L);
+                }
+                yield stride > 0 ? Math.min(alloc, 64L + count * (long) stride) : alloc;
+            }
+            default -> alloc;
+        };
     }
 
     @Override
@@ -740,6 +885,9 @@ public final class RuntimeBundle implements AbstractBundle {
             long newAllocatedSize = BundleFileLayoutCalculator.alignToPage(target);
 
             // Read old region data before unmapping
+            if (lazyEncrypted != null) {
+                lazyEncrypted.ensureAllPagesDecrypted();
+            }
             byte[] oldData = new byte[(int) oldEntry.allocatedSize()];
             MemorySegment.copy(masterSegment, oldEntry.offset(),
                     MemorySegment.ofArray(oldData), 0, oldEntry.allocatedSize());
@@ -769,7 +917,7 @@ public final class RuntimeBundle implements AbstractBundle {
                 }
                 closeArenaAfterDrain();
 
-                com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.writeEncryptedSegment(
+                var newLazy = com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.LazyEncryptedSegment.create(
                         bundlePath, newOffHeap,
                         com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.SEGMENT_TYPE_RUNTIME_BUNDLE,
                         encryptor);
@@ -777,6 +925,11 @@ public final class RuntimeBundle implements AbstractBundle {
                 this.arena = newArena;
                 this.masterSegment = newOffHeap;
                 this.directory = newDir;
+                this.lazyEncrypted = newLazy;
+                for (RegionEntry entry : newDir.liveRegions()) {
+                    this.decryptedRegions.add(entry.regionId());
+                    this.validatedRegionPreambles.add(entry.regionId());
+                }
                 this.regionSlices = buildSliceMap(newOffHeap, newDir);
                 generations.computeIfAbsent(regionId, _ -> new java.util.concurrent.atomic.AtomicInteger(0)).incrementAndGet();
 
@@ -961,6 +1114,9 @@ public final class RuntimeBundle implements AbstractBundle {
             }
 
             // 1. Copy data of all live regions into memory buffers
+            if (lazyEncrypted != null) {
+                lazyEncrypted.ensureAllPagesDecrypted();
+            }
             List<byte[]> regionPayloads = new java.util.ArrayList<>(live.size());
             List<RegionEntry> compactedEntries = new java.util.ArrayList<>(live.size());
             long currentOffset = dataStart;
@@ -1011,7 +1167,7 @@ public final class RuntimeBundle implements AbstractBundle {
                 }
                 closeArenaAfterDrain();
 
-                com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.writeEncryptedSegment(
+                var newLazy = com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.LazyEncryptedSegment.create(
                         bundlePath, newOffHeap,
                         com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.SEGMENT_TYPE_RUNTIME_BUNDLE,
                         encryptor);
@@ -1019,6 +1175,11 @@ public final class RuntimeBundle implements AbstractBundle {
                 this.arena = newArena;
                 this.masterSegment = newOffHeap;
                 this.directory = newDir;
+                this.lazyEncrypted = newLazy;
+                for (RegionEntry entry : newDir.liveRegions()) {
+                    this.decryptedRegions.add(entry.regionId());
+                    this.validatedRegionPreambles.add(entry.regionId());
+                }
                 this.regionSlices = buildSliceMap(newOffHeap, newDir);
 
                 long reclaimed = Math.max(0L, initialFileSize - newTotalFileSize);
@@ -1075,21 +1236,26 @@ public final class RuntimeBundle implements AbstractBundle {
     }
 
     /**
-     * Flushes the directory to the master segment and forces the segment to disk.
+     * Flushes dirty pages or mapped changes of the master segment to disk.
      */
     public void flush() {
         if (bundlePath != null && arena != null && arena.scope().isAlive()) {
-            directory.write(masterSegment);
             if (isEncrypted()) {
                 try {
-                    com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.writeEncryptedSegment(
-                            bundlePath, masterSegment,
-                            com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.SEGMENT_TYPE_RUNTIME_BUNDLE,
-                            encryptor);
+                    var lazy = this.lazyEncrypted;
+                    if (lazy != null) {
+                        lazy.flush(bundlePath);
+                    } else {
+                        com.spectrayan.spector.kernel.storage.EncryptedSegmentPageCodec.writeEncryptedSegment(
+                                bundlePath, masterSegment,
+                                com.spectrayan.spector.kernel.storage.EncryptedSegmentHeader.SEGMENT_TYPE_RUNTIME_BUNDLE,
+                                encryptor);
+                    }
                 } catch (IOException e) {
                     throw new UncheckedIOException("Failed to flush encrypted runtime bundle: " + bundlePath, e);
                 }
             } else if (masterSegment.isMapped()) {
+                directory.write(masterSegment);
                 masterSegment.force();
             }
         }
@@ -1136,8 +1302,14 @@ public final class RuntimeBundle implements AbstractBundle {
         if (!hasRegion(id)) {
             return true;
         }
-        MemorySegment slice = currentSlice(id);
-        return !RegionPreamble.isValid(slice, 0) || RegionPreamble.readCount(slice, 0) == 0;
+        RegionEntry entry = directory.findRegion(id);
+        if (entry == null || !entry.isLive() || entry.allocatedSize() < RegionPreamble.PREAMBLE_BYTES) {
+            return true;
+        }
+        ensureRegionPreambleDecrypted(entry);
+        MemorySegment master = this.masterSegment;
+        return !RegionPreamble.isValid(master, entry.offset())
+                || RegionPreamble.readCount(master, entry.offset()) == 0;
     }
 
     /**

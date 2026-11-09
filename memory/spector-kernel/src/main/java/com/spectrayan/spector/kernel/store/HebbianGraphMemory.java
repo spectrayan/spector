@@ -688,6 +688,14 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
      */
     public static void writeSmkmHeader(MemorySegment head, int capacity, int edgeCapacity,
                                 int totalEdges, int currentCycle) {
+        if (RegionPreamble.isValid(head, 0L)
+                && RegionPreamble.readSchemaVersion(head, 0L) == LAYOUT.schemaVersion()
+                && RegionPreamble.readCapacity(head, 0L) == capacity
+                && RegionPreamble.readCount(head, 0L) == totalEdges
+                && head.get(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_EDGE_CAPACITY) == edgeCapacity
+                && head.get(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_CURRENT_CYCLE) == currentCycle) {
+            return;
+        }
         long now = System.currentTimeMillis();
         RegionPreamble.write(head, 0L, LAYOUT.schemaVersion(), MemoryShape.GRAPH, 0x01,
                 capacity, totalEdges, EDGE_BYTES, LAYOUT.layoutId(), now, now);

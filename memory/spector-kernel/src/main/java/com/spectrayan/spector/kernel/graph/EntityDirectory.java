@@ -166,22 +166,23 @@ public class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLayout> 
     }
 
     private transient boolean bundleManaged = false;
+    private transient volatile boolean nameIndexDirty = false;
+
+    private static int resolveEntityCapacity(MemorySegment entityRegionSlice, int entityCapacity, boolean isNew) {
+        long availableBytes = Math.max(0L, entityRegionSlice.byteSize() - DATA_START);
+        int maxCapFromRegion = (int) (availableBytes / ENTITY_NODE_BYTES);
+        if (isNew) {
+            return Math.min(entityCapacity, maxCapFromRegion);
+        }
+        int preambleCap = (int) RegionPreamble.readCapacity(entityRegionSlice, 0L);
+        int resolvedCap = preambleCap > 0 ? Math.min(preambleCap, maxCapFromRegion) : Math.min(entityCapacity, maxCapFromRegion);
+        return resolvedCap <= 0 ? maxCapFromRegion : resolvedCap;
+    }
 
     public static EntityDirectory fromBundle(Arena arena, MemorySegment entityRegionSlice, MemorySegment adjacencyRegionSlice,
                                              int entityCapacity, TypeRegistryMemory entityTypeRegistry,
                                              Path bundlePath, boolean isNew) {
-        long availableBytes = Math.max(0L, entityRegionSlice.byteSize() - DATA_START);
-        int maxCapFromRegion = (int) (availableBytes / ENTITY_NODE_BYTES);
-        int resolvedCap;
-        if (isNew) {
-            resolvedCap = Math.min(entityCapacity, maxCapFromRegion);
-        } else {
-            int preambleCap = (int) RegionPreamble.readCapacity(entityRegionSlice, 0L);
-            resolvedCap = preambleCap > 0 ? Math.min(preambleCap, maxCapFromRegion) : Math.min(entityCapacity, maxCapFromRegion);
-            if (resolvedCap <= 0) {
-                resolvedCap = maxCapFromRegion;
-            }
-        }
+        int resolvedCap = resolveEntityCapacity(entityRegionSlice, entityCapacity, isNew);
         return new EntityDirectory(arena, entityRegionSlice, adjacencyRegionSlice, resolvedCap, entityTypeRegistry, bundlePath, isNew);
     }
 
@@ -190,18 +191,7 @@ public class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLayout> 
             com.spectrayan.spector.kernel.bundle.RegionRef entityNamesRef,
             int entityCapacity, TypeRegistryMemory entityTypeRegistry,
             Path bundlePath, boolean isNew) {
-        MemorySegment entityRegionSlice = entityDirRef.resolve();
-        MemorySegment adjacencyRegionSlice = entityNamesRef.resolve();
-        int resolvedCap = entityCapacity;
-        if (!isNew) {
-            int preambleCap = (int) RegionPreamble.readCapacity(entityRegionSlice, 0L);
-            long availableBytes = Math.max(0L, entityRegionSlice.byteSize() - DATA_START);
-            int maxCapFromRegion = (int) (availableBytes / ENTITY_NODE_BYTES);
-            resolvedCap = preambleCap > 0 ? Math.min(preambleCap, maxCapFromRegion) : Math.min(entityCapacity, maxCapFromRegion);
-            if (resolvedCap <= 0) {
-                resolvedCap = maxCapFromRegion;
-            }
-        }
+        int resolvedCap = resolveEntityCapacity(entityDirRef.resolve(), entityCapacity, isNew);
         return new EntityDirectory(entityDirRef, entityNamesRef, resolvedCap, entityTypeRegistry, bundlePath, isNew);
     }
 
@@ -209,16 +199,15 @@ public class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLayout> 
                             com.spectrayan.spector.kernel.bundle.RegionRef entityNamesRef,
                             int entityCapacity, TypeRegistryMemory entityTypeRegistry,
                             Path bundlePath, boolean isNew) {
-        super(MEMORY_ID, LAYOUT, entityCapacity, entityDirRef,
+        super(MEMORY_ID, LAYOUT, resolveEntityCapacity(entityDirRef.resolve(), entityCapacity, isNew), entityDirRef,
               isNew ? 0 : (int) RegionPreamble.readCount(entityDirRef.resolve(), 0L),
               true, bundlePath);
         this.bundleManaged = true;
+        this.nameIndexDirty = isNew;
         MemorySegment entityRegionSlice = entityDirRef.resolve();
         MemorySegment adjacencyRegionSlice = entityNamesRef.resolve();
         this.rawAdjacencyRegion = adjacencyRegionSlice;
-        long availableBytes = Math.max(0L, entityRegionSlice.byteSize() - DATA_START);
-        int maxCapFromRegion = (int) (availableBytes / ENTITY_NODE_BYTES);
-        this.entityCapacity = Math.min(entityCapacity, maxCapFromRegion);
+        this.entityCapacity = super.capacity();
         this.headerSegment = entityRegionSlice.asSlice(0, DATA_START);
         this.entitySegment = entityRegionSlice.asSlice(DATA_START, (long) ENTITY_NODE_BYTES * this.entityCapacity);
         this.fileBacked = true;
@@ -265,6 +254,7 @@ public class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLayout> 
                     names = EntityDirectorySerializer.loadNameIndexSidecar(bundlePath, null);
                     if (names != null && !names.isEmpty()) {
                         this.nameIndex.putAll(names);
+                        this.nameIndexDirty = true;
                     }
                 }
             } catch (Exception e) {
@@ -281,6 +271,7 @@ public class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLayout> 
               isNew ? 0 : (int) RegionPreamble.readCount(entityRegionSlice, 0L),
               true, bundlePath, null, true); // bundleManaged=true
         this.bundleManaged = true;
+        this.nameIndexDirty = isNew;
         this.rawAdjacencyRegion = adjacencyRegionSlice;
         long availableBytes = Math.max(0L, entityRegionSlice.byteSize() - DATA_START);
         int maxCapFromRegion = (int) (availableBytes / ENTITY_NODE_BYTES);
@@ -527,6 +518,7 @@ public class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLayout> 
             entityCount++;
             persistCount();
             nameIndex.put(normalized, entityId);
+            nameIndexDirty = true;
             log.trace("Directory entity interned: id={}", entityId);
             return entityId;
         } finally {
@@ -1234,6 +1226,7 @@ public class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLayout> 
             entitySegment.fill((byte) 0);
             adjacencySegment.fill((byte) 0);
             nameIndex.clear();
+            nameIndexDirty = true;
             entityCount = 0;
             adjHighWaterMark = 0;
             persistCount();
@@ -1269,7 +1262,7 @@ public class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLayout> 
                     if (rawAdjacencyRegion.isMapped()) rawAdjacencyRegion.force();
 
                     Path path = filePath != null ? filePath : mmapFilePath;
-                    if (path != null) {
+                    if (path != null && nameIndexDirty) {
                         // V4 bundle path: write name index to ENTITY_NAMES region after adjacency data
                         long nameIndexOffset = DATA_START
                                 + (long) adjSegmentCapacity * ADJ_ENTRY_BYTES;
@@ -1278,6 +1271,8 @@ public class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLayout> 
                         if (written < 0) {
                             // Fallback to sidecar file if region too small
                             EntityDirectorySerializer.saveNameIndexSidecar(this, path, encryptor);
+                        } else {
+                            nameIndexDirty = false;
                         }
                     }
                 }
@@ -1418,6 +1413,14 @@ public class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLayout> 
     /** Writes the SMKM header directly to a memory-mapped header segment (no FileChannel needed). */
     private static void writeSmkmHeaderToSegment(MemorySegment header, int entityCap, int entityCount,
                                                  int adjCap, int adjHwm) {
+        if (RegionPreamble.isValid(header, 0L)
+                && RegionPreamble.readSchemaVersion(header, 0L) == LAYOUT.schemaVersion()
+                && RegionPreamble.readCapacity(header, 0L) == entityCap
+                && RegionPreamble.readCount(header, 0L) == entityCount
+                && header.get(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_ADJ_CAPACITY) == adjCap
+                && header.get(ValueLayout.JAVA_INT, RegionPreamble.PREAMBLE_BYTES + SUB_OFF_ADJ_HWM) == adjHwm) {
+            return;
+        }
         long now = System.currentTimeMillis();
         RegionPreamble.write(header, 0L, LAYOUT.schemaVersion(), MemoryShape.GRAPH, 0x01,
                 entityCap, entityCount, ENTITY_NODE_BYTES, LAYOUT.layoutId(), now, now);

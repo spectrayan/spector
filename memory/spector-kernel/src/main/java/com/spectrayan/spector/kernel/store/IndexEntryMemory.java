@@ -927,17 +927,16 @@ public class IndexEntryMemory extends AbstractRecordMemory<IndexEntryLayout> {
                 }
 
                 final int stride = new IndexEntryLayout().recordStride();
-                long totalSlotBytes = (long) entryCount * stride;
+                int actualCount = serializedBlobs.size();
+                long totalSlotBytes = (long) actualCount * stride;
 
-                long now = System.currentTimeMillis();
-                RegionPreamble.write(midxSeg, 0L, INDEX_VERSION_V7, MemoryShape.RECORD, 0,
-                        100_000L, entryCount, stride, new IndexEntryLayout().layoutId(), now, now);
-                // Persist graphSlotHighWater in the reserved field (offset 60, outside CRC range)
-                long headerBaseOffset = 0L;
-                midxSeg.set(java.lang.foreign.ValueLayout.JAVA_INT_UNALIGNED, headerBaseOffset + 60, graphSlotHighWater.get());
+                byte[] allPoolBytes = new byte[(int) totalPoolBytes];
+                ByteBuffer poolBuf = ByteBuffer.wrap(allPoolBytes);
+                poolBuf.order(java.nio.ByteOrder.nativeOrder());
 
-                RegionPreamble.write(idplSeg, 0L, 1, MemoryShape.APPEND, 0,
-                        totalPoolBytes, entryCount, 0, new IdBlobLayout().layoutId(), now, now);
+                byte[] allSlotBytes = new byte[(int) totalSlotBytes];
+                ByteBuffer slotBuf = ByteBuffer.wrap(allSlotBytes);
+                slotBuf.order(java.nio.ByteOrder.nativeOrder());
 
                 long poolOffset = 0;
                 int index = 0;
@@ -947,13 +946,8 @@ public class IndexEntryMemory extends AbstractRecordMemory<IndexEntryLayout> {
                     if (loc == null) continue;
                     byte[] blobBytes = serializedBlobs.get(index);
 
-                    long poolPos = RegionPreamble.PREAMBLE_BYTES + poolOffset;
-                    idplSeg.set(ValueLayout.JAVA_INT_UNALIGNED, poolPos, blobBytes.length);
-                    MemorySegment.copy(MemorySegment.ofArray(blobBytes), 0L, idplSeg, poolPos + 4, blobBytes.length);
-
-                    byte[] slotBytes = new byte[stride];
-                    ByteBuffer slotBuf = ByteBuffer.wrap(slotBytes);
-                    slotBuf.order(java.nio.ByteOrder.nativeOrder());
+                    poolBuf.putInt(blobBytes.length);
+                    poolBuf.put(blobBytes);
 
                     slotBuf.putLong(poolOffset + 4);
                     slotBuf.putInt(blobBytes.length);
@@ -965,11 +959,48 @@ public class IndexEntryMemory extends AbstractRecordMemory<IndexEntryLayout> {
                     slotBuf.putInt(loc.colocatedPartition());
                     slotBuf.putInt(0);
 
-                    long slotPos = RegionPreamble.PREAMBLE_BYTES + (long) index * stride;
-                    MemorySegment.copy(MemorySegment.ofArray(slotBytes), 0L, midxSeg, slotPos, stride);
-
                     poolOffset += 4 + blobBytes.length;
                     index++;
+                }
+
+                MemorySegment slotsArraySeg = MemorySegment.ofArray(allSlotBytes);
+                MemorySegment poolArraySeg = MemorySegment.ofArray(allPoolBytes);
+                int currentHw = graphSlotHighWater.get();
+
+                if (actualCount == entryCount
+                        && RegionPreamble.isValid(midxSeg, 0L)
+                        && RegionPreamble.readSchemaVersion(midxSeg, 0L) == INDEX_VERSION_V7
+                        && RegionPreamble.readCapacity(midxSeg, 0L) == 100_000L
+                        && RegionPreamble.readCount(midxSeg, 0L) == entryCount
+                        && midxSeg.get(java.lang.foreign.ValueLayout.JAVA_INT_UNALIGNED, 60L) == currentHw
+                        && RegionPreamble.isValid(idplSeg, 0L)
+                        && RegionPreamble.readSchemaVersion(idplSeg, 0L) == 1
+                        && RegionPreamble.readCapacity(idplSeg, 0L) == totalPoolBytes
+                        && RegionPreamble.readCount(idplSeg, 0L) == entryCount
+                        && MemorySegment.mismatch(
+                                midxSeg, RegionPreamble.PREAMBLE_BYTES, RegionPreamble.PREAMBLE_BYTES + totalSlotBytes,
+                                slotsArraySeg, 0L, totalSlotBytes) == -1L
+                        && MemorySegment.mismatch(
+                                idplSeg, RegionPreamble.PREAMBLE_BYTES, RegionPreamble.PREAMBLE_BYTES + totalPoolBytes,
+                                poolArraySeg, 0L, totalPoolBytes) == -1L) {
+                    return;
+                }
+
+                long now = System.currentTimeMillis();
+                RegionPreamble.write(midxSeg, 0L, INDEX_VERSION_V7, MemoryShape.RECORD, 0,
+                        100_000L, entryCount, stride, new IndexEntryLayout().layoutId(), now, now);
+                // Persist graphSlotHighWater in the reserved field (offset 60, outside CRC range)
+                long headerBaseOffset = 0L;
+                midxSeg.set(java.lang.foreign.ValueLayout.JAVA_INT_UNALIGNED, headerBaseOffset + 60, currentHw);
+
+                RegionPreamble.write(idplSeg, 0L, 1, MemoryShape.APPEND, 0,
+                        totalPoolBytes, entryCount, 0, new IdBlobLayout().layoutId(), now, now);
+
+                if (totalSlotBytes > 0) {
+                    MemorySegment.copy(slotsArraySeg, 0L, midxSeg, RegionPreamble.PREAMBLE_BYTES, totalSlotBytes);
+                }
+                if (totalPoolBytes > 0) {
+                    MemorySegment.copy(poolArraySeg, 0L, idplSeg, RegionPreamble.PREAMBLE_BYTES, totalPoolBytes);
                 }
 
                 if (midxSeg.isMapped()) {
