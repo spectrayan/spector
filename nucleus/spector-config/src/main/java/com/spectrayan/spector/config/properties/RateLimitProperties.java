@@ -40,9 +40,17 @@ public class RateLimitProperties implements Serializable {
     private List<EndpointPolicy> endpoints = new ArrayList<>();
     private List<String> excludedPaths = new ArrayList<>(List.of(
             "/actuator/health",
+            "/actuator/health/**",
             "/actuator/info",
+            "/actuator/metrics",
+            "/actuator/metrics/**",
             "/actuator/prometheus",
+            "/actuator/ratelimits",
+            "/actuator/ratelimits/**",
             "/health",
+            "/health/**",
+            "/api/v1/system/health",
+            "/api/v1/system/metrics",
             "/index.html",
             "/assets/**",
             "/*.js",
@@ -52,6 +60,7 @@ public class RateLimitProperties implements Serializable {
             "/*.svg"
     ));
 
+    private AdmissionControlProperties admission = new AdmissionControlProperties();
     private LlmRateLimitProperties llm = new LlmRateLimitProperties();
     private ChannelRateLimitProperties channels = new ChannelRateLimitProperties();
     private ConnectorRateLimitProperties connectors = new ConnectorRateLimitProperties();
@@ -88,6 +97,9 @@ public class RateLimitProperties implements Serializable {
     public List<String> getExcludedPaths() { return excludedPaths; }
     public void setExcludedPaths(List<String> excludedPaths) { if (excludedPaths != null) this.excludedPaths = excludedPaths; }
 
+    public AdmissionControlProperties getAdmission() { return admission; }
+    public void setAdmission(AdmissionControlProperties admission) { if (admission != null) this.admission = admission; }
+
     public LlmRateLimitProperties getLlm() { return llm; }
     public void setLlm(LlmRateLimitProperties llm) { if (llm != null) this.llm = llm; }
 
@@ -104,6 +116,7 @@ public class RateLimitProperties implements Serializable {
     public Map<String, TierPolicy> tiers() { return getTiers(); }
     public List<EndpointPolicy> endpoints() { return getEndpoints(); }
     public List<String> excludedPaths() { return getExcludedPaths(); }
+    public AdmissionControlProperties admission() { return getAdmission(); }
     public LlmRateLimitProperties llm() { return getLlm(); }
     public ChannelRateLimitProperties channels() { return getChannels(); }
     public ConnectorRateLimitProperties connectors() { return getConnectors(); }
@@ -143,6 +156,7 @@ public class RateLimitProperties implements Serializable {
         private String pathPattern;
         private int requestsPerMinute = 60;
         private int burstCapacity = 10;
+        private int maxConcurrentRequests = 0;
 
         public EndpointPolicy() {}
 
@@ -150,6 +164,11 @@ public class RateLimitProperties implements Serializable {
             this.pathPattern = pathPattern;
             this.requestsPerMinute = Math.max(1, requestsPerMinute);
             this.burstCapacity = Math.max(1, burstCapacity);
+        }
+
+        public EndpointPolicy(String pathPattern, int requestsPerMinute, int burstCapacity, int maxConcurrentRequests) {
+            this(pathPattern, requestsPerMinute, burstCapacity);
+            this.maxConcurrentRequests = Math.max(0, maxConcurrentRequests);
         }
 
         public String getPathPattern() { return pathPattern; }
@@ -161,9 +180,267 @@ public class RateLimitProperties implements Serializable {
         public int getBurstCapacity() { return burstCapacity; }
         public void setBurstCapacity(int burst) { if (burst > 0) this.burstCapacity = burst; }
 
+        public int getMaxConcurrentRequests() { return maxConcurrentRequests; }
+        public void setMaxConcurrentRequests(int maxConcurrentRequests) {
+            this.maxConcurrentRequests = Math.max(0, maxConcurrentRequests);
+        }
+
         public String pathPattern() { return getPathPattern(); }
         public int requestsPerMinute() { return getRequestsPerMinute(); }
         public int burstCapacity() { return getBurstCapacity(); }
+        public int maxConcurrentRequests() { return getMaxConcurrentRequests(); }
+    }
+
+    /**
+     * In-flight concurrency and JVM heap / off-heap memory-pressure admission control settings.
+     */
+    public static class AdmissionControlProperties implements Serializable {
+        private static final long serialVersionUID = 1L;
+
+        private boolean enabled = true;
+        private int maxConcurrentRequests = 256;
+        private int writeMaxConcurrentRequests = 64;
+        private int recallMaxConcurrentRequests = 128;
+        private int managementMaxConcurrentRequests = 32;
+        private int retryAfterSeconds = 2;
+
+        private boolean memoryPressureEnabled = true;
+        private double heapHighWaterMarkRatio = 0.95;
+        private double heapRecoveryRatio = 0.85;
+        private boolean heapRecoveryRatioExplicit = false;
+
+        private double offHeapHighWaterMarkRatio = 0.95;
+        private double offHeapRecoveryRatio = 0.85;
+        private boolean offHeapRecoveryRatioExplicit = false;
+
+        private long maxOffHeapBytes = 0L;
+        private long heapHighWaterMarkBytes = 0L;
+        private long heapRecoveryBytes = 0L;
+        private long offHeapHighWaterMarkBytes = 0L;
+        private long offHeapRecoveryBytes = 0L;
+
+        private List<RouteConcurrencyPolicy> routes = new ArrayList<>();
+        private Map<String, Integer> routeLimits = new HashMap<>();
+        private List<String> exemptPaths = new ArrayList<>(List.of(
+                "/actuator/health",
+                "/actuator/health/**",
+                "/actuator/info",
+                "/actuator/metrics",
+                "/actuator/metrics/**",
+                "/actuator/prometheus",
+                "/actuator/ratelimits",
+                "/actuator/ratelimits/**",
+                "/health",
+                "/health/**",
+                "/api/v1/system/health",
+                "/api/v1/system/metrics"
+        ));
+
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+
+        public int getMaxConcurrentRequests() { return maxConcurrentRequests; }
+        public void setMaxConcurrentRequests(int maxConcurrentRequests) {
+            this.maxConcurrentRequests = Math.max(0, maxConcurrentRequests);
+        }
+
+        public int getWriteMaxConcurrentRequests() { return writeMaxConcurrentRequests; }
+        public void setWriteMaxConcurrentRequests(int writeMaxConcurrentRequests) {
+            this.writeMaxConcurrentRequests = Math.max(0, writeMaxConcurrentRequests);
+        }
+
+        public int getRecallMaxConcurrentRequests() { return recallMaxConcurrentRequests; }
+        public void setRecallMaxConcurrentRequests(int recallMaxConcurrentRequests) {
+            this.recallMaxConcurrentRequests = Math.max(0, recallMaxConcurrentRequests);
+        }
+
+        public int getManagementMaxConcurrentRequests() { return managementMaxConcurrentRequests; }
+        public void setManagementMaxConcurrentRequests(int managementMaxConcurrentRequests) {
+            this.managementMaxConcurrentRequests = Math.max(0, managementMaxConcurrentRequests);
+        }
+
+        public int getRetryAfterSeconds() { return retryAfterSeconds; }
+        public void setRetryAfterSeconds(int retryAfterSeconds) {
+            this.retryAfterSeconds = Math.max(1, retryAfterSeconds);
+        }
+
+        public boolean isMemoryPressureEnabled() { return memoryPressureEnabled; }
+        public void setMemoryPressureEnabled(boolean memoryPressureEnabled) {
+            this.memoryPressureEnabled = memoryPressureEnabled;
+        }
+
+        public double getHeapHighWaterMarkRatio() { return heapHighWaterMarkRatio; }
+        public void setHeapHighWaterMarkRatio(double heapHighWaterMarkRatio) {
+            this.heapHighWaterMarkRatio = clampRatio(heapHighWaterMarkRatio);
+        }
+
+        public double getHeapRecoveryRatio() { return heapRecoveryRatio; }
+        public void setHeapRecoveryRatio(double heapRecoveryRatio) {
+            this.heapRecoveryRatio = clampRatio(heapRecoveryRatio);
+            this.heapRecoveryRatioExplicit = true;
+        }
+
+        public double effectiveHeapRecoveryRatio() {
+            if (heapRecoveryRatioExplicit) {
+                return Math.min(heapRecoveryRatio, heapHighWaterMarkRatio);
+            }
+            return Math.min(heapRecoveryRatio, Math.max(0.0, heapHighWaterMarkRatio - 0.05));
+        }
+
+        public double getOffHeapHighWaterMarkRatio() { return offHeapHighWaterMarkRatio; }
+        public void setOffHeapHighWaterMarkRatio(double offHeapHighWaterMarkRatio) {
+            this.offHeapHighWaterMarkRatio = clampRatio(offHeapHighWaterMarkRatio);
+        }
+
+        public double getOffHeapRecoveryRatio() { return offHeapRecoveryRatio; }
+        public void setOffHeapRecoveryRatio(double offHeapRecoveryRatio) {
+            this.offHeapRecoveryRatio = clampRatio(offHeapRecoveryRatio);
+            this.offHeapRecoveryRatioExplicit = true;
+        }
+
+        public double effectiveOffHeapRecoveryRatio() {
+            if (offHeapRecoveryRatioExplicit) {
+                return Math.min(offHeapRecoveryRatio, offHeapHighWaterMarkRatio);
+            }
+            return Math.min(offHeapRecoveryRatio, Math.max(0.0, offHeapHighWaterMarkRatio - 0.05));
+        }
+
+        public long getMaxOffHeapBytes() { return maxOffHeapBytes; }
+        public void setMaxOffHeapBytes(long maxOffHeapBytes) {
+            this.maxOffHeapBytes = Math.max(0L, maxOffHeapBytes);
+        }
+
+        public long getHeapHighWaterMarkBytes() { return heapHighWaterMarkBytes; }
+        public void setHeapHighWaterMarkBytes(long heapHighWaterMarkBytes) {
+            this.heapHighWaterMarkBytes = Math.max(0L, heapHighWaterMarkBytes);
+        }
+
+        public long getHeapRecoveryBytes() { return heapRecoveryBytes; }
+        public void setHeapRecoveryBytes(long heapRecoveryBytes) {
+            this.heapRecoveryBytes = Math.max(0L, heapRecoveryBytes);
+        }
+
+        public long effectiveHeapRecoveryBytes() {
+            if (heapHighWaterMarkBytes <= 0L) {
+                return 0L;
+            }
+            if (heapRecoveryBytes > 0L) {
+                return Math.min(heapRecoveryBytes, heapHighWaterMarkBytes);
+            }
+            return (long) (heapHighWaterMarkBytes * 0.90);
+        }
+
+        public long getOffHeapHighWaterMarkBytes() { return offHeapHighWaterMarkBytes; }
+        public void setOffHeapHighWaterMarkBytes(long offHeapHighWaterMarkBytes) {
+            this.offHeapHighWaterMarkBytes = Math.max(0L, offHeapHighWaterMarkBytes);
+        }
+
+        public long getOffHeapRecoveryBytes() { return offHeapRecoveryBytes; }
+        public void setOffHeapRecoveryBytes(long offHeapRecoveryBytes) {
+            this.offHeapRecoveryBytes = Math.max(0L, offHeapRecoveryBytes);
+        }
+
+        public long effectiveOffHeapRecoveryBytes() {
+            if (offHeapHighWaterMarkBytes <= 0L) {
+                return 0L;
+            }
+            if (offHeapRecoveryBytes > 0L) {
+                return Math.min(offHeapRecoveryBytes, offHeapHighWaterMarkBytes);
+            }
+            return (long) (offHeapHighWaterMarkBytes * 0.90);
+        }
+
+        public List<RouteConcurrencyPolicy> getRoutes() { return routes; }
+        public void setRoutes(List<RouteConcurrencyPolicy> routes) {
+            if (routes != null) this.routes = routes;
+        }
+
+        public Map<String, Integer> getRouteLimits() { return routeLimits; }
+        public void setRouteLimits(Map<String, Integer> routeLimits) {
+            if (routeLimits != null) this.routeLimits = routeLimits;
+        }
+
+        public List<String> getExemptPaths() { return exemptPaths; }
+        public void setExemptPaths(List<String> exemptPaths) {
+            if (exemptPaths != null) this.exemptPaths = exemptPaths;
+        }
+
+        public boolean enabled() { return isEnabled(); }
+        public int maxConcurrentRequests() { return getMaxConcurrentRequests(); }
+        public int writeMaxConcurrentRequests() { return getWriteMaxConcurrentRequests(); }
+        public int recallMaxConcurrentRequests() { return getRecallMaxConcurrentRequests(); }
+        public int managementMaxConcurrentRequests() { return getManagementMaxConcurrentRequests(); }
+        public int retryAfterSeconds() { return getRetryAfterSeconds(); }
+        public boolean memoryPressureEnabled() { return isMemoryPressureEnabled(); }
+        public double heapHighWaterMarkRatio() { return getHeapHighWaterMarkRatio(); }
+        public double heapRecoveryRatio() { return getHeapRecoveryRatio(); }
+        public double offHeapHighWaterMarkRatio() { return getOffHeapHighWaterMarkRatio(); }
+        public double offHeapRecoveryRatio() { return getOffHeapRecoveryRatio(); }
+        public long maxOffHeapBytes() { return getMaxOffHeapBytes(); }
+        public List<RouteConcurrencyPolicy> routes() { return getRoutes(); }
+        public Map<String, Integer> routeLimits() { return getRouteLimits(); }
+        public List<String> exemptPaths() { return getExemptPaths(); }
+
+        private static double clampRatio(double ratio) {
+            if (Double.isNaN(ratio) || ratio < 0.0) {
+                return 0.0;
+            }
+            return Math.min(1.0, ratio);
+        }
+    }
+
+    /**
+     * Per-route in-flight concurrency limit definition.
+     */
+    public static class RouteConcurrencyPolicy implements Serializable {
+        private static final long serialVersionUID = 1L;
+
+        private String name;
+        private String pathPattern;
+        private List<String> methods = new ArrayList<>();
+        private int maxConcurrentRequests = 64;
+
+        public RouteConcurrencyPolicy() {}
+
+        public RouteConcurrencyPolicy(String pathPattern, int maxConcurrentRequests) {
+            this(pathPattern, pathPattern, List.of(), maxConcurrentRequests);
+        }
+
+        public RouteConcurrencyPolicy(String name, String pathPattern, int maxConcurrentRequests) {
+            this(name, pathPattern, List.of(), maxConcurrentRequests);
+        }
+
+        public RouteConcurrencyPolicy(String name, String pathPattern, List<String> methods, int maxConcurrentRequests) {
+            this.name = name;
+            this.pathPattern = pathPattern;
+            if (methods != null) {
+                this.methods = new ArrayList<>(methods);
+            }
+            this.maxConcurrentRequests = Math.max(1, maxConcurrentRequests);
+        }
+
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
+
+        public String getPathPattern() { return pathPattern; }
+        public void setPathPattern(String pathPattern) { this.pathPattern = pathPattern; }
+
+        public List<String> getMethods() { return methods; }
+        public void setMethods(List<String> methods) {
+            if (methods != null) this.methods = methods;
+        }
+
+        public int getMaxConcurrentRequests() { return maxConcurrentRequests; }
+        public void setMaxConcurrentRequests(int maxConcurrentRequests) {
+            if (maxConcurrentRequests > 0) {
+                this.maxConcurrentRequests = maxConcurrentRequests;
+            }
+        }
+
+        public String name() { return getName(); }
+        public String pathPattern() { return getPathPattern(); }
+        public List<String> methods() { return getMethods(); }
+        public int maxConcurrentRequests() { return getMaxConcurrentRequests(); }
     }
 
     /**

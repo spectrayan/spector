@@ -59,14 +59,27 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private final SynapseProperties properties;
     private final RateLimitStateStore stateStore;
     private final RateLimitKeyResolver keyResolver;
+    private final RequestAdmissionController admissionController;
     private final AntPathMatcher pathMatcher = new AntPathMatcher();
 
     public RateLimitFilter(SynapseProperties properties,
                            RateLimitStateStore stateStore,
                            RateLimitKeyResolver keyResolver) {
+        this(properties, stateStore, keyResolver, new RequestAdmissionController(properties));
+    }
+
+    public RateLimitFilter(SynapseProperties properties,
+                           RateLimitStateStore stateStore,
+                           RateLimitKeyResolver keyResolver,
+                           RequestAdmissionController admissionController) {
         this.properties = Objects.requireNonNull(properties, "properties must not be null");
         this.stateStore = Objects.requireNonNull(stateStore, "stateStore must not be null");
         this.keyResolver = Objects.requireNonNull(keyResolver, "keyResolver must not be null");
+        this.admissionController = Objects.requireNonNull(admissionController, "admissionController must not be null");
+    }
+
+    public RequestAdmissionController getAdmissionController() {
+        return admissionController;
     }
 
     @Override
@@ -82,64 +95,94 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
         String path = request.getRequestURI();
 
-        // 1. Check exclusions (e.g. /actuator/health, static assets)
-        if (isExcluded(path, rateLimitConfig.getExcludedPaths())) {
+        // 1. Check exclusions (e.g. /actuator/health, metrics, static assets)
+        if (isExcluded(path, rateLimitConfig.getExcludedPaths()) || admissionController.isExempt(path)) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        // 2. Resolve caller identity & tier
-        RateLimitKey key = keyResolver.resolveKey(request);
+        // 2. Admission control: memory-pressure high-water-mark and global/per-route concurrency limits
+        RequestAdmissionController.AdmissionDecision admission =
+                admissionController.tryAcquire(request.getMethod(), path);
+        if (!admission.admitted()) {
+            int retryAfterSeconds = Math.max(1, admission.retryAfterSeconds());
+            log.warn("[AdmissionControl] Shedding request method='{}' path='{}' reason='{}' route='{}' (retryAfter={}s)",
+                    request.getMethod(), path, admission.reason(), admission.route(), retryAfterSeconds);
 
-        // 3. Resolve applicable policy (endpoint custom rule vs tier policy)
-        Bandwidth bandwidth = resolveBandwidth(path, key, rateLimitConfig);
-        long capacity = bandwidth.getCapacity();
-
-        // 4. Resolve Bucket from Store
-        String bucketKey = key.cacheKey() + ":" + resolvePathCategory(path, rateLimitConfig);
-        Bucket bucket = stateStore.resolveBucket(bucketKey, bandwidth);
-
-        // 5. Consume token
-        ConsumptionProbe probe = bucket.tryConsumeAndReturnRemaining(1);
-
-        if (probe.isConsumed()) {
-            long remaining = probe.getRemainingTokens();
-            long nanosToRefill = probe.getNanosToWaitForRefill();
-            long resetSeconds = Instant.now().getEpochSecond() + Math.max(1, TimeUnit.NANOSECONDS.toSeconds(nanosToRefill));
-
-            response.setHeader("X-RateLimit-Limit", String.valueOf(capacity));
-            response.setHeader("X-RateLimit-Remaining", String.valueOf(remaining));
-            response.setHeader("X-RateLimit-Reset", String.valueOf(resetSeconds));
-
-            filterChain.doFilter(request, response);
-        } else {
-            long nanosToWait = probe.getNanosToWaitForRefill();
-            long retryAfterSeconds = Math.max(1, (nanosToWait + 999_999_999L) / 1_000_000_000L);
-            long resetSeconds = Instant.now().getEpochSecond() + retryAfterSeconds;
-
-            log.warn("[RateLimiter] Rate limit exceeded for key='{}' path='{}' (wait={}s)",
-                    key.cacheKey(), path, retryAfterSeconds);
-
-            response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
+            response.setStatus(HttpStatus.SERVICE_UNAVAILABLE.value());
             response.setHeader("Retry-After", String.valueOf(retryAfterSeconds));
-            response.setHeader("X-RateLimit-Limit", String.valueOf(capacity));
-            response.setHeader("X-RateLimit-Remaining", "0");
-            response.setHeader("X-RateLimit-Reset", String.valueOf(resetSeconds));
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
 
             Map<String, Object> errorBody = new LinkedHashMap<>();
-            errorBody.put("type", "urn:spector:error:rate-limit-exceeded");
-            errorBody.put("title", "Too Many Requests");
-            errorBody.put("status", 429);
-            errorBody.put("detail", String.format(
-                    "Rate limit exceeded for %s. Please retry after %d seconds.",
-                    key.type().name().toLowerCase() + ":" + key.value(),
-                    retryAfterSeconds
-            ));
+            errorBody.put("type", "urn:spector:error:service-overloaded");
+            errorBody.put("title", "Service Unavailable");
+            errorBody.put("status", 503);
+            errorBody.put("detail", admission.detail());
             errorBody.put("instance", path);
+            errorBody.put("reason", admission.reason());
+            if (admission.route() != null) {
+                errorBody.put("route", admission.route());
+            }
             errorBody.put("retryAfterSeconds", retryAfterSeconds);
 
             response.getWriter().write(OBJECT_MAPPER.writeValueAsString(errorBody));
+            return;
+        }
+
+        try (RequestAdmissionController.AdmissionLease ignored = admission.lease()) {
+            // 3. Resolve caller identity & tier
+            RateLimitKey key = keyResolver.resolveKey(request);
+
+            // 4. Resolve applicable policy (endpoint custom rule vs tier policy)
+            Bandwidth bandwidth = resolveBandwidth(path, key, rateLimitConfig);
+            long capacity = bandwidth.getCapacity();
+
+            // 5. Resolve Bucket from Store
+            String bucketKey = key.cacheKey() + ":" + resolvePathCategory(path, rateLimitConfig);
+            Bucket bucket = stateStore.resolveBucket(bucketKey, bandwidth);
+
+            // 6. Consume token
+            ConsumptionProbe probe = bucket.tryConsumeAndReturnRemaining(1);
+
+            if (probe.isConsumed()) {
+                long remaining = probe.getRemainingTokens();
+                long nanosToRefill = probe.getNanosToWaitForRefill();
+                long resetSeconds = Instant.now().getEpochSecond() + Math.max(1, TimeUnit.NANOSECONDS.toSeconds(nanosToRefill));
+
+                response.setHeader("X-RateLimit-Limit", String.valueOf(capacity));
+                response.setHeader("X-RateLimit-Remaining", String.valueOf(remaining));
+                response.setHeader("X-RateLimit-Reset", String.valueOf(resetSeconds));
+
+                filterChain.doFilter(request, response);
+            } else {
+                long nanosToWait = probe.getNanosToWaitForRefill();
+                long retryAfterSeconds = Math.max(1, (nanosToWait + 999_999_999L) / 1_000_000_000L);
+                long resetSeconds = Instant.now().getEpochSecond() + retryAfterSeconds;
+
+                log.warn("[RateLimiter] Rate limit exceeded for key='{}' path='{}' (wait={}s)",
+                        key.cacheKey(), path, retryAfterSeconds);
+
+                response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
+                response.setHeader("Retry-After", String.valueOf(retryAfterSeconds));
+                response.setHeader("X-RateLimit-Limit", String.valueOf(capacity));
+                response.setHeader("X-RateLimit-Remaining", "0");
+                response.setHeader("X-RateLimit-Reset", String.valueOf(resetSeconds));
+                response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+
+                Map<String, Object> errorBody = new LinkedHashMap<>();
+                errorBody.put("type", "urn:spector:error:rate-limit-exceeded");
+                errorBody.put("title", "Too Many Requests");
+                errorBody.put("status", 429);
+                errorBody.put("detail", String.format(
+                        "Rate limit exceeded for %s. Please retry after %d seconds.",
+                        key.type().name().toLowerCase() + ":" + key.value(),
+                        retryAfterSeconds
+                ));
+                errorBody.put("instance", path);
+                errorBody.put("retryAfterSeconds", retryAfterSeconds);
+
+                response.getWriter().write(OBJECT_MAPPER.writeValueAsString(errorBody));
+            }
         }
     }
 
