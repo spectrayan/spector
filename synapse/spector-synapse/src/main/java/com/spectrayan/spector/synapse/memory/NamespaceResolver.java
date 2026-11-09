@@ -21,7 +21,12 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
@@ -117,13 +122,31 @@ public class NamespaceResolver implements AutoCloseable {
      */
     private final ConcurrentHashMap<String, MemoryHandle> cache = new ConcurrentHashMap<>();
 
-    /** Guards the cold path: lazy build, LRU eviction, and shutdown close. */
+    /**
+     * Per-namespace single-flight cold-open table.
+     * Prevents holding {@link #coldPathLock} across {@link #buildInstance} I/O while
+     * coalescing concurrent cold opens for the same {@code namespaceId}.
+     */
+    private final ConcurrentHashMap<String, InFlightOpen> inFlightOpens = new ConcurrentHashMap<>();
+
+    /** Guards cache and in-flight admission/eviction state transitions, not buildInstance I/O. */
     private final ReentrantLock coldPathLock = new ReentrantLock();
 
     /** Guards runtime and embedding pipeline lazy initialization without virtual-thread pinning. */
     private final ReentrantLock runtimeInitLock = new ReentrantLock();
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
+
+    /** Per-thread depth counter tracking active {@link #buildInstance} execution to prevent re-entrant resolution. */
+    private final ThreadLocal<Integer> buildingDepth = ThreadLocal.withInitial(() -> 0);
+
+    /**
+     * Returns {@code true} when the current thread is actively assembling a namespace memory instance
+     * inside {@link #buildInstance(String, String, String)}.
+     */
+    public boolean isBuildingOnCurrentThread() {
+        return buildingDepth.get() > 0;
+    }
 
     // ── Composition Hoists (R12.2) ──────────────────────────────
     private volatile EmbeddingProvider hoistedEmbeddingProvider;
@@ -368,7 +391,7 @@ public class NamespaceResolver implements AutoCloseable {
                     .description("Distinct live embedding provider configurations held by the pool")
                     .register(this.meterRegistry);
         }
-        this.maxInstances = Math.max(1, maxInstances);
+        this.maxInstances = resolveEffectiveMaxInstances(maxInstances, synapseProps);
         if (synapseProps != null && synapseProps.cell() != null) {
             try {
                 this.ownershipResolver = synapseProps.cell().toOwnershipResolver();
@@ -380,6 +403,85 @@ public class NamespaceResolver implements AutoCloseable {
         this.basePath = synapseProps.remembererRoot();
         log.info("[NamespaceResolver] initialized: maxInstances={}, remembererRoot={}",
                 this.maxInstances, this.basePath);
+    }
+
+    /** @return the effective process-wide hot namespace cap. */
+    public int maxInstances() {
+        return maxInstances;
+    }
+
+    /**
+     * Resolves the effective hot-namespace cap.
+     *
+     * <p>Precedence:
+     * <ol>
+     *   <li>Explicit positive constructor argument {@code configuredMaxInstances &gt; 0}.</li>
+     *   <li>Explicit positive property {@code spector.auth.memory.max-instances &gt; 0}.</li>
+     *   <li>Derived from memory budget ({@code spector.auth.memory.budget-bytes} or 50% of JVM max
+     *       memory) divided by {@link #estimateNamespaceFootprintBytes(MemoryProperties)}, clamped to
+     *       {@code [16, 4096]}.</li>
+     * </ol>
+     */
+    public static int resolveEffectiveMaxInstances(int configuredMaxInstances, SynapseProperties synapseProps) {
+        if (configuredMaxInstances > 0) {
+            return configuredMaxInstances;
+        }
+        if (synapseProps != null && synapseProps.getAuth() != null && synapseProps.getAuth().getMemory() != null) {
+            int propMax = synapseProps.getAuth().getMemory().getMaxInstances();
+            if (propMax > 0) {
+                return propMax;
+            }
+        }
+        long budgetBytes = defaultNamespaceBudgetBytes(synapseProps);
+        MemoryProperties memProps = synapseProps != null ? synapseProps.getMemory() : null;
+        return deriveMaxInstancesFromBudget(budgetBytes, memProps);
+    }
+
+    /**
+     * Derives the maximum active namespace count from a memory budget in bytes and the configured
+     * per-namespace memory layout.
+     */
+    public static int deriveMaxInstancesFromBudget(long budgetBytes, MemoryProperties memProps) {
+        long effectiveBudget = budgetBytes > 0L ? budgetBytes : Math.max(64L * 1024 * 1024, Runtime.getRuntime().maxMemory() / 2L);
+        long footprintBytes = Math.max(1L, estimateNamespaceFootprintBytes(memProps));
+        long raw = effectiveBudget / footprintBytes;
+        return (int) Math.clamp(raw, 16L, 4_096L);
+    }
+
+    /**
+     * Estimates the steady-state per-namespace memory footprint in bytes from configured capacities
+     * and vector dimensions.
+     */
+    public static long estimateNamespaceFootprintBytes(MemoryProperties memProps) {
+        int dims = memProps != null && memProps.getDimensions() > 0 ? memProps.getDimensions() : 384;
+        long semanticCap = memProps != null && memProps.getSemanticCapacity() > 0 ? memProps.getSemanticCapacity() : 10_000L;
+        long episodicCap = memProps != null && memProps.getEpisodicPartitionCapacity() > 0 ? memProps.getEpisodicPartitionCapacity() : 1_000L;
+        long proceduralCap = memProps != null && memProps.getProceduralCapacity() > 0 ? memProps.getProceduralCapacity() : 1_000L;
+        long workingCap = memProps != null && memProps.getWorkingCapacity() > 0 ? memProps.getWorkingCapacity() : 100L;
+        long graphCap = memProps != null && memProps.getEntityGraphCapacity() > 0 ? memProps.getEntityGraphCapacity() : 50_000L;
+
+        // Per-record active indexing & vector metadata footprint (~8% average active occupancy across hot namespaces)
+        long vectorBytesPerRecord = (long) dims * Float.BYTES + 128L;
+        long totalRecordCap = semanticCap + episodicCap + proceduralCap + workingCap;
+        long estimatedActiveRecords = Math.max(64L, totalRecordCap / 12L);
+        long vectorAndRecordBytes = estimatedActiveRecords * vectorBytesPerRecord;
+        long graphBytes = Math.max(16_384L, (graphCap / 16L) * 64L);
+        long baseOverheadBytes = 256L * 1024L;
+        return baseOverheadBytes + vectorAndRecordBytes + graphBytes;
+    }
+
+    private static long defaultNamespaceBudgetBytes(SynapseProperties synapseProps) {
+        if (synapseProps != null && synapseProps.getAuth() != null && synapseProps.getAuth().getMemory() != null) {
+            long configuredBudget = synapseProps.getAuth().getMemory().getBudgetBytes();
+            if (configuredBudget > 0L) {
+                return configuredBudget;
+            }
+        }
+        long maxHeap = Runtime.getRuntime().maxMemory();
+        if (maxHeap <= 0L || maxHeap == Long.MAX_VALUE) {
+            return 512L * 1024L * 1024L;
+        }
+        return Math.max(64L * 1024L * 1024L, maxHeap / 2L);
     }
 
     /**
@@ -621,8 +723,16 @@ public class NamespaceResolver implements AutoCloseable {
             return handle.memory;
         }
 
-        MemoryHandle evicted = null;
-        try {
+        while (true) {
+            if (closed.get()) {
+                throw new IllegalStateException("NamespaceResolver is closed");
+            }
+
+            java.util.List<SpectorMemory> toClose = new java.util.ArrayList<>(2);
+            InFlightOpen joinOpen = null;
+            InFlightOpen waitForCapacityOpen = null;
+            InFlightOpen leaderOpen = null;
+
             coldPathLock.lock();
             try {
                 handle = cache.get(namespaceId);
@@ -631,72 +741,193 @@ public class NamespaceResolver implements AutoCloseable {
                     return handle.memory;
                 }
 
-                Account account = null;
-                // 1. Account-level hot cap check (ADR-0029 §2.6, §6.3, Q4)
-                if (accountId != null) {
-                    account = catalog.getOrCreateAccount(accountId);
-                    int maxHot = account.quotas().maxHotNamespaces();
-                    if (maxHot > 0) {
-                        long currentAccountHot = cache.values().stream()
-                                .filter(h -> h.associatedWith(accountId))
-                                .count();
-                        if (currentAccountHot >= maxHot) {
-                            MemoryHandle accountEvicted = evictOldestAccountUnleasedLocked(accountId);
-                            if (accountEvicted == null) {
+                InFlightOpen existingOpen = inFlightOpens.get(namespaceId);
+                if (existingOpen != null) {
+                    if (existingOpen.isOwnedByCurrentThread()) {
+                        throw new IllegalStateException(
+                                "Re-entrant cold open for namespace '" + namespaceId + "' on thread '"
+                                        + Thread.currentThread().getName() + "'");
+                    }
+                    existingOpen.associateAccount(accountId);
+                    joinOpen = existingOpen;
+                } else {
+                    Account account = null;
+                    // 1. Account-level hot cap check (ADR-0029 §2.6, §6.3, Q4)
+                    if (accountId != null) {
+                        account = catalog.getOrCreateAccount(accountId);
+                        long maxHot = account != null && account.quotas() != null
+                                ? account.quotas().maxHotNamespaces() : 0L;
+                        if (maxHot > 0L) {
+                            long currentAccountHot = countAccountHotAndInFlightLocked(accountId);
+                            while (currentAccountHot >= maxHot) {
+                                MemoryHandle accountEvicted = evictOldestAccountUnleasedLocked(accountId);
+                                if (accountEvicted != null) {
+                                    toClose.add(accountEvicted.memory);
+                                    currentAccountHot--;
+                                    continue;
+                                }
+                                InFlightOpen inFlightAccountOpen = findAnyAccountInFlightOpenLocked(accountId);
+                                if (inFlightAccountOpen != null) {
+                                    waitForCapacityOpen = inFlightAccountOpen;
+                                    break;
+                                }
                                 throw new com.spectrayan.spector.synapse.catalog.exception.NamespaceHotCapExceededException(
-                                        accountId, maxHot);
+                                        accountId, Math.toIntExact(maxHot));
                             }
-                            evicted = accountEvicted;
                         }
                     }
-                }
 
-                // 2. Process-wide instance cap check (ADR-0029 §6.3)
-                if (cache.size() >= maxInstances) {
-                    MemoryHandle processEvicted = evictOldestProcessUnleasedLocked();
-                    if (processEvicted == null) {
-                        throw new com.spectrayan.spector.synapse.catalog.exception.NamespaceHotCapExceededException(
-                                "process", maxInstances);
+                    // 2. Process-wide instance cap check (ADR-0029 §6.3)
+                    if (waitForCapacityOpen == null) {
+                        long maxProcessHot = this.maxInstances;
+                        long currentProcessHot = countProcessHotAndInFlightLocked();
+                        while (currentProcessHot >= maxProcessHot) {
+                            MemoryHandle processEvicted = evictOldestProcessUnleasedLocked();
+                            if (processEvicted != null) {
+                                toClose.add(processEvicted.memory);
+                                currentProcessHot--;
+                                continue;
+                            }
+                            InFlightOpen anyInFlight = inFlightOpens.values().stream()
+                                    .filter(o -> !o.isOwnedByCurrentThread())
+                                    .findFirst()
+                                    .orElse(null);
+                            if (anyInFlight != null) {
+                                waitForCapacityOpen = anyInFlight;
+                                break;
+                            }
+                            throw new com.spectrayan.spector.synapse.catalog.exception.NamespaceHotCapExceededException(
+                                    "process", this.maxInstances);
+                        }
                     }
-                    if (evicted != null && evicted != processEvicted) {
-                        closeQuietly(evicted.memory);
-                    }
-                    evicted = processEvicted;
-                }
 
+                    if (waitForCapacityOpen == null) {
+                        leaderOpen = new InFlightOpen(namespaceId, ownerAccountId, accountId, account);
+                        inFlightOpens.put(namespaceId, leaderOpen);
+                    }
+                }
+            } finally {
+                coldPathLock.unlock();
+                for (SpectorMemory evictedMemory : toClose) {
+                    closeQuietly(evictedMemory);
+                }
+            }
+
+            if (joinOpen != null) {
+                MemoryHandle built = joinOpen.awaitHandle();
+                built.touch(accountId);
+                return built.memory;
+            }
+
+            if (waitForCapacityOpen != null) {
+                waitForCapacityOpen.awaitCompletionQuietly();
+                continue;
+            }
+
+            // Leader cold-open path executes outside coldPathLock so distinct namespaces open in parallel
+            MemoryHandle builtHandle;
+            String tenantId = null;
+            String resolvedOwnerTenant = null;
+            SpectorMemory instance = null;
+            try {
                 boolean tenantRooted = synapseProps != null
                         && synapseProps.getNamespace() != null
                         && synapseProps.getNamespace().isTenantRootedEnabled();
-                String resolvedOwnerTenant = null;
                 try {
-                    resolvedOwnerTenant = placementTenantIdFor(namespaceId, ownerAccountId, accountId, account);
+                    resolvedOwnerTenant = placementTenantIdFor(
+                            namespaceId, ownerAccountId, accountId, leaderOpen.initialAccount);
                 } catch (Exception e) {
                     if (tenantRooted) {
                         throw e;
                     }
                 }
-                String tenantId = tenantRooted ? resolvedOwnerTenant : null;
-                SpectorMemory instance = buildInstance(tenantId, namespaceId, ownerAccountId != null ? ownerAccountId : accountId);
-                handle = new MemoryHandle(namespaceId, ownerAccountId, resolvedOwnerTenant, accountId, instance);
-                cache.put(namespaceId, handle);
+                tenantId = tenantRooted ? resolvedOwnerTenant : null;
+                int prevDepth = buildingDepth.get();
+                buildingDepth.set(prevDepth + 1);
+                try {
+                    instance = buildInstance(tenantId, namespaceId, ownerAccountId != null ? ownerAccountId : accountId);
+                } finally {
+                    if (prevDepth == 0) {
+                        buildingDepth.remove();
+                    } else {
+                        buildingDepth.set(prevDepth);
+                    }
+                }
+
+                coldPathLock.lock();
+                try {
+                    inFlightOpens.remove(namespaceId, leaderOpen);
+                    if (closed.get()) {
+                        closeQuietly(instance);
+                        throw new IllegalStateException("NamespaceResolver closed during namespace build");
+                    }
+                    builtHandle = new MemoryHandle(namespaceId, ownerAccountId, resolvedOwnerTenant, accountId, instance);
+                    for (String acc : leaderOpen.accessingAccounts) {
+                        builtHandle.touch(acc);
+                    }
+                    cache.put(namespaceId, builtHandle);
+                } finally {
+                    coldPathLock.unlock();
+                }
+
                 notifyOpen(tenantId, namespaceId, instance);
                 if (meterRegistry != null) {
                     String metricTenantId = resolvedOwnerTenant != null && !resolvedOwnerTenant.isBlank()
                             ? resolvedOwnerTenant : "default";
                     new com.spectrayan.spector.metrics.observation.SpectorMemoryGauges(
-                            handle.memory, namespaceId, metricTenantId)
+                            builtHandle.memory, namespaceId, metricTenantId)
                             .bindTo(meterRegistry);
                 }
-            } finally {
-                coldPathLock.unlock();
-            }
-        } finally {
-            if (evicted != null) {
-                closeQuietly(evicted.memory);
+                leaderOpen.future.complete(builtHandle);
+                builtHandle.touch(accountId);
+                return builtHandle.memory;
+            } catch (Throwable t) {
+                coldPathLock.lock();
+                try {
+                    inFlightOpens.remove(namespaceId, leaderOpen);
+                } finally {
+                    coldPathLock.unlock();
+                }
+                leaderOpen.future.completeExceptionally(t);
+                if (t instanceof RuntimeException re) {
+                    throw re;
+                }
+                if (t instanceof Error err) {
+                    throw err;
+                }
+                throw new RuntimeException(t);
             }
         }
-        handle.touch(accountId);
-        return handle.memory;
+    }
+
+    private long countNonCurrentThreadInFlightLocked() {
+        return inFlightOpens.values().stream()
+                .filter(o -> !o.isOwnedByCurrentThread())
+                .count();
+    }
+
+    private long countProcessHotAndInFlightLocked() {
+        long cachedCount = cache.size();
+        return cachedCount + countNonCurrentThreadInFlightLocked();
+    }
+
+    private long countAccountHotAndInFlightLocked(String accountId) {
+        long cachedCount = cache.values().stream()
+                .filter(h -> h.associatedWith(accountId))
+                .count();
+        long inFlightCount = inFlightOpens.values().stream()
+                .filter(o -> !o.isOwnedByCurrentThread() && o.associatedWith(accountId))
+                .count();
+        return cachedCount + inFlightCount;
+    }
+
+    private InFlightOpen findAnyAccountInFlightOpenLocked(String accountId) {
+        for (InFlightOpen open : inFlightOpens.values()) {
+            if (!open.isOwnedByCurrentThread() && open.associatedWith(accountId)) {
+                return open;
+            }
+        }
+        return null;
     }
 
     /**
@@ -709,6 +940,10 @@ public class NamespaceResolver implements AutoCloseable {
         }
         coldPathLock.lock();
         try {
+            for (InFlightOpen open : inFlightOpens.values()) {
+                open.future.cancel(false);
+            }
+            inFlightOpens.clear();
             for (MemoryHandle handle : cache.values()) {
                 closeQuietly(handle.memory);
             }
@@ -1129,7 +1364,15 @@ public class NamespaceResolver implements AutoCloseable {
                 builder.llmProvider(textGen);
             }
             if (salience != null) {
-                builder.salienceProfileProvider(salience);
+                if (salience instanceof com.spectrayan.spector.synapse.config.SynapseSalienceProvider ssp) {
+                    com.spectrayan.spector.memory.model.SalienceProfile configured = ssp.configuredProfile();
+                    if (configured != null) {
+                        builder.salienceProfile(configured);
+                    }
+                    builder.salienceProfileProvider(ssp::configuredProfile);
+                } else {
+                    builder.salienceProfileProvider(salience);
+                }
             }
             // Derived from this namespace's dense embedder, not the process default: a sparse or token
             // provider deriving from a different model than the dense vectors were produced with would
@@ -1647,6 +1890,82 @@ public class NamespaceResolver implements AutoCloseable {
         boolean associatedWith(String accountId) {
             if (accountId == null) return false;
             return accountId.equals(ownerAccountId) || accessingAccounts.contains(accountId);
+        }
+    }
+
+    /** Tracks an in-flight per-namespace cold open for single-flight coordination. */
+    private static final class InFlightOpen {
+        private static final long OPEN_AWAIT_TIMEOUT_SECONDS = 60L;
+
+        private final String namespaceId;
+        private final String ownerAccountId;
+        private final Account initialAccount;
+        private final Thread ownerThread = Thread.currentThread();
+        private final java.util.Set<String> accessingAccounts = ConcurrentHashMap.newKeySet();
+        private final CompletableFuture<MemoryHandle> future = new CompletableFuture<>();
+
+        InFlightOpen(String namespaceId, String ownerAccountId, String initialAccountId, Account initialAccount) {
+            this.namespaceId = namespaceId;
+            this.ownerAccountId = ownerAccountId != null ? ownerAccountId : initialAccountId;
+            this.initialAccount = initialAccount;
+            if (initialAccountId != null) {
+                this.accessingAccounts.add(initialAccountId);
+            }
+        }
+
+        boolean isOwnedByCurrentThread() {
+            return Thread.currentThread() == ownerThread;
+        }
+
+        void associateAccount(String accountId) {
+            if (accountId != null && accessingAccounts.size() < MemoryHandle.MAX_ACCESSING_ACCOUNTS) {
+                accessingAccounts.add(accountId);
+            }
+        }
+
+        boolean associatedWith(String accountId) {
+            if (accountId == null) return false;
+            return accountId.equals(ownerAccountId) || accessingAccounts.contains(accountId);
+        }
+
+        MemoryHandle awaitHandle() {
+            if (isOwnedByCurrentThread() && !future.isDone()) {
+                throw new IllegalStateException(
+                        "Re-entrant cold open for namespace '" + namespaceId + "' on thread '"
+                                + ownerThread.getName() + "'");
+            }
+            try {
+                return future.get(OPEN_AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(
+                        "Interrupted while awaiting cold open for namespace '" + namespaceId + "'", e);
+            } catch (TimeoutException e) {
+                throw new IllegalStateException(
+                        "Timed out awaiting cold open for namespace '" + namespaceId + "' after "
+                                + OPEN_AWAIT_TIMEOUT_SECONDS + "s", e);
+            } catch (ExecutionException | CompletionException e) {
+                Throwable cause = e.getCause();
+                if (cause instanceof RuntimeException re) {
+                    throw re;
+                }
+                if (cause instanceof Error err) {
+                    throw err;
+                }
+                throw new RuntimeException(cause != null ? cause : e);
+            }
+        }
+
+        void awaitCompletionQuietly() {
+            if (isOwnedByCurrentThread() && !future.isDone()) {
+                return;
+            }
+            try {
+                future.get(OPEN_AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (Throwable ignored) {
+            }
         }
     }
 }
