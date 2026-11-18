@@ -106,4 +106,45 @@ class DictionaryEntityExtractorTest {
         List<ExtractedEntity> entities = extractor.extract("mem-4", "the and for with this that from have been will");
         assertThat(entities).isEmpty();
     }
+
+    @Test
+    @DisplayName("Emits one relation per distinct fact even when the TKG holds duplicates")
+    void deduplicatesRelationsFromDuplicateFacts() {
+        int aliceId = entityDirectory.intern("alice", "PERSON");
+        int spectorId = entityDirectory.intern("spector", "PROJECT");
+        long nowSec = System.currentTimeMillis() / 1000L;
+        for (int i = 0; i < 3; i++) {
+            temporalKnowledgeGraph.assertFact(aliceId, "WORKS_ON", spectorId, -1L, (short) 0, nowSec, Long.MAX_VALUE, 0.8f, false);
+        }
+
+        List<ExtractedEntity> entities = extractor.extract("mem-5", "Alice works on spector daily.");
+        ExtractedEntity alice = entities.stream().filter(e -> e.name().equals("alice")).findFirst().orElseThrow();
+        assertThat(alice.relations()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("Repeated extract-then-assert cycles do not grow the fact log")
+    void extractAssertCycleStaysBounded() {
+        // Mirrors PostIngestSync.syncTemporalFacts: every remember that mentions an entity extracts
+        // its relations from existing facts and asserts them. Without the hasActiveFact guard the
+        // fact count doubled on each cycle (4 facts grew to ~247k in a real store).
+        int aliceId = entityDirectory.intern("alice", "PERSON");
+        int spectorId = entityDirectory.intern("spector", "PROJECT");
+        long nowSec = System.currentTimeMillis() / 1000L;
+        temporalKnowledgeGraph.assertFact(aliceId, "WORKS_ON", spectorId, -1L, (short) 0, nowSec, Long.MAX_VALUE, 1.0f, false);
+
+        for (int cycle = 0; cycle < 50; cycle++) {
+            for (ExtractedEntity entity : extractor.extract("mem-" + cycle, "Alice works on spector daily.")) {
+                int subjectId = entityDirectory.intern(entity.name(), entity.typeName());
+                for (EntityRelation relation : entity.relations()) {
+                    int objectId = entityDirectory.intern(relation.targetEntityName(), "UNKNOWN");
+                    if (!temporalKnowledgeGraph.hasActiveFact(subjectId, relation.relationTypeName(), objectId)) {
+                        temporalKnowledgeGraph.assertFact(subjectId, relation.relationTypeName(), objectId,
+                                -1L, (short) 0, nowSec, Long.MAX_VALUE, 0.8f, false);
+                    }
+                }
+            }
+        }
+        assertThat(temporalKnowledgeGraph.factCount()).isEqualTo(1);
+    }
 }
