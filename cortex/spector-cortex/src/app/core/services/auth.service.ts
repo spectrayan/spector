@@ -208,7 +208,10 @@ export class AuthService {
       this.resolveReady = resolve;
     });
 
-    this.initialize();
+    // Deferred: authInterceptor injects AuthService, so an HTTP call made while this
+    // constructor runs hits a circular-DI error, loadAuthConfig falls back to
+    // authEnabled=true, and the UI demands a login the server cannot satisfy.
+    queueMicrotask(() => this.initialize());
   }
 
   /**
