@@ -425,6 +425,27 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
     }
 
     /**
+     * Returns true when a non-retracted fact with this subject, predicate and object
+     * entity already exists. Automatic extraction paths call this before asserting,
+     * because the dictionary extractor rebuilds an entity's relations from its
+     * existing facts: without the check, every remember that mentions the entity
+     * re-asserts all of its facts and the fact log doubles until it is full.
+     */
+    public boolean hasActiveFact(int subjectEntityId, String predicateName, int objectEntityId) {
+        if (predicateName == null) return false;
+        Set<Integer> retracted = retractedCache;
+        for (long offset : subjectIndex.offsetsFor(subjectEntityId)) {
+            TemporalFact fact = factLog.readFact(offset);
+            if (fact == null || fact.isRetraction()) continue;
+            if (fact.objectEntityId() != objectEntityId) continue;
+            if (retracted != null && retracted.contains(fact.factId())) continue;
+            String name = predicateRegistry != null ? predicateRegistry.nameOf((int) fact.predicateId()) : null;
+            if (predicateName.equalsIgnoreCase(name)) return true;
+        }
+        return false;
+    }
+
+    /**
      * Returns the set of fact IDs that have been retracted.
      *
      * <p>This scans the entire fact log for retraction records. For large
