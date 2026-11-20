@@ -104,7 +104,9 @@ export class DashboardComponent implements OnInit {
 
   ngOnInit(): void {
     // Detect backend availability and bootstrap telemetry
-    this.http.get<any>(`${environment.apiUrl}/system/status`).subscribe({
+    // /system/status is admin-only (@PreAuthorize), so with auth disabled it always 403s and the
+    // dashboard fell back to mock-data simulation. /system/health is the unauthenticated probe.
+    this.http.get<any>(`${environment.apiUrl}/system/health`).subscribe({
       next: () => {
         this.state.connectionStatus.set('connected');
         this.bootstrapTelemetry();
