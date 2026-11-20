@@ -114,3 +114,10 @@ When authoring code or refactoring components in Spector, coding agents MUST adh
 6. **Architectural Decisions**:
    - Review [docs/adr/catalog.md](docs/adr/catalog.md) before altering storage layouts, scoring logic, or cognitive pathway relays.
    - Follow the 8-section layout in `docs/adr/0000-template.md` when introducing new architectural proposals.
+
+## Cursor Cloud specific instructions
+
+- Login shells have Temurin 25 (`JAVA_HOME=/usr/lib/jvm/temurin-25`), Maven 3.9.11, and Node 22.23.3 on `PATH`. Cortex (Angular 22) requires Node `^22.22.3`.
+- Dependency warmup is `mvn -B -DskipTests install` from the repository root, then `npm ci --prefix cortex/spector-cortex`. The representative test is `mvn test -pl memory/spector-memory`.
+- Run Synapse without Ollama from the Spring Boot exec jar (the shaded `spector.jar` CLI does not bind HTTP). Set `SPECTOR_EMBEDDING_PROVIDER=onnx`, `SPECTOR_EMBEDDING_MODEL=all-MiniLM-L6-v2`, `SPECTOR_EMBEDDING_DIMS=384`, `SPECTOR_AUTH_ENABLED=false`, and `SPRING_BATCH_JOB_ENABLED=false`. Outside the `dev` and `test` profiles the process also requires a non-empty `SPECTOR_MASTER_ENCRYPTION_KEY` (any local value; production must use a real secret).
+- Cortex dev server: `npm start` in `cortex/spector-cortex`. Open `http://localhost:4200`. The API CORS default is that origin, not `127.0.0.1`.
