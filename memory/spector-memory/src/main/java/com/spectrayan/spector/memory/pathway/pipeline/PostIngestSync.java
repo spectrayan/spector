@@ -466,6 +466,9 @@ public final class PostIngestSync {
                 for (var relation : entity.relations()) {
                     int subjectId = entityDirectory.intern(entity.name(), entity.typeName());
                     int objectId = entityDirectory.intern(relation.targetEntityName(), "UNKNOWN");
+                    if (temporalKnowledgeGraph.hasActiveFact(subjectId, relation.relationTypeName(), objectId)) {
+                        continue; // already known: re-asserting it is what grew the fact log without bound
+                    }
                     
                     try {
                         temporalKnowledgeGraph.assertFact(

@@ -242,7 +242,7 @@ public final class DictionaryEntityExtractor implements EntityExtractor {
                                 if (predName == null || predName.isBlank()) {
                                     predName = "RELATED_TO";
                                 }
-                                relations.add(new EntityRelation(targetName, predName));
+                                EntityRelation rel = new EntityRelation(targetName, predName); if (!relations.contains(rel)) relations.add(rel); // one relation per distinct fact
                             }
                         }
                     }
