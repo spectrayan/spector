@@ -218,4 +218,24 @@ class TemporalKnowledgeGraphTest {
             assertThat(facts).hasSize(2);
         }
     }
+
+    @Test
+    void hasActiveFactMatchesSubjectPredicateAndObject() {
+        tkg.assertFact(1, "works_at", 2, -1L, (short) 0, 1000L, Long.MAX_VALUE, 0.9f, false);
+
+        assertThat(tkg.hasActiveFact(1, "works_at", 2)).isTrue();
+        assertThat(tkg.hasActiveFact(1, "WORKS_AT", 2)).isTrue();
+        assertThat(tkg.hasActiveFact(1, "works_at", 3)).isFalse();
+        assertThat(tkg.hasActiveFact(1, "lives_in", 2)).isFalse();
+        assertThat(tkg.hasActiveFact(2, "works_at", 1)).isFalse();
+        assertThat(tkg.hasActiveFact(1, null, 2)).isFalse();
+    }
+
+    @Test
+    void hasActiveFactIgnoresRetractedFacts() {
+        int factId = tkg.assertFact(1, "works_at", 2, -1L, (short) 0, 1000L, Long.MAX_VALUE, 0.9f, false);
+        tkg.retractFact(factId);
+
+        assertThat(tkg.hasActiveFact(1, "works_at", 2)).isFalse();
+    }
 }
