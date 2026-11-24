@@ -16,6 +16,7 @@
 package com.spectrayan.spector.metrics.observation;
 
 import com.spectrayan.spector.memory.SpectorMemory;
+import com.spectrayan.spector.memory.index.IndexPlaneCoordinator;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.DisplayName;
@@ -99,6 +100,35 @@ class SpectorMemoryGaugesTest {
         assertThat(gaugeA.value()).isEqualTo(100.0);
         assertThat(gaugeB).isNotNull();
         assertThat(gaugeB.value()).isEqualTo(200.0);
+    }
+
+    @Test
+    @DisplayName("Quarantined hypergraph vertices gauge reports live count with namespace tag")
+    void quarantinedVerticesGauge_reportsLiveCountWithNamespaceTag() {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        IndexPlaneCoordinator coordinator = org.mockito.Mockito.mock(IndexPlaneCoordinator.class);
+        when(mockMemory.indexPlaneCoordinator()).thenReturn(coordinator);
+        when(coordinator.quarantinedCount()).thenReturn(3, 1);
+
+        new SpectorMemoryGauges(mockMemory, "ns-quarantine").bindTo(registry);
+
+        Gauge gauge = registry.find("spector.index.hypergraph.quarantined.vertices")
+                .tag("spector.namespace", "ns-quarantine")
+                .gauge();
+
+        assertThat(gauge).isNotNull();
+        assertThat(gauge.value()).isEqualTo(3.0);
+        assertThat(gauge.value()).isEqualTo(1.0);
+    }
+
+    @Test
+    @DisplayName("Quarantined vertices gauge is absent without an index plane coordinator")
+    void quarantinedVerticesGauge_absentWithoutCoordinator() {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+
+        new SpectorMemoryGauges(mockMemory).bindTo(registry);
+
+        assertThat(registry.find("spector.index.hypergraph.quarantined.vertices").gauge()).isNull();
     }
 
     @Test
