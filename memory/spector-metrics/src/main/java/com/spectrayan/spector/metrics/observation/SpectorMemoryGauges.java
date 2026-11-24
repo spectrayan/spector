@@ -56,7 +56,17 @@ public class SpectorMemoryGauges implements MeterBinder {
 
         // Index Plane Gauges (ADR-0082)
         if (memory.indexPlaneCoordinator() != null) {
-            for (com.spectrayan.spector.memory.index.ManagedIndex idx : memory.indexPlaneCoordinator().registeredIndexes()) {
+            var coordinator = memory.indexPlaneCoordinator();
+            var quarantinedBuilder = Gauge.builder(
+                    "spector.index.hypergraph.quarantined.vertices",
+                    coordinator,
+                    com.spectrayan.spector.memory.index.IndexPlaneCoordinator::quarantinedCount)
+                    .description("Currently quarantined hypergraph vertices");
+            if (namespaceId != null) quarantinedBuilder.tag("spector.namespace", namespaceId);
+            if (tenantId != null) quarantinedBuilder.tag("spector.tenant", tenantId);
+            quarantinedBuilder.register(registry);
+
+            for (com.spectrayan.spector.memory.index.ManagedIndex idx : coordinator.registeredIndexes()) {
                 String name = idx.name();
                 var b1 = Gauge.builder("spector.memory.index.entries", idx, i -> i.stats().entries())
                         .tag("index", name)

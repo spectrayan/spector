@@ -97,6 +97,7 @@ Registered by `SpectorMemoryGauges` (`memory/spector-metrics`) and `MemoryReques
 | `spector.memory.pinned.bytes` | `spector_memory_pinned_bytes` | — | Off-heap bytes pinned in RAM |
 | `spector.memory.page.faults` | `spector_memory_page_faults` | `type` (`soft`/`hard`) | Cumulative process page faults, read from `/proc/self/stat`. **Linux only** — reports `0` elsewhere |
 | `spector.ns.owner` | `spector_ns_owner` | — | Number of namespace memory instances cached by the namespace resolver |
+| `spector.index.hypergraph.quarantined.vertices` | `spector_index_hypergraph_quarantined_vertices` | `spector.namespace`, `spector.tenant` | Currently quarantined hypergraph vertices |
 
 ### Routing (clustered / non-standalone only)
 
