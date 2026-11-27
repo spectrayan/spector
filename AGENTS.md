@@ -28,7 +28,7 @@ Spector is a zero-overhead cognitive memory engine for autonomous AI agents. It 
 ### Common Commands
 
 ```bash
-# Zero-credential reactor compilation (all 27 Java modules)
+# Zero-credential reactor compilation (all 28 Java modules)
 mvn clean compile
 
 # Fast compilation skipping tests
@@ -109,20 +109,27 @@ When authoring code or refactoring components in Spector, coding agents MUST adh
    - All throw sites must use `ErrorCode` and `SpectorException` adhering to the `SPE-XXX-YYY` scheme defined in [ADR-0070](docs/adr/0070-unified-error-taxonomy-and-exception-handling.md).
    - Use parameterized SLF4J templates (`{}`) avoiding expensive string concatenations on hot paths.
    - Never expose raw exception messages (`e.getMessage()`) in HTTP error responses (CodeQL CWE-209); log details server-side and return constant safe client messages.
-   - Never leave `Integer.parseInt` / `Long.parseLong` unguarded on untrusted/config input (catch `NumberFormatException` or use `ParseUtils`), and avoid unreachable `instanceof` branches (e.g., `EpisodicMemory` already implements `EngramRegion`).
+   - Never leave `Integer.parseInt` / `Long.parseLong` unguarded on untrusted/config input (catch `NumberFormatException` or use `ParseUtils`), avoid unreachable `instanceof` branches (e.g., `EpisodicMemory` already implements `EngramRegion`), and keep loop-condition operands the same numeric width (widen `int` bounds to `long` when comparing against `long` counters to avoid CodeQL `java/comparison-with-wider-type`).
 
 3. **Concurrency & Threading (Model B & Virtual Threads)**:
    - **NEVER use `synchronized` blocks or methods** anywhere in Java code (pins virtual-thread carrier threads). Always use `ReentrantLock`, `StampedLock`, `Condition`, `Atomic*`, or concurrent collections (`ConcurrentHashMap`, `CopyOnWriteArrayList`, `ConcurrentLinkedQueue`).
    - Subsystem libraries must never spawn raw unmanaged threads. Use `SpectorTaskQueue` with context-propagated `ScopedValue` bindings ([ADR-0076](docs/adr/0076-zero-dependency-pluggable-cache-abstraction.md), [ADR-0077](docs/adr/0077-model-b-asynchronous-task-queue-concurrency.md)).
+   - **No Re-Entrant Namespace Cold Opens**: Never call `MemoryRegistry.resolveForCurrentRequest()` or `NamespaceResolver.resolve()` during `NamespaceResolver.buildInstance()` or `SpectorMemoryFactory.assemble()` — per-namespace `InFlightOpen` single-flight coordination self-deadlocks if the owner thread re-enters. Check `NamespaceResolver.isBuildingOnCurrentThread()` or pass configured defaults (e.g., `SynapseSalienceProvider.configuredProfile()`), and keep `InFlightOpen` waits bounded.
 
 4. **Off-Heap Memory Safety & Storage Persistence**:
    - All off-heap allocations must use Panama `Arena.ofShared()` or `Arena.ofConfined()` with bounded lifetimes.
    - Slices must be memory-aligned (`SegmentAllocator`, 64-byte cache line alignment).
    - Reuse `namespace.json` (`StoragePaths.FILE_NAMESPACE`) and existing bundle header `stride` for store/namespace metadata; do not introduce redundant JSON sidecars or alter binary mmap layouts without an ADR.
+   - **Out-of-Band Metadata & Byte-Verified Deduplication**: Never use in-band payload prefixes (such as legacy `\u0000ENC1:`) to mark ciphertext; store encryption flags out-of-band in record headers and CRC32C trailer magics (`TextBlobMemory`), and verify byte-for-byte equality (`MemorySegment.mismatch(...) == -1L`) on 64-bit hash hits before deduplicating.
+   - **Lazy Encrypted Bundle Clean-Close & Fail-Closed Checkpoints**: `SPECENC1` bundles decrypt pages lazily and track dirty pages via 128-bit content digests (`EncryptedSegmentPageCodec.LazyEncryptedSegment`). Never write unconditional metadata/timestamps or redundant `SNAPSHOT_MARK` WAL frames during read-only open / `RecallMode.OBSERVE` / close (`LazyEncryptedBundlePagesTest`). In `CheckpointEngine.checkpoint()`, capture `wal.highWaterMark()` inside the `QuiesceGuard` exclusive window and fail closed (do not advance `checkpoint.meta` or truncate WAL) if any store or index save fails.
    - For AES-GCM encryption, always generate a fresh random IV via `SECURE_RANDOM.nextBytes(nonce)` immediately before constructing `GCMParameterSpec` (CodeQL `java/static-initialization-vector`).
 
 5. **Config, Security & Contract Guardrails (Enforced by CI Tests)**:
    - **No Duplicate Builder Setters (`DuplicateConfigBanTest`)**: Do not add duplicate scalar setters onto `SpectorMemoryBuilder`; read new config flags from `builder.properties()`.
+   - **No Post-Bootstrap Sysprop/Env Reads (`PostBootstrapSyspropBanTest`)**: Production code outside `SpectorConfigSource` must never directly query `spector.*` system properties or `SPECTOR_*` environment variables.
+   - **Engine Write Fencing (`EngineFencingIntegrationTest`)**: Every public mutating method on `DefaultSpectorMemory` (plus commit-time `MemoryWal`, `PostIngestSync`, `CorticalWriteTransactionRelay`, `GraphEnrichmentEngine`, and `CheckpointEngine`) must consult `MutationPolicy` with `MemoryScope.FENCE_EPOCH` propagated across HTTP, MCP, tool, and async `SpectorTaskQueue` boundaries. Register any new non-mutating public method on `DefaultSpectorMemory` in `EngineFencingIntegrationTest.NON_MUTATING_PUBLIC_METHODS`.
+   - **Cluster `JdbcControlStore` Clock & Portability**: Evaluate lease expiry against database `CURRENT_TIMESTAMP` (never local JVM `Clock`/`Instant.now()`), bind timestamps as UTC `OffsetDateTime` (`TIMESTAMP WITH TIME ZONE`), set `PreparedStatement.setQueryTimeout(...)`, avoid H2-only SQL (`MERGE INTO ... KEY`), and keep `leaseVersion` (`epoch`) stable across same-holder renewals (increment only on acquisition/takeover).
+   - **Locale-Safe Scoring & No Hardcoded Cognitive Scores**: Use `Locale.ROOT` and Unicode token-boundary matching (never default-locale `toLowerCase().contains(...)`) in keyword fallback scorers, and never hardcode or allow callers to override cognitive `importance`, `valence`, or `arousal` in production code.
    - **Spring `@ConfigurationProperties` Records**: Keep a single canonical constructor (with `@ConstructorBinding` where needed); secondary overloaded constructors break Spring Boot property binding.
    - **Content-Free Admin & Observability Plane ([ADR-0083](docs/adr/0083-namespace-isolated-memory-analytics-telemetry.md), [ADR-0087](docs/adr/0087-admin-role-model-content-free-contract-break-glass.md))**: Admin, analytics, observability, and 3D projection DTOs/endpoints (`/api/v1/admin/**`, `/api/v1/observability/**`) must NEVER return memory `text`, `vector`, `tags`, or raw payloads.
    - **Universal Credentials Vault Only**: Legacy `api_keys` is permanently retired. All inbound API keys and outbound secrets belong in `/api/v1/credentials` (`credentials` table). Never bypass `NamespaceResolutionFilter` on `/api/v1/credentials` without preserving `MemoryScope.TENANT_ID` binding.
@@ -131,6 +138,7 @@ When authoring code or refactoring components in Spector, coding agents MUST adh
 
 6. **Test Isolation (Headless CI Safety)**:
    - Tests creating `SpectorMemory` must use `MemoryPersistenceMode.IN_MEMORY` (or an isolated `@TempDir`) inside `try-with-resources` so they never leak `StoreDirectoryLock` on `.spector/memory`.
+   - Annotate concurrency/deadlock tests with JUnit `@Timeout` and pass `-Dsurefire.timeout=900` on local Maven gates so deadlocks fail fast instead of hanging indefinitely.
    - `@SpringBootTest` suites must activate `@ActiveProfiles("test")` (or set `spector.security.master-key`) so fail-closed production master-key validation does not break context startup.
    - Synapse controller tests exercising memory writes must mock `MemoryAccessObject` / embedders so headless CI never attempts outbound calls to Ollama.
 
